@@ -7,6 +7,11 @@
 
 ---
 
+> ⚠️ **CẬP NHẬT (2026-01-12):** Module `customer-management` đã được XÓA HOÀN TOÀN và thay thế bằng `customer-hub` (Customer 360).
+> Tài liệu này giữ lại để tham khảo lịch sử kế hoạch. Tất cả references đến `customer-management` trong tài liệu này nên hiểu là đã được thay thế bằng `customer-hub`.
+
+---
+
 ## 📋 TÓM TẮT YÊU CẦU
 
 ### Từ Câu Hỏi Của User:

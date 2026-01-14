@@ -448,6 +448,60 @@ router.get('/duplicates', async (req, res) => {
 });
 
 /**
+ * GET /api/customers/recent
+ * Get most recently active customers
+ * Query params:
+ *   - page: page number (default: 1)
+ *   - limit: items per page (default: 20)
+ */
+router.get('/recent', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const {
+            page = 1,
+            limit = 20
+        } = req.query;
+
+        const pageNum = Math.max(1, parseInt(page));
+        const limitNum = Math.min(parseInt(limit) || 20, 100);
+        const offset = (pageNum - 1) * limitNum;
+
+        console.log(`[CUSTOMERS-RECENT] Page: ${pageNum}, Limit: ${limitNum}`);
+
+        // Get total count of active customers
+        const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE active = true');
+        const total = parseInt(countResult.rows[0].count);
+
+        // Get recent customers ordered by last_interaction_date or updated_at
+        const result = await db.query(`
+            SELECT * FROM customers
+            WHERE active = true
+            ORDER BY COALESCE(last_interaction_date, updated_at, created_at) DESC
+            LIMIT $1 OFFSET $2
+        `, [limitNum, offset]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total: total,
+                total_pages: Math.ceil(total / limitNum)
+            }
+        });
+
+    } catch (error) {
+        console.error('[CUSTOMERS-RECENT] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi tải danh sách khách hàng gần đây',
+            error: error.message
+        });
+    }
+});
+
+/**
  * GET /api/customers/:id
  * Get single customer by ID
  */

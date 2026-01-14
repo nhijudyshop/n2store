@@ -17,7 +17,7 @@ export class TransactionActivityModule {
             this.container.innerHTML = `
                 <div class="bg-danger-light rounded-2xl p-6 text-center">
                     <span class="material-symbols-outlined text-danger text-3xl mb-2">lock</span>
-                    <p class="text-danger font-medium">You do not have permission to access transaction activity.</p>
+                    <p class="text-danger font-medium">Bạn không có quyền truy cập hoạt động giao dịch.</p>
                 </div>
             `;
             return;
@@ -35,18 +35,21 @@ export class TransactionActivityModule {
                         </div>
                         <input type="text" id="search-input"
                             class="w-full pl-12 pr-4 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                            placeholder="Search by ID, customer, or amount...">
+                            placeholder="Tìm theo ID, khách hàng hoặc số tiền...">
                     </div>
 
                     <!-- Event Type Filter -->
                     <div class="relative">
                         <select id="type-filter"
                             class="appearance-none pl-4 pr-10 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer min-w-[160px]">
-                            <option value="">All Event Types</option>
-                            <option value="DEPOSIT">Wire Transfer</option>
-                            <option value="WITHDRAW">Card Payment</option>
-                            <option value="VIRTUAL_CREDIT">Internal Transfer</option>
-                            <option value="OTHER">System Event</option>
+                            <option value="">Tất cả loại</option>
+                            <option value="DEPOSIT">Nạp tiền</option>
+                            <option value="WITHDRAW">Rút tiền</option>
+                            <option value="VIRTUAL_CREDIT">Tín dụng ảo</option>
+                            <option value="RETURN_SHIPPER">Hoàn shipper</option>
+                            <option value="RETURN_CLIENT">Hoàn khách</option>
+                            <option value="BOOM">BOOM</option>
+                            <option value="OTHER">Khác</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                             <span class="material-symbols-outlined text-slate-400 text-lg">expand_more</span>
@@ -60,10 +63,10 @@ export class TransactionActivityModule {
                         </div>
                         <select id="date-filter"
                             class="appearance-none pl-10 pr-10 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer">
-                            <option value="">All Time</option>
-                            <option value="7">Last 7 Days</option>
-                            <option value="30" selected>Last 30 Days</option>
-                            <option value="90">Last 90 Days</option>
+                            <option value="">Tất cả</option>
+                            <option value="7">7 ngày qua</option>
+                            <option value="30" selected>30 ngày qua</option>
+                            <option value="90">90 ngày qua</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                             <span class="material-symbols-outlined text-slate-400 text-lg">expand_more</span>
@@ -76,11 +79,11 @@ export class TransactionActivityModule {
                     <button id="apply-filters-btn"
                         class="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                         <span class="material-symbols-outlined text-lg">filter_list</span>
-                        More Filters
+                        Bộ lọc
                     </button>
                     <button class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl shadow-soft hover:shadow-glow transition-all">
                         <span class="material-symbols-outlined text-lg">download</span>
-                        Export CSV
+                        Xuất CSV
                     </button>
                 </div>
             </div>
@@ -91,12 +94,12 @@ export class TransactionActivityModule {
                     <table class="w-full">
                         <thead class="bg-slate-50 dark:bg-slate-800/50">
                             <tr>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-44">Timestamp</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Customer</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Event Type</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Description</th>
-                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</th>
-                                <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-44">Thời gian</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Khách hàng</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Loại</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Mô tả</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Số tiền</th>
+                                <th class="px-6 py-4 text-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Trạng thái</th>
                                 <th class="px-6 py-4 w-12"></th>
                             </tr>
                         </thead>
@@ -107,7 +110,7 @@ export class TransactionActivityModule {
                                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                                             <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
                                         </div>
-                                        <p class="text-slate-500 dark:text-slate-400">Loading transactions...</p>
+                                        <p class="text-slate-500 dark:text-slate-400">Đang tải giao dịch...</p>
                                     </div>
                                 </td>
                             </tr>
@@ -118,9 +121,9 @@ export class TransactionActivityModule {
                 <!-- Pagination -->
                 <div class="px-6 py-4 border-t border-border-light dark:border-border-dark flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
                     <p class="text-sm text-slate-600 dark:text-slate-400">
-                        Showing <span class="font-semibold text-slate-900 dark:text-white" id="showing-start">0</span>
-                        to <span class="font-semibold text-slate-900 dark:text-white" id="showing-end">0</span>
-                        of <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> results
+                        Hiển thị <span class="font-semibold text-slate-900 dark:text-white" id="showing-start">0</span>
+                        đến <span class="font-semibold text-slate-900 dark:text-white" id="showing-end">0</span>
+                        trên <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> kết quả
                     </p>
                     <nav id="pagination-nav" class="flex items-center gap-1"></nav>
                 </div>
@@ -167,7 +170,7 @@ export class TransactionActivityModule {
                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                             <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
                         </div>
-                        <p class="text-slate-500 dark:text-slate-400">Loading transactions...</p>
+                        <p class="text-slate-500 dark:text-slate-400">Đang tải giao dịch...</p>
                     </div>
                 </td>
             </tr>
@@ -205,8 +208,8 @@ export class TransactionActivityModule {
                                 <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
                                     <span class="material-symbols-outlined text-slate-400 text-2xl">inbox</span>
                                 </div>
-                                <p class="text-slate-500 dark:text-slate-400">No transactions found</p>
-                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Try adjusting your filters</p>
+                                <p class="text-slate-500 dark:text-slate-400">Không tìm thấy giao dịch</p>
+                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Thử điều chỉnh bộ lọc</p>
                             </div>
                         </td>
                     </tr>
@@ -232,11 +235,11 @@ export class TransactionActivityModule {
                             <div class="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mb-4">
                                 <span class="material-symbols-outlined text-warning text-3xl">engineering</span>
                             </div>
-                            <p class="text-lg font-medium text-warning mb-1">Feature Coming Soon</p>
-                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">The transaction activity API is being developed</p>
+                            <p class="text-lg font-medium text-warning mb-1">Tính năng đang phát triển</p>
+                            <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">API hoạt động giao dịch đang được xây dựng</p>
                             <button onclick="location.reload()" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors">
                                 <span class="material-symbols-outlined text-lg">refresh</span>
-                                Retry
+                                Thử lại
                             </button>
                         </div>
                     </td>
@@ -325,10 +328,14 @@ export class TransactionActivityModule {
             'RETURN_SHIPPER': { text: 'Refund', icon: 'local_shipping' },
             'COD_ADJUSTMENT': { text: 'Adjustment', icon: 'tune' },
             'OTHER': { text: 'System Event', icon: 'dns' },
+            'BOOM': { text: 'BOOM', icon: 'help_outline' },
             'TICKET_CREATED': { text: 'Ticket Created', icon: 'confirmation_number' },
             'TICKET_UPDATED': { text: 'Ticket Updated', icon: 'edit_note' },
+            'TICKET_DELETED': { text: 'Ticket Deleted', icon: 'delete' },
             'NOTE_ADDED': { text: 'Note Added', icon: 'sticky_note_2' },
             'CUSTOMER_CREATED': { text: 'Customer Created', icon: 'person_add' },
+            'WALLET_DEPOSIT': { text: 'Wire Transfer', icon: 'account_balance' },
+            'WALLET_VIRTUAL_CREDIT': { text: 'Virtual Credit', icon: 'card_giftcard' },
             'customer_ticket': { text: 'Subscription', icon: 'credit_card' },
         };
 
@@ -366,7 +373,15 @@ export class TransactionActivityModule {
     formatTimestamp(dateStr) {
         if (!dateStr) return 'N/A';
         const date = new Date(dateStr);
-        return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+        // Use UTC+7 timezone (Asia/Ho_Chi_Minh)
+        return date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'Asia/Ho_Chi_Minh'
+        });
     }
 
     updatePagination(total) {

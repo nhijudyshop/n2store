@@ -13,12 +13,14 @@
     <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
 
     <!-- External CSS -->
-    <link rel="stylesheet" href="modern.css" />
-    <link rel="stylesheet" href="detailed-permissions.css" />
+    <link rel="stylesheet" href="css/modern.css" />
+    <link rel="stylesheet" href="css/user-management.css" />
+    <link rel="stylesheet" href="css/detailed-permissions.css" />
 
     <!-- Lucide Icons -->
     <!-- N2Store Optimization: Core Utilities Loader -->
-    <script src="../js/core-loader.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -32,8 +34,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/3.0.1/bcrypt.min.js"></script>
 
     <!-- Navigation & Utils -->
-    <script src="../js/navigation-modern.js"></script>
-    <script src="../js/common-utils.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
 </head>
 
 <body>
@@ -502,12 +503,11 @@
     </div>
 
     <!-- Scripts -->
-    <script src="../orders-report/decoding-utility.js"></script>
-    <script src="menu-rename-manager.js"></script>
-    <script src="notification-system.js"></script>
+    <script src="../orders-report/js/utils/decoding-utility.js"></script>
+    <script src="js/menu-rename-manager.js"></script>
 
     <!-- Permissions Registry - Single Source of Truth (phải load trước các UI) -->
-    <script src="permissions-registry.js"></script>
+    <script src="js/permissions-registry.js"></script>
     <!-- page-permissions-ui.js REMOVED - replaced by simplified system using only detailedPermissions -->
 
     <script>
@@ -550,16 +550,15 @@
         })();
     </script>
 
-    <script src="image-system.js"></script>
-    <script src="auth.js"></script>
+    <script src="js/image-system.js"></script>
     <!-- detailed-permissions-config.js REMOVED - replaced by permissions-registry.js -->
-    <script src="detailed-permissions-ui.js"></script>
-    <script src="user-management-enhanced.js"></script>
-    <script src="permissions-overview.js"></script>
-    <script src="template-manager.js"></script>
+    <script src="js/detailed-permissions-ui.js"></script>
+    <script src="js/user-management-enhanced.js"></script>
+    <script src="js/permissions-overview.js"></script>
+    <script src="js/template-manager.js"></script>
 
     <!-- Migration Script - Có thể xóa sau khi migration xong -->
-    <script src="permissions-migration.js"></script>
+    <script src="js/permissions-migration.js"></script>
 
     <script>
         // Initialize

@@ -10,6 +10,11 @@ const fetch = require('node-fetch');
 // AbortController is global in Node.js 18+, but fallback for older versions
 const AbortController = globalThis.AbortController || require('abort-controller');
 
+// NEW: Import customer and wallet services for realtime processing
+const { searchCustomerByPhone } = require('../services/tpos-customer-service');
+const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
+const { processDeposit } = require('../services/wallet-event-processor');
+
 // =====================================================
 // BLACKLIST: Các số cần bỏ qua khi extract phone
 // Bao gồm: số tài khoản ngân hàng của shop, mã giao dịch, etc.
@@ -1117,12 +1122,53 @@ async function processDebtUpdate(db, transactionId) {
                 }
             }
 
-            // 6. Mark transaction as processed AND link to customer phone
+            // 6. NEW: Create/Update customer with TPOS data + process wallet realtime
+            let customerId = null;
+            let tposData = null;
+
+            try {
+                // Fetch full TPOS data for customer creation
+                const tposResult = await searchCustomerByPhone(phone);
+                if (tposResult.success && tposResult.customer) {
+                    tposData = tposResult.customer;
+                    customerName = tposData.name || customerName;
+                }
+
+                // Create or update customer with full TPOS data
+                const customerResult = await getOrCreateCustomerFromTPOS(db, phone, tposData);
+                customerId = customerResult.customerId;
+                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+
+                // Process wallet deposit immediately
+                if (amount > 0) {
+                    try {
+                        const walletResult = await processDeposit(
+                            db,
+                            phone,
+                            amount,
+                            transactionId,
+                            `Nạp từ CK (QR: ${qrCode})`,
+                            customerId
+                        );
+                        console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                    } catch (walletErr) {
+                        console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                    }
+                }
+            } catch (err) {
+                console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
+                // Continue - we can still link the phone, cron will retry wallet
+            }
+
+            // 7. Mark transaction as processed AND link to customer phone + customer_id
             await db.query(
                 `UPDATE balance_history
-                 SET debt_added = TRUE, linked_customer_phone = $2
+                 SET debt_added = TRUE,
+                     linked_customer_phone = $2,
+                     customer_id = COALESCE($3, customer_id),
+                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone]
+                [transactionId, phone, customerId, amount]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
@@ -1130,6 +1176,7 @@ async function processDebtUpdate(db, transactionId) {
                 qrCode,
                 phone,
                 linkedPhone: phone,
+                customerId,
                 customerName,
                 amount
             });
@@ -1140,8 +1187,10 @@ async function processDebtUpdate(db, transactionId) {
                 transactionId,
                 qrCode,
                 phone,
+                customerId,
                 customerName,
-                amount
+                amount,
+                walletProcessed: amount > 0
             };
         }
     }
@@ -1227,18 +1276,60 @@ async function processDebtUpdate(db, transactionId) {
             ]
         );
 
-        // Mark transaction as processed AND link to customer phone
+        // NEW: Create/Update customer with TPOS data + process wallet realtime
+        let customerId = null;
+        let tposData = null;
+
+        try {
+            // Fetch full TPOS data for customer creation
+            const tposResult = await searchCustomerByPhone(exactPhone);
+            if (tposResult.success && tposResult.customer) {
+                tposData = tposResult.customer;
+                customerName = tposData.name || customerName;
+            }
+
+            // Create or update customer with full TPOS data
+            const customerResult = await getOrCreateCustomerFromTPOS(db, exactPhone, tposData);
+            customerId = customerResult.customerId;
+            console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+
+            // Process wallet deposit immediately
+            if (amount > 0) {
+                try {
+                    const walletResult = await processDeposit(
+                        db,
+                        exactPhone,
+                        amount,
+                        transactionId,
+                        `Nạp từ CK (Phone: ${exactPhone})`,
+                        customerId
+                    );
+                    console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                } catch (walletErr) {
+                    console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                }
+            }
+        } catch (err) {
+            console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
+            // Continue - we can still link the phone, cron will retry wallet
+        }
+
+        // Mark transaction as processed AND link to customer phone + customer_id
         await db.query(
             `UPDATE balance_history
-             SET debt_added = TRUE, linked_customer_phone = $2
+             SET debt_added = TRUE,
+                 linked_customer_phone = $2,
+                 customer_id = COALESCE($3, customer_id),
+                 wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone]
+            [transactionId, exactPhone, customerId, amount]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
             transactionId,
             exactPhone,
             linkedPhone: exactPhone,
+            customerId,
             customerName,
             dataSource,
             amount
@@ -1250,9 +1341,11 @@ async function processDebtUpdate(db, transactionId) {
             transactionId,
             fullPhone: exactPhone,
             linkedPhone: exactPhone,
+            customerId,
             customerName,
             dataSource,
-            amount
+            amount,
+            walletProcessed: amount > 0
         };
     }
 
@@ -1275,9 +1368,10 @@ async function processDebtUpdate(db, transactionId) {
 
         if (localResult.rows.length > 0) {
             console.log(`[DEBT-UPDATE] ✅ Found ${localResult.rows.length} matches in LOCAL DB (skipping TPOS)`);
-            matchedPhones = localResult.rows.map(row => ({
+            matchedPhones = localResult.rows.map((row, index) => ({
                 phone: row.customer_phone,
-                customers: [{ name: row.customer_name, id: null }],
+                // Use phone as ID when from LOCAL_DB (prefix with LOCAL_ to distinguish)
+                customers: [{ name: row.customer_name, id: `LOCAL_${row.customer_phone}`, phone: row.customer_phone }],
                 count: 1
             }));
         } else {
@@ -1349,11 +1443,53 @@ async function processDebtUpdate(db, transactionId) {
                 ]
             );
 
+            // NEW: Create/Update customer with TPOS data + process wallet realtime
+            let customerId = null;
+            let tposData = null;
+            let customerName = firstCustomer.name;
+
+            try {
+                // Fetch full TPOS data for customer creation
+                const tposResult = await searchCustomerByPhone(fullPhone);
+                if (tposResult.success && tposResult.customer) {
+                    tposData = tposResult.customer;
+                    customerName = tposData.name || customerName;
+                }
+
+                // Create or update customer with full TPOS data
+                const customerResult = await getOrCreateCustomerFromTPOS(db, fullPhone, tposData);
+                customerId = customerResult.customerId;
+                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+
+                // Process wallet deposit immediately
+                if (amount > 0) {
+                    try {
+                        const walletResult = await processDeposit(
+                            db,
+                            fullPhone,
+                            amount,
+                            transactionId,
+                            `Nạp từ CK (Auto-matched: ${partialPhone})`,
+                            customerId
+                        );
+                        console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                    } catch (walletErr) {
+                        console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                    }
+                }
+            } catch (err) {
+                console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
+            }
+
+            // Update balance_history with customer_id
             await db.query(
                 `UPDATE balance_history
-                 SET debt_added = TRUE, linked_customer_phone = $2
+                 SET debt_added = TRUE,
+                     linked_customer_phone = $2,
+                     customer_id = COALESCE($3, customer_id),
+                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone]
+                [transactionId, fullPhone, customerId, amount]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (auto-matched):', {
@@ -1361,7 +1497,8 @@ async function processDebtUpdate(db, transactionId) {
                 partialPhone,
                 fullPhone,
                 linkedPhone: fullPhone,
-                customerName: firstCustomer.name,
+                customerId,
+                customerName,
                 dataSource,
                 amount
             });
@@ -1373,9 +1510,11 @@ async function processDebtUpdate(db, transactionId) {
                 partialPhone,
                 fullPhone,
                 linkedPhone: fullPhone,
-                customerName: firstCustomer.name,
+                customerId,
+                customerName,
                 dataSource,
-                amount
+                amount,
+                walletProcessed: amount > 0
             };
 
         } else {
@@ -2614,19 +2753,34 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         // 3. Find customer in nested structure
         // Structure: [{phone, count, customers: [{id, name, phone}]}]
+        // Note: id can be integer (from TPOS), string like "LOCAL_0901234567" (from local DB frontend), or null (from local DB stored)
         let selectedCustomer = null;
-        const targetId = parseInt(customer_id);
+        const targetIdStr = String(customer_id);
+        const targetIdInt = parseInt(customer_id);
+
+        // Check if customer_id is a LOCAL_xxx format (frontend generates this for null id customers)
+        const isLocalId = targetIdStr.startsWith('LOCAL_');
+        const localPhone = isLocalId ? targetIdStr.replace('LOCAL_', '') : null;
 
         for (const phoneGroup of matchedCustomers) {
             const customers = phoneGroup.customers || [];
             if (!Array.isArray(customers)) continue;
 
             for (const c of customers) {
-                // Compare both as int and string for safety
-                if (c.id === targetId || String(c.id) === String(customer_id)) {
-                    selectedCustomer = c;
-                    console.log('[RESOLVE-MATCH] ✓ Found customer:', c.name, c.phone);
-                    break;
+                // For LOCAL_xxx IDs, match by phone since stored id may be null
+                if (isLocalId) {
+                    if (c.phone === localPhone || (c.id === null && phoneGroup.phone === localPhone)) {
+                        selectedCustomer = c;
+                        console.log('[RESOLVE-MATCH] ✓ Found customer by LOCAL phone:', c.name, c.phone);
+                        break;
+                    }
+                } else {
+                    // Compare as string first (handles both stored LOCAL_xxx and numeric IDs)
+                    if (String(c.id) === targetIdStr || c.id === targetIdInt) {
+                        selectedCustomer = c;
+                        console.log('[RESOLVE-MATCH] ✓ Found customer by ID:', c.name, c.phone);
+                        break;
+                    }
                 }
             }
             if (selectedCustomer) break;
@@ -2653,21 +2807,79 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
 
         console.log('[RESOLVE-MATCH] Resolving match', id, 'with customer:', selectedCustomer.phone);
 
-        // 3. Mark transaction as processed AND link to customer phone
+        // 3. Create/update customer with TPOS data (NEW - consistent with other flows)
+        let customerId = null;
+        let customerName = selectedCustomer.name;
+        try {
+            // Fetch TPOS data for customer creation
+            let tposData = null;
+            try {
+                const tposResult = await searchCustomerByPhone(selectedCustomer.phone);
+                if (tposResult.success && tposResult.customer) {
+                    tposData = tposResult.customer;
+                    customerName = tposData.name || customerName;
+                    console.log('[RESOLVE-MATCH] Got TPOS data:', tposData.name);
+                }
+            } catch (e) {
+                console.log('[RESOLVE-MATCH] TPOS fetch failed, using selected customer name:', e.message);
+            }
+
+            // Create/update customer
+            if (!tposData) {
+                tposData = { name: customerName };
+            }
+            const customerResult = await getOrCreateCustomerFromTPOS(db, selectedCustomer.phone, tposData);
+            customerId = customerResult.customerId;
+            customerName = customerResult.customerName || customerName;
+            console.log(`[RESOLVE-MATCH] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+        } catch (err) {
+            console.error('[RESOLVE-MATCH] Customer creation failed:', err.message);
+        }
+
+        // 4. Mark transaction as processed AND link to customer phone + customer_id
         const amount = parseInt(match.transfer_amount) || 0;
         await db.query(
             `UPDATE balance_history
-             SET debt_added = TRUE, linked_customer_phone = $2
+             SET debt_added = TRUE,
+                 linked_customer_phone = $2,
+                 customer_id = COALESCE($3, customer_id)
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [match.transaction_id, selectedCustomer.phone]
+            [match.transaction_id, selectedCustomer.phone, customerId]
         );
 
-        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone);
+        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId);
+
+        // 5. Process wallet deposit immediately (NEW - realtime wallet update)
+        let walletProcessed = false;
+        if (amount > 0 && customerId) {
+            try {
+                const walletResult = await processDeposit(
+                    db,
+                    selectedCustomer.phone,
+                    amount,
+                    match.transaction_id,
+                    `Nạp từ CK (resolve-match ${id})`,
+                    customerId
+                );
+
+                // Mark balance_history as wallet processed
+                await db.query(`
+                    UPDATE balance_history
+                    SET wallet_processed = TRUE
+                    WHERE id = $1
+                `, [match.transaction_id]);
+
+                walletProcessed = true;
+                console.log(`[RESOLVE-MATCH] ✅ Wallet updated: TX ${walletResult.transactionId}, new balance: ${walletResult.wallet.balance}`);
+            } catch (walletErr) {
+                console.error('[RESOLVE-MATCH] Wallet update failed:', walletErr.message);
+            }
+        }
 
         // 4. Update pending match status with selected customer info as JSON
         const selectedCustomerJson = JSON.stringify({
-            id: selectedCustomer.id,
-            name: selectedCustomer.name,
+            id: customerId,  // Use the created/found customerId
+            name: customerName,  // Use customerName updated from TPOS
             phone: selectedCustomer.phone
         });
 
@@ -2681,7 +2893,7 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
              WHERE id = $1`,
             [
                 id,
-                customer_id,
+                customerId,  // Use the integer customerId from getOrCreateCustomerFromTPOS, not the original customer_id which may be LOCAL_xxx
                 resolved_by,
                 selectedCustomerJson
             ]
@@ -2702,7 +2914,7 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             [
                 uniqueCode,
                 selectedCustomer.phone,
-                selectedCustomer.name,
+                customerName,  // Use customerName which is updated from TPOS, not selectedCustomer.name
                 `RESOLVED_FROM_PENDING:${match.extracted_phone}`,
                 'SUCCESS'
             ]
@@ -2714,7 +2926,9 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             match_id: id,
             transaction_id: match.transaction_id,
             customer_phone: selectedCustomer.phone,
-            amount
+            customer_id: customerId,
+            amount,
+            walletProcessed
         });
 
         res.json({
@@ -2724,10 +2938,12 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
                 match_id: id,
                 transaction_id: match.transaction_id,
                 customer: {
+                    id: customerId,
                     phone: selectedCustomer.phone,
-                    name: selectedCustomer.name
+                    name: customerName
                 },
-                amount_added: amount
+                amount_added: amount,
+                wallet_processed: walletProcessed
             }
         });
 
@@ -2736,6 +2952,59 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to resolve match',
+            message: error.message
+        });
+    }
+});
+
+/**
+ * PUT /api/sepay/pending-matches/:id/customers
+ * Update matched_customers list for a pending match
+ * Called when user refreshes the list from TPOS
+ * Body:
+ *   - matched_customers: Array of phone groups with customers
+ */
+router.put('/pending-matches/:id/customers', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { matched_customers } = req.body;
+
+    if (!matched_customers || !Array.isArray(matched_customers)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing or invalid matched_customers array'
+        });
+    }
+
+    try {
+        const result = await db.query(
+            `UPDATE pending_customer_matches
+             SET matched_customers = $2::jsonb
+             WHERE id = $1 AND status = 'pending'
+             RETURNING id, transaction_id, extracted_phone`,
+            [id, JSON.stringify(matched_customers)]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Pending match not found or already resolved'
+            });
+        }
+
+        console.log('[UPDATE-CUSTOMERS] Updated matched_customers for pending match:', id, '- new count:', matched_customers.length);
+
+        res.json({
+            success: true,
+            message: 'Matched customers updated successfully',
+            data: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[UPDATE-CUSTOMERS] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update matched customers',
             message: error.message
         });
     }
@@ -3577,11 +3846,12 @@ router.get('/transfer-stats', async (req, res) => {
         await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
 
         // Query from balance_history JOIN balance_customer_info for customer name
+        // Priority: bh.customer_name (edited) > bci.customer_name (from balance_customer_info)
         const result = await db.query(`
             SELECT
                 bh.id,
                 bh.id as transaction_id,
-                COALESCE(bci.customer_name, '') as customer_name,
+                COALESCE(NULLIF(bh.customer_name, ''), bci.customer_name, '') as customer_name,
                 bh.linked_customer_phone as customer_phone,
                 bh.transfer_amount as amount,
                 bh.content,

@@ -2,19 +2,39 @@
 
 > Toast notifications với Lucide icons + custom confirm dialogs.
 
+## File Locations
+
+| Type | Path | Description |
+|------|------|-------------|
+| **ES Module (SOURCE OF TRUTH)** | `/shared/browser/notification-system.js` | Modern ES module |
+| Script-Tag Compatible | `/shared/js/notification-system.js` | Legacy window.* export |
+
+## Troubleshooting - Import Errors
+
+Nếu gặp lỗi khi load NotificationManager:
+
+```bash
+# Kiểm tra path trong HTML
+grep -r 'notification-system' . --include="*.html"
+
+# Path đúng:
+<script src="../shared/js/notification-system.js"></script>
+
+# Hoặc dùng ES Module:
+import { NotificationManager, getNotificationManager } from '/shared/browser/notification-system.js';
+```
+
 ## Tổng Quan
 
-| File | Folders sử dụng (giống 100%) |
-|------|------------------------------|
-| `notification-system.js` | balance-history, bangkiemhang, ck, hanghoan, tpos-pancake, user-management |
+| Module | Path | Description |
+|--------|------|-------------|
+| `notification-system.js` | `/shared/js/` | Shared script-tag version |
+| `notification-system.js` | `/shared/browser/` | ES Module (SOURCE OF TRUTH) |
+| `notification-system.js` | Various folders | Legacy copies (phasing out) |
 
-### Variations
+### Folders using notification-system.js
 
-| Folder | Khác biệt |
-|--------|-----------|
-| `orders-report` | Có thêm overlay, uploading với progress |
-| `inventory-tracking` | Minimal version |
-| `hangdat` | Minimal version |
+balance-history, bangkiemhang, ck, hanghoan, tpos-pancake, user-management, inventory-tracking, hangdat, sanphamlive, live, livestream, nhanhang, hangrotxa, issue-tracking, ib, orders-report
 
 ---
 
@@ -97,7 +117,12 @@ if (confirmed) {
 
 ## Sử Dụng
 
-```javascript
+### Script Tag (Legacy)
+
+```html
+<script src="../shared/js/notification-system.js"></script>
+
+<script>
 // Basic
 notificationManager.success("Lưu thành công!");
 notificationManager.error("Có lỗi xảy ra");
@@ -108,10 +133,35 @@ const loadingId = notificationManager.loading("Đang tải...");
 notificationManager.remove(loadingId);
 notificationManager.success("Hoàn tất!");
 
-// Upload progress
-for (let i = 0; i < files.length; i++) {
-  notificationManager.uploading(i + 1, files.length);
+// Confirm dialog
+const confirmed = await notificationManager.confirm("Bạn có chắc?", "Xác nhận");
+if (confirmed) {
+  // proceed
 }
+</script>
+```
+
+### ES Module (Modern)
+
+```javascript
+import { getNotificationManager } from '/shared/browser/notification-system.js';
+
+const notify = getNotificationManager();
+
+notify.success("Saved!");
+notify.error("Error occurred");
+notify.warning("Warning!");
+notify.info("FYI...");
+
+// Action-specific
+notify.uploading(1, 5);
+notify.deleting();
+notify.saving();
+notify.loadingData();
+notify.processing();
+
+// Confirm
+const ok = await notify.confirm("Delete this item?", "Confirm Delete");
 ```
 
 ---
@@ -132,4 +182,6 @@ for (let i = 0; i < files.length; i++) {
 
 ## Xem thêm
 
-- [orders-report/notification-system.js](file:///Users/mac/Downloads/n2store/orders-report/notification-system.js) - Full version với confirm dialog
+- [/shared/browser/notification-system.js](../shared/browser/notification-system.js) - ES Module (SOURCE OF TRUTH)
+- [/shared/js/notification-system.js](../shared/js/notification-system.js) - Script-tag version
+- [/shared/README.md](../shared/README.md) - Full shared library documentation

@@ -1,7 +1,7 @@
 # 📁 N2Store - Tài Liệu Chức Năng Các Thư Mục
 
-> **Dự án:** N2Store - Hệ thống quản lý bán hàng online tích hợp TPOS & Pancake  
-> **Cập nhật:** 2025-01-02
+> **Dự án:** N2Store - Hệ thống quản lý bán hàng online tích hợp TPOS & Pancake
+> **Cập nhật:** 2025-01-13
 
 ---
 
@@ -14,7 +14,7 @@
 5. [build-scripts](#5-build-scripts)
 6. [ck](#6-ck)
 7. [cloudflare-worker](#7-cloudflare-worker)
-8. [customer-management](#8-customer-management)
+8. [customer-hub](#8-customer-hub)
 9. [firebase-functions](#9-firebase-functions)
 10. [hangdat](#10-hangdat)
 11. [hanghoan](#11-hanghoan)
@@ -23,7 +23,7 @@
 14. [index](#14-index)
 15. [inventory-tracking](#15-inventory-tracking)
 16. [invoice-compare](#16-invoice-compare)
-17. [js](#17-js)
+17. [shared (formerly js)](#17-shared-formerly-js)
 18. [lichsuchinhsua](#18-lichsuchinhsua)
 19. [live](#19-live)
 20. [livestream](#20-livestream)
@@ -187,23 +187,17 @@ cloudflare-worker/
 
 ---
 
-## 8. customer-management
+## 8. customer-hub
 
-**Mục đích:** Quản lý khách hàng với PostgreSQL migration
+**Mục đích:** Customer 360 - Hệ thống quản lý khách hàng tích hợp (thay thế customer-management cũ)
 
 ### Chức Năng
-- CRUD khách hàng
-- Đồng bộ Firebase ↔ PostgreSQL
-- API config cho multiple backends
-- Delete all customers utility
-
-### Các File Chính
-| File | Mô tả |
-|------|-------|
-| `main.js` | Current main logic |
-| `main-postgres.js` | PostgreSQL version |
-| `main-firebase-backup.js` | Firebase backup version |
-| `api-config.js` | API configuration |
+- Quản lý hồ sơ khách hàng (Customer Profile)
+- Ví tiền ảo (Wallet) với nạp/rút/lịch sử giao dịch
+- Theo dõi công nợ (Debt Tracking)
+- Phân loại khách hàng (RFM Segmentation)
+- Tích hợp với TPOS Partner API
+- Realtime updates qua SSE
 
 ---
 
@@ -334,21 +328,68 @@ cloudflare-worker/
 
 ---
 
-## 17. js
+## 17. shared (formerly js)
 
-**Mục đích:** Shared JavaScript modules cho toàn hệ thống
+**Mục đích:** Shared library cho toàn hệ thống - **CENTRALIZED AUTH, CACHE, NOTIFICATION**
 
-### Core Modules
+> **UPDATED**: Tất cả auth.js, cache.js, notification-system.js đã được consolidate vào shared library
+> **KHÔNG TẠO** các file này trong folder riêng - dùng shared versions
+
+### Cấu Trúc
+```
+/shared/
+├── universal/      # ES Modules - Works in Browser + Node.js
+├── browser/        # ES Modules - Browser only (SOURCE OF TRUTH)
+├── js/             # Legacy Script-Tag Compatible (window.*)
+├── node/           # ES Modules - Node.js only
+└── README.md       # Full documentation
+```
+
+### Core Modules (`/shared/js/`)
+| File | Mô tả | Thay thế |
+|------|-------|----------|
+| `shared-auth-manager.js` | Authentication manager | Thay cho local `auth.js` |
+| `shared-cache-manager.js` | Cache manager | Thay cho local `cache.js` |
+| `notification-system.js` | Toast notifications + confirm | Thay cho local `notification-system.js` |
+| `firebase-config.js` | Firebase configuration + init | Thay cho local `firebase-config.js` |
+| `core-loader.js` | Dynamic script loader | - |
+| `common-utils.js` | Shared utilities (33KB) | - |
+| `navigation-modern.js` | Navigation system (120KB) | - |
+| `permissions-helper.js` | Permission checking | - |
+| `ai-chat-widget.js` | AI chat widget (Gemini) | - |
+
+### ES Modules (`/shared/browser/`)
 | File | Mô tả |
 |------|-------|
-| `core-loader.js` | Dynamic script loader |
-| `common-utils.js` | Shared utilities (33KB) |
-| `firebase-config.js` | Firebase configuration |
-| `navigation-modern.js` | Navigation system (120KB) |
-| `permissions-helper.js` | Permission checking |
-| `shared-auth-manager.js` | Authentication manager |
-| `shared-cache-manager.js` | Cache manager |
-| `ai-chat-widget.js` | AI chat widget (Gemini) |
+| `auth-manager.js` | Authentication (SOURCE OF TRUTH) |
+| `persistent-cache.js` | Cache manager (SOURCE OF TRUTH) |
+| `notification-system.js` | Notifications (SOURCE OF TRUTH) |
+| `firebase-config.js` | Firebase config (SOURCE OF TRUTH) |
+| `logger.js` | Logger (SOURCE OF TRUTH) |
+| `dom-utils.js` | DOM utilities (SOURCE OF TRUTH) |
+| `common-utils.js` | UI utilities (SOURCE OF TRUTH) |
+
+### Sử Dụng (Script Tags)
+```html
+<!-- Auth, Cache, Notification - ALWAYS use shared versions -->
+<script src="../shared/js/shared-auth-manager.js"></script>
+<script src="../shared/js/shared-cache-manager.js"></script>
+<script src="../shared/js/notification-system.js"></script>
+<script src="../shared/js/firebase-config.js"></script>
+```
+
+### Troubleshooting
+Nếu gặp lỗi `404 Not Found` hoặc `AuthManager is not defined`:
+```bash
+# Tìm local auth.js references (không nên có)
+grep -r 'src="auth.js"' . --include="*.html"
+
+# Tìm local notification-system.js (không nên có)
+grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
+
+# Path đúng
+<script src="../shared/js/shared-auth-manager.js"></script>
+```
 
 ### Features
 - AI chat widget với page context

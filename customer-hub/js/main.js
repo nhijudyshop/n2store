@@ -121,33 +121,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const appContent = document.getElementById('app-content');
     const tabLinks = document.querySelectorAll('.tab-link');
 
-    // Store module instances to avoid re-instantiation if needed
-    const moduleInstances = {};
-
+    // Create fresh module instance each time (since container is recreated)
     function loadModule(moduleName, containerId, ...args) {
-        if (!moduleInstances[moduleName]) {
-            switch (moduleName) {
-                case 'CustomerSearchModule':
-                    moduleInstances[moduleName] = new CustomerSearchModule(containerId, permissionHelper);
-                    break;
-                case 'CustomerProfileModule':
-                    moduleInstances[moduleName] = new CustomerProfileModule(containerId, permissionHelper);
-                    break;
-                case 'LinkBankTransactionModule':
-                    moduleInstances[moduleName] = new LinkBankTransactionModule(containerId, permissionHelper, updateUnlinkedBadge);
-                    break;
-                case 'TransactionActivityModule':
-                    moduleInstances[moduleName] = new TransactionActivityModule(containerId, permissionHelper);
-                    break;
-                case 'WalletPanelModule':
-                    moduleInstances[moduleName] = new WalletPanelModule(containerId, permissionHelper);
-                    break;
-                case 'TicketListModule':
-                    moduleInstances[moduleName] = new TicketListModule(containerId, permissionHelper);
-                    break;
-            }
+        switch (moduleName) {
+            case 'CustomerSearchModule':
+                return new CustomerSearchModule(containerId, permissionHelper);
+            case 'CustomerProfileModule':
+                return new CustomerProfileModule(containerId, permissionHelper);
+            case 'LinkBankTransactionModule':
+                return new LinkBankTransactionModule(containerId, permissionHelper, updateUnlinkedBadge);
+            case 'TransactionActivityModule':
+                return new TransactionActivityModule(containerId, permissionHelper);
+            case 'WalletPanelModule':
+                return new WalletPanelModule(containerId, permissionHelper);
+            case 'TicketListModule':
+                return new TicketListModule(containerId, permissionHelper);
         }
-        return moduleInstances[moduleName];
+        return null;
     }
 
     const routes = {

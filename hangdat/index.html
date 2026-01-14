@@ -12,7 +12,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <!-- External CSS -->
-        <link rel="stylesheet" href="modern.css" />
+        <link rel="stylesheet" href="css/modern.css" />
         <style>
             /* Filter Toggle Styles */
             #filterBody {
@@ -75,10 +75,10 @@
 
         <!-- Navigation Manager -->
         <!-- N2Store Optimization: Core Utilities Loader -->
-        <script src="../js/core-loader.js"></script>
+        <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
-        <script src="../js/navigation-modern.js"></script>
-        <script src="../js/common-utils.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
 
         <!-- Lucide Icons CDN -->
         <script src="https://unpkg.com/lucide@latest"></script>
@@ -558,24 +558,21 @@
         </div>
 
         <!-- JavaScript Files -->
-        <script src="config.js"></script>
-        <script src="auth.js"></script>
-        <script src="ui.js"></script>
-        <script src="utils.js"></script>
-        <script src="cache.js"></script>
-        <script src="data-loader.js"></script>
-        <script src="table-renderer.js"></script>
-        <script src="filters.js"></script>
-        <script src="filter-toggle.js"></script>
-        <script src="crud-operations.js"></script>
-        <script src="tpos.config.js"></script>
-        <script src="export.js"></script>
-        <script src="ui-components.js"></script>
-        <script src="form-handler.js"></script>
-        <script src="main.js"></script>
-        <script src="notification-system.js"></script>
-        <script src="button-icons.js"></script>
-        <script src="bulk-delete.js"></script>
+        <script src="js/config.js"></script>
+        <script src="js/ui.js"></script>
+        <script src="js/utils.js"></script>
+        <script src="js/data-loader.js"></script>
+        <script src="js/table-renderer.js"></script>
+        <script src="js/filters.js"></script>
+        <script src="js/filter-toggle.js"></script>
+        <script src="js/crud-operations.js"></script>
+        <script src="js/tpos.config.js"></script>
+        <script src="js/export.js"></script>
+        <script src="js/ui-components.js"></script>
+        <script src="js/form-handler.js"></script>
+        <script src="js/main.js"></script>
+        <script src="js/button-icons.js"></script>
+        <script src="js/bulk-delete.js"></script>
 
         <!-- Initialize Lucide Icons -->
         <script>

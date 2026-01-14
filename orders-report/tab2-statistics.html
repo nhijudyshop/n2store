@@ -12,8 +12,8 @@
     <title>Thống kê KPI - Watermark Method</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="tab1-orders.css">
-    <link rel="stylesheet" href="report-modern.css">
+    <link rel="stylesheet" href="css/tab1-orders.css">
+    <link rel="stylesheet" href="css/report-modern.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -555,17 +555,44 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Config & Auth -->
-    <script src="config.js"></script>
-    <script src="auth.js"></script>
-    <script src="token-manager.js"></script>
-    <script src="api-config.js"></script>
+    <script src="js/core/config.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>
+        // Initialize authManager for backward compatibility
+        const authManager = new AuthManager({
+            redirectUrl: '../index.html',
+            sessionDuration: 8 * 60 * 60 * 1000,
+            rememberDuration: 30 * 24 * 60 * 60 * 1000
+        });
+        window.authManager = authManager;
+        function getAuthState() { return authManager.getAuthData(); }
+        function isAuthenticated() { return authManager.isAuthenticated(); }
+        function hasPermission(level) { return authManager.hasPermission(level); }
+        function getUserName() {
+            const auth = getAuthState();
+            return auth?.userType ? auth.userType.split('-')[0] : 'Admin';
+        }
+    </script>
+    <script src="js/core/token-manager.js"></script>
+    <script src="js/core/api-config.js"></script>
     <!-- KPI Manager -->
-    <script src="kpi-manager.js"></script>
+    <script src="js/managers/kpi-manager.js"></script>
 
     <script>
+        // Firebase config fallback
+        const _fbConfig = (typeof firebaseConfig !== 'undefined') ? firebaseConfig : {
+            apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+            authDomain: "n2shop-69e37.firebaseapp.com",
+            databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "n2shop-69e37",
+            storageBucket: "n2shop-69e37-ne0q1",
+            messagingSenderId: "598906493303",
+            appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
+        };
+
         // Initialize Firebase
         if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+            firebase.initializeApp(_fbConfig);
         }
 
         // Global state

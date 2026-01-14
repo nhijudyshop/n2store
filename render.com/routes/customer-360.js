@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 const sseRouter = require('./realtime-sse');
 const { normalizePhone, getOrCreateCustomer } = require('../utils/customer-helpers');
+const { processDeposit } = require('../services/wallet-event-processor');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -70,9 +71,9 @@ router.get('/customer/:phone', async (req, res) => {
             ORDER BY expires_at ASC
         `, [phone]);
 
-        // Get recent tickets (last 10)
+        // Get recent tickets (last 10) with products
         const ticketsResult = await db.query(`
-            SELECT ticket_code, type, status, order_id, refund_amount, created_at
+            SELECT ticket_code, type, status, order_id, tpos_order_id, refund_amount, products, internal_note, created_at
             FROM customer_tickets
             WHERE phone = $1
             ORDER BY created_at DESC
@@ -1002,6 +1003,21 @@ router.put('/ticket/:code', async (req, res) => {
     const updates = req.body;
 
     try {
+        await db.query('BEGIN');
+
+        // Get current ticket state first
+        const currentTicket = await db.query(
+            'SELECT * FROM customer_tickets WHERE ticket_code = $1 OR firebase_id = $1 FOR UPDATE',
+            [code]
+        );
+
+        if (currentTicket.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Ticket not found' });
+        }
+
+        const ticket = currentTicket.rows[0];
+
         // Build dynamic update query
         const allowedFields = [
             'status', 'priority', 'products', 'original_cod', 'new_cod',
@@ -1021,7 +1037,60 @@ router.put('/ticket/:code', async (req, res) => {
         }
 
         if (setClauses.length === 0) {
+            await db.query('ROLLBACK');
             return res.status(400).json({ success: false, error: 'No valid fields to update' });
+        }
+
+        // Check if status is being changed to COMPLETED and needs virtual credit
+        const isCompletingTicket = updates.status === 'COMPLETED' && ticket.status !== 'COMPLETED';
+        const needsVirtualCredit = isCompletingTicket &&
+            ticket.type === 'RETURN_SHIPPER' &&
+            (updates.refund_amount || ticket.refund_amount) > 0 &&
+            !ticket.wallet_credited;
+
+        if (needsVirtualCredit) {
+            const refundAmount = updates.refund_amount || ticket.refund_amount;
+
+            // Create virtual credit
+            const vcResult = await db.query(`
+                INSERT INTO virtual_credits
+                (phone, original_amount, remaining_amount, expires_at, source_type, source_id, note)
+                VALUES ($1, $2, $2, NOW() + INTERVAL '15 days', 'RETURN_SHIPPER', $3, $4)
+                RETURNING id
+            `, [ticket.phone, refundAmount, ticket.ticket_code, `Cong no ao tu ticket ${ticket.ticket_code}`]);
+
+            // Update wallet virtual balance
+            await db.query(`
+                UPDATE customer_wallets
+                SET virtual_balance = virtual_balance + $2, total_virtual_issued = total_virtual_issued + $2, updated_at = NOW()
+                WHERE phone = $1
+            `, [ticket.phone, refundAmount]);
+
+            // Log wallet transaction
+            await db.query(`
+                INSERT INTO wallet_transactions
+                (phone, type, amount, source, reference_type, reference_id, note)
+                VALUES ($1, 'VIRTUAL_CREDIT', $2, 'VIRTUAL_CREDIT_ISSUE', 'ticket', $3, $4)
+            `, [ticket.phone, refundAmount, ticket.ticket_code, `Cong no ao tu ticket ${ticket.ticket_code}`]);
+
+            // Add virtual credit fields to update
+            setClauses.push(`virtual_credit_id = $${paramIndex++}`);
+            params.push(vcResult.rows[0].id);
+            setClauses.push(`virtual_credit_amount = $${paramIndex++}`);
+            params.push(refundAmount);
+            setClauses.push(`wallet_credited = $${paramIndex++}`);
+            params.push(true);
+
+            // Log activity
+            await db.query(`
+                INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+                VALUES ($1, $2, 'WALLET_VIRTUAL_CREDIT', $3, $4, 'ticket', $5, 'gift', 'purple')
+            `, [
+                ticket.phone, ticket.customer_id,
+                `Cap cong no ao: ${parseFloat(refundAmount).toLocaleString()}d`,
+                `Tu ticket ${ticket.ticket_code}`,
+                ticket.ticket_code
+            ]);
         }
 
         const query = `
@@ -1033,15 +1102,14 @@ router.put('/ticket/:code', async (req, res) => {
 
         const result = await db.query(query, params);
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ success: false, error: 'Ticket not found' });
-        }
+        await db.query('COMMIT');
 
         // Notify SSE clients
         sseRouter.notifyClients('tickets', { action: 'updated', ticket: result.rows[0] }, 'update');
 
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
+        await db.query('ROLLBACK');
         handleError(res, error, 'Failed to update ticket');
     }
 });
@@ -1239,7 +1307,7 @@ router.get('/balance-history/unlinked', async (req, res) => {
  */
 router.post('/balance-history/link-customer', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { transaction_id, phone, auto_deposit = false } = req.body;
+    const { transaction_id, phone, auto_deposit = true } = req.body;
 
     if (!transaction_id || !phone) {
         return res.status(400).json({ success: false, error: 'Transaction ID and phone are required' });
@@ -1272,35 +1340,17 @@ router.post('/balance-history/link-customer', async (req, res) => {
             WHERE id = $3
         `, [phone, customerId, transaction_id]);
 
-        // 4. Optional: Auto deposit to wallet
+        // 4. Optional: Auto deposit to wallet using standard processDeposit
         if (auto_deposit && tx.transfer_amount > 0) {
-            // Get or create wallet (should exist after customer creation, but ensure)
-            let walletResult = await db.query(`
-                INSERT INTO customer_wallets (phone, balance)
-                VALUES ($1, 0)
-                ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
-                RETURNING *
-            `, [phone]);
-            const wallet = walletResult.rows[0];
-
-            // Update wallet balance
-            const newBalance = parseFloat(wallet.balance) + parseFloat(tx.transfer_amount);
-            await db.query(`
-                UPDATE customer_wallets
-                SET balance = $2, total_deposited = total_deposited + $3, updated_at = NOW()
-                WHERE id = $1
-            `, [wallet.id, newBalance, tx.transfer_amount]);
-
-            // Log wallet transaction
-            await db.query(`
-                INSERT INTO wallet_transactions (
-                    phone, wallet_id, type, amount, balance_before, balance_after, source,
-                    reference_type, reference_id, note
-                )
-                SELECT $1, id, 'DEPOSIT', $2, $3, $4, 'BANK_TRANSFER',
-                       'balance_history', $5::text, $6
-                FROM customer_wallets WHERE phone = $1
-            `, [phone, tx.transfer_amount, wallet.balance, newBalance, transaction_id, `Nạp từ CK ${tx.code || tx.reference_code}`]);
+            // Use centralized wallet-event-processor for consistency
+            await processDeposit(
+                db,
+                phone,
+                tx.transfer_amount,
+                transaction_id,
+                `Nạp từ CK ${tx.code || tx.reference_code} (manual link)`,
+                customerId
+            );
 
             // Mark balance_history transaction as wallet processed
             await db.query(`
@@ -1313,7 +1363,7 @@ router.post('/balance-history/link-customer', async (req, res) => {
             await db.query(`
                 INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
                 VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
-            `, [phone, customerId, `Nạp tiền: ${tx.transfer_amount.toLocaleString()}đ`, `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`, transaction_id]);
+            `, [phone, customerId, `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`, `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`, transaction_id]);
         }
 
         await db.query('COMMIT');
@@ -1432,9 +1482,11 @@ router.get('/transactions/consolidated', async (req, res) => {
         paramIndex++;
     }
     if (endDate) {
-        walletWhereConditions.push(`wt.created_at <= $${paramIndex}`);
-        activityWhereConditions.push(`ca.created_at <= $${paramIndex}`);
-        ticketWhereConditions.push(`ct.created_at <= $${paramIndex}`);
+        // Add 1 day to endDate to include the entire last day
+        // e.g., endDate = '2026-01-13' becomes '2026-01-14 00:00:00' for < comparison
+        walletWhereConditions.push(`wt.created_at < ($${paramIndex}::date + interval '1 day')`);
+        activityWhereConditions.push(`ca.created_at < ($${paramIndex}::date + interval '1 day')`);
+        ticketWhereConditions.push(`ct.created_at < ($${paramIndex}::date + interval '1 day')`);
         params.push(endDate);
         paramIndex++;
     }
@@ -1496,7 +1548,7 @@ router.get('/transactions/consolidated', async (req, res) => {
             ct.type as type,
             ct.created_at,
             ct.refund_amount as amount,
-            'Sự vụ ' || ct.type || ' - ' || ct.code as description,
+            'Sự vụ ' || ct.type || ' - ' || COALESCE(ct.ticket_code, '') as description,
             c.name as customer_name,
             ct.phone as customer_phone,
             'confirmation_number' as icon,
@@ -1514,7 +1566,7 @@ router.get('/transactions/consolidated', async (req, res) => {
     // Apply type filter - only include relevant sources
     if (type && type !== 'all' && type !== '') {
         const walletTypes = ['DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT'];
-        const ticketTypes = ['RETURN_CLIENT', 'RETURN_SHIPPER', 'OTHER', 'COD_ADJUSTMENT'];
+        const ticketTypes = ['RETURN_CLIENT', 'RETURN_SHIPPER', 'OTHER', 'COD_ADJUSTMENT', 'BOOM'];
 
         if (walletTypes.includes(type)) {
             walletQuery += ` AND wt.type = '${type}'`;

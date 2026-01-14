@@ -20,7 +20,7 @@ export class LinkBankTransactionModule {
             this.container.innerHTML = `
                 <div class="bg-danger-light rounded-2xl p-6 text-center">
                     <span class="material-symbols-outlined text-danger text-3xl mb-2">lock</span>
-                    <p class="text-danger font-medium">You do not have permission to access link transactions feature.</p>
+                    <p class="text-danger font-medium">Bạn không có quyền truy cập tính năng liên kết giao dịch.</p>
                 </div>
             `;
             return;
@@ -30,19 +30,19 @@ export class LinkBankTransactionModule {
             <!-- Page Header -->
             <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-6">
                 <div>
-                    <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Unlinked Bank Transactions</h1>
+                    <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Giao dịch ngân hàng chưa liên kết</h1>
                     <p class="text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-                        Review incoming bank records that haven't been automatically matched to a customer profile. Use the tools below to manually map them.
+                        Xem các bản ghi ngân hàng chưa được tự động ghép với hồ sơ khách hàng. Sử dụng công cụ bên dưới để liên kết thủ công.
                     </p>
                 </div>
                 <div class="flex gap-3">
                     <button class="inline-flex items-center gap-2 px-4 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                         <span class="material-symbols-outlined text-lg">download</span>
-                        Export CSV
+                        Xuất CSV
                     </button>
                     <button id="refresh-btn" class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl shadow-soft hover:shadow-glow transition-all">
                         <span class="material-symbols-outlined text-lg">refresh</span>
-                        Refresh Data
+                        Làm mới
                     </button>
                 </div>
             </div>
@@ -58,7 +58,7 @@ export class LinkBankTransactionModule {
                         </div>
                         <input type="text" id="search-input"
                             class="w-full pl-12 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                            placeholder="Filter by amount, bank code, or description...">
+                            placeholder="Lọc theo số tiền, mã ngân hàng hoặc mô tả...">
                     </div>
 
                     <!-- Secondary Filters -->
@@ -67,21 +67,21 @@ export class LinkBankTransactionModule {
                         <div class="relative">
                             <button id="date-filter-btn" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-600 dark:text-slate-300 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
                                 <span class="material-symbols-outlined text-lg">calendar_today</span>
-                                <span id="date-filter-label">All Dates</span>
+                                <span id="date-filter-label">Tất cả</span>
                                 <span class="material-symbols-outlined text-lg text-slate-400">expand_more</span>
                             </button>
                             <!-- Date Filter Dropdown -->
                             <div id="date-filter-dropdown" class="absolute right-0 mt-2 w-48 rounded-xl shadow-lg bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark py-1 z-10 hidden">
-                                <button data-days="" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">All Dates</button>
-                                <button data-days="7" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Last 7 Days</button>
-                                <button data-days="30" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Last 30 Days</button>
-                                <button data-days="90" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Last 90 Days</button>
+                                <button data-days="" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Tất cả</button>
+                                <button data-days="7" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">7 ngày qua</button>
+                                <button data-days="30" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">30 ngày qua</button>
+                                <button data-days="90" class="date-filter-option w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">90 ngày qua</button>
                             </div>
                         </div>
 
                         <button id="more-filters-btn" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-600 dark:text-slate-300 hover:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
                             <span class="material-symbols-outlined text-lg">filter_list</span>
-                            More Filters
+                            Bộ lọc
                         </button>
                     </div>
                 </div>
@@ -91,11 +91,11 @@ export class LinkBankTransactionModule {
                     <table class="w-full">
                         <thead class="bg-slate-50 dark:bg-slate-800/50">
                             <tr>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-36">Date</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-40">Bank Code</th>
-                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-36">Amount</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Raw Description</th>
-                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-44">Action</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-36">Ngày</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-40">Mã ngân hàng</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-36">Số tiền</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Nội dung</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-44">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody id="transaction-table-body" class="divide-y divide-border-light dark:divide-border-dark">
@@ -105,7 +105,7 @@ export class LinkBankTransactionModule {
                                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                                             <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
                                         </div>
-                                        <p class="text-slate-500 dark:text-slate-400">Loading transactions...</p>
+                                        <p class="text-slate-500 dark:text-slate-400">Đang tải giao dịch...</p>
                                     </div>
                                 </td>
                             </tr>
@@ -116,9 +116,9 @@ export class LinkBankTransactionModule {
                 <!-- Pagination -->
                 <div class="px-6 py-4 border-t border-border-light dark:border-border-dark flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
                     <p class="text-sm text-slate-600 dark:text-slate-400">
-                        Showing <span class="font-semibold text-slate-900 dark:text-white" id="showing-start">0</span>
-                        to <span class="font-semibold text-slate-900 dark:text-white" id="showing-end">0</span>
-                        of <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> results
+                        Hiển thị <span class="font-semibold text-slate-900 dark:text-white" id="showing-start">0</span>
+                        đến <span class="font-semibold text-slate-900 dark:text-white" id="showing-end">0</span>
+                        trên <span class="font-semibold text-slate-900 dark:text-white" id="total-count">0</span> kết quả
                     </p>
                     <nav id="pagination-nav" class="flex items-center gap-1"></nav>
                 </div>
@@ -129,7 +129,7 @@ export class LinkBankTransactionModule {
                 <div class="bg-surface-light dark:bg-surface-dark rounded-3xl shadow-modal w-full max-w-md mx-4 border border-border-light dark:border-border-dark overflow-hidden">
                     <!-- Modal Header -->
                     <div class="px-6 py-4 border-b border-border-light dark:border-border-dark flex items-center justify-between">
-                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Link Transaction</h3>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Liên kết giao dịch</h3>
                         <button id="close-modal-btn" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                             <span class="material-symbols-outlined">close</span>
                         </button>
@@ -144,10 +144,10 @@ export class LinkBankTransactionModule {
 
                         <!-- Customer Phone Input -->
                         <div class="mb-4">
-                            <label for="customer-phone-input" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Customer Phone Number</label>
+                            <label for="customer-phone-input" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Số điện thoại khách hàng</label>
                             <input type="tel" id="customer-phone-input"
                                 class="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                placeholder="Enter phone number...">
+                                placeholder="Nhập số điện thoại...">
                         </div>
 
                         <!-- Auto Deposit Checkbox -->
@@ -155,18 +155,18 @@ export class LinkBankTransactionModule {
                             <input type="checkbox" id="auto-deposit-checkbox"
                                 class="w-4 h-4 text-primary rounded border-slate-300 focus:ring-primary cursor-pointer" checked>
                             <label for="auto-deposit-checkbox" class="text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-                                Automatically deposit to customer wallet
+                                Tự động nạp vào ví khách hàng
                             </label>
                         </div>
 
                         <!-- Action Buttons -->
                         <div class="flex justify-end gap-3">
                             <button id="cancel-link-btn" class="px-5 py-2.5 bg-white dark:bg-slate-700 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-200 rounded-xl font-medium text-sm hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors">
-                                Cancel
+                                Hủy
                             </button>
                             <button id="confirm-link-btn" class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl font-medium text-sm shadow-soft transition-all">
                                 <span class="material-symbols-outlined text-lg">person_add</span>
-                                Link
+                                Liên kết
                             </button>
                         </div>
                     </div>
@@ -246,7 +246,7 @@ export class LinkBankTransactionModule {
                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                             <span class="material-symbols-outlined text-primary text-2xl animate-spin">progress_activity</span>
                         </div>
-                        <p class="text-slate-500 dark:text-slate-400">Loading transactions...</p>
+                        <p class="text-slate-500 dark:text-slate-400">Đang tải giao dịch...</p>
                     </div>
                 </td>
             </tr>
@@ -268,8 +268,8 @@ export class LinkBankTransactionModule {
                                 <div class="w-12 h-12 rounded-full bg-success-light flex items-center justify-center mb-3">
                                     <span class="material-symbols-outlined text-success text-2xl">check_circle</span>
                                 </div>
-                                <p class="text-slate-700 dark:text-slate-200 font-medium">All caught up!</p>
-                                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">No unlinked bank transactions found</p>
+                                <p class="text-slate-700 dark:text-slate-200 font-medium">Hoàn thành!</p>
+                                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Không có giao dịch chưa liên kết</p>
                             </div>
                         </td>
                     </tr>
@@ -284,7 +284,7 @@ export class LinkBankTransactionModule {
                             <div class="w-12 h-12 rounded-full bg-danger/10 flex items-center justify-center mb-3">
                                 <span class="material-symbols-outlined text-danger text-2xl">error</span>
                             </div>
-                            <p class="text-danger font-medium">Failed to load transactions</p>
+                            <p class="text-danger font-medium">Không thể tải giao dịch</p>
                             <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">${error.message}</p>
                         </div>
                     </td>
@@ -326,7 +326,7 @@ export class LinkBankTransactionModule {
                         <button data-transaction-id="${tx.id}" data-transaction-amount="${tx.amount}" data-transaction-desc="${tx.description || ''}" data-transaction-date="${dateStr}"
                             class="link-transaction-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary rounded-lg transition-all">
                             <span class="material-symbols-outlined text-base">person_add</span>
-                            Link
+                            Liên kết
                         </button>
                     </td>
                 </tr>
@@ -346,7 +346,7 @@ export class LinkBankTransactionModule {
     formatDate(dateStr) {
         if (!dateStr) return 'N/A';
         const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+        return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
     }
 
     formatCurrency(amount) {

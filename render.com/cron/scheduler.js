@@ -1,6 +1,10 @@
 const cron = require('node-cron');
 const db = require('../db/pool');
 
+// NEW: Import services for customer creation and wallet processing
+const { ensureCustomerWithTPOS } = require('../services/customer-creation-service');
+const { processDeposit } = require('../services/wallet-event-processor');
+
 // Chạy mỗi giờ để expire virtual credits
 cron.schedule('0 * * * *', async () => {
     console.log('[CRON] Running expire_virtual_credits...');
@@ -34,6 +38,99 @@ cron.schedule('0 */6 * * *', async () => {
         }
     } catch (error) {
         console.error('[CRON] ❌ Error running carrier deadline checker:', error);
+    }
+});
+
+// Chạy mỗi 5 phút để process bank transactions vào wallet (BACKUP cho realtime processing)
+cron.schedule('*/5 * * * *', async () => {
+    console.log('[CRON] Running process-bank-transactions (backup)...');
+    try {
+        // Get unprocessed bank transactions that have customer phone linked
+        const unprocessedResult = await db.query(`
+            SELECT bh.id, bh.transfer_amount, bh.content, bh.code, bh.reference_code,
+                   bh.linked_customer_phone, c.id as customer_id
+            FROM balance_history bh
+            LEFT JOIN customers c ON c.phone = bh.linked_customer_phone
+            WHERE bh.linked_customer_phone IS NOT NULL
+              AND (bh.wallet_processed = FALSE OR bh.wallet_processed IS NULL)
+              AND bh.transfer_amount > 0
+              AND bh.transfer_type = 'in'
+            ORDER BY bh.transaction_date ASC
+            LIMIT 50
+        `);
+
+        if (unprocessedResult.rows.length === 0) {
+            console.log('[CRON] No unprocessed bank transactions found (realtime is working!)');
+            return;
+        }
+
+        console.log(`[CRON] Found ${unprocessedResult.rows.length} unprocessed transactions (catching up...)`);
+
+        let processedCount = 0;
+        let totalAmount = 0;
+
+        for (const tx of unprocessedResult.rows) {
+            try {
+                // DOUBLE-CHECK: Verify not processed by another thread/request
+                const recheck = await db.query(
+                    'SELECT wallet_processed FROM balance_history WHERE id = $1',
+                    [tx.id]
+                );
+                if (recheck.rows.length > 0 && recheck.rows[0].wallet_processed === true) {
+                    console.log(`[CRON] ⚠️ Skipping tx ${tx.id} - already processed by realtime`);
+                    continue;
+                }
+
+                // NEW: Ensure customer exists with TPOS data (create if missing)
+                let customerId = tx.customer_id;
+                if (!customerId) {
+                    try {
+                        const customerResult = await ensureCustomerWithTPOS(db, tx.linked_customer_phone);
+                        customerId = customerResult.customerId;
+                        console.log(`[CRON] Created missing customer: ${tx.linked_customer_phone} -> ID ${customerId}`);
+
+                        // Update balance_history with customer_id
+                        await db.query(
+                            'UPDATE balance_history SET customer_id = $1 WHERE id = $2',
+                            [customerId, tx.id]
+                        );
+                    } catch (custErr) {
+                        console.error(`[CRON] Failed to create customer for ${tx.linked_customer_phone}:`, custErr.message);
+                    }
+                }
+
+                // NEW: Use wallet-event-processor instead of manual queries
+                const walletResult = await processDeposit(
+                    db,
+                    tx.linked_customer_phone,
+                    tx.transfer_amount,
+                    tx.id,
+                    `Nạp từ CK ${tx.code || tx.reference_code || 'N/A'} (cron backup)`,
+                    customerId
+                );
+
+                // Mark as processed
+                await db.query(
+                    `UPDATE balance_history SET wallet_processed = TRUE WHERE id = $1`,
+                    [tx.id]
+                );
+
+                processedCount++;
+                totalAmount += parseFloat(tx.transfer_amount);
+
+                console.log(`[CRON] ✅ Processed tx ${tx.id}: +${tx.transfer_amount} VND (wallet TX: ${walletResult.transactionId})`);
+
+            } catch (txError) {
+                console.error(`[CRON] ❌ Error processing balance_history id=${tx.id}:`, txError.message);
+            }
+        }
+
+        if (processedCount > 0) {
+            console.log(`[CRON] ✅ Backup processed ${processedCount} bank transactions, total: ${totalAmount} VND`);
+        }
+
+    } catch (error) {
+        console.error('[CRON] ❌ Error running process-bank-transactions:', error);
     }
 });
 

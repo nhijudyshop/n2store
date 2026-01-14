@@ -30,7 +30,22 @@
       "Bash(curl -s https://n2store-tpos-pancake.onrender.com/api/debug/db)",
       "Bash(curl -s https://n2store-tpos-pancake.onrender.com/api/tpos-saved/ids)",
       "Bash(curl:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Read(//tmp/**)",
+      "Bash(comm -23:*)",
+      "Bash(xargs:*)",
+      "Bash(find:*)",
+      "Bash(__NEW_LINE_060a2e700f79b559__ echo \"=== Checking hangdat/index.html ===\")",
+      "Bash(__NEW_LINE_991cccd5f09f7524__ echo \"\")",
+      "Bash(__NEW_LINE_7617a5fc04108365__ echo \"\")",
+      "Bash(for file in ./soorder/index.html ./bangkiemhang/index.html ./hanghoan/index.html ./nhanhang/index.html ./tpos-pancake/index.html ./inventory-tracking/index.html ./lichsuchinhsua/index.html ./hangrotxa/index.html ./livestream/index.html ./issue-tracking/index.html)",
+      "Bash(do)",
+      "Bash(if grep -q 'core-loader.js' \"$file\")",
+      "Bash(then)",
+      "Bash(echo:*)",
+      "Bash(else)",
+      "Bash(fi)",
+      "Bash(done)"
     ]
   }
 }

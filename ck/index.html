@@ -14,12 +14,16 @@
     <link rel="shortcut icon" href="../index/logo.jpg" />
 
     <!-- Modern CSS -->
-    <link rel="stylesheet" href="modern.css" />
-    <link rel="stylesheet" href="transfer-modern.css" />
+    <link rel="stylesheet" href="css/modern.css" />
+    <link rel="stylesheet" href="css/transfer-modern.css" />
 
     <!-- Lucide Icons -->
     <!-- N2Store Optimization: Core Utilities Loader -->
-    <script src="../js/core-loader.js"></script>
+    <!-- Shared utilities (script tags for sync loading) -->
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});</script>
+    <script src="../shared/js/notification-system.js"></script>
+    <script>if(typeof NotificationManager!=="undefined"&&!window.notificationManager)window.notificationManager=new NotificationManager();</script>
 
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -325,17 +329,14 @@
     </div>
 
     <!-- Load Scripts -->
-    <script src="config-constants.js"></script>
-    <script src="auth.js"></script>
-    <script src="utils-helpers.js"></script>
-    <script src="virtual-scrolling.js"></script>
-    <script src="date-slider.js"></script>
-    <script src="filter-system.js"></script>
-    <script src="search-system.js"></script>
-    <script src="../js/common-utils.js"></script>
-    <script src="../js/navigation-modern.js"></script>
-    <script src="notification-system.js"></script>
-    <script src="main-optimized.js"></script>
+    <script src="js/config-constants.js"></script>
+    <script src="js/utils-helpers.js"></script>
+    <script src="js/virtual-scrolling.js"></script>
+    <script src="js/date-slider.js"></script>
+    <script src="js/filter-system.js"></script>
+    <script src="js/search-system.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
+    <script src="js/main-optimized.js"></script>
 
     <!-- Initialize Lucide Icons -->
     <script>

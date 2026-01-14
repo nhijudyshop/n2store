@@ -148,7 +148,7 @@ export class TicketListModule {
         if (diffDays === 1) return 'Hôm qua';
         if (diffDays < 7) return `${diffDays} ngày trước`;
 
-        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' });
+        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
     }
 
     // Cleanup function if using subscribeToTickets

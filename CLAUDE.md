@@ -6,13 +6,99 @@ When working on this project, always reference the documentation in `/docs` fold
 
 ### Key Documentation Files:
 - `docs/` - Contains comprehensive documentation about all modules and folders
+- `shared/README.md` - Shared library documentation (auth, cache, utils, TPOS client)
+
+## Shared Library Structure
+
+Project sử dụng shared library tại `/shared/` folder. **KHÔNG TẠO FILE auth.js, cache.js, notification-system.js trong các folder riêng** - luôn dùng shared versions.
+
+```
+/shared/
+├── universal/      # ES Modules - Works in Browser + Node.js
+├── browser/        # ES Modules - Browser only (SOURCE OF TRUTH)
+├── js/             # Legacy Script-Tag Compatible (window.*)
+├── node/           # ES Modules - Node.js only
+└── README.md
+```
+
+### Import Paths (Script Tags)
+
+```html
+<!-- Core utilities -->
+<script src="../shared/js/core-loader.js"></script>
+<script src="../shared/js/navigation-modern.js"></script>
+<script src="../shared/js/common-utils.js"></script>
+
+<!-- Auth, Cache, Notification - ALWAYS use shared versions -->
+<script src="../shared/js/shared-auth-manager.js"></script>
+<script src="../shared/js/shared-cache-manager.js"></script>
+<script src="../shared/js/notification-system.js"></script>
+
+<!-- Firebase -->
+<script src="../shared/js/firebase-config.js"></script>
+```
+
+### Import Paths (ES Modules)
+
+```javascript
+import { AuthManager, CommonUtils } from '/shared/browser/index.js';
+import { TPOSClient, fetchWithRetry } from '/shared/universal/index.js';
+import { initializeFirestore, initializeRealtimeDB } from '/shared/browser/firebase-config.js';
+import { getNotificationManager } from '/shared/browser/notification-system.js';
+```
+
+### Troubleshooting - Lỗi Import Path
+
+Nếu gặp lỗi như:
+- `404 Not Found` khi load script
+- `Module not found`
+- `Cannot resolve module`
+- `AuthManager is not defined`
+- `notificationManager is not defined`
+
+**Kiểm tra:**
+1. Đường dẫn script trong HTML phải là `../shared/js/...` (không phải local file)
+2. ES Module imports phải trỏ đến `/shared/browser/` hoặc `/shared/universal/`
+3. Chạy các lệnh sau để tìm paths sai:
+```bash
+# Tìm local auth.js references
+grep -r 'src="auth.js"' . --include="*.html"
+
+# Tìm local cache.js references
+grep -r 'src="cache.js"' . --include="*.html"
+
+# Tìm local notification-system.js references
+grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
+```
+
+### Source of Truth
+
+| Loại | ES Module (SOURCE OF TRUTH) | Script-Tag Version |
+|------|----------------------------|-------------------|
+| Auth | `/shared/browser/auth-manager.js` | `/shared/js/shared-auth-manager.js` |
+| Cache | `/shared/browser/persistent-cache.js` | `/shared/js/shared-cache-manager.js` |
+| Notification | `/shared/browser/notification-system.js` | `/shared/js/notification-system.js` |
+| Firebase | `/shared/browser/firebase-config.js` | `/shared/js/firebase-config.js` |
+| Logger | `/shared/browser/logger.js` | `/shared/js/logger.js` |
+| DOM Utils | `/shared/browser/dom-utils.js` | `/shared/js/dom-utils.js` |
+| Common Utils | `/shared/browser/common-utils.js` | `/shared/js/common-utils.js` |
+| TPOS Client | `/shared/universal/tpos-client.js` | `/shared/js/tpos-config.js` |
+
+### QUAN TRỌNG: Không tạo file duplicate
+
+**KHÔNG BAO GIỜ** tạo các file sau trong folder riêng:
+- `auth.js` - Dùng `../shared/js/shared-auth-manager.js`
+- `cache.js` - Dùng `../shared/js/shared-cache-manager.js`
+- `notification-system.js` - Dùng `../shared/js/notification-system.js`
+
+Các file này đã được consolidated vào shared library và các folders đã được migrate.
 
 ## Module-Specific Instructions
 
 ### orders-report Module
 When working in the `orders-report/` directory, always read these files first:
 - `orders-report/.ai-instructions.md` - AI-specific coding instructions
-- `orders-report/ARCHITECTURE.md` - System architecture overview  
+- `orders-report/ARCHITECTURE.md` - System architecture overview
 - `orders-report/MODULE_MAP.md` - Module structure and dependencies
 
 ## File Organization

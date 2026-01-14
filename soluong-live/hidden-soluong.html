@@ -9,6 +9,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Danh sách Số lượng đã ẩn - N2Shop</title>
+    <script src="../shared/js/core-loader.js"></script>
+    <script src="../shared/js/common-utils.js"></script>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -1025,8 +1027,8 @@
 
     <span class="page-info" id="pageInfo">Trang 1/1</span>
 
-    <script src="../js/shared-auth-manager.js"></script>
-    <script src="../js/shared-cache-manager.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script src="../shared/js/shared-cache-manager.js"></script>
     <script>
         let soluongProducts = {};
         let filteredProducts = [];
@@ -1069,6 +1071,21 @@
         let isSyncingFromFirebase = false;
         let bearerToken = null;
         let tokenExpiry = null;
+
+        // Staff info for logging sales
+        const authManager = new AuthManager();
+        let staffName = 'Livestream Operator';
+        let staffUsername = 'livestream';
+
+        // Load staff info on page ready
+        (function loadStaffInfo() {
+            const userInfo = authManager.getUserInfo();
+            if (userInfo) {
+                staffName = userInfo.displayName || userInfo.username || 'Livestream Operator';
+                staffUsername = userInfo.username || 'livestream';
+                console.log('👤 Staff logged in:', staffName);
+            }
+        })();
 
         async function getAuthToken() {
             try {
@@ -1791,7 +1808,11 @@
             if (newSoldQty === currentSoldQty) return;
 
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, productId, change, soluongProducts).catch(error => {
+                updateProductQtyInFirebase(database, productId, change, soluongProducts, {
+                    source: 'livestream',
+                    staffName: staffName,
+                    staffUsername: staffUsername
+                }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -1813,7 +1834,11 @@
             if (newSoldQty === currentSoldQty) return;
 
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, variantId, change, soluongProducts).catch(error => {
+                updateProductQtyInFirebase(database, variantId, change, soluongProducts, {
+                    source: 'livestream',
+                    staffName: staffName,
+                    staffUsername: staffUsername
+                }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -2243,5 +2268,6 @@
             }
         });
     </script>
+    <script src="../shared/js/notification-system.js"></script>
 </body>
 </html>

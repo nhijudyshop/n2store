@@ -2,12 +2,34 @@
 
 > Module quản lý cache với localStorage persistence và auto-cleanup.
 
+## File Locations
+
+| Type | Path | Description |
+|------|------|-------------|
+| **ES Module (SOURCE OF TRUTH)** | `/shared/browser/persistent-cache.js` | Modern ES module |
+| Script-Tag Compatible | `/shared/js/shared-cache-manager.js` | Legacy window.* export |
+
+## Troubleshooting - Import Errors
+
+Nếu gặp lỗi khi load CacheManager:
+
+```bash
+# Kiểm tra path trong HTML
+grep -r '../js/' . --include="*.html"
+
+# Path đúng:
+<script src="../shared/js/shared-cache-manager.js"></script>
+
+# Hoặc dùng ES Module:
+import { PersistentCacheManager } from '/shared/browser/persistent-cache.js';
+```
+
 ## Tổng Quan
 
 | File | Folders |
 |------|---------|
 | `cache.js` | orders-report, balance-history, bangkiemhang, tpos-pancake, hangdat |
-| `shared-cache-manager.js` | js/ (wrapper cho core-loader) |
+| `shared-cache-manager.js` | /shared/js/ (wrapper cho core-loader) |
 
 > [!NOTE]
 > Các versions khác nhau về TTL và cache keys, nhưng API giống nhau.
@@ -56,7 +78,12 @@ Tự động clean expired entries mỗi **5 phút** (interval).
 
 ## Sử Dụng
 
-```javascript
+### Script Tag (Legacy)
+
+```html
+<script src="../shared/js/shared-cache-manager.js"></script>
+
+<script>
 // Basic usage
 cacheManager.set('my_data', { foo: 'bar' }, 'medium');
 const data = cacheManager.get('my_data', 'medium');
@@ -67,11 +94,30 @@ cacheManager.invalidatePattern(/^orders_/);
 // Statistics
 const stats = cacheManager.getStats();
 console.log(`Hit rate: ${stats.hitRate}%`);
+</script>
+```
+
+### ES Module (Modern)
+
+```javascript
+import { PersistentCacheManager, getPersistentCache } from '/shared/browser/persistent-cache.js';
+
+// Get singleton
+const cache = getPersistentCache();
+
+// Basic usage
+cache.set('my_data', { foo: 'bar' }, 'medium');
+const data = cache.get('my_data', 'medium');
+
+// Statistics
+const stats = cache.getStats();
+console.log(`Hit rate: ${stats.hitRate}`);
 ```
 
 ---
 
 ## Xem thêm
 
-- [orders-report/cache.js](file:///Users/mac/Downloads/n2store/orders-report/cache.js) - Phiên bản đầy đủ nhất
-- [js/shared-cache-manager.js](file:///Users/mac/Downloads/n2store/js/shared-cache-manager.js) - Wrapper cho core-loader
+- [/shared/browser/persistent-cache.js](../shared/browser/persistent-cache.js) - ES Module (SOURCE OF TRUTH)
+- [/shared/js/shared-cache-manager.js](../shared/js/shared-cache-manager.js) - Script-tag version
+- [/shared/README.md](../shared/README.md) - Full shared library documentation

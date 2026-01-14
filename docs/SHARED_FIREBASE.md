@@ -1,34 +1,134 @@
 # SHARED_FIREBASE - Firebase Configuration & Utilities
 
-> Firebase configuration và các utilities dùng chung: user storage, image cache.
+> Centralized Firebase configuration và các utilities dùng chung.
+
+## File Locations
+
+| Type | Path | Description |
+|------|------|-------------|
+| **ES Module (SOURCE OF TRUTH)** | `/shared/browser/firebase-config.js` | Modern ES module |
+| Script-Tag Compatible | `/shared/js/firebase-config.js` | Legacy window.* export |
+
+## Troubleshooting - Import Errors
+
+Nếu gặp lỗi khi load Firebase config:
+
+```bash
+# Kiểm tra path trong HTML
+grep -r 'firebase-config' . --include="*.html"
+
+# Path đúng:
+<script src="../shared/js/firebase-config.js"></script>
+
+# Hoặc dùng ES Module:
+import { initializeFirestore, initializeRealtimeDB } from '/shared/browser/firebase-config.js';
+```
+
+---
 
 ## Tổng Quan
 
-| Module | Folders |
-|--------|---------|
-| `config.js` | Mỗi folder riêng (khác config) |
-| `firebase-config.js` | js/ (core) |
-| `user-storage-manager.js` | orders-report |
-| `firebase-image-cache.js` | orders-report |
+| Module | Path | Description |
+|--------|------|-------------|
+| `firebase-config.js` | `/shared/js/` | Core config + init functions |
+| `firebase-config.js` | `/shared/browser/` | ES Module (SOURCE OF TRUTH) |
+| `firebase-helpers.js` | `soluong-live/`, `order-management/` | Module-specific RTDB helpers |
+| `user-storage-manager.js` | `orders-report/` | Per-user storage |
+| `firebase-image-cache.js` | `orders-report/` | Image cache |
 
-> [!IMPORTANT]
-> `config.js` khác nhau giữa các folders vì chứa module-specific settings.
+---
+
+## Firebase Services
+
+| Service | Use Case | Folders |
+|---------|----------|---------|
+| **Firestore** | Document database, offline sync | sanphamlive, inventory |
+| **Realtime Database** | Live updates, simpler data | soluong-live, order-management, issue-tracking |
+
+---
+
+## API Reference
+
+### Initialization Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `initializeFirebaseApp()` | `() → boolean` | Core Firebase app init |
+| `initializeFirestore()` | `(options?) → db\|null` | Firestore with persistence |
+| `initializeRealtimeDB()` | `() → db\|null` | Realtime Database |
+
+### Getter Functions
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `getFirestore()` | `() → db\|null` | Get Firestore (auto-init) |
+| `getRealtimeDB()` | `() → db\|null` | Get RTDB (auto-init) |
+| `isFirebaseInitialized()` | `() → boolean` | Check init status |
+| `getRef()` | `(path: string) → ref\|null` | Get RTDB reference |
+
+### Constants
+
+| Constant | Description |
+|----------|-------------|
+| `FIREBASE_CONFIG` | Firebase configuration object |
+| `FIRESTORE_COLLECTIONS` | Firestore collection names |
+| `RTDB_PATHS` | Realtime Database paths |
+
+---
+
+## Usage Examples
+
+### Script Tag (Legacy)
+
+```html
+<!-- Load Firebase SDK first -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<!-- Load config -->
+<script src="../shared/js/firebase-config.js"></script>
+
+<script>
+// For Firestore
+const db = initializeFirestore();
+
+// For Realtime Database
+const rtdb = initializeRealtimeDB();
+</script>
+```
+
+### ES Module (Modern)
+
+```javascript
+import {
+    initializeFirestore,
+    initializeRealtimeDB,
+    getRef,
+    RTDB_PATHS
+} from '/shared/browser/firebase-config.js';
+
+// Firestore
+const db = initializeFirestore();
+
+// Realtime Database
+const rtdb = initializeRealtimeDB();
+const productsRef = getRef(RTDB_PATHS.SOLUONG_PRODUCTS);
+```
 
 ---
 
 ## Firebase Configuration
 
-### Core Config (js/firebase-config.js)
-
 ```javascript
-const firebaseConfig = {
-  apiKey: "...",
-  authDomain: "n2shop-69e37.firebaseapp.com",
-  databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "n2shop-69e37",
-  storageBucket: "n2shop-69e37.firebasestorage.app",
-  messagingSenderId: "...",
-  appId: "..."
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D"
 };
 ```
 

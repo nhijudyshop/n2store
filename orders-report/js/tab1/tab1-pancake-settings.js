@@ -1,0 +1,910 @@
+// ============================================
+// PANCAKE SETTINGS MODAL & TAG FILTER & API TOGGLE
+// Extracted from tab1-orders.html
+// ============================================
+
+// ====== PANCAKE SETTINGS ======
+
+// Open Pancake Settings Modal
+window.openPancakeSettingsModal = async function() {
+    document.getElementById('pancakeSettingsModal').style.display = 'flex';
+
+    // Load accounts list
+    if (window.pancakeTokenManager) {
+        await window.pancakeTokenManager.initialize();
+        await window.refreshAccountsList();
+    }
+};
+
+// Close Pancake Settings Modal
+window.closePancakeSettingsModal = function() {
+    document.getElementById('pancakeSettingsModal').style.display = 'none';
+    window.hideAddAccountForm();
+};
+
+// Show Add Account Form
+window.showAddAccountForm = function() {
+    document.getElementById('addAccountForm').style.display = 'block';
+    document.getElementById('newAccountTokenInput').value = '';
+    document.getElementById('newAccountTokenInput').focus();
+};
+
+// Hide Add Account Form
+window.hideAddAccountForm = function() {
+    document.getElementById('addAccountForm').style.display = 'none';
+    document.getElementById('newAccountTokenInput').value = '';
+    document.getElementById('tokenValidationMessage').style.display = 'none';
+};
+
+// Validate Token Input (real-time)
+window.validateTokenInput = function() {
+    const input = document.getElementById('newAccountTokenInput').value;
+    const messageDiv = document.getElementById('tokenValidationMessage');
+
+    if (!input || input.trim() === '') {
+        messageDiv.style.display = 'none';
+        return;
+    }
+
+    try {
+        // Clean token
+        let cleanedToken = input.trim();
+        if (cleanedToken.toLowerCase().startsWith('jwt=')) {
+            cleanedToken = cleanedToken.substring(4).trim();
+        }
+        cleanedToken = cleanedToken.replace(/^["']|["']$/g, '');
+        cleanedToken = cleanedToken.replace(/\s+/g, '');
+        cleanedToken = cleanedToken.replace(/[;,]+$/g, '');
+
+        // Check format
+        const parts = cleanedToken.split('.');
+        if (parts.length !== 3) {
+            messageDiv.innerHTML = `<span style="color: #f59e0b;">⚠️ Token có ${parts.length} phần, cần 3 phần (header.payload.signature)</span>`;
+            messageDiv.style.display = 'block';
+            return;
+        }
+
+        // Check each part
+        if (!parts[0] || !parts[1] || !parts[2]) {
+            messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Token có phần trống</span>';
+            messageDiv.style.display = 'block';
+            return;
+        }
+
+        // Try to decode (basic check)
+        if (window.pancakeTokenManager) {
+            const payload = window.pancakeTokenManager.decodeToken(cleanedToken);
+            if (payload) {
+                const isExpired = window.pancakeTokenManager.isTokenExpired(payload.exp);
+                if (isExpired) {
+                    const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
+                    messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Token đã hết hạn: ${expiryDate}</span>`;
+                } else {
+                    const expiryDate = new Date(payload.exp * 1000).toLocaleDateString('vi-VN');
+                    messageDiv.innerHTML = `<span style="color: #10b981;">✅ Token hợp lệ - ${payload.name || 'N/A'} - Hết hạn: ${expiryDate}</span>`;
+                }
+                messageDiv.style.display = 'block';
+                return;
+            }
+        }
+
+        messageDiv.innerHTML = '<span style="color: #f59e0b;">⚠️ Không thể giải mã token, vui lòng kiểm tra lại</span>';
+        messageDiv.style.display = 'block';
+
+    } catch (error) {
+        messageDiv.innerHTML = '<span style="color: #ef4444;">❌ Lỗi: ' + error.message + '</span>';
+        messageDiv.style.display = 'block';
+    }
+};
+
+// Debug Token Input
+window.debugTokenInput = function() {
+    const input = document.getElementById('newAccountTokenInput').value;
+
+    if (!input || input.trim() === '') {
+        alert('Vui lòng nhập token vào ô trên trước khi debug');
+        return;
+    }
+
+    if (!window.pancakeTokenManager) {
+        alert('PancakeTokenManager not available');
+        return;
+    }
+
+    console.log('='.repeat(80));
+    console.log('🔍 DEBUG TOKEN ANALYSIS');
+    console.log('='.repeat(80));
+
+    const result = window.pancakeTokenManager.debugToken(input);
+
+    console.log('📊 THÔNG TIN CƠ BẢN:');
+    console.log('  - Độ dài gốc:', result.info.originalLength);
+    console.log('  - Có khoảng trắng:', result.info.hasSpaces ? 'Có ⚠️' : 'Không');
+    console.log('  - Có newline:', result.info.hasNewlines ? 'Có ⚠️' : 'Không');
+    console.log('  - Có prefix jwt=:', result.info.hasPrefix ? 'Có' : 'Không');
+    console.log('  - Độ dài sau làm sạch:', result.info.cleanedLength);
+    console.log('  - Số phần:', result.info.parts);
+    if (result.info.partLengths) {
+        console.log('  - Độ dài từng phần:', result.info.partLengths.join(', '));
+    }
+
+    if (result.valid) {
+        console.log('\n✅ TOKEN HỢP LỆ:');
+        console.log('  - Tên:', result.info.name);
+        console.log('  - UID:', result.info.uid);
+        console.log('  - Hết hạn:', result.info.expiryDate);
+        console.log('  - Đã hết hạn:', result.info.isExpired ? 'Có ❌' : 'Không ✅');
+    } else {
+        console.log('\n❌ TOKEN KHÔNG HỢP LỆ:');
+        result.issues.forEach((issue, index) => {
+            console.log(`  ${index + 1}. ${issue}`);
+        });
+    }
+
+    console.log('='.repeat(80));
+
+    // Show alert with summary
+    let message = '🔍 KẾT QUẢ DEBUG:\n\n';
+    message += `Độ dài token: ${result.info.originalLength} → ${result.info.cleanedLength} (sau làm sạch)\n`;
+    message += `Số phần: ${result.info.parts}\n\n`;
+
+    if (result.valid) {
+        message += `✅ Token hợp lệ!\n\n`;
+        message += `Tên: ${result.info.name}\n`;
+        message += `Hết hạn: ${result.info.expiryDate}\n`;
+        message += `Trạng thái: ${result.info.isExpired ? 'Đã hết hạn ❌' : 'Còn hạn ✅'}`;
+    } else {
+        message += '❌ Token không hợp lệ!\n\n';
+        message += 'Vấn đề:\n';
+        result.issues.forEach((issue, index) => {
+            message += `${index + 1}. ${issue}\n`;
+        });
+        message += '\n📋 Chi tiết đã được in ra console (F12)';
+    }
+
+    alert(message);
+};
+
+// Refresh Accounts List
+window.refreshAccountsList = async function() {
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const accounts = window.pancakeTokenManager.getAllAccounts();
+        const activeAccountId = window.pancakeTokenManager.activeAccountId;
+        const listDiv = document.getElementById('pancakeAccountsList');
+
+        if (!accounts || Object.keys(accounts).length === 0) {
+            listDiv.innerHTML = `
+                <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                    <i class="fas fa-users" style="font-size: 32px; margin-bottom: 8px;"></i>
+                    <div>Chưa có tài khoản nào</div>
+                    <div style="font-size: 12px; margin-top: 4px;">Bấm "Thêm tài khoản" để bắt đầu</div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        for (const [accountId, account] of Object.entries(accounts)) {
+            const isActive = accountId === activeAccountId;
+            const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
+            const statusColor = isExpired ? '#ef4444' : '#10b981';
+            const statusText = isExpired ? '❌ Hết hạn' : '✅ Còn hạn';
+            const activeStyle = isActive ? 'border: 2px solid #3b82f6; background: #eff6ff;' : 'border: 1px solid #e5e7eb; background: white;';
+
+            html += `
+                <div style="padding: 12px; ${activeStyle} border-radius: 8px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 14px; font-weight: 500; color: #1f2937; margin-bottom: 4px;">
+                                ${isActive ? '<i class="fas fa-check-circle" style="color: #3b82f6;"></i> ' : ''}
+                                ${account.name || 'Unknown User'}
+                            </div>
+                            <div style="font-size: 11px; color: #6b7280; font-family: monospace;">
+                                UID: ${account.uid || 'N/A'}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 11px; color: ${statusColor}; font-weight: 500;">
+                                ${statusText}
+                            </div>
+                            <div style="font-size: 10px; color: #9ca3af;">
+                                ${new Date(account.exp * 1000).toLocaleDateString('vi-VN')}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        ${!isActive && !isExpired ? `
+                            <button onclick="selectAccount('${accountId}')"
+                                style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                                <i class="fas fa-check"></i> Chọn
+                            </button>
+                        ` : ''}
+                        ${isActive ? `
+                            <span style="padding: 4px 10px; background: #3b82f6; color: white; border-radius: 4px; font-size: 11px;">
+                                <i class="fas fa-star"></i> Đang dùng
+                            </span>
+                        ` : ''}
+                        <button onclick="deleteAccount('${accountId}')"
+                            style="padding: 4px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                            <i class="fas fa-trash"></i> Xóa
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        listDiv.innerHTML = html;
+
+    } catch (error) {
+        console.error('[PANCAKE-SETTINGS] Error refreshing accounts list:', error);
+        document.getElementById('pancakeAccountsList').innerHTML = `
+            <div style="text-align: center; color: #ef4444; padding: 20px;">
+                <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 8px;"></i>
+                <div>Lỗi: ${error.message}</div>
+            </div>
+        `;
+    }
+};
+
+// Add Account From Cookie
+window.addAccountFromCookie = async function() {
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const token = window.pancakeTokenManager.getTokenFromCookie();
+        if (!token) {
+            throw new Error('Không tìm thấy JWT token trong cookie. Vui lòng đăng nhập vào pancake.vn trước.');
+        }
+
+        // Save to Firebase
+        const accountId = await window.pancakeTokenManager.saveTokenToFirebase(token);
+
+        if (!accountId) {
+            throw new Error('Failed to save token');
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã thêm tài khoản từ cookie!', 'success');
+        } else {
+            alert('✅ Đã thêm tài khoản từ cookie!');
+        }
+
+        // Refresh list and hide form
+        await window.refreshAccountsList();
+        window.hideAddAccountForm();
+
+        // Re-initialize PancakeDataManager
+        if (window.pancakeDataManager) {
+            await window.pancakeDataManager.initialize();
+        }
+
+    } catch (error) {
+        console.error('[PANCAKE-SETTINGS] Error adding account from cookie:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+        } else {
+            alert('❌ Lỗi: ' + error.message);
+        }
+    }
+};
+
+// Add Account Manual
+window.addAccountManual = async function() {
+    try {
+        const tokenInput = document.getElementById('newAccountTokenInput').value.trim();
+
+        if (!tokenInput) {
+            throw new Error('Vui lòng nhập JWT token hoặc bấm "Lấy từ Cookie"');
+        }
+
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const accountId = await window.pancakeTokenManager.setTokenManual(tokenInput);
+
+        if (!accountId) {
+            throw new Error('Failed to save token');
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã thêm tài khoản!', 'success');
+        } else {
+            alert('✅ Đã thêm tài khoản!');
+        }
+
+        // Refresh list and hide form
+        await window.refreshAccountsList();
+        window.hideAddAccountForm();
+
+        // Re-initialize PancakeDataManager
+        if (window.pancakeDataManager) {
+            await window.pancakeDataManager.initialize();
+        }
+
+    } catch (error) {
+        console.error('[PANCAKE-SETTINGS] Error adding account manually:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+        } else {
+            alert('❌ Lỗi: ' + error.message);
+        }
+    }
+};
+
+// Select Account
+window.selectAccount = async function(accountId) {
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const success = await window.pancakeTokenManager.setActiveAccount(accountId);
+
+        if (!success) {
+            throw new Error('Failed to set active account');
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã chọn tài khoản!', 'success');
+        } else {
+            alert('✅ Đã chọn tài khoản!');
+        }
+
+        // Refresh list
+        await window.refreshAccountsList();
+
+        // Re-initialize PancakeDataManager
+        if (window.pancakeDataManager) {
+            await window.pancakeDataManager.initialize();
+        }
+
+    } catch (error) {
+        console.error('[PANCAKE-SETTINGS] Error selecting account:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+        } else {
+            alert('❌ Lỗi: ' + error.message);
+        }
+    }
+};
+
+// Delete Account
+window.deleteAccount = async function(accountId) {
+    if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) {
+        return;
+    }
+
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const success = await window.pancakeTokenManager.deleteAccount(accountId);
+
+        if (!success) {
+            throw new Error('Failed to delete account');
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã xóa tài khoản!', 'success');
+        } else {
+            alert('✅ Đã xóa tài khoản!');
+        }
+
+        // Refresh list
+        await window.refreshAccountsList();
+
+    } catch (error) {
+        console.error('[PANCAKE-SETTINGS] Error deleting account:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+        } else {
+            alert('❌ Lỗi: ' + error.message);
+        }
+    }
+};
+
+// Clear All Accounts
+window.clearAllPancakeAccounts = async function() {
+    if (!confirm('Bạn có chắc muốn xóa TẤT CẢ tài khoản?')) {
+        return;
+    }
+
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        await window.pancakeTokenManager.clearToken();
+
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã xóa tất cả tài khoản!', 'success');
+        } else {
+            alert('✅ Đã xóa tất cả tài khoản!');
+        }
+
+        // Refresh list
+        await window.refreshAccountsList();
+
+    } catch (error) {
+        console.error('[PANCAKE-SETTINGS] Error clearing all accounts:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+        } else {
+            alert('❌ Lỗi: ' + error.message);
+        }
+    }
+};
+
+// ====== TAG FILTER ======
+const TAG_FILTER_LIMIT = 12; // Show only 12 tags initially
+
+/**
+ * Load available tags from API
+ */
+window.loadAvailableTags = async function() {
+    try {
+        console.log('[TAG-FILTER] Loading available tags from API...');
+
+        const authHeader = await window.tokenManager.getAuthHeader();
+
+        const response = await fetch("https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000", {
+            "headers": {
+                "accept": "application/json",
+                ...authHeader,
+                "content-type": "application/json"
+            },
+            "method": "GET"
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.value && Array.isArray(data.value)) {
+            window.availableTags = data.value;
+            console.log(`[TAG-FILTER] Loaded ${data.value.length} tags from API`);
+            window.populateTagFilterOptions();
+        } else {
+            throw new Error('Invalid response format');
+        }
+    } catch (error) {
+        console.error('[TAG-FILTER] Error loading tags:', error);
+        window.availableTags = [];
+    }
+};
+
+/**
+ * Toggle tag filter dropdown
+ */
+window.toggleTagFilterDropdown = function() {
+    const dropdown = document.getElementById('tagFilterDropdown');
+    if (!dropdown) return;
+
+    const isOpen = dropdown.classList.contains('open');
+
+    // Close all other dropdowns
+    document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+
+    if (!isOpen) {
+        dropdown.classList.add('open');
+        // Load tags if not loaded
+        if (!window.availableTags || window.availableTags.length === 0) {
+            window.loadAvailableTags();
+        } else {
+            window.populateTagFilterOptions();
+        }
+        // Focus search input
+        setTimeout(() => {
+            const searchInput = document.getElementById('tagFilterSearchInput');
+            if (searchInput) searchInput.focus();
+        }, 100);
+    }
+};
+
+/**
+ * Close tag filter dropdown
+ */
+window.closeTagFilterDropdown = function() {
+    const dropdown = document.getElementById('tagFilterDropdown');
+    if (dropdown) dropdown.classList.remove('open');
+};
+
+/**
+ * Populate tag filter options
+ */
+window.populateTagFilterOptions = function(searchTerm = '') {
+    const optionsContainer = document.getElementById('tagFilterOptions');
+    if (!optionsContainer) return;
+
+    const tags = window.availableTags || [];
+    const currentValue = document.getElementById('tagFilter')?.value || 'all';
+    const search = searchTerm.toLowerCase().trim();
+
+    // Filter tags by search term
+    let filteredTags = tags;
+    if (search) {
+        filteredTags = tags.filter(tag =>
+            (tag.Name || '').toLowerCase().includes(search)
+        );
+    }
+
+    // Limit to 12 tags if not searching
+    const displayTags = search ? filteredTags : filteredTags.slice(0, TAG_FILTER_LIMIT);
+
+    // Build options HTML
+    let html = `
+        <div class="tag-filter-option ${currentValue === 'all' ? 'selected' : ''}"
+             onclick="selectTagFilterOption('all', 'Tất cả')">
+            <span class="tag-name">Tất cả</span>
+        </div>
+    `;
+
+    displayTags.forEach(tag => {
+        const isSelected = String(currentValue) === String(tag.Id);
+        const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
+        html += `
+            <div class="tag-filter-option ${isSelected ? 'selected' : ''}"
+                 onclick="selectTagFilterOption('${tag.Id}', '${(tag.Name || '').replace(/'/g, "\\'")}')">
+                <span class="tag-color-dot" style="${colorStyle}"></span>
+                <span class="tag-name">${tag.Name || 'Unnamed'}</span>
+            </div>
+        `;
+    });
+
+    // Show "more" message if limited
+    if (!search && filteredTags.length > TAG_FILTER_LIMIT) {
+        html += `<div style="padding: 8px 12px; font-size: 11px; color: #9ca3af; text-align: center;">
+            Gõ để tìm thêm ${filteredTags.length - TAG_FILTER_LIMIT} tag khác...
+        </div>`;
+    }
+
+    optionsContainer.innerHTML = html;
+};
+
+/**
+ * Filter tag options based on search input
+ */
+window.filterTagOptions = function() {
+    const searchInput = document.getElementById('tagFilterSearchInput');
+    const searchTerm = searchInput ? searchInput.value : '';
+    window.populateTagFilterOptions(searchTerm);
+};
+
+/**
+ * Select a tag filter option
+ */
+window.selectTagFilterOption = function(tagId, tagName) {
+    // Update hidden input
+    const hiddenInput = document.getElementById('tagFilter');
+    if (hiddenInput) hiddenInput.value = tagId;
+
+    // Update display text
+    const displayText = document.getElementById('tagFilterText');
+    if (displayText) displayText.textContent = tagName;
+
+    // Close dropdown
+    window.closeTagFilterDropdown();
+
+    // Clear search
+    const searchInput = document.getElementById('tagFilterSearchInput');
+    if (searchInput) searchInput.value = '';
+
+    // Trigger table search
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
+
+    console.log(`[TAG-FILTER] Selected: ${tagName} (ID: ${tagId})`);
+};
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('tagFilterDropdown');
+    if (dropdown && !dropdown.contains(event.target)) {
+        window.closeTagFilterDropdown();
+    }
+});
+
+// ====== TAG SETTINGS ======
+const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
+
+/**
+ * Get tag custom data from localStorage
+ */
+window.getTagSettings = function() {
+    try {
+        const saved = localStorage.getItem(TAG_SETTINGS_KEY);
+        return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+        console.error('[TAG-SETTINGS] Error loading tag settings:', error);
+        return {};
+    }
+};
+
+/**
+ * Save tag custom data to localStorage
+ */
+window.setTagSettings = function(settings) {
+    try {
+        localStorage.setItem(TAG_SETTINGS_KEY, JSON.stringify(settings));
+        console.log('[TAG-SETTINGS] Tag settings saved');
+    } catch (error) {
+        console.error('[TAG-SETTINGS] Error saving tag settings:', error);
+    }
+};
+
+/**
+ * Open tag settings modal
+ */
+window.openTagSettingsModal = async function() {
+    const modal = document.getElementById('tagSettingsModal');
+    modal.style.display = 'flex';
+
+    // Load available tags if not loaded
+    if (!window.availableTags || window.availableTags.length === 0) {
+        await window.loadAvailableTags();
+    }
+
+    // Render tag settings list
+    window.renderTagSettingsList();
+};
+
+/**
+ * Close tag settings modal
+ */
+window.closeTagSettingsModal = function() {
+    document.getElementById('tagSettingsModal').style.display = 'none';
+    document.getElementById('tagSettingsSearchInput').value = '';
+};
+
+/**
+ * Render tag settings list
+ */
+window.renderTagSettingsList = function(filteredTags = null) {
+    const listContainer = document.getElementById('tagSettingsList');
+    if (!listContainer) return;
+
+    const tags = filteredTags || window.availableTags || [];
+    const settings = window.getTagSettings();
+
+    if (tags.length === 0) {
+        listContainer.innerHTML = `
+            <div class="no-tags-message">
+                <i class="fas fa-info-circle"></i>
+                <p>Không tìm thấy tag nào</p>
+            </div>
+        `;
+        return;
+    }
+
+    listContainer.innerHTML = tags.map(tag => {
+        const customValue = settings[tag.Id] || '';
+        const hasSavedValue = customValue !== '';
+        return `
+            <div class="tag-settings-item" data-tag-id="${tag.Id}">
+                <div class="tag-settings-color" style="background-color: ${tag.Color || '#6b7280'}"></div>
+                <div class="tag-settings-name">${tag.Name}</div>
+                <input
+                    type="text"
+                    class="tag-settings-input"
+                    id="tagInput_${tag.Id}"
+                    data-tag-id="${tag.Id}"
+                    value="${customValue}"
+                    placeholder="Nhập ghi chú..."
+                />
+                <button
+                    class="tag-settings-save-btn"
+                    onclick="saveTagSettingItem('${tag.Id}')"
+                    title="Lưu ghi chú">
+                    <i class="fas fa-save"></i> Lưu
+                </button>
+                ${hasSavedValue ? `<div class="tag-settings-saved-badge" id="savedBadge_${tag.Id}"><i class="fas fa-check"></i></div>` : ''}
+            </div>
+        `;
+    }).join('');
+};
+
+/**
+ * Filter tag settings based on search input
+ */
+window.filterTagSettings = function() {
+    const searchTerm = document.getElementById('tagSettingsSearchInput').value.toLowerCase().trim();
+
+    if (!window.availableTags) return;
+
+    if (!searchTerm) {
+        window.renderTagSettingsList();
+        return;
+    }
+
+    const filtered = window.availableTags.filter(tag =>
+        tag.Name.toLowerCase().includes(searchTerm)
+    );
+
+    window.renderTagSettingsList(filtered);
+};
+
+/**
+ * Save individual tag setting
+ */
+window.saveTagSettingItem = function(tagId) {
+    const input = document.getElementById(`tagInput_${tagId}`);
+    if (!input) return;
+
+    const value = input.value.trim();
+    const settings = window.getTagSettings();
+
+    if (value) {
+        settings[tagId] = value;
+    } else {
+        delete settings[tagId];
+    }
+
+    window.setTagSettings(settings);
+
+    // Show saved badge
+    let badge = document.getElementById(`savedBadge_${tagId}`);
+    if (value && !badge) {
+        const item = input.closest('.tag-settings-item');
+        badge = document.createElement('div');
+        badge.className = 'tag-settings-saved-badge';
+        badge.id = `savedBadge_${tagId}`;
+        badge.innerHTML = '<i class="fas fa-check"></i>';
+        item.appendChild(badge);
+    } else if (!value && badge) {
+        badge.remove();
+    }
+
+    // Show notification
+    if (window.notificationManager) {
+        window.notificationManager.show('✅ Đã lưu!', 'success');
+    }
+};
+
+/**
+ * Save all tag settings (for footer Save button)
+ */
+window.saveTagSettings = function() {
+    const inputs = document.querySelectorAll('.tag-settings-input');
+    const settings = window.getTagSettings();
+
+    inputs.forEach(input => {
+        const tagId = input.dataset.tagId;
+        const value = input.value.trim();
+
+        if (value) {
+            settings[tagId] = value;
+        } else {
+            delete settings[tagId];
+        }
+    });
+
+    window.setTagSettings(settings);
+
+    if (window.notificationManager) {
+        window.notificationManager.show('✅ Đã lưu tất cả cài đặt tag!', 'success');
+    } else {
+        alert('✅ Đã lưu tất cả cài đặt tag!');
+    }
+
+    window.closeTagSettingsModal();
+};
+
+// ====== CHAT API SOURCE TOGGLE ======
+/**
+ * Toggle giữa Pancake API và ChatOmni API
+ */
+window.toggleChatAPISource = function() {
+    if (!window.chatAPISettings) {
+        console.error('[CHAT-API-TOGGLE] chatAPISettings not available');
+        alert('❌ Lỗi: chatAPISettings không khả dụng');
+        return;
+    }
+
+    // Toggle source
+    const newSource = window.chatAPISettings.toggle();
+    const displayName = window.chatAPISettings.getDisplayName(newSource);
+
+    console.log(`[CHAT-API-TOGGLE] Switched to: ${displayName}`);
+
+    // Update UI label
+    window.updateChatAPISourceLabel();
+
+    // Show notification
+    if (window.notificationManager) {
+        window.notificationManager.show(`✅ Đã chuyển sang ${displayName}`, 'success');
+    } else {
+        alert(`✅ Đã chuyển sang ${displayName}`);
+    }
+
+    // Reload table để hiển thị dữ liệu mới
+    if (typeof performSearch === 'function') {
+        console.log('[CHAT-API-TOGGLE] Reloading table...');
+        performSearch();
+    } else {
+        console.warn('[CHAT-API-TOGGLE] performSearch function not found, please reload manually');
+    }
+};
+
+/**
+ * Update UI label cho button
+ */
+window.updateChatAPISourceLabel = function() {
+    const label = document.getElementById('chatApiSourceLabel');
+    if (!label || !window.chatAPISettings) return;
+
+    const displayName = window.chatAPISettings.getDisplayName();
+    label.textContent = displayName;
+};
+
+// ====== REALTIME TOGGLE ======
+window.toggleRealtimeMode = function(enabled) {
+    if (!window.chatAPISettings) {
+        console.error('[REALTIME-TOGGLE] chatAPISettings not available');
+        return;
+    }
+
+    window.chatAPISettings.setRealtimeEnabled(enabled);
+    window.updateRealtimeCheckbox(); // Update UI visibility
+
+    if (window.notificationManager) {
+        const status = enabled ? 'BẬT' : 'TẮT';
+        window.notificationManager.show(`✅ Realtime: ${status}`, 'success');
+    }
+};
+
+window.changeRealtimeMode = function(mode) {
+    if (!window.chatAPISettings) return;
+    window.chatAPISettings.setRealtimeMode(mode);
+
+    if (window.notificationManager) {
+        const label = mode === 'browser' ? 'Browser (Trực tiếp)' : 'Server (24/7)';
+        window.notificationManager.show(`✅ Chế độ Realtime: ${label}`, 'success');
+    }
+};
+
+window.updateRealtimeCheckbox = function() {
+    const checkbox = document.getElementById('realtimeToggleCheckbox');
+    const modeContainer = document.getElementById('realtimeModeContainer');
+    const modeSelect = document.getElementById('realtimeModeSelect');
+
+    if (!checkbox || !window.chatAPISettings) return;
+
+    const isEnabled = window.chatAPISettings.isRealtimeEnabled();
+    checkbox.checked = isEnabled;
+
+    // Show/Hide mode selector
+    if (modeContainer) {
+        modeContainer.style.display = isEnabled ? 'block' : 'none';
+    }
+
+    // Set current mode
+    if (modeSelect) {
+        modeSelect.value = window.chatAPISettings.getRealtimeMode();
+    }
+};
+
+// Update label khi page load
+document.addEventListener('DOMContentLoaded', function () {
+    window.updateChatAPISourceLabel();
+    window.updateRealtimeCheckbox();
+
+    // Listen for API source changes from other sources
+    window.addEventListener('chatApiSourceChanged', function (e) {
+        console.log('[CHAT-API-TOGGLE] API source changed:', e.detail.source);
+        window.updateChatAPISourceLabel();
+        window.updateRealtimeCheckbox();
+    });
+});
+
+console.log('[TAB1-PANCAKE-SETTINGS] Module loaded');

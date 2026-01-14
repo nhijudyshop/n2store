@@ -9,10 +9,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Danh sách Số lượng Live - N2Shop</title>
+    <script src="../shared/js/core-loader.js"></script>
+    <script src="../shared/js/common-utils.js"></script>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
     <script src="firebase-helpers.js"></script>
 
     <style>
@@ -1061,8 +1065,7 @@
 
     <span class="page-info" id="pageInfo">Trang 1/1</span>
 
-    <script src="../js/shared-auth-manager.js"></script>
-    <script src="../js/shared-cache-manager.js"></script>
+    <!-- shared-auth-manager.js and shared-cache-manager.js are already loaded by core-loader.js -->
     <script>
         let soluongProducts = {}; // Object-based structure
         let filteredProducts = []; // For search results
@@ -1090,23 +1093,27 @@
         const SEARCH_INPUT_DEBOUNCE_MS = 300; // Wait 300ms after user stops typing
         const FIREBASE_SYNC_DEBOUNCE_MS = 500; // Wait 500ms before syncing to Firebase
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-            authDomain: "n2shop-69e37.firebaseapp.com",
-            databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "n2shop-69e37",
-            storageBucket: "n2shop-69e37-ne0q1",
-            messagingSenderId: "598906493303",
-            appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-            measurementId: "G-TEJH3S2T1D"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        // Firebase is initialized by core-loader.js via firebase-config.js
+        const database = initializeRealtimeDB();
 
         let isSyncingFromFirebase = false;
         let bearerToken = null;
         let tokenExpiry = null;
+
+        // Staff info for logging sales
+        const authManager = new AuthManager();
+        let staffName = 'Livestream Operator';
+        let staffUsername = 'livestream';
+
+        // Load staff info on page ready
+        (function loadStaffInfo() {
+            const userInfo = authManager.getUserInfo();
+            if (userInfo) {
+                staffName = userInfo.displayName || userInfo.username || 'Livestream Operator';
+                staffUsername = userInfo.username || 'livestream';
+                console.log('👤 Staff logged in:', staffName);
+            }
+        })();
 
         async function getAuthToken() {
             try {
@@ -1890,7 +1897,11 @@
             // Let helper function update both local and Firebase
             // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, productId, change, soluongProducts).catch(error => {
+                updateProductQtyInFirebase(database, productId, change, soluongProducts, {
+                    source: 'livestream',
+                    staffName: staffName,
+                    staffUsername: staffUsername
+                }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -1916,7 +1927,11 @@
             // Let helper function update both local and Firebase
             // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, variantId, change, soluongProducts).catch(error => {
+                updateProductQtyInFirebase(database, variantId, change, soluongProducts, {
+                    source: 'livestream',
+                    staffName: staffName,
+                    staffUsername: staffUsername
+                }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -2571,5 +2586,6 @@
             }
         });
     </script>
+    <script src="../shared/js/notification-system.js"></script>
 </body>
 </html>

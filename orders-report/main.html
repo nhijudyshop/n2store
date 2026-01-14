@@ -38,6 +38,10 @@
                         if ((k === 'standard_price_cache' || k === 'product_excel_cache') && localStorage[k].length > 500000) {
                             keysToRemove.push(k);
                         }
+                        // Always remove phone debt/qr caches when near quota
+                        if (k === 'orders_phone_debt_cache' || k === 'orders_phone_qr_cache') {
+                            keysToRemove.push(k);
+                        }
                     }
                 }
 
@@ -55,17 +59,51 @@
     </script>
 
     <!-- External CSS -->
-    <link rel="stylesheet" href="modern.css" />
+    <link rel="stylesheet" href="css/modern.css" />
 
-    <!-- N2Store Optimization: Core Utilities Loader -->
-    <script src="../js/core-loader.js"></script>
+    <!-- N2Store Optimization: ES Module Loader (auto-inits authManager) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
 
-    <!-- Auth must load BEFORE navigation -->
-    <script src="auth.js"></script>
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+            }
+        </script>
 
-    <!-- Navigation Manager - Load sau khi load auth -->
-    <script src="../js/navigation-modern.js"></script>
-    <script src="../js/common-utils.js"></script>
+    <!-- Legacy wrapper functions for orders-report -->
+    <script type="module">
+        window.addEventListener('sharedModulesLoaded', () => {
+            if (window.authManager) {
+                window.getAuthState = () => window.authManager.getAuthData();
+                window.setAuthState = (isLoggedIn, userType, checkLogin) => {
+                    window.authManager.saveAuthData({ isLoggedIn, userType, checkLogin, timestamp: Date.now() }, false);
+                };
+                window.clearAuthState = () => {
+                    sessionStorage.removeItem('loginindex_auth');
+                    localStorage.removeItem('loginindex_auth');
+                };
+                window.isAuthenticated = () => window.authManager.isAuthenticated();
+                window.hasPermission = (level) => window.authManager.hasPermission(level);
+                window.getUserName = () => {
+                    const auth = window.authManager.getAuthData();
+                    return auth?.userType ? auth.userType.split('-')[0] : 'Admin';
+                };
+                window.handleLogout = () => {
+                    if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                        window.clearAuthState();
+                        window.location.href = '../index.html';
+                    }
+                };
+                console.log('[AUTH] Legacy wrapper functions ready');
+            }
+        });
+    </script>
+
+    <!-- Navigation Manager -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+    <script defer src="../shared/js/common-utils.js"></script>
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>

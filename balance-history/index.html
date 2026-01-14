@@ -11,13 +11,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lịch sử biến động số dư - Sepay</title>
 
+    <!-- Core Loader -->
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <!-- Modern CSS + Styles -->
-    <link rel="stylesheet" href="modern.css">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="transfer-stats.css">
+    <link rel="stylesheet" href="css/modern.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/transfer-stats.css">
 </head>
 
 <body>
@@ -288,10 +292,7 @@
                     <thead>
                         <tr>
                             <th>Ngày giờ</th>
-                            <th>Ngân hàng</th>
-                            <th>Loại</th>
                             <th>Số tiền</th>
-                            <th>Số dư</th>
                             <th>Nội dung</th>
                             <th>Mã tham chiếu</th>
                             <th>Tên khách hàng</th>
@@ -330,11 +331,19 @@
                 <!-- Transfer Stats Filters -->
                 <div class="ts-filters">
                     <div class="ts-filter-group">
-                        <label>Trạng thái:</label>
-                        <select id="tsStatusFilter" onchange="filterTransferStats()">
+                        <label>Ẩn/Hiện:</label>
+                        <select id="tsVisibilityFilter" onchange="filterTransferStats()">
                             <option value="all" selected>Tất cả</option>
-                            <option value="unchecked">Chưa kiểm tra</option>
-                            <option value="checked">Đã kiểm tra</option>
+                            <option value="visible">Đang hiện</option>
+                            <option value="hidden">Đang ẩn</option>
+                        </select>
+                    </div>
+                    <div class="ts-filter-group">
+                        <label>Đã KT:</label>
+                        <select id="tsVerifiedFilter" onchange="filterTransferStats()">
+                            <option value="all" selected>Tất cả</option>
+                            <option value="verified">Đã kiểm tra</option>
+                            <option value="unverified">Chưa kiểm tra</option>
                         </select>
                     </div>
                     <div class="ts-filter-group">
@@ -349,7 +358,10 @@
                             <i data-lucide="clock"></i> Chưa KT: <strong id="tsUncheckedCount">0</strong>
                         </span>
                         <span class="ts-stat checked">
-                            <i data-lucide="check-circle"></i> Đã KT: <strong id="tsCheckedCount">0</strong>
+                            <i data-lucide="check-circle"></i> My KT: <strong id="tsCheckedCount">0</strong>
+                        </span>
+                        <span class="ts-stat verified">
+                            <i data-lucide="badge-check"></i> Còi KT: <strong id="tsVerifiedCount">0</strong>
                         </span>
                     </div>
                 </div>
@@ -359,18 +371,15 @@
                     <table class="data-table ts-table">
                         <thead>
                             <tr>
-                                <th style="width: 50px;">
-                                    <input type="checkbox" id="tsSelectAll" onchange="toggleSelectAllTS()" title="Chọn tất cả">
-                                </th>
-                                <th>Ngày giờ</th>
-                                <th>Tên khách hàng</th>
-                                <th>Số điện thoại</th>
-                                <th>Số tiền</th>
-                                <th>Nội dung</th>
-                                <th>Ghi chú</th>
-                                <th style="width: 80px;">Ẩn/Hiện</th>
-                                <th style="width: 100px;">Đã Kiểm Tra</th>
-                                <th style="width: 80px;">Thao tác</th>
+                                <th class="col-date">Ngày giờ</th>
+                                <th class="col-name">Tên KH</th>
+                                <th class="col-phone">SĐT</th>
+                                <th class="col-amount">Số tiền</th>
+                                <th class="col-content">Nội dung</th>
+                                <th class="col-note">Ghi chú</th>
+                                <th class="col-action">My KT</th>
+                                <th class="col-action">Còi KT</th>
+                                <th class="col-action">Sửa</th>
                             </tr>
                         </thead>
                         <tbody id="tsTableBody">
@@ -492,9 +501,9 @@
             </div>
             <div class="modal-footer"
                 style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                <a href="../customer-management/index.html" target="_blank" class="btn btn-primary"
+                <a href="../customer-hub/index.html" target="_blank" class="btn btn-primary"
                     style="text-decoration: none;">
-                    <i data-lucide="external-link"></i> Mở Customer Management
+                    <i data-lucide="external-link"></i> Mở Customer 360
                 </a>
                 <button class="btn btn-secondary" onclick="closeCustomerListModal()">Đóng</button>
             </div>
@@ -744,19 +753,23 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <script src="../js/firebase-config.js"></script>
+    <script src="../shared/js/firebase-config.js"></script>
 
     <!-- Navigation & Auth -->
-    <script src="../js/navigation-modern.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Permission helpers (bridge to authManager) -->
+    <script>
+        window.hasPermission = (level) => window.authManager?.hasPermission?.(level) ?? false;
+        window.hasDetailedPermission = (pageId, action) => window.authManager?.hasDetailedPermission?.(pageId, action) ?? false;
+    </script>
 
     <!-- Page Scripts -->
-    <script src="auth.js"></script>
-    <script src="cache.js"></script>
-    <script src="config.js"></script>
-    <script src="qr-generator.js"></script>
-    <script src="customer-info.js"></script>
-    <script src="main.js"></script>
-    <script src="transfer-stats.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/qr-generator.js"></script>
+    <script src="js/customer-info.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/transfer-stats.js"></script>
 
     <!-- Initialize Lucide Icons, View Mode, and Main Tabs -->
     <script>

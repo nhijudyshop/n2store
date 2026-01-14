@@ -1,7 +1,6 @@
 /**
- * Firebase Helper Functions for Soluong-Live (Inventory Tracking)
+ * Firebase Helper Functions for Object-based Structure
  * Provides optimized operations for Firebase Realtime Database
- * COMPLETELY INDEPENDENT from order-management system
  */
 
 /**
@@ -146,12 +145,10 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
 
     // Update local first (optimistic update)
     product.soldQty = newSoldQty;
-    product.remainingQty = product.QtyAvailable - newSoldQty;
 
-    // Sync to Firebase (just the fields that changed)
+    // Sync to Firebase (just soldQty, remainingQty is now independent)
     await database.ref(`soluongProducts/${productKey}`).update({
-        soldQty: newSoldQty,
-        remainingQty: product.remainingQty
+        soldQty: newSoldQty
     });
 }
 
@@ -168,6 +165,59 @@ async function updateProductVisibility(database, productId, isHidden, localProdu
 
     // Sync to Firebase
     await database.ref(`soluongProducts/${productKey}/isHidden`).set(isHidden);
+}
+
+/**
+ * Delete a product permanently from Firebase
+ */
+async function removeProductFromFirebase(database, productId, localProductsObject) {
+    const productKey = `product_${productId}`;
+
+    // Prepare updates
+    const updates = {};
+    updates[`soluongProducts/${productKey}`] = null; // null means remove
+
+    // Sync to Firebase
+    await database.ref().update(updates);
+
+    // Update sortedIds metadata
+    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
+        return (currentIds || []).filter(id => id !== productId.toString());
+    });
+
+    // Update count metadata
+    await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
+}
+
+/**
+ * Delete multiple products permanently from Firebase in a single batch operation
+ */
+async function removeProductsFromFirebase(database, productIds, localProductsObject) {
+    if (!productIds || productIds.length === 0) return;
+
+    // Prepare batch updates
+    const updates = {};
+    const idsToRemove = [];
+
+    productIds.forEach(productId => {
+        const productKey = `product_${productId}`;
+        updates[`soluongProducts/${productKey}`] = null; // null means remove
+        idsToRemove.push(productId.toString());
+
+        // Remove from local object
+        delete localProductsObject[productKey];
+    });
+
+    // Sync all deletions to Firebase in a single batch
+    await database.ref().update(updates);
+
+    // Update sortedIds metadata
+    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
+        return (currentIds || []).filter(id => !idsToRemove.includes(id));
+    });
+
+    // Update count metadata
+    await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 }
 
 /**
@@ -436,11 +486,11 @@ async function saveCartSnapshot(database, snapshot) {
     console.log('🔵 [saveCartSnapshot] Product count:', Object.keys(snapshot.products).length);
 
     // Save snapshot data
-    await database.ref(`soluongCartHistory/${snapshotId}`).set(snapshot);
+    await database.ref(`cartHistory/${snapshotId}`).set(snapshot);
     console.log('✅ [saveCartSnapshot] Snapshot data saved to Firebase');
 
     // Update metadata
-    const metaRef = database.ref('soluongCartHistoryMeta');
+    const metaRef = database.ref('cartHistoryMeta');
     const metaSnapshot = await metaRef.once('value');
     const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
 
@@ -475,7 +525,7 @@ async function saveCartSnapshot(database, snapshot) {
 async function getCartSnapshot(database, snapshotId) {
     console.log(`🔵 [getCartSnapshot] Loading snapshot: ${snapshotId}`);
 
-    const snapshot = await database.ref(`soluongCartHistory/${snapshotId}`).once('value');
+    const snapshot = await database.ref(`cartHistory/${snapshotId}`).once('value');
     const data = snapshot.val();
 
     if (!data) {
@@ -500,7 +550,7 @@ async function getCartSnapshot(database, snapshotId) {
 async function getAllCartSnapshots(database) {
     console.log('🔵 [getAllCartSnapshots] Loading all snapshots...');
 
-    const metaSnapshot = await database.ref('soluongCartHistoryMeta').once('value');
+    const metaSnapshot = await database.ref('cartHistoryMeta').once('value');
     const meta = metaSnapshot.val();
 
     console.log('🔵 [getAllCartSnapshots] Meta from Firebase:', meta);
@@ -583,11 +633,11 @@ async function deleteCartSnapshot(database, snapshotId) {
     console.log(`🔵 [deleteCartSnapshot] Deleting snapshot: ${snapshotId}`);
 
     // Remove snapshot data
-    await database.ref(`soluongCartHistory/${snapshotId}`).remove();
+    await database.ref(`cartHistory/${snapshotId}`).remove();
     console.log(`✅ [deleteCartSnapshot] Snapshot data removed from Firebase`);
 
     // Update metadata
-    const metaRef = database.ref('soluongCartHistoryMeta');
+    const metaRef = database.ref('cartHistoryMeta');
     const metaSnapshot = await metaRef.once('value');
     const currentMeta = metaSnapshot.val() || { sortedIds: [], count: 0 };
 
