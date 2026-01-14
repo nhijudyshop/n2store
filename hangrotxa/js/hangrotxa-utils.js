@@ -221,14 +221,47 @@ window.HangRotXaUtils = {
     showSuccess,
     showError,
     showInfo,
-    // Delegate to shared functions
-    sanitizeInput: () => window.sanitizeInput || ((input) => input),
-    formatDate: () => window.formatDate || ((date) => ""),
-    getFormattedDate: () => window.getFormattedDateTime || (() => ""),
-    parseVietnameseDate: () => window.parseVietnameseDate || ((str) => null),
-    generateUniqueID: () => window.generateUniqueID || (() => Date.now().toString()),
-    generateUniqueFileName: () => window.generateUniqueFileName || (() => Date.now() + ".jpg"),
-    debounce: () => window.debounce || ((fn) => fn),
+    // Delegate to shared functions - call at runtime to ensure window.* is available
+    sanitizeInput: (input) => {
+        if (typeof input !== "string") return "";
+        return input.replace(/[<>"'&]/g, "").trim();
+    },
+    formatDate: (date) => {
+        if (window.formatDate) return window.formatDate(date);
+        if (!date) return "";
+        const d = new Date(date);
+        return isNaN(d.getTime()) ? "" : d.toLocaleDateString("vi-VN");
+    },
+    getFormattedDate: () => {
+        if (window.getFormattedDateTime) return window.getFormattedDateTime();
+        const now = new Date();
+        return now.toLocaleString("vi-VN");
+    },
+    parseVietnameseDate: (str) => {
+        if (window.parseVietnameseDate) return window.parseVietnameseDate(str);
+        if (!str) return null;
+        const parts = str.split("/");
+        if (parts.length === 3) {
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
+        return null;
+    },
+    generateUniqueID: () => {
+        if (window.generateUniqueID) return window.generateUniqueID();
+        return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    },
+    generateUniqueFileName: () => {
+        if (window.generateUniqueFileName) return window.generateUniqueFileName();
+        return Date.now() + "_" + Math.random().toString(36).substr(2, 9) + ".jpg";
+    },
+    debounce: (fn, delay = 300) => {
+        if (window.debounce) return window.debounce(fn, delay);
+        let timer;
+        return (...args) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn(...args), delay);
+        };
+    },
     // Page-specific functions
     extractTimestampFromId,
     sortDataByNewest,
