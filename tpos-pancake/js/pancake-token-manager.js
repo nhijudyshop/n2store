@@ -191,11 +191,39 @@ class PancakeTokenManager {
     }
 
     /**
+     * Helper: Firebase operation with timeout
+     * @param {Promise} promise - Firebase promise
+     * @param {number} timeoutMs - Timeout in milliseconds
+     * @param {string} operationName - Name for logging
+     * @returns {Promise} - Resolves with result or null on timeout
+     */
+    async withTimeout(promise, timeoutMs = 5000, operationName = 'Firebase operation') {
+        const timeoutPromise = new Promise((resolve) => {
+            setTimeout(() => {
+                console.warn(`[PANCAKE-TOKEN] ${operationName} timed out after ${timeoutMs}ms`);
+                resolve(null);
+            }, timeoutMs);
+        });
+        return Promise.race([promise, timeoutPromise]);
+    }
+
+    /**
      * Load all accounts from Firebase
      */
     async loadAccounts() {
         try {
-            const snapshot = await this.accountsRef.once('value');
+            // Add timeout to prevent hanging
+            const snapshot = await this.withTimeout(
+                this.accountsRef.once('value'),
+                5000,
+                'loadAccounts'
+            );
+
+            if (!snapshot) {
+                console.warn('[PANCAKE-TOKEN] loadAccounts timed out, using localStorage data');
+                return false;
+            }
+
             this.accounts = snapshot.val() || {};
 
             // Load active account ID from localStorage (per-device)
@@ -860,7 +888,18 @@ class PancakeTokenManager {
                 return;
             }
 
-            const snapshot = await this.pageTokensRef.once('value');
+            // Add timeout to prevent hanging
+            const snapshot = await this.withTimeout(
+                this.pageTokensRef.once('value'),
+                5000,
+                'loadPageAccessTokens'
+            );
+
+            if (!snapshot) {
+                console.warn('[PANCAKE-TOKEN] loadPageAccessTokens timed out, using localStorage data');
+                return;
+            }
+
             const firebaseTokens = snapshot.val() || {};
 
             // Merge Firebase tokens with existing localStorage tokens
