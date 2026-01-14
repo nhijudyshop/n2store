@@ -61,6 +61,46 @@ function extractTimestampFromId(id) {
 }
 
 // =====================================================
+// DATE PARSING HELPER
+// =====================================================
+
+function parseVietnameseDate(dateStr) {
+    if (!dateStr) return null;
+    // Format: "HH:MM DD/MM/YYYY" or "DD/MM/YYYY"
+    const parts = dateStr.trim().split(" ");
+    let datePart, timePart;
+
+    if (parts.length >= 2 && parts[0].includes(":")) {
+        timePart = parts[0];
+        datePart = parts[1];
+    } else if (parts.length >= 2 && parts[1].includes("/")) {
+        timePart = parts[0];
+        datePart = parts[1];
+    } else {
+        datePart = parts[0];
+    }
+
+    if (!datePart || !datePart.includes("/")) return null;
+
+    const dateComponents = datePart.split("/");
+    if (dateComponents.length !== 3) return null;
+
+    const day = parseInt(dateComponents[0], 10);
+    const month = parseInt(dateComponents[1], 10) - 1;
+    const year = parseInt(dateComponents[2], 10);
+
+    let hours = 0, minutes = 0;
+    if (timePart && timePart.includes(":")) {
+        const timeComponents = timePart.split(":");
+        hours = parseInt(timeComponents[0], 10) || 0;
+        minutes = parseInt(timeComponents[1], 10) || 0;
+    }
+
+    const date = new Date(year, month, day, hours, minutes);
+    return isNaN(date.getTime()) ? null : date.getTime();
+}
+
+// =====================================================
 // PAGE-SPECIFIC SORTING
 // =====================================================
 
