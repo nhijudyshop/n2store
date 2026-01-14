@@ -1085,12 +1085,18 @@ let app;
 // Wait for both DOM and core utilities to be ready
 function initializeApp() {
     notificationManager = new NotificationManager();
-    // Initialize shared AuthManager with configuration
-    authManager = new AuthManager({
-        storageKey: AUTH_STORAGE_KEY,
-        redirectUrl: "../index.html",
-        sessionDuration: CONFIG.SESSION_TIMEOUT
-    });
+    // Use shared AuthManager from compat.js if available, otherwise create new
+    if (window.authManager) {
+        authManager = window.authManager;
+        console.log('[App] Using shared authManager from compat.js');
+    } else {
+        authManager = new AuthManager({
+            storageKey: AUTH_STORAGE_KEY,
+            redirectUrl: "../index.html",
+            sessionDuration: CONFIG.SESSION_TIMEOUT
+        });
+        console.log('[App] Created new authManager (fallback)');
+    }
     cacheManager = new CacheManager();
     uiManager = new UIManager();
     app = new ImageManagementApp();
