@@ -758,6 +758,12 @@
     <!-- Navigation & Auth -->
     <script defer src="../shared/js/navigation-modern.js"></script>
 
+    <!-- Permission helpers (bridge to authManager) -->
+    <script>
+        window.hasPermission = (level) => window.authManager?.hasPermission?.(level) ?? false;
+        window.hasDetailedPermission = (pageId, action) => window.authManager?.hasDetailedPermission?.(pageId, action) ?? false;
+    </script>
+
     <!-- Page Scripts -->
     <script src="js/config.js"></script>
     <script src="js/qr-generator.js"></script>
