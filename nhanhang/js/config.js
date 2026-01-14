@@ -388,6 +388,12 @@ const authManager = {
         return getAuthState();
     },
 
+    getAuthData: function () {
+        // Return auth data from localStorage/sessionStorage
+        const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+        return authDataStr ? JSON.parse(authDataStr) : null;
+    },
+
     hasPermission: function (requiredLevel) {
         return hasPermission(requiredLevel);
     },

@@ -267,8 +267,8 @@ async function loadCustomMenuNamesFromFirebase() {
             return getCustomMenuNames();
         }
 
-        if (typeof firebase === 'undefined' || !firebase.firestore) {
-            console.log('[Menu Names] Firebase not available, using localStorage only');
+        if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
+            console.log('[Menu Names] Firebase not available or not initialized, using localStorage only');
             return getCustomMenuNames();
         }
 
@@ -305,7 +305,7 @@ async function saveCustomMenuNames(customNames) {
         cachedMenuNames = customNames;
 
         // Save to Firebase for sync
-        if (typeof firebase !== 'undefined' && firebase.firestore) {
+        if (typeof firebase !== 'undefined' && firebase.firestore && firebase.apps?.length) {
             const db = firebase.firestore();
             await db.doc(FIREBASE_MENU_NAMES_DOC).set({
                 names: customNames,
