@@ -121,14 +121,6 @@ const MENU_CONFIG = [
         permissionRequired: "tpos-pancake",
     },
     {
-        href: "../product-search/index.html",
-        icon: "search",
-        text: "Tìm Kiếm Sản Phẩm",
-        shortText: "Tìm SP",
-        pageIdentifier: "product-search",
-        permissionRequired: "product-search",
-    },
-    {
         href: "../order-management/index.html",
         icon: "package-check",
         text: "Quản Lý Order",
