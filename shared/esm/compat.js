@@ -236,6 +236,16 @@ if (typeof window !== 'undefined') {
         }
     }
 
+    // Auto-initialize notificationManager if not already defined
+    if (!window.notificationManager && getNotificationManager) {
+        try {
+            window.notificationManager = getNotificationManager();
+            console.log('[ESM Compat] NotificationManager auto-initialized');
+        } catch (e) {
+            console.warn('[ESM Compat] Failed to auto-init NotificationManager:', e);
+        }
+    }
+
     // Dispatch event to signal modules are loaded
     window.dispatchEvent(new CustomEvent('sharedModulesLoaded'));
 
