@@ -358,6 +358,9 @@ async function toggleTSVerified(id, verified) {
                 row.classList.toggle('verified', verified);
             }
 
+            // Update stats to reflect verified count change
+            updateTSStats();
+
             // Show notification
             if (window.NotificationManager) {
                 window.NotificationManager.showNotification(
