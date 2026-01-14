@@ -479,4 +479,239 @@ router.post('/cron/process-bank', async (req, res) => {
     }
 });
 
+// =====================================================
+// WALLET ADJUSTMENTS (for wrong mapping corrections)
+// =====================================================
+
+/**
+ * POST /api/v2/wallets/adjustment
+ * Create a wallet adjustment (for wrong customer mapping, etc.)
+ * Only for Admin/Accountant roles
+ */
+router.post('/adjustment', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const {
+        original_transaction_id,
+        adjustment_type,
+        wrong_customer_phone,
+        correct_customer_phone,
+        amount,
+        reason,
+        created_by
+    } = req.body;
+
+    // Validate required fields
+    if (!adjustment_type || !amount || !reason || !created_by) {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing required fields: adjustment_type, amount, reason, created_by'
+        });
+    }
+
+    // Validate adjustment_type
+    const validTypes = ['WRONG_MAPPING_CREDIT', 'WRONG_MAPPING_DEBIT', 'DUPLICATE_REVERSAL', 'ADMIN_CORRECTION'];
+    if (!validTypes.includes(adjustment_type)) {
+        return res.status(400).json({
+            success: false,
+            error: `Invalid adjustment_type. Must be one of: ${validTypes.join(', ')}`
+        });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        let walletTxId = null;
+        let affectedWallet = null;
+
+        // Process based on adjustment type
+        if (adjustment_type === 'WRONG_MAPPING_DEBIT' && wrong_customer_phone) {
+            // Debit from wrong customer (they shouldn't have received this money)
+            const normalizedPhone = normalizePhone(wrong_customer_phone);
+
+            const walletResult = await db.query(`
+                UPDATE customer_wallets
+                SET balance = balance - $2, updated_at = NOW()
+                WHERE phone = $1
+                RETURNING *
+            `, [normalizedPhone, Math.abs(amount)]);
+
+            if (walletResult.rows.length > 0) {
+                affectedWallet = walletResult.rows[0];
+
+                // Log wallet transaction
+                const txResult = await db.query(`
+                    INSERT INTO wallet_transactions
+                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
+                    VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'WRONG_MAPPING_CORRECTION', $6, $7)
+                    RETURNING id
+                `, [
+                    normalizedPhone,
+                    affectedWallet.id,
+                    -Math.abs(amount),
+                    parseFloat(affectedWallet.balance) + Math.abs(amount),
+                    affectedWallet.balance,
+                    original_transaction_id,
+                    `Điều chỉnh: ${reason}`
+                ]);
+                walletTxId = txResult.rows[0].id;
+            }
+        }
+
+        if (adjustment_type === 'WRONG_MAPPING_CREDIT' && correct_customer_phone) {
+            // Credit to correct customer
+            const normalizedPhone = normalizePhone(correct_customer_phone);
+
+            // Get or create wallet for correct customer
+            const walletResult = await db.query(`
+                INSERT INTO customer_wallets (phone, balance)
+                VALUES ($1, $2)
+                ON CONFLICT (phone) DO UPDATE
+                SET balance = customer_wallets.balance + $2, updated_at = NOW()
+                RETURNING *
+            `, [normalizedPhone, Math.abs(amount)]);
+
+            if (walletResult.rows.length > 0) {
+                affectedWallet = walletResult.rows[0];
+
+                // Log wallet transaction
+                const txResult = await db.query(`
+                    INSERT INTO wallet_transactions
+                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
+                    VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'WRONG_MAPPING_CORRECTION', $6, $7)
+                    RETURNING id
+                `, [
+                    normalizedPhone,
+                    affectedWallet.id,
+                    Math.abs(amount),
+                    parseFloat(affectedWallet.balance) - Math.abs(amount),
+                    affectedWallet.balance,
+                    original_transaction_id,
+                    `Điều chỉnh: ${reason}`
+                ]);
+                walletTxId = txResult.rows[0].id;
+            }
+        }
+
+        if (adjustment_type === 'DUPLICATE_REVERSAL' && wrong_customer_phone) {
+            // Reverse duplicate entry
+            const normalizedPhone = normalizePhone(wrong_customer_phone);
+
+            const walletResult = await db.query(`
+                UPDATE customer_wallets
+                SET balance = balance - $2, updated_at = NOW()
+                WHERE phone = $1
+                RETURNING *
+            `, [normalizedPhone, Math.abs(amount)]);
+
+            if (walletResult.rows.length > 0) {
+                affectedWallet = walletResult.rows[0];
+
+                const txResult = await db.query(`
+                    INSERT INTO wallet_transactions
+                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
+                    VALUES ($1, $2, 'ADJUSTMENT', $3, $4, $5, 'DUPLICATE_REVERSAL', $6, $7)
+                    RETURNING id
+                `, [
+                    normalizedPhone,
+                    affectedWallet.id,
+                    -Math.abs(amount),
+                    parseFloat(affectedWallet.balance) + Math.abs(amount),
+                    affectedWallet.balance,
+                    original_transaction_id,
+                    `Hoàn tác trùng: ${reason}`
+                ]);
+                walletTxId = txResult.rows[0].id;
+            }
+        }
+
+        // Record the adjustment
+        const adjustmentResult = await db.query(`
+            INSERT INTO wallet_adjustments (
+                original_transaction_id,
+                wallet_transaction_id,
+                adjustment_type,
+                wrong_customer_phone,
+                correct_customer_phone,
+                adjustment_amount,
+                reason,
+                created_by,
+                approved_by,
+                approved_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, CURRENT_TIMESTAMP)
+            RETURNING *
+        `, [
+            original_transaction_id,
+            walletTxId,
+            adjustment_type,
+            wrong_customer_phone ? normalizePhone(wrong_customer_phone) : null,
+            correct_customer_phone ? normalizePhone(correct_customer_phone) : null,
+            amount,
+            reason,
+            created_by
+        ]);
+
+        await db.query('COMMIT');
+
+        console.log(`[Wallets V2] ✅ Adjustment created: ${adjustment_type} by ${created_by}`);
+
+        res.json({
+            success: true,
+            message: 'Điều chỉnh ví thành công',
+            data: {
+                adjustment: adjustmentResult.rows[0],
+                wallet_transaction_id: walletTxId,
+                affected_wallet: affectedWallet ? {
+                    phone: affectedWallet.phone,
+                    new_balance: parseFloat(affectedWallet.balance)
+                } : null
+            }
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to create wallet adjustment');
+    }
+});
+
+/**
+ * GET /api/v2/wallets/adjustments
+ * Get wallet adjustment history
+ */
+router.get('/adjustments', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { page = 1, limit = 50 } = req.query;
+
+    try {
+        // Get total count
+        const countResult = await db.query('SELECT COUNT(*) as total FROM wallet_adjustments');
+        const total = parseInt(countResult.rows[0].total);
+
+        // Get adjustments with pagination
+        const result = await db.query(`
+            SELECT
+                wa.*,
+                bh.content as original_transaction_content,
+                bh.transfer_amount as original_amount,
+                bh.transaction_date as original_date
+            FROM wallet_adjustments wa
+            LEFT JOIN balance_history bh ON wa.original_transaction_id = bh.id
+            ORDER BY wa.created_at DESC
+            LIMIT $1 OFFSET $2
+        `, [parseInt(limit), (parseInt(page) - 1) * parseInt(limit)]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch wallet adjustments');
+    }
+});
+
 module.exports = router;

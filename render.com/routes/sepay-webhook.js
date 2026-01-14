@@ -1161,12 +1161,16 @@ async function processDebtUpdate(db, transactionId) {
             }
 
             // 7. Mark transaction as processed AND link to customer phone + customer_id
+            // QR code match = AUTO_APPROVED (no manual verification needed)
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
-                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
+                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                     verification_status = 'AUTO_APPROVED',
+                     match_method = 'qr_code',
+                     verified_at = CURRENT_TIMESTAMP
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, phone, customerId, amount]
             );
@@ -1315,12 +1319,16 @@ async function processDebtUpdate(db, transactionId) {
         }
 
         // Mark transaction as processed AND link to customer phone + customer_id
+        // Exact 10-digit phone = AUTO_APPROVED (no manual verification needed)
         await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
                  linked_customer_phone = $2,
                  customer_id = COALESCE($3, customer_id),
-                 wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
+                 wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                 verification_status = 'AUTO_APPROVED',
+                 match_method = 'exact_phone',
+                 verified_at = CURRENT_TIMESTAMP
              WHERE id = $1 AND linked_customer_phone IS NULL`,
             [transactionId, exactPhone, customerId, amount]
         );
@@ -1482,12 +1490,16 @@ async function processDebtUpdate(db, transactionId) {
             }
 
             // Update balance_history with customer_id
+            // Single match from partial phone = AUTO_APPROVED
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
-                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END
+                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                     verification_status = 'AUTO_APPROVED',
+                     match_method = 'single_match',
+                     verified_at = CURRENT_TIMESTAMP
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, fullPhone, customerId, amount]
             );
@@ -1519,6 +1531,7 @@ async function processDebtUpdate(db, transactionId) {
 
         } else {
             // MULTIPLE PHONES: Create pending match for admin to choose
+            // Set verification_status = PENDING_VERIFICATION (needs accountant approval)
             console.log(`[DEBT-UPDATE] ⚠️ Multiple phones found (${matchedPhones.length}) from ${dataSource}, creating pending match...`);
 
             // Format matched_customers JSONB
@@ -1540,6 +1553,15 @@ async function processDebtUpdate(db, transactionId) {
                 ]
             );
 
+            // Update balance_history with PENDING_VERIFICATION status
+            await db.query(
+                `UPDATE balance_history
+                 SET verification_status = 'PENDING_VERIFICATION',
+                     match_method = 'pending_match'
+                 WHERE id = $1`,
+                [transactionId]
+            );
+
             console.log('[DEBT-UPDATE] 📋 Created pending match for transaction:', transactionId);
             console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} unique phones from ${dataSource}:`);
             matchedPhones.forEach(({phone, count}) => {
@@ -1553,7 +1575,8 @@ async function processDebtUpdate(db, transactionId) {
                 partialPhone,
                 uniquePhonesCount: matchedPhones.length,
                 dataSource,
-                pendingMatch: true
+                pendingMatch: true,
+                verificationStatus: 'PENDING_VERIFICATION'
             };
         }
     }
@@ -2837,46 +2860,29 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
         }
 
         // 4. Mark transaction as processed AND link to customer phone + customer_id
+        // This is staff selection from dropdown, so it needs PENDING_VERIFICATION for accountant approval
         const amount = parseInt(match.transfer_amount) || 0;
         await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
                  linked_customer_phone = $2,
-                 customer_id = COALESCE($3, customer_id)
+                 customer_id = COALESCE($3, customer_id),
+                 verification_status = 'PENDING_VERIFICATION',
+                 match_method = 'pending_match',
+                 verification_note = 'Chờ kế toán duyệt (NV chọn từ dropdown)'
              WHERE id = $1 AND linked_customer_phone IS NULL`,
             [match.transaction_id, selectedCustomer.phone, customerId]
         );
 
         console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId);
 
-        // 5. Process wallet deposit immediately (NEW - realtime wallet update)
+        // 5. DO NOT process wallet immediately - needs accountant approval first
+        // According to verification workflow: NV chọn từ dropdown → PENDING_VERIFICATION → Kế toán duyệt → mới process wallet
+        // Wallet will be processed when accountant approves via /api/v2/balance-history/:id/approve
         let walletProcessed = false;
-        if (amount > 0 && customerId) {
-            try {
-                const walletResult = await processDeposit(
-                    db,
-                    selectedCustomer.phone,
-                    amount,
-                    match.transaction_id,
-                    `Nạp từ CK (resolve-match ${id})`,
-                    customerId
-                );
+        console.log('[RESOLVE-MATCH] ⏳ Wallet processing deferred - awaiting accountant approval');
 
-                // Mark balance_history as wallet processed
-                await db.query(`
-                    UPDATE balance_history
-                    SET wallet_processed = TRUE
-                    WHERE id = $1
-                `, [match.transaction_id]);
-
-                walletProcessed = true;
-                console.log(`[RESOLVE-MATCH] ✅ Wallet updated: TX ${walletResult.transactionId}, new balance: ${walletResult.wallet.balance}`);
-            } catch (walletErr) {
-                console.error('[RESOLVE-MATCH] Wallet update failed:', walletErr.message);
-            }
-        }
-
-        // 4. Update pending match status with selected customer info as JSON
+        // 6. Update pending match status with selected customer info as JSON
         const selectedCustomerJson = JSON.stringify({
             id: customerId,  // Use the created/found customerId
             name: customerName,  // Use customerName updated from TPOS

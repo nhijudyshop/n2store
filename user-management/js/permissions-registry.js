@@ -373,7 +373,12 @@ const PAGES_REGISTRY = {
             adjust: { name: "Điều chỉnh", icon: "sliders", description: "Điều chỉnh số dư" },
             resolveMatch: { name: "Chọn khách hàng", icon: "user-check", description: "Chọn KH từ danh sách nhiều SĐT khớp" },
             skipMatch: { name: "Bỏ qua match", icon: "user-x", description: "Bỏ qua khi không khớp KH" },
-            undoSkip: { name: "Hoàn tác bỏ qua", icon: "rotate-ccw", description: "Hoàn tác các match đã bỏ qua" }
+            undoSkip: { name: "Hoàn tác bỏ qua", icon: "rotate-ccw", description: "Hoàn tác các match đã bỏ qua" },
+            viewVerificationQueue: { name: "Xem chờ duyệt", icon: "clock", description: "Xem danh sách giao dịch chờ kế toán duyệt" },
+            approveTransaction: { name: "Duyệt giao dịch", icon: "check-circle", description: "Duyệt giao dịch và cộng tiền vào ví" },
+            rejectTransaction: { name: "Từ chối giao dịch", icon: "x-circle", description: "Từ chối giao dịch không hợp lệ" },
+            createWalletAdjustment: { name: "Điều chỉnh ví", icon: "edit-3", description: "Tạo điều chỉnh ví khi sai mapping" },
+            manualTransactionEntry: { name: "Nhập giao dịch tay", icon: "edit", description: "Nhập giao dịch thủ công" }
         }
     },
 
