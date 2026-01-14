@@ -367,7 +367,7 @@ async function saveShipment() {
         const dateInput = document.getElementById('shipmentDate');
         const ngayDiHang = dateInput?.value;
         if (!ngayDiHang) {
-            toast.warning('Vui lòng chọn ngày đi hàng');
+            window.notificationManager?.warning('Vui lòng chọn ngày đi hàng');
             return;
         }
 
@@ -414,7 +414,7 @@ async function saveShipment() {
 
         // Validate at least one invoice
         if (hoaDon.length === 0) {
-            toast.warning('Vui lòng nhập ít nhất 1 hóa đơn NCC');
+            window.notificationManager?.warning('Vui lòng nhập ít nhất 1 hóa đơn NCC');
             return;
         }
 
@@ -460,7 +460,7 @@ async function saveShipment() {
         };
 
         // Show loading
-        const loadingToast = toast.loading('Đang lưu...');
+        const loadingToast = window.notificationManager?.loading('Đang lưu...');
 
         if (currentShipmentData) {
             // Update existing
@@ -470,7 +470,7 @@ async function saveShipment() {
             await createShipment(shipmentData);
         }
 
-        toast.remove(loadingToast);
+        window.notificationManager?.remove(loadingToast);
         closeModal('modalShipment');
 
         // Reload data
@@ -478,7 +478,7 @@ async function saveShipment() {
 
     } catch (error) {
         console.error('[MODAL] Error saving shipment:', error);
-        toast.error('Không thể lưu đợt hàng');
+        window.notificationManager?.error('Không thể lưu đợt hàng');
     }
 }
 
@@ -518,16 +518,16 @@ async function handleAIImageUpload(files) {
     // Validate files
     for (const file of files) {
         if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) {
-            toast.error(`File ${file.name} không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG, GIF, WebP.`);
+            window.notificationManager?.error(`File ${file.name} không hợp lệ. Chỉ chấp nhận ảnh JPG, PNG, GIF, WebP.`);
             return;
         }
         if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) {
-            toast.error(`File ${file.name} quá lớn. Kích thước tối đa 5MB.`);
+            window.notificationManager?.error(`File ${file.name} quá lớn. Kích thước tối đa 5MB.`);
             return;
         }
     }
 
-    toast.info(`Đang xử lý ${files.length} ảnh bằng AI...`);
+    window.notificationManager?.info(`Đang xử lý ${files.length} ảnh bằng AI...`);
 
     // Setup queue callbacks
     aiQueueManager.onProgress = (current, total, status) => {

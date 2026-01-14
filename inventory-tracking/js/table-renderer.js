@@ -764,13 +764,13 @@ function viewInvoiceImages(shipmentId, invoiceIdentifier) {
     }
 
     if (invoiceIdx === -1 || !shipment.hoaDon?.[invoiceIdx]) {
-        toast.info('Không tìm thấy hóa đơn');
+        window.notificationManager?.info('Không tìm thấy hóa đơn');
         return;
     }
 
     const invoice = shipment.hoaDon[invoiceIdx];
     if (!invoice.anhHoaDon?.length) {
-        toast.info('Không có ảnh hóa đơn');
+        window.notificationManager?.info('Không có ảnh hóa đơn');
         return;
     }
 
@@ -807,18 +807,18 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
     try {
         const shipment = globalState.shipments.find(s => s.id === shipmentId);
         if (!shipment) {
-            toast.error('Không tìm thấy shipment');
+            window.notificationManager?.error('Không tìm thấy shipment');
             return;
         }
 
         if (invoiceIdx < 0 || invoiceIdx >= (shipment.hoaDon?.length || 0)) {
-            toast.error('Không tìm thấy hóa đơn');
+            window.notificationManager?.error('Không tìm thấy hóa đơn');
             return;
         }
 
         const invoice = shipment.hoaDon[invoiceIdx];
         if (!invoice.anhHoaDon || imageIndex >= invoice.anhHoaDon.length) {
-            toast.error('Không tìm thấy ảnh');
+            window.notificationManager?.error('Không tìm thấy ảnh');
             return;
         }
 
@@ -852,12 +852,12 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
         // Re-render the shipments table
         renderShipments(globalState.filteredShipments);
 
-        toast.success('Đã xóa ảnh');
+        window.notificationManager?.success('Đã xóa ảnh');
         console.log('[RENDERER] Image deleted from invoice');
 
     } catch (error) {
         console.error('[RENDERER] Delete image error:', error);
-        toast.error('Lỗi xóa ảnh: ' + error.message);
+        window.notificationManager?.error('Lỗi xóa ảnh: ' + error.message);
     }
 }
 
@@ -868,13 +868,13 @@ async function deleteInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
 function showSubInvoice(shipmentId, invoiceIdx) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
-        toast.info('Không tìm thấy shipment');
+        window.notificationManager?.info('Không tìm thấy shipment');
         return;
     }
 
     const invoice = shipment.hoaDon?.[invoiceIdx];
     if (!invoice || !invoice.subInvoice) {
-        toast.info('Không có hóa đơn phụ');
+        window.notificationManager?.info('Không có hóa đơn phụ');
         return;
     }
 
@@ -942,7 +942,7 @@ function closeSubInvoiceModal() {
 function viewSubInvoiceImages(shipmentId, invoiceIdx) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment || !shipment.hoaDon?.[invoiceIdx]?.subInvoice?.anhHoaDon?.length) {
-        toast.info('Không có ảnh hóa đơn phụ');
+        window.notificationManager?.info('Không có ảnh hóa đơn phụ');
         return;
     }
 
@@ -979,13 +979,13 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
     try {
         const shipment = globalState.shipments.find(s => s.id === shipmentId);
         if (!shipment || !shipment.hoaDon?.[invoiceIdx]?.subInvoice) {
-            toast.error('Không tìm thấy hóa đơn phụ');
+            window.notificationManager?.error('Không tìm thấy hóa đơn phụ');
             return;
         }
 
         const subInvoice = shipment.hoaDon[invoiceIdx].subInvoice;
         if (!subInvoice.anhHoaDon || imageIndex >= subInvoice.anhHoaDon.length) {
-            toast.error('Không tìm thấy ảnh');
+            window.notificationManager?.error('Không tìm thấy ảnh');
             return;
         }
 
@@ -1022,10 +1022,10 @@ async function deleteSubInvoiceImage(shipmentId, invoiceIdx, imageIndex) {
         // Re-render the shipments table
         renderShipments(globalState.filteredShipments);
 
-        toast.success('Đã xóa ảnh');
+        window.notificationManager?.success('Đã xóa ảnh');
     } catch (error) {
         console.error('[RENDERER] Delete sub-invoice image error:', error);
-        toast.error('Lỗi xóa ảnh: ' + error.message);
+        window.notificationManager?.error('Lỗi xóa ảnh: ' + error.message);
     }
 }
 

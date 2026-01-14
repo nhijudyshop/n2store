@@ -20,7 +20,23 @@ const CONFIG = {
 const AUTH_STORAGE_KEY = "loginindex_auth";
 const uploadMetadata = { cacheControl: "public,max-age=31536000" };
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
+// Firebase config - uses global from ES module or fallback
+const FIREBASE_CONFIG_FALLBACK = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
+    measurementId: "G-TEJH3S2T1D",
+};
+
+function getFirebaseConfig() {
+    return (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG
+        : (typeof firebaseConfig !== 'undefined') ? firebaseConfig
+        : FIREBASE_CONFIG_FALLBACK;
+}
 
 // =====================================================
 // AUTH MANAGER - Using Shared AuthManager from core-loader.js
@@ -197,17 +213,20 @@ class FirebaseManager {
 
     init() {
         try {
-            this.app = firebase.initializeApp(firebaseConfig);
+            const config = getFirebaseConfig();
+            this.app = !firebase.apps.length ? firebase.initializeApp(config) : firebase.app();
             this.storage = firebase.storage();
             this.db = firebase.firestore();
-            console.log("Firebase initialized");
+            console.log("[Firebase] Initialized successfully");
         } catch (error) {
-            console.error("Firebase init failed:", error);
-            notificationManager.error(
-                "Lỗi kết nối hệ thống",
-                4000,
-                "Lỗi Firebase",
-            );
+            console.error("[Firebase] Init failed:", error);
+            if (typeof notificationManager !== 'undefined') {
+                notificationManager.error(
+                    "Lỗi kết nối hệ thống",
+                    4000,
+                    "Lỗi Firebase",
+                );
+            }
         }
     }
 
@@ -1066,12 +1085,18 @@ let app;
 // Wait for both DOM and core utilities to be ready
 function initializeApp() {
     notificationManager = new NotificationManager();
-    // Initialize shared AuthManager with configuration
-    authManager = new AuthManager({
-        storageKey: AUTH_STORAGE_KEY,
-        redirectUrl: "../index.html",
-        sessionDuration: CONFIG.SESSION_TIMEOUT
-    });
+    // Use shared AuthManager from compat.js if available, otherwise create new
+    if (window.authManager) {
+        authManager = window.authManager;
+        console.log('[App] Using shared authManager from compat.js');
+    } else {
+        authManager = new AuthManager({
+            storageKey: AUTH_STORAGE_KEY,
+            redirectUrl: "../index.html",
+            sessionDuration: CONFIG.SESSION_TIMEOUT
+        });
+        console.log('[App] Created new authManager (fallback)');
+    }
     cacheManager = new CacheManager();
     uiManager = new UIManager();
     app = new ImageManagementApp();

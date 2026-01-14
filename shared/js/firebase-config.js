@@ -30,10 +30,10 @@ var FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
 // Alias for backward compatibility - Use var to allow redeclaration
 var firebaseConfig = window.firebaseConfig || FIREBASE_CONFIG;
 
-// State tracking
-let _firestoreDB = null;
-let _realtimeDB = null;
-let _isFirebaseInitialized = false;
+// State tracking - Use var to allow redeclaration if loaded multiple times
+var _firestoreDB = _firestoreDB || null;
+var _realtimeDB = _realtimeDB || null;
+var _isFirebaseInitialized = _isFirebaseInitialized || false;
 
 /**
  * Initialize Firebase app (core)
@@ -139,15 +139,15 @@ function getRef(path) {
 }
 
 /**
- * Common collection/path names
+ * Common collection/path names - Use var to allow redeclaration
  */
-const FIRESTORE_COLLECTIONS = {
+var FIRESTORE_COLLECTIONS = FIRESTORE_COLLECTIONS || {
     INVENTORY: 'inventory',
     LOGS: 'logs',
     SETTINGS: 'settings',
 };
 
-const RTDB_PATHS = {
+var RTDB_PATHS = RTDB_PATHS || {
     SOLUONG_PRODUCTS: 'soluongProducts',
     SOLUONG_META: 'soluongProductsMeta',
     ORDER_PRODUCTS: 'orderProducts',

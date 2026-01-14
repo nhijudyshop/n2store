@@ -826,6 +826,6 @@ function appendNewMessages(messages, chatType = 'message') {
 // =====================================================
 // QUICK ADD PRODUCT LOGIC
 // =====================================================
-let quickAddSelectedProducts = [];
-let quickAddSearchTimeout = null;
+// Note: Variables and functions are defined in tab1-chat-products.js
+// This file uses window.quickAddSelectedProducts directly
 

@@ -122,11 +122,11 @@ async function saveShortage() {
         await loadShipmentsData();
 
         closeModal('modalShortage');
-        toast.success('Da cap nhat so mon thieu');
+        window.notificationManager?.success('Da cap nhat so mon thieu');
 
     } catch (error) {
         console.error('[SHORTAGE] Error saving:', error);
-        toast.error('Khong the luu');
+        window.notificationManager?.error('Khong the luu');
     }
 }
 

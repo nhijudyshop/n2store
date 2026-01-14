@@ -12,7 +12,8 @@
 
         <!-- Firebase SDK - Load FIRST -->
         <!-- N2Store Optimization: Core Utilities Loader -->
-        <script src="../shared/js/core-loader.js"></script>
+        <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -21,8 +22,7 @@
         <script src="https://unpkg.com/lucide@latest"></script>
 
         <!-- Navigation Manager - Load trước khi load page scripts -->
-        <script src="../shared/js/navigation-modern.js"></script>
-        <script src="../shared/js/common-utils.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
 
         <!-- CSS Files -->
         <link rel="stylesheet" href="css/modern.css" />
@@ -358,9 +358,6 @@
         <script src="../shared/js/firebase-config.js"></script>
         <script src="js/firebase-service.js"></script>
         <script src="js/config.js"></script>
-        <script src="../shared/js/shared-auth-manager.js"></script>
-        <script src="../shared/js/shared-cache-manager.js"></script>
-        <script src="../shared/js/notification-system.js"></script>
         <script src="js/utils.js"></script>
         <script src="js/statistics.js"></script>
         <script src="js/filters.js"></script>

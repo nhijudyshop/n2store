@@ -7,11 +7,13 @@
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('[REPORT] Page loaded, initializing...');
 
-    // Initialize analysis tab visibility based on permissions
-    initAnalysisTabVisibility();
+    // Initialize analysis tab visibility based on permissions (with safe check)
+    if (typeof initAnalysisTabVisibility === 'function') {
+        initAnalysisTabVisibility();
+    }
 
     // Reset fetching state on page load (in case it was stuck from previous session)
-    isFetching = false;
+    if (typeof isFetching !== 'undefined') isFetching = false;
     const fetchBtn = document.getElementById('btnBatchFetch');
     if (fetchBtn) {
         fetchBtn.disabled = false;
@@ -133,10 +135,12 @@ window.reportModule = {
     startBatchFetch: startBatchFetch
 };
 
-// Expose for discount stats
-window.cachedOrderDetails = cachedOrderDetails;
+// Expose for discount stats (with safe check)
+if (typeof cachedOrderDetails !== 'undefined') {
+    window.cachedOrderDetails = cachedOrderDetails;
+}
 
-// Expose permission functions
-window.canViewAnalysis = canViewAnalysis;
-window.canEditAnalysis = canEditAnalysis;
-window.currentTableName = currentTableName;
+// Expose permission functions (with safe checks)
+if (typeof canViewAnalysis !== 'undefined') window.canViewAnalysis = canViewAnalysis;
+if (typeof canEditAnalysis !== 'undefined') window.canEditAnalysis = canEditAnalysis;
+if (typeof currentTableName !== 'undefined') window.currentTableName = currentTableName;

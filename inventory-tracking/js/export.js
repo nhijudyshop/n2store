@@ -8,12 +8,12 @@
  */
 async function exportToExcel() {
     if (!permissionHelper?.can('export_data')) {
-        toast.error('Bạn không có quyền xuất file');
+        window.notificationManager?.error('Bạn không có quyền xuất file');
         return;
     }
 
     try {
-        toast.loading('Đang tạo file Excel...');
+        window.notificationManager?.loading('Đang tạo file Excel...');
 
         const { filteredShipments } = globalState;
         const canExportFinance = permissionHelper?.can('tab_congNo');
@@ -40,11 +40,11 @@ async function exportToExcel() {
         // Download
         XLSX.writeFile(wb, filename);
 
-        toast.success('Đã xuất file Excel');
+        window.notificationManager?.success('Đã xuất file Excel');
 
     } catch (error) {
         console.error('[EXPORT] Error:', error);
-        toast.error('Không thể xuất file');
+        window.notificationManager?.error('Không thể xuất file');
     }
 }
 
@@ -169,7 +169,7 @@ function getTransactionTypeLabel(type) {
 function exportShipmentDetail(shipmentId) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
-        toast.error('Không tìm thấy đợt hàng');
+        window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
     }
 
@@ -184,11 +184,11 @@ function exportShipmentDetail(shipmentId) {
         const filename = `shipment_${shipment.ngayDiHang}_${shipmentId}.xlsx`;
         XLSX.writeFile(wb, filename);
 
-        toast.success('Đã xuất chi tiết');
+        window.notificationManager?.success('Đã xuất chi tiết');
 
     } catch (error) {
         console.error('[EXPORT] Error:', error);
-        toast.error('Không thể xuất file');
+        window.notificationManager?.error('Không thể xuất file');
     }
 }
 
@@ -231,12 +231,12 @@ function buildShipmentDetailData(shipment) {
  */
 async function exportTrackingToExcel() {
     try {
-        toast.loading('Đang tạo file Excel...');
+        window.notificationManager?.loading('Đang tạo file Excel...');
 
         const { filteredShipments } = globalState;
 
         if (!filteredShipments || filteredShipments.length === 0) {
-            toast.error('Không có dữ liệu để xuất');
+            window.notificationManager?.error('Không có dữ liệu để xuất');
             return;
         }
 
@@ -266,11 +266,11 @@ async function exportTrackingToExcel() {
         // Download
         XLSX.writeFile(wb, filename);
 
-        toast.success('Đã xuất file Excel');
+        window.notificationManager?.success('Đã xuất file Excel');
 
     } catch (error) {
         console.error('[EXPORT] Error:', error);
-        toast.error('Không thể xuất file');
+        window.notificationManager?.error('Không thể xuất file');
     }
 }
 

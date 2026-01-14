@@ -34,7 +34,7 @@ async function loadOrderBookings() {
         return bookings;
     } catch (error) {
         console.error('[ORDER-BOOKING-CRUD] Error loading order bookings:', error);
-        toast.error('Lỗi khi tải dữ liệu đơn đặt hàng');
+        window.notificationManager?.error('Lỗi khi tải dữ liệu đơn đặt hàng');
         return [];
     }
 }
@@ -221,12 +221,12 @@ async function deleteOrderBookingFromDB(bookingId) {
 function editOrderBooking(bookingId) {
     const booking = globalState.orderBookings.find(b => b.id === bookingId);
     if (!booking) {
-        toast.error('Không tìm thấy đơn đặt hàng');
+        window.notificationManager?.error('Không tìm thấy đơn đặt hàng');
         return;
     }
 
     if (!permissionHelper?.can('edit_orderBooking')) {
-        toast.error('Bạn không có quyền sửa đơn đặt hàng');
+        window.notificationManager?.error('Bạn không có quyền sửa đơn đặt hàng');
         return;
     }
 
@@ -241,13 +241,13 @@ function editOrderBooking(bookingId) {
  */
 async function deleteOrderBooking(bookingId) {
     if (!permissionHelper?.can('delete_orderBooking')) {
-        toast.error('Bạn không có quyền xóa đơn đặt hàng');
+        window.notificationManager?.error('Bạn không có quyền xóa đơn đặt hàng');
         return;
     }
 
     const booking = globalState.orderBookings.find(b => b.id === bookingId);
     if (!booking) {
-        toast.error('Không tìm thấy đơn đặt hàng');
+        window.notificationManager?.error('Không tìm thấy đơn đặt hàng');
         return;
     }
 
@@ -260,9 +260,9 @@ async function deleteOrderBooking(bookingId) {
         // Re-render
         renderOrderBookings(globalState.filteredOrderBookings);
 
-        toast.success('Đã xóa đơn đặt hàng');
+        window.notificationManager?.success('Đã xóa đơn đặt hàng');
     } catch (error) {
-        toast.error('Lỗi khi xóa đơn đặt hàng');
+        window.notificationManager?.error('Lỗi khi xóa đơn đặt hàng');
     }
 }
 
@@ -277,12 +277,12 @@ async function uploadBookingImages(files) {
         try {
             // Validate file
             if (!APP_CONFIG.ALLOWED_IMAGE_TYPES.includes(file.type)) {
-                toast.warning(`Bỏ qua ${file.name} - định dạng không hỗ trợ`);
+                window.notificationManager?.warning(`Bỏ qua ${file.name} - định dạng không hỗ trợ`);
                 continue;
             }
 
             if (file.size > APP_CONFIG.MAX_IMAGE_SIZE) {
-                toast.warning(`Bỏ qua ${file.name} - vượt quá 5MB`);
+                window.notificationManager?.warning(`Bỏ qua ${file.name} - vượt quá 5MB`);
                 continue;
             }
 
@@ -321,7 +321,7 @@ async function uploadBookingImages(files) {
             uploadedUrls.push(result.url);
         } catch (error) {
             console.error('Error uploading image:', error);
-            toast.error(`Lỗi upload ${file.name}`);
+            window.notificationManager?.error(`Lỗi upload ${file.name}`);
         }
     }
 

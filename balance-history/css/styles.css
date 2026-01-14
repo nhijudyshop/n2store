@@ -430,7 +430,7 @@ body {
     word-break: break-word;
 }
 
-/* Specific column widths for better layout */
+/* Specific column widths for better layout - 8 columns */
 .data-table th:nth-child(1),
 /* Ngày giờ */
 .data-table td:nth-child(1) {
@@ -440,70 +440,50 @@ body {
 }
 
 .data-table th:nth-child(2),
-/* Ngân hàng */
+/* Số tiền */
 .data-table td:nth-child(2) {
-    width: 70px;
+    width: 100px;
+    white-space: nowrap;
 }
 
 .data-table th:nth-child(3),
-/* Loại */
+/* Nội dung */
 .data-table td:nth-child(3) {
-    width: 80px;
+    min-width: 280px;
+    max-width: 400px;
 }
 
 .data-table th:nth-child(4),
-/* Số tiền */
-.data-table td:nth-child(4) {
-    width: 90px;
-    white-space: nowrap;
-}
-
-.data-table th:nth-child(5),
-/* Số dư */
-.data-table td:nth-child(5) {
-    width: 90px;
-    white-space: nowrap;
-}
-
-.data-table th:nth-child(6),
-/* Nội dung */
-.data-table td:nth-child(6) {
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.data-table th:nth-child(7),
 /* Mã tham chiếu */
-.data-table td:nth-child(7) {
-    width: 90px;
+.data-table td:nth-child(4) {
+    width: 80px;
     font-size: 0.7rem;
 }
 
-.data-table th:nth-child(8),
+.data-table th:nth-child(5),
 /* Tên khách hàng */
-.data-table td:nth-child(8) {
-    max-width: 140px;
+.data-table td:nth-child(5) {
+    width: 120px;
 }
 
-.data-table th:nth-child(9),
+.data-table th:nth-child(6),
 /* Số điện thoại */
-.data-table td:nth-child(9) {
-    width: 95px;
+.data-table td:nth-child(6) {
+    width: 100px;
     white-space: nowrap;
     font-size: 0.75rem;
 }
 
-.data-table th:nth-child(10),
-/* QR Code */
-.data-table td:nth-child(10) {
-    width: 70px;
+.data-table th:nth-child(7),
+/* Nguồn */
+.data-table td:nth-child(7) {
+    width: 90px;
 }
 
-.data-table th:nth-child(11),
-/* Thao tác */
-.data-table td:nth-child(11) {
-    width: 70px;
+.data-table th:nth-child(8),
+/* QR Code */
+.data-table td:nth-child(8) {
+    width: 100px;
 }
 
 .data-table tbody tr {
@@ -762,8 +742,14 @@ body {
     }
 
     /* Hide less important columns on mobile */
-    .data-table th:nth-child(7),
+    .data-table th:nth-child(4),
     /* Mã tham chiếu */
+    .data-table td:nth-child(4) {
+        display: none;
+    }
+
+    .data-table th:nth-child(7),
+    /* Nguồn */
     .data-table td:nth-child(7) {
         display: none;
     }

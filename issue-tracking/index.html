@@ -7,14 +7,12 @@
     <title>Quản lý Sự vụ & Điều phối sau bán hàng</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Core Loader -->
-    <script src="../shared/js/core-loader.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
     <!-- Mermaid.js for Flow Diagrams -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <!-- Lucide Icons for Notifications -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-
+    <!-- Navigation (deferred) -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
 </head>
 
 <body>
@@ -385,8 +383,12 @@ Ví dụ:
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
-    <!-- Shared Auth -->
+    <!-- Shared utilities -->
+    <script src="../shared/js/firebase-config.js"></script>
     <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});</script>
+    <script src="../shared/js/notification-system.js"></script>
+    <script>if(typeof NotificationManager!=="undefined"&&!window.notificationManager)window.notificationManager=new NotificationManager();</script>
 
     <!-- Shared API Utils -->
     <script src="../orders-report/js/core/api-config.js"></script>
@@ -396,7 +398,6 @@ Ví dụ:
     <!-- Module Scripts -->
     <script src="js/firebase-init.js"></script>
     <script src="js/api-service.js"></script>
-    <script src="../shared/js/notification-system.js"></script>
     <script src="js/script.js"></script>
 </body>
 

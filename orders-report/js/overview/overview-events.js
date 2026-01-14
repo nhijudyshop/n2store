@@ -9,10 +9,10 @@ window.addEventListener('message', function (event) {
     if (event.data.type === 'ORDERS_DATA_RESPONSE_OVERVIEW') {
         console.log('[REPORT] Received orders data:', event.data.orders?.length || 0);
         console.log('[REPORT] Received campaign name:', event.data.tableName);
-        console.log('[REPORT] User manually selected table:', userManuallySelectedTable);
+        console.log('[REPORT] User manually selected table:', typeof userManuallySelectedTable !== 'undefined' ? userManuallySelectedTable : false);
 
         // Mark that we received data from Tab1 (for retry logic)
-        dataReceivedFromTab1 = true;
+        if (typeof dataReceivedFromTab1 !== 'undefined') dataReceivedFromTab1 = true;
 
         // Check if campaign is selected in Tab 1
         if (!event.data.tableName) {
@@ -24,7 +24,9 @@ window.addEventListener('message', function (event) {
         const tab1TableName = event.data.tableName;
 
         // If user has manually selected a table from dropdown, don't override their selection
-        if (userManuallySelectedTable && currentTableName && currentTableName !== tab1TableName) {
+        const _userManuallySelected = typeof userManuallySelectedTable !== 'undefined' ? userManuallySelectedTable : false;
+        const _currentTable = typeof currentTableName !== 'undefined' ? currentTableName : null;
+        if (_userManuallySelected && _currentTable && _currentTable !== tab1TableName) {
             console.log(`[REPORT] ⚠️ User manually selected "${currentTableName}", ignoring tab1 data for "${tab1TableName}"`);
 
             // Still add tab1's table to dropdown if not exists (don't clear dropdown)
@@ -94,14 +96,16 @@ window.addEventListener('message', function (event) {
         const newTableName = event.data.tableName;
 
         // If user has manually selected a different table, don't override
-        if (userManuallySelectedTable && currentTableName && currentTableName !== newTableName) {
-            console.log(`[REPORT] ⚠️ User manually selected "${currentTableName}", not switching to tab1's "${newTableName}"`);
+        const _manualSelect = typeof userManuallySelectedTable !== 'undefined' ? userManuallySelectedTable : false;
+        const _currTable = typeof currentTableName !== 'undefined' ? currentTableName : null;
+        if (_manualSelect && _currTable && _currTable !== newTableName) {
+            console.log(`[REPORT] ⚠️ User manually selected "${_currTable}", not switching to tab1's "${newTableName}"`);
             // Just add the new table option if it doesn't exist (don't reset dropdown)
-            addTableOptionIfNotExists(newTableName, 0);
+            if (typeof addTableOptionIfNotExists === 'function') addTableOptionIfNotExists(newTableName, 0);
             return;
         }
 
-        currentTableName = newTableName;
+        if (typeof currentTableName !== 'undefined') currentTableName = newTableName;
 
         // Update selector - add option if not exists, then select it
         addTableOptionIfNotExists(newTableName, 0);

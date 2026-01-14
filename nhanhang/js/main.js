@@ -726,12 +726,16 @@ async function initializeApplication() {
 // Global error handlers
 window.addEventListener("error", function (e) {
     console.error("Global error:", e.error);
-    notificationManager.error("Có lỗi xảy ra. Vui lòng tải lại trang.", 5000);
+    if (window.notificationManager) {
+        window.notificationManager.error("Có lỗi xảy ra. Vui lòng tải lại trang.", 5000);
+    }
 });
 
 window.addEventListener("unhandledrejection", function (e) {
     console.error("Unhandled promise rejection:", e.reason);
-    notificationManager.error("Có lỗi xảy ra trong xử lý dữ liệu.", 4000);
+    if (window.notificationManager) {
+        window.notificationManager.error("Có lỗi xảy ra trong xử lý dữ liệu.", 4000);
+    }
 });
 
 // =====================================================

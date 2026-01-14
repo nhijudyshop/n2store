@@ -335,7 +335,7 @@ function renderBookingProductRows(booking, bookingIdx, canEdit, canDelete, canUp
 function viewBookingImages(bookingId) {
     const booking = globalState.orderBookings.find(b => b.id === bookingId);
     if (!booking || !booking.anhHoaDon?.length) {
-        toast.info('Không có ảnh hóa đơn');
+        window.notificationManager?.info('Không có ảnh hóa đơn');
         return;
     }
 
@@ -391,10 +391,10 @@ async function deleteBookingImage(bookingId, imageIndex) {
         // Re-render image viewer
         viewBookingImages(bookingId);
 
-        toast.success('Đã xóa ảnh');
+        window.notificationManager?.success('Đã xóa ảnh');
     } catch (error) {
         console.error('Error deleting booking image:', error);
-        toast.error('Lỗi khi xóa ảnh');
+        window.notificationManager?.error('Lỗi khi xóa ảnh');
     }
 }
 
@@ -436,10 +436,10 @@ async function updateBookingStatus(bookingId, newStatus) {
         // Re-render
         renderOrderBookings(globalState.filteredOrderBookings || globalState.orderBookings);
 
-        toast.success('Đã cập nhật trạng thái');
+        window.notificationManager?.success('Đã cập nhật trạng thái');
     } catch (error) {
         console.error('Error updating booking status:', error);
-        toast.error('Lỗi khi cập nhật trạng thái');
+        window.notificationManager?.error('Lỗi khi cập nhật trạng thái');
 
         // Revert select value
         renderOrderBookings(globalState.filteredOrderBookings || globalState.orderBookings);
@@ -572,10 +572,10 @@ async function confirmLinkShipment() {
         // Re-render
         renderOrderBookings(globalState.filteredOrderBookings || globalState.orderBookings);
 
-        toast.success('Đã cập nhật trạng thái và liên kết');
+        window.notificationManager?.success('Đã cập nhật trạng thái và liên kết');
     } catch (error) {
         console.error('Error linking shipment:', error);
-        toast.error('Lỗi khi liên kết đợt hàng');
+        window.notificationManager?.error('Lỗi khi liên kết đợt hàng');
     }
 }
 
@@ -610,19 +610,19 @@ function checkBookingDifference(booking) {
 function showBookingComparison(bookingId) {
     const booking = globalState.orderBookings.find(b => b.id === bookingId);
     if (!booking || !booking.linkedShipmentId) {
-        toast.info('Đơn đặt hàng chưa được liên kết');
+        window.notificationManager?.info('Đơn đặt hàng chưa được liên kết');
         return;
     }
 
     const shipment = globalState.shipments.find(s => s.id === booking.linkedShipmentId);
     if (!shipment) {
-        toast.info('Không tìm thấy đợt hàng liên kết');
+        window.notificationManager?.info('Không tìm thấy đợt hàng liên kết');
         return;
     }
 
     const invoice = shipment.hoaDon?.[booking.linkedInvoiceIdx];
     if (!invoice) {
-        toast.info('Không tìm thấy hóa đơn liên kết');
+        window.notificationManager?.info('Không tìm thấy hóa đơn liên kết');
         return;
     }
 

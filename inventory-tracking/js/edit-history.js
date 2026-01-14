@@ -15,7 +15,7 @@ async function logEditHistory(action, collection, docId, oldData = null, newData
     try {
         const historyRef = db.collection(COLLECTIONS.EDIT_HISTORY);
         const now = firebase.firestore.Timestamp.now();
-        const userName = authManager?.getUserName() || 'unknown';
+        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
         const userId = authManager?.getUserId() || 'unknown';
 
         const historyEntry = {

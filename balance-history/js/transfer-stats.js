@@ -209,14 +209,17 @@ function updateTSStats() {
     const total = tsData.length;
     const unchecked = tsData.filter(item => !item.is_checked).length;
     const checked = total - unchecked;
+    const verified = tsData.filter(item => item.is_verified).length;
 
     const totalEl = document.getElementById('tsTotalCount');
     const uncheckedEl = document.getElementById('tsUncheckedCount');
     const checkedEl = document.getElementById('tsCheckedCount');
+    const verifiedEl = document.getElementById('tsVerifiedCount');
 
     if (totalEl) totalEl.textContent = total;
     if (uncheckedEl) uncheckedEl.textContent = unchecked;
     if (checkedEl) checkedEl.textContent = checked;
+    if (verifiedEl) verifiedEl.textContent = verified;
 }
 
 function updateTSPagination() {
@@ -354,6 +357,9 @@ async function toggleTSVerified(id, verified) {
             if (row) {
                 row.classList.toggle('verified', verified);
             }
+
+            // Update stats to reflect verified count change
+            updateTSStats();
 
             // Show notification
             if (window.NotificationManager) {

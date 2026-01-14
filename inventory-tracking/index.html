@@ -15,9 +15,9 @@
     <link rel="stylesheet" href="css/modern.css">
 
     <!-- Navigation Manager -->
-    <script src="../shared/js/core-loader.js"></script>
-    <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
 
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -659,9 +659,7 @@
 
     <!-- Scripts -->
     <script src="js/config.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
     <script src="js/permission-helper.js"></script>
-    <script src="../shared/js/notification-system.js"></script>
     <script src="js/data-loader.js"></script>
     <script src="js/text-parser.js"></script>
     <script src="js/balance-calculator.js"></script>

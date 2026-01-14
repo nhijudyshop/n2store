@@ -13,7 +13,7 @@ const APP_CONFIG = {
 
 // Initialize Firebase (using global firebaseConfig)
 if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : (typeof firebaseConfig !== 'undefined') ? firebaseConfig : {apiKey:"AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",authDomain:"n2shop-69e37.firebaseapp.com",databaseURL:"https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"n2shop-69e37",storageBucket:"n2shop-69e37-ne0q1",messagingSenderId:"598906493303",appId:"1:598906493303:web:46d6236a1fdc2eff33e972"});
 }
 const app = firebase.app();
 const db = firebase.firestore();

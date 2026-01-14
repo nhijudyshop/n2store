@@ -138,7 +138,10 @@ async function updateOrderWithFullPayload(orderData, newDetails, totalAmount, to
 }
 
 // Export API functions for external modules
-window.saveChatProductsToFirebase = saveChatProductsToFirebase;
+// Note: saveChatProductsToFirebase is defined in tab1-chat-products.js
+if (typeof saveChatProductsToFirebase !== 'undefined') {
+    window.saveChatProductsToFirebase = saveChatProductsToFirebase;
+}
 window.getOrderDetails = getOrderDetails;
 window.updateOrderWithFullPayload = updateOrderWithFullPayload;
 

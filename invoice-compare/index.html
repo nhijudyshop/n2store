@@ -18,9 +18,9 @@
 
     <!-- Navigation Manager -->
     <!-- N2Store Optimization: Core Utilities Loader -->
-    <script src="../shared/js/core-loader.js"></script>
-    <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
 
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -384,10 +384,8 @@
     <!-- Invoice Compare Scripts -->
     <script src="../orders-report/js/core/token-manager.js"></script>
     <script src="../orders-report/js/managers/pancake-token-manager.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
     <script src="js/config.js"></script>
     <script src="js/invoice-compare.js"></script>
-    <script src="../shared/js/notification-system.js"></script>
 
     <!-- Pancake Settings Script -->
     <script>

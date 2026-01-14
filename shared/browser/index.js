@@ -142,6 +142,42 @@ export {
 } from './notification-system.js';
 
 // =====================================================
+// DATE UTILITIES
+// =====================================================
+export {
+    DateUtils,
+    formatDate,
+    formatDateTime,
+    getFormattedDateTime,
+    parseVietnameseDate,
+    getTodayVN,
+    getCurrentDateForInput,
+    formatDateForInput,
+    formatDateFromInput,
+    compareDates,
+    convertToTimestamp,
+    numberWithCommas,
+} from './date-utils.js';
+
+// =====================================================
+// FORM UTILITIES
+// =====================================================
+export {
+    FormUtils,
+    sanitizeInput,
+    generateUniqueID,
+    generateUniqueFileName,
+    debounce,
+    throttle,
+    copyToClipboard,
+    exportToCSV,
+    isValidEmail,
+    isValidPhone,
+    getInputValue,
+    setInputValue,
+} from './form-utils.js';
+
+// =====================================================
 // RE-EXPORT UNIVERSAL MODULES
 // =====================================================
 export * from '../universal/index.js';

@@ -61,6 +61,17 @@ class NotificationManager {
     }
 
     init() {
+        // Wait for DOM to be ready if body doesn't exist yet
+        if (!document.body) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => this.init());
+            } else {
+                // Fallback: try again after a short delay
+                setTimeout(() => this.init(), 10);
+            }
+            return;
+        }
+
         if (!this._stylesInjected) {
             this._injectStyles();
             this._stylesInjected = true;
@@ -73,6 +84,16 @@ class NotificationManager {
     }
 
     show(message, type = 'info', duration = 3000, options = {}) {
+        // Ensure container is ready
+        if (!this.container) {
+            this.init();
+            // If still not ready (waiting for DOM), queue the notification
+            if (!this.container) {
+                setTimeout(() => this.show(message, type, duration, options), 50);
+                return null;
+            }
+        }
+
         const {
             showOverlay = false,
             showProgress = true,

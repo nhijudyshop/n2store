@@ -13,12 +13,19 @@
         <!-- External CSS -->
         <link rel="stylesheet" href="css/styles.css" />
 
-        <!-- Navigation Manager - Load trước khi load page scripts -->
-        <!-- N2Store Optimization: Core Utilities Loader -->
-        <script src="../shared/js/core-loader.js"></script>
+        <!-- ES Module: Shared utilities (replaces core-loader.js) -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
-        <script src="../shared/js/navigation-modern.js"></script>
-        <script src="../shared/js/common-utils.js"></script>
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+            }
+        </script>
+
+        <!-- Navigation Manager -->
+        <script defer src="../shared/js/navigation-modern.js"></script>
 
         <!-- Lucide Icons -->
         <script src="https://unpkg.com/lucide@latest"></script>
@@ -280,23 +287,15 @@
             <span class="alert-text"></span>
         </div>
 
-        <!-- Scripts - Load theo đúng thứ tự -->
-        <script src="js/config.js"></script>
-        <script src="js/utils.js"></script>
-        <script src="../shared/js/shared-auth-manager.js"></script>
-        <script src="../shared/js/shared-cache-manager.js"></script>
-
-        <!-- CRITICAL: Load NotificationManager TRƯỚC các module khác -->
-        <script src="../shared/js/notification-system.js"></script>
-
-        <script src="js/ui-components.js"></script>
-        <script src="js/data-loader.js"></script>
-        <script src="js/filters.js"></script>
-        <script src="js/table-renderer.js"></script>
-        <script src="js/crud-operations.js"></script>
-        <script src="js/export.js"></script>
-
-        <!-- Main phải load CUỐI CÙNG -->
-        <script src="js/main.js"></script>
+        <!-- Scripts - Page modules (shared loaded via esm/compat.js) -->
+        <script defer src="js/config.js"></script>
+        <script defer src="js/utils.js"></script>
+        <script defer src="js/ui-components.js"></script>
+        <script defer src="js/data-loader.js"></script>
+        <script defer src="js/filters.js"></script>
+        <script defer src="js/table-renderer.js"></script>
+        <script defer src="js/crud-operations.js"></script>
+        <script defer src="js/export.js"></script>
+        <script defer src="js/main.js"></script>
     </body>
 </html>

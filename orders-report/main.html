@@ -61,54 +61,49 @@
     <!-- External CSS -->
     <link rel="stylesheet" href="css/modern.css" />
 
-    <!-- N2Store Optimization: Core Utilities Loader -->
-    <script src="../shared/js/core-loader.js"></script>
+    <!-- N2Store Optimization: ES Module Loader (auto-inits authManager) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
 
-    <!-- Auth must load BEFORE navigation -->
-    <script src="../shared/js/shared-auth-manager.js"></script>
-    <script>
-        // Initialize authManager with orders-report config
-        const authManager = new AuthManager({
-            redirectUrl: '../index.html',
-            sessionDuration: 8 * 60 * 60 * 1000,  // 8 hours
-            rememberDuration: 30 * 24 * 60 * 60 * 1000  // 30 days
-        });
-        window.authManager = authManager;
-
-        // Legacy wrapper functions for backward compatibility
-        function getAuthState() { return authManager.getAuthData(); }
-        function setAuthState(isLoggedIn, userType, checkLogin) {
-            authManager.saveAuthData({ isLoggedIn, userType, checkLogin, timestamp: Date.now() }, false);
-        }
-        function clearAuthState() {
-            sessionStorage.removeItem('loginindex_auth');
-            localStorage.removeItem('loginindex_auth');
-        }
-        function isAuthenticated() { return authManager.isAuthenticated(); }
-        function hasPermission(level) { return authManager.hasPermission(level); }
-        function getUserName() {
-            const auth = getAuthState();
-            return auth && auth.userType ? auth.userType.split('-')[0] : 'Admin';
-        }
-        function handleLogout() {
-            if (confirm('Bạn có chắc muốn đăng xuất?')) {
-                clearAuthState();
-                window.location.href = '../index.html';
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
             }
-        }
+        </script>
 
-        // Auto-redirect if not authenticated
-        if (!authManager.isAuthenticated()) {
-            console.warn('[AUTH] User not authenticated, redirecting to login...');
-            authManager.logout('Not authenticated');
-        }
-
-        console.log('[AUTH] AuthManager initialized:', authManager.isAuthenticated());
+    <!-- Legacy wrapper functions for orders-report -->
+    <script type="module">
+        window.addEventListener('sharedModulesLoaded', () => {
+            if (window.authManager) {
+                window.getAuthState = () => window.authManager.getAuthData();
+                window.setAuthState = (isLoggedIn, userType, checkLogin) => {
+                    window.authManager.saveAuthData({ isLoggedIn, userType, checkLogin, timestamp: Date.now() }, false);
+                };
+                window.clearAuthState = () => {
+                    sessionStorage.removeItem('loginindex_auth');
+                    localStorage.removeItem('loginindex_auth');
+                };
+                window.isAuthenticated = () => window.authManager.isAuthenticated();
+                window.hasPermission = (level) => window.authManager.hasPermission(level);
+                window.getUserName = () => {
+                    const auth = window.authManager.getAuthData();
+                    return auth?.userType ? auth.userType.split('-')[0] : 'Admin';
+                };
+                window.handleLogout = () => {
+                    if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                        window.clearAuthState();
+                        window.location.href = '../index.html';
+                    }
+                };
+                console.log('[AUTH] Legacy wrapper functions ready');
+            }
+        });
     </script>
 
-    <!-- Navigation Manager - Load sau khi load auth -->
-    <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
+    <!-- Navigation Manager -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+    <script defer src="../shared/js/common-utils.js"></script>
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>

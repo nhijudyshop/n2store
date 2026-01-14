@@ -105,6 +105,14 @@ export class AuthManager {
     }
 
     /**
+     * Alias for getAuthData (backward compatibility)
+     * @returns {Object|null}
+     */
+    getAuthState() {
+        return this.getAuthData();
+    }
+
+    /**
      * Save auth data to storage
      * @param {Object} authData
      * @param {boolean} rememberMe

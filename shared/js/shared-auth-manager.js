@@ -70,6 +70,14 @@ if (typeof window !== 'undefined' && window.AuthManager) {
     }
 
     /**
+     * Alias for getAuthData (backward compatibility)
+     * @returns {object|null}
+     */
+    getAuthState() {
+        return this.getAuthData();
+    }
+
+    /**
      * Save auth data to storage
      * @param {object} authData
      * @param {boolean} rememberMe

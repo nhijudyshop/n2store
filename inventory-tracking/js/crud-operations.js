@@ -12,7 +12,7 @@ async function createShipment(data) {
 
     try {
         const now = new Date().toISOString();
-        const userName = authManager?.getUserName() || 'unknown';
+        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
         const ngayDiHang = data.ngayDiHang;
 
         // Process each invoice (hoaDon) and save to respective NCC document
@@ -70,12 +70,12 @@ async function createShipment(data) {
         // Refresh flattened data
         flattenNCCData();
 
-        toast.success('Đã tạo đợt hàng mới');
+        window.notificationManager?.success('Đã tạo đợt hàng mới');
         return data;
 
     } catch (error) {
         console.error('[CRUD] Error creating shipment:', error);
-        toast.error('Không thể tạo đợt hàng');
+        window.notificationManager?.error('Không thể tạo đợt hàng');
         throw error;
     }
 }
@@ -89,7 +89,7 @@ async function updateShipment(id, data) {
 
     try {
         const now = new Date().toISOString();
-        const userName = authManager?.getUserName() || 'unknown';
+        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
 
         // Find the shipment in flattened data
         const existingShipment = globalState.shipments.find(s => s.id === id);
@@ -155,12 +155,12 @@ async function updateShipment(id, data) {
         // Refresh flattened data
         flattenNCCData();
 
-        toast.success('Đã cập nhật đợt hàng');
+        window.notificationManager?.success('Đã cập nhật đợt hàng');
         return data;
 
     } catch (error) {
         console.error('[CRUD] Error updating shipment:', error);
-        toast.error('Không thể cập nhật đợt hàng');
+        window.notificationManager?.error('Không thể cập nhật đợt hàng');
         throw error;
     }
 }
@@ -210,12 +210,12 @@ async function deleteShipment(id) {
         // Refresh flattened data
         flattenNCCData();
 
-        toast.success('Đã xóa đợt hàng');
+        window.notificationManager?.success('Đã xóa đợt hàng');
         return true;
 
     } catch (error) {
         console.error('[CRUD] Error deleting shipment:', error);
-        toast.error('Không thể xóa đợt hàng');
+        window.notificationManager?.error('Không thể xóa đợt hàng');
         throw error;
     }
 }
@@ -274,7 +274,7 @@ async function updateDotHangShortage(sttNCC, dotHangId, shortageData) {
             soMonThieu: shortageData.soMonThieu || 0,
             ghiChuThieu: shortageData.ghiChuThieu || '',
             updatedAt: new Date().toISOString(),
-            updatedBy: authManager?.getUserName() || 'unknown'
+            updatedBy: authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown'
         };
 
         await shipmentsRef.doc(ncc.id).update({
@@ -303,7 +303,7 @@ async function updateDotHangShortage(sttNCC, dotHangId, shortageData) {
 function editShipment(id) {
     const shipment = globalState.shipments.find(s => s.id === id);
     if (!shipment) {
-        toast.error('Không tìm thấy đợt hàng');
+        window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
     }
 
@@ -318,7 +318,7 @@ function editShipment(id) {
 function updateShortage(id) {
     const shipment = globalState.shipments.find(s => s.id === id);
     if (!shipment) {
-        toast.error('Không tìm thấy đợt hàng');
+        window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
     }
 
@@ -341,7 +341,7 @@ async function logEditHistory(action, type, id, oldData, newData) {
             oldData: oldData || null,
             newData: newData || null,
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            userName: authManager?.getUserName() || 'unknown'
+            userName: authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown'
         });
     } catch (error) {
         console.error('[CRUD] Error logging edit history:', error);

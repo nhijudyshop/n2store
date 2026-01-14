@@ -103,6 +103,12 @@ async function initializeApplication() {
     const cache = window.HangRotXaCache;
     const ui = window.HangRotXaUI;
 
+    // Check if config is properly initialized
+    if (!config) {
+        console.error("HangRotXaConfig not initialized");
+        return;
+    }
+
     // Check authentication
     if (!authManager || !authManager.isAuthenticated()) {
         console.log("User not authenticated, redirecting to login");
@@ -110,9 +116,11 @@ async function initializeApplication() {
         return;
     }
 
-    // Initialize notification manager
-    config.notificationManager = new NotificationManager();
-    window.HangRotXaConfig.notificationManager = config.notificationManager;
+    // Use shared notification manager from compat.js or create fallback
+    config.notificationManager = window.notificationManager || (typeof NotificationManager !== 'undefined' ? new NotificationManager() : null);
+    if (config.notificationManager) {
+        window.HangRotXaConfig.notificationManager = config.notificationManager;
+    }
 
     // Update UI based on user
     const auth = authManager.getAuthState();
@@ -173,7 +181,7 @@ async function initializeApplication() {
 
 window.addEventListener("error", function (e) {
     console.error("Global error:", e.error);
-    if (window.HangRotXaConfig.notificationManager) {
+    if (window.HangRotXaConfig?.notificationManager && window.HangRotXaUtils) {
         window.HangRotXaUtils.showError(
             "Có lỗi xảy ra. Vui lòng tải lại trang.",
         );
@@ -182,7 +190,7 @@ window.addEventListener("error", function (e) {
 
 window.addEventListener("unhandledrejection", function (e) {
     console.error("Unhandled promise rejection:", e.reason);
-    if (window.HangRotXaConfig.notificationManager) {
+    if (window.HangRotXaConfig?.notificationManager && window.HangRotXaUtils) {
         window.HangRotXaUtils.showError("Có lỗi xảy ra trong xử lý dữ liệu.");
     }
 });

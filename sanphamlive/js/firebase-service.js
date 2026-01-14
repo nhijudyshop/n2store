@@ -1,5 +1,38 @@
 // js/firebase-service.js - Firebase Firestore Operations
 
+// Collection Names
+const COLLECTIONS = {
+    INVENTORY: 'sanphamlive_inventory',
+    LOGS: 'sanphamlive_logs'
+};
+
+// Cache Key
+const CACHE_KEY = 'sanphamlive_cache';
+
+// Get cached data from localStorage
+function getCachedData() {
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+        console.error('Error reading cache:', e);
+        return null;
+    }
+}
+
+// Set cached data to localStorage
+function setCachedData(data) {
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.error('Error saving cache:', e);
+    }
+}
+
+// Export to window for other modules
+window.getCachedData = getCachedData;
+window.setCachedData = setCachedData;
+
 class FirebaseService {
     constructor() {
         this.db = null;

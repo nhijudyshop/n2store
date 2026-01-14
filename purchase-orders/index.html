@@ -15,7 +15,8 @@
     <link rel="stylesheet" href="css/styles.css">
 
     <!-- Core Loader -->
-    <script src="../shared/js/core-loader.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -116,9 +117,7 @@
 
     <!-- Module Scripts (load in order) -->
     <script src="js/config.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
-    <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
     <script src="js/validation.js"></script>
     <script src="js/service.js"></script>
     <script src="js/data-manager.js"></script>
@@ -126,7 +125,6 @@
     <script src="js/table-renderer.js"></script>
     <script src="js/form-modal.js"></script>
     <script src="js/main.js"></script>
-    <script src="../shared/js/notification-system.js"></script>
 
     <!-- Initialize Lucide Icons -->
     <script>

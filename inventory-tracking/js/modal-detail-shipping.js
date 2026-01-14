@@ -110,7 +110,7 @@ function formatWeight(weight) {
 function editShippingFromDetail(shipmentId) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
-        toast.error('Không tìm thấy đợt hàng');
+        window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
     }
 

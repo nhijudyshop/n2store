@@ -28,7 +28,7 @@ async function loadFinanceData() {
 
     } catch (error) {
         console.error('[FINANCE] Error loading finance data:', error);
-        toast.error('Không thể tải dữ liệu tài chính');
+        window.notificationManager?.error('Không thể tải dữ liệu tài chính');
     }
 }
 
@@ -234,12 +234,12 @@ async function deleteTransaction(type, id) {
         switch (type) {
             case TRANSACTION_TYPES.PREPAYMENT:
                 await prepaymentsRef.doc(id).delete();
-                toast.success('Đã xóa thanh toán');
+                window.notificationManager?.success('Đã xóa thanh toán');
                 break;
 
             case TRANSACTION_TYPES.OTHER_EXPENSE:
                 await otherExpensesRef.doc(id).delete();
-                toast.success('Đã xóa chi phí');
+                window.notificationManager?.success('Đã xóa chi phí');
                 break;
         }
 
@@ -248,7 +248,7 @@ async function deleteTransaction(type, id) {
 
     } catch (error) {
         console.error('[FINANCE] Error deleting:', error);
-        toast.error('Không thể xóa');
+        window.notificationManager?.error('Không thể xóa');
     }
 }
 

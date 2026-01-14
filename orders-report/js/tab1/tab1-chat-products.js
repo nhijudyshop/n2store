@@ -1,8 +1,12 @@
 // =====================================================
 // QUICK ADD PRODUCT LOGIC
 // =====================================================
-let quickAddSelectedProducts = [];
-let quickAddSearchTimeout = null;
+// Initialize global variables (use var to allow redeclaration if needed)
+var quickAddSelectedProducts = [];
+var quickAddSearchTimeout = null;
+
+// Export to window for other files
+window.quickAddSelectedProducts = quickAddSelectedProducts;
 
 function openQuickAddProductModal() {
     // Update UI - Global List

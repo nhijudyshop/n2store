@@ -121,14 +121,6 @@ const MENU_CONFIG = [
         permissionRequired: "tpos-pancake",
     },
     {
-        href: "../product-search/index.html",
-        icon: "search",
-        text: "Tìm Kiếm Sản Phẩm",
-        shortText: "Tìm SP",
-        pageIdentifier: "product-search",
-        permissionRequired: "product-search",
-    },
-    {
         href: "../order-management/index.html",
         icon: "package-check",
         text: "Quản Lý Order",
@@ -267,8 +259,8 @@ async function loadCustomMenuNamesFromFirebase() {
             return getCustomMenuNames();
         }
 
-        if (typeof firebase === 'undefined' || !firebase.firestore) {
-            console.log('[Menu Names] Firebase not available, using localStorage only');
+        if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
+            console.log('[Menu Names] Firebase not available or not initialized, using localStorage only');
             return getCustomMenuNames();
         }
 
@@ -305,7 +297,7 @@ async function saveCustomMenuNames(customNames) {
         cachedMenuNames = customNames;
 
         // Save to Firebase for sync
-        if (typeof firebase !== 'undefined' && firebase.firestore) {
+        if (typeof firebase !== 'undefined' && firebase.firestore && firebase.apps?.length) {
             const db = firebase.firestore();
             await db.doc(FIREBASE_MENU_NAMES_DOC).set({
                 names: customNames,
@@ -394,8 +386,12 @@ class UnifiedNavigationManager {
     async init() {
         console.log("[Unified Nav] Starting initialization...");
 
-        // Check authentication
-        if (!authManager || !authManager.isAuthenticated()) {
+        // Check authentication - use window.authManager explicitly
+        const auth = window.authManager;
+        const authData = auth ? auth.getAuthData() : null;
+        console.log("[Unified Nav] Auth check - authManager exists:", !!auth, "| authData:", authData);
+
+        if (!auth || !auth.isAuthenticated()) {
             console.log("[Unified Nav] User not authenticated, redirecting...");
             localStorage.clear();
             sessionStorage.clear();
@@ -760,7 +756,7 @@ class UnifiedNavigationManager {
         const topBar = document.createElement("div");
         topBar.className = "mobile-top-bar";
 
-        const userInfo = authManager.getUserInfo();
+        const userInfo = window.authManager?.getUserInfo();
         const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
         const checkLogin = localStorage.getItem("checkLogin");
         const roleName = roleMap[checkLogin] || "User";
@@ -1199,7 +1195,7 @@ class UnifiedNavigationManager {
     // =====================================================
 
     updateUserInfo() {
-        const userInfo = authManager.getUserInfo();
+        const userInfo = window.authManager?.getUserInfo();
         if (!userInfo) return;
 
         const userName = document.getElementById("userName");
@@ -1332,7 +1328,7 @@ class UnifiedNavigationManager {
     // =====================================================
 
     showEditDisplayNameModal() {
-        const userInfo = authManager.getUserInfo();
+        const userInfo = window.authManager?.getUserInfo();
         const currentDisplayName = userInfo?.displayName || "";
 
         // For mobile: show modal
@@ -1641,7 +1637,7 @@ class UnifiedNavigationManager {
     }
 
     showInlineEditDisplayName() {
-        const userInfo = authManager.getUserInfo();
+        const userInfo = window.authManager?.getUserInfo();
         const currentDisplayName = userInfo?.displayName || "";
 
         // Find the user info container
@@ -1844,7 +1840,7 @@ class UnifiedNavigationManager {
     }
 
     refreshUserInfo() {
-        const userInfo = authManager.getUserInfo();
+        const userInfo = window.authManager?.getUserInfo();
         if (!userInfo) return;
 
         // Update mobile top bar
@@ -2633,7 +2629,7 @@ class UnifiedNavigationManager {
 
         okBtn.addEventListener("click", () => {
             localStorage.clear();
-            authManager.logout();
+            window.authManager?.logout();
         });
     }
 
@@ -3148,7 +3144,7 @@ class UnifiedNavigationManager {
 
     showPermissionsSummary() {
         const accessiblePages = this.getAccessiblePages();
-        const userInfo = authManager.getUserInfo();
+        const userInfo = window.authManager?.getUserInfo();
 
         const roleMap = { 0: "Admin", 1: "Manager", 3: "Staff", 777: "Guest" };
         const checkLogin = localStorage.getItem("checkLogin");
@@ -3177,17 +3173,41 @@ Liên hệ Administrator nếu cần thêm quyền truy cập.
 
 function waitForDependencies(callback, maxRetries = 15, delay = 300) {
     let retries = 0;
+    let resolved = false;
+
+    const resolve = () => {
+        if (resolved) return;
+        resolved = true;
+        console.log("[Unified Nav] Dependencies ready!");
+        callback();
+    };
+
+    // Listen for sharedModulesLoaded event from compat.js
+    window.addEventListener('sharedModulesLoaded', () => {
+        if (window.authManager) {
+            resolve();
+        }
+    }, { once: true });
 
     const check = () => {
-        if (typeof authManager !== "undefined" && authManager) {
-            console.log("[Unified Nav] Dependencies ready!");
-            callback();
+        if (resolved) return;
+
+        // Explicitly check window.authManager (not bare authManager)
+        if (window.authManager) {
+            resolve();
         } else if (retries < maxRetries) {
             retries++;
+            // Debug: show what's available on first retry
+            if (retries === 1) {
+                console.log('[Unified Nav] Debug - _esmLoaded:', window._esmLoaded);
+                console.log('[Unified Nav] Debug - _authReady:', window._authReady);
+                console.log('[Unified Nav] Debug - window.authManager:', typeof window.authManager);
+            }
             console.log(`[Unified Nav] Waiting... (${retries}/${maxRetries})`);
             setTimeout(check, delay);
         } else {
             console.error("[Unified Nav] Dependencies failed, redirecting...");
+            console.error("[Unified Nav] Final state - _esmLoaded:", window._esmLoaded, "_authReady:", window._authReady, "authManager:", typeof window.authManager);
             localStorage.clear();
             sessionStorage.clear();
             window.location.href = "../index.html";

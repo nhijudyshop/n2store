@@ -19,7 +19,16 @@
 
     <!-- Lucide Icons -->
     <!-- N2Store Optimization: Core Utilities Loader -->
-    <script src="../shared/js/core-loader.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+            }
+        </script>
 
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -401,12 +410,21 @@
     <!-- Scripts -->
     <!-- Scripts (v=20241219 for cache busting - ensures timezone fix is loaded) -->
     <script src="../shared/js/shared-auth-manager.js?v=20241219"></script>
+    <script>
+        // Initialize authManager immediately after AuthManager class is loaded
+        if (typeof AuthManager !== 'undefined' && !window.authManager) {
+            window.authManager = new AuthManager({
+                redirectUrl: '../index.html',
+                sessionDuration: 8 * 60 * 60 * 1000,
+                rememberDuration: 30 * 24 * 60 * 60 * 1000
+            });
+        }
+    </script>
     <script src="js/config.js?v=20241219"></script>
     <script src="../shared/js/shared-cache-manager.js?v=20241219"></script>
-    <script src="js/script.js?v=20241219"></script>
-    <script src="../shared/js/navigation-modern.js?v=20241219"></script>
-    <script src="../shared/js/common-utils.js"></script>
     <script src="../shared/js/notification-system.js?v=20241219"></script>
+    <script src="js/script.js?v=20241219"></script>
+    <script defer src="../shared/js/navigation-modern.js?v=20241219"></script>
 
     <!-- API Config & Pancake Managers (v=20241219 for cache busting) -->
     <script src="js/api-config.js?v=20241219"></script>

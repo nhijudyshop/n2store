@@ -44,7 +44,7 @@ class InventoryTrackingApp {
 
         } catch (error) {
             console.error('[APP] Initialization error:', error);
-            toast.error('Khong the khoi tao ung dung');
+            window.notificationManager?.error('Khong the khoi tao ung dung');
         }
     }
 
@@ -58,7 +58,8 @@ class InventoryTrackingApp {
         }
 
         // Update user info in sidebar
-        const userName = authManager.getUserName();
+        const userInfo = authManager.getUserInfo();
+        const userName = userInfo?.displayName || userInfo?.username || 'User';
         const userNameEl = document.getElementById('userName');
         const userRoleEl = document.getElementById('userRole');
 
@@ -147,11 +148,11 @@ class InventoryTrackingApp {
 
                 // Check permissions for tabs
                 if (tabId === 'booking' && !permissionHelper?.can('tab_datHang')) {
-                    toast.warning('Ban khong co quyen truy cap tab nay');
+                    window.notificationManager?.warning('Ban khong co quyen truy cap tab nay');
                     return;
                 }
                 if (tabId === 'finance' && !permissionHelper?.can('tab_congNo')) {
-                    toast.warning('Ban khong co quyen truy cap tab nay');
+                    window.notificationManager?.warning('Ban khong co quyen truy cap tab nay');
                     return;
                 }
 
@@ -484,7 +485,7 @@ class InventoryTrackingApp {
 
         } catch (error) {
             console.error('[APP] Error loading data:', error);
-            toast.error('Khong the tai du lieu');
+            window.notificationManager?.error('Khong the tai du lieu');
         } finally {
             if (loadingState) loadingState.classList.add('hidden');
             if (bookingLoadingState) bookingLoadingState.classList.add('hidden');
@@ -503,9 +504,9 @@ class InventoryTrackingApp {
 
         try {
             await this.loadData();
-            toast.success('Da cap nhat du lieu');
+            window.notificationManager?.success('Da cap nhat du lieu');
         } catch (error) {
-            toast.error('Khong the cap nhat du lieu');
+            window.notificationManager?.error('Khong the cap nhat du lieu');
         } finally {
             if (refreshButton) {
                 refreshButton.disabled = false;
@@ -555,7 +556,7 @@ class InventoryTrackingApp {
     showPermissions() {
         const permissions = permissionHelper?.getAll();
         if (!permissions) {
-            toast.info('Khong co thong tin quyen');
+            window.notificationManager?.info('Khong co thong tin quyen');
             return;
         }
 

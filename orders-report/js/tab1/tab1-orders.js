@@ -932,9 +932,10 @@ window.addEventListener("DOMContentLoaded", async function () {
             console.log('[TAG-REALTIME] Setting up Firebase TAG listeners (deferred)...');
             setupTagRealtimeListeners();
 
-            console.log('[KPI-BASE] Setting up KPI BASE listeners (deferred)...');
-            setupKPIBaseRealtimeListener();
-            preloadKPIBaseStatus(); // Preload BASE status for all orders
+            // TEMPORARILY DISABLED - KPI BASE feature
+            // console.log('[KPI-BASE] Setting up KPI BASE listeners (deferred)...');
+            // setupKPIBaseRealtimeListener();
+            // preloadKPIBaseStatus(); // Preload BASE status for all orders
         }, 1000); // Defer 1 second
     } else {
         console.warn('[TAG-REALTIME] Firebase not available, listeners not setup');
@@ -2159,37 +2160,22 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         // Check if tag exists in availableTags
         let existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
 
-        // If tag doesn't exist in local cache, fetch fresh tags from API first
+        // If tag doesn't exist in local cache, fetch ALL tags from API using pagination
         if (!existingTag) {
-            console.log('[QUICK-TAG] Tag not found in local cache, fetching fresh tags from API...');
+            console.log('[QUICK-TAG] Tag not found in local cache, fetching ALL tags from API with pagination...');
             const headers = await window.tokenManager.getAuthHeader();
 
-            // Fetch fresh tags to ensure we have the latest list
+            // Use pagination helper to fetch ALL tags (TPOS max $top=1000)
             try {
-                const tagsResponse = await API_CONFIG.smartFetch(
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000',
-                    {
-                        method: 'GET',
-                        headers: {
-                            ...headers,
-                            'accept': 'application/json',
-                            'content-type': 'application/json',
-                        },
-                    }
-                );
+                availableTags = await fetchAllTagsWithPagination(headers);
+                window.availableTags = availableTags;
+                window.cacheManager.set("tags", availableTags, "tags");
+                console.log(`[QUICK-TAG] Refreshed ${availableTags.length} tags from API (with pagination)`);
 
-                if (tagsResponse.ok) {
-                    const tagsData = await tagsResponse.json();
-                    availableTags = tagsData.value || [];
-                    window.availableTags = availableTags;
-                    window.cacheManager.set("tags", availableTags, "tags");
-                    console.log(`[QUICK-TAG] Refreshed ${availableTags.length} tags from API`);
-
-                    // Check again after refresh
-                    existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
-                    if (existingTag) {
-                        console.log('[QUICK-TAG] Found tag after refresh:', existingTag.Name);
-                    }
+                // Check again after refresh
+                existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+                if (existingTag) {
+                    console.log('[QUICK-TAG] Found tag after refresh:', existingTag.Name);
                 }
             } catch (fetchError) {
                 console.warn('[QUICK-TAG] Failed to fetch fresh tags:', fetchError);
@@ -2219,30 +2205,51 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
             );
 
             if (!createResponse.ok) {
-                throw new Error(`Lỗi tạo tag: ${createResponse.status}`);
+                // Handle "tag already exists" error (400) - fetch fresh and find the tag
+                if (createResponse.status === 400) {
+                    console.log('[QUICK-TAG] Create returned 400 (tag may already exist), fetching fresh tags...');
+                    try {
+                        const freshHeaders = await window.tokenManager.getAuthHeader();
+                        availableTags = await fetchAllTagsWithPagination(freshHeaders);
+                        window.availableTags = availableTags;
+                        window.cacheManager.set("tags", availableTags, "tags");
+
+                        existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+                        if (existingTag) {
+                            console.log('[QUICK-TAG] Found existing tag after 400 error:', existingTag.Name);
+                        } else {
+                            throw new Error(`Tag "${tagName}" đã tồn tại nhưng không tìm thấy trong hệ thống`);
+                        }
+                    } catch (fetchError) {
+                        console.error('[QUICK-TAG] Failed to recover from 400 error:', fetchError);
+                        throw new Error(`Lỗi tạo tag: ${createResponse.status} - Tag có thể đã tồn tại`);
+                    }
+                } else {
+                    throw new Error(`Lỗi tạo tag: ${createResponse.status}`);
+                }
+            } else {
+                existingTag = await createResponse.json();
+
+                // Remove @odata.context
+                if (existingTag['@odata.context']) {
+                    delete existingTag['@odata.context'];
+                }
+
+                // Update local tags list
+                availableTags.push(existingTag);
+                window.availableTags = availableTags;
+                window.cacheManager.set("tags", availableTags, "tags");
+
+                // Save to Firebase
+                if (database) {
+                    await database.ref('settings/tags').set(availableTags);
+                }
+
+                // Update dropdowns
+                populateTagFilter();
+
+                console.log('[QUICK-TAG] Created new tag:', existingTag);
             }
-
-            existingTag = await createResponse.json();
-
-            // Remove @odata.context
-            if (existingTag['@odata.context']) {
-                delete existingTag['@odata.context'];
-            }
-
-            // Update local tags list
-            availableTags.push(existingTag);
-            window.availableTags = availableTags;
-            window.cacheManager.set("tags", availableTags, "tags");
-
-            // Save to Firebase
-            if (database) {
-                await database.ref('settings/tags').set(availableTags);
-            }
-
-            // Update dropdowns
-            populateTagFilter();
-
-            console.log('[QUICK-TAG] Created new tag:', existingTag);
         }
 
         // Get current order from data
@@ -13565,111 +13572,6 @@ function getImageDimensions(blob) {
 // =====================================================
 
 /**
- * Try to unlock Pancake conversation when 24h policy or user unavailable error occurs
- * Calls 3 APIs in sequence: fill_admin_name, check_inbox, contents/touch
- * @param {string} pageId - Page ID
- * @param {string} conversationId - Conversation ID
- * @returns {Promise<{success: boolean, error?: string}>}
- */
-async function tryPancakeUnlock(pageId, conversationId) {
-    console.log('[PANCAKE-UNLOCK] 🔓 Attempting to unlock conversation...');
-    console.log('[PANCAKE-UNLOCK] Page ID:', pageId, 'Conversation ID:', conversationId);
-
-    try {
-        // Get Pancake token (access_token)
-        const accessToken = await window.pancakeTokenManager.getToken();
-        if (!accessToken) {
-            console.error('[PANCAKE-UNLOCK] ❌ No Pancake access token');
-            return { success: false, error: 'No Pancake access token' };
-        }
-
-        // Get JWT token from access_token (they are the same for Pancake)
-        const jwtToken = accessToken;
-
-        // API 1: fill_admin_name
-        console.log('[PANCAKE-UNLOCK] Step 1/3: fill_admin_name...');
-        const fillAdminUrl = window.API_CONFIG.buildUrl.pancakeDirect(
-            `pages/${pageId}/conversations/${conversationId}/messages/fill_admin_name`,
-            pageId,
-            jwtToken,
-            accessToken
-        );
-
-        const fillAdminBody = JSON.stringify({
-            timestamp: Date.now(),
-            need_remove_lock_crawl_fb_messages: false
-        });
-
-        const fillAdminResponse = await fetch(fillAdminUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: fillAdminBody
-        });
-
-        console.log('[PANCAKE-UNLOCK] fill_admin_name response:', fillAdminResponse.status);
-
-        // API 2: check_inbox
-        console.log('[PANCAKE-UNLOCK] Step 2/3: check_inbox...');
-        const checkInboxUrl = window.API_CONFIG.buildUrl.pancakeDirect(
-            `pages/${pageId}/check_inbox`,
-            pageId,
-            jwtToken,
-            accessToken
-        );
-
-        const checkInboxResponse = await fetch(checkInboxUrl, {
-            method: 'POST'
-        });
-
-        console.log('[PANCAKE-UNLOCK] check_inbox response:', checkInboxResponse.status);
-
-        // API 3: contents/touch
-        console.log('[PANCAKE-UNLOCK] Step 3/3: contents/touch...');
-        const contentsTouchUrl = window.API_CONFIG.buildUrl.pancakeDirect(
-            `pages/${pageId}/contents/touch`,
-            pageId,
-            jwtToken,
-            accessToken
-        );
-
-        const contentsTouchBody = JSON.stringify({
-            content_ids: []
-        });
-
-        const contentsTouchResponse = await fetch(contentsTouchUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: contentsTouchBody
-        });
-
-        console.log('[PANCAKE-UNLOCK] contents/touch response:', contentsTouchResponse.status);
-
-        // Check if all APIs succeeded (2xx status)
-        const allSucceeded = fillAdminResponse.ok && checkInboxResponse.ok && contentsTouchResponse.ok;
-
-        if (allSucceeded) {
-            console.log('[PANCAKE-UNLOCK] ✅ All 3 APIs succeeded, conversation may be unlocked');
-            return { success: true };
-        } else {
-            console.warn('[PANCAKE-UNLOCK] ⚠️ Some APIs failed:', {
-                fill_admin_name: fillAdminResponse.status,
-                check_inbox: checkInboxResponse.status,
-                contents_touch: contentsTouchResponse.status
-            });
-            return { success: false, error: 'Some unlock APIs failed' };
-        }
-
-    } catch (error) {
-        console.error('[PANCAKE-UNLOCK] ❌ Error:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-/**
  * Send message via Facebook Graph API with POST_PURCHASE_UPDATE message tag
  * Used to bypass 24h policy when normal Pancake API fails
  * @param {object} params - Message parameters
@@ -14162,76 +14064,22 @@ async function sendMessageInternal(messageData) {
             apiError = err;
             console.warn('[MESSAGE] ⚠️ API failed:', err.message);
 
-            // Check if this is a 24h policy or user unavailable error
-            const needsUnlockFallback = err.is24HourError || err.isUserUnavailable;
+            // NOTE: PANCAKE-UNLOCK đã được bỏ - đi thẳng đến FB-TAG-SEND cho 24H errors
+            // và Private Reply cho 551 errors
 
-            // Fallback 1: Try Pancake Unlock (fill_admin_name, check_inbox, contents/touch)
-            if (needsUnlockFallback) {
-                const errorType = err.is24HourError ? '24H policy' : 'user unavailable (551)';
-                console.log(`[MESSAGE] 🔓 ${errorType} error - attempting Pancake Unlock...`);
-                showChatSendingIndicator('Đang thử unlock conversation...');
-
-                const unlockResult = await tryPancakeUnlock(channelId, conversationId);
-
-                if (unlockResult.success) {
-                    console.log('[MESSAGE] 🔓 Pancake Unlock succeeded, retrying message send...');
-                    showChatSendingIndicator('Đang gửi lại tin nhắn...');
-
-                    // Retry sending the message với JSON payload (Pancake API chính thức)
-                    try {
-                        const retryPayload = {
-                            action: 'reply_inbox',
-                            message: message
-                        };
-
-                        // Re-add image data if exists
-                        if (imagesDataArray && imagesDataArray.length > 0) {
-                            retryPayload.content_ids = imagesDataArray
-                                .map(img => img.content_id || img.id)
-                                .filter(id => id);
-                            retryPayload.attachment_type = 'PHOTO';
-                        }
-
-                        // Use same pageAccessToken for retry (Official API)
-                        const retryUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                            `pages/${channelId}/conversations/${conversationId}/messages`,
-                            pageAccessToken
-                        ) + (customerId ? `&customer_id=${customerId}` : '');
-
-                        const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(retryPayload)
-                        }, 1, true); // Only 1 retry, skip fallback
-
-                        if (retryResponse.ok) {
-                            const retryData = await retryResponse.json();
-                            if (retryData.success !== false) {
-                                console.log('[MESSAGE] ✅ Retry after unlock succeeded!');
-                                apiSuccess = true;
-                                apiError = null;
-
-                                // Auto-mark as read after successful retry
-                                console.log('[MARK-READ] Retry message sent successfully');
-                                autoMarkAsRead(0);
-                            }
-                        }
-                    } catch (retryErr) {
-                        console.warn('[MESSAGE] ⚠️ Retry after unlock failed:', retryErr.message);
-                        // Continue to extension fallback
-                    }
-                } else {
-                    console.warn('[MESSAGE] ⚠️ Pancake Unlock failed:', unlockResult.error);
-                }
-            }
-
-            // ========== Fallback 2: Private Reply (for error 551 only) ==========
+            // ========== Fallback: Private Reply (for error 551 only) ==========
             // If still not successful and this is a 551 error, try Private Reply via Facebook Graph API
             if (!apiSuccess && err.isUserUnavailable) {
                 console.log('[MESSAGE] 🔄 User unavailable (#551), checking for Private Reply context...');
+
+                // Hiển thị thông báo giải thích lỗi 551
+                if (window.notificationManager) {
+                    window.notificationManager.show(
+                        '⚠️ Lỗi 551: Không thể gửi inbox. Có thể do:\n• Khách chỉ comment, chưa từng inbox\n• Khách đã block page\n• Đang thử Private Reply...',
+                        'warning',
+                        5000
+                    );
+                }
 
                 const facebookPostId = order.Facebook_PostId || window.purchaseFacebookPostId;
                 const facebookCommentId = order.Facebook_CommentId || window.purchaseCommentId;
@@ -14304,6 +14152,15 @@ async function sendMessageInternal(messageData) {
                         hasASUserId: !!facebookASUserId,
                         hasPageToken: !!realFacebookPageToken
                     });
+
+                    // Thông báo không thể Private Reply vì thiếu thông tin comment
+                    if (window.notificationManager) {
+                        window.notificationManager.show(
+                            '❌ Lỗi 551: Không thể gửi inbox!\n• Khách chưa từng inbox với page\n• Không có thông tin comment để Private Reply\n→ Hãy dùng COMMENT để trả lời khách!',
+                            'error',
+                            8000
+                        );
+                    }
                 }
             }
         }

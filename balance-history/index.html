@@ -12,7 +12,8 @@
     <title>Lịch sử biến động số dư - Sepay</title>
 
     <!-- Core Loader -->
-    <script src="../shared/js/core-loader.js"></script>
+    <!-- ES Module: Shared utilities -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -295,10 +296,7 @@
                     <thead>
                         <tr>
                             <th>Ngày giờ</th>
-                            <th>Ngân hàng</th>
-                            <th>Loại</th>
                             <th>Số tiền</th>
-                            <th>Số dư</th>
                             <th>Nội dung</th>
                             <th>Mã tham chiếu</th>
                             <th>Tên khách hàng</th>
@@ -364,7 +362,10 @@
                             <i data-lucide="clock"></i> Chưa KT: <strong id="tsUncheckedCount">0</strong>
                         </span>
                         <span class="ts-stat checked">
-                            <i data-lucide="check-circle"></i> Đã KT: <strong id="tsCheckedCount">0</strong>
+                            <i data-lucide="check-circle"></i> My KT: <strong id="tsCheckedCount">0</strong>
+                        </span>
+                        <span class="ts-stat verified">
+                            <i data-lucide="badge-check"></i> Còi KT: <strong id="tsVerifiedCount">0</strong>
                         </span>
                     </div>
                 </div>
@@ -380,8 +381,8 @@
                                 <th class="col-amount">Số tiền</th>
                                 <th class="col-content">Nội dung</th>
                                 <th class="col-note">Ghi chú</th>
-                                <th class="col-action">Ẩn/Hiện</th>
-                                <th class="col-action">Đã KT</th>
+                                <th class="col-action">My KT</th>
+                                <th class="col-action">Còi KT</th>
                                 <th class="col-action">Sửa</th>
                             </tr>
                         </thead>
@@ -834,13 +835,15 @@
     <script src="../shared/js/firebase-config.js"></script>
 
     <!-- Navigation & Auth -->
-    <script src="../shared/js/navigation-modern.js"></script>
-    <script src="../shared/js/common-utils.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Permission helpers (bridge to authManager) -->
+    <script>
+        window.hasPermission = (level) => window.authManager?.hasPermission?.(level) ?? false;
+        window.hasDetailedPermission = (pageId, action) => window.authManager?.hasDetailedPermission?.(pageId, action) ?? false;
+    </script>
 
     <!-- Page Scripts -->
-    <script src="../shared/js/notification-system.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
-    <script src="../shared/js/shared-cache-manager.js"></script>
     <script src="js/config.js"></script>
     <script src="js/qr-generator.js"></script>
     <script src="js/customer-info.js"></script>

@@ -14,12 +14,50 @@
         <!-- External CSS -->
         <link rel="stylesheet" href="css/modern.css" />
 
-        <!-- N2Store Optimization: Core Utilities Loader (LOAD FIRST) -->
-        <script src="../shared/js/core-loader.js"></script>
+        <!-- ES Module: Shared utilities (auto-initializes authManager) -->
+        <script type="module" src="../shared/esm/compat.js"></script>
 
-        <!-- Navigation Manager - Load trước khi load page scripts -->
-        <script src="../shared/js/navigation-modern.js"></script>
-        <script src="../shared/js/common-utils.js"></script>
+        <!-- Fallback for file:// protocol (ES modules don't work locally) -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                // Load script-tag versions for local development
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+            }
+        </script>
+
+        <!-- Legacy wrapper functions for live module -->
+        <script type="module">
+            window.addEventListener('sharedModulesLoaded', () => {
+                if (window.authManager) {
+                    window.getAuthState = () => window.authManager.getAuthData();
+                    window.setAuthState = (isLoggedIn, userType, checkLogin) => {
+                        window.authManager.saveAuthData({ isLoggedIn, userType, checkLogin, timestamp: Date.now() }, false);
+                    };
+                    window.clearAuthState = () => {
+                        sessionStorage.removeItem('loginindex_auth');
+                        localStorage.removeItem('loginindex_auth');
+                    };
+                    window.isAuthenticated = () => window.authManager.isAuthenticated();
+                    window.hasPermission = (level) => window.authManager.hasPermission(level);
+                    window.getUserName = () => {
+                        const auth = window.authManager.getAuthData();
+                        return auth?.userType ? auth.userType.split('-')[0] : 'Admin';
+                    };
+                    window.handleLogout = () => {
+                        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                            window.clearAuthState();
+                            window.location.href = '../index.html';
+                        }
+                    };
+                    console.log('[AUTH] Legacy wrapper functions ready');
+                }
+            });
+        </script>
+
+        <!-- Navigation Manager -->
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="../shared/js/common-utils.js"></script>
 
         <!-- Lucide Icons CDN -->
         <script src="https://unpkg.com/lucide@latest"></script>
@@ -314,9 +352,7 @@
             <img id="hoverImage" src="" alt="" />
         </div>
 
-        <!-- Script -->
-        <script src="../shared/js/shared-auth-manager.js"></script>
-        <script src="js/app.js"></script>
-        <script src="../shared/js/notification-system.js"></script>
+        <!-- Page Scripts (shared loaded via esm/compat.js) -->
+        <script defer src="js/app.js"></script>
     </body>
 </html>
