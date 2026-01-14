@@ -2414,10 +2414,15 @@ async function toggleHideTransaction(transactionId, hidden) {
 
             // Find the row in DOM
             const row = document.querySelector(`tr[data-transaction-id="${transactionId}"]`);
+            const currentViewMode = typeof viewMode !== 'undefined' ? viewMode : 'all';
 
             if (row) {
-                if (hidden && !showHidden) {
-                    // If hiding and not showing hidden transactions, remove row with animation
+                // Determine if row should be removed based on viewMode
+                const shouldRemoveRow = (hidden && currentViewMode === 'visible') ||
+                                        (!hidden && currentViewMode === 'hidden');
+
+                if (shouldRemoveRow) {
+                    // Remove row with animation
                     row.style.transition = 'opacity 0.3s, transform 0.3s';
                     row.style.opacity = '0';
                     row.style.transform = 'translateX(-20px)';
