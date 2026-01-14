@@ -19,8 +19,11 @@
     <link rel="stylesheet" href="css/banhang.css" />
     <link rel="stylesheet" href="css/doisoat.css" />
 
-    <!-- Navigation Manager -->
-    <!-- N2Store Optimization: Core Utilities Loader -->
+    <!-- Firebase SDKs (must load BEFORE firebase-config.js) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
     <!-- Shared utilities (script tags for sync loading) -->
     <script src="../shared/js/firebase-config.js"></script>
     <script src="../shared/js/shared-auth-manager.js"></script>
@@ -28,15 +31,11 @@
     <script src="../shared/js/notification-system.js"></script>
     <script>if(typeof NotificationManager!=="undefined"&&!window.notificationManager)window.notificationManager=new NotificationManager();</script>
 
-    <script defer src="../shared/js/navigation-modern.js"></script>
-
     <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <!-- Navigation (deferred) -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
 
     <!-- Token Manager for TPOS API -->
     <script src="../orders-report/js/core/token-manager.js"></script>
