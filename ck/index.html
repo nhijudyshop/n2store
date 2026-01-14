@@ -21,7 +21,9 @@
     <!-- N2Store Optimization: Core Utilities Loader -->
     <!-- Shared utilities (script tags for sync loading) -->
     <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});</script>
     <script src="../shared/js/notification-system.js"></script>
+    <script>if(typeof NotificationManager!=="undefined"&&!window.notificationManager)window.notificationManager=new NotificationManager();</script>
 
     <script src="https://unpkg.com/lucide@latest"></script>
 
