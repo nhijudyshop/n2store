@@ -14066,6 +14066,15 @@ async function sendMessageInternal(messageData) {
             if (!apiSuccess && err.isUserUnavailable) {
                 console.log('[MESSAGE] 🔄 User unavailable (#551), checking for Private Reply context...');
 
+                // Hiển thị thông báo giải thích lỗi 551
+                if (window.notificationManager) {
+                    window.notificationManager.show(
+                        '⚠️ Lỗi 551: Không thể gửi inbox. Có thể do:\n• Khách chỉ comment, chưa từng inbox\n• Khách đã block page\n• Đang thử Private Reply...',
+                        'warning',
+                        5000
+                    );
+                }
+
                 const facebookPostId = order.Facebook_PostId || window.purchaseFacebookPostId;
                 const facebookCommentId = order.Facebook_CommentId || window.purchaseCommentId;
                 const facebookASUserId = order.Facebook_ASUserId || window.purchaseFacebookASUserId || psid;
@@ -14137,6 +14146,15 @@ async function sendMessageInternal(messageData) {
                         hasASUserId: !!facebookASUserId,
                         hasPageToken: !!realFacebookPageToken
                     });
+
+                    // Thông báo không thể Private Reply vì thiếu thông tin comment
+                    if (window.notificationManager) {
+                        window.notificationManager.show(
+                            '❌ Lỗi 551: Không thể gửi inbox!\n• Khách chưa từng inbox với page\n• Không có thông tin comment để Private Reply\n→ Hãy dùng COMMENT để trả lời khách!',
+                            'error',
+                            8000
+                        );
+                    }
                 }
             }
         }
