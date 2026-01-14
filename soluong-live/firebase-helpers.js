@@ -27,7 +27,7 @@ async function addProductToFirebase(database, product, localProductsObject) {
         };
 
         // Update in Firebase
-        await database.ref(`orderProducts/${productKey}`).set(updatedProduct);
+        await database.ref(`soluongProducts/${productKey}`).set(updatedProduct);
 
         // Update local object
         localProductsObject[productKey] = updatedProduct;
@@ -35,13 +35,13 @@ async function addProductToFirebase(database, product, localProductsObject) {
         return { action: 'updated', product: updatedProduct };
     } else {
         // Add new product
-        await database.ref(`orderProducts/${productKey}`).set(product);
+        await database.ref(`soluongProducts/${productKey}`).set(product);
 
         // Add to local object
         localProductsObject[productKey] = product;
 
         // Update sortedIds metadata
-        await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+        await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
             const ids = currentIds || [];
             const newId = product.Id.toString();
             if (!ids.includes(newId)) {
@@ -51,7 +51,7 @@ async function addProductToFirebase(database, product, localProductsObject) {
         });
 
         // Update count
-        await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+        await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 
         return { action: 'added', product: product };
     }
@@ -80,11 +80,11 @@ async function addProductsToFirebase(database, products, localProductsObject) {
                 addedAt: existingProduct.addedAt || product.addedAt,
                 lastRefreshed: Date.now()
             };
-            updates[`orderProducts/${productKey}`] = updatedProduct;
+            updates[`soluongProducts/${productKey}`] = updatedProduct;
             localProductsObject[productKey] = updatedProduct;
         } else {
             // Add new
-            updates[`orderProducts/${productKey}`] = product;
+            updates[`soluongProducts/${productKey}`] = product;
             localProductsObject[productKey] = product;
             newIds.push(product.Id.toString());
         }
@@ -95,7 +95,7 @@ async function addProductsToFirebase(database, products, localProductsObject) {
 
     // Update metadata if there are new products
     if (newIds.length > 0) {
-        await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+        await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
             const ids = currentIds || [];
             newIds.forEach(id => {
                 if (!ids.includes(id)) {
@@ -105,7 +105,7 @@ async function addProductsToFirebase(database, products, localProductsObject) {
             return ids;
         });
 
-        await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+        await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
     }
 
     return { added: newIds.length, updated: products.length - newIds.length };
@@ -118,17 +118,17 @@ async function removeProductFromFirebase(database, productId, localProductsObjec
     const productKey = `product_${productId}`;
 
     // Remove from Firebase
-    await database.ref(`orderProducts/${productKey}`).remove();
+    await database.ref(`soluongProducts/${productKey}`).remove();
 
     // Remove from local object
     delete localProductsObject[productKey];
 
     // Update metadata
-    await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
         return (currentIds || []).filter(id => id !== productId.toString());
     });
 
-    await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+    await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 }
 
 /**
@@ -147,7 +147,7 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
     product.soldQty = newSoldQty;
 
     // Sync to Firebase (just soldQty, remainingQty is now independent)
-    await database.ref(`orderProducts/${productKey}`).update({
+    await database.ref(`soluongProducts/${productKey}`).update({
         soldQty: newSoldQty
     });
 }
@@ -164,7 +164,7 @@ async function updateProductVisibility(database, productId, isHidden, localProdu
     product.isHidden = isHidden;
 
     // Sync to Firebase
-    await database.ref(`orderProducts/${productKey}/isHidden`).set(isHidden);
+    await database.ref(`soluongProducts/${productKey}/isHidden`).set(isHidden);
 }
 
 /**
@@ -175,18 +175,18 @@ async function removeProductFromFirebase(database, productId, localProductsObjec
 
     // Prepare updates
     const updates = {};
-    updates[`orderProducts/${productKey}`] = null; // null means remove
+    updates[`soluongProducts/${productKey}`] = null; // null means remove
 
     // Sync to Firebase
     await database.ref().update(updates);
 
     // Update sortedIds metadata
-    await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
         return (currentIds || []).filter(id => id !== productId.toString());
     });
 
     // Update count metadata
-    await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+    await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 }
 
 /**
@@ -201,7 +201,7 @@ async function removeProductsFromFirebase(database, productIds, localProductsObj
 
     productIds.forEach(productId => {
         const productKey = `product_${productId}`;
-        updates[`orderProducts/${productKey}`] = null; // null means remove
+        updates[`soluongProducts/${productKey}`] = null; // null means remove
         idsToRemove.push(productId.toString());
 
         // Remove from local object
@@ -212,12 +212,12 @@ async function removeProductsFromFirebase(database, productIds, localProductsObj
     await database.ref().update(updates);
 
     // Update sortedIds metadata
-    await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
         return (currentIds || []).filter(id => !idsToRemove.includes(id));
     });
 
     // Update count metadata
-    await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+    await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 }
 
 /**
@@ -242,7 +242,7 @@ async function cleanupOldProducts(database, localProductsObject) {
     const idsToRemove = [];
 
     productsToRemove.forEach(([productKey, product]) => {
-        updates[`orderProducts/${productKey}`] = null; // null means remove
+        updates[`soluongProducts/${productKey}`] = null; // null means remove
         idsToRemove.push(product.Id.toString());
     });
 
@@ -250,7 +250,7 @@ async function cleanupOldProducts(database, localProductsObject) {
     await database.ref().update(updates);
 
     // Update metadata
-    await database.ref('orderProductsMeta/sortedIds').transaction((currentIds) => {
+    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
         return (currentIds || []).filter(id => !idsToRemove.includes(id));
     });
 
@@ -259,7 +259,7 @@ async function cleanupOldProducts(database, localProductsObject) {
         delete localProductsObject[productKey];
     });
 
-    await database.ref('orderProductsMeta/count').set(Object.keys(localProductsObject).length);
+    await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 
     return { removed: productsToRemove.length };
 }
@@ -269,10 +269,10 @@ async function cleanupOldProducts(database, localProductsObject) {
  */
 async function clearAllProducts(database, localProductsObject) {
     // Remove all products
-    await database.ref('orderProducts').remove();
+    await database.ref('soluongProducts').remove();
 
     // Reset metadata
-    await database.ref('orderProductsMeta').set({
+    await database.ref('soluongProductsMeta').set({
         sortedIds: [],
         count: 0,
         lastUpdated: Date.now()
@@ -289,7 +289,7 @@ async function clearAllProducts(database, localProductsObject) {
 async function loadAllProductsFromFirebase(database) {
     try {
         // Load products
-        const productsSnapshot = await database.ref('orderProducts').once('value');
+        const productsSnapshot = await database.ref('soluongProducts').once('value');
         const productsObject = productsSnapshot.val();
 
         if (!productsObject || typeof productsObject !== 'object') {
@@ -310,7 +310,7 @@ async function loadAllProductsFromFirebase(database) {
  * NOTE: This should be called AFTER loadAllProductsFromFirebase() to avoid duplicate loading
  */
 function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
-    const productsRef = database.ref('orderProducts');
+    const productsRef = database.ref('soluongProducts');
 
     console.log('🔧 Setting up Firebase child listeners...');
 
@@ -351,7 +351,7 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
             localProductsObject[productKey] = product;
 
             // Check if initial load is complete
-            database.ref('orderProductsMeta/count').once('value', (snapshot) => {
+            database.ref('soluongProductsMeta/count').once('value', (snapshot) => {
                 const expectedCount = snapshot.val() || 0;
                 if (expectedCount === 0 || initialLoadCount >= expectedCount) {
                     isInitialLoad = false;
@@ -412,7 +412,7 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
         callbacks.onInitialLoadComplete();
     } else if (!alreadyLoaded && Object.keys(localProductsObject).length === 0) {
         // If no products exist, mark complete immediately
-        database.ref('orderProductsMeta/count').once('value', (snapshot) => {
+        database.ref('soluongProductsMeta/count').once('value', (snapshot) => {
             const expectedCount = snapshot.val() || 0;
             if (expectedCount === 0) {
                 isInitialLoad = false;
@@ -606,7 +606,7 @@ async function restoreProductsFromSnapshot(database, snapshotProducts, localProd
     const productIds = [];
 
     Object.entries(snapshotProducts).forEach(([key, product]) => {
-        updates[`orderProducts/${key}`] = product;
+        updates[`soluongProducts/${key}`] = product;
         productIds.push(product.Id);
 
         // Update local object
@@ -614,7 +614,7 @@ async function restoreProductsFromSnapshot(database, snapshotProducts, localProd
     });
 
     // Update metadata
-    updates['orderProductsMeta'] = {
+    updates['soluongProductsMeta'] = {
         sortedIds: productIds,
         count: productIds.length,
         lastUpdated: Date.now()
