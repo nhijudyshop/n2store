@@ -714,3 +714,25 @@ async function getAllSalesLogs(database, limit = 1000) {
 
     return logs;
 }
+
+// ES Module exports
+export {
+    addProductToFirebase,
+    addProductsToFirebase,
+    removeProductFromFirebase,
+    updateProductQtyInFirebase,
+    updateProductVisibility,
+    cleanupOldProducts,
+    clearAllProducts,
+    loadAllProductsFromFirebase,
+    setupFirebaseChildListeners,
+    getProductsArray,
+    saveCartSnapshot,
+    getCartSnapshot,
+    getAllCartSnapshots,
+    restoreProductsFromSnapshot,
+    deleteCartSnapshot,
+    logSaleTransaction,
+    getSalesLogByDate,
+    getAllSalesLogs
+};
