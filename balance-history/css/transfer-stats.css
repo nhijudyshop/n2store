@@ -273,13 +273,35 @@
     background: #f9fafb;
 }
 
-/* Verified row styling - simple background change only */
+/* Verified row styling with watermark */
 .ts-table tbody tr.verified {
-    background: #dcfce7 !important;
+    background: #fef2f2 !important;
 }
 
 .ts-table tbody tr.verified:hover {
-    background: #bbf7d0 !important;
+    background: #fee2e2 !important;
+}
+
+/* Watermark on the Nội dung cell (column 5) */
+.ts-table tbody tr.verified td:nth-child(5) {
+    position: relative;
+    overflow: visible;
+}
+
+.ts-table tbody tr.verified td:nth-child(5)::after {
+    content: 'ĐÃ KIỂM TRA';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    font-size: 18px;
+    font-weight: 900;
+    color: rgba(220, 38, 38, 0.2);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 1;
 }
 
 /* Disabled checkbox styling */
