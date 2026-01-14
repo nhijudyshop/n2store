@@ -13,6 +13,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
     <link href="./styles/tailwind.css" rel="stylesheet">
+    <!-- Shared utilities -->
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});</script>
+    <script src="../shared/js/notification-system.js"></script>
+    <script>if(typeof NotificationManager!=="undefined"&&!window.notificationManager)window.notificationManager=new NotificationManager();</script>
+    <!-- Navigation (deferred) -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
     <style>
         /* Custom scrollbar for table container */
         .custom-scrollbar::-webkit-scrollbar {
