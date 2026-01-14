@@ -4,6 +4,96 @@
 // shared/js/date-utils.js and shared/js/form-utils.js
 // =====================================================
 
+// =====================================================
+// CACHE MANAGER
+// =====================================================
+
+class CacheManager {
+    constructor(cacheKey = "ib_cache", expiryTime = 24 * 60 * 60 * 1000) {
+        this.cacheKey = cacheKey;
+        this.expiryTime = expiryTime;
+    }
+
+    getCachedData() {
+        try {
+            const cached = localStorage.getItem(this.cacheKey);
+            if (!cached) return null;
+
+            const { data, timestamp } = JSON.parse(cached);
+            const now = Date.now();
+
+            if (now - timestamp > this.expiryTime) {
+                this.invalidateCache();
+                return null;
+            }
+
+            return data;
+        } catch (e) {
+            console.warn("[CacheManager] Error reading cache:", e);
+            return null;
+        }
+    }
+
+    setCachedData(data) {
+        try {
+            const cacheData = {
+                data: data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(this.cacheKey, JSON.stringify(cacheData));
+        } catch (e) {
+            console.warn("[CacheManager] Error setting cache:", e);
+        }
+    }
+
+    invalidateCache() {
+        try {
+            localStorage.removeItem(this.cacheKey);
+            console.log("[CacheManager] Cache invalidated");
+        } catch (e) {
+            console.warn("[CacheManager] Error invalidating cache:", e);
+        }
+    }
+
+    getCacheStatus() {
+        try {
+            const cached = localStorage.getItem(this.cacheKey);
+            if (!cached) return { valid: false, age: null };
+
+            const { timestamp } = JSON.parse(cached);
+            const age = Date.now() - timestamp;
+            const valid = age < this.expiryTime;
+
+            return {
+                valid,
+                age,
+                ageFormatted: this.formatAge(age),
+                expiresIn: valid ? this.expiryTime - age : 0
+            };
+        } catch (e) {
+            return { valid: false, age: null };
+        }
+    }
+
+    formatAge(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+
+        if (hours > 0) return `${hours}h ${minutes % 60}m`;
+        if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+        return `${seconds}s`;
+    }
+}
+
+// Create global cacheManager instance
+const cacheManager = new CacheManager("ib_cache", CONFIG?.cache?.expiry || 24 * 60 * 60 * 1000);
+window.cacheManager = cacheManager;
+
+// =====================================================
+// UTILS CLASS
+// =====================================================
+
 class Utils {
     // Format date - delegates to shared function
     static formatDate(date) {
