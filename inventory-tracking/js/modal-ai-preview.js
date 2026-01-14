@@ -339,7 +339,7 @@ async function confirmAIPreview() {
     // Validate required fields
     if (!sttNCC || isNaN(sttNCC)) {
         if (typeof toast !== 'undefined') {
-            toast.error('Vui lòng nhập mã NCC!');
+            window.notificationManager?.error('Vui lòng nhập mã NCC!');
         } else {
             alert('Vui lòng nhập mã NCC!');
         }
@@ -349,7 +349,7 @@ async function confirmAIPreview() {
 
     if (!productsData || productsData.length === 0) {
         if (typeof toast !== 'undefined') {
-            toast.error('Vui lòng kiểm tra sản phẩm!');
+            window.notificationManager?.error('Vui lòng kiểm tra sản phẩm!');
         } else {
             alert('Vui lòng kiểm tra sản phẩm!');
         }
@@ -359,7 +359,7 @@ async function confirmAIPreview() {
     console.log('[AI-PREVIEW] Confirming with data:', { sttNCC, tenNCC, productsData });
 
     // Upload image to Firebase Storage
-    const loadingToast = typeof toast !== 'undefined' ? toast.loading('Đang tải ảnh lên Firebase...') : null;
+    const loadingToast = typeof toast !== 'undefined' ? window.notificationManager?.loading('Đang tải ảnh lên Firebase...') : null;
 
     try {
         // Upload image
@@ -383,8 +383,8 @@ async function confirmAIPreview() {
         await addAIInvoiceToForm(editedData);
 
         if (loadingToast && typeof toast !== 'undefined') {
-            toast.remove(loadingToast);
-            toast.success(`Đã thêm hóa đơn NCC ${sttNCC}`);
+            window.notificationManager?.remove(loadingToast);
+            window.notificationManager?.success(`Đã thêm hóa đơn NCC ${sttNCC}`);
         }
 
         // Close modal
@@ -397,8 +397,8 @@ async function confirmAIPreview() {
         console.error('[AI-PREVIEW] Error uploading image:', error);
 
         if (loadingToast && typeof toast !== 'undefined') {
-            toast.remove(loadingToast);
-            toast.error('Không thể tải ảnh lên: ' + error.message);
+            window.notificationManager?.remove(loadingToast);
+            window.notificationManager?.error('Không thể tải ảnh lên: ' + error.message);
         } else {
             alert('Không thể tải ảnh lên: ' + error.message);
         }
@@ -469,7 +469,7 @@ function handleSkipAIPreview() {
     console.log('[AI-PREVIEW] Skipping image', currentPreviewIndex);
 
     if (typeof toast !== 'undefined') {
-        toast.warning(`Đã bỏ qua ảnh ${currentPreviewIndex}`);
+        window.notificationManager?.warning(`Đã bỏ qua ảnh ${currentPreviewIndex}`);
     }
 
     closeModal('modalAIPreview');
@@ -488,7 +488,7 @@ function handleManualEntry() {
     }
 
     if (typeof toast !== 'undefined') {
-        toast.info('Đã tạo form nhập thủ công');
+        window.notificationManager?.info('Đã tạo form nhập thủ công');
     }
 
     closeModal('modalAIPreview');
@@ -516,7 +516,7 @@ function showNextAIPreview() {
         const status = aiQueueManager.getStatus();
         if (!status.isProcessing && status.queueLength === 0) {
             if (typeof toast !== 'undefined') {
-                toast.success('Đã xử lý xong tất cả ảnh');
+                window.notificationManager?.success('Đã xử lý xong tất cả ảnh');
             }
         }
     }

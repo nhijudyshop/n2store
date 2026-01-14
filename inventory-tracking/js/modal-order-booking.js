@@ -183,7 +183,7 @@ async function handleBookingImageSelect(event) {
     if (!previewList) return;
 
     // Show loading
-    toast.info('Đang tải ảnh...');
+    window.notificationManager?.info('Đang tải ảnh...');
 
     try {
         const uploadedUrls = await uploadBookingImages(files);
@@ -195,10 +195,10 @@ async function handleBookingImageSelect(event) {
         previewList.innerHTML = renderExistingImages();
         if (window.lucide) lucide.createIcons();
 
-        toast.success(`Đã tải ${uploadedUrls.length} ảnh`);
+        window.notificationManager?.success(`Đã tải ${uploadedUrls.length} ảnh`);
     } catch (error) {
         console.error('Error uploading images:', error);
-        toast.error('Lỗi khi tải ảnh');
+        window.notificationManager?.error('Lỗi khi tải ảnh');
     }
 
     // Reset input
@@ -324,12 +324,12 @@ async function saveOrderBooking() {
 
     // Validate
     if (!dateInput?.value) {
-        toast.error('Vui lòng nhập ngày đặt hàng');
+        window.notificationManager?.error('Vui lòng nhập ngày đặt hàng');
         return;
     }
 
     if (!nccInput?.value) {
-        toast.error('Vui lòng nhập số NCC');
+        window.notificationManager?.error('Vui lòng nhập số NCC');
         return;
     }
 
@@ -353,11 +353,11 @@ async function saveOrderBooking() {
         if (currentOrderBookingData) {
             // Update existing
             await updateOrderBooking(currentOrderBookingData.id, bookingData);
-            toast.success('Đã cập nhật đơn đặt hàng');
+            window.notificationManager?.success('Đã cập nhật đơn đặt hàng');
         } else {
             // Create new
             await createOrderBooking(bookingData);
-            toast.success('Đã thêm đơn đặt hàng');
+            window.notificationManager?.success('Đã thêm đơn đặt hàng');
         }
 
         // Close modal
@@ -367,7 +367,7 @@ async function saveOrderBooking() {
         renderOrderBookings(globalState.filteredOrderBookings || globalState.orderBookings);
     } catch (error) {
         console.error('Error saving order booking:', error);
-        toast.error('Lỗi khi lưu đơn đặt hàng');
+        window.notificationManager?.error('Lỗi khi lưu đơn đặt hàng');
     }
 }
 

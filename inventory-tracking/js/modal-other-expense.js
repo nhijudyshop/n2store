@@ -61,21 +61,21 @@ async function saveExpense() {
 
     // Validate
     if (!ngay) {
-        toast.warning('Vui long chon ngay');
+        window.notificationManager?.warning('Vui long chon ngay');
         return;
     }
     if (!loaiChi) {
-        toast.warning('Vui long nhap loai chi phi');
+        window.notificationManager?.warning('Vui long nhap loai chi phi');
         return;
     }
     if (!soTien || soTien <= 0) {
-        toast.warning('Vui long nhap so tien hop le');
+        window.notificationManager?.warning('Vui long nhap so tien hop le');
         return;
     }
 
     try {
         const now = firebase.firestore.Timestamp.now();
-        const userName = authManager?.getUserName() || 'unknown';
+        const userName = authManager?.getUserInfo()?.displayName || authManager?.getUserInfo()?.username || 'unknown';
 
         if (currentExpense) {
             // Update existing
@@ -87,7 +87,7 @@ async function saveExpense() {
                 updatedAt: now,
                 updatedBy: userName
             });
-            toast.success('Da cap nhat chi phi');
+            window.notificationManager?.success('Da cap nhat chi phi');
         } else {
             // Create new
             const id = generateId('exp');
@@ -101,7 +101,7 @@ async function saveExpense() {
                 updatedAt: now,
                 createdBy: userName
             });
-            toast.success('Da them chi phi moi');
+            window.notificationManager?.success('Da them chi phi moi');
         }
 
         closeModal('modalExpense');
@@ -113,7 +113,7 @@ async function saveExpense() {
 
     } catch (error) {
         console.error('[EXPENSE] Error saving:', error);
-        toast.error('Khong the luu');
+        window.notificationManager?.error('Khong the luu');
     }
 }
 

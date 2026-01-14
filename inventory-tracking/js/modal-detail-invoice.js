@@ -107,13 +107,13 @@ function renderInvoiceDetailTable(shipments, ngay) {
 function editInvoiceFromDetail(shipmentId, invoiceId) {
     const shipment = globalState.shipments.find(s => s.id === shipmentId);
     if (!shipment) {
-        toast.error('Không tìm thấy đợt hàng');
+        window.notificationManager?.error('Không tìm thấy đợt hàng');
         return;
     }
 
     const invoice = (shipment.hoaDon || []).find(hd => hd.id === invoiceId);
     if (!invoice) {
-        toast.error('Không tìm thấy hóa đơn');
+        window.notificationManager?.error('Không tìm thấy hóa đơn');
         return;
     }
 

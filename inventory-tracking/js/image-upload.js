@@ -123,7 +123,7 @@ function setupImageUploadArea(container, onUpload) {
             if (files.length === 0) return;
 
             // Show loading
-            const loadingToast = toast.loading('Dang tai anh len...');
+            const loadingToast = window.notificationManager?.loading('Dang tai anh len...');
 
             try {
                 const path = `invoices/${Date.now()}`;
@@ -149,12 +149,12 @@ function setupImageUploadArea(container, onUpload) {
                     if (window.lucide) lucide.createIcons();
                 }
 
-                toast.success(`Da tai len ${urls.length} anh`);
+                window.notificationManager?.success(`Da tai len ${urls.length} anh`);
 
             } catch (error) {
-                toast.error('Khong the tai anh len');
+                window.notificationManager?.error('Khong the tai anh len');
             } finally {
-                toast.remove(loadingToast);
+                window.notificationManager?.remove(loadingToast);
                 input.value = '';
             }
         });
