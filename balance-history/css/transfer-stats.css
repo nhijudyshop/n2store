@@ -147,6 +147,12 @@
     background: #ecfdf5;
 }
 
+.ts-stat.verified {
+    color: #7c3aed;
+    border-color: #c4b5fd;
+    background: #f5f3ff;
+}
+
 /* Transfer Stats Table */
 .ts-table {
     table-layout: fixed;
