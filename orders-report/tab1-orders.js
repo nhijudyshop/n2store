@@ -2097,37 +2097,22 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         // Check if tag exists in availableTags
         let existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
 
-        // If tag doesn't exist in local cache, fetch fresh tags from API first
+        // If tag doesn't exist in local cache, fetch ALL tags from API using pagination
         if (!existingTag) {
-            console.log('[QUICK-TAG] Tag not found in local cache, fetching fresh tags from API...');
+            console.log('[QUICK-TAG] Tag not found in local cache, fetching ALL tags from API with pagination...');
             const headers = await window.tokenManager.getAuthHeader();
 
-            // Fetch fresh tags to ensure we have the latest list
+            // Use pagination helper to fetch ALL tags (TPOS max $top=1000)
             try {
-                const tagsResponse = await API_CONFIG.smartFetch(
-                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000',
-                    {
-                        method: 'GET',
-                        headers: {
-                            ...headers,
-                            'accept': 'application/json',
-                            'content-type': 'application/json',
-                        },
-                    }
-                );
+                availableTags = await fetchAllTagsWithPagination(headers);
+                window.availableTags = availableTags;
+                window.cacheManager.set("tags", availableTags, "tags");
+                console.log(`[QUICK-TAG] Refreshed ${availableTags.length} tags from API (with pagination)`);
 
-                if (tagsResponse.ok) {
-                    const tagsData = await tagsResponse.json();
-                    availableTags = tagsData.value || [];
-                    window.availableTags = availableTags;
-                    window.cacheManager.set("tags", availableTags, "tags");
-                    console.log(`[QUICK-TAG] Refreshed ${availableTags.length} tags from API`);
-
-                    // Check again after refresh
-                    existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
-                    if (existingTag) {
-                        console.log('[QUICK-TAG] Found tag after refresh:', existingTag.Name);
-                    }
+                // Check again after refresh
+                existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+                if (existingTag) {
+                    console.log('[QUICK-TAG] Found tag after refresh:', existingTag.Name);
                 }
             } catch (fetchError) {
                 console.warn('[QUICK-TAG] Failed to fetch fresh tags:', fetchError);
@@ -2157,30 +2142,51 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
             );
 
             if (!createResponse.ok) {
-                throw new Error(`Lỗi tạo tag: ${createResponse.status}`);
+                // Handle "tag already exists" error (400) - fetch fresh and find the tag
+                if (createResponse.status === 400) {
+                    console.log('[QUICK-TAG] Create returned 400 (tag may already exist), fetching fresh tags...');
+                    try {
+                        const freshHeaders = await window.tokenManager.getAuthHeader();
+                        availableTags = await fetchAllTagsWithPagination(freshHeaders);
+                        window.availableTags = availableTags;
+                        window.cacheManager.set("tags", availableTags, "tags");
+
+                        existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
+                        if (existingTag) {
+                            console.log('[QUICK-TAG] Found existing tag after 400 error:', existingTag.Name);
+                        } else {
+                            throw new Error(`Tag "${tagName}" đã tồn tại nhưng không tìm thấy trong hệ thống`);
+                        }
+                    } catch (fetchError) {
+                        console.error('[QUICK-TAG] Failed to recover from 400 error:', fetchError);
+                        throw new Error(`Lỗi tạo tag: ${createResponse.status} - Tag có thể đã tồn tại`);
+                    }
+                } else {
+                    throw new Error(`Lỗi tạo tag: ${createResponse.status}`);
+                }
+            } else {
+                existingTag = await createResponse.json();
+
+                // Remove @odata.context
+                if (existingTag['@odata.context']) {
+                    delete existingTag['@odata.context'];
+                }
+
+                // Update local tags list
+                availableTags.push(existingTag);
+                window.availableTags = availableTags;
+                window.cacheManager.set("tags", availableTags, "tags");
+
+                // Save to Firebase
+                if (database) {
+                    await database.ref('settings/tags').set(availableTags);
+                }
+
+                // Update dropdowns
+                populateTagFilter();
+
+                console.log('[QUICK-TAG] Created new tag:', existingTag);
             }
-
-            existingTag = await createResponse.json();
-
-            // Remove @odata.context
-            if (existingTag['@odata.context']) {
-                delete existingTag['@odata.context'];
-            }
-
-            // Update local tags list
-            availableTags.push(existingTag);
-            window.availableTags = availableTags;
-            window.cacheManager.set("tags", availableTags, "tags");
-
-            // Save to Firebase
-            if (database) {
-                await database.ref('settings/tags').set(availableTags);
-            }
-
-            // Update dropdowns
-            populateTagFilter();
-
-            console.log('[QUICK-TAG] Created new tag:', existingTag);
         }
 
         // Get current order from data
