@@ -235,7 +235,7 @@ const debouncedApplyFilters = window.HangRotXaUtils.debounce(() => {
             utils.showError("Có lỗi xảy ra khi lọc dữ liệu");
         }
     }, 100);
-}, window.HangRotXaConfig.FILTER_DEBOUNCE_DELAY);
+}, window.HangRotXaConfig?.FILTER_DEBOUNCE_DELAY || 300);
 
 function applyFilters() {
     debouncedApplyFilters();

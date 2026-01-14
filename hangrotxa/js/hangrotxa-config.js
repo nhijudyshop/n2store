@@ -71,7 +71,7 @@ let filterTimeout = null;
 
 // Export for other modules
 window.HangRotXaConfig = {
-    firebaseConfig,
+    firebaseConfig: _fbConfig,
     CACHE_EXPIRY,
     BATCH_SIZE,
     MAX_VISIBLE_ROWS,
