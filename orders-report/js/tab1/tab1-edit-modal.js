@@ -1546,15 +1546,7 @@ window.addEventListener("message", function (event) {
 
         // Check if data is loaded
         if (!allData || allData.length === 0) {
-            console.log('⚠️ allData chưa có dữ liệu, sẽ retry sau 1s');
-            // Retry after 1 second
-            setTimeout(() => {
-                if (allData && allData.length > 0) {
-                    sendOrdersDataToTab3();
-                } else {
-                    console.log('❌ Vẫn chưa có dữ liệu sau khi retry');
-                }
-            }, 1000);
+            console.log('⚠️ allData chưa có dữ liệu');
             return;
         }
 
@@ -1568,15 +1560,7 @@ window.addEventListener("message", function (event) {
 
         // Check if data is loaded
         if (!allData || allData.length === 0) {
-            console.log('⚠️ [OVERVIEW] allData chưa có dữ liệu, sẽ retry sau 1s');
-            // Retry after 1 second
-            setTimeout(() => {
-                if (allData && allData.length > 0) {
-                    sendOrdersDataToOverview();
-                } else {
-                    console.log('❌ [OVERVIEW] Vẫn chưa có dữ liệu sau khi retry');
-                }
-            }, 1000);
+            console.log('⚠️ [OVERVIEW] allData chưa có dữ liệu');
             return;
         }
 

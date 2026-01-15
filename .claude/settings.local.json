@@ -45,7 +45,9 @@
       "Bash(echo:*)",
       "Bash(else)",
       "Bash(fi)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(for node in \"syncSearchKeyword\" \"productAssignments_v2_history\")",
+      "Bash(do echo \"=== $node ===\")"
     ]
   }
 }
