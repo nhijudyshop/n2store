@@ -1201,8 +1201,16 @@
 
     <span class="page-info" id="pageInfo">Trang 1/1</span>
 
-    <script src="../shared/js/shared-auth-manager.js"></script>
-    <script src="../shared/js/shared-cache-manager.js"></script>
+    <!-- ES Module: Shared utilities (auto-initializes authManager, cache) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script src="../shared/js/shared-cache-manager.js"><\/script>');
+        }
+    </script>
     <script>
         let orderProducts = {}; // Object-based structure
         let filteredProducts = []; // For search results

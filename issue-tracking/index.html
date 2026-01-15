@@ -383,12 +383,16 @@ Ví dụ:
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
-    <!-- Shared utilities -->
-    <script src="../shared/js/firebase-config.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
-    <script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});</script>
-    <script src="../shared/js/notification-system.js"></script>
-    <script>if(typeof NotificationManager!=="undefined"&&!window.notificationManager)window.notificationManager=new NotificationManager();</script>
+    <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
 
     <!-- Shared API Utils -->
     <script src="../orders-report/js/core/api-config.js"></script>

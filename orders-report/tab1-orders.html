@@ -1255,18 +1255,23 @@
     <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
     <script src="js/core/indexeddb-storage.js"></script>
     <script src="js/core/cache.js"></script>
-    <script src="../shared/js/shared-auth-manager.js"></script>
+    <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol -->
     <script>
-        // Initialize authManager for backward compatibility
-        const authManager = new AuthManager({
-            redirectUrl: '../index.html',
-            sessionDuration: 8 * 60 * 60 * 1000,
-            rememberDuration: 30 * 24 * 60 * 60 * 1000
-        });
-        window.authManager = authManager;
-        function getAuthState() { return authManager.getAuthData(); }
-        function isAuthenticated() { return authManager.isAuthenticated(); }
-        function hasPermission(level) { return authManager.hasPermission(level); }
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>window.authManager=new AuthManager({redirectUrl:"../index.html",sessionDuration:8*60*60*1000,rememberDuration:30*24*60*60*1000});<\/script>');
+            document.write('<script src="../shared/js/notification-system.js"><\/script>');
+        }
+    </script>
+
+    <script>
+        // Auth helper functions (authManager is auto-initialized by compat.js)
+        function getAuthState() { return window.authManager?.getAuthData(); }
+        function isAuthenticated() { return window.authManager?.isAuthenticated(); }
+        function hasPermission(level) { return window.authManager?.hasPermission(level); }
         function getUserName() {
             const auth = getAuthState();
             return auth?.userType ? auth.userType.split('-')[0] : 'Admin';
@@ -1279,7 +1284,7 @@
             }
         }
     </script>
-    <script src="../shared/js/notification-system.js"></script>
+    <!-- Note: notification-system.js is loaded by compat.js ES Module -->
     <script src="js/managers/pancake-token-manager.js"></script>
     <script src="js/managers/pancake-data-manager.js"></script>
     <script src="js/utils/firebase-image-cache.js"></script>
