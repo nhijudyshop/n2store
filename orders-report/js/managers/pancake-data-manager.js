@@ -31,6 +31,53 @@ class PancakeDataManager {
     }
 
     /**
+     * Save pages data to localStorage for persistence across page refreshes
+     */
+    savePagesToLocalStorage() {
+        try {
+            const data = {
+                pages: this.pages,
+                pageIds: this.pageIds,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('pancake_pages_cache', JSON.stringify(data));
+            console.log('[PANCAKE] ✅ Pages saved to localStorage');
+        } catch (error) {
+            console.warn('[PANCAKE] Error saving pages to localStorage:', error);
+        }
+    }
+
+    /**
+     * Load pages data from localStorage
+     * @returns {Array|null} - Pages array or null if cache invalid/expired
+     */
+    loadPagesFromLocalStorage() {
+        try {
+            const cached = localStorage.getItem('pancake_pages_cache');
+            if (!cached) return null;
+
+            const data = JSON.parse(cached);
+            const cacheAge = Date.now() - data.timestamp;
+
+            // Use longer cache duration for localStorage (30 minutes)
+            const LOCALSTORAGE_CACHE_DURATION = 30 * 60 * 1000;
+
+            if (cacheAge < LOCALSTORAGE_CACHE_DURATION && data.pages && data.pages.length > 0) {
+                this.pages = data.pages;
+                this.pageIds = data.pageIds || [];
+                this.lastPageFetchTime = data.timestamp;
+                return this.pages;
+            }
+
+            console.log('[PANCAKE] localStorage cache expired');
+            return null;
+        } catch (error) {
+            console.warn('[PANCAKE] Error loading pages from localStorage:', error);
+            return null;
+        }
+    }
+
+    /**
      * Throttle requests to prevent 429 rate limiting
      * Ensures minimum interval between API calls
      */
@@ -132,12 +179,21 @@ class PancakeDataManager {
      */
     async fetchPages(forceRefresh = false) {
         try {
-            // Check cache
+            // Check memory cache first
             if (!forceRefresh && this.pages.length > 0 && this.lastPageFetchTime) {
                 const cacheAge = Date.now() - this.lastPageFetchTime;
                 if (cacheAge < this.CACHE_DURATION) {
-                    console.log('[PANCAKE] Using cached pages, count:', this.pages.length);
+                    console.log('[PANCAKE] Using cached pages (memory), count:', this.pages.length);
                     return this.pages;
+                }
+            }
+
+            // Check localStorage cache (persists across page refreshes)
+            if (!forceRefresh && this.pages.length === 0) {
+                const cached = this.loadPagesFromLocalStorage();
+                if (cached) {
+                    console.log('[PANCAKE] Using cached pages (localStorage), count:', cached.length);
+                    return cached;
                 }
             }
 
@@ -198,6 +254,9 @@ class PancakeDataManager {
                     this.lastPageFetchTime = Date.now();
                     console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
                     console.log('[PANCAKE] Page IDs:', this.pageIds);
+
+                    // Save to localStorage for faster access on next page load
+                    this.savePagesToLocalStorage();
 
                     // Extract and cache page_access_tokens from settings
                     this.extractAndCachePageAccessTokens(data.categorized.activated);
