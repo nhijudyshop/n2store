@@ -23,6 +23,75 @@ class PancakeDataManager {
         this.unreadPagesCache = null;
         this.lastUnreadPagesFetchTime = null;
         this.UNREAD_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
+
+        // Rate limiting configuration
+        this.rateLimitConfig = {
+            minDelay: 500,           // Minimum delay between requests (ms)
+            maxRetries: 3,           // Maximum retry attempts for 429
+            baseBackoff: 2000,       // Base backoff time for 429 (ms)
+            maxBackoff: 30000,       // Maximum backoff time (ms)
+            lastRequestTime: 0       // Timestamp of last request
+        };
+    }
+
+    /**
+     * Sleep helper for rate limiting
+     * @param {number} ms - Milliseconds to sleep
+     * @returns {Promise<void>}
+     */
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Rate-limited fetch with retry for 429 errors
+     * @param {string} url - URL to fetch
+     * @param {Object} options - Fetch options
+     * @param {number} retryCount - Current retry attempt
+     * @returns {Promise<Response>}
+     */
+    async rateLimitedFetch(url, options = {}, retryCount = 0) {
+        // Ensure minimum delay between requests
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.rateLimitConfig.lastRequestTime;
+        if (timeSinceLastRequest < this.rateLimitConfig.minDelay) {
+            await this.sleep(this.rateLimitConfig.minDelay - timeSinceLastRequest);
+        }
+        this.rateLimitConfig.lastRequestTime = Date.now();
+
+        try {
+            const response = await API_CONFIG.smartFetch(url, options);
+
+            // Handle rate limiting (429)
+            if (response.status === 429) {
+                if (retryCount >= this.rateLimitConfig.maxRetries) {
+                    console.error(`[PANCAKE] ❌ Max retries (${this.rateLimitConfig.maxRetries}) reached for 429 error`);
+                    return response;
+                }
+
+                // Calculate backoff with exponential increase
+                const backoff = Math.min(
+                    this.rateLimitConfig.baseBackoff * Math.pow(2, retryCount),
+                    this.rateLimitConfig.maxBackoff
+                );
+
+                console.warn(`[PANCAKE] ⚠️ Rate limited (429), retry ${retryCount + 1}/${this.rateLimitConfig.maxRetries} after ${backoff}ms`);
+                await this.sleep(backoff);
+
+                return this.rateLimitedFetch(url, options, retryCount + 1);
+            }
+
+            return response;
+        } catch (error) {
+            // Network errors - retry with backoff
+            if (retryCount < this.rateLimitConfig.maxRetries) {
+                const backoff = this.rateLimitConfig.baseBackoff * Math.pow(2, retryCount);
+                console.warn(`[PANCAKE] ⚠️ Network error, retry ${retryCount + 1}/${this.rateLimitConfig.maxRetries} after ${backoff}ms`);
+                await this.sleep(backoff);
+                return this.rateLimitedFetch(url, options, retryCount + 1);
+            }
+            throw error;
+        }
     }
 
     /**
@@ -134,7 +203,8 @@ class PancakeDataManager {
             // Use Cloudflare Worker proxy
             const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
 
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use rate-limited fetch to handle 429 errors
+            const response = await this.rateLimitedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
@@ -254,7 +324,8 @@ class PancakeDataManager {
             // Use Cloudflare Worker proxy to bypass CORS
             const url = window.API_CONFIG.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
 
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use rate-limited fetch to handle 429 errors
+            const response = await this.rateLimitedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
