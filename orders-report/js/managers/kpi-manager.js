@@ -1,5 +1,6 @@
 /**
  * KPI Manager - Quản lý tính KPI dựa trên sự khác biệt sản phẩm
+ * MIGRATION: Changed from Realtime Database to Firestore
  *
  * Flow:
  * 1. User xác nhận sản phẩm lần đầu → checkKPIBaseExists()
@@ -8,9 +9,10 @@
  * 4. So sánh Note với BASE → calculateKPIDifference()
  * 5. Tính KPI = Số SP khác biệt × 5,000đ
  *
- * Firebase Structure:
+ * Firestore Structure:
  * - kpi_base/{orderId} - Lưu BASE snapshot
- * - kpi_statistics/{userId}/{date} - Lưu thống kê KPI
+ * - kpi_statistics/{userId}/dates/{date} - Lưu thống kê KPI
+ * - report_order_details/{campaignName} - Lưu chi tiết đơn hàng
  */
 
 (function () {
@@ -32,16 +34,17 @@
         }
 
         try {
-            if (!window.firebase || !window.firebase.database) {
-                console.warn('[KPI] Firebase not available');
+            if (!window.firebase || !window.firebase.firestore) {
+                console.warn('[KPI] Firestore not available');
                 return false;
             }
 
-            const snapshot = await window.firebase.database()
-                .ref(`${KPI_BASE_COLLECTION}/${orderId}`)
-                .once('value');
+            const doc = await window.firebase.firestore()
+                .collection(KPI_BASE_COLLECTION)
+                .doc(orderId)
+                .get();
 
-            const exists = snapshot.exists();
+            const exists = doc.exists;
             console.log(`[KPI] checkKPIBaseExists(${orderId}):`, exists);
             return exists;
         } catch (error) {
@@ -51,7 +54,7 @@
     }
 
     /**
-     * 2. Save KPI BASE to Firebase
+     * 2. Save KPI BASE to Firestore
      * @param {string} orderId - Order ID
      * @param {string} userId - User ID
      * @param {number} stt - Order sequential number
@@ -64,8 +67,8 @@
         }
 
         try {
-            if (!window.firebase || !window.firebase.database) {
-                throw new Error('Firebase not available');
+            if (!window.firebase || !window.firebase.firestore) {
+                throw new Error('Firestore not available');
             }
 
             // Get user display name from authManager
@@ -101,13 +104,14 @@
                 userName: userName,
                 campaignId: campaignId,
                 campaignName: campaignName,
-                timestamp: window.firebase.database.ServerValue.TIMESTAMP,
+                timestamp: window.firebase.firestore.FieldValue.serverTimestamp(),
                 products: baseProducts
             };
 
-            await window.firebase.database()
-                .ref(`${KPI_BASE_COLLECTION}/${orderId}`)
-                .set(baseData);
+            await window.firebase.firestore()
+                .collection(KPI_BASE_COLLECTION)
+                .doc(orderId)
+                .set(baseData, { merge: true });
 
             console.log('[KPI] ✓ Saved BASE:', {
                 orderId,
@@ -125,7 +129,7 @@
     }
 
     /**
-     * 3. Get KPI BASE from Firebase
+     * 3. Get KPI BASE from Firestore
      * @param {string} orderId - Order ID
      * @returns {Promise<object|null>} - BASE data or null if not exists
      */
@@ -136,21 +140,22 @@
         }
 
         try {
-            if (!window.firebase || !window.firebase.database) {
-                console.warn('[KPI] Firebase not available');
+            if (!window.firebase || !window.firebase.firestore) {
+                console.warn('[KPI] Firestore not available');
                 return null;
             }
 
-            const snapshot = await window.firebase.database()
-                .ref(`${KPI_BASE_COLLECTION}/${orderId}`)
-                .once('value');
+            const doc = await window.firebase.firestore()
+                .collection(KPI_BASE_COLLECTION)
+                .doc(orderId)
+                .get();
 
-            if (!snapshot.exists()) {
+            if (!doc.exists) {
                 console.log(`[KPI] No BASE found for order: ${orderId}`);
                 return null;
             }
 
-            const data = snapshot.val();
+            const data = doc.data();
             console.log(`[KPI] Got BASE for order ${orderId}:`, data);
             return data;
         } catch (error) {
@@ -160,7 +165,7 @@
     }
 
     /**
-     * 3b. Get order Details from report_order_details Firebase
+     * 3b. Get order Details from report_order_details Firestore
      * This contains the actual products in the order (synced from tab-overview)
      * @param {string} orderId - Order ID
      * @param {string} campaignName - Campaign/table name
@@ -173,24 +178,25 @@
         }
 
         try {
-            if (!window.firebase || !window.firebase.database) {
-                console.warn('[KPI] Firebase not available');
+            if (!window.firebase || !window.firebase.firestore) {
+                console.warn('[KPI] Firestore not available');
                 return null;
             }
 
-            // Sanitize campaign name for Firebase path (same as tab-overview.html)
+            // Sanitize campaign name for Firestore path (same as tab-overview.html)
             const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
 
-            const snapshot = await window.firebase.database()
-                .ref(`report_order_details/${safeTableName}`)
-                .once('value');
+            const doc = await window.firebase.firestore()
+                .collection('report_order_details')
+                .doc(safeTableName)
+                .get();
 
-            if (!snapshot.exists()) {
+            if (!doc.exists) {
                 console.log(`[KPI] No report data found for campaign: ${campaignName}`);
                 return null;
             }
 
-            const data = snapshot.val();
+            const data = doc.data();
             const orders = data.orders || [];
 
             // Find the specific order by Id
@@ -210,7 +216,7 @@
                 productName: d.ProductName || d.Name || ''
             })).filter(d => d.code);
 
-            console.log(`[KPI] Got order details from Firebase:`, {
+            console.log(`[KPI] Got order details from Firestore:`, {
                 orderId,
                 campaignName,
                 productsCount: details.length
@@ -219,7 +225,7 @@
             return details;
 
         } catch (error) {
-            console.error('[KPI] Error getting order details from Firebase:', error);
+            console.error('[KPI] Error getting order details from Firestore:', error);
             return null;
         }
     }
@@ -366,7 +372,8 @@
     }
 
     /**
-     * 7. Save KPI Statistics to Firebase
+     * 7. Save KPI Statistics to Firestore
+     * Structure: kpi_statistics/{userId}/dates/{date}
      * @param {string} userId - User ID
      * @param {string} date - Date in format YYYY-MM-DD
      * @param {object} statistics - {orderId, stt, differences, kpi, details}
@@ -378,16 +385,19 @@
         }
 
         try {
-            if (!window.firebase || !window.firebase.database) {
-                throw new Error('Firebase not available');
+            if (!window.firebase || !window.firebase.firestore) {
+                throw new Error('Firestore not available');
             }
 
-            const statsRef = window.firebase.database()
-                .ref(`${KPI_STATISTICS_COLLECTION}/${userId}/${date}`);
+            const statsRef = window.firebase.firestore()
+                .collection(KPI_STATISTICS_COLLECTION)
+                .doc(userId)
+                .collection('dates')
+                .doc(date);
 
             // Get current statistics for this user/date
-            const snapshot = await statsRef.once('value');
-            let currentStats = snapshot.val() || {
+            const doc = await statsRef.get();
+            let currentStats = doc.exists ? doc.data() : {
                 totalDifferences: 0,
                 totalKPI: 0,
                 orders: []
@@ -413,7 +423,7 @@
                     differences: statistics.differences,
                     kpi: statistics.kpi,
                     details: statistics.details || [],
-                    timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                    timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
                 };
             } else {
                 // Add new order to statistics
@@ -426,7 +436,7 @@
                     differences: statistics.differences,
                     kpi: statistics.kpi,
                     details: statistics.details || [],
-                    timestamp: window.firebase.database.ServerValue.TIMESTAMP
+                    timestamp: window.firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
 
@@ -435,7 +445,7 @@
             currentStats.totalKPI += statistics.kpi || 0;
 
             // Save updated statistics
-            await statsRef.set(currentStats);
+            await statsRef.set(currentStats, { merge: true });
 
             console.log('[KPI] ✓ Saved statistics:', {
                 userId,
@@ -623,11 +633,12 @@
 
             // First, get all orders from this campaign (from report_order_details)
             const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
-            const campaignSnapshot = await window.firebase.database()
-                .ref(`report_order_details/${safeTableName}`)
-                .once('value');
+            const campaignDoc = await window.firebase.firestore()
+                .collection('report_order_details')
+                .doc(safeTableName)
+                .get();
 
-            const campaignData = campaignSnapshot.val();
+            const campaignData = campaignDoc.exists ? campaignDoc.data() : null;
             if (!campaignData || !campaignData.orders) {
                 console.log('[KPI] No orders found in campaign:', campaignName);
                 return { success: 0, failed: 0, results: [] };
@@ -637,11 +648,14 @@
             console.log(`[KPI] Found ${campaignOrders.length} orders in campaign`);
 
             // Get all BASE records
-            const baseSnapshot = await window.firebase.database()
-                .ref(KPI_BASE_COLLECTION)
-                .once('value');
+            const baseSnapshot = await window.firebase.firestore()
+                .collection(KPI_BASE_COLLECTION)
+                .get();
 
-            const allBases = baseSnapshot.val() || {};
+            const allBases = {};
+            baseSnapshot.forEach(doc => {
+                allBases[doc.id] = doc.data();
+            });
 
             const results = [];
             let success = 0;
@@ -662,9 +676,10 @@
                 // If BASE exists but doesn't have campaignName, update it
                 if (!base.campaignName) {
                     try {
-                        await window.firebase.database()
-                            .ref(`${KPI_BASE_COLLECTION}/${orderId}/campaignName`)
-                            .set(campaignName);
+                        await window.firebase.firestore()
+                            .collection(KPI_BASE_COLLECTION)
+                            .doc(orderId)
+                            .update({ campaignName: campaignName });
                         console.log(`[KPI] Updated campaignName for BASE ${orderId}`);
                     } catch (e) {
                         console.warn(`[KPI] Failed to update campaignName for ${orderId}:`, e);
@@ -702,25 +717,33 @@
 
     /**
      * Get all KPI statistics filtered by campaign
+     * Structure: kpi_statistics/{userId}/dates/{date}
      * @param {string} campaignName - Campaign name to filter
      * @returns {Promise<object>} - Statistics grouped by user
      */
     async function getKPIStatisticsByCampaign(campaignName) {
         try {
-            const snapshot = await window.firebase.database()
-                .ref(KPI_STATISTICS_COLLECTION)
-                .once('value');
+            // Get all user documents from kpi_statistics
+            const usersSnapshot = await window.firebase.firestore()
+                .collection(KPI_STATISTICS_COLLECTION)
+                .get();
 
-            const allStats = snapshot.val() || {};
             const filteredStats = {};
 
-            // Filter by campaign
-            for (const userId in allStats) {
-                const userDates = allStats[userId];
+            // For each user, get their dates subcollection
+            for (const userDoc of usersSnapshot.docs) {
+                const userId = userDoc.id;
+                const datesSnapshot = await window.firebase.firestore()
+                    .collection(KPI_STATISTICS_COLLECTION)
+                    .doc(userId)
+                    .collection('dates')
+                    .get();
+
                 const filteredDates = {};
 
-                for (const date in userDates) {
-                    const dateStats = userDates[date];
+                for (const dateDoc of datesSnapshot.docs) {
+                    const date = dateDoc.id;
+                    const dateStats = dateDoc.data();
                     const filteredOrders = (dateStats.orders || []).filter(
                         o => o.campaignName === campaignName
                     );

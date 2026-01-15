@@ -1,5 +1,6 @@
 // =====================================================
 // OVERVIEW - CORE: Global State & Permission Helpers
+// MIGRATION: Changed from Realtime Database to Firestore
 // =====================================================
 
 // =====================================================
@@ -114,6 +115,6 @@ const _fbConfig = (typeof firebaseConfig !== 'undefined') ? firebaseConfig : OVE
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {
     firebase.initializeApp(_fbConfig);
 }
-if (typeof firebase !== 'undefined') {
-    database = firebase.database();
+if (typeof firebase !== 'undefined' && typeof firebase.firestore === 'function') {
+    database = firebase.firestore();
 }

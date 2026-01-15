@@ -1,8 +1,12 @@
 /**
  * TPOS Token Manager
- * Auto refresh & storage with localStorage + Firebase backup
+ * Auto refresh & storage with localStorage + Firestore backup
  *
  * @module shared/browser/token-manager
+ *
+ * MIGRATION: Changed from Realtime Database to Firestore
+ * - Uses Firestore collection 'tokens' instead of RTDB path
+ * - Better query support and offline capabilities
  */
 
 import { API_ENDPOINTS } from '../universal/api-endpoints.js';
@@ -16,7 +20,8 @@ export class TokenManager {
      * @param {object} options - Configuration options
      * @param {string} options.apiUrl - Token API URL (default: worker proxy)
      * @param {string} options.storageKey - localStorage key
-     * @param {string} options.firebasePath - Firebase RTDB path
+     * @param {string} options.firestoreCollection - Firestore collection name
+     * @param {string} options.firestoreDocId - Firestore document ID
      * @param {object} options.credentials - TPOS credentials
      */
     constructor(options = {}) {
@@ -29,7 +34,10 @@ export class TokenManager {
         // Configuration
         this.storageKey = options.storageKey || 'bearer_token_data';
         this.API_URL = options.apiUrl || API_ENDPOINTS.WORKER.TOKEN;
-        this.firebasePath = options.firebasePath || 'tpos_token';
+
+        // Firestore config (migrated from Realtime Database)
+        this.firestoreCollection = options.firestoreCollection || 'tokens';
+        this.firestoreDocId = options.firestoreDocId || 'tpos_token';
 
         this.credentials = options.credentials || {
             grant_type: 'password',
@@ -38,8 +46,8 @@ export class TokenManager {
             client_id: 'tmtWebApp'
         };
 
-        this.firebaseRef = null;
-        this.firebaseReady = false;
+        this.firestoreRef = null;
+        this.firestoreReady = false;
 
         // Listen for storage changes from other tabs
         if (typeof window !== 'undefined') {
@@ -66,10 +74,10 @@ export class TokenManager {
 
         this.initPromise = (async () => {
             await this.waitForFirebase();
-            this.initFirebase();
+            this.initFirestore();
             await this.init();
             this.isInitialized = true;
-            console.log('[TOKEN] Token Manager fully initialized');
+            console.log('[TOKEN] Token Manager fully initialized (Firestore)');
         })();
 
         return this.initPromise;
@@ -85,31 +93,34 @@ export class TokenManager {
         let retries = 0;
 
         while (retries < maxRetries) {
-            if (window.firebase?.database && typeof window.firebase.database === 'function') {
-                console.log('[TOKEN] Firebase SDK is ready');
-                this.firebaseReady = true;
+            // Check for Firestore instead of Realtime Database
+            if (window.firebase?.firestore && typeof window.firebase.firestore === 'function') {
+                console.log('[TOKEN] Firestore SDK is ready');
+                this.firestoreReady = true;
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, 100));
             retries++;
         }
 
-        console.warn('[TOKEN] Firebase SDK not available, using localStorage only');
+        console.warn('[TOKEN] Firestore SDK not available, using localStorage only');
     }
 
     /**
-     * Initialize Firebase reference
+     * Initialize Firestore reference
      */
-    initFirebase() {
+    initFirestore() {
         try {
-            if (typeof window !== 'undefined' && window.firebase?.database && this.firebaseReady) {
-                this.firebaseRef = window.firebase.database().ref(this.firebasePath);
-                console.log('[TOKEN] Firebase reference initialized');
+            if (typeof window !== 'undefined' && window.firebase?.firestore && this.firestoreReady) {
+                this.firestoreRef = window.firebase.firestore()
+                    .collection(this.firestoreCollection)
+                    .doc(this.firestoreDocId);
+                console.log('[TOKEN] Firestore reference initialized');
                 return true;
             }
             return false;
         } catch (error) {
-            console.error('[TOKEN] Error initializing Firebase:', error);
+            console.error('[TOKEN] Error initializing Firestore:', error);
             return false;
         }
     }
@@ -127,16 +138,16 @@ export class TokenManager {
             return;
         }
 
-        // Fallback to Firebase
-        const firebaseToken = await this.getTokenFromFirebase();
+        // Fallback to Firestore
+        const firebaseToken = await this.getTokenFromFirestore();
         if (firebaseToken) {
             this.token = firebaseToken.access_token;
             this.tokenExpiry = firebaseToken.expires_at;
             try {
                 localStorage.setItem(this.storageKey, JSON.stringify(firebaseToken));
-                console.log('[TOKEN] Valid token loaded from Firebase');
+                console.log('[TOKEN] Valid token loaded from Firestore');
             } catch (error) {
-                console.error('[TOKEN] Error syncing Firebase token:', error);
+                console.error('[TOKEN] Error syncing Firestore token:', error);
             }
             return;
         }
@@ -145,15 +156,17 @@ export class TokenManager {
     }
 
     /**
-     * Get token from Firebase
+     * Get token from Firestore
      */
-    async getTokenFromFirebase() {
-        if (!this.firebaseRef) return null;
+    async getTokenFromFirestore() {
+        if (!this.firestoreRef) return null;
 
         try {
-            const snapshot = await this.firebaseRef.once('value');
-            const tokenData = snapshot.val();
+            const doc = await this.firestoreRef.get();
 
+            if (!doc.exists) return null;
+
+            const tokenData = doc.data();
             if (!tokenData?.access_token) return null;
 
             const bufferTime = 5 * 60 * 1000; // 5 minutes
@@ -162,22 +175,22 @@ export class TokenManager {
             }
             return null;
         } catch (error) {
-            console.error('[TOKEN] Error reading from Firebase:', error);
+            console.error('[TOKEN] Error reading from Firestore:', error);
             return null;
         }
     }
 
     /**
-     * Save token to Firebase
+     * Save token to Firestore
      */
-    async saveTokenToFirebase(tokenData) {
-        if (!this.firebaseRef) return;
+    async saveTokenToFirestore(tokenData) {
+        if (!this.firestoreRef) return;
 
         try {
-            await this.firebaseRef.set(tokenData);
-            console.log('[TOKEN] Token saved to Firebase');
+            await this.firestoreRef.set(tokenData, { merge: true });
+            console.log('[TOKEN] Token saved to Firestore');
         } catch (error) {
-            console.error('[TOKEN] Error saving to Firebase:', error);
+            console.error('[TOKEN] Error saving to Firestore:', error);
         }
     }
 
@@ -227,9 +240,9 @@ export class TokenManager {
 
             console.log('[TOKEN] Token saved, expires:', new Date(expiresAt).toLocaleString());
 
-            // Save to Firebase for new tokens
+            // Save to Firestore for new tokens
             if (tokenData.expires_in && !tokenData.issued_at) {
-                await this.saveTokenToFirebase(dataToSave);
+                await this.saveTokenToFirestore(dataToSave);
             }
         } catch (error) {
             console.error('[TOKEN] Error saving token:', error);
@@ -258,11 +271,11 @@ export class TokenManager {
         this.tokenExpiry = null;
         localStorage.removeItem(this.storageKey);
 
-        if (this.firebaseRef) {
+        if (this.firestoreRef) {
             try {
-                await this.firebaseRef.remove();
+                await this.firestoreRef.delete();
             } catch (error) {
-                console.error('[TOKEN] Error clearing Firebase:', error);
+                console.error('[TOKEN] Error clearing Firestore:', error);
             }
         }
     }

@@ -3275,15 +3275,17 @@ class VersionChecker {
 
     /**
      * Wait for Firebase SDK to be available
+     * MIGRATION: Changed from Realtime Database to Firestore
      */
     async waitForFirebase() {
         const maxRetries = 50; // 5 seconds max
         let retries = 0;
 
         while (retries < maxRetries) {
-            if (window.firebase && window.firebase.database && typeof window.firebase.database === 'function') {
-                this.firebaseRef = window.firebase.database().ref('app_version');
-                console.log('[VERSION] ✅ Firebase reference initialized');
+            // Check for Firestore instead of Realtime Database
+            if (window.firebase && window.firebase.firestore && typeof window.firebase.firestore === 'function') {
+                this.firebaseRef = window.firebase.firestore().collection('app_config').doc('version');
+                console.log('[VERSION] ✅ Firestore reference initialized');
                 return;
             }
 
@@ -3291,11 +3293,11 @@ class VersionChecker {
             retries++;
         }
 
-        console.warn('[VERSION] Firebase not available, version check disabled');
+        console.warn('[VERSION] Firestore not available, version check disabled');
     }
 
     /**
-     * Check version against Firebase
+     * Check version against Firestore
      */
     async checkVersion() {
         if (!this.firebaseRef || this.isChecking) {
@@ -3308,15 +3310,15 @@ class VersionChecker {
             console.log('[VERSION] Checking version...');
             console.log('[VERSION] Local version:', this.localVersion);
 
-            // Get version from Firebase
-            const snapshot = await this.firebaseRef.once('value');
-            const firebaseVersion = snapshot.val();
+            // Get version from Firestore
+            const doc = await this.firebaseRef.get();
+            const firebaseVersion = doc.exists ? doc.data() : null;
 
-            console.log('[VERSION] Firebase version:', firebaseVersion);
+            console.log('[VERSION] Firestore version:', firebaseVersion);
 
-            // If Firebase has no version, publish local version
+            // If Firestore has no version, publish local version
             if (!firebaseVersion) {
-                console.log('[VERSION] No version in Firebase, publishing local version...');
+                console.log('[VERSION] No version in Firestore, publishing local version...');
                 await this.publishVersion();
                 this.isChecking = false;
                 return;
@@ -3329,9 +3331,9 @@ class VersionChecker {
             if (firebaseTimestamp > localTimestamp) {
                 console.warn('[VERSION] ⚠️ Version mismatch detected!');
                 console.warn('[VERSION] Local timestamp:', this.localVersion.timestamp);
-                console.warn('[VERSION] Firebase timestamp:', firebaseVersion.timestamp);
+                console.warn('[VERSION] Firestore timestamp:', firebaseVersion.timestamp);
                 console.warn('[VERSION] Local build:', this.localVersion.build);
-                console.warn('[VERSION] Firebase build:', firebaseVersion.build);
+                console.warn('[VERSION] Firestore build:', firebaseVersion.build);
 
                 // Force logout and reload
                 this.forceLogout();
@@ -3347,7 +3349,7 @@ class VersionChecker {
     }
 
     /**
-     * Publish current version to Firebase
+     * Publish current version to Firestore
      */
     async publishVersion() {
         if (!this.firebaseRef) {
@@ -3356,14 +3358,14 @@ class VersionChecker {
 
         try {
             await this.firebaseRef.set(this.localVersion);
-            console.log('[VERSION] ✅ Version published to Firebase:', this.localVersion);
+            console.log('[VERSION] ✅ Version published to Firestore:', this.localVersion);
         } catch (error) {
             console.error('[VERSION] Error publishing version:', error);
         }
     }
 
     /**
-     * Setup listener for version changes
+     * Setup listener for version changes (Firestore onSnapshot)
      */
     setupVersionListener() {
         if (!this.firebaseRef) {
@@ -3372,14 +3374,15 @@ class VersionChecker {
 
         let isFirstTrigger = true;
 
-        this.firebaseRef.on('value', (snapshot) => {
+        // Use Firestore onSnapshot instead of Realtime Database .on('value')
+        this.unsubscribeListener = this.firebaseRef.onSnapshot((doc) => {
             // Skip first trigger (already checked in checkVersion)
             if (isFirstTrigger) {
                 isFirstTrigger = false;
                 return;
             }
 
-            const firebaseVersion = snapshot.val();
+            const firebaseVersion = doc.exists ? doc.data() : null;
             if (!firebaseVersion) {
                 return;
             }
@@ -3389,18 +3392,18 @@ class VersionChecker {
             const firebaseTimestamp = new Date(firebaseVersion.timestamp).getTime();
 
             if (firebaseTimestamp > localTimestamp) {
-                console.warn('[VERSION] ⚠️ Version changed in Firebase!');
+                console.warn('[VERSION] ⚠️ Version changed in Firestore!');
                 console.warn('[VERSION] Local timestamp:', this.localVersion.timestamp);
-                console.warn('[VERSION] Firebase timestamp:', firebaseVersion.timestamp);
+                console.warn('[VERSION] Firestore timestamp:', firebaseVersion.timestamp);
                 console.warn('[VERSION] Local build:', this.localVersion.build);
-                console.warn('[VERSION] Firebase build:', firebaseVersion.build);
+                console.warn('[VERSION] Firestore build:', firebaseVersion.build);
 
                 // Force logout and reload
                 this.forceLogout();
             }
         });
 
-        console.log('[VERSION] ✅ Version listener setup complete');
+        console.log('[VERSION] ✅ Version listener setup complete (Firestore)');
     }
 
     /**
