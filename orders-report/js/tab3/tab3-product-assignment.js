@@ -85,6 +85,7 @@
     // State #STATE
     let productsData = [];
     let ordersData = [];
+    let ordersDataRequestAttempts = 0; // Counter for request attempts
     let assignments = [];
     let isLoadingProducts = false;
     let bearerToken = null;
