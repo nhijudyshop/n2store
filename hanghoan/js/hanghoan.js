@@ -445,6 +445,7 @@ function initializeForm() {
 
 function handleFormSubmit(event) {
     event.preventDefault();
+    console.log('[HangHoan] handleFormSubmit called');
 
     const shipValue = sanitizeInput(DOM.form.querySelector("#ship").value);
     const scenarioValue = sanitizeInput(DOM.form.querySelector("#scenario").value);
@@ -459,6 +460,13 @@ function handleFormSubmit(event) {
 
     if (!shipValue || !scenarioValue || !customerInfoValue || !totalAmountValue || !causeValue) {
         showError("Vui lòng điền đầy đủ thông tin");
+        return;
+    }
+
+    // Check if Firebase is ready
+    if (!collectionRef) {
+        console.error('[HangHoan] collectionRef is null');
+        alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
         return;
     }
 
@@ -484,13 +492,16 @@ function handleFormSubmit(event) {
     DOM.dataForm.style.display = "none";
     DOM.dataForm.classList.remove("show");
     showSuccess("Đã thêm đơn hàng!");
+    console.log('[HangHoan] UI updated, saving to Firebase...');
 
     // Firebase update in background (non-blocking)
     collectionRef.doc("hanghoan").update({
         data: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
     }).then(() => {
+        console.log('[HangHoan] Firebase add successful');
         logAction("add", `Thêm mới: ${customerInfoValue}`, null, dataToUpload);
     }).catch((error) => {
+        console.error('[HangHoan] Firebase add error:', error);
         // Rollback on error
         const data = getCachedData() || [];
         const idx = data.findIndex(d => d.duyetHoanValue === dataToUpload.duyetHoanValue);
@@ -499,6 +510,7 @@ function handleFormSubmit(event) {
         renderTableFromData(data);
         updateStats(data);
         showError("Lỗi khi thêm: " + error.message);
+        alert("Lỗi khi thêm: " + error.message);
     });
 }
 
@@ -554,6 +566,12 @@ function handleDeleteButton(button) {
         return;
     }
 
+    // Check if Firebase is ready
+    if (!collectionRef) {
+        alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
+        return;
+    }
+
     // Optimistic UI: Remove from display immediately
     const currentData = getCachedData() || [];
     const itemIndex = currentData.findIndex(item => item.duyetHoanValue === rowId);
@@ -579,9 +597,11 @@ function handleDeleteButton(button) {
     collectionRef.doc("hanghoan").update({ data: currentData })
         .then(() => {
             showSuccess("Đã xóa!");
+            console.log('[HangHoan] Delete successful');
             logAction("delete", `Xóa: ${deletedItem.customerInfoValue}`, deletedItem, null);
         })
         .catch((error) => {
+            console.error('[HangHoan] Delete error:', error);
             // Rollback
             currentData.splice(itemIndex, 0, deletedItem);
             setCachedData(currentData);
@@ -595,6 +615,13 @@ function handleCheckboxClick(checkbox) {
     const isChecked = checkbox.checked;
     const row = checkbox.closest("tr");
     const rowId = row?.dataset?.id || row?.querySelector("td[id]")?.id;
+
+    // Check if Firebase is ready
+    if (!collectionRef) {
+        checkbox.checked = !isChecked;
+        alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
+        return;
+    }
 
     // Optimistic UI: Update immediately (no confirm, no loading)
     row.style.opacity = isChecked ? "0.5" : "1.0";
@@ -615,9 +642,11 @@ function handleCheckboxClick(checkbox) {
     // Firebase update in background (non-blocking, silent)
     collectionRef.doc("hanghoan").update({ data: currentData })
         .then(() => {
+            console.log('[HangHoan] Checkbox update successful');
             logAction("update", `${isChecked ? "Đánh dấu" : "Hủy"}: ${currentData[itemIndex].customerInfoValue}`);
         })
         .catch((error) => {
+            console.error('[HangHoan] Checkbox update error:', error);
             // Rollback silently
             currentData[itemIndex].muted = !isChecked;
             setCachedData(currentData);
@@ -641,6 +670,8 @@ function closeModal() {
 }
 
 function saveChanges() {
+    console.log('[HangHoan] saveChanges called');
+
     const deliveryValue = sanitizeInput(document.getElementById("editDelivery").value);
     const scenarioValue = sanitizeInput(document.getElementById("eidtScenario").value);
     const infoValue = sanitizeInput(document.getElementById("editInfo").value);
@@ -650,18 +681,33 @@ function saveChanges() {
 
     if (!isValidDateFormat(dateValue)) {
         showError("Định dạng ngày: DD-MM-YY");
+        alert("Định dạng ngày: DD-MM-YY");
         return;
     }
 
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
         showError("Vui lòng điền đầy đủ thông tin");
+        alert("Vui lòng điền đầy đủ thông tin");
         return;
     }
 
-    if (!editingRow) return;
+    if (!editingRow) {
+        console.error('[HangHoan] No editing row');
+        return;
+    }
 
     const rowId = editingRow.dataset?.id || editingRow.querySelector("td[id]")?.id;
-    if (!rowId) return;
+    if (!rowId) {
+        console.error('[HangHoan] No row ID found');
+        return;
+    }
+
+    // Check if Firebase is ready
+    if (!collectionRef) {
+        console.error('[HangHoan] collectionRef is null');
+        alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
+        return;
+    }
 
     const currentData = getCachedData() || [];
     const itemIndex = currentData.findIndex(item => item.duyetHoanValue === rowId);
@@ -693,18 +739,22 @@ function saveChanges() {
     renderTableFromData(currentData);
     closeModal();
     showSuccess("Đã lưu!");
+    console.log('[HangHoan] UI updated, saving to Firebase...');
 
     // Firebase update in background (non-blocking)
     collectionRef.doc("hanghoan").update({ data: currentData })
         .then(() => {
+            console.log('[HangHoan] Firebase save successful');
             logAction("edit", `Sửa: ${infoValue}`, oldData, updatedItem);
         })
         .catch((error) => {
+            console.error('[HangHoan] Firebase save error:', error);
             // Rollback
             currentData[itemIndex] = oldData;
             setCachedData(currentData);
             renderTableFromData(currentData);
             showError("Lỗi: " + error.message);
+            alert("Lỗi lưu: " + error.message);
         });
 }
 
@@ -835,22 +885,46 @@ function ensureCoreUtilitiesLoaded(callback) {
 // =====================================================
 
 document.addEventListener("DOMContentLoaded", function() {
-    // Initialize Firebase
+    console.log('[HangHoan] Starting initialization...');
+
+    // Initialize Firebase first
+    if (typeof initializeFirestore === 'undefined') {
+        console.error('[HangHoan] initializeFirestore not available');
+        alert('Lỗi: Firebase config chưa load. Vui lòng refresh trang.');
+        return;
+    }
+
     db = initializeFirestore();
     if (!db) {
+        console.error('[HangHoan] Firestore initialization failed');
         alert('Lỗi kết nối database. Vui lòng refresh trang.');
         return;
     }
+
     collectionRef = db.collection("hanghoan");
     historyCollectionRef = db.collection("edit_history");
+    console.log('[HangHoan] Firebase initialized');
 
     // Initialize DOM cache
     initializeDOMCache();
 
-    // Wait for core utilities
+    // Attach critical event handlers immediately (don't wait for core utils)
+    const saveButton = document.getElementById("saveButton");
+    if (saveButton) {
+        saveButton.addEventListener("click", saveChanges);
+    }
+
+    // Initial icons
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
+
+    // Wait for core utilities (for caching and notifications)
     ensureCoreUtilitiesLoaded(function() {
+        console.log('[HangHoan] Core utilities loaded');
+
         // Check auth
-        if (!authManager || !authManager.isAuthenticated()) {
+        if (typeof authManager !== 'undefined' && authManager && !authManager.isAuthenticated()) {
             setTimeout(() => {
                 localStorage.clear();
                 sessionStorage.clear();
@@ -859,8 +933,10 @@ document.addEventListener("DOMContentLoaded", function() {
             return;
         }
 
-        // Initialize
-        notificationManager = new NotificationManager();
+        // Initialize notifications
+        if (typeof NotificationManager !== 'undefined') {
+            notificationManager = new NotificationManager();
+        }
         refreshAuthCache();
 
         initializeForm();
@@ -870,16 +946,7 @@ document.addEventListener("DOMContentLoaded", function() {
         // Load data immediately (no delay)
         updateTable();
 
-        // Save button
-        const saveButton = document.getElementById("saveButton");
-        if (saveButton) {
-            saveButton.addEventListener("click", saveChanges);
-        }
-
-        // Initial icons
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
-        }
+        console.log('[HangHoan] Initialization complete');
     });
 });
 
