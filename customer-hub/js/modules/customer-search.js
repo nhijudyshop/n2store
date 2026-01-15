@@ -501,10 +501,25 @@ export class CustomerSearchModule {
         `;
     }
 
+    /**
+     * Parse date string as UTC (handles API timestamps without 'Z' suffix)
+     * @param {string} dateStr - Date string from API
+     * @returns {Date} Date object
+     */
+    _parseAsUTC(dateStr) {
+        if (!dateStr) return new Date();
+        // If already has timezone info (Z or +/-), parse directly
+        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
+            return new Date(dateStr);
+        }
+        // Otherwise, append 'Z' to treat as UTC
+        return new Date(dateStr + 'Z');
+    }
+
     formatLastActivity(dateStr) {
         if (!dateStr) return 'N/A';
 
-        const date = new Date(dateStr);
+        const date = this._parseAsUTC(dateStr);
         const now = new Date();
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);
