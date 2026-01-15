@@ -449,15 +449,15 @@ router.post('/customer-search-v2', async (req, res) => {
     }
 
     try {
-        // Search customers and JOIN with wallets to get balance
+        // Search customers and JOIN with customer_wallets to get balance
         const result = await db.query(`
             SELECT
                 s.*,
-                COALESCE(w.balance, 0) as balance,
+                COALESCE(w.balance, 0) + COALESCE(w.virtual_balance, 0) as balance,
                 COALESCE(w.virtual_balance, 0) as virtual_balance,
-                COALESCE(w.real_balance, 0) as real_balance
+                COALESCE(w.balance, 0) as real_balance
             FROM search_customers_priority($1, $2) s
-            LEFT JOIN wallets w ON s.phone = w.phone
+            LEFT JOIN customer_wallets w ON s.phone = w.phone
         `, [query, parseInt(limit)]);
 
         res.json({ success: true, data: result.rows });

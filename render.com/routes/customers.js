@@ -472,15 +472,15 @@ router.get('/recent', async (req, res) => {
         const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE active = true');
         const total = parseInt(countResult.rows[0].count);
 
-        // Get recent customers with wallet balance (LEFT JOIN wallets)
+        // Get recent customers with wallet balance (LEFT JOIN customer_wallets)
         const result = await db.query(`
             SELECT
                 c.*,
-                COALESCE(w.balance, 0) as balance,
+                COALESCE(w.balance, 0) + COALESCE(w.virtual_balance, 0) as balance,
                 COALESCE(w.virtual_balance, 0) as virtual_balance,
-                COALESCE(w.real_balance, 0) as real_balance
+                COALESCE(w.balance, 0) as real_balance
             FROM customers c
-            LEFT JOIN wallets w ON c.phone = w.phone
+            LEFT JOIN customer_wallets w ON c.phone = w.phone
             WHERE c.active = true
             ORDER BY COALESCE(c.last_interaction_date, c.updated_at, c.created_at) DESC
             LIMIT $1 OFFSET $2
