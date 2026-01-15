@@ -1035,3 +1035,81 @@ document.addEventListener("DOMContentLoaded", function() {
 // Global exports
 window.closeModal = closeModal;
 window.saveChanges = saveChanges;
+
+// =====================================================
+// DATA MIGRATION - Fix corrupted timestamps
+// =====================================================
+
+/**
+ * Fix items with corrupted duyetHoanValue (0 or invalid)
+ * Run from console: fixCorruptedTimestamps()
+ */
+async function fixCorruptedTimestamps() {
+    if (!collectionRef) {
+        console.error('[Migration] Database not ready');
+        return;
+    }
+
+    console.log('[Migration] Starting timestamp fix...');
+
+    try {
+        // Fetch fresh data from Firebase
+        const doc = await collectionRef.doc("hanghoan").get();
+        if (!doc.exists) {
+            console.error('[Migration] Document not found');
+            return;
+        }
+
+        const data = doc.data().data || [];
+        console.log('[Migration] Total items:', data.length);
+
+        // Find corrupted items
+        const corruptedItems = [];
+        data.forEach((item, index) => {
+            const timestamp = parseFloat(item.duyetHoanValue);
+            // Invalid if: 0, NaN, or before year 2000 (946684800000)
+            if (!timestamp || isNaN(timestamp) || timestamp < 946684800000) {
+                corruptedItems.push({ index, item, oldValue: item.duyetHoanValue });
+            }
+        });
+
+        console.log('[Migration] Corrupted items found:', corruptedItems.length);
+
+        if (corruptedItems.length === 0) {
+            console.log('[Migration] No corrupted data found!');
+            return;
+        }
+
+        // Fix corrupted items - assign new unique timestamps
+        const baseTimestamp = Date.now();
+        corruptedItems.forEach((entry, i) => {
+            // Each item gets a unique timestamp (offset by index * 1000ms)
+            const newTimestamp = (baseTimestamp - (i * 1000)).toString();
+            data[entry.index].duyetHoanValue = newTimestamp;
+            console.log(`[Migration] Fixed item ${entry.index}: ${entry.oldValue} → ${newTimestamp}`);
+        });
+
+        // Confirm before saving
+        if (!confirm(`Tìm thấy ${corruptedItems.length} items bị lỗi. Bấm OK để sửa.`)) {
+            console.log('[Migration] Cancelled by user');
+            return;
+        }
+
+        // Save to Firebase
+        await collectionRef.doc("hanghoan").update({ data: data });
+        console.log('[Migration] Firebase updated successfully');
+
+        // Clear cache and reload
+        invalidateCache();
+        updateTable(true);
+
+        alert(`Đã sửa ${corruptedItems.length} items thành công!`);
+        console.log('[Migration] Complete!');
+
+    } catch (error) {
+        console.error('[Migration] Error:', error);
+        alert('Lỗi: ' + error.message);
+    }
+}
+
+window.fixCorruptedTimestamps = fixCorruptedTimestamps;
