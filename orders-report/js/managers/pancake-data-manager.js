@@ -23,6 +23,26 @@ class PancakeDataManager {
         this.unreadPagesCache = null;
         this.lastUnreadPagesFetchTime = null;
         this.UNREAD_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
+
+        // Global request throttle to prevent 429 rate limiting
+        this.lastRequestTime = 0;
+        this.MIN_REQUEST_INTERVAL = 500; // Minimum 500ms between requests
+        this.requestQueue = Promise.resolve(); // Sequential request queue
+    }
+
+    /**
+     * Throttle requests to prevent 429 rate limiting
+     * Ensures minimum interval between API calls
+     */
+    async throttleRequest() {
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.lastRequestTime;
+        if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+            const delay = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+            console.log(`[PANCAKE] ⏳ Throttling request, waiting ${delay}ms...`);
+            await new Promise(r => setTimeout(r, delay));
+        }
+        this.lastRequestTime = Date.now();
     }
 
     /**
@@ -128,6 +148,9 @@ class PancakeDataManager {
 
             this.isLoadingPages = true;
             console.log('[PANCAKE] Fetching pages from API via Cloudflare...');
+
+            // Throttle to prevent 429
+            await this.throttleRequest();
 
             const token = await this.getToken();
 
@@ -613,6 +636,9 @@ class PancakeDataManager {
 
             this.isLoading = true;
             console.log('[PANCAKE] Fetching conversations from API via Cloudflare...');
+
+            // Throttle to prevent 429
+            await this.throttleRequest();
 
             const token = await this.getToken();
 
