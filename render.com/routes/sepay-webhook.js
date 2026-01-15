@@ -3379,9 +3379,20 @@ router.put('/transaction/:id/phone', async (req, res) => {
             updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`];
             console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval`);
         } else {
-            // Normal update (admin/accountant editing) → update phone only
-            updateQuery = 'UPDATE balance_history SET linked_customer_phone = $1 WHERE id = $2 RETURNING *';
-            updateParams = [newPhone, id];
+            // Accountant/admin editing → AUTO-APPROVE immediately
+            // Set verification_status = 'APPROVED', match_method = 'manual_link'
+            // Will credit wallet after update
+            updateQuery = `UPDATE balance_history
+                SET linked_customer_phone = $1,
+                    match_method = 'manual_link',
+                    verification_status = 'APPROVED',
+                    verified_by = $3,
+                    verified_at = CURRENT_TIMESTAMP,
+                    verification_note = $4
+                WHERE id = $2
+                RETURNING *`;
+            updateParams = [newPhone, id, entered_by, `Auto-approved by accountant ${entered_by} at ${new Date().toISOString()}`];
+            console.log(`[TRANSACTION-PHONE-UPDATE] Accountant edit - auto-approving`);
         }
 
         const updateResult = await db.query(updateQuery, updateParams);
@@ -3451,6 +3462,52 @@ router.put('/transaction/:id/phone', async (req, res) => {
             }
         }
 
+        // For accountant edit (is_manual_entry = false), credit wallet immediately
+        let walletResult = null;
+        let walletCredited = false;
+        const tx = updateResult.rows[0];
+
+        if (!is_manual_entry && tx.transfer_amount > 0 && !tx.wallet_processed) {
+            try {
+                console.log(`[TRANSACTION-PHONE-UPDATE] Accountant edit - crediting wallet for ${newPhone}`);
+
+                // Use processDeposit to credit wallet
+                walletResult = await processDeposit(
+                    db,
+                    newPhone,
+                    tx.transfer_amount,
+                    id,
+                    `Nạp từ CK (Auto-approved by ${entered_by})`,
+                    tx.customer_id
+                );
+
+                // Mark as wallet processed
+                await db.query(`
+                    UPDATE balance_history
+                    SET wallet_processed = TRUE
+                    WHERE id = $1
+                `, [id]);
+
+                // Log activity
+                await db.query(`
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
+                `, [
+                    newPhone,
+                    tx.customer_id,
+                    `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
+                    `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - Auto-approved by ${entered_by}`,
+                    id
+                ]);
+
+                walletCredited = true;
+                console.log(`[TRANSACTION-PHONE-UPDATE] ✅ Wallet credited: ${newPhone} +${tx.transfer_amount}`);
+            } catch (walletErr) {
+                console.error(`[TRANSACTION-PHONE-UPDATE] Wallet credit failed:`, walletErr.message);
+                // Don't fail the request - approval is more important, wallet can be retried
+            }
+        }
+
         res.json({
             success: true,
             data: updateResult.rows[0],
@@ -3460,7 +3517,10 @@ router.put('/transaction/:id/phone', async (req, res) => {
             tpos_lookup: tposResult ? 'success' : 'failed',
             is_manual_entry: is_manual_entry,
             requires_approval: is_manual_entry,
-            verification_status: is_manual_entry ? 'PENDING_VERIFICATION' : updateResult.rows[0].verification_status
+            verification_status: is_manual_entry ? 'PENDING_VERIFICATION' : 'APPROVED',
+            wallet_credited: walletCredited,
+            wallet_amount: walletCredited ? tx.transfer_amount : null,
+            new_balance: walletResult?.wallet?.balance || null
         });
 
     } catch (error) {
