@@ -321,6 +321,42 @@ router.post('/webhook', async (req, res) => {
 });
 
 /**
+ * GET /api/sepay/history/stats
+ * Lấy thống kê verification status
+ */
+router.get('/history/stats', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        const result = await db.query(`
+            SELECT
+                COUNT(*) FILTER (WHERE verification_status = 'AUTO_APPROVED') as auto_approved,
+                COUNT(*) FILTER (WHERE verification_status = 'APPROVED') as manually_approved,
+                COUNT(*) FILTER (WHERE verification_status = 'PENDING_VERIFICATION') as pending_verification,
+                COUNT(*) FILTER (WHERE verification_status = 'REJECTED') as rejected,
+                COUNT(*) FILTER (WHERE verification_status = 'PENDING' OR verification_status IS NULL) as pending,
+                COUNT(*) FILTER (WHERE linked_customer_phone IS NULL) as no_phone,
+                COUNT(*) FILTER (WHERE wallet_processed = TRUE) as wallet_credited,
+                COUNT(*) as total
+            FROM balance_history
+            WHERE (is_hidden = FALSE OR is_hidden IS NULL)
+        `);
+
+        res.json({
+            success: true,
+            stats: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('[HISTORY-STATS] Error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+/**
  * GET /api/sepay/history
  * Lấy lịch sử giao dịch
  */
@@ -336,7 +372,9 @@ router.get('/history', async (req, res) => {
             startDate,
             endDate,
             search,
-            showHidden = 'false' // 'true' = show all, 'false' = hide hidden transactions
+            showHidden = 'false', // 'true' = show all, 'false' = hide hidden transactions
+            verification_status,  // Filter by verification status
+            has_phone             // Filter by linked_customer_phone existence
         } = req.query;
 
         const offset = (page - 1) * limit;
@@ -389,6 +427,20 @@ router.get('/history', async (req, res) => {
             )`);
             queryParams.push(`%${search}%`);
             paramCounter++;
+        }
+
+        // Filter by verification_status
+        if (verification_status) {
+            queryConditions.push(`bh.verification_status = $${paramCounter}`);
+            queryParams.push(verification_status);
+            paramCounter++;
+        }
+
+        // Filter by has_phone (linked_customer_phone existence)
+        if (has_phone === 'true') {
+            queryConditions.push(`bh.linked_customer_phone IS NOT NULL`);
+        } else if (has_phone === 'false') {
+            queryConditions.push(`bh.linked_customer_phone IS NULL`);
         }
 
         const whereClause = queryConditions.length > 0

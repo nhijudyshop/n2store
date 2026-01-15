@@ -152,6 +152,38 @@
                 </div>
             </div>
 
+            <!-- Verification Status Filter Chips -->
+            <div id="verificationFilters" class="verification-filters">
+                <div class="filter-label">
+                    <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i> Trạng thái xác minh:
+                </div>
+                <div class="filter-chips">
+                    <button class="filter-chip active" data-status="all">
+                        Tất cả <span class="chip-count" id="stat-all">0</span>
+                    </button>
+                    <button class="filter-chip chip-auto" data-status="AUTO_APPROVED">
+                        <i data-lucide="zap" style="width:12px;height:12px"></i> Tự động
+                        <span class="chip-count" id="stat-auto">0</span>
+                    </button>
+                    <button class="filter-chip chip-approved" data-status="APPROVED">
+                        <i data-lucide="user-check" style="width:12px;height:12px"></i> Kế toán duyệt
+                        <span class="chip-count" id="stat-approved">0</span>
+                    </button>
+                    <button class="filter-chip chip-pending" data-status="PENDING_VERIFICATION">
+                        <i data-lucide="clock" style="width:12px;height:12px"></i> Chờ duyệt
+                        <span class="chip-count" id="stat-pending">0</span>
+                    </button>
+                    <button class="filter-chip chip-rejected" data-status="REJECTED">
+                        <i data-lucide="x-circle" style="width:12px;height:12px"></i> Từ chối
+                        <span class="chip-count" id="stat-rejected">0</span>
+                    </button>
+                    <button class="filter-chip chip-no-phone" data-status="NO_PHONE">
+                        <i data-lucide="user-x" style="width:12px;height:12px"></i> Chưa gán KH
+                        <span class="chip-count" id="stat-no-phone">0</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Filters Container (hidden by default) -->
             <div id="filtersContainer" style="display: none;">
                 <!-- Quick Date Filters -->

@@ -1956,3 +1956,153 @@ body {
     width: 14px;
     height: 14px;
 }
+
+/* =====================================================
+   VERIFICATION STATUS FILTER CHIPS
+   ===================================================== */
+
+.verification-filters {
+    padding: 12px 15px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 15px;
+}
+
+.verification-filters .filter-label {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+}
+
+.filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.filter-chip:hover {
+    border-color: #94a3b8;
+    background: #f1f5f9;
+}
+
+.filter-chip.active {
+    background: #1e293b;
+    color: white;
+    border-color: #1e293b;
+}
+
+.chip-count {
+    background: #e2e8f0;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.filter-chip.active .chip-count {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+/* Chip color variants */
+.filter-chip.chip-auto {
+    border-color: #a7f3d0;
+    color: #065f46;
+}
+.filter-chip.chip-auto:hover {
+    background: #ecfdf5;
+}
+.filter-chip.chip-auto.active {
+    background: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+.filter-chip.chip-approved {
+    border-color: #bfdbfe;
+    color: #1e40af;
+}
+.filter-chip.chip-approved:hover {
+    background: #eff6ff;
+}
+.filter-chip.chip-approved.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.filter-chip.chip-pending {
+    border-color: #fed7aa;
+    color: #c2410c;
+}
+.filter-chip.chip-pending:hover {
+    background: #fff7ed;
+}
+.filter-chip.chip-pending.active {
+    background: #f59e0b;
+    border-color: #f59e0b;
+    color: white;
+}
+
+.filter-chip.chip-rejected {
+    border-color: #fecaca;
+    color: #991b1b;
+}
+.filter-chip.chip-rejected:hover {
+    background: #fef2f2;
+}
+.filter-chip.chip-rejected.active {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: white;
+}
+
+.filter-chip.chip-no-phone {
+    border-color: #d1d5db;
+    color: #374151;
+}
+.filter-chip.chip-no-phone:hover {
+    background: #f3f4f6;
+}
+.filter-chip.chip-no-phone.active {
+    background: #6b7280;
+    border-color: #6b7280;
+    color: white;
+}
+
+/* Responsive: Stack on mobile */
+@media (max-width: 768px) {
+    .filter-chips {
+        gap: 6px;
+    }
+
+    .filter-chip {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+
+    .chip-count {
+        padding: 1px 6px;
+        font-size: 10px;
+    }
+}

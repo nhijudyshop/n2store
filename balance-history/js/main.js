@@ -14,6 +14,7 @@ let currentPage = 1;
 let totalPages = 1;
 let currentQuickFilter = 'last30days'; // Default quick filter
 let viewMode = localStorage.getItem('bh_view_mode') || 'all'; // View mode: 'all', 'visible', 'hidden'
+let verificationStatusFilter = 'all'; // Verification status filter
 let allLoadedData = []; // Cache all loaded data (including hidden) for client-side filtering
 let filters = {
     type: '',
@@ -443,11 +444,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Set default date first (synchronous, fast)
     setDefaultCurrentMonth();
     setupEventListeners();
+    setupVerificationFilterChips();
 
     // Load data and statistics in parallel (don't wait for each other)
     const loadPromises = [
         loadData(),
-        loadStatistics()
+        loadStatistics(),
+        loadVerificationStats()
     ];
 
     // Initialize CustomerInfoManager in background (non-blocking)
@@ -865,6 +868,15 @@ async function fetchFromAPI() {
         showHidden: 'true',
         ...filters
     });
+
+    // Add verification status filter
+    if (verificationStatusFilter && verificationStatusFilter !== 'all') {
+        if (verificationStatusFilter === 'NO_PHONE') {
+            queryParams.set('has_phone', 'false');
+        } else {
+            queryParams.set('verification_status', verificationStatusFilter);
+        }
+    }
 
     for (let [key, value] of queryParams.entries()) {
         if (!value) queryParams.delete(key);
@@ -4475,6 +4487,75 @@ window.showPhoneDataModal = showPhoneDataModal;
 window.closePhoneDataModal = closePhoneDataModal;
 window.filterPhoneDataTable = filterPhoneDataTable;
 window.showDebtForPhone = showDebtForPhone;
+
+// =====================================================
+// VERIFICATION STATUS FILTER CHIPS
+// =====================================================
+
+/**
+ * Load verification stats from API and update chip counts
+ */
+async function loadVerificationStats() {
+    try {
+        console.log('[VERIFICATION-STATS] Loading...');
+        const response = await fetch(`${API_BASE_URL}/api/sepay/history/stats`);
+        const result = await response.json();
+
+        if (result.success && result.stats) {
+            const stats = result.stats;
+            console.log('[VERIFICATION-STATS] Loaded:', stats);
+
+            // Update chip count elements
+            const updateElement = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value || 0;
+            };
+
+            updateElement('stat-all', stats.total);
+            updateElement('stat-auto', stats.auto_approved);
+            updateElement('stat-approved', stats.manually_approved);
+            updateElement('stat-pending', stats.pending_verification);
+            updateElement('stat-rejected', stats.rejected);
+            updateElement('stat-no-phone', stats.no_phone);
+        }
+    } catch (error) {
+        console.error('[VERIFICATION-STATS] Error:', error);
+    }
+}
+
+/**
+ * Setup verification filter chip click handlers
+ */
+function setupVerificationFilterChips() {
+    const chips = document.querySelectorAll('.filter-chip');
+
+    if (chips.length === 0) {
+        console.log('[VERIFICATION-CHIPS] No filter chips found');
+        return;
+    }
+
+    console.log('[VERIFICATION-CHIPS] Setting up', chips.length, 'filter chips');
+
+    chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            // Update active state
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+
+            // Set filter and reload
+            verificationStatusFilter = chip.dataset.status;
+            console.log('[VERIFICATION-CHIPS] Filter set to:', verificationStatusFilter);
+
+            // Reset to first page and reload
+            currentPage = 1;
+            loadData(true);
+        });
+    });
+}
+
+// Export for global access
+window.loadVerificationStats = loadVerificationStats;
+window.setupVerificationFilterChips = setupVerificationFilterChips;
 
 // Disconnect when page unloads
 window.addEventListener('beforeunload', () => {
