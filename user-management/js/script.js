@@ -314,19 +314,6 @@ async function deleteUser(username) {
         // Delete from users collection
         await db.collection("users").doc(username).delete();
 
-        // Try to delete from auth_users if exists
-        try {
-            const authUsersSnapshot = await db
-                .collection("auth_users")
-                .where("username", "==", username)
-                .get();
-            authUsersSnapshot.forEach(async (doc) => {
-                await doc.ref.delete();
-            });
-        } catch (authError) {
-            console.log("Could not delete from auth_users:", authError);
-        }
-
         alert(`✅ Đã xóa tài khoản "${username}" thành công!`);
         loadUsers(); // Reload user list
     } catch (error) {
