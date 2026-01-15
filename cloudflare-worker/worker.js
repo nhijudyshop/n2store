@@ -119,6 +119,7 @@ export default {
                 case 'CUSTOMER_SEARCH':
                 case 'TRANSACTIONS':
                 case 'BALANCE_HISTORY':
+                case 'BALANCE_HISTORY_V2':
                     return handleCustomer360Proxy(request, url, pathname);
 
                 // TPOS generic (catch-all for /api/*)
