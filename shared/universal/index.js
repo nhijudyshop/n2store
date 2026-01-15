@@ -9,11 +9,8 @@
 export {
     delay,
     fetchWithTimeout,
-    fetchWithRetry,
     simpleFetch,
     safeFetch,
-    SmartFetchManager,
-    createSmartFetch,
 } from './fetch-utils.js';
 
 // API endpoints configuration

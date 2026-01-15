@@ -5,20 +5,18 @@
  * Consolidates:
  * - Token management
  * - API configuration
- * - Smart fetch with fallback
  * - OData query builders
  */
 
-import { fetchWithRetry, fetchWithTimeout, createSmartFetch } from './fetch-utils.js';
+import { fetchWithTimeout } from './fetch-utils.js';
 
 // =====================================================
 // CONFIGURATION
 // =====================================================
 
 export const TPOS_CONFIG = {
-    // API Base URLs
+    // API Base URL
     PRIMARY_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
-    BACKUP_URL: 'https://n2store-fallback.onrender.com',
     DIRECT_TPOS_URL: 'https://tomato.tpos.vn',
 
     // Token API
@@ -35,16 +33,11 @@ export const TPOS_CONFIG = {
     // Timeouts
     TOKEN_TIMEOUT: 10000,     // 10 seconds for token requests
     API_TIMEOUT: 15000,       // 15 seconds for API requests
-    RETRY_COUNT: 2,
-    RETRY_DELAY: 1000,
 
     // Token management
     TOKEN_BUFFER: 5 * 60 * 1000,          // 5 minutes before expiry
     TOKEN_STORAGE_KEY: 'tpos_bearer_token',
     FIREBASE_TOKEN_PATH: 'tokens/tpos_bearer',
-
-    // Retry after switching to backup
-    RETRY_PRIMARY_AFTER: 5 * 60 * 1000,   // 5 minutes
 };
 
 // =====================================================
@@ -55,6 +48,7 @@ export class TPOSClient {
     constructor(options = {}) {
         this.config = { ...TPOS_CONFIG, ...options };
         this.credentials = options.credentials || this.config.DEFAULT_CREDENTIALS;
+        this.baseUrl = this.config.PRIMARY_URL;
 
         // Token state
         this.token = null;
@@ -66,16 +60,8 @@ export class TPOSClient {
         this.storage = options.storage || null;
         this.firebaseRef = options.firebaseRef || null;
 
-        // Smart fetch manager for auto-fallback
-        this.smartFetch = createSmartFetch(
-            this.config.PRIMARY_URL,
-            this.config.BACKUP_URL,
-            { retryPrimaryAfter: this.config.RETRY_PRIMARY_AFTER }
-        );
-
         // Callbacks
         this.onTokenRefresh = options.onTokenRefresh || null;
-        this.onServerSwitch = options.onServerSwitch || null;
     }
 
     // =====================================================
@@ -165,7 +151,7 @@ export class TPOSClient {
      * @private
      */
     async _fetchNewToken() {
-        const url = `${this.smartFetch.getCurrentUrl()}${this.config.TOKEN_ENDPOINT}`;
+        const url = `${this.baseUrl}${this.config.TOKEN_ENDPOINT}`;
 
         const response = await fetchWithTimeout(url, {
             method: 'POST',
@@ -211,7 +197,7 @@ export class TPOSClient {
             isValid: this.isTokenValid(),
             expiresAt: this.tokenExpiry ? new Date(this.tokenExpiry).toISOString() : null,
             expiresIn: this.tokenExpiry ? Math.max(0, this.tokenExpiry - Date.now()) : 0,
-            server: this.smartFetch.getStatus()
+            server: this.baseUrl
         };
     }
 
@@ -301,7 +287,7 @@ export class TPOSClient {
     async fetch(url, options = {}) {
         const authHeader = await this.getAuthHeader();
 
-        const response = await this.smartFetch.fetch(url, {
+        const response = await fetch(url, {
             ...options,
             headers: {
                 ...authHeader,
@@ -316,7 +302,7 @@ export class TPOSClient {
             await this.refreshToken();
 
             const newAuthHeader = await this.getAuthHeader();
-            return this.smartFetch.fetch(url, {
+            return fetch(url, {
                 ...options,
                 headers: {
                     ...newAuthHeader,
@@ -370,8 +356,7 @@ export class TPOSClient {
      * Build API URL
      */
     buildUrl(endpoint, params = {}) {
-        const baseUrl = this.smartFetch.getCurrentUrl();
-        let url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+        let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
 
         if (Object.keys(params).length > 0) {
             const searchParams = new URLSearchParams();
@@ -409,21 +394,10 @@ export class TPOSClient {
     // =====================================================
 
     getServerStatus() {
-        return this.smartFetch.getStatus();
-    }
-
-    forceBackupServer() {
-        this.smartFetch.forceBackup();
-        if (this.onServerSwitch) {
-            this.onServerSwitch('backup');
-        }
-    }
-
-    forcePrimaryServer() {
-        this.smartFetch.forcePrimary();
-        if (this.onServerSwitch) {
-            this.onServerSwitch('primary');
-        }
+        return {
+            primary: this.baseUrl,
+            current: this.baseUrl
+        };
     }
 }
 

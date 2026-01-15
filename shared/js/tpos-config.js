@@ -15,41 +15,19 @@
 
     const TPOS_CONFIG = {
         // =====================================================
-        // API VERSION - Dynamically fetched from server
+        // API VERSION
         // =====================================================
-        tposAppVersion: null, // Will be fetched dynamically
-        _fallbackVersion: '5.12.29.1', // Fallback only if dynamic fetch fails
+        tposAppVersion: '5.12.29.1',
 
         // =====================================================
-        // PROXY URLS
+        // PROXY URL
         // =====================================================
         proxyUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev',
-        fallbackApiUrl: 'https://n2store-fallback.onrender.com',
 
         // =====================================================
         // TPOS API BASE
         // =====================================================
         tposBaseUrl: 'https://tomato.tpos.vn',
-
-        // =====================================================
-        // DYNAMIC HEADERS FETCH
-        // =====================================================
-        async fetchDynamicHeaders() {
-            try {
-                const response = await fetch(`${this.fallbackApiUrl}/dynamic-headers`);
-                const data = await response.json();
-                if (data.success && data.data.currentHeaders.tposappversion) {
-                    this.tposAppVersion = data.data.currentHeaders.tposappversion;
-                    console.log('[TPOS-CONFIG] ✅ Dynamic headers loaded:', this.tposAppVersion);
-                } else {
-                    this.tposAppVersion = this._fallbackVersion;
-                    console.log('[TPOS-CONFIG] ⚠️ Using fallback version:', this._fallbackVersion);
-                }
-            } catch (error) {
-                this.tposAppVersion = this._fallbackVersion;
-                console.log('[TPOS-CONFIG] ⚠️ Failed to fetch dynamic headers, using fallback:', this._fallbackVersion);
-            }
-        },
 
         // =====================================================
         // COMMON HEADERS
@@ -58,7 +36,7 @@
             return {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'tposappversion': this.tposAppVersion || this._fallbackVersion,
+                'tposappversion': this.tposAppVersion,
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             };
         },
@@ -66,15 +44,10 @@
         // Get just the version header
         getVersionHeader: function () {
             return {
-                'tposappversion': this.tposAppVersion || this._fallbackVersion
+                'tposappversion': this.tposAppVersion
             };
         }
     };
-
-    // Initialize dynamic headers on load
-    if (typeof window !== 'undefined') {
-        TPOS_CONFIG.fetchDynamicHeaders();
-    }
 
     // Export for different module systems
     if (typeof module !== 'undefined' && module.exports) {

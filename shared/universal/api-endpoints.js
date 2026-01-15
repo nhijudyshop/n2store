@@ -42,7 +42,6 @@ export const API_ENDPOINTS = {
 
     // N2Store Services
     N2STORE: {
-        FALLBACK: 'https://n2store-fallback.onrender.com',
         REALTIME: 'https://n2store-realtime.onrender.com',
     },
 

@@ -24,7 +24,6 @@ const DoiSoatModule = (function () {
     // Uses TPOS_CONFIG from js/tpos-config.js for centralized version management
     const API_CONFIG = {
         proxyUrl: window.TPOS_CONFIG?.proxyUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev',
-        fallbackUrl: 'https://n2store-api-fallback.onrender.com',
         endpoint: '/api/odata/FastSaleOrder/ODataService.GetHistoryCrossCheckProductView',
         get tposAppVersion() { return window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'; }
     };
@@ -206,25 +205,13 @@ const DoiSoatModule = (function () {
     }
 
     /**
-     * Smart fetch with fallback support
+     * Simple fetch wrapper
      */
     async function smartFetch(url, options) {
-        try {
-            console.log('[DoiSoat] Trying primary proxy:', API_CONFIG.proxyUrl + url);
-            const response = await fetch(API_CONFIG.proxyUrl + url, options);
-            console.log('[DoiSoat] Primary proxy response status:', response.status);
-
-            if (!response.ok && response.status >= 500) {
-                throw new Error('Primary proxy failed, trying fallback');
-            }
-            return response;
-        } catch (error) {
-            console.warn('[DoiSoat] Primary proxy failed, using fallback:', error.message);
-            console.log('[DoiSoat] Fallback URL:', API_CONFIG.fallbackUrl + url);
-            const fallbackResponse = await fetch(API_CONFIG.fallbackUrl + url, options);
-            console.log('[DoiSoat] Fallback response status:', fallbackResponse.status);
-            return fallbackResponse;
-        }
+        console.log('[DoiSoat] Fetching:', API_CONFIG.proxyUrl + url);
+        const response = await fetch(API_CONFIG.proxyUrl + url, options);
+        console.log('[DoiSoat] Response status:', response.status);
+        return response;
     }
 
     /**
