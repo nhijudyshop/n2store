@@ -147,8 +147,7 @@ async function searchCustomerByPhone(phone) {
                         address: customer.FullAddress || customer.Street,
                         network: customer.NameNetwork,
                         status: customer.StatusText,  // Use StatusText, not Status
-                        credit: customer.Credit,
-                        debit: customer.Debit,
+                        dateCreated: customer.DateCreated,
                         // Raw data for backup
                         raw: {
                             DateCreated: customer.DateCreated,
@@ -175,8 +174,7 @@ async function searchCustomerByPhone(phone) {
                 address: firstCustomer.FullAddress || firstCustomer.Street,
                 network: firstCustomer.NameNetwork,
                 status: firstCustomer.StatusText,  // Use StatusText, not Status
-                credit: firstCustomer.Credit,
-                debit: firstCustomer.Debit,
+                dateCreated: firstCustomer.DateCreated,
                 raw: {
                     DateCreated: firstCustomer.DateCreated,
                     DateModified: firstCustomer.DateModified,
@@ -256,8 +254,7 @@ async function getCustomerById(tposId) {
                 address: customer.FullAddress || customer.Street,
                 network: customer.NameNetwork,
                 status: customer.StatusText,  // Use StatusText, not Status
-                credit: customer.Credit,
-                debit: customer.Debit,
+                dateCreated: customer.DateCreated,
                 raw: {
                     DateCreated: customer.DateCreated,
                     DateModified: customer.DateModified,
@@ -331,8 +328,7 @@ async function searchAllCustomersByPhone(phone) {
             address: customer.FullAddress || customer.Street,
             network: customer.NameNetwork,
             status: customer.StatusText,  // Use StatusText, not Status
-            credit: customer.Credit,
-            debit: customer.Debit
+            dateCreated: customer.DateCreated
         }));
 
         console.log(`[TPOS-CUSTOMER] Found ${customers.length} customers for ${fullPhone}`);
