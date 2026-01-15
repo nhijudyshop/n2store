@@ -177,12 +177,190 @@ export class WalletPanelModule {
     }
 
     _showActionModal(action) {
-        const actionNames = {
-            'deposit': 'Nạp tiền',
-            'withdraw': 'Rút tiền',
-            'issue_vc': 'Cấp tín dụng ảo'
+        const actionConfig = {
+            'deposit': {
+                title: 'Nạp tiền vào ví',
+                icon: 'add',
+                color: 'green',
+                placeholder: 'Nhập số tiền cần nạp',
+                buttonText: 'Nạp tiền',
+                showExpiryDays: false
+            },
+            'withdraw': {
+                title: 'Rút tiền từ ví',
+                icon: 'remove',
+                color: 'red',
+                placeholder: 'Nhập số tiền cần rút',
+                buttonText: 'Rút tiền',
+                showExpiryDays: false
+            },
+            'issue_vc': {
+                title: 'Cấp công nợ ảo',
+                icon: 'stars',
+                color: 'amber',
+                placeholder: 'Nhập số tiền công nợ ảo',
+                buttonText: 'Cấp công nợ',
+                showExpiryDays: true
+            }
         };
-        alert(`Chức năng "${actionNames[action]}" đang được phát triển.`);
+
+        const config = actionConfig[action];
+        if (!config) return;
+
+        const modalHTML = `
+            <div id="wallet-action-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined text-${config.color}-600">${config.icon}</span>
+                            ${config.title}
+                        </h3>
+                        <button id="close-action-modal" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Số tiền (VNĐ)</label>
+                            <input type="number" id="wallet-action-amount"
+                                class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-${config.color}-500 focus:border-${config.color}-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white text-lg"
+                                placeholder="${config.placeholder}"
+                                min="1000" step="1000">
+                        </div>
+                        ${config.showExpiryDays ? `
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Số ngày hiệu lực</label>
+                                <input type="number" id="wallet-action-expiry"
+                                    class="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                    value="15" min="1" max="365">
+                            </div>
+                        ` : ''}
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Ghi chú (tùy chọn)</label>
+                            <textarea id="wallet-action-note" rows="2"
+                                class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-${config.color}-500 focus:border-${config.color}-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                                placeholder="Nhập ghi chú..."></textarea>
+                        </div>
+                        <div id="wallet-action-error" class="hidden mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm"></div>
+                        <button id="wallet-action-submit"
+                            class="w-full py-3 px-4 bg-${config.color}-600 hover:bg-${config.color}-700 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined">${config.icon}</span>
+                            ${config.buttonText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        const modal = document.getElementById('wallet-action-modal');
+        const closeBtn = document.getElementById('close-action-modal');
+        const submitBtn = document.getElementById('wallet-action-submit');
+        const amountInput = document.getElementById('wallet-action-amount');
+        const noteInput = document.getElementById('wallet-action-note');
+        const errorDiv = document.getElementById('wallet-action-error');
+        const expiryInput = document.getElementById('wallet-action-expiry');
+
+        const closeModal = () => modal.remove();
+
+        closeBtn.onclick = closeModal;
+        modal.onclick = (e) => {
+            if (e.target === modal) closeModal();
+        };
+
+        submitBtn.onclick = async () => {
+            const amount = parseFloat(amountInput.value);
+            const note = noteInput.value.trim();
+            const expiryDays = expiryInput ? parseInt(expiryInput.value) || 15 : 15;
+
+            if (!amount || amount < 1000) {
+                errorDiv.textContent = 'Số tiền phải lớn hơn 1,000 VNĐ';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="animate-spin material-symbols-outlined">sync</span> Đang xử lý...';
+            errorDiv.classList.add('hidden');
+
+            try {
+                let result;
+                if (action === 'deposit') {
+                    result = await this._handleDeposit(amount, note);
+                } else if (action === 'withdraw') {
+                    result = await this._handleWithdraw(amount, note);
+                } else if (action === 'issue_vc') {
+                    result = await this._handleIssueVirtualCredit(amount, expiryDays, note);
+                }
+
+                if (result && result.success) {
+                    closeModal();
+                    // Refresh wallet panel
+                    await this.loadWalletDetails();
+                } else {
+                    throw new Error(result?.error || 'Có lỗi xảy ra');
+                }
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span class="material-symbols-outlined">${config.icon}</span> ${config.buttonText}`;
+            }
+        };
+
+        // Focus on amount input
+        amountInput.focus();
+    }
+
+    async _handleDeposit(amount, note) {
+        const response = await fetch(`${apiService.RENDER_API_URL}/wallets/${this.customerPhone}/deposit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount,
+                source: 'MANUAL_ADJUSTMENT',
+                note: note || 'Nạp tiền thủ công từ Customer 360',
+                created_by: this._getCurrentUserEmail()
+            })
+        });
+        return await response.json();
+    }
+
+    async _handleWithdraw(amount, note) {
+        const response = await fetch(`${apiService.RENDER_API_URL}/wallets/${this.customerPhone}/withdraw`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount,
+                note: note || 'Rút tiền từ Customer 360'
+            })
+        });
+        return await response.json();
+    }
+
+    async _handleIssueVirtualCredit(amount, expiryDays, note) {
+        const response = await fetch(`${apiService.RENDER_API_URL}/wallets/${this.customerPhone}/credit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount,
+                expiry_days: expiryDays,
+                source_type: 'ADMIN_ISSUE',
+                note: note || `Cấp công nợ ảo từ Customer 360 (${expiryDays} ngày)`,
+                created_by: this._getCurrentUserEmail()
+            })
+        });
+        return await response.json();
+    }
+
+    _getCurrentUserEmail() {
+        try {
+            const user = JSON.parse(localStorage.getItem('n2shop_current_user') || '{}');
+            return user.email || user.displayName || 'admin';
+        } catch {
+            return 'admin';
+        }
     }
 
     async _showTransactionHistory() {

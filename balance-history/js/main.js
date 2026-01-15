@@ -41,24 +41,8 @@ const modalBody = document.getElementById('modalBody');
 // PENDING MATCH FUNCTIONS - Xử lý chọn khách hàng từ dropdown
 // =====================================================
 
-/**
- * Check if user has detailed permission
- * @param {string} pageId - Page ID (e.g., 'balance-history')
- * @param {string} permissionKey - Permission key (e.g., 'undoSkip')
- * @returns {boolean}
- */
-function hasDetailedPermission(pageId, permissionKey) {
-    // Get current user's detailed permissions from localStorage or global state
-    const currentUser = JSON.parse(localStorage.getItem('n2shop_current_user') || '{}');
-    const detailedPerms = currentUser.detailedPermissions || {};
-
-    // Admin always has permission
-    if (currentUser.role === 'admin' || currentUser.isAdmin) {
-        return true;
-    }
-
-    return detailedPerms[pageId]?.[permissionKey] === true;
-}
+// NOTE: Permission checks sử dụng authManager.hasDetailedPermission() từ shared-auth-manager.js
+// Không có admin bypass - ALL users phải có detailedPermissions
 
 /**
  * Resolve a pending match by selecting a customer
@@ -73,8 +57,8 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         return; // User selected placeholder option
     }
 
-    // Check permission
-    if (!hasDetailedPermission('balance-history', 'resolveMatch') && !hasPermission(2)) {
+    // Check permission using central authManager (no admin bypass)
+    if (!authManager?.hasDetailedPermission('balance-history', 'resolveMatch')) {
         showNotification('Bạn không có quyền thực hiện thao tác này', 'error');
         selectElement.value = '';
         return;
@@ -152,8 +136,8 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
  * @param {HTMLButtonElement} buttonElement - The refresh button
  */
 async function refreshPendingMatchList(pendingMatchId, partialPhone, buttonElement) {
-    // Check permission
-    if (!hasPermission(2)) {
+    // Check permission using central authManager (no admin bypass)
+    if (!authManager?.hasDetailedPermission('balance-history', 'resolveMatch')) {
         showNotification('Bạn không có quyền thực hiện thao tác này', 'error');
         return;
     }
@@ -1247,7 +1231,7 @@ function renderTransactionRow(row) {
         customerNameCell = `
             <div style="display: flex; align-items: center; gap: 5px;">
                 <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
-                ${hasPermission(2) ? `
+                ${authManager?.hasDetailedPermission('balance-history', 'edit') ? `
                     <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', '${customerDisplay.name}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
                         <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
                     </button>

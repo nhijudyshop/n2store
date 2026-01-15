@@ -1,6 +1,6 @@
 # IMPLEMENTATION PLAN: Customer 360 Complete System
 
-> **Cập nhật:** 2026-01-12
+> **Cập nhật:** 2026-01-14
 > **Mục tiêu:** Hoàn thiện toàn bộ hệ thống Customer 360 với đầy đủ tính năng
 > **Ưu tiên:** Quality - Code maintainable lâu dài
 
@@ -20,7 +20,10 @@
   - ✅ FIFO wallet withdrawal function
   - ✅ **expire_virtual_credits() function** (PostgreSQL)
 - **Views:** customer_360_summary, ticket_statistics, wallet_statistics
-- **File:** `render.com/migrations/001_create_customer_360_schema.sql`, `002_create_customer_360_triggers.sql`
+- **Migration Files:**
+  - `render.com/migrations/001_create_customer_360_schema.sql`
+  - `render.com/migrations/002_create_customer_360_triggers.sql`
+  - ✅ **NEW:** `render.com/migrations/013_verification_workflow.sql` - Verification workflow columns + wallet_adjustments table
 
 ### Backend APIs (100% ✅)
 - ✅ Customer CRUD: `POST /api/customers`, `GET /api/customers/:phone`, `PUT /api/customers/:id`
@@ -30,6 +33,7 @@
 - ✅ SSE Real-time: `/api/events` (wallet changes, ticket updates)
 - ✅ **Auto-create customer trong ticket API** (`getOrCreateCustomer()` - ĐÃ CÓ)
 - ✅ **Balance history link customer API** (`POST /api/balance-history/link-customer` - ĐÃ CÓ)
+- ✅ **NEW:** Verification Workflow APIs (see section below)
 
 ### Cron Jobs Backend (100% ✅)
 - ✅ Node.js scheduler chạy `expire_virtual_credits()` mỗi giờ
@@ -42,21 +46,23 @@
 - ✅ Nguồn 2: Issue-Tracking Ticket (có `getOrCreateCustomer()`)
 - ✅ Nguồn 3: Balance History Link (`POST /api/balance-history/link-customer`)
 
-### Frontend Customer Hub (90% ✅)
+### Frontend Customer Hub (100% ✅)
 - ✅ customer-hub/ standalone page với Tailwind CSS
 - ✅ Customer search & profile module
 - ✅ Wallet management panel
-- ✅ Transaction history view (UI ready, backend đang hoàn thiện)
+- ✅ Transaction history view
 - ✅ Ticket list integration
 - ✅ Link bank transaction module
 - ✅ Permissions system
 - ✅ Theme toggle (light/dark mode)
+- ✅ **NEW:** Wallet Actions (Nạp tiền, Rút tiền, Cấp công nợ ảo) với modal confirmation
 
 ### Frontend Issue-Tracking (100% ✅)
 - ✅ Tích hợp Customer 360 API
 - ✅ Hiển thị customer info khi tạo ticket (name, tier, wallet balance)
 - ✅ Warning "Khách hàng mới sẽ được tạo tự động" khi SĐT mới
 - ✅ Real-time updates via SSE
+- ✅ **NEW:** Auto wallet credit khi RECEIVE action (RETURN_CLIENT → deposit, RETURN_SHIPPER → virtual_credit)
 
 ### Frontend Balance-History (100% ✅)
 - ✅ Link customer feature (QR code, phone extraction, manual)
@@ -64,23 +70,25 @@
 - ✅ Pending match resolution UI
 - ✅ Customer info sync với Firebase
 - ✅ TPOS API integration cho customer lookup
+- ✅ **NEW:** Verification Workflow Tab với:
+  - Tab "Chờ Duyệt" hiển thị pending transactions
+  - Stats grid (pending, auto-approved, manually-approved, rejected)
+  - Approve/Reject buttons cho Kế toán
+  - Dropdown chọn KH cho pending_match transactions
+  - Verification status badges (PENDING, AUTO_APPROVED, PENDING_VERIFICATION, APPROVED, REJECTED)
+  - Match method badges (qr_code, exact_phone, single_match, pending_match, manual_entry, manual_link)
 
 ---
 
-## ⚠️ PHẦN CẦN TINH CHỈNH/BỔ SUNG (5%)
+## ⚠️ PHẦN CẦN TINH CHỈNH/BỔ SUNG (0%)
 
-### 1. Transaction Activity Module (customer-hub)
-- ⚠️ UI đã hoàn thành nhưng backend API `getConsolidatedTransactions` cần kiểm tra
-- **File:** `customer-hub/js/modules/transaction-activity.js`
-- **Action:** Verify API endpoint hoạt động đúng
+> **Tất cả các phần đã hoàn thành** - Chờ deployment và testing thực tế
 
-### 2. Permissions Registry
-- ⚠️ Cần cập nhật `user-management/permissions-registry.js` với customer-hub permissions
-- **Action:** Thêm permission config cho customer-hub
-
-### 3. Documentation Sync
-- ⚠️ Cập nhật MASTER_DOCUMENTATION.md với flow mới
-- **Action:** Sync documentation
+### 1. Testing & Deployment
+- ⚠️ Apply migration 013_verification_workflow.sql to production database
+- ⚠️ Run test cases để verify verification workflow
+- ⚠️ Test wallet actions trong customer-hub
+- ⚠️ Test issue-tracking → wallet integration
 
 ---
 
@@ -1155,6 +1163,7 @@ walletEvents.on('update', (data) => {
 | `migrations/005_rfm_configuration.sql` | RFM config table, views |
 | `migrations/006_schema_normalization.sql` | Normalization, indexes, functions |
 | `migrations/007_updated_rfm_function.sql` | RFM v2 functions, triggers |
+| **`migrations/013_verification_workflow.sql`** | **NEW:** Verification workflow columns, wallet_adjustments table |
 
 ### Routes v2
 | File | Purpose |
@@ -1202,3 +1211,217 @@ app.use(deprecationMiddleware);
 // Mount v2 routes
 app.use('/api/v2', v2Router);
 ```
+
+---
+
+# NEW: VERIFICATION WORKFLOW IMPLEMENTATION (2026-01-14)
+
+## Tổng quan
+
+Hệ thống Verification Workflow cho phép kiểm soát việc cộng tiền vào ví khách hàng từ các giao dịch ngân hàng. Nguyên tắc: **Kế toán phải duyệt** trước khi tiền được cộng vào ví (trừ các trường hợp auto-approve).
+
+## Quy tắc Auto-Approve vs Manual-Approve
+
+| Loại match | Verification Status | Cần Kế toán duyệt? |
+|------------|-------------------|-------------------|
+| QR Code (N2 + 16 ký tự) | AUTO_APPROVED | ❌ Không |
+| Full Phone (10 số) | AUTO_APPROVED | ❌ Không |
+| Partial Phone (6 số, 1 KH duy nhất) | AUTO_APPROVED | ❌ Không |
+| Partial Phone (6 số, nhiều KH) | PENDING_VERIFICATION | ✅ Có |
+| Manual Entry | PENDING_VERIFICATION | ✅ Có |
+| Manual Link | PENDING_VERIFICATION | ✅ Có |
+
+## Database Schema Changes
+
+### balance_history table additions
+```sql
+verification_status VARCHAR(30) DEFAULT 'PENDING'
+    CHECK (verification_status IN (
+        'PENDING', 'AUTO_APPROVED', 'PENDING_VERIFICATION', 'APPROVED', 'REJECTED'
+    ));
+match_method VARCHAR(30)
+    CHECK (match_method IN (
+        'qr_code', 'exact_phone', 'single_match', 'pending_match', 'manual_entry', 'manual_link'
+    ));
+verified_by VARCHAR(100);
+verified_at TIMESTAMP;
+verification_note TEXT;
+```
+
+### wallet_adjustments table (NEW)
+```sql
+CREATE TABLE wallet_adjustments (
+    id SERIAL PRIMARY KEY,
+    original_transaction_id INTEGER REFERENCES balance_history(id),
+    wallet_transaction_id INTEGER REFERENCES wallet_transactions(id),
+    adjustment_type VARCHAR(30) NOT NULL CHECK (adjustment_type IN (
+        'WRONG_MAPPING_CREDIT', 'WRONG_MAPPING_DEBIT', 'DUPLICATE_REVERSAL', 'ADMIN_CORRECTION'
+    )),
+    wrong_customer_phone VARCHAR(20),
+    correct_customer_phone VARCHAR(20),
+    adjustment_amount DECIMAL(15,2) NOT NULL,
+    reason TEXT NOT NULL,
+    created_by VARCHAR(100) NOT NULL,
+    approved_by VARCHAR(100),
+    approved_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## Backend API Changes
+
+### sepay-webhook.js
+- Thêm verification_status và match_method cho mỗi loại match
+- QR match → AUTO_APPROVED, match_method='qr_code'
+- Exact phone → AUTO_APPROVED, match_method='exact_phone'
+- Single match → AUTO_APPROVED, match_method='single_match'
+- Multiple matches → PENDING_VERIFICATION, match_method='pending_match'
+
+### balance-history.js (v2) - New Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/verification-queue` | Lấy danh sách chờ duyệt |
+| GET | `/stats` | Stats bao gồm verification counts |
+| POST | `/:id/approve` | Kế toán duyệt và cộng ví |
+| POST | `/:id/reject` | Kế toán từ chối |
+| POST | `/:id/resolve-match` | NV chọn KH từ dropdown |
+
+### wallets.js (v2) - New Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/adjustment` | Tạo điều chỉnh ví (sai mapping) |
+| GET | `/adjustments` | Lịch sử điều chỉnh |
+
+## Frontend Changes
+
+### balance-history/js/verification.js (NEW FILE)
+```javascript
+// Constants
+const VERIFICATION_STATUS = {
+    PENDING: 'PENDING',
+    AUTO_APPROVED: 'AUTO_APPROVED',
+    PENDING_VERIFICATION: 'PENDING_VERIFICATION',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED'
+};
+
+// Functions
+loadVerificationQueue(page, status)      // Load danh sách chờ duyệt
+renderVerificationQueue(tableBody)       // Render table
+approveTransaction(transactionId)        // Gọi API approve
+rejectTransaction(transactionId, reason) // Gọi API reject
+selectMatchAndApprove(transactionId, selectElement) // Chọn KH từ dropdown
+loadVerificationStats()                  // Load stats
+renderVerificationBadge(status)          // Render badge màu
+renderMatchMethodBadge(method)           // Render method badge
+```
+
+### balance-history/index.html
+- Tab "Chờ Duyệt" trong view-tabs
+- Stats grid với 4 counters
+- Verification table với pagination
+- Reject modal
+
+### user-management/js/permissions-registry.js
+```javascript
+'balance-history': {
+    // ... existing permissions ...
+    'viewVerificationQueue': ['Admin', 'Accountant'],
+    'approveTransaction': ['Admin', 'Accountant'],
+    'rejectTransaction': ['Admin', 'Accountant'],
+    'createWalletAdjustment': ['Admin', 'Accountant'],
+    'manualTransactionEntry': ['Admin', 'LiveStaff']
+}
+```
+
+---
+
+# NEW: ISSUE-TRACKING → WALLET INTEGRATION (2026-01-14)
+
+## Tổng quan
+
+Khi ticket hoàn tất (RECEIVE action), hệ thống tự động cộng tiền vào ví khách hàng.
+
+**Quy tắc:**
+- RETURN_CLIENT → deposit (tiền thật)
+- RETURN_SHIPPER → virtual_credit (công nợ ảo, hết hạn 15 ngày)
+
+## Implementation
+
+### issue-tracking/js/script.js - handleConfirmAction()
+
+Sau khi TPOS refund thành công, gọi resolve API để cộng ví:
+
+```javascript
+// RECEIVE action: Nhận hàng + TPOS refund + Cộng ví
+if (pendingActionType === 'RECEIVE') {
+    // ... existing TPOS refund code ...
+
+    // Sau khi TPOS refund thành công, GỌI RESOLVE ĐỂ CỘNG VÍ
+    if (compensationAmount > 0 && customerPhone) {
+        const compensationType = ticket.type === 'RETURN_SHIPPER'
+            ? 'virtual_credit'
+            : 'deposit';
+
+        const resolveResult = await fetch(`${API_BASE}/api/v2/tickets/${ticketId}/resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                compensation_amount: compensationAmount,
+                compensation_type: compensationType,
+                performed_by: currentUser?.email || 'warehouse_staff',
+                note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId}`
+            })
+        });
+    }
+}
+```
+
+---
+
+# NEW: CUSTOMER-HUB WALLET ACTIONS (2026-01-14)
+
+## Tổng quan
+
+Thay thế placeholder alert() bằng actual API calls với modal confirmation.
+
+## Implementation
+
+### customer-hub/js/modules/wallet-panel.js
+
+**New methods:**
+- `_showActionModal(type)` - Hiển thị modal với form
+- `_handleDeposit(amount, note)` - Nạp tiền vào ví
+- `_handleWithdraw(amount, note)` - Rút tiền từ ví
+- `_handleIssueVirtualCredit(amount, expiryDays, note)` - Cấp công nợ ảo
+- `_getCurrentUserEmail()` - Lấy email user hiện tại
+
+**Modal features:**
+- Dynamic title/labels based on action type
+- Amount input với validation
+- Note input
+- Expiry days input (chỉ cho virtual credit)
+- Confirm/Cancel buttons
+- Loading state khi submit
+- Error handling với notification
+
+---
+
+# FILES MODIFIED IN 2026-01-14 UPDATE
+
+## New Files Created
+| File | Purpose |
+|------|---------|
+| `render.com/migrations/013_verification_workflow.sql` | Database migration for verification |
+| `balance-history/js/verification.js` | Verification UI module |
+
+## Files Modified
+| File | Changes |
+|------|---------|
+| `render.com/routes/sepay-webhook.js` | Added verification_status, match_method to all UPDATE statements |
+| `render.com/routes/v2/balance-history.js` | Added verification-queue, approve, reject, resolve-match endpoints |
+| `render.com/routes/v2/wallets.js` | Added adjustment, adjustments endpoints |
+| `balance-history/index.html` | Added verification tab, stats grid, table, pagination |
+| `user-management/js/permissions-registry.js` | Added 5 new permissions for verification |
+| `issue-tracking/js/script.js` | Added wallet credit call after RECEIVE action |
+| `customer-hub/js/modules/wallet-panel.js` | Replaced placeholders with actual modal + API calls |
