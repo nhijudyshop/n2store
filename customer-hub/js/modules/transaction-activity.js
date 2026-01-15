@@ -388,13 +388,13 @@ export class TransactionActivityModule {
     formatTimestamp(dateStr) {
         if (!dateStr) return 'N/A';
         const date = this._parseAsUTC(dateStr);
-        // Use UTC+7 timezone (Asia/Ho_Chi_Minh)
-        return date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
+        // Use UTC+7 timezone (Asia/Ho_Chi_Minh) with Vietnamese format
+        return date.toLocaleString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true,
             timeZone: 'Asia/Ho_Chi_Minh'
         });
     }

@@ -361,7 +361,7 @@ export class LinkBankTransactionModule {
     formatDate(dateStr) {
         if (!dateStr) return 'N/A';
         const date = this._parseAsUTC(dateStr);
-        return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
+        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
     }
 
     formatCurrency(amount) {

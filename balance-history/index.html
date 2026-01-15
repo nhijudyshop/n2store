@@ -869,11 +869,18 @@
 
             if (section === 'balance-history') {
                 document.getElementById('balanceHistoryPanel').classList.add('active');
+                // Reload if flagged for update (from Transfer Stats edit)
+                if (window._balanceHistoryNeedsReload && typeof loadData === 'function') {
+                    loadData();
+                    window._balanceHistoryNeedsReload = false;
+                }
             } else if (section === 'transfer-stats') {
                 document.getElementById('transferStatsPanel').classList.add('active');
                 // Load transfer stats when switching to this tab
                 if (typeof loadTransferStats === 'function') {
                     loadTransferStats();
+                    // Clear reload flag if set
+                    window._transferStatsNeedsReload = false;
                 }
             } else if (section === 'verification') {
                 document.getElementById('verificationPanel').classList.add('active');

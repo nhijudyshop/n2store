@@ -670,6 +670,9 @@ async function saveTSEdit(e) {
             if (window.NotificationManager) {
                 window.NotificationManager.showNotification('Đã cập nhật thông tin', 'success');
             }
+
+            // Sync Balance History tab - mark for reload when it becomes active
+            window._balanceHistoryNeedsReload = true;
         } else {
             console.error('[TS] Error saving edit:', result.error);
             if (window.NotificationManager) {

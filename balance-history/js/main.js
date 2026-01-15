@@ -263,12 +263,41 @@ async function copyPhoneToClipboard(phone, button) {
 }
 
 /**
- * Show notification (uses NotificationManager)
+ * Show notification (uses NotificationManager or fallback)
  */
 function showNotification(message, type = 'info') {
+    // Try different notification methods
     if (window.NotificationManager?.show) {
         window.NotificationManager.show(message, type);
+    } else if (window.NotificationManager?.showNotification) {
+        window.NotificationManager.showNotification(message, type);
+    } else if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
     } else {
+        // Fallback: create simple toast notification
+        const toast = document.createElement('div');
+        toast.className = `toast-notification toast-${type}`;
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+            color: white;
+            font-weight: 500;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideInRight 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+
         console.log(`[Notification] ${type}: ${message}`);
     }
 }
@@ -2559,13 +2588,14 @@ async function saveEditCustomerInfo(event) {
     // Check if this is a transaction-level edit
     const isTransactionEdit = form.dataset.isTransactionEdit === 'true';
     const transactionId = form.dataset.transactionId;
+    const customerName = document.getElementById('editCustomerName').value; // Get name from form
 
     if (isTransactionEdit && transactionId) {
-        // Transaction-level edit: Update only this transaction's phone
+        // Transaction-level edit: Update only this transaction's phone and name
         // This is a manual entry by staff, requires accountant approval
-        console.log('[EDIT-TRANSACTION] Saving manual entry:', { transactionId, phone });
+        console.log('[EDIT-TRANSACTION] Saving manual entry:', { transactionId, phone, name: customerName });
 
-        const result = await saveTransactionCustomer(transactionId, phone, { isManualEntry: true });
+        const result = await saveTransactionCustomer(transactionId, phone, { isManualEntry: true, name: customerName });
 
         if (result.success) {
             // Show appropriate message based on whether approval is required
@@ -2576,26 +2606,27 @@ async function saveEditCustomerInfo(event) {
                 message = '✅ Đã cập nhật SĐT cho giao dịch!';
             }
 
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification(message, 'success');
-            } else {
-                alert(message);
-            }
+            showNotification(message, 'success');
 
             // Close modal and reload
             document.getElementById('editCustomerModal').style.display = 'none';
             loadData();
+
+            // Sync Transfer Stats tab if it's active, or mark for reload
+            const tsPanel = document.getElementById('transferStatsPanel');
+            if (tsPanel?.classList.contains('active') && typeof window.loadTransferStats === 'function') {
+                window.loadTransferStats();
+            } else {
+                // Mark for reload when tab becomes active
+                window._transferStatsNeedsReload = true;
+            }
 
             // Clear flags
             delete form.dataset.isTransactionEdit;
             delete form.dataset.transactionId;
         } else {
             const errorMsg = result.error || 'Không thể cập nhật SĐT';
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification(`❌ ${errorMsg}`, 'error');
-            } else {
-                alert(`Lỗi: ${errorMsg}`);
-            }
+            showNotification(`❌ ${errorMsg}`, 'error');
         }
         return;
     }
@@ -2618,11 +2649,7 @@ async function saveEditCustomerInfo(event) {
     const success = await window.CustomerInfoManager.saveCustomerInfo(uniqueCode, { name, phone });
 
     if (success) {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Đã cập nhật thông tin khách hàng!', 'success');
-        } else {
-            alert('Đã cập nhật thông tin khách hàng!');
-        }
+        showNotification('Đã cập nhật thông tin khách hàng!', 'success');
 
         // Close modal
         document.getElementById('editCustomerModal').style.display = 'none';
@@ -2630,11 +2657,7 @@ async function saveEditCustomerInfo(event) {
         // Reload table to show updated customer info
         loadData();
     } else {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Không thể cập nhật thông tin', 'error');
-        } else {
-            alert('Không thể cập nhật thông tin');
-        }
+        showNotification('Không thể cập nhật thông tin', 'error');
     }
 }
 
@@ -2672,10 +2695,11 @@ function editTransactionCustomer(transactionId, currentPhone, currentName) {
 // @param {number} transactionId - Transaction ID
 // @param {string} newPhone - New phone number
 // @param {Object} options - Additional options
+// @param {string} options.name - Customer name (optional)
 // @param {boolean} options.isManualEntry - If true, triggers verification workflow (requires accountant approval)
 async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
     const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const { isManualEntry = false } = options;
+    const { isManualEntry = false, name = '' } = options;
 
     // Check if user is accountant/admin - they don't need approval for their changes
     const isAccountant = authManager?.hasDetailedPermission('balance-history', 'approveTransaction');
@@ -2694,6 +2718,7 @@ async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
             },
             body: JSON.stringify({
                 phone: newPhone,
+                name: name, // Send customer name too
                 is_manual_entry: shouldRequireApproval,
                 entered_by: currentUserEmail
             })

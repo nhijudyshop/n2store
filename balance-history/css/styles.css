@@ -562,6 +562,17 @@ body {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
+    /* Centering fix - always use flexbox */
+    align-items: center;
+    justify-content: center;
+}
+
+/* When modal is shown via JS (display: block or flex) */
+.modal[style*="display: block"],
+.modal[style*="display: flex"] {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal.active {

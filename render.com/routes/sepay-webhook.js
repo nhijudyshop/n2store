@@ -3326,7 +3326,7 @@ router.put('/customer-info/:unique_code', async (req, res) => {
 router.put('/transaction/:id/phone', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { phone, is_manual_entry = false, entered_by = 'staff' } = req.body;
+    const { phone, name, is_manual_entry = false, entered_by = 'staff' } = req.body;
 
     try {
         // Validate inputs
@@ -3398,45 +3398,57 @@ router.put('/transaction/:id/phone', async (req, res) => {
             console.log(`[TRANSACTION-PHONE-UPDATE] Cleared pending_customer_matches:`, deletePendingResult.rows[0]);
         }
 
-        // Try to get customer name from TPOS for the new phone
-        let customerName = null;
+        // Try to get customer name - priority: request body > TPOS lookup
+        let customerName = name || null; // Use provided name first
         let tposResult = null;
-        try {
-            console.log(`[TRANSACTION-PHONE-UPDATE] Searching TPOS for phone: ${newPhone}`);
-            tposResult = await searchTPOSByPartialPhone(newPhone);
 
-            if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                const phoneData = tposResult.uniquePhones.find(p => p.phone === newPhone);
-                if (phoneData && phoneData.customers.length > 0) {
-                    customerName = phoneData.customers[0].name;
-                    console.log(`[TRANSACTION-PHONE-UPDATE] Found customer from TPOS: ${customerName}`);
+        // Only lookup TPOS if no name provided
+        if (!customerName) {
+            try {
+                console.log(`[TRANSACTION-PHONE-UPDATE] Searching TPOS for phone: ${newPhone}`);
+                tposResult = await searchTPOSByPartialPhone(newPhone);
 
-                    // Save/update to balance_customer_info
-                    await db.query(
-                        `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-                         VALUES ($1, $2, $3, $4, $5)
-                         ON CONFLICT (unique_code) DO UPDATE SET
-                             customer_phone = EXCLUDED.customer_phone,
-                             customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
-                             extraction_note = EXCLUDED.extraction_note,
-                             name_fetch_status = EXCLUDED.name_fetch_status,
-                             updated_at = CURRENT_TIMESTAMP`,
-                        [
-                            `PHONE${newPhone}`,
-                            newPhone,
-                            customerName,
-                            is_manual_entry ? 'MANUAL_ENTRY_BY_STAFF' : 'MANUAL_ENTRY_TPOS_LOOKUP',
-                            'SUCCESS'
-                        ]
-                    );
-                    console.log(`[TRANSACTION-PHONE-UPDATE] Saved customer info to balance_customer_info`);
+                if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                    const phoneData = tposResult.uniquePhones.find(p => p.phone === newPhone);
+                    if (phoneData && phoneData.customers.length > 0) {
+                        customerName = phoneData.customers[0].name;
+                        console.log(`[TRANSACTION-PHONE-UPDATE] Found customer from TPOS: ${customerName}`);
+                    }
+                } else {
+                    console.log(`[TRANSACTION-PHONE-UPDATE] No customer found in TPOS for: ${newPhone}`);
                 }
-            } else {
-                console.log(`[TRANSACTION-PHONE-UPDATE] No customer found in TPOS for: ${newPhone}`);
+            } catch (tposError) {
+                console.error(`[TRANSACTION-PHONE-UPDATE] TPOS lookup error:`, tposError.message);
+                // Continue without TPOS data - phone is still updated
             }
-        } catch (tposError) {
-            console.error(`[TRANSACTION-PHONE-UPDATE] TPOS lookup error:`, tposError.message);
-            // Continue without TPOS data - phone is still updated
+        } else {
+            console.log(`[TRANSACTION-PHONE-UPDATE] Using provided name: ${customerName}`);
+        }
+
+        // Save/update to balance_customer_info if we have customer info
+        if (customerName) {
+            try {
+                await db.query(
+                    `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+                     VALUES ($1, $2, $3, $4, $5)
+                     ON CONFLICT (unique_code) DO UPDATE SET
+                         customer_phone = EXCLUDED.customer_phone,
+                         customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
+                         extraction_note = EXCLUDED.extraction_note,
+                         name_fetch_status = EXCLUDED.name_fetch_status,
+                         updated_at = CURRENT_TIMESTAMP`,
+                    [
+                        `PHONE${newPhone}`,
+                        newPhone,
+                        customerName,
+                        is_manual_entry ? 'MANUAL_ENTRY_BY_STAFF' : 'MANUAL_ENTRY_TPOS_LOOKUP',
+                        'SUCCESS'
+                    ]
+                );
+                console.log(`[TRANSACTION-PHONE-UPDATE] Saved customer info to balance_customer_info`);
+            } catch (saveError) {
+                console.error(`[TRANSACTION-PHONE-UPDATE] Failed to save customer info:`, saveError.message);
+            }
         }
 
         res.json({
