@@ -755,12 +755,11 @@ export class CustomerProfileModule {
             `;
         } else {
             notesHtml = notes.slice(0, 5).map(note => {
-                const date = this._parseAsUTC(note.created_at).toLocaleString('vi-VN', {
+                const date = new Date(note.created_at).toLocaleString('vi-VN', {
                     day: '2-digit',
                     month: '2-digit',
                     hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: 'Asia/Ho_Chi_Minh'
+                    minute: '2-digit'
                 });
                 const initials = this._getInitials(note.created_by || 'Hệ thống');
 
@@ -946,24 +945,9 @@ export class CustomerProfileModule {
         return title || 'Hoạt động';
     }
 
-    /**
-     * Parse date string as UTC (handles API timestamps without 'Z' suffix)
-     * @param {string} dateStr - Date string from API
-     * @returns {Date} Date object
-     */
-    _parseAsUTC(dateStr) {
-        if (!dateStr) return new Date();
-        // If already has timezone info (Z or +/-), parse directly
-        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
-            return new Date(dateStr);
-        }
-        // Otherwise, append 'Z' to treat as UTC
-        return new Date(dateStr + 'Z');
-    }
-
     _getTimeAgo(dateString) {
         if (!dateString) return '';
-        const date = this._parseAsUTC(dateString);
+        const date = new Date(dateString);
         const now = new Date();
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);
@@ -975,7 +959,7 @@ export class CustomerProfileModule {
         if (diffHours < 24) return `${diffHours} giờ trước`;
         if (diffDays === 1) return 'Hôm qua';
         if (diffDays < 7) return `${diffDays} ngày trước`;
-        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
+        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' });
     }
 
     async _addCustomerNote(content) {

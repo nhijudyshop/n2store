@@ -427,21 +427,6 @@ export class WalletPanelModule {
         }
     }
 
-    /**
-     * Parse date string as UTC (handles API timestamps without 'Z' suffix)
-     * @param {string} dateStr - Date string from API
-     * @returns {Date} Date object
-     */
-    _parseAsUTC(dateStr) {
-        if (!dateStr) return new Date();
-        // If already has timezone info (Z or +/-), parse directly
-        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
-            return new Date(dateStr);
-        }
-        // Otherwise, append 'Z' to treat as UTC
-        return new Date(dateStr + 'Z');
-    }
-
     _renderTransactionItem(tx) {
         const isCredit = tx.type === 'DEPOSIT' || tx.type === 'VIRTUAL_CREDIT';
         const colorClass = isCredit ? 'text-green-600' : 'text-red-600';
@@ -456,9 +441,9 @@ export class WalletPanelModule {
             'VIRTUAL_EXPIRE': 'Công nợ hết hạn'
         };
 
-        const date = this._parseAsUTC(tx.created_at);
-        const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
-        const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+        const date = new Date(tx.created_at);
+        const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bgClass}">

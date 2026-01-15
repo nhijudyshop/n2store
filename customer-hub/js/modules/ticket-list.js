@@ -138,24 +138,9 @@ export class TicketListModule {
         return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">${s.label}</span>`;
     }
 
-    /**
-     * Parse date string as UTC (handles API timestamps without 'Z' suffix)
-     * @param {string} dateStr - Date string from API
-     * @returns {Date} Date object
-     */
-    _parseAsUTC(dateStr) {
-        if (!dateStr) return new Date();
-        // If already has timezone info (Z or +/-), parse directly
-        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
-            return new Date(dateStr);
-        }
-        // Otherwise, append 'Z' to treat as UTC
-        return new Date(dateStr + 'Z');
-    }
-
     _formatDate(dateString) {
         if (!dateString) return 'N/A';
-        const date = this._parseAsUTC(dateString);
+        const date = new Date(dateString);
         const now = new Date();
         const diffDays = Math.floor((now - date) / 86400000);
 
@@ -163,7 +148,7 @@ export class TicketListModule {
         if (diffDays === 1) return 'Hôm qua';
         if (diffDays < 7) return `${diffDays} ngày trước`;
 
-        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', timeZone: 'Asia/Ho_Chi_Minh' });
+        return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' });
     }
 
     // Cleanup function if using subscribeToTickets

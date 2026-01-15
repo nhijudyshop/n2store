@@ -370,32 +370,15 @@ export class TransactionActivityModule {
         return { text: formatted, colorClass: 'text-slate-900 dark:text-slate-200' };
     }
 
-    /**
-     * Parse date string as UTC (handles API timestamps without 'Z' suffix)
-     * @param {string} dateStr - Date string from API
-     * @returns {Date} Date object
-     */
-    _parseAsUTC(dateStr) {
-        if (!dateStr) return new Date();
-        // If already has timezone info (Z or +/-), parse directly
-        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
-            return new Date(dateStr);
-        }
-        // Otherwise, append 'Z' to treat as UTC
-        return new Date(dateStr + 'Z');
-    }
-
     formatTimestamp(dateStr) {
         if (!dateStr) return 'N/A';
-        const date = this._parseAsUTC(dateStr);
-        // Use UTC+7 timezone (Asia/Ho_Chi_Minh) with Vietnamese format
+        const date = new Date(dateStr);
         return date.toLocaleString('vi-VN', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric',
             hour: '2-digit',
-            minute: '2-digit',
-            timeZone: 'Asia/Ho_Chi_Minh'
+            minute: '2-digit'
         });
     }
 
