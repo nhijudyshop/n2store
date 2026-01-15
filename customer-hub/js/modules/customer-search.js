@@ -366,10 +366,12 @@ export class CustomerSearchModule {
         let html = '';
         customers.forEach((customer, index) => {
             const statusBadge = this.getStatusBadge(customer.status);
-            // Format debt info - virtual and real balance
+            // Format debt info - balance (số dư ví), virtual and real balance
+            // balance = số dư khả dụng từ API, fallback = virtual + real
             const virtualBalance = customer.virtual_balance || 0;
             const realBalance = customer.real_balance || 0;
-            const debtInfo = this.formatDebt(virtualBalance, realBalance);
+            const balance = customer.balance !== undefined ? customer.balance : (virtualBalance + realBalance);
+            const debtInfo = this.formatDebt(balance, virtualBalance, realBalance);
             // Format address - truncate if too long
             const address = this.truncateText(customer.address || '', 30);
             // Format notes - join with | separator
@@ -414,16 +416,16 @@ export class CustomerSearchModule {
         return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
     }
 
-    formatDebt(virtual, real) {
+    formatDebt(balance, virtual, real) {
         const formatNum = (num) => {
             if (num === 0) return '0';
             return num.toLocaleString('vi-VN');
         };
-        const total = virtual + real;
-        const totalClass = total > 0 ? 'text-green-600 dark:text-green-400' : total < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-600 dark:text-slate-300';
+        // Số dư khả dụng = balance (tổng tiền trong ví có thể dùng để khấu trừ)
+        const balanceClass = balance > 0 ? 'text-green-600 dark:text-green-400' : balance < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-600 dark:text-slate-300';
         return `
             <div class="text-sm">
-                <div class="${totalClass} font-semibold text-base">${formatNum(total)}</div>
+                <div class="${balanceClass} font-semibold text-base">${formatNum(balance)}</div>
                 <div class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Ảo: ${formatNum(virtual)} | Thực: ${formatNum(real)}</div>
             </div>
         `;
