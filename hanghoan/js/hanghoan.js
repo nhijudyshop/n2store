@@ -398,7 +398,8 @@ function applyFiltersToData(dataArray) {
 function renderSingleRow(item, sttNumber) {
     const timestamp = parseFloat(item.duyetHoanValue);
     const formattedTime = formatDate(new Date(timestamp));
-    const rowId = item.duyetHoanValue || Date.now().toString();
+    // Use ?? instead of || to preserve 0 values (corrupted timestamps)
+    const rowId = String(item.duyetHoanValue ?? Date.now());
 
     const tr = document.createElement("tr");
     tr.style.opacity = item.muted ? "0.5" : "1.0";
@@ -563,15 +564,12 @@ function handleEditButton(button) {
     if (!row || !DOM.editModal) return;
 
     const rowId = row.dataset?.id || row.querySelector("td[id]")?.id;
-    console.log('[HangHoan] handleEditButton - rowId:', rowId, 'type:', typeof rowId);
 
     // Get data from cache instead of table cells (more reliable)
     const cachedData = getCachedData() || [];
-    console.log('[HangHoan] handleEditButton - cache size:', cachedData.length);
 
     // Find item - compare as strings
     const item = cachedData.find(d => String(d.duyetHoanValue) === String(rowId));
-    console.log('[HangHoan] handleEditButton - found item:', item ? 'yes' : 'no');
 
     if (item) {
         // Use cached data (reliable)
@@ -585,8 +583,6 @@ function handleEditButton(button) {
         const timestamp = parseFloat(item.duyetHoanValue);
         const dateStr = formatDate(new Date(timestamp));
         document.getElementById("editDate").value = dateStr;
-
-        console.log('[HangHoan] Edit loaded from cache:', { rowId, dateStr, timestamp });
     } else {
         // Fallback to table cells
         const cells = row.cells;
@@ -598,8 +594,6 @@ function handleEditButton(button) {
         document.getElementById("editAmount").value = cells[4 + offset]?.innerText || "";
         document.getElementById("editNote").value = cells[5 + offset]?.innerText || "";
         document.getElementById("editDate").value = cells[7 + offset]?.innerText || "";
-
-        console.log('[HangHoan] Edit loaded from cells (fallback)');
     }
 
     editingRow = row;
@@ -728,13 +722,9 @@ function closeModal() {
 let isSaving = false; // Guard against multiple saves
 
 function saveChanges() {
-    console.log('[HangHoan] saveChanges called, isSaving:', isSaving);
-
     // Prevent multiple simultaneous saves
-    if (isSaving) {
-        console.log('[HangHoan] Already saving, skipping');
-        return;
-    }
+    if (isSaving) return;
+
     isSaving = true;
 
     const deliveryValue = sanitizeInput(document.getElementById("editDelivery").value);
