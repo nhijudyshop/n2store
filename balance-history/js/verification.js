@@ -193,6 +193,9 @@ function renderVerificationQueue(tableBody) {
                         <button class="btn btn-sm btn-success" onclick="approveTransaction(${tx.id})" title="Duyệt">
                             <i class="fas fa-check"></i> Duyệt
                         </button>
+                        <button class="btn btn-sm btn-change" onclick="showChangeModal(${tx.id}, '${tx.linked_customer_phone || ''}', '${(tx.customer_name || '').replace(/'/g, "\\'")}')\" title="Thay đổi SĐT">
+                            <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i> Thay đổi
+                        </button>
                         <button class="btn btn-sm btn-danger" onclick="showRejectModal(${tx.id})" title="Từ chối">
                             <i class="fas fa-times"></i>
                         </button>
@@ -434,6 +437,167 @@ async function loadVerificationStats() {
 // INITIALIZATION
 // =====================================================
 
+// =====================================================
+// CHANGE AND APPROVE FUNCTIONS (FOR ACCOUNTANT)
+// =====================================================
+
+/**
+ * Show Change Modal for accountant to change phone/customer before approve
+ * @param {number} transactionId - Transaction ID
+ * @param {string} currentPhone - Current linked phone
+ * @param {string} currentName - Current customer name
+ */
+function showChangeModal(transactionId, currentPhone, currentName) {
+    // Permission check
+    if (!authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
+        showNotification('Bạn không có quyền thay đổi giao dịch', 'error');
+        return;
+    }
+
+    // Use the existing editCustomerModal but with special handling
+    const modal = document.getElementById('editCustomerModal');
+    const editCustomerUniqueCode = document.getElementById('editCustomerUniqueCode');
+    const editCustomerName = document.getElementById('editCustomerName');
+    const editCustomerPhone = document.getElementById('editCustomerPhone');
+    const editCustomerForm = document.getElementById('editCustomerForm');
+    const tposContainer = document.getElementById('tposLookupContainer');
+
+    if (!modal || !editCustomerForm) {
+        showNotification('Modal không tìm thấy', 'error');
+        return;
+    }
+
+    // Fill form with current values
+    editCustomerUniqueCode.textContent = `Thay đổi SĐT - GD #${transactionId}`;
+    editCustomerName.value = currentName || '';
+    editCustomerPhone.value = currentPhone || '';
+
+    // Store transaction ID and mark as accountant change
+    editCustomerForm.dataset.transactionId = transactionId;
+    editCustomerForm.dataset.isTransactionEdit = 'true';
+    editCustomerForm.dataset.isAccountantChange = 'true';
+
+    // Enable TPOS lookup mode
+    if (tposContainer) {
+        tposContainer.style.display = 'block';
+
+        // Make name field readonly (will be auto-filled from TPOS)
+        editCustomerName.readOnly = true;
+        editCustomerName.placeholder = 'Tự động tìm từ TPOS...';
+        editCustomerName.style.backgroundColor = '#f3f4f6';
+
+        // Setup phone input listener for TPOS lookup
+        if (typeof handlePhoneInputForTPOS === 'function') {
+            editCustomerPhone.removeEventListener('input', handlePhoneInputForTPOS);
+            editCustomerPhone.addEventListener('input', handlePhoneInputForTPOS);
+        }
+
+        // Setup dropdown change listener
+        const dropdown = document.getElementById('tposCustomerDropdown');
+        if (dropdown && typeof handleTPOSDropdownChange === 'function') {
+            dropdown.removeEventListener('change', handleTPOSDropdownChange);
+            dropdown.addEventListener('change', handleTPOSDropdownChange);
+        }
+
+        // Reset TPOS lookup UI
+        const tposResult = document.getElementById('tposLookupResult');
+        const tposLoading = document.getElementById('tposLookupLoading');
+        if (tposResult) tposResult.style.display = 'none';
+        if (tposLoading) tposLoading.style.display = 'none';
+
+        // Trigger TPOS lookup if phone already has 10 digits
+        const phone = currentPhone?.replace(/\D/g, '') || '';
+        if (phone.length === 10 && typeof handlePhoneInputForTPOS === 'function') {
+            handlePhoneInputForTPOS();
+        }
+    }
+
+    // Show modal
+    modal.style.display = 'block';
+
+    // Reinitialize Lucide icons
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+/**
+ * Change phone/customer and approve transaction
+ * Used by accountant to correct mapping and approve in one step
+ * @param {number} transactionId - Transaction ID
+ * @param {string} newPhone - New phone number
+ * @param {string} newName - New customer name (optional)
+ */
+async function changeAndApproveTransaction(transactionId, newPhone, newName) {
+    // Permission check
+    if (!authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
+        showNotification('Bạn không có quyền thay đổi và duyệt giao dịch', 'error');
+        return;
+    }
+
+    // Get current user
+    const userInfo = authManager?.getUserInfo() || {};
+    const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+    if (!confirm(`Xác nhận THAY ĐỔI SĐT thành ${newPhone} và DUYỆT giao dịch #${transactionId}?\n\nTiền sẽ được cộng vào ví khách hàng mới ngay lập tức.`)) {
+        return;
+    }
+
+    try {
+        // First, update the phone number
+        const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: newPhone,
+                customer_name: newName || null,
+                entered_by: performedBy,
+                is_accountant_correction: true
+            })
+        });
+
+        const updateResult = await updateResponse.json();
+
+        if (!updateResult.success) {
+            throw new Error(updateResult.error || 'Failed to update phone');
+        }
+
+        // Then approve the transaction
+        const approveResponse = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                verified_by: performedBy,
+                note: `Changed by accountant: ${newPhone}${newName ? ` (${newName})` : ''}`
+            })
+        });
+
+        const approveResult = await approveResponse.json();
+
+        if (!approveResult.success) {
+            throw new Error(approveResult.error || 'Failed to approve');
+        }
+
+        showNotification(`Đã thay đổi SĐT thành ${newPhone} và duyệt giao dịch #${transactionId}`, 'success');
+
+        // Close the modal
+        const modal = document.getElementById('editCustomerModal');
+        if (modal) modal.style.display = 'none';
+
+        // Refresh verification queue
+        loadVerificationQueue(verificationCurrentPage);
+
+        // Also refresh main data if function exists
+        if (typeof loadData === 'function') {
+            loadData(true);
+        }
+
+    } catch (error) {
+        console.error('[VERIFICATION] Change and approve error:', error);
+        showNotification(`Lỗi: ${error.message}`, 'error');
+    }
+}
+
 /**
  * Initialize Verification Module
  */
@@ -512,6 +676,8 @@ window.VerificationModule = {
     loadVerificationStats,
     renderVerificationBadge,
     renderMatchMethodBadge,
+    showChangeModal,
+    changeAndApproveTransaction,
     VERIFICATION_STATUS,
     MATCH_METHOD_LABELS
 };

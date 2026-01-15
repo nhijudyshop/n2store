@@ -1772,3 +1772,187 @@ body {
     background: #f3f4f6;
     color: #374151;
 }
+
+/* =====================================================
+   TPOS LOOKUP STYLES
+   ===================================================== */
+
+#tposLookupContainer {
+    padding: 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+#tposLookupLoading {
+    color: #64748b;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#tposLookupLoading::before {
+    content: '';
+    width: 16px;
+    height: 16px;
+    border: 2px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+#tposLookupNote {
+    color: #94a3b8;
+    font-size: 12px;
+    font-style: italic;
+    margin: 0;
+}
+
+/* Single customer result */
+#tposLookupSingle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 6px;
+    color: #065f46;
+}
+
+#tposLookupSingle i {
+    color: #10b981;
+}
+
+#tposLookupName {
+    font-weight: 600;
+}
+
+/* Multiple customers - Orange badge for review */
+#tposLookupMultiple {
+    padding: 10px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+}
+
+.tpos-multiple-warning {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #92400e;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.tpos-multiple-warning i {
+    color: #f59e0b;
+}
+
+.tpos-multi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #f97316;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    margin-left: 6px;
+}
+
+#tposCustomerDropdown {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #fbbf24;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+}
+
+#tposCustomerDropdown:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+/* Empty/No customer found */
+#tposLookupEmpty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #991b1b;
+    font-size: 13px;
+}
+
+#tposLookupEmpty i {
+    color: #ef4444;
+}
+
+/* Badge for "Chờ duyệt" status in table */
+.badge-pending-review {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fdba74;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.badge-pending-review i {
+    width: 12px;
+    height: 12px;
+}
+
+/* Badge for multiple customer match warning */
+.badge-multi-match {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    background: #f97316;
+    color: white;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* Verification queue change button */
+.btn-change {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.btn-change:hover {
+    background: #fde68a;
+    border-color: #d97706;
+}
+
+.btn-change i {
+    width: 14px;
+    height: 14px;
+}

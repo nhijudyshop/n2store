@@ -2587,8 +2587,29 @@ async function saveEditCustomerInfo(event) {
 
     // Check if this is a transaction-level edit
     const isTransactionEdit = form.dataset.isTransactionEdit === 'true';
+    const isAccountantChange = form.dataset.isAccountantChange === 'true';
     const transactionId = form.dataset.transactionId;
     const customerName = document.getElementById('editCustomerName').value; // Get name from form
+
+    // Handle accountant change flow (change SĐT + auto approve)
+    if (isAccountantChange && transactionId) {
+        console.log('[EDIT-TRANSACTION] Accountant change flow:', { transactionId, phone, name: customerName });
+
+        // Clear flags before calling
+        delete form.dataset.isTransactionEdit;
+        delete form.dataset.transactionId;
+        delete form.dataset.isAccountantChange;
+
+        // Use the verification module's function
+        if (typeof changeAndApproveTransaction === 'function') {
+            await changeAndApproveTransaction(parseInt(transactionId), phone, customerName);
+        } else if (window.VerificationModule?.changeAndApproveTransaction) {
+            await window.VerificationModule.changeAndApproveTransaction(parseInt(transactionId), phone, customerName);
+        } else {
+            showNotification('Không tìm thấy hàm xử lý thay đổi', 'error');
+        }
+        return;
+    }
 
     if (isTransactionEdit && transactionId) {
         // Transaction-level edit: Update only this transaction's phone and name
@@ -2608,9 +2629,9 @@ async function saveEditCustomerInfo(event) {
 
             showNotification(message, 'success');
 
-            // Close modal and reload
+            // Close modal and reload with force refresh (bypass cache)
             document.getElementById('editCustomerModal').style.display = 'none';
-            loadData();
+            loadData(true); // Force refresh to show updated data immediately
 
             // Sync Transfer Stats tab if it's active, or mark for reload
             const tsPanel = document.getElementById('transferStatsPanel');
@@ -2665,6 +2686,151 @@ async function saveEditCustomerInfo(event) {
 // TRANSACTION-LEVEL CUSTOMER EDIT
 // =====================================================
 
+// TPOS Customer lookup cache and state
+let tposLookupTimeout = null;
+let tposLookupCache = {};
+
+/**
+ * Fetch customer(s) from TPOS by phone number
+ * @param {string} phone - 10-digit phone number
+ * @returns {Promise<{success: boolean, customers: Array, count: number}>}
+ */
+async function fetchTPOSCustomer(phone) {
+    const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+    // Check cache first
+    if (tposLookupCache[phone]) {
+        return tposLookupCache[phone];
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/customer/${phone}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const cacheResult = {
+                success: true,
+                customers: result.data || [],
+                count: result.count || 0
+            };
+            // Cache for 5 minutes
+            tposLookupCache[phone] = cacheResult;
+            setTimeout(() => delete tposLookupCache[phone], 5 * 60 * 1000);
+            return cacheResult;
+        } else {
+            return { success: false, customers: [], count: 0, error: result.error };
+        }
+    } catch (error) {
+        console.error('[TPOS-LOOKUP] Error:', error);
+        return { success: false, customers: [], count: 0, error: error.message };
+    }
+}
+
+/**
+ * Handle phone input for TPOS auto-lookup
+ * Called when phone input changes
+ */
+function handlePhoneInputForTPOS() {
+    const phoneInput = document.getElementById('editCustomerPhone');
+    const phone = phoneInput.value.replace(/\D/g, ''); // Remove non-digits
+
+    // Clear previous timeout
+    if (tposLookupTimeout) {
+        clearTimeout(tposLookupTimeout);
+    }
+
+    // Hide all TPOS result containers
+    const tposResult = document.getElementById('tposLookupResult');
+    const tposSingle = document.getElementById('tposLookupSingle');
+    const tposMultiple = document.getElementById('tposLookupMultiple');
+    const tposEmpty = document.getElementById('tposLookupEmpty');
+    const tposLoading = document.getElementById('tposLookupLoading');
+
+    if (tposResult) tposResult.style.display = 'none';
+    if (tposSingle) tposSingle.style.display = 'none';
+    if (tposMultiple) tposMultiple.style.display = 'none';
+    if (tposEmpty) tposEmpty.style.display = 'none';
+    if (tposLoading) tposLoading.style.display = 'none';
+
+    // Only lookup when we have exactly 10 digits
+    if (phone.length !== 10) {
+        return;
+    }
+
+    // Show loading
+    if (tposLoading) tposLoading.style.display = 'block';
+
+    // Debounce: wait 500ms before making API call
+    tposLookupTimeout = setTimeout(async () => {
+        try {
+            const result = await fetchTPOSCustomer(phone);
+
+            // Hide loading
+            if (tposLoading) tposLoading.style.display = 'none';
+
+            // Show result container
+            if (tposResult) tposResult.style.display = 'block';
+
+            if (result.success && result.count > 0) {
+                if (result.count === 1) {
+                    // Single customer found - show name directly
+                    if (tposSingle) {
+                        tposSingle.style.display = 'block';
+                        const nameSpan = document.getElementById('tposLookupName');
+                        if (nameSpan) nameSpan.textContent = result.customers[0].name || 'Không có tên';
+                    }
+                    // Auto-fill name field
+                    const nameInput = document.getElementById('editCustomerName');
+                    if (nameInput && result.customers[0].name) {
+                        nameInput.value = result.customers[0].name;
+                    }
+                } else {
+                    // Multiple customers - show dropdown
+                    if (tposMultiple) {
+                        tposMultiple.style.display = 'block';
+                        const dropdown = document.getElementById('tposCustomerDropdown');
+                        if (dropdown) {
+                            dropdown.innerHTML = '<option value="">-- Chọn khách hàng --</option>';
+                            result.customers.forEach(c => {
+                                const opt = document.createElement('option');
+                                opt.value = c.name || '';
+                                opt.textContent = `${c.name || 'Không tên'} (${c.phone})`;
+                                dropdown.appendChild(opt);
+                            });
+                        }
+                    }
+                }
+            } else {
+                // No customer found
+                if (tposEmpty) tposEmpty.style.display = 'block';
+            }
+
+            // Re-render icons
+            if (window.lucide) lucide.createIcons();
+
+        } catch (error) {
+            console.error('[TPOS-LOOKUP] Error:', error);
+            if (tposLoading) tposLoading.style.display = 'none';
+            if (tposEmpty) {
+                tposEmpty.style.display = 'block';
+                tposEmpty.textContent = 'Lỗi khi tìm TPOS';
+            }
+        }
+    }, 500);
+}
+
+/**
+ * Handle TPOS dropdown selection
+ */
+function handleTPOSDropdownChange() {
+    const dropdown = document.getElementById('tposCustomerDropdown');
+    const nameInput = document.getElementById('editCustomerName');
+
+    if (dropdown && nameInput && dropdown.value) {
+        nameInput.value = dropdown.value;
+    }
+}
+
 // Edit customer info for a specific transaction
 function editTransactionCustomer(transactionId, currentPhone, currentName) {
     const editCustomerModal = document.getElementById('editCustomerModal');
@@ -2672,6 +2838,7 @@ function editTransactionCustomer(transactionId, currentPhone, currentName) {
     const editCustomerName = document.getElementById('editCustomerName');
     const editCustomerPhone = document.getElementById('editCustomerPhone');
     const editCustomerForm = document.getElementById('editCustomerForm');
+    const tposContainer = document.getElementById('tposLookupContainer');
 
     // Fill form with current values
     editCustomerUniqueCode.textContent = `Transaction #${transactionId}`;
@@ -2681,6 +2848,39 @@ function editTransactionCustomer(transactionId, currentPhone, currentName) {
     // Store transaction ID for form submission
     editCustomerForm.dataset.transactionId = transactionId;
     editCustomerForm.dataset.isTransactionEdit = 'true';
+
+    // Enable TPOS lookup mode for transaction edits
+    if (tposContainer) {
+        tposContainer.style.display = 'block';
+
+        // Make name field readonly (will be auto-filled from TPOS or dropdown)
+        editCustomerName.readOnly = true;
+        editCustomerName.placeholder = 'Tự động tìm từ TPOS...';
+        editCustomerName.style.backgroundColor = '#f3f4f6';
+
+        // Setup phone input listener for TPOS lookup
+        editCustomerPhone.removeEventListener('input', handlePhoneInputForTPOS);
+        editCustomerPhone.addEventListener('input', handlePhoneInputForTPOS);
+
+        // Setup dropdown change listener
+        const dropdown = document.getElementById('tposCustomerDropdown');
+        if (dropdown) {
+            dropdown.removeEventListener('change', handleTPOSDropdownChange);
+            dropdown.addEventListener('change', handleTPOSDropdownChange);
+        }
+
+        // Reset TPOS lookup UI
+        const tposResult = document.getElementById('tposLookupResult');
+        const tposLoading = document.getElementById('tposLookupLoading');
+        if (tposResult) tposResult.style.display = 'none';
+        if (tposLoading) tposLoading.style.display = 'none';
+
+        // If phone already has 10 digits, trigger lookup immediately
+        const phone = currentPhone?.replace(/\D/g, '') || '';
+        if (phone.length === 10) {
+            handlePhoneInputForTPOS();
+        }
+    }
 
     // Show modal
     editCustomerModal.style.display = 'block';

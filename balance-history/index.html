@@ -610,6 +610,38 @@
                         </label>
                         <input type="text" id="editCustomerName" class="filter-input" placeholder="Nhập tên khách hàng"
                             style="width: 100%;">
+                        <!-- TPOS lookup result container (hidden by default, shown for transaction edits) -->
+                        <div id="tposLookupContainer" style="display: none; margin-top: 8px;">
+                            <div id="tposLookupLoading" style="display: none;">
+                                Đang tìm từ TPOS...
+                            </div>
+                            <div id="tposLookupResult" style="display: none;">
+                                <!-- Single customer result -->
+                                <div id="tposLookupSingle" style="display: none;">
+                                    <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
+                                    <span>Tìm thấy: </span><span id="tposLookupName"></span>
+                                </div>
+                                <!-- Multiple customers dropdown - Orange warning -->
+                                <div id="tposLookupMultiple" style="display: none;">
+                                    <div class="tpos-multiple-warning">
+                                        <i data-lucide="alert-triangle" style="width: 14px; height: 14px;"></i>
+                                        <span>Tìm thấy nhiều KH</span>
+                                        <span class="tpos-multi-badge">Cần duyệt</span>
+                                    </div>
+                                    <select id="tposCustomerDropdown">
+                                        <option value="">-- Chọn khách hàng --</option>
+                                    </select>
+                                </div>
+                                <!-- No customer found -->
+                                <div id="tposLookupEmpty" style="display: none;">
+                                    <i data-lucide="user-x" style="width: 14px; height: 14px;"></i>
+                                    Không tìm thấy KH trong TPOS
+                                </div>
+                            </div>
+                            <p id="tposLookupNote">
+                                Nhập đủ 10 số để tự động tìm tên từ TPOS
+                            </p>
+                        </div>
                     </div>
 
                     <div>
