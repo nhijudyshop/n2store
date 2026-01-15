@@ -562,15 +562,40 @@ function handleEditButton(button) {
     const row = button.closest("tr");
     if (!row || !DOM.editModal) return;
 
-    const cells = row.cells;
-    const offset = cells[0]?.querySelector('.row-select-checkbox') ? 1 : 0;
+    const rowId = row.dataset?.id || row.querySelector("td[id]")?.id;
 
-    document.getElementById("editDelivery").value = cells[1 + offset]?.innerText || "";
-    document.getElementById("eidtScenario").value = cells[2 + offset]?.innerText || "";
-    document.getElementById("editInfo").value = cells[3 + offset]?.innerText || "";
-    document.getElementById("editAmount").value = cells[4 + offset]?.innerText || "";
-    document.getElementById("editNote").value = cells[5 + offset]?.innerText || "";
-    document.getElementById("editDate").value = cells[7 + offset]?.innerText || "";
+    // Get data from cache instead of table cells (more reliable)
+    const cachedData = getCachedData() || [];
+    const item = cachedData.find(d => d.duyetHoanValue === rowId);
+
+    if (item) {
+        // Use cached data (reliable)
+        document.getElementById("editDelivery").value = item.shipValue || "";
+        document.getElementById("eidtScenario").value = item.scenarioValue || "";
+        document.getElementById("editInfo").value = item.customerInfoValue || "";
+        document.getElementById("editAmount").value = item.totalAmountValue || "";
+        document.getElementById("editNote").value = item.causeValue || "";
+
+        // Format date from timestamp
+        const timestamp = parseFloat(item.duyetHoanValue);
+        const dateStr = formatDate(new Date(timestamp));
+        document.getElementById("editDate").value = dateStr;
+
+        console.log('[HangHoan] Edit loaded from cache:', { rowId, dateStr, timestamp });
+    } else {
+        // Fallback to table cells
+        const cells = row.cells;
+        const offset = cells[0]?.querySelector('.row-select-checkbox') ? 1 : 0;
+
+        document.getElementById("editDelivery").value = cells[1 + offset]?.innerText || "";
+        document.getElementById("eidtScenario").value = cells[2 + offset]?.innerText || "";
+        document.getElementById("editInfo").value = cells[3 + offset]?.innerText || "";
+        document.getElementById("editAmount").value = cells[4 + offset]?.innerText || "";
+        document.getElementById("editNote").value = cells[5 + offset]?.innerText || "";
+        document.getElementById("editDate").value = cells[7 + offset]?.innerText || "";
+
+        console.log('[HangHoan] Edit loaded from cells (fallback)');
+    }
 
     editingRow = row;
     DOM.editModal.classList.add("show");
