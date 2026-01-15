@@ -423,6 +423,8 @@ router.get('/history', async (req, res) => {
                 bh.code, bh.content, bh.transfer_type, bh.transfer_amount, bh.accumulated,
                 bh.sub_account, bh.reference_code, bh.description, bh.created_at,
                 bh.debt_added, bh.is_hidden, bh.linked_customer_phone,
+                bh.match_method, bh.verification_status, bh.verified_by, bh.verified_at,
+                bh.wallet_processed,
                 bci.customer_phone,
                 bci.customer_name,
                 bci.unique_code as qr_code,

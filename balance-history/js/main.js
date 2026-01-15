@@ -1067,7 +1067,57 @@ function getMappingSource(row, uniqueCode) {
         };
     }
 
-    // Priority 1: Check unique_code format
+    // Priority 1: Check match_method FIRST (most accurate source indicator)
+    const matchMethod = row.match_method;
+    if (matchMethod) {
+        switch (matchMethod) {
+            case 'manual_entry':
+                return {
+                    label: 'Nhập tay',
+                    icon: 'pencil',
+                    color: '#3b82f6', // blue
+                    title: 'NV nhập SĐT thủ công - Chờ kế toán duyệt',
+                    badge: row.verification_status === 'PENDING_VERIFICATION' ? 'Chờ duyệt' : null
+                };
+            case 'manual_link':
+                return {
+                    label: 'Kế toán gán',
+                    icon: 'user-check',
+                    color: '#10b981', // green
+                    title: 'Kế toán gán KH và duyệt'
+                };
+            case 'qr_code':
+                return {
+                    label: 'QR Code',
+                    icon: 'qr-code',
+                    color: '#10b981', // green
+                    title: 'Khách hàng quét mã QR để chuyển khoản'
+                };
+            case 'exact_phone':
+                return {
+                    label: 'SĐT chính xác',
+                    icon: 'phone',
+                    color: '#10b981', // green
+                    title: 'Match chính xác 10 số SĐT từ nội dung'
+                };
+            case 'single_match':
+                return {
+                    label: 'Tự động match',
+                    icon: 'check-circle',
+                    color: '#10b981', // green
+                    title: 'Tự động match 1 KH duy nhất'
+                };
+            case 'pending_match':
+                return {
+                    label: 'Nhiều KH match',
+                    icon: 'users',
+                    color: '#f97316', // orange
+                    title: 'Có nhiều KH match - cần chọn'
+                };
+        }
+    }
+
+    // Priority 2: Check unique_code format (fallback for old data)
     if (uniqueCode) {
         // QR Code: N2 + 16 chars (but NOT N2TX which is auto-generated)
         if (uniqueCode.startsWith('N2') && !uniqueCode.startsWith('N2TX')) {
@@ -1079,7 +1129,7 @@ function getMappingSource(row, uniqueCode) {
             };
         }
 
-        // Phone Extraction: PHONE + digits
+        // Phone Extraction: PHONE + digits (only if no match_method set)
         if (uniqueCode.startsWith('PHONE')) {
             return {
                 label: 'Trích xuất SĐT',
@@ -1090,7 +1140,7 @@ function getMappingSource(row, uniqueCode) {
         }
     }
 
-    // Priority 2: Check if transaction has linked_customer_phone (manual edit)
+    // Priority 3: Check if transaction has linked_customer_phone (manual edit - fallback)
     if (row.linked_customer_phone) {
         return {
             label: 'Nhập tay',
