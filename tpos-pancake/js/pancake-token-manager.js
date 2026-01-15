@@ -1,16 +1,18 @@
 // =====================================================
-// PANCAKE TOKEN MANAGER - Quản lý JWT token với localStorage + Firebase
+// PANCAKE TOKEN MANAGER - Quản lý JWT token với localStorage + Firestore
 // =====================================================
 // Priority order for token retrieval:
 // 1. In-memory cache (fastest)
 // 2. localStorage (fast, no network)
-// 3. Firebase (network required, backup)
+// 3. Firestore (network required, backup)
 // 4. Cookie (fallback)
+//
+// MIGRATION: Changed from Realtime Database to Firestore
 // =====================================================
 
 class PancakeTokenManager {
     constructor() {
-        this.firebaseRef = null;
+        this.firestoreRef = null;
         this.accountsRef = null;
         this.pageTokensRef = null; // For page_access_tokens
         this.currentToken = null;
@@ -134,7 +136,7 @@ class PancakeTokenManager {
     }
 
     /**
-     * Initialize Firebase reference
+     * Initialize Firestore reference
      */
     async initialize() {
         try {
@@ -142,27 +144,28 @@ class PancakeTokenManager {
             console.log('[PANCAKE-TOKEN] Loading from localStorage first...');
             this.loadFromLocalStorage();
 
-            if (!window.firebase || !window.firebase.database) {
-                console.warn('[PANCAKE-TOKEN] Firebase not available, using localStorage only');
+            if (!window.firebase || !window.firebase.firestore) {
+                console.warn('[PANCAKE-TOKEN] Firestore not available, using localStorage only');
                 return true; // Still return true if we have localStorage data
             }
 
-            // New multi-account structure
-            this.firebaseRef = window.firebase.database().ref('pancake_jwt_tokens');
-            this.accountsRef = this.firebaseRef.child('accounts');
-            this.pageTokensRef = this.firebaseRef.child('page_access_tokens');
+            // Firestore structure (migrated from Realtime Database)
+            const db = window.firebase.firestore();
+            this.firestoreRef = db.collection('pancake_tokens');
+            this.accountsRef = this.firestoreRef.doc('accounts');
+            this.pageTokensRef = this.firestoreRef.doc('page_access_tokens');
 
-            // Load accounts and active account from Firebase (may update localStorage)
+            // Load accounts and active account from Firestore (may update localStorage)
             await this.loadAccounts();
 
-            // Load page access tokens from Firebase (merge with localStorage)
+            // Load page access tokens from Firestore (merge with localStorage)
             await this.loadPageAccessTokens();
 
-            console.log('[PANCAKE-TOKEN] Firebase reference initialized');
+            console.log('[PANCAKE-TOKEN] Firestore reference initialized');
             return true;
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error initializing Firebase:', error);
-            // Even if Firebase fails, we might have localStorage data
+            console.error('[PANCAKE-TOKEN] Error initializing Firestore:', error);
+            // Even if Firestore fails, we might have localStorage data
             return this.currentToken !== null;
         }
     }
@@ -208,23 +211,23 @@ class PancakeTokenManager {
     }
 
     /**
-     * Load all accounts from Firebase
+     * Load all accounts from Firestore
      */
     async loadAccounts() {
         try {
             // Add timeout to prevent hanging
-            const snapshot = await this.withTimeout(
-                this.accountsRef.once('value'),
+            const doc = await this.withTimeout(
+                this.accountsRef.get(),
                 5000,
                 'loadAccounts'
             );
 
-            if (!snapshot) {
+            if (!doc) {
                 console.warn('[PANCAKE-TOKEN] loadAccounts timed out, using localStorage data');
                 return false;
             }
 
-            this.accounts = snapshot.val() || {};
+            this.accounts = doc.exists ? (doc.data()?.data || {}) : {};
 
             // Load active account ID from localStorage (per-device)
             this.activeAccountId = localStorage.getItem('pancake_active_account_id');
@@ -375,13 +378,13 @@ class PancakeTokenManager {
     }
 
     /**
-     * Lấy token từ Firebase (active account)
+     * Lấy token từ Firestore (active account)
      * @returns {Promise<string|null>}
      */
-    async getTokenFromFirebase() {
+    async getTokenFromFirestore() {
         try {
             if (!this.accountsRef) {
-                console.warn('[PANCAKE-TOKEN] Firebase not initialized');
+                console.warn('[PANCAKE-TOKEN] Firestore not initialized');
                 return null;
             }
 
@@ -391,8 +394,19 @@ class PancakeTokenManager {
                 return null;
             }
 
-            const accountSnapshot = await this.accountsRef.child(this.activeAccountId).once('value');
-            const data = accountSnapshot.val();
+            // Get from in-memory cache first (already loaded from Firestore)
+            let data = this.accounts[this.activeAccountId];
+
+            // If not in memory, fetch from Firestore
+            if (!data) {
+                const doc = await this.accountsRef.get();
+                if (doc.exists) {
+                    const allAccounts = doc.data()?.data || {};
+                    data = allAccounts[this.activeAccountId];
+                    // Update memory cache
+                    this.accounts = allAccounts;
+                }
+            }
 
             if (!data || !data.token) {
                 console.log('[PANCAKE-TOKEN] No token in active account');
@@ -403,7 +417,7 @@ class PancakeTokenManager {
             let token = data.token;
             if (token.startsWith('jwt=')) {
                 token = token.substring(4);
-                console.log('[PANCAKE-TOKEN] Stripped jwt= prefix from Firebase token');
+                console.log('[PANCAKE-TOKEN] Stripped jwt= prefix from Firestore token');
             }
 
             // Check expiry
@@ -419,18 +433,18 @@ class PancakeTokenManager {
             return token;
 
         } catch (error) {
-            console.error('[PANCAKE-TOKEN] Error getting token from Firebase:', error);
+            console.error('[PANCAKE-TOKEN] Error getting token from Firestore:', error);
             return null;
         }
     }
 
     /**
-     * Lưu token vào Firebase (as new account or update existing)
+     * Lưu token vào Firestore (as new account or update existing)
      * @param {string} token - JWT token (cleaned)
      * @param {string} accountId - Optional account ID, auto-generated if not provided
      * @returns {Promise<string>} - Returns account ID
      */
-    async saveTokenToFirebase(token, accountId = null) {
+    async saveTokenToFirestore(token, accountId = null) {
         try {
             // Clean token - remove jwt= prefix if exists
             let cleanedToken = token.trim();
@@ -467,10 +481,12 @@ class PancakeTokenManager {
             localStorage.setItem('pancake_active_account_id', accountId);
             this.saveTokenToLocalStorage(cleanedToken, payload.exp);
 
-            // Save to Firebase (async, backup)
+            // Save to Firestore (async, backup)
             if (this.accountsRef) {
-                await this.accountsRef.child(accountId).set(data);
-                console.log('[PANCAKE-TOKEN] ✅ Token saved to Firebase as account:', accountId);
+                await this.accountsRef.set({
+                    data: { [accountId]: data }
+                }, { merge: true });
+                console.log('[PANCAKE-TOKEN] ✅ Token saved to Firestore as account:', accountId);
             }
 
             console.log('[PANCAKE-TOKEN] ✅ Token saved to localStorage');
@@ -542,7 +558,12 @@ class PancakeTokenManager {
                 return false;
             }
 
-            await this.accountsRef.child(accountId).remove();
+            // Delete from Firestore using FieldValue.delete()
+            if (this.accountsRef) {
+                await this.accountsRef.update({
+                    [`data.${accountId}`]: window.firebase.firestore.FieldValue.delete()
+                });
+            }
             delete this.accounts[accountId];
 
             // If deleted account was active, clear local active account
@@ -623,7 +644,7 @@ class PancakeTokenManager {
         }
 
         // Priority 3: Check Firebase (network required)
-        const firebaseToken = await this.getTokenFromFirebase();
+        const firebaseToken = await this.getTokenFromFirestore();
         if (firebaseToken) {
             console.log('[PANCAKE-TOKEN] Using token from Firebase');
             return firebaseToken;
@@ -635,7 +656,7 @@ class PancakeTokenManager {
             const payload = this.decodeToken(cookieToken);
             if (payload && !this.isTokenExpired(payload.exp)) {
                 console.log('[PANCAKE-TOKEN] Using token from cookie, saving...');
-                await this.saveTokenToFirebase(cookieToken);
+                await this.saveTokenToFirestore(cookieToken);
                 return cookieToken;
             } else {
                 console.log('[PANCAKE-TOKEN] Cookie token is expired');
@@ -716,7 +737,7 @@ class PancakeTokenManager {
             console.log('[PANCAKE-TOKEN] Token valid, saving to Firebase...');
 
             // Save to Firebase
-            const accountId = await this.saveTokenToFirebase(cleanedToken);
+            const accountId = await this.saveTokenToFirestore(cleanedToken);
             if (!accountId) {
                 throw new Error('Không thể lưu token vào Firebase. Vui lòng thử lại.');
             }
@@ -780,10 +801,14 @@ class PancakeTokenManager {
      */
     async clearToken() {
         try {
-            // Clear Firebase
-            if (this.firebaseRef) {
-                await this.firebaseRef.remove();
-                console.log('[PANCAKE-TOKEN] All tokens cleared from Firebase');
+            // Clear Firestore documents
+            if (this.accountsRef) {
+                await this.accountsRef.delete();
+                console.log('[PANCAKE-TOKEN] Accounts cleared from Firestore');
+            }
+            if (this.pageTokensRef) {
+                await this.pageTokensRef.delete();
+                console.log('[PANCAKE-TOKEN] Page tokens cleared from Firestore');
             }
 
             // Clear localStorage
@@ -879,7 +904,7 @@ class PancakeTokenManager {
     // =====================================================
 
     /**
-     * Load page access tokens from Firebase
+     * Load page access tokens from Firestore
      */
     async loadPageAccessTokens() {
         try {
@@ -889,24 +914,24 @@ class PancakeTokenManager {
             }
 
             // Add timeout to prevent hanging
-            const snapshot = await this.withTimeout(
-                this.pageTokensRef.once('value'),
+            const doc = await this.withTimeout(
+                this.pageTokensRef.get(),
                 5000,
                 'loadPageAccessTokens'
             );
 
-            if (!snapshot) {
+            if (!doc) {
                 console.warn('[PANCAKE-TOKEN] loadPageAccessTokens timed out, using localStorage data');
                 return;
             }
 
-            const firebaseTokens = snapshot.val() || {};
+            const firestoreTokens = doc.exists ? (doc.data()?.data || {}) : {};
 
-            // Merge Firebase tokens with existing localStorage tokens
-            // Firebase takes priority (more up-to-date)
+            // Merge Firestore tokens with existing localStorage tokens
+            // Firestore takes priority (more up-to-date)
             this.pageAccessTokens = {
                 ...this.pageAccessTokens, // localStorage tokens (already loaded)
-                ...firebaseTokens         // Firebase tokens (override)
+                ...firestoreTokens        // Firestore tokens (override)
             };
 
             // Sync merged tokens back to localStorage
@@ -957,9 +982,11 @@ class PancakeTokenManager {
             // Save to localStorage (fast, synchronous)
             this.savePageAccessTokensToLocalStorage();
 
-            // Save to Firebase (async, backup)
+            // Save to Firestore (async, backup)
             if (this.pageTokensRef) {
-                await this.pageTokensRef.child(pageId).set(data);
+                await this.pageTokensRef.set({
+                    data: { [pageId]: data }
+                }, { merge: true });
             }
 
             console.log('[PANCAKE-TOKEN] ✅ page_access_token saved for page:', pageId);
