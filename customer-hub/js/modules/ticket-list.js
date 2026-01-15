@@ -138,21 +138,9 @@ export class TicketListModule {
         return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">${s.label}</span>`;
     }
 
-    /**
-     * Parse database timestamp as UTC and convert to local time
-     */
-    _parseAsUTC(dateStr) {
-        if (!dateStr) return new Date();
-        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
-            return new Date(dateStr);
-        }
-        const isoString = dateStr.replace(' ', 'T') + 'Z';
-        return new Date(isoString);
-    }
-
     _formatDate(dateString) {
         if (!dateString) return 'N/A';
-        const date = this._parseAsUTC(dateString);
+        const date = new Date(dateString);
         const now = new Date();
         const diffDays = Math.floor((now - date) / 86400000);
 

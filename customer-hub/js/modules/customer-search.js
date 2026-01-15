@@ -419,10 +419,12 @@ export class CustomerSearchModule {
             if (num === 0) return '0';
             return num.toLocaleString('vi-VN');
         };
+        const total = virtual + real;
+        const totalClass = total > 0 ? 'text-green-600 dark:text-green-400' : total < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-600 dark:text-slate-300';
         return `
             <div class="text-sm">
-                <div class="text-slate-600 dark:text-slate-300">Ảo: <span class="font-medium">${formatNum(virtual)}</span></div>
-                <div class="text-slate-600 dark:text-slate-300">Thực: <span class="font-medium">${formatNum(real)}</span></div>
+                <div class="${totalClass} font-semibold text-base">${formatNum(total)}</div>
+                <div class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Ảo: ${formatNum(virtual)} | Thực: ${formatNum(real)}</div>
             </div>
         `;
     }
@@ -501,22 +503,10 @@ export class CustomerSearchModule {
         `;
     }
 
-    /**
-     * Parse database timestamp as UTC and convert to local time
-     */
-    _parseAsUTC(dateStr) {
-        if (!dateStr) return new Date();
-        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
-            return new Date(dateStr);
-        }
-        const isoString = dateStr.replace(' ', 'T') + 'Z';
-        return new Date(isoString);
-    }
-
     formatLastActivity(dateStr) {
         if (!dateStr) return 'N/A';
 
-        const date = this._parseAsUTC(dateStr);
+        const date = new Date(dateStr);
         const now = new Date();
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);

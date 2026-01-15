@@ -427,18 +427,6 @@ export class WalletPanelModule {
         }
     }
 
-    /**
-     * Parse database timestamp as UTC and convert to local time
-     */
-    _parseAsUTC(dateStr) {
-        if (!dateStr) return new Date();
-        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
-            return new Date(dateStr);
-        }
-        const isoString = dateStr.replace(' ', 'T') + 'Z';
-        return new Date(isoString);
-    }
-
     _renderTransactionItem(tx) {
         const isCredit = tx.type === 'DEPOSIT' || tx.type === 'VIRTUAL_CREDIT';
         const colorClass = isCredit ? 'text-green-600' : 'text-red-600';
@@ -453,7 +441,7 @@ export class WalletPanelModule {
             'VIRTUAL_EXPIRE': 'Công nợ hết hạn'
         };
 
-        const date = this._parseAsUTC(tx.created_at);
+        const date = new Date(tx.created_at);
         const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
