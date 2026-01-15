@@ -93,7 +93,17 @@ class RealtimeManager {
         }
 
         const token = await window.pancakeTokenManager.getToken();
-        const tokenInfo = window.pancakeTokenManager.getTokenInfo();
+        let tokenInfo = window.pancakeTokenManager.getTokenInfo();
+
+        // Fallback: if tokenInfo is null (accounts not loaded yet), decode from token directly
+        if (!tokenInfo && token && window.pancakeTokenManager.decodeToken) {
+            const decoded = window.pancakeTokenManager.decodeToken(token);
+            if (decoded) {
+                tokenInfo = { uid: decoded.uid, name: decoded.name };
+                console.log('[REALTIME] Decoded userId from token:', decoded.uid);
+            }
+        }
+
         const userId = tokenInfo ? tokenInfo.uid : null;
 
         if (window.pancakeDataManager.pageIds.length === 0) {
