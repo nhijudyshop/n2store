@@ -1260,8 +1260,28 @@ function renderTransactionRow(row) {
             </div>
         `;
     } else {
-        phoneCell = `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`;
+        // No phone info - show edit icon for manual entry
+        // Check permission for manualTransactionEntry
+        const canManualEntry = authManager?.hasDetailedPermission('balance-history', 'manualTransactionEntry') ||
+            authManager?.hasDetailedPermission('balance-history', 'edit');
+        if (canManualEntry) {
+            phoneCell = `
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="color: #999; font-style: italic;">Chưa có</span>
+                    <button class="btn btn-outline-primary btn-sm" 
+                        onclick="editTransactionCustomer(${row.id}, '', '')" 
+                        title="Nhập SĐT khách hàng (chờ kế toán duyệt)" 
+                        style="padding: 2px 6px; border: 1px dashed #3b82f6; background: transparent; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="pencil" style="width: 12px; height: 12px; color: #3b82f6;"></i>
+                        <span style="font-size: 10px; color: #3b82f6;">Nhập</span>
+                    </button>
+                </div>
+            `;
+        } else {
+            phoneCell = `<span style="color: #999; font-style: italic;">${customerDisplay.phone}</span>`;
+        }
     }
+
 
     // Get mapping source info
     const mappingSource = getMappingSource(row, uniqueCode);
@@ -2403,7 +2423,7 @@ async function toggleHideTransaction(transactionId, hidden) {
             if (row) {
                 // Determine if row should be removed based on viewMode
                 const shouldRemoveRow = (hidden && currentViewMode === 'visible') ||
-                                        (!hidden && currentViewMode === 'hidden');
+                    (!hidden && currentViewMode === 'hidden');
 
                 if (shouldRemoveRow) {
                     // Remove row with animation
@@ -2542,15 +2562,24 @@ async function saveEditCustomerInfo(event) {
 
     if (isTransactionEdit && transactionId) {
         // Transaction-level edit: Update only this transaction's phone
-        console.log('[EDIT-TRANSACTION] Saving:', { transactionId, phone });
+        // This is a manual entry by staff, requires accountant approval
+        console.log('[EDIT-TRANSACTION] Saving manual entry:', { transactionId, phone });
 
-        const success = await saveTransactionCustomer(transactionId, phone);
+        const result = await saveTransactionCustomer(transactionId, phone, { isManualEntry: true });
 
-        if (success) {
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Đã cập nhật SĐT cho giao dịch!', 'success');
+        if (result.success) {
+            // Show appropriate message based on whether approval is required
+            let message;
+            if (result.requiresApproval) {
+                message = '✅ Đã lưu SĐT - Chờ kế toán duyệt!';
             } else {
-                alert('Đã cập nhật SĐT cho giao dịch!');
+                message = '✅ Đã cập nhật SĐT cho giao dịch!';
+            }
+
+            if (window.NotificationManager) {
+                window.NotificationManager.showNotification(message, 'success');
+            } else {
+                alert(message);
             }
 
             // Close modal and reload
@@ -2561,14 +2590,16 @@ async function saveEditCustomerInfo(event) {
             delete form.dataset.isTransactionEdit;
             delete form.dataset.transactionId;
         } else {
+            const errorMsg = result.error || 'Không thể cập nhật SĐT';
             if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Không thể cập nhật SĐT', 'error');
+                window.NotificationManager.showNotification(`❌ ${errorMsg}`, 'error');
             } else {
-                alert('Không thể cập nhật SĐT');
+                alert(`Lỗi: ${errorMsg}`);
             }
         }
         return;
     }
+
 
     // QR-code level edit (original logic)
     if (!window.CustomerInfoManager) return;
@@ -2638,8 +2669,22 @@ function editTransactionCustomer(transactionId, currentPhone, currentName) {
 }
 
 // Save transaction customer info
-async function saveTransactionCustomer(transactionId, newPhone) {
+// @param {number} transactionId - Transaction ID
+// @param {string} newPhone - New phone number
+// @param {Object} options - Additional options
+// @param {boolean} options.isManualEntry - If true, triggers verification workflow (requires accountant approval)
+async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
     const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const { isManualEntry = false } = options;
+
+    // Check if user is accountant/admin - they don't need approval for their changes
+    const isAccountant = authManager?.hasDetailedPermission('balance-history', 'approveTransaction');
+    const shouldRequireApproval = isManualEntry && !isAccountant;
+
+    // Get current user email for audit trail
+    const currentUserEmail = authManager?.getUserEmail?.() ||
+        localStorage.getItem('user_email') ||
+        'staff';
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
@@ -2648,23 +2693,32 @@ async function saveTransactionCustomer(transactionId, newPhone) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                phone: newPhone
+                phone: newPhone,
+                is_manual_entry: shouldRequireApproval,
+                entered_by: currentUserEmail
             })
         });
 
         const result = await response.json();
 
         if (result.success) {
-            return true;
+            // Return result with verification info
+            return {
+                success: true,
+                requiresApproval: result.requires_approval || false,
+                customerName: result.customer_name,
+                verificationStatus: result.verification_status
+            };
         } else {
             console.error('[SAVE-TRANSACTION-PHONE] Error:', result.error);
-            return false;
+            return { success: false, error: result.error };
         }
     } catch (error) {
         console.error('[SAVE-TRANSACTION-PHONE] Error:', error);
-        return false;
+        return { success: false, error: error.message };
     }
 }
+
 
 // Make functions globally available
 window.editTransactionCustomer = editTransactionCustomer;

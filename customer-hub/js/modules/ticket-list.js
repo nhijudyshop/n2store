@@ -138,9 +138,24 @@ export class TicketListModule {
         return `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">${s.label}</span>`;
     }
 
+    /**
+     * Parse date string as UTC (handles API timestamps without 'Z' suffix)
+     * @param {string} dateStr - Date string from API
+     * @returns {Date} Date object
+     */
+    _parseAsUTC(dateStr) {
+        if (!dateStr) return new Date();
+        // If already has timezone info (Z or +/-), parse directly
+        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
+            return new Date(dateStr);
+        }
+        // Otherwise, append 'Z' to treat as UTC
+        return new Date(dateStr + 'Z');
+    }
+
     _formatDate(dateString) {
         if (!dateString) return 'N/A';
-        const date = new Date(dateString);
+        const date = this._parseAsUTC(dateString);
         const now = new Date();
         const diffDays = Math.floor((now - date) / 86400000);
 
