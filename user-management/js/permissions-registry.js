@@ -707,12 +707,23 @@ function generateTemplatePermissions(templateId) {
                 break;
 
             case "sales-team":
-                // Sales team có quyền ở sales và orders categories
+                // Sales team có quyền ở sales, orders và reports categories
                 if (page.category === "sales" || page.category === "orders") {
                     pagePermissions.push(pageId);
                     Object.keys(page.detailedPermissions).forEach(subKey => {
                         // Không có quyền delete
                         detailedPermissions[pageId][subKey] = subKey !== "delete";
+                    });
+                }
+                // Thêm quyền xem báo cáo cho sales team
+                if (page.category === "reports") {
+                    pagePermissions.push(pageId);
+                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                        // Chỉ view và export, không có delete/edit
+                        detailedPermissions[pageId][subKey] =
+                            subKey === "view" ||
+                            subKey === "export" ||
+                            subKey.startsWith("view");
                     });
                 }
                 break;

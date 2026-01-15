@@ -3,6 +3,10 @@
 // Cho phép tạo, sửa, xóa templates tùy chỉnh
 // =====================================================
 
+// Template permissions version - tăng khi có thay đổi logic generateTemplatePermissions
+// Version 2: sales-team thêm quyền reports category
+const TEMPLATE_PERMISSIONS_VERSION = 2;
+
 /**
  * TemplateManager - Quản lý Permission Templates
  *
@@ -45,7 +49,9 @@ class TemplateManager {
             const snapshot = await db.collection('permission_templates').get();
 
             if (!snapshot.empty) {
-                console.log('[TemplateManager] Templates already exist, skipping migration');
+                // Check if version upgrade is needed
+                await this.checkAndUpgradeTemplatesVersion(snapshot);
+                console.log('[TemplateManager] Templates already exist, migration skipped');
                 return false;
             }
 
@@ -73,6 +79,7 @@ class TemplateManager {
                     description: meta.description || '',
                     detailedPermissions: detailedPermissions,
                     isSystemDefault: true,  // Đánh dấu không xóa được
+                    permissionsVersion: TEMPLATE_PERMISSIONS_VERSION,  // Track version
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     createdBy: 'system'
                 });
@@ -86,6 +93,65 @@ class TemplateManager {
         } catch (error) {
             console.error('[TemplateManager] Migration error:', error);
             return false;
+        }
+    }
+
+    /**
+     * Check và upgrade templates version nếu cần
+     * Khi TEMPLATE_PERMISSIONS_VERSION tăng, tự động update system templates
+     */
+    async checkAndUpgradeTemplatesVersion(snapshot) {
+        try {
+            const templatesNeedingUpgrade = [];
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                // Chỉ upgrade system default templates
+                if (data.isSystemDefault && this.defaultTemplateIds.includes(doc.id)) {
+                    const currentVersion = data.permissionsVersion || 1;
+                    if (currentVersion < TEMPLATE_PERMISSIONS_VERSION) {
+                        templatesNeedingUpgrade.push({
+                            id: doc.id,
+                            currentVersion,
+                            data
+                        });
+                    }
+                }
+            });
+
+            if (templatesNeedingUpgrade.length === 0) {
+                return;
+            }
+
+            console.log(`[TemplateManager] Upgrading ${templatesNeedingUpgrade.length} templates to version ${TEMPLATE_PERMISSIONS_VERSION}`);
+
+            const templateMeta = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES : {};
+
+            for (const item of templatesNeedingUpgrade) {
+                // Re-generate permissions từ registry mới
+                let newPermissions = {};
+                if (typeof PermissionsRegistry !== 'undefined' && PermissionsRegistry.generateTemplatePermissions) {
+                    const result = PermissionsRegistry.generateTemplatePermissions(item.id);
+                    newPermissions = result.detailedPermissions || {};
+                }
+
+                await db.collection('permission_templates').doc(item.id).update({
+                    detailedPermissions: newPermissions,
+                    permissionsVersion: TEMPLATE_PERMISSIONS_VERSION,
+                    upgradedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    upgradeNote: `Auto-upgraded from v${item.currentVersion} to v${TEMPLATE_PERMISSIONS_VERSION}`
+                });
+
+                console.log(`[TemplateManager] Upgraded ${item.id}: v${item.currentVersion} -> v${TEMPLATE_PERMISSIONS_VERSION}`);
+            }
+
+            // Notify user
+            if (window.notify) {
+                window.notify.info(`Đã cập nhật ${templatesNeedingUpgrade.length} templates hệ thống với quyền mới`);
+            }
+
+        } catch (error) {
+            console.error('[TemplateManager] Version upgrade error:', error);
         }
     }
 
@@ -236,6 +302,9 @@ class TemplateManager {
             <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}')" title="Chỉnh sửa">
                 <i data-lucide="edit"></i>
                 Sửa
+            </button>
+            <button class="btn btn-sm btn-info" onclick="templateManager.syncUsersWithTemplate('${id}')" title="Cập nhật quyền cho tất cả users đang dùng template này">
+                <i data-lucide="refresh-cw"></i>
             </button>
             <button class="btn btn-sm btn-secondary" onclick="templateManager.duplicateTemplate('${id}')" title="Sao chép">
                 <i data-lucide="copy"></i>
@@ -480,6 +549,74 @@ class TemplateManager {
         } catch (error) {
             console.error('[TemplateManager] Error resetting template:', error);
             alert('Lỗi khôi phục template: ' + error.message);
+        }
+    }
+
+    /**
+     * Sync permissions cho tất cả users đang dùng template này
+     * Cập nhật detailedPermissions của users theo template mới nhất
+     */
+    async syncUsersWithTemplate(templateId) {
+        const template = this.templates[templateId];
+
+        if (!template) {
+            alert('Không tìm thấy template!');
+            return;
+        }
+
+        if (!template.detailedPermissions || Object.keys(template.detailedPermissions).length === 0) {
+            alert('Template chưa có permissions nào!');
+            return;
+        }
+
+        // Count users using this template
+        const usersSnapshot = await db.collection('users')
+            .where('roleTemplate', '==', templateId)
+            .get();
+
+        if (usersSnapshot.empty) {
+            alert(`Không có user nào đang sử dụng template "${template.name}"`);
+            return;
+        }
+
+        const userCount = usersSnapshot.size;
+
+        if (!confirm(`Cập nhật quyền cho ${userCount} user đang sử dụng template "${template.name}"?\n\nQuyền của họ sẽ được thay thế bằng permissions từ template.`)) {
+            return;
+        }
+
+        try {
+            const loadingId = window.notify?.loading?.(`Đang cập nhật ${userCount} users...`) ||
+                window.notify?.info?.(`Đang cập nhật ${userCount} users...`);
+
+            const batch = db.batch();
+            const currentUser = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'system';
+
+            usersSnapshot.forEach(doc => {
+                batch.update(doc.ref, {
+                    detailedPermissions: template.detailedPermissions,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: currentUser,
+                    permissionsSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+
+            await batch.commit();
+
+            if (loadingId && window.notify?.remove) {
+                window.notify.remove(loadingId);
+            }
+
+            window.notify?.success?.(`Đã cập nhật quyền cho ${userCount} user theo template "${template.name}"`);
+
+            // Reload users list if function exists
+            if (typeof loadUsers === 'function') {
+                setTimeout(loadUsers, 500);
+            }
+
+        } catch (error) {
+            console.error('[TemplateManager] Error syncing users:', error);
+            alert('Lỗi cập nhật users: ' + error.message);
         }
     }
 
