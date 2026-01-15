@@ -187,12 +187,23 @@ function convertToTimestamp(dateString) {
 
 function isValidDateFormat(dateStr) {
     if (!dateStr || typeof dateStr !== "string") return false;
-    const regex = /^\d{2}-\d{2}-\d{2}$/;
-    if (!regex.test(dateStr)) return false;
-    const parts = dateStr.split("-");
-    const day = parseInt(parts[0]);
-    const month = parseInt(parts[1]);
+    // Accept formats: DD-MM-YY, DD/MM/YY, DD-MM-YYYY, DD/MM/YYYY
+    const regex = /^(\d{2})[-\/](\d{2})[-\/](\d{2,4})$/;
+    const match = dateStr.match(regex);
+    if (!match) return false;
+    const day = parseInt(match[1]);
+    const month = parseInt(match[2]);
     return day >= 1 && day <= 31 && month >= 1 && month <= 12;
+}
+
+function normalizeDate(dateStr) {
+    // Convert various formats to DD-MM-YY
+    const regex = /^(\d{2})[-\/](\d{2})[-\/](\d{2,4})$/;
+    const match = dateStr.match(regex);
+    if (!match) return dateStr;
+    let year = match[3];
+    if (year.length === 4) year = year.slice(-2); // 2026 -> 26
+    return `${match[1]}-${match[2]}-${year}`;
 }
 
 // =====================================================
@@ -680,10 +691,13 @@ function saveChanges() {
     const dateValue = document.getElementById("editDate").value;
 
     if (!isValidDateFormat(dateValue)) {
-        showError("Định dạng ngày: DD-MM-YY");
-        alert("Định dạng ngày: DD-MM-YY");
+        showError("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
+        alert("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         return;
     }
+
+    // Normalize date to DD-MM-YY format
+    const normalizedDate = normalizeDate(dateValue);
 
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
         showError("Vui lòng điền đầy đủ thông tin");
@@ -718,7 +732,7 @@ function saveChanges() {
     }
 
     const oldData = { ...currentData[itemIndex] };
-    const newTimestamp = convertToTimestamp(dateValue);
+    const newTimestamp = convertToTimestamp(normalizedDate);
 
     // Update local data
     currentData[itemIndex] = {
