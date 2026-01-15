@@ -4013,49 +4013,86 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] Building REPLY_INBOX payload');
         }
 
-        // Add image data - Pancake API dùng content_ids (array)
-        if (imagesDataArray.length > 0) {
-            console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to payload');
+        // Step 3: Send message
+        // When sending images, use Internal API (pancake.vn) with multipart/form-data
+        // For text-only, use Official API (pages.fm) with JSON
 
-            // Pancake API format: content_ids là array of content IDs từ upload API
-            // Ref: https://developer.pancake.biz/#/ - Send Message API
-            // ⚠️ IMPORTANT: CHỈ gửi content_ids, KHÔNG gửi content_urls
-            // Facebook Messenger KHÔNG hỗ trợ external URLs từ content.pancake.vn
-            // Pancake sẽ tự động convert content_ids → Facebook attachments
-            payload.content_ids = imagesDataArray
-                .map(img => img.content_id || img.id)
-                .filter(id => id); // Lọc bỏ null/undefined
-
-            // attachment_type bắt buộc khi có ảnh: PHOTO, VIDEO, DOCUMENT, AUDIO_ATTACHMENT_ID
-            payload.attachment_type = 'PHOTO';
-
-            console.log('[MESSAGE] content_ids:', payload.content_ids);
-            console.log('[MESSAGE] attachment_type:', payload.attachment_type);
-        }
-
-        // Step 3: Send message via Official API (pages.fm)
-        const replyUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${channelId}/conversations/${actualConversationId}/messages`,
-            pageAccessToken
-        ) + (customerId ? `&customer_id=${customerId}` : '');
-
-        console.log('[MESSAGE] Sending message...');
-        console.log('[MESSAGE] URL:', replyUrl);
-        console.log('[MESSAGE] Payload:', JSON.stringify(payload));
-
-        // Try API first, then fallback to extension if available
+        let replyUrl;
+        let requestOptions;
         let apiSuccess = false;
         let apiError = null;
 
-        try {
-            const replyResponse = await API_CONFIG.smartFetch(replyUrl, {
+        if (imagesDataArray.length > 0) {
+            // ========== SEND WITH IMAGES via Internal API (multipart/form-data) ==========
+            console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to payload');
+
+            // Get JWT access_token for Internal API
+            const accessToken = await window.pancakeDataManager?.getToken();
+            if (!accessToken) {
+                throw new Error('No Pancake access_token available for image send');
+            }
+
+            // Use Internal API (pancake.vn) for sending images
+            replyUrl = window.API_CONFIG.buildUrl.pancake(
+                `pages/${channelId}/conversations/${actualConversationId}/messages`,
+                `access_token=${accessToken}`
+            ) + (customerId ? `&customer_id=${customerId}` : '');
+
+            // Build multipart/form-data for each image
+            // Pancake web sends one image at a time with these fields:
+            // action, message, content_id, attachment_id, content_url, width, height, send_by_platform
+            const firstImage = imagesDataArray[0];
+            const formData = new FormData();
+            formData.append('action', payload.action || 'reply_inbox');
+            formData.append('message', message || '');
+            formData.append('content_id', firstImage.content_id || firstImage.id || '');
+            formData.append('attachment_id', firstImage.fb_id || '');
+            formData.append('content_url', firstImage.content_url || '');
+            formData.append('width', String(firstImage.width || 0));
+            formData.append('height', String(firstImage.height || 0));
+            formData.append('send_by_platform', 'web');
+
+            if (repliedMessageId) {
+                formData.append('replied_message_id', repliedMessageId);
+            }
+
+            requestOptions = {
+                method: 'POST',
+                body: formData
+                // Don't set Content-Type header - browser will set it with boundary
+            };
+
+            console.log('[MESSAGE] Using Internal API with multipart/form-data');
+            console.log('[MESSAGE] content_id:', firstImage.content_id || firstImage.id);
+            console.log('[MESSAGE] content_url:', firstImage.content_url);
+            console.log('[MESSAGE] dimensions:', firstImage.width, 'x', firstImage.height);
+
+            // TODO: If multiple images, need to send them in sequence
+            if (imagesDataArray.length > 1) {
+                console.warn('[MESSAGE] ⚠️ Multiple images not fully supported yet - only first image will be sent');
+            }
+        } else {
+            // ========== SEND TEXT ONLY via Official API (JSON) ==========
+            replyUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${channelId}/conversations/${actualConversationId}/messages`,
+                pageAccessToken
+            ) + (customerId ? `&customer_id=${customerId}` : '');
+
+            requestOptions = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(payload)
-            }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
+            };
+        }
+
+        console.log('[MESSAGE] Sending message...');
+        console.log('[MESSAGE] URL:', replyUrl.replace(/access_token=[^&]+/, 'access_token=***'));
+
+        try {
+            const replyResponse = await API_CONFIG.smartFetch(replyUrl, requestOptions, 1, true); // maxRetries=1, skipFallback=true
 
             if (!replyResponse.ok) {
                 const errorText = await replyResponse.text();

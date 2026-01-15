@@ -2210,25 +2210,27 @@ class PancakeDataManager {
             const data = await response.json();
             console.log('[PANCAKE] Upload response:', data);
 
-            // Internal API response format:
+            // Pancake API response format (wrapped in data array):
             // {
-            //   content_id: "abc123...",
-            //   content_url: "https://content.pancake.vn/.../image.jpg",
-            //   content_preview_url: "https://content.pancake.vn/..._thumb.jpg",
-            //   fb_id: "123456",
-            //   image_data: { height: 1280, width: 1166 },
-            //   mime_type: "image/jpeg",
-            //   name: "image.png",
-            //   success: true
+            //   "data": [{
+            //     "id": "b673ed56-02f6-4626-b7a2-7901d536f8a1",  // UUID - this is content_id
+            //     "content_url": "https://content.pancake.vn/.../image.jpg",
+            //     "content_preview_url": "https://content.pancake.vn/..._thumb.jpg",
+            //     "image_data": { "height": 2400, "width": 800 },
+            //     "name": "image.png"
+            //   }],
+            //   "success": true
             // }
+            // Handle both wrapped format (data.data[0]) and flat format (data.*)
+            const contentData = data.data?.[0] || data;
             const result = {
-                content_url: data.content_url || null,
-                content_id: data.content_id || data.id || null,
-                id: data.content_id || data.id || null,  // Alias for compatibility
-                content_preview_url: data.content_preview_url || null,
-                fb_id: data.fb_id || null,
-                width: data.image_data?.width || null,
-                height: data.image_data?.height || null
+                content_url: contentData.content_url || null,
+                content_id: contentData.id || contentData.content_id || null,  // UUID from data.data[0].id
+                id: contentData.id || contentData.content_id || null,  // Alias for compatibility
+                content_preview_url: contentData.content_preview_url || null,
+                fb_id: contentData.fb_id || null,
+                width: contentData.image_data?.width || null,
+                height: contentData.image_data?.height || null
             };
 
             // Validate response
