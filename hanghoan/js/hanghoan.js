@@ -789,13 +789,45 @@ function initializeCoreUtilities() {
 }
 
 function ensureCoreUtilitiesLoaded(callback) {
-    if (window.CORE_UTILITIES_LOADED && typeof PersistentCacheManager !== 'undefined') {
-        if (initializeCoreUtilities()) callback();
-    } else {
-        document.addEventListener('coreUtilitiesLoaded', function() {
-            if (initializeCoreUtilities()) callback();
-        }, { once: true });
+    let callbackCalled = false;
+    const safeCallback = () => {
+        if (callbackCalled) return;
+        if (initializeCoreUtilities()) {
+            callbackCalled = true;
+            callback();
+        }
+    };
+
+    // Check if already loaded (multiple ways to detect)
+    const isLoaded = window.CORE_UTILITIES_LOADED ||
+                     typeof PersistentCacheManager !== 'undefined' ||
+                     typeof window.PersistentCacheManager !== 'undefined';
+
+    if (isLoaded) {
+        safeCallback();
+        if (callbackCalled) return;
     }
+
+    // Try waiting for events
+    document.addEventListener('coreUtilitiesLoaded', safeCallback, { once: true });
+    window.addEventListener('sharedModulesLoaded', safeCallback, { once: true });
+
+    // Fallback: poll for availability (max 5 seconds)
+    let attempts = 0;
+    const checkInterval = setInterval(() => {
+        if (callbackCalled) {
+            clearInterval(checkInterval);
+            return;
+        }
+        attempts++;
+        if (typeof PersistentCacheManager !== 'undefined') {
+            clearInterval(checkInterval);
+            safeCallback();
+        } else if (attempts > 50) {
+            clearInterval(checkInterval);
+            console.error('Core utilities failed to load');
+        }
+    }, 100);
 }
 
 // =====================================================
