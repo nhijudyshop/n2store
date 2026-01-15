@@ -73,11 +73,16 @@ async function getOrCreateCustomerFromTPOS(db, phone, tposData = null) {
     // 2. Customer not exists - fetch TPOS data if not provided
     if (!tposData) {
         console.log(`[CUSTOMER-SERVICE] No TPOS data provided, fetching from TPOS for ${normalized}`);
-        const tposResult = await searchCustomerByPhone(normalized);
+        try {
+            const tposResult = await searchCustomerByPhone(normalized);
 
-        if (tposResult.success && tposResult.customer) {
-            tposData = tposResult.customer;
-            console.log(`[CUSTOMER-SERVICE] Got TPOS data: ${tposData.name} (ID: ${tposData.id})`);
+            if (tposResult.success && tposResult.customer) {
+                tposData = tposResult.customer;
+                console.log(`[CUSTOMER-SERVICE] Got TPOS data: ${tposData.name} (ID: ${tposData.id})`);
+            }
+        } catch (tposError) {
+            console.error(`[CUSTOMER-SERVICE] TPOS fetch failed for ${normalized}:`, tposError.message);
+            // Continue without TPOS data - will use defaults
         }
     }
 
