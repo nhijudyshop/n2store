@@ -1741,7 +1741,7 @@ class PancakeDataManager {
                         `pages/${pageId}/conversations/${convId}`,
                         `access_token=${token}`
                     );
-                    const convResponse = await API_CONFIG.smartFetch(convInfoUrl, { method: 'GET' }, 2, true);
+                    const convResponse = await API_CONFIG.smartFetch(convInfoUrl, { method: 'GET' });
                     if (convResponse.ok) {
                         const convData = await convResponse.json();
                         custId = convData.customers?.[0]?.id || convData.conversation?.customers?.[0]?.id || null;
@@ -2499,7 +2499,7 @@ class PancakeDataManager {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload)
-            }, 3, true); // skipFallback = true for sending messages
+            });
 
             if (!response.ok) {
                 const errorText = await response.text();
