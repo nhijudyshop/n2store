@@ -1544,24 +1544,9 @@ window.addEventListener("message", function (event) {
     if (event.data.type === "REQUEST_ORDERS_DATA") {
         console.log('📨 Nhận request orders data, allData length:', allData.length);
 
-        // Check if data is loaded - use retry with exponential backoff
+        // Check if data is loaded
         if (!allData || allData.length === 0) {
-            const maxRetries = 5;
-            const retryCount = event.data._retryCount || 0;
-
-            if (retryCount < maxRetries) {
-                const delay = Math.min(1000 * Math.pow(1.5, retryCount), 5000); // 1s, 1.5s, 2.25s, 3.4s, 5s
-                console.log(`⚠️ allData chưa có dữ liệu, retry ${retryCount + 1}/${maxRetries} sau ${delay}ms`);
-
-                setTimeout(() => {
-                    window.postMessage({
-                        type: 'REQUEST_ORDERS_DATA',
-                        _retryCount: retryCount + 1
-                    }, '*');
-                }, delay);
-            } else {
-                console.log('❌ Vẫn chưa có dữ liệu sau khi retry ' + maxRetries + ' lần');
-            }
+            console.log('⚠️ allData chưa có dữ liệu');
             return;
         }
 
@@ -1573,24 +1558,9 @@ window.addEventListener("message", function (event) {
         console.log('📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp');
         console.log('📊 [OVERVIEW] allData length:', allData.length);
 
-        // Check if data is loaded - use retry with exponential backoff
+        // Check if data is loaded
         if (!allData || allData.length === 0) {
-            const maxRetries = 5;
-            const retryCount = event.data._retryCount || 0;
-
-            if (retryCount < maxRetries) {
-                const delay = Math.min(1000 * Math.pow(1.5, retryCount), 5000); // 1s, 1.5s, 2.25s, 3.4s, 5s
-                console.log(`⚠️ [OVERVIEW] allData chưa có dữ liệu, retry ${retryCount + 1}/${maxRetries} sau ${delay}ms`);
-
-                setTimeout(() => {
-                    window.postMessage({
-                        type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW',
-                        _retryCount: retryCount + 1
-                    }, '*');
-                }, delay);
-            } else {
-                console.log('❌ [OVERVIEW] Vẫn chưa có dữ liệu sau khi retry ' + maxRetries + ' lần');
-            }
+            console.log('⚠️ [OVERVIEW] allData chưa có dữ liệu');
             return;
         }
 
