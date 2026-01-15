@@ -272,35 +272,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 console.log("Created new Firebase Auth session");
             }
 
-            // Update auth_users collection
-            try {
-                const authUserRef = db
-                    .collection("auth_users")
-                    .doc(authResult.user.uid);
-                const authUserDoc = await authUserRef.get();
-
-                if (!authUserDoc.exists) {
-                    await authUserRef.set({
-                        username: username,
-                        loginTime:
-                            firebase.firestore.FieldValue.serverTimestamp(),
-                        lastLogin:
-                            firebase.firestore.FieldValue.serverTimestamp(),
-                        rememberMe: rememberMe,
-                    });
-                    console.log("New auth mapping created");
-                } else {
-                    await authUserRef.update({
-                        lastLogin:
-                            firebase.firestore.FieldValue.serverTimestamp(),
-                        rememberMe: rememberMe,
-                    });
-                    console.log("Auth mapping updated");
-                }
-            } catch (error) {
-                console.log("Auth mapping error:", error);
-            }
-
             console.log("Firebase Auth successful:", authResult.user.uid);
 
             // Save session with cache
