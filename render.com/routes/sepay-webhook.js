@@ -132,7 +132,7 @@ router.post('/webhook', async (req, res) => {
 
         // Validate required fields
         const requiredFields = ['id', 'gateway', 'transactionDate', 'accountNumber',
-                               'transferType', 'transferAmount', 'accumulated'];
+            'transferType', 'transferAmount', 'accumulated'];
         const missingFields = requiredFields.filter(field =>
             webhookData[field] === undefined || webhookData[field] === null
         );
@@ -907,13 +907,13 @@ async function searchTPOSByPartialPhone(partialPhone) {
         }));
 
         console.log(`[TPOS-SEARCH] Grouped into ${allUniquePhones.length} unique phones (before filter):`);
-        allUniquePhones.forEach(({phone, count}) => {
+        allUniquePhones.forEach(({ phone, count }) => {
             console.log(`  - ${phone}: ${count} customer(s)`);
         });
 
         // FILTER: Chỉ giữ SĐT có số cuối KHỚP CHÍNH XÁC với partialPhone
         // VD: partialPhone="81118" → giữ 0938281118 (endsWith 81118), loại 0938811182
-        const uniquePhones = allUniquePhones.filter(({phone}) => {
+        const uniquePhones = allUniquePhones.filter(({ phone }) => {
             const matches = phone.endsWith(partialPhone);
             if (!matches) {
                 console.log(`[TPOS-SEARCH] ❌ Filtered out ${phone} (does not end with ${partialPhone})`);
@@ -922,7 +922,7 @@ async function searchTPOSByPartialPhone(partialPhone) {
         });
 
         console.log(`[TPOS-SEARCH] After endsWith filter: ${uniquePhones.length} phones match:`);
-        uniquePhones.forEach(({phone, count}) => {
+        uniquePhones.forEach(({ phone, count }) => {
             console.log(`  ✅ ${phone}: ${count} customer(s)`);
         });
 
@@ -1564,7 +1564,7 @@ async function processDebtUpdate(db, transactionId) {
 
             console.log('[DEBT-UPDATE] 📋 Created pending match for transaction:', transactionId);
             console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} unique phones from ${dataSource}:`);
-            matchedPhones.forEach(({phone, count}) => {
+            matchedPhones.forEach(({ phone, count }) => {
                 console.log(`  - ${phone}: ${count || 1} customer(s)`);
             });
 
@@ -3317,12 +3317,16 @@ router.put('/customer-info/:unique_code', async (req, res) => {
  * PUT /api/sepay/transaction/:id/phone
  * Update linked_customer_phone for a specific transaction
  * This allows moving a transaction's debt from one phone to another
- * Body: { phone: string }
+ * Body: { 
+ *   phone: string,
+ *   is_manual_entry?: boolean - If true, sets verification_status = 'PENDING_VERIFICATION' for accountant approval
+ *   entered_by?: string - Email/name of the person entering the phone (for audit trail)
+ * }
  */
 router.put('/transaction/:id/phone', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { phone } = req.body;
+    const { phone, is_manual_entry = false, entered_by = 'staff' } = req.body;
 
     try {
         // Validate inputs
@@ -3342,7 +3346,7 @@ router.put('/transaction/:id/phone', async (req, res) => {
 
         // Get current transaction data
         const currentResult = await db.query(
-            'SELECT id, linked_customer_phone, transfer_amount FROM balance_history WHERE id = $1',
+            'SELECT id, linked_customer_phone, transfer_amount, verification_status, wallet_processed FROM balance_history WHERE id = $1',
             [id]
         );
 
@@ -3356,13 +3360,33 @@ router.put('/transaction/:id/phone', async (req, res) => {
         const oldPhone = currentResult.rows[0].linked_customer_phone;
         const newPhone = phone;
 
-        // Update the transaction's linked phone
-        const updateResult = await db.query(
-            'UPDATE balance_history SET linked_customer_phone = $1 WHERE id = $2 RETURNING *',
-            [newPhone, id]
-        );
+        // Build update query based on is_manual_entry flag
+        let updateQuery;
+        let updateParams;
 
-        console.log(`[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} → ${newPhone}`);
+        if (is_manual_entry) {
+            // Manual entry by staff → requires accountant approval
+            // Set verification_status = 'PENDING_VERIFICATION', match_method = 'manual_entry'
+            // Do NOT set wallet_processed = TRUE (will be set after approval)
+            updateQuery = `UPDATE balance_history 
+                SET linked_customer_phone = $1, 
+                    match_method = 'manual_entry',
+                    verification_status = 'PENDING_VERIFICATION',
+                    verification_note = $3,
+                    wallet_processed = FALSE
+                WHERE id = $2 
+                RETURNING *`;
+            updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`];
+            console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval`);
+        } else {
+            // Normal update (admin/accountant editing) → update phone only
+            updateQuery = 'UPDATE balance_history SET linked_customer_phone = $1 WHERE id = $2 RETURNING *';
+            updateParams = [newPhone, id];
+        }
+
+        const updateResult = await db.query(updateQuery, updateParams);
+
+        console.log(`[TRANSACTION-PHONE-UPDATE] Transaction #${id}: ${oldPhone || 'NULL'} → ${newPhone} (manual_entry=${is_manual_entry})`);
 
         // Clear any pending_customer_matches (skipped or pending) for this transaction
         // since we're manually setting the phone
@@ -3401,7 +3425,7 @@ router.put('/transaction/:id/phone', async (req, res) => {
                             `PHONE${newPhone}`,
                             newPhone,
                             customerName,
-                            'MANUAL_ENTRY_TPOS_LOOKUP',
+                            is_manual_entry ? 'MANUAL_ENTRY_BY_STAFF' : 'MANUAL_ENTRY_TPOS_LOOKUP',
                             'SUCCESS'
                         ]
                     );
@@ -3421,7 +3445,10 @@ router.put('/transaction/:id/phone', async (req, res) => {
             old_phone: oldPhone,
             new_phone: newPhone,
             customer_name: customerName,
-            tpos_lookup: tposResult ? 'success' : 'failed'
+            tpos_lookup: tposResult ? 'success' : 'failed',
+            is_manual_entry: is_manual_entry,
+            requires_approval: is_manual_entry,
+            verification_status: is_manual_entry ? 'PENDING_VERIFICATION' : updateResult.rows[0].verification_status
         });
 
     } catch (error) {
