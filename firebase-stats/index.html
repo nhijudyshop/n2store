@@ -91,6 +91,12 @@
                     </h1>
                 </div>
                 <div class="top-bar-right">
+                    <a href="https://console.firebase.google.com/project/n2shop-69e37/overview"
+                       target="_blank"
+                       class="btn btn-outline">
+                        <i data-lucide="external-link"></i>
+                        <span>Firebase Console</span>
+                    </a>
                     <button class="btn btn-primary" id="btnRefresh">
                         <i data-lucide="refresh-cw"></i>
                         <span>Refresh</span>
@@ -169,16 +175,27 @@
                             <i data-lucide="database"></i>
                             Firestore Collections
                         </h2>
-                        <span class="badge">Cloud Firestore</span>
+                        <div class="header-actions">
+                            <a href="https://console.firebase.google.com/project/n2shop-69e37/firestore"
+                               target="_blank"
+                               class="btn btn-sm btn-outline">
+                                <i data-lucide="external-link"></i>
+                                Xem trong Console
+                            </a>
+                            <button class="btn btn-sm btn-primary" id="btnCountFirestore">
+                                <i data-lucide="calculator"></i>
+                                Đếm Documents
+                            </button>
+                        </div>
                     </div>
                     <div class="data-table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
                                     <th>Collection</th>
+                                    <th>Số Documents</th>
                                     <th>Mô tả</th>
                                     <th>Module sử dụng</th>
-                                    <th>Trạng thái</th>
                                 </tr>
                             </thead>
                             <tbody id="firestoreTable">
@@ -186,6 +203,10 @@
                             </tbody>
                         </table>
                     </div>
+                    <p class="table-note">
+                        <i data-lucide="info"></i>
+                        Click "Đếm Documents" để lấy số lượng thực tế từ Firebase (tốn reads)
+                    </p>
                 </div>
 
                 <div class="tab-content" id="tab-realtime">
@@ -194,7 +215,18 @@
                             <i data-lucide="activity"></i>
                             Realtime Database Nodes
                         </h2>
-                        <span class="badge warning">Legacy - Consider Migration</span>
+                        <div class="header-actions">
+                            <a href="https://console.firebase.google.com/project/n2shop-69e37/database/n2shop-69e37-default-rtdb/data"
+                               target="_blank"
+                               class="btn btn-sm btn-outline">
+                                <i data-lucide="external-link"></i>
+                                Xem trong Console
+                            </a>
+                            <button class="btn btn-sm btn-primary" id="btnCountRealtime">
+                                <i data-lucide="calculator"></i>
+                                Đếm Records
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Filter buttons -->
@@ -210,8 +242,8 @@
                             <thead>
                                 <tr>
                                     <th>Node</th>
+                                    <th>Số Records</th>
                                     <th>Mô tả</th>
-                                    <th>Số files sử dụng</th>
                                     <th>Trạng thái</th>
                                 </tr>
                             </thead>
@@ -220,6 +252,10 @@
                             </tbody>
                         </table>
                     </div>
+                    <p class="table-note">
+                        <i data-lucide="info"></i>
+                        Click "Đếm Records" để lấy số lượng thực tế từ Realtime Database
+                    </p>
                 </div>
 
                 <div class="tab-content" id="tab-storage">
@@ -287,6 +323,40 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="quick-links">
+                    <h3>
+                        <i data-lucide="link"></i>
+                        Quick Links - Firebase Console
+                    </h3>
+                    <div class="links-grid">
+                        <a href="https://console.firebase.google.com/project/n2shop-69e37/usage" target="_blank" class="quick-link">
+                            <i data-lucide="bar-chart-2"></i>
+                            <span>Usage & Billing</span>
+                        </a>
+                        <a href="https://console.firebase.google.com/project/n2shop-69e37/firestore/usage" target="_blank" class="quick-link">
+                            <i data-lucide="database"></i>
+                            <span>Firestore Usage</span>
+                        </a>
+                        <a href="https://console.firebase.google.com/project/n2shop-69e37/database/n2shop-69e37-default-rtdb/usage" target="_blank" class="quick-link">
+                            <i data-lucide="activity"></i>
+                            <span>Realtime DB Usage</span>
+                        </a>
+                        <a href="https://console.firebase.google.com/project/n2shop-69e37/storage" target="_blank" class="quick-link">
+                            <i data-lucide="hard-drive"></i>
+                            <span>Storage</span>
+                        </a>
+                        <a href="https://console.firebase.google.com/project/n2shop-69e37/authentication/users" target="_blank" class="quick-link">
+                            <i data-lucide="users"></i>
+                            <span>Auth Users</span>
+                        </a>
+                        <a href="https://console.firebase.google.com/project/n2shop-69e37/settings/general" target="_blank" class="quick-link">
+                            <i data-lucide="settings"></i>
+                            <span>Project Settings</span>
+                        </a>
                     </div>
                 </div>
 

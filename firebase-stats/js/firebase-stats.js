@@ -4,6 +4,33 @@
  */
 
 // =====================================================
+// FIREBASE CONFIG
+// =====================================================
+
+const firebaseConfig = {
+    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
+    authDomain: "n2shop-69e37.firebaseapp.com",
+    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "n2shop-69e37",
+    storageBucket: "n2shop-69e37-ne0q1",
+    messagingSenderId: "598906493303",
+    appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
+};
+
+// Initialize Firebase
+let db, rtdb;
+try {
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    db = firebase.firestore();
+    rtdb = firebase.database();
+    console.log('[Firebase Stats] Firebase initialized');
+} catch (error) {
+    console.error('[Firebase Stats] Firebase init error:', error);
+}
+
+// =====================================================
 // DATA DEFINITIONS
 // =====================================================
 
@@ -12,398 +39,158 @@ const FIRESTORE_COLLECTIONS = [
         name: 'users',
         description: 'Thông tin người dùng, permissions, roleTemplate',
         modules: ['login', 'user-management', 'navigation'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'dathang',
         description: 'Dữ liệu đặt hàng chính',
         modules: ['bangkiemhang', 'hangdat'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'edit_history',
         description: 'Lịch sử chỉnh sửa của tất cả modules',
         modules: ['lichsuchinhsua', 'all modules'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'livestream_reports',
         description: 'Báo cáo livestream và orders',
         modules: ['orders-report', 'livestream', 'tpos-pancake'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'customers',
         description: 'Thông tin khách hàng',
         modules: ['balance-history', 'customer-hub'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'hangrotxa',
         description: 'Quản lý hàng rớt xa',
         modules: ['hangrotxa'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'ib',
         description: 'Quản lý inbox/messages',
         modules: ['ib'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'tokens',
         description: 'Lưu trữ API tokens (TPOS)',
         modules: ['orders-report', 'tpos-pancake'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'pancake_tokens',
         description: 'Lưu trữ Pancake JWT tokens',
         modules: ['orders-report', 'tpos-pancake'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'settings',
         description: 'Cài đặt chung (table_name, etc.)',
         modules: ['orders-report'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'nhanhang',
         description: 'Quản lý nhận hàng',
         modules: ['nhanhang'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'report_order_details',
         description: 'Chi tiết báo cáo orders (cache)',
         modules: ['orders-report'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'app_config',
         description: 'Cấu hình ứng dụng, version',
         modules: ['navigation-modern'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'order-logs',
         description: 'Logs đơn hàng',
         modules: ['soorder'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'ncc-names',
         description: 'Tên nhà cung cấp',
         modules: ['soorder'],
-        status: 'active'
+        countable: true
     },
     {
         name: 'employeeRanges',
         description: 'Phân chia dãy nhân viên theo campaign',
         modules: ['orders-report'],
-        status: 'active'
+        countable: true
     }
 ];
 
 const REALTIME_NODES = [
     // Active - Order Management
-    {
-        name: 'cartHistory',
-        description: 'Lịch sử giỏ hàng snapshots',
-        fileCount: 28,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'cartHistoryMeta',
-        description: 'Metadata của cartHistory',
-        fileCount: 6,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'orderProducts',
-        description: 'Sản phẩm trong đơn hàng',
-        fileCount: 11,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'orderProductsMeta',
-        description: 'Metadata của orderProducts',
-        fileCount: 11,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'orderDisplaySettings',
-        description: 'Cài đặt hiển thị orders',
-        fileCount: 14,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'orderIsMergeVariants',
-        description: 'Cài đặt gộp variants',
-        fileCount: 2,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'orderSyncCurrentPage',
-        description: 'Sync trang hiện tại',
-        fileCount: 14,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'orderSyncSearchData',
-        description: 'Sync dữ liệu tìm kiếm',
-        fileCount: 14,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'hiddenProductsDisplaySettings',
-        description: 'Cài đặt hiển thị sản phẩm ẩn',
-        fileCount: 3,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'bulkTagHistory',
-        description: 'Lịch sử gắn tag hàng loạt',
-        fileCount: 3,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'bulkTagDeleteHistory',
-        description: 'Lịch sử xóa tag hàng loạt',
-        fileCount: 3,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'syncSearchKeyword',
-        description: 'Sync từ khóa tìm kiếm',
-        fileCount: 4,
-        status: 'active',
-        category: 'order-management'
-    },
-    {
-        name: 'order_products',
-        description: 'Sản phẩm cho chat/message',
-        fileCount: 2,
-        status: 'active',
-        category: 'order-management'
-    },
+    { name: 'cartHistory', description: 'Lịch sử giỏ hàng snapshots', status: 'active' },
+    { name: 'cartHistoryMeta', description: 'Metadata của cartHistory', status: 'active' },
+    { name: 'orderProducts', description: 'Sản phẩm trong đơn hàng', status: 'active' },
+    { name: 'orderProductsMeta', description: 'Metadata của orderProducts', status: 'active' },
+    { name: 'orderDisplaySettings', description: 'Cài đặt hiển thị orders', status: 'active' },
+    { name: 'orderIsMergeVariants', description: 'Cài đặt gộp variants', status: 'active' },
+    { name: 'orderSyncCurrentPage', description: 'Sync trang hiện tại', status: 'active' },
+    { name: 'orderSyncSearchData', description: 'Sync dữ liệu tìm kiếm', status: 'active' },
+    { name: 'hiddenProductsDisplaySettings', description: 'Cài đặt hiển thị sản phẩm ẩn', status: 'active' },
+    { name: 'bulkTagHistory', description: 'Lịch sử gắn tag hàng loạt', status: 'active' },
+    { name: 'bulkTagDeleteHistory', description: 'Lịch sử xóa tag hàng loạt', status: 'active' },
+    { name: 'syncSearchKeyword', description: 'Sync từ khóa tìm kiếm', status: 'active' },
+    { name: 'order_products', description: 'Sản phẩm cho chat/message', status: 'active' },
 
     // Active - Soluong Live
-    {
-        name: 'soluongProducts',
-        description: 'Sản phẩm inventory',
-        fileCount: 9,
-        status: 'active',
-        category: 'soluong-live'
-    },
-    {
-        name: 'soluongProductsMeta',
-        description: 'Metadata inventory',
-        fileCount: 9,
-        status: 'active',
-        category: 'soluong-live'
-    },
-    {
-        name: 'soluongDisplaySettings',
-        description: 'Cài đặt hiển thị inventory',
-        fileCount: 3,
-        status: 'active',
-        category: 'soluong-live'
-    },
-    {
-        name: 'soluongIsMergeVariants',
-        description: 'Gộp variants inventory',
-        fileCount: 14,
-        status: 'active',
-        category: 'soluong-live'
-    },
-    {
-        name: 'soluongSyncCurrentPage',
-        description: 'Sync trang inventory',
-        fileCount: 15,
-        status: 'active',
-        category: 'soluong-live'
-    },
-    {
-        name: 'soluongSyncSearchData',
-        description: 'Sync search inventory',
-        fileCount: 15,
-        status: 'active',
-        category: 'soluong-live'
-    },
-    {
-        name: 'soluongCartHistory',
-        description: 'Lịch sử cart inventory',
-        fileCount: 6,
-        status: 'active',
-        category: 'soluong-live'
-    },
-    {
-        name: 'soluongCartHistoryMeta',
-        description: 'Metadata cart inventory',
-        fileCount: 6,
-        status: 'active',
-        category: 'soluong-live'
-    },
+    { name: 'soluongProducts', description: 'Sản phẩm inventory', status: 'active' },
+    { name: 'soluongProductsMeta', description: 'Metadata inventory', status: 'active' },
+    { name: 'soluongDisplaySettings', description: 'Cài đặt hiển thị inventory', status: 'active' },
+    { name: 'soluongIsMergeVariants', description: 'Gộp variants inventory', status: 'active' },
+    { name: 'soluongSyncCurrentPage', description: 'Sync trang inventory', status: 'active' },
+    { name: 'soluongSyncSearchData', description: 'Sync search inventory', status: 'active' },
+    { name: 'soluongCartHistory', description: 'Lịch sử cart inventory', status: 'active' },
+    { name: 'soluongCartHistoryMeta', description: 'Metadata cart inventory', status: 'active' },
 
     // Active - Core Features
-    {
-        name: 'tag_updates',
-        description: 'Sync tags giữa users (multi-user)',
-        fileCount: 11,
-        status: 'migration',
-        category: 'core'
-    },
-    {
-        name: 'dropped_products',
-        description: 'Sản phẩm bị drop',
-        fileCount: 10,
-        status: 'migration',
-        category: 'core'
-    },
-    {
-        name: 'dropped_products_history',
-        description: 'Lịch sử sản phẩm drop',
-        fileCount: 10,
-        status: 'migration',
-        category: 'core'
-    },
-    {
-        name: 'kpi_base',
-        description: 'Dữ liệu KPI thống kê',
-        fileCount: 18,
-        status: 'migration',
-        category: 'core'
-    },
-    {
-        name: 'issue_tracking',
-        description: 'Theo dõi issues',
-        fileCount: 11,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'liveOrderTracking',
-        description: 'Theo dõi orders realtime',
-        fileCount: 1,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'pancake_jwt_token',
-        description: 'JWT token Pancake (single)',
-        fileCount: 13,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'pancake_jwt_tokens',
-        description: 'JWT tokens Pancake (multi)',
-        fileCount: 13,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'pancake_images',
-        description: 'Cache hình ảnh Pancake',
-        fileCount: 3,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'productAssignments',
-        description: 'Phân công sản phẩm',
-        fileCount: 3,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'productAssignments_v2_history',
-        description: 'Lịch sử phân công v2',
-        fileCount: 3,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'settings',
-        description: 'Cài đặt chung (employee ranges)',
-        fileCount: 12,
-        status: 'active',
-        category: 'core'
-    },
-    {
-        name: 'report_order_details',
-        description: 'Cache chi tiết báo cáo',
-        fileCount: 12,
-        status: 'active',
-        category: 'core'
-    },
+    { name: 'tag_updates', description: 'Sync tags giữa users (multi-user)', status: 'migration' },
+    { name: 'dropped_products', description: 'Sản phẩm bị drop', status: 'migration' },
+    { name: 'dropped_products_history', description: 'Lịch sử sản phẩm drop', status: 'migration' },
+    { name: 'kpi_base', description: 'Dữ liệu KPI thống kê', status: 'migration' },
+    { name: 'issue_tracking', description: 'Theo dõi issues', status: 'active' },
+    { name: 'liveOrderTracking', description: 'Theo dõi orders realtime', status: 'active' },
+    { name: 'pancake_jwt_token', description: 'JWT token Pancake (single)', status: 'active' },
+    { name: 'pancake_jwt_tokens', description: 'JWT tokens Pancake (multi)', status: 'active' },
+    { name: 'pancake_images', description: 'Cache hình ảnh Pancake', status: 'active' },
+    { name: 'productAssignments', description: 'Phân công sản phẩm', status: 'active' },
+    { name: 'productAssignments_v2_history', description: 'Lịch sử phân công v2', status: 'active' },
+    { name: 'settings', description: 'Cài đặt chung (employee ranges)', status: 'active' },
+    { name: 'report_order_details', description: 'Cache chi tiết báo cáo', status: 'active' },
 
     // Verify before delete
-    {
-        name: 'user_campaigns',
-        description: 'Campaigns của user',
-        fileCount: 2,
-        status: 'verify',
-        category: 'verify'
-    },
-    {
-        name: 'user_preferences',
-        description: 'Preferences của user',
-        fileCount: 4,
-        status: 'verify',
-        category: 'verify'
-    },
-    {
-        name: 'soluongSalesLog',
-        description: 'Log bán hàng inventory',
-        fileCount: 3,
-        status: 'verify',
-        category: 'verify'
-    },
+    { name: 'user_campaigns', description: 'Campaigns của user', status: 'verify' },
+    { name: 'user_preferences', description: 'Preferences của user', status: 'verify' },
+    { name: 'soluongSalesLog', description: 'Log bán hàng inventory', status: 'verify' },
 
     // Can be deleted
-    {
-        name: 'adminCurrentPage',
-        description: 'Không còn sử dụng',
-        fileCount: 0,
-        status: 'deletable',
-        category: 'deletable'
-    },
-    {
-        name: 'app_version',
-        description: 'Không còn sử dụng',
-        fileCount: 0,
-        status: 'deletable',
-        category: 'deletable'
-    },
-    {
-        name: 'isHideEditControls',
-        description: 'Không còn sử dụng',
-        fileCount: 0,
-        status: 'deletable',
-        category: 'deletable'
-    },
-    {
-        name: 'uploadSessionFinalize',
-        description: 'Không còn sử dụng',
-        fileCount: 0,
-        status: 'deletable',
-        category: 'deletable'
-    }
+    { name: 'adminCurrentPage', description: 'Không còn sử dụng', status: 'deletable' },
+    { name: 'app_version', description: 'Không còn sử dụng', status: 'deletable' },
+    { name: 'isHideEditControls', description: 'Không còn sử dụng', status: 'deletable' },
+    { name: 'uploadSessionFinalize', description: 'Không còn sử dụng', status: 'deletable' }
 ];
+
+// Store document counts
+const documentCounts = {
+    firestore: {},
+    realtime: {}
+};
 
 // =====================================================
 // DOM ELEMENTS
@@ -417,6 +204,8 @@ const elements = {
     firestoreTable: document.getElementById('firestoreTable'),
     realtimeTable: document.getElementById('realtimeTable'),
     btnRefresh: document.getElementById('btnRefresh'),
+    btnCountFirestore: document.getElementById('btnCountFirestore'),
+    btnCountRealtime: document.getElementById('btnCountRealtime'),
     tabs: document.querySelectorAll('.tab'),
     tabContents: document.querySelectorAll('.tab-content'),
     filterBtns: document.querySelectorAll('.filter-btn')
@@ -546,12 +335,18 @@ function renderFirestoreTable() {
     tbody.innerHTML = '';
 
     FIRESTORE_COLLECTIONS.forEach(collection => {
+        const count = documentCounts.firestore[collection.name];
+        const countDisplay = count !== undefined
+            ? `<span class="doc-count">${count.toLocaleString()}</span>`
+            : `<span class="doc-count loading">--</span>`;
+
         const row = document.createElement('tr');
+        row.dataset.collection = collection.name;
         row.innerHTML = `
             <td><code>${collection.name}</code></td>
+            <td>${countDisplay}</td>
             <td>${collection.description}</td>
             <td>${collection.modules.join(', ')}</td>
-            <td><span class="status ${collection.status}">${getStatusLabel(collection.status)}</span></td>
         `;
         tbody.appendChild(row);
     });
@@ -562,12 +357,18 @@ function renderRealtimeTable() {
     tbody.innerHTML = '';
 
     REALTIME_NODES.forEach(node => {
+        const count = documentCounts.realtime[node.name];
+        const countDisplay = count !== undefined
+            ? `<span class="doc-count">${count.toLocaleString()}</span>`
+            : `<span class="doc-count loading">--</span>`;
+
         const row = document.createElement('tr');
         row.dataset.status = node.status;
+        row.dataset.node = node.name;
         row.innerHTML = `
             <td><code>${node.name}</code></td>
+            <td>${countDisplay}</td>
             <td>${node.description}</td>
-            <td>${node.fileCount} files</td>
             <td><span class="status ${node.status}">${getStatusLabel(node.status)}</span></td>
         `;
         tbody.appendChild(row);
@@ -590,6 +391,139 @@ function updateCounts() {
 }
 
 // =====================================================
+// COUNT DOCUMENTS - FIRESTORE
+// =====================================================
+
+async function countFirestoreDocuments() {
+    const btn = elements.btnCountFirestore;
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    console.log('[Firebase Stats] Counting Firestore documents...');
+
+    let totalDocs = 0;
+
+    for (const collection of FIRESTORE_COLLECTIONS) {
+        if (!collection.countable) continue;
+
+        try {
+            // Update UI to show loading
+            updateFirestoreCount(collection.name, 'loading');
+
+            // Count documents (limit to avoid excessive reads for large collections)
+            const snapshot = await db.collection(collection.name).limit(10000).get();
+            const count = snapshot.size;
+
+            documentCounts.firestore[collection.name] = count;
+            totalDocs += count;
+
+            // Update UI
+            updateFirestoreCount(collection.name, count);
+
+            console.log(`[Firebase Stats] ${collection.name}: ${count} docs`);
+        } catch (error) {
+            console.error(`[Firebase Stats] Error counting ${collection.name}:`, error);
+            updateFirestoreCount(collection.name, 'error');
+        }
+    }
+
+    btn.classList.remove('loading');
+    btn.disabled = false;
+
+    console.log(`[Firebase Stats] Total Firestore documents: ${totalDocs}`);
+    return totalDocs;
+}
+
+function updateFirestoreCount(collectionName, count) {
+    const row = elements.firestoreTable.querySelector(`tr[data-collection="${collectionName}"]`);
+    if (!row) return;
+
+    const countCell = row.querySelector('.doc-count');
+    if (!countCell) return;
+
+    if (count === 'loading') {
+        countCell.textContent = '...';
+        countCell.className = 'doc-count loading';
+    } else if (count === 'error') {
+        countCell.textContent = 'Error';
+        countCell.className = 'doc-count error';
+    } else {
+        countCell.textContent = count.toLocaleString();
+        countCell.className = 'doc-count';
+    }
+}
+
+// =====================================================
+// COUNT RECORDS - REALTIME DATABASE
+// =====================================================
+
+async function countRealtimeRecords() {
+    const btn = elements.btnCountRealtime;
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    console.log('[Firebase Stats] Counting Realtime DB records...');
+
+    let totalRecords = 0;
+
+    for (const node of REALTIME_NODES) {
+        try {
+            // Update UI to show loading
+            updateRealtimeCount(node.name, 'loading');
+
+            // Get shallow count (only keys, not full data)
+            const snapshot = await rtdb.ref(node.name).once('value');
+
+            let count = 0;
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                if (typeof data === 'object' && data !== null) {
+                    count = Object.keys(data).length;
+                } else {
+                    count = 1; // Single value
+                }
+            }
+
+            documentCounts.realtime[node.name] = count;
+            totalRecords += count;
+
+            // Update UI
+            updateRealtimeCount(node.name, count);
+
+            console.log(`[Firebase Stats] ${node.name}: ${count} records`);
+        } catch (error) {
+            console.error(`[Firebase Stats] Error counting ${node.name}:`, error);
+            updateRealtimeCount(node.name, 'error');
+        }
+    }
+
+    btn.classList.remove('loading');
+    btn.disabled = false;
+
+    console.log(`[Firebase Stats] Total Realtime DB records: ${totalRecords}`);
+    return totalRecords;
+}
+
+function updateRealtimeCount(nodeName, count) {
+    const row = elements.realtimeTable.querySelector(`tr[data-node="${nodeName}"]`);
+    if (!row) return;
+
+    const countCell = row.querySelector('.doc-count');
+    if (!countCell) return;
+
+    if (count === 'loading') {
+        countCell.textContent = '...';
+        countCell.className = 'doc-count loading';
+    } else if (count === 'error') {
+        countCell.textContent = 'Error';
+        countCell.className = 'doc-count error';
+    } else {
+        countCell.textContent = count.toLocaleString();
+        countCell.className = 'doc-count';
+    }
+}
+
+// =====================================================
 // EVENT LISTENERS
 // =====================================================
 
@@ -597,6 +531,10 @@ function setupEventListeners() {
     // Refresh button
     if (elements.btnRefresh) {
         elements.btnRefresh.addEventListener('click', () => {
+            // Clear counts
+            documentCounts.firestore = {};
+            documentCounts.realtime = {};
+
             renderData();
             lucide.createIcons();
 
@@ -605,6 +543,20 @@ function setupEventListeners() {
             setTimeout(() => {
                 elements.btnRefresh.classList.remove('loading');
             }, 500);
+        });
+    }
+
+    // Count Firestore button
+    if (elements.btnCountFirestore) {
+        elements.btnCountFirestore.addEventListener('click', () => {
+            countFirestoreDocuments();
+        });
+    }
+
+    // Count Realtime button
+    if (elements.btnCountRealtime) {
+        elements.btnCountRealtime.addEventListener('click', () => {
+            countRealtimeRecords();
         });
     }
 }
@@ -616,8 +568,11 @@ function setupEventListeners() {
 window.FirebaseStats = {
     FIRESTORE_COLLECTIONS,
     REALTIME_NODES,
+    documentCounts,
     renderData,
-    filterRealtimeTable
+    filterRealtimeTable,
+    countFirestoreDocuments,
+    countRealtimeRecords
 };
 
 console.log('[Firebase Stats] Module loaded');
