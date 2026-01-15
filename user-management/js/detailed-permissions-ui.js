@@ -416,19 +416,27 @@ class DetailedPermissionsUI {
         this.updateSummary();
     }
 
+    /**
+     * Apply template permissions (SIMPLIFIED - luôn lấy từ Firebase thông qua templateManager)
+     */
     applyTemplate(templateKey, isCustom = false) {
         if (templateKey === "clear") {
             this.currentPermissions = {};
-        } else if (isCustom && typeof window.templateManager !== 'undefined') {
-            // Load custom template from templateManager
-            const customTemplate = window.templateManager.customTemplates[templateKey];
-            if (customTemplate && customTemplate.detailedPermissions) {
-                this.currentPermissions = JSON.parse(JSON.stringify(customTemplate.detailedPermissions));
+        } else {
+            // SIMPLIFIED: Luôn lấy từ templateManager (Firebase)
+            // templateManager.templates chứa tất cả templates (cả system và custom)
+            if (typeof window.templateManager !== 'undefined' &&
+                window.templateManager.templates &&
+                window.templateManager.templates[templateKey]?.detailedPermissions) {
+
+                this.currentPermissions = JSON.parse(JSON.stringify(
+                    window.templateManager.templates[templateKey].detailedPermissions
+                ));
+            } else if (typeof PermissionsRegistry !== 'undefined' && PermissionsRegistry.generateTemplatePermissions) {
+                // Fallback: Generate từ registry nếu templateManager chưa load
+                const templateData = PermissionsRegistry.generateTemplatePermissions(templateKey);
+                this.currentPermissions = templateData.detailedPermissions || {};
             }
-        } else if (typeof PermissionsRegistry !== 'undefined' && PermissionsRegistry.generateTemplatePermissions) {
-            // Load built-in template from registry
-            const templateData = PermissionsRegistry.generateTemplatePermissions(templateKey);
-            this.currentPermissions = templateData.detailedPermissions || {};
         }
 
         this.currentTemplate = templateKey;
@@ -447,8 +455,8 @@ class DetailedPermissionsUI {
 
         // Show notification
         if (typeof window.notify !== 'undefined' && templateKey !== 'clear') {
-            const templates = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES : {};
-            const template = templates[templateKey];
+            const template = window.templateManager?.templates?.[templateKey] ||
+                (typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES[templateKey] : null);
             window.notify.success(`Đã áp dụng template "${template?.name || templateKey}"`);
         }
     }

@@ -14,31 +14,83 @@
  */
 class TemplateManager {
     constructor() {
-        this.builtInTemplates = {};
-        this.customTemplates = {};
-        this.allTemplates = {};
+        // SIMPLIFIED: Chỉ dùng 1 object templates, tất cả lưu trong Firebase
+        this.templates = {};
         this.isLoading = false;
         this.allUsers = [];
         this.selectedTemplateId = null;
+
+        // Giữ reference để generate default permissions khi reset
+        this.defaultTemplateIds = ['admin', 'manager', 'sales-team', 'warehouse-team', 'staff', 'viewer'];
     }
 
     /**
-     * Khởi tạo - load built-in templates từ PERMISSION_TEMPLATES
+     * Khởi tạo - chỉ log, templates sẽ được load từ Firebase
      */
     init() {
-        // Load built-in templates
-        if (typeof PERMISSION_TEMPLATES !== 'undefined') {
-            this.builtInTemplates = { ...PERMISSION_TEMPLATES };
-        }
-
-        // Remove 'custom' from built-in (it's a placeholder, not a real template)
-        delete this.builtInTemplates.custom;
-
-        console.log('[TemplateManager] Initialized with', Object.keys(this.builtInTemplates).length, 'built-in templates');
+        console.log('[TemplateManager] Initialized - will load templates from Firebase');
     }
 
     /**
-     * Load templates từ Firebase + merge với built-in
+     * Migration: Seed default templates vào Firebase nếu chưa có
+     */
+    async migrateDefaultTemplates() {
+        if (typeof db === 'undefined' || !db) {
+            console.warn('[TemplateManager] Firebase not available, skipping migration');
+            return false;
+        }
+
+        try {
+            // Check if any templates exist
+            const snapshot = await db.collection('permission_templates').get();
+
+            if (!snapshot.empty) {
+                console.log('[TemplateManager] Templates already exist, skipping migration');
+                return false;
+            }
+
+            console.log('[TemplateManager] No templates found, seeding defaults...');
+
+            // Get metadata from PERMISSION_TEMPLATES
+            const templateMeta = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES : {};
+
+            // Seed each default template
+            for (const templateId of this.defaultTemplateIds) {
+                const meta = templateMeta[templateId] || {};
+
+                // Generate permissions from registry
+                let detailedPermissions = {};
+                if (typeof PermissionsRegistry !== 'undefined' && PermissionsRegistry.generateTemplatePermissions) {
+                    const result = PermissionsRegistry.generateTemplatePermissions(templateId);
+                    detailedPermissions = result.detailedPermissions || {};
+                }
+
+                await db.collection('permission_templates').doc(templateId).set({
+                    id: templateId,
+                    name: meta.name || templateId,
+                    icon: meta.icon || 'sliders',
+                    color: meta.color || '#6366f1',
+                    description: meta.description || '',
+                    detailedPermissions: detailedPermissions,
+                    isSystemDefault: true,  // Đánh dấu không xóa được
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: 'system'
+                });
+
+                console.log(`[TemplateManager] Seeded template: ${templateId}`);
+            }
+
+            console.log('[TemplateManager] Migration completed:', this.defaultTemplateIds.length, 'templates seeded');
+            return true;
+
+        } catch (error) {
+            console.error('[TemplateManager] Migration error:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Load templates từ Firebase (SIMPLIFIED - chỉ 1 nguồn dữ liệu)
      */
     async loadTemplates() {
         if (this.isLoading) return;
@@ -56,27 +108,23 @@ class TemplateManager {
         }
 
         try {
-            // Load custom templates from Firebase
+            // Migrate defaults if needed (first time)
+            await this.migrateDefaultTemplates();
+
+            // Load ALL templates from Firebase
             if (typeof db !== 'undefined' && db) {
                 const snapshot = await db.collection('permission_templates').get();
-                this.customTemplates = {};
+                this.templates = {};
 
                 snapshot.forEach(doc => {
-                    this.customTemplates[doc.id] = {
+                    this.templates[doc.id] = {
                         id: doc.id,
-                        ...doc.data(),
-                        isCustom: true
+                        ...doc.data()
                     };
                 });
 
-                console.log('[TemplateManager] Loaded', Object.keys(this.customTemplates).length, 'custom templates from Firebase');
+                console.log('[TemplateManager] Loaded', Object.keys(this.templates).length, 'templates from Firebase');
             }
-
-            // Merge all templates
-            this.allTemplates = {
-                ...this.builtInTemplates,
-                ...this.customTemplates
-            };
 
             // Render UI
             this.renderTemplatesList();
@@ -102,16 +150,15 @@ class TemplateManager {
     }
 
     /**
-     * Render danh sách templates
+     * Render danh sách templates (SIMPLIFIED - chỉ 1 danh sách)
      */
     renderTemplatesList() {
         const container = document.getElementById('templatesList');
         if (!container) return;
 
-        const builtInKeys = Object.keys(this.builtInTemplates);
-        const customKeys = Object.keys(this.customTemplates);
+        const templateKeys = Object.keys(this.templates);
 
-        if (builtInKeys.length === 0 && customKeys.length === 0) {
+        if (templateKeys.length === 0) {
             container.innerHTML = `
                 <div class="empty-state show">
                     <i data-lucide="layout-template"></i>
@@ -123,126 +170,96 @@ class TemplateManager {
             return;
         }
 
-        let html = '';
+        // Separate system defaults and custom templates for display order
+        const systemTemplates = templateKeys.filter(k => this.templates[k].isSystemDefault);
+        const customTemplates = templateKeys.filter(k => !this.templates[k].isSystemDefault);
 
-        // Built-in Templates Section
-        if (builtInKeys.length > 0) {
-            html += `
-                <div class="templates-section">
-                    <h3 class="section-title">
-                        <i data-lucide="lock"></i>
-                        Templates Hệ Thống (${builtInKeys.length})
-                    </h3>
-                    <p class="section-desc">Các mẫu phân quyền mặc định, không thể xóa nhưng có thể sao chép để tùy chỉnh.</p>
-                    <div class="templates-grid">
-            `;
+        let html = `
+            <div class="templates-section">
+                <h3 class="section-title">
+                    <i data-lucide="layout-template"></i>
+                    Tất cả Templates (${templateKeys.length})
+                </h3>
+                <p class="section-desc">Tất cả templates đều có thể chỉnh sửa. Templates mặc định (hệ thống) không thể xóa nhưng có thể reset về trạng thái ban đầu.</p>
+                <div class="templates-grid">
+        `;
 
-            builtInKeys.forEach(key => {
-                const template = this.builtInTemplates[key];
-                html += this.renderTemplateCard(key, template, false);
-            });
+        // Render system templates first
+        systemTemplates.forEach(key => {
+            html += this.renderTemplateCard(key, this.templates[key]);
+        });
 
-            html += '</div></div>';
-        }
+        // Then custom templates
+        customTemplates.forEach(key => {
+            html += this.renderTemplateCard(key, this.templates[key]);
+        });
 
-        // Custom Templates Section
-        if (customKeys.length > 0) {
-            html += `
-                <div class="templates-section" style="margin-top: 30px;">
-                    <h3 class="section-title">
-                        <i data-lucide="sliders"></i>
-                        Templates Tùy Chỉnh (${customKeys.length})
-                    </h3>
-                    <p class="section-desc">Các mẫu phân quyền do bạn tạo, có thể chỉnh sửa và xóa.</p>
-                    <div class="templates-grid">
-            `;
-
-            customKeys.forEach(key => {
-                const template = this.customTemplates[key];
-                html += this.renderTemplateCard(key, template, true);
-            });
-
-            html += '</div></div>';
-        }
+        html += '</div></div>';
 
         container.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     /**
-     * Render một template card
+     * Render một template card (SIMPLIFIED)
      */
-    renderTemplateCard(id, template, isCustom) {
-        const permissions = this.getTemplatePermissions(id, isCustom);
+    renderTemplateCard(id, template) {
+        const permissions = this.getTemplatePermissions(id);
         const permCount = this.countPermissions(permissions);
         const totalPerms = typeof PermissionsRegistry !== 'undefined'
             ? PermissionsRegistry.getTotalPermissionsCount()
             : 101;
 
-        // Check if this built-in template has been customized (saved to Firebase)
-        const isModified = !isCustom && this.customTemplates[id];
+        const isSystemDefault = template.isSystemDefault === true;
         const isAdmin = id === 'admin';
 
-        // Determine badge type
+        // Badge - chỉ 2 loại: Mặc định hoặc Tùy chỉnh
         let badgeHtml = '';
-        if (isCustom) {
-            badgeHtml = `<span class="template-badge custom"><i data-lucide="user"></i> Tùy chỉnh</span>`;
-        } else if (isModified) {
-            badgeHtml = `<span class="template-badge modified"><i data-lucide="edit-2"></i> Đã sửa</span>`;
-        } else if (isAdmin) {
+        if (isAdmin) {
             badgeHtml = `<span class="template-badge admin"><i data-lucide="crown"></i> Admin</span>`;
-        } else {
+        } else if (isSystemDefault) {
             badgeHtml = `<span class="template-badge builtin"><i data-lucide="settings"></i> Mặc định</span>`;
+        } else {
+            badgeHtml = `<span class="template-badge custom"><i data-lucide="user"></i> Tùy chỉnh</span>`;
         }
 
-        // Action buttons based on template type
+        // Action buttons - đơn giản hóa
         let actionsHtml = `
-            <button class="btn btn-sm btn-success" onclick="templateManager.showUserAssignment('${id}', ${isCustom})" title="Gán nhân viên vào template này">
+            <button class="btn btn-sm btn-success" onclick="templateManager.showUserAssignment('${id}')" title="Gán nhân viên vào template này">
                 <i data-lucide="users"></i>
                 Gán NV
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="templateManager.previewTemplate('${id}', ${isCustom})" title="Xem chi tiết">
+            <button class="btn btn-sm btn-secondary" onclick="templateManager.previewTemplate('${id}')" title="Xem chi tiết">
                 <i data-lucide="eye"></i>
                 Xem
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="templateManager.duplicateTemplate('${id}', ${isCustom})" title="Sao chép">
+            <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}')" title="Chỉnh sửa">
+                <i data-lucide="edit"></i>
+                Sửa
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="templateManager.duplicateTemplate('${id}')" title="Sao chép">
                 <i data-lucide="copy"></i>
-                Sao chép
             </button>
         `;
 
-        if (isCustom) {
-            // Custom templates: can edit and delete
+        // System defaults: có nút Reset, không có nút Xóa
+        if (isSystemDefault) {
             actionsHtml += `
-                <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}', true)" title="Chỉnh sửa">
-                    <i data-lucide="edit"></i>
-                    Sửa
+                <button class="btn btn-sm btn-warning" onclick="templateManager.resetToDefault('${id}')" title="Khôi phục về mặc định">
+                    <i data-lucide="rotate-ccw"></i>
                 </button>
+            `;
+        } else {
+            // Custom templates: có nút Xóa
+            actionsHtml += `
                 <button class="btn btn-sm btn-danger" onclick="templateManager.deleteTemplate('${id}')" title="Xóa">
                     <i data-lucide="trash-2"></i>
                 </button>
             `;
-        } else {
-            // ALL built-in templates (including admin): can edit
-            // Note: Admin template không còn đặc quyền - chỉ là template có sẵn full permissions
-            actionsHtml += `
-                <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}', false)" title="Tùy chỉnh template này">
-                    <i data-lucide="edit"></i>
-                    Sửa
-                </button>
-            `;
-            // If modified, show reset button
-            if (isModified) {
-                actionsHtml += `
-                    <button class="btn btn-sm btn-warning" onclick="templateManager.resetTemplate('${id}')" title="Khôi phục về mặc định">
-                        <i data-lucide="rotate-ccw"></i>
-                    </button>
-                `;
-            }
         }
 
         return `
-            <div class="template-card ${isCustom ? 'custom' : 'builtin'} ${isModified ? 'modified' : ''} ${isAdmin ? 'admin-template' : ''}" data-template-id="${id}">
+            <div class="template-card ${isSystemDefault ? 'system-default' : 'custom'} ${isAdmin ? 'admin-template' : ''}" data-template-id="${id}">
                 <div class="template-card-header" style="--template-color: ${template.color || '#6366f1'}">
                     <div class="template-icon">
                         <i data-lucide="${template.icon || 'sliders'}"></i>
@@ -273,19 +290,13 @@ class TemplateManager {
     }
 
     /**
-     * Lấy permissions của template
+     * Lấy permissions của template (SIMPLIFIED - luôn từ Firebase)
      */
-    getTemplatePermissions(templateId, isCustom = false) {
-        if (isCustom && this.customTemplates[templateId]?.detailedPermissions) {
-            return this.customTemplates[templateId].detailedPermissions;
+    getTemplatePermissions(templateId) {
+        const template = this.templates[templateId];
+        if (template?.detailedPermissions) {
+            return template.detailedPermissions;
         }
-
-        // Use PermissionsRegistry to generate built-in template permissions
-        if (typeof PermissionsRegistry !== 'undefined' && PermissionsRegistry.generateTemplatePermissions) {
-            const result = PermissionsRegistry.generateTemplatePermissions(templateId);
-            return result.detailedPermissions || {};
-        }
-
         return {};
     }
 
@@ -314,19 +325,17 @@ class TemplateManager {
     }
 
     /**
-     * Xem chi tiết template
+     * Xem chi tiết template (SIMPLIFIED)
      */
-    previewTemplate(templateId, isCustom = false) {
-        const template = isCustom
-            ? this.customTemplates[templateId]
-            : this.builtInTemplates[templateId];
+    previewTemplate(templateId) {
+        const template = this.templates[templateId];
 
         if (!template) {
             alert('Không tìm thấy template!');
             return;
         }
 
-        const permissions = this.getTemplatePermissions(templateId, isCustom);
+        const permissions = this.getTemplatePermissions(templateId);
         const totalPerms = typeof PermissionsRegistry !== 'undefined'
             ? PermissionsRegistry.getTotalPermissionsCount()
             : 101;
@@ -334,7 +343,7 @@ class TemplateManager {
         let report = `CHI TIẾT TEMPLATE: ${template.name}\n`;
         report += `${'='.repeat(50)}\n\n`;
         report += `Mô tả: ${template.description || 'Không có'}\n`;
-        report += `Loại: ${isCustom ? 'Tùy chỉnh' : 'Hệ thống'}\n`;
+        report += `Loại: ${template.isSystemDefault ? 'Hệ thống' : 'Tùy chỉnh'}\n`;
         report += `Tổng quyền: ${this.countPermissions(permissions)}/${totalPerms}\n\n`;
 
         report += `DANH SÁCH QUYỀN:\n`;
@@ -365,12 +374,10 @@ class TemplateManager {
     }
 
     /**
-     * Sao chép template
+     * Sao chép template (SIMPLIFIED)
      */
-    duplicateTemplate(templateId, isCustom = false) {
-        const source = isCustom
-            ? this.customTemplates[templateId]
-            : this.builtInTemplates[templateId];
+    duplicateTemplate(templateId) {
+        const source = this.templates[templateId];
 
         if (!source) {
             alert('Không tìm thấy template gốc!');
@@ -383,45 +390,21 @@ class TemplateManager {
             description: source.description,
             icon: source.icon,
             color: source.color,
-            detailedPermissions: this.getTemplatePermissions(templateId, isCustom)
+            detailedPermissions: this.getTemplatePermissions(templateId)
         };
 
         this.showEditorModal(duplicateData, 'create');
     }
 
     /**
-     * Chỉnh sửa template (cả built-in và custom)
+     * Chỉnh sửa template (SIMPLIFIED - tất cả templates đều edit được)
      */
-    editTemplate(templateId, isCustom = false) {
-        let template;
-        let permissions;
+    editTemplate(templateId) {
+        const template = this.templates[templateId];
 
-        if (isCustom) {
-            // Custom template - load from customTemplates
-            template = this.customTemplates[templateId];
-            if (!template) {
-                alert('Không tìm thấy template!');
-                return;
-            }
-            permissions = template.detailedPermissions || {};
-        } else {
-            // Built-in template - check if it has been modified
-            if (this.customTemplates[templateId]) {
-                // Modified built-in - use custom version
-                template = {
-                    ...this.builtInTemplates[templateId],
-                    ...this.customTemplates[templateId]
-                };
-                permissions = this.customTemplates[templateId].detailedPermissions || {};
-            } else {
-                // Original built-in - generate from registry
-                template = this.builtInTemplates[templateId];
-                if (!template) {
-                    alert('Không tìm thấy template!');
-                    return;
-                }
-                permissions = this.getTemplatePermissions(templateId, false);
-            }
+        if (!template) {
+            alert('Không tìm thấy template!');
+            return;
         }
 
         this.showEditorModal({
@@ -430,37 +413,65 @@ class TemplateManager {
             description: template.description,
             icon: template.icon,
             color: template.color,
-            detailedPermissions: permissions,
-            isBuiltIn: !isCustom && this.builtInTemplates[templateId] !== undefined
+            detailedPermissions: template.detailedPermissions || {},
+            isSystemDefault: template.isSystemDefault === true
         }, 'edit');
     }
 
     /**
-     * Khôi phục template về mặc định (xóa custom override)
+     * Reset template về mặc định (chỉ cho system defaults)
      */
-    async resetTemplate(templateId) {
-        const builtIn = this.builtInTemplates[templateId];
-        if (!builtIn) {
-            alert('Không tìm thấy template gốc!');
+    async resetToDefault(templateId) {
+        const template = this.templates[templateId];
+
+        if (!template) {
+            alert('Không tìm thấy template!');
             return;
         }
 
-        if (!confirm(`Bạn có chắc chắn muốn khôi phục template "${builtIn.name}" về mặc định?\n\nTất cả tùy chỉnh sẽ bị xóa!`)) {
+        if (!template.isSystemDefault) {
+            alert('Chỉ có thể reset templates mặc định của hệ thống!');
+            return;
+        }
+
+        if (!confirm(`Bạn có chắc chắn muốn khôi phục template "${template.name}" về mặc định?\n\nTất cả tùy chỉnh sẽ bị xóa!`)) {
             return;
         }
 
         try {
-            // Delete the custom override from Firebase
-            await db.collection('permission_templates').doc(templateId).delete();
+            // Re-generate permissions từ registry
+            let defaultPermissions = {};
+            if (typeof PermissionsRegistry !== 'undefined' && PermissionsRegistry.generateTemplatePermissions) {
+                const result = PermissionsRegistry.generateTemplatePermissions(templateId);
+                defaultPermissions = result.detailedPermissions || {};
+            }
 
-            // Remove from local cache
-            delete this.customTemplates[templateId];
+            // Get metadata from PERMISSION_TEMPLATES
+            const templateMeta = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES[templateId] : {};
 
-            // Update allTemplates to use original built-in
-            this.allTemplates[templateId] = this.builtInTemplates[templateId];
+            // Update Firebase with default permissions
+            await db.collection('permission_templates').doc(templateId).update({
+                detailedPermissions: defaultPermissions,
+                name: templateMeta.name || template.name,
+                description: templateMeta.description || template.description,
+                icon: templateMeta.icon || template.icon,
+                color: templateMeta.color || template.color,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'system'
+            });
+
+            // Update local cache
+            this.templates[templateId] = {
+                ...this.templates[templateId],
+                detailedPermissions: defaultPermissions,
+                name: templateMeta.name || template.name,
+                description: templateMeta.description || template.description,
+                icon: templateMeta.icon || template.icon,
+                color: templateMeta.color || template.color
+            };
 
             if (window.notify) {
-                window.notify.success(`Đã khôi phục template "${builtIn.name}" về mặc định`);
+                window.notify.success(`Đã khôi phục template "${template.name}" về mặc định`);
             }
 
             this.renderTemplatesList();
@@ -473,12 +484,18 @@ class TemplateManager {
     }
 
     /**
-     * Xóa template
+     * Xóa template (SIMPLIFIED - chỉ custom templates)
      */
     async deleteTemplate(templateId) {
-        const template = this.customTemplates[templateId];
+        const template = this.templates[templateId];
+
         if (!template) {
             alert('Không tìm thấy template!');
+            return;
+        }
+
+        if (template.isSystemDefault) {
+            alert('Không thể xóa template mặc định của hệ thống!\nBạn có thể Reset nếu muốn khôi phục về trạng thái ban đầu.');
             return;
         }
 
@@ -489,16 +506,13 @@ class TemplateManager {
         try {
             await db.collection('permission_templates').doc(templateId).delete();
 
-            delete this.customTemplates[templateId];
-            delete this.allTemplates[templateId];
+            delete this.templates[templateId];
 
             if (window.notify) {
                 window.notify.success(`Đã xóa template "${template.name}"`);
             }
 
             this.renderTemplatesList();
-
-            // Refresh template buttons in all DetailedPermissionsUI instances
             this.refreshAllTemplateButtons();
 
         } catch (error) {
@@ -508,16 +522,16 @@ class TemplateManager {
     }
 
     /**
-     * Hiển thị modal editor
+     * Hiển thị modal editor (SIMPLIFIED)
      */
     showEditorModal(data = null, mode = 'create') {
         const modalContainer = document.getElementById('templateEditorModal');
         if (!modalContainer) return;
 
         const isEdit = mode === 'edit';
-        const isBuiltIn = data?.isBuiltIn || false;
+        const isSystemDefault = data?.isSystemDefault || false;
         const title = isEdit
-            ? (isBuiltIn ? `Tùy Chỉnh Template: ${data?.name || ''}` : 'Chỉnh Sửa Template')
+            ? (isSystemDefault ? `Chỉnh Sửa Template Hệ Thống: ${data?.name || ''}` : 'Chỉnh Sửa Template')
             : 'Tạo Template Mới';
 
         // Default values
@@ -542,10 +556,10 @@ class TemplateManager {
                             <i data-lucide="x"></i>
                         </button>
                     </div>
-                    ${isBuiltIn ? `
+                    ${isSystemDefault ? `
                         <div class="modal-notice">
                             <i data-lucide="info"></i>
-                            <span>Bạn đang tùy chỉnh template mặc định. Thay đổi sẽ được lưu riêng và có thể khôi phục về mặc định bất cứ lúc nào.</span>
+                            <span>Bạn đang chỉnh sửa template hệ thống. Thay đổi sẽ được lưu và có thể Reset về mặc định bất cứ lúc nào.</span>
                         </div>
                     ` : ''}
                     <div class="modal-body">
@@ -559,11 +573,10 @@ class TemplateManager {
                             <div class="form-group">
                                 <label>Tên hiển thị</label>
                                 <input type="text" id="templateName" value="${templateData.name || ''}"
-                                       placeholder="vd: Nhóm Bán Hàng Mới"
-                                       ${isBuiltIn ? 'readonly style="background: var(--gray-100)"' : ''} />
+                                       placeholder="vd: Nhóm Bán Hàng Mới" />
                             </div>
                         </div>
-                        <input type="hidden" id="templateIsBuiltIn" value="${isBuiltIn}" />
+                        <input type="hidden" id="templateIsSystemDefault" value="${isSystemDefault}" />
 
                         <div class="form-group">
                             <label>Mô tả</label>
@@ -666,7 +679,7 @@ class TemplateManager {
     }
 
     /**
-     * Lưu template
+     * Lưu template (SIMPLIFIED)
      */
     async saveTemplate(mode) {
         const id = document.getElementById('templateId').value.trim().toLowerCase().replace(/\s+/g, '-');
@@ -674,7 +687,7 @@ class TemplateManager {
         const description = document.getElementById('templateDesc').value.trim();
         const icon = document.getElementById('templateIcon').value;
         const color = document.getElementById('templateColor').value;
-        const isBuiltIn = document.getElementById('templateIsBuiltIn')?.value === 'true';
+        const isSystemDefault = document.getElementById('templateIsSystemDefault')?.value === 'true';
 
         // Validation
         if (!id) {
@@ -692,13 +705,9 @@ class TemplateManager {
             return;
         }
 
-        // Check if ID already exists (for create mode only, not for built-in edits)
-        if (mode === 'create' && !isBuiltIn) {
-            if (this.builtInTemplates[id]) {
-                alert('ID này đã được sử dụng bởi template hệ thống!');
-                return;
-            }
-            if (this.customTemplates[id]) {
+        // Check if ID already exists (for create mode only)
+        if (mode === 'create') {
+            if (this.templates[id]) {
                 alert('ID này đã tồn tại! Vui lòng chọn ID khác.');
                 return;
             }
@@ -715,25 +724,24 @@ class TemplateManager {
             icon: icon,
             color: color,
             detailedPermissions: detailedPermissions,
-            isCustom: !isBuiltIn, // Mark as custom only if not a built-in override
-            isBuiltInOverride: isBuiltIn, // Mark if this is overriding a built-in template
+            isSystemDefault: isSystemDefault, // Preserve system default flag
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: JSON.parse(localStorage.getItem('loginindex_auth'))?.username || 'unknown'
+            updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}')?.username || 'unknown'
         };
 
-        if (mode === 'create' || (mode === 'edit' && !this.customTemplates[id])) {
+        if (mode === 'create') {
             templateData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            templateData.createdBy = JSON.parse(localStorage.getItem('loginindex_auth'))?.username || 'unknown';
+            templateData.createdBy = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}')?.username || 'unknown';
+            templateData.isSystemDefault = false; // New templates are never system defaults
         }
 
         try {
             await db.collection('permission_templates').doc(id).set(templateData, { merge: true });
 
             // Update local cache
-            this.customTemplates[id] = { id, ...templateData };
-            this.allTemplates[id] = this.customTemplates[id];
+            this.templates[id] = { id, ...templateData };
 
-            const actionText = isBuiltIn ? 'tùy chỉnh' : (mode === 'edit' ? 'cập nhật' : 'tạo');
+            const actionText = mode === 'edit' ? 'cập nhật' : 'tạo';
             if (window.notify) {
                 window.notify.success(`Đã ${actionText} template "${name}"`);
             }
@@ -785,9 +793,9 @@ class TemplateManager {
     }
 
     /**
-     * Show user assignment panel for a template
+     * Show user assignment panel for a template (SIMPLIFIED)
      */
-    async showUserAssignment(templateId, isCustom = false) {
+    async showUserAssignment(templateId) {
         // Toggle - if same template clicked, close panel
         if (this.selectedTemplateId === templateId) {
             this.closeUserAssignment();
@@ -801,9 +809,7 @@ class TemplateManager {
             await this.loadAllUsers();
         }
 
-        const template = isCustom
-            ? this.customTemplates[templateId]
-            : this.builtInTemplates[templateId];
+        const template = this.templates[templateId];
 
         if (!template) {
             alert('Không tìm thấy template!');
@@ -877,7 +883,7 @@ class TemplateManager {
     }
 
     /**
-     * Toggle user assignment to template
+     * Toggle user assignment to template (SIMPLIFIED)
      */
     async toggleUserAssignment(userId, templateId) {
         const user = this.allUsers.find(u => u.id === userId);
@@ -915,9 +921,9 @@ class TemplateManager {
                     window.notify.info(`Đã bỏ gán "${user.displayName}" khỏi template`);
                 }
             } else {
-                // Assign to template - get template permissions and apply
-                const template = this.allTemplates[templateId] || this.builtInTemplates[templateId];
-                const permissions = this.getTemplatePermissions(templateId, !!this.customTemplates[templateId]);
+                // Assign to template - get template permissions from Firebase
+                const template = this.templates[templateId];
+                const permissions = this.getTemplatePermissions(templateId);
 
                 await userRef.update({
                     roleTemplate: templateId,
@@ -994,24 +1000,29 @@ class TemplateManager {
     }
 
     /**
-     * Cập nhật PERMISSION_TEMPLATES global để DetailedPermissionsUI sử dụng
+     * Cập nhật PERMISSION_TEMPLATES global để DetailedPermissionsUI sử dụng (SIMPLIFIED)
      */
     updateGlobalTemplates() {
         if (typeof window.PERMISSION_TEMPLATES !== 'undefined') {
-            // Add custom templates to global PERMISSION_TEMPLATES
-            Object.entries(this.customTemplates).forEach(([id, template]) => {
+            // Add all templates to global PERMISSION_TEMPLATES
+            Object.entries(this.templates).forEach(([id, template]) => {
                 window.PERMISSION_TEMPLATES[id] = {
                     id: id,
                     name: template.name,
                     icon: template.icon,
                     description: template.description,
                     color: template.color,
-                    isCustom: true,
+                    isSystemDefault: template.isSystemDefault,
                     detailedPermissions: template.detailedPermissions
                 };
             });
         }
     }
+
+    // Backward compatibility: alias for old property names
+    get customTemplates() { return this.templates; }
+    get builtInTemplates() { return this.templates; }
+    get allTemplates() { return this.templates; }
 }
 
 // =====================================================
