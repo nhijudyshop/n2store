@@ -755,7 +755,7 @@ export class CustomerProfileModule {
             `;
         } else {
             notesHtml = notes.slice(0, 5).map(note => {
-                const date = new Date(note.created_at).toLocaleString('vi-VN', {
+                const date = this._parseAsUTC(note.created_at).toLocaleString('vi-VN', {
                     day: '2-digit',
                     month: '2-digit',
                     hour: '2-digit',
@@ -946,9 +946,24 @@ export class CustomerProfileModule {
         return title || 'Hoạt động';
     }
 
+    /**
+     * Parse date string as UTC (handles API timestamps without 'Z' suffix)
+     * @param {string} dateStr - Date string from API
+     * @returns {Date} Date object
+     */
+    _parseAsUTC(dateStr) {
+        if (!dateStr) return new Date();
+        // If already has timezone info (Z or +/-), parse directly
+        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
+            return new Date(dateStr);
+        }
+        // Otherwise, append 'Z' to treat as UTC
+        return new Date(dateStr + 'Z');
+    }
+
     _getTimeAgo(dateString) {
         if (!dateString) return '';
-        const date = new Date(dateString);
+        const date = this._parseAsUTC(dateString);
         const now = new Date();
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);
