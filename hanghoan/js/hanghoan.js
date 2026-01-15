@@ -166,23 +166,38 @@ function sanitizeInput(input) {
 }
 
 function formatDate(date) {
-    if (!date || !(date instanceof Date) || isNaN(date)) return "";
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return "";
     const year = date.getFullYear() % 100;
     const month = (date.getMonth() + 1).toString().padStart(2, "0");
     const day = date.getDate().toString().padStart(2, "0");
-    return `${day}-${month}-${year}`;
+    return `${day}-${month}-${year.toString().padStart(2, "0")}`;
 }
 
 function convertToTimestamp(dateString) {
+    console.log('[HangHoan] convertToTimestamp input:', dateString);
     const parts = dateString.split("-");
-    if (parts.length !== 3) throw new Error("Invalid date format");
+    if (parts.length !== 3) {
+        console.error('[HangHoan] Invalid date parts:', parts);
+        return Date.now().toString(); // Fallback to current time
+    }
 
+    let day = parseInt(parts[0]);
+    let month = parseInt(parts[1]);
     let year = parseInt(parts[2]);
+
     if (year < 100) year = 2000 + year;
 
-    const formattedDate = `${year}-${parts[1]}-${parts[0]}`;
-    const now = new Date();
-    return (new Date(formattedDate).getTime() + (now.getMinutes() * 60 + now.getSeconds()) * 1000).toString();
+    // Use Date constructor with explicit values (months are 0-indexed)
+    const date = new Date(year, month - 1, day);
+
+    if (isNaN(date.getTime())) {
+        console.error('[HangHoan] Invalid date created:', year, month, day);
+        return Date.now().toString(); // Fallback to current time
+    }
+
+    const timestamp = date.getTime();
+    console.log('[HangHoan] convertToTimestamp output:', timestamp, '→', new Date(timestamp).toLocaleDateString());
+    return timestamp.toString();
 }
 
 function isValidDateFormat(dateStr) {
