@@ -909,7 +909,7 @@ class PancakeDataManager {
 
     /**
      * Lấy messages chi tiết của một conversation từ Pancake API
-     * Với caching và retry mechanism
+     * Với caching
      * @param {string} pageId - Facebook Page ID
      * @param {string} conversationId - Pancake Conversation ID
      * @param {number} currentCount - Vị trí message (optional, for pagination)
@@ -965,69 +965,48 @@ class PancakeDataManager {
                 pageAccessToken
             ) + extraParams;
 
-            // Retry mechanism with exponential backoff
-            let lastError = null;
-            const maxRetries = 3;
-            const delays = [0, 1000, 2000]; // No delay first try, then 1s, 2s
-
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                if (attempt > 0) {
-                    console.log(`[PANCAKE] Retry attempt ${attempt + 1}/${maxRetries} after ${delays[attempt]}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
                 }
+            }, 3, true); // skipFallback = true for messages
 
-                try {
-                    const response = await API_CONFIG.smartFetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    }, 3, true); // skipFallback = true for messages
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    const data = await response.json();
-                    console.log(`[PANCAKE] ✅ Fetched ${data.messages?.length || 0} messages`);
-
-                    // Extract customer_id from customers array if available
-                    const customers = data.customers || data.conv_customers || [];
-                    const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
-                    if (extractedCustomerId) {
-                        console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);
-                    }
-
-                    const result = {
-                        messages: data.messages || [],
-                        conversation: data.conversation || null,
-                        customers: customers,
-                        customerId: extractedCustomerId,
-                        fromCache: false
-                    };
-
-                    // Cache the result (only if not pagination)
-                    if (currentCount === null && result.messages.length > 0) {
-                        this.messagesCache.set(cacheKey, {
-                            messages: result.messages,
-                            conversation: result.conversation,
-                            customers: result.customers,
-                            customerId: result.customerId,
-                            timestamp: Date.now()
-                        });
-                        console.log(`[PANCAKE] Messages cached for ${cacheKey}`);
-                    }
-
-                    return result;
-
-                } catch (fetchError) {
-                    lastError = fetchError;
-                    console.warn(`[PANCAKE] Fetch attempt ${attempt + 1} failed:`, fetchError.message);
-                }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            // All retries failed, throw the last error
-            throw lastError || new Error('Failed to fetch messages after retries');
+            const data = await response.json();
+            console.log(`[PANCAKE] ✅ Fetched ${data.messages?.length || 0} messages`);
+
+            // Extract customer_id from customers array if available
+            const customers = data.customers || data.conv_customers || [];
+            const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
+            if (extractedCustomerId) {
+                console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);
+            }
+
+            const result = {
+                messages: data.messages || [],
+                conversation: data.conversation || null,
+                customers: customers,
+                customerId: extractedCustomerId,
+                fromCache: false
+            };
+
+            // Cache the result (only if not pagination)
+            if (currentCount === null && result.messages.length > 0) {
+                this.messagesCache.set(cacheKey, {
+                    messages: result.messages,
+                    conversation: result.conversation,
+                    customers: result.customers,
+                    customerId: result.customerId,
+                    timestamp: Date.now()
+                });
+                console.log(`[PANCAKE] Messages cached for ${cacheKey}`);
+            }
+
+            return result;
 
         } catch (error) {
             console.error('[PANCAKE] Error fetching messages:', error);

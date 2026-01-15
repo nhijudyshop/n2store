@@ -504,28 +504,13 @@
     }
 
     // Request orders data from tab1
-    let ordersDataRequestAttempts = 0;
-    const MAX_REQUEST_ATTEMPTS = 3;
-
     function requestOrdersDataFromTab1() {
         // Send message to parent window to request data from tab1
         if (window.parent) {
             window.parent.postMessage({
                 type: 'REQUEST_ORDERS_DATA_FROM_TAB3'
             }, '*');
-            console.log('📤 Đã gửi request lấy orders data từ tab1 (lần', ordersDataRequestAttempts + 1, ')');
-
-            // Retry after 2 seconds if no response (max 3 attempts)
-            ordersDataRequestAttempts++;
-            if (ordersDataRequestAttempts < MAX_REQUEST_ATTEMPTS) {
-                setTimeout(() => {
-                    // Only retry if still no data
-                    if (!ordersData || ordersData.length === 0) {
-                        console.log('⚠️ Chưa nhận được dữ liệu, thử lại...');
-                        requestOrdersDataFromTab1();
-                    }
-                }, 2000);
-            }
+            console.log('📤 Đã gửi request lấy orders data từ tab1');
         }
     }
 

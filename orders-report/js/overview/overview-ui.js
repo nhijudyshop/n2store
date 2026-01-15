@@ -29,70 +29,15 @@ function switchMainTab(tabName) {
 // =====================================================
 // REQUEST DATA FROM TAB1
 // =====================================================
-let requestRetryCount = 0;
-const MAX_RETRY_COUNT = 5;
-const RETRY_DELAY = 2000; // 2 seconds between retries
-
 function requestDataFromTab1() {
-    console.log('[REPORT] Requesting data from tab1... (attempt', requestRetryCount + 1, ')');
+    console.log('[REPORT] Requesting data from tab1...');
 
     dataReceivedFromTab1 = false; // Reset flag before request
     setRefreshLoading(true);
 
-    // ⚡ FIXED: Wrap in try-catch to handle cross-origin security error
-    try {
-        // Try to check if Tab1 iframe exists and is loaded
-        const ordersFrame = window.parent.document.getElementById('ordersFrame');
-        if (!ordersFrame) {
-            console.warn('[REPORT] ⚠️ Tab1 iframe not found - retrying in 1s...');
-            setTimeout(() => requestDataFromTab1(), 1000);
-            return;
-        }
-
-        // Check if iframe has loaded content
-        try {
-            const frameDoc = ordersFrame.contentDocument || ordersFrame.contentWindow?.document;
-            if (!frameDoc || frameDoc.readyState !== 'complete') {
-                console.warn('[REPORT] ⚠️ Tab1 iframe not ready - retrying in 1s...');
-                setTimeout(() => requestDataFromTab1(), 1000);
-                return;
-            }
-        } catch (e) {
-            // Cross-origin or other access error - proceed anyway
-            console.log('[REPORT] Cannot check Tab1 ready state (cross-origin?), proceeding...');
-        }
-    } catch (e) {
-        // ⚡ FIXED: Cross-origin error when accessing parent.document - proceed anyway
-        console.log('[REPORT] ⚠️ Cannot access parent.document (cross-origin), proceeding with postMessage...');
-    }
-
     window.parent.postMessage({
         type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
     }, '*');
-
-    // ⚡ OPTIMIZATION FIX: Increased retry delay to 3 seconds (was 2s)
-    // Tab1 initialization may take 3-5 seconds, giving it more time
-    const EXTENDED_RETRY_DELAY = 3000;
-
-    // Retry logic - if no data after delay, try again
-    setTimeout(() => {
-        if (!dataReceivedFromTab1 && allOrders.length === 0) {
-            requestRetryCount++;
-            if (requestRetryCount < MAX_RETRY_COUNT) {
-                console.log('[REPORT] ⏳ No data received from Tab1, retrying... (', requestRetryCount, '/', MAX_RETRY_COUNT, ')');
-                requestDataFromTab1();
-            } else {
-                setRefreshLoading(false);
-                console.log('[REPORT] ❌ Failed to get data from Tab1 after', MAX_RETRY_COUNT, 'retries');
-                console.log('[REPORT] 💡 Suggestion: Check if Tab1 has selected a campaign');
-                requestRetryCount = 0; // Reset for next time
-            }
-        } else {
-            // Data received successfully
-            requestRetryCount = 0;
-            console.log('[REPORT] ✅ Data received from Tab1 successfully');
-        }
-    }, EXTENDED_RETRY_DELAY);
 }
 
 function setRefreshLoading(loading) {
