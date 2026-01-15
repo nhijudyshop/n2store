@@ -501,10 +501,22 @@ export class CustomerSearchModule {
         `;
     }
 
+    /**
+     * Parse database timestamp as UTC and convert to local time
+     */
+    _parseAsUTC(dateStr) {
+        if (!dateStr) return new Date();
+        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
+            return new Date(dateStr);
+        }
+        const isoString = dateStr.replace(' ', 'T') + 'Z';
+        return new Date(isoString);
+    }
+
     formatLastActivity(dateStr) {
         if (!dateStr) return 'N/A';
 
-        const date = new Date(dateStr);
+        const date = this._parseAsUTC(dateStr);
         const now = new Date();
         const diffMs = now - date;
         const diffMins = Math.floor(diffMs / 60000);

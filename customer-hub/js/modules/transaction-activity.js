@@ -370,9 +370,26 @@ export class TransactionActivityModule {
         return { text: formatted, colorClass: 'text-slate-900 dark:text-slate-200' };
     }
 
+    /**
+     * Parse database timestamp as UTC and convert to local time
+     * Database stores UTC timestamps without timezone info (e.g., "2026-01-14 13:52:00")
+     * We need to interpret them as UTC and let browser convert to local time
+     */
+    _parseAsUTC(dateStr) {
+        if (!dateStr) return new Date();
+        // If already has timezone info (Z or +/-), parse directly
+        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
+            return new Date(dateStr);
+        }
+        // Replace space with 'T' and append 'Z' to treat as UTC
+        // "2026-01-14 13:52:00" -> "2026-01-14T13:52:00Z"
+        const isoString = dateStr.replace(' ', 'T') + 'Z';
+        return new Date(isoString);
+    }
+
     formatTimestamp(dateStr) {
         if (!dateStr) return 'N/A';
-        const date = new Date(dateStr);
+        const date = this._parseAsUTC(dateStr);
         return date.toLocaleString('vi-VN', {
             day: '2-digit',
             month: '2-digit',

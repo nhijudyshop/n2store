@@ -343,9 +343,21 @@ export class LinkBankTransactionModule {
         this.updatePagination(this.totalItems);
     }
 
+    /**
+     * Parse database timestamp as UTC and convert to local time
+     */
+    _parseAsUTC(dateStr) {
+        if (!dateStr) return new Date();
+        if (/[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)) {
+            return new Date(dateStr);
+        }
+        const isoString = dateStr.replace(' ', 'T') + 'Z';
+        return new Date(isoString);
+    }
+
     formatDate(dateStr) {
         if (!dateStr) return 'N/A';
-        const date = new Date(dateStr);
+        const date = this._parseAsUTC(dateStr);
         return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
 
