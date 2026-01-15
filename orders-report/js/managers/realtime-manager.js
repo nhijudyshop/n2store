@@ -491,6 +491,7 @@ class RealtimeManager {
     }
 }
 
-// Create global instance
+// Export class and create global instance
+window.RealtimeManager = RealtimeManager;
 window.realtimeManager = new RealtimeManager();
 console.log('[REALTIME] RealtimeManager loaded');

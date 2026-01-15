@@ -134,39 +134,63 @@ class PancakeDataManager {
             // Use Cloudflare Worker proxy
             const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
+            // Retry logic with exponential backoff for rate limiting
+            const maxRetries = 3;
+            let lastError = null;
+
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                if (attempt > 0) {
+                    const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+                    console.log(`[PANCAKE] ⏳ Retry ${attempt}/${maxRetries} after ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
                 }
-            });
 
-            console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
+                const response = await API_CONFIG.smartFetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[PANCAKE] Error response:', errorText);
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
+
+                if (response.status === 429) {
+                    console.warn('[PANCAKE] ⚠️ Rate limited (429), will retry...');
+                    lastError = new Error('HTTP 429: Too Many Requests');
+                    continue; // Retry
+                }
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[PANCAKE] Error response:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('[PANCAKE] Pages response data:', data);
+
+                if (data.success && data.categorized && data.categorized.activated) {
+                    this.pages = data.categorized.activated;
+                    this.pageIds = data.categorized.activated_page_ids || [];
+                    this.lastPageFetchTime = Date.now();
+                    console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
+                    console.log('[PANCAKE] Page IDs:', this.pageIds);
+
+                    // Extract and cache page_access_tokens from settings
+                    this.extractAndCachePageAccessTokens(data.categorized.activated);
+
+                    return this.pages;
+                } else {
+                    console.warn('[PANCAKE] Unexpected response format:', data);
+                    return [];
+                }
             }
 
-            const data = await response.json();
-            console.log('[PANCAKE] Pages response data:', data);
-
-            if (data.success && data.categorized && data.categorized.activated) {
-                this.pages = data.categorized.activated;
-                this.pageIds = data.categorized.activated_page_ids || [];
-                this.lastPageFetchTime = Date.now();
-                console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
-                console.log('[PANCAKE] Page IDs:', this.pageIds);
-
-                // Extract and cache page_access_tokens from settings
-                this.extractAndCachePageAccessTokens(data.categorized.activated);
-
-                return this.pages;
-            } else {
-                console.warn('[PANCAKE] Unexpected response format:', data);
-                return [];
+            // All retries failed
+            if (lastError) {
+                console.error('[PANCAKE] ❌ All retries failed:', lastError.message);
             }
+            return [];
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching pages:', error);
