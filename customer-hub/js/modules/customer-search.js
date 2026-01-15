@@ -419,7 +419,8 @@ export class CustomerSearchModule {
     formatDebt(balance, virtual, real) {
         const formatNum = (num) => {
             if (num === 0) return '0';
-            return num.toLocaleString('vi-VN');
+            // Làm tròn số nguyên, dùng dấu . phân cách hàng nghìn
+            return Math.round(num).toLocaleString('de-DE');
         };
         // Số dư khả dụng = balance (tổng tiền trong ví có thể dùng để khấu trừ)
         const balanceClass = balance > 0 ? 'text-green-600 dark:text-green-400' : balance < 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-600 dark:text-slate-300';
