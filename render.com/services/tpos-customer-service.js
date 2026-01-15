@@ -146,7 +146,7 @@ async function searchCustomerByPhone(phone) {
                         email: customer.Email,
                         address: customer.FullAddress || customer.Street,
                         network: customer.NameNetwork,
-                        status: customer.Status,
+                        status: customer.StatusText,  // Use StatusText, not Status
                         credit: customer.Credit,
                         debit: customer.Debit,
                         // Raw data for backup
@@ -174,7 +174,7 @@ async function searchCustomerByPhone(phone) {
                 email: firstCustomer.Email,
                 address: firstCustomer.FullAddress || firstCustomer.Street,
                 network: firstCustomer.NameNetwork,
-                status: firstCustomer.Status,
+                status: firstCustomer.StatusText,  // Use StatusText, not Status
                 credit: firstCustomer.Credit,
                 debit: firstCustomer.Debit,
                 raw: {
@@ -255,7 +255,7 @@ async function getCustomerById(tposId) {
                 email: customer.Email,
                 address: customer.FullAddress || customer.Street,
                 network: customer.NameNetwork,
-                status: customer.Status,
+                status: customer.StatusText,  // Use StatusText, not Status
                 credit: customer.Credit,
                 debit: customer.Debit,
                 raw: {
@@ -330,7 +330,7 @@ async function searchAllCustomersByPhone(phone) {
             email: customer.Email,
             address: customer.FullAddress || customer.Street,
             network: customer.NameNetwork,
-            status: customer.Status,
+            status: customer.StatusText,  // Use StatusText, not Status
             credit: customer.Credit,
             debit: customer.Debit
         }));
