@@ -85,3 +85,34 @@ export async function safeFetch(url, options = {}, config = {}) {
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Fetch with retry logic and exponential backoff
+ * @param {string|Request} resource - The resource to fetch
+ * @param {RequestInit} options - Fetch options
+ * @param {number} maxRetries - Maximum number of retries (default: 3)
+ * @param {number} initialDelay - Initial delay in ms (default: 1000)
+ * @param {number} timeout - Timeout per request in ms (default: 10000)
+ * @returns {Promise<Response>}
+ */
+export async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDelay = 1000, timeout = 10000) {
+    let lastError;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetchWithTimeout(resource, options, timeout);
+            return response;
+        } catch (error) {
+            lastError = error;
+            console.warn(`[FETCH-RETRY] Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error.message);
+
+            if (attempt < maxRetries) {
+                const delayMs = initialDelay * Math.pow(2, attempt);
+                console.log(`[FETCH-RETRY] Retrying in ${delayMs}ms...`);
+                await delay(delayMs);
+            }
+        }
+    }
+
+    throw lastError;
+}
