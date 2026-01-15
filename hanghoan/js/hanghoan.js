@@ -695,8 +695,17 @@ function closeModal() {
     editingRow = null;
 }
 
+let isSaving = false; // Guard against multiple saves
+
 function saveChanges() {
-    console.log('[HangHoan] saveChanges called');
+    console.log('[HangHoan] saveChanges called, isSaving:', isSaving);
+
+    // Prevent multiple simultaneous saves
+    if (isSaving) {
+        console.log('[HangHoan] Already saving, skipping');
+        return;
+    }
+    isSaving = true;
 
     const deliveryValue = sanitizeInput(document.getElementById("editDelivery").value);
     const scenarioValue = sanitizeInput(document.getElementById("eidtScenario").value);
@@ -708,6 +717,7 @@ function saveChanges() {
     if (!isValidDateFormat(dateValue)) {
         showError("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         alert("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
+        isSaving = false;
         return;
     }
 
@@ -717,17 +727,20 @@ function saveChanges() {
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
         showError("Vui lòng điền đầy đủ thông tin");
         alert("Vui lòng điền đầy đủ thông tin");
+        isSaving = false;
         return;
     }
 
     if (!editingRow) {
         console.error('[HangHoan] No editing row');
+        isSaving = false;
         return;
     }
 
     const rowId = editingRow.dataset?.id || editingRow.querySelector("td[id]")?.id;
     if (!rowId) {
         console.error('[HangHoan] No row ID found');
+        isSaving = false;
         return;
     }
 
@@ -735,6 +748,7 @@ function saveChanges() {
     if (!collectionRef) {
         console.error('[HangHoan] collectionRef is null');
         alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
+        isSaving = false;
         return;
     }
 
@@ -743,6 +757,7 @@ function saveChanges() {
 
     if (itemIndex === -1) {
         showError("Không tìm thấy đơn hàng");
+        isSaving = false;
         return;
     }
 
@@ -781,6 +796,7 @@ function saveChanges() {
         .then(() => {
             console.log('[HangHoan] Firebase save successful');
             logAction("edit", `Sửa: ${infoValue}`, oldData, updatedItem);
+            isSaving = false;
         })
         .catch((error) => {
             console.error('[HangHoan] Firebase save error:', error);
@@ -790,6 +806,7 @@ function saveChanges() {
             renderTableFromData(currentData);
             showError("Lỗi: " + error.message);
             alert("Lỗi lưu: " + error.message);
+            isSaving = false;
         });
 }
 
@@ -945,8 +962,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Attach critical event handlers immediately (don't wait for core utils)
     const saveButton = document.getElementById("saveButton");
-    if (saveButton) {
+    if (saveButton && !saveButton.dataset.listenerAttached) {
         saveButton.addEventListener("click", saveChanges);
+        saveButton.dataset.listenerAttached = "true";
     }
 
     // Initial icons
