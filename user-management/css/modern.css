@@ -150,7 +150,8 @@ button {
     color: var(--primary);
 }
 
-.logo i {
+.logo i,
+.logo svg {
     width: 28px;
     height: 28px;
     flex-shrink: 0;
@@ -203,7 +204,8 @@ button {
     transition: var(--transition-fast);
 }
 
-.nav-item i {
+.nav-item i,
+.nav-item svg {
     width: 20px;
     height: 20px;
     flex-shrink: 0;
@@ -243,7 +245,8 @@ button {
     flex-shrink: 0;
 }
 
-.user-avatar i {
+.user-avatar i,
+.user-avatar svg {
     width: 24px;
     height: 24px;
 }
@@ -300,7 +303,9 @@ button {
 }
 
 .btn-permissions i,
-.btn-logout i {
+.btn-permissions svg,
+.btn-logout i,
+.btn-logout svg {
     width: 18px;
     height: 18px;
 }
@@ -354,7 +359,8 @@ button {
     transform: scale(0.95);
 }
 
-.sidebar-toggle-fixed i {
+.sidebar-toggle-fixed i,
+.sidebar-toggle-fixed svg {
     width: 24px;
     height: 24px;
 }
@@ -398,7 +404,8 @@ button {
     color: var(--text-secondary);
 }
 
-.breadcrumb i {
+.breadcrumb i,
+.breadcrumb svg {
     width: 18px;
     height: 18px;
 }
@@ -409,7 +416,8 @@ button {
     align-items: center;
 }
 
-.search-box i {
+.search-box i,
+.search-box svg {
     position: absolute;
     left: var(--spacing-md);
     width: 18px;
@@ -460,7 +468,8 @@ button {
     color: var(--danger);
 }
 
-.btn-icon i {
+.btn-icon i,
+.btn-icon svg {
     width: 20px;
     height: 20px;
 }
@@ -498,7 +507,8 @@ button {
     transition: var(--transition-fast);
 }
 
-.btn i {
+.btn i,
+.btn svg {
     width: 18px;
     height: 18px;
 }
@@ -562,7 +572,8 @@ button {
     flex-shrink: 0;
 }
 
-.stat-icon i {
+.stat-icon i,
+.stat-icon svg {
     width: 28px;
     height: 28px;
     color: white;
@@ -637,7 +648,8 @@ button {
     gap: var(--spacing-md);
 }
 
-.card-title i {
+.card-title i,
+.card-title svg {
     width: 24px;
     height: 24px;
     color: var(--primary);
@@ -683,7 +695,8 @@ button {
     margin-bottom: var(--spacing-sm);
 }
 
-.form-group label i {
+.form-group label i,
+.form-group label svg {
     width: 16px;
     height: 16px;
     color: var(--primary);
@@ -721,7 +734,8 @@ button {
     background: var(--gray-50);
 }
 
-.upload-placeholder i {
+.upload-placeholder i,
+.upload-placeholder svg {
     width: 48px;
     height: 48px;
     color: var(--text-tertiary);
@@ -781,7 +795,8 @@ button {
     opacity: 1;
 }
 
-.file-preview-item .remove-file i {
+.file-preview-item .remove-file i,
+.file-preview-item .remove-file svg {
     width: 14px;
     height: 14px;
 }
@@ -806,7 +821,8 @@ button {
     border-radius: var(--radius);
 }
 
-.filter-group i {
+.filter-group i,
+.filter-group svg {
     width: 18px;
     height: 18px;
     color: var(--text-tertiary);
@@ -860,7 +876,8 @@ button {
     flex-shrink: 0;
 }
 
-.tab-btn i {
+.tab-btn i,
+.tab-btn svg {
     width: 18px;
     height: 18px;
 }
@@ -943,7 +960,8 @@ button {
     display: block;
 }
 
-.loading-state i {
+.loading-state i,
+.loading-state svg {
     width: 48px;
     height: 48px;
     color: var(--text-tertiary);
@@ -967,7 +985,8 @@ button {
     align-items: center;
 }
 
-.empty-state i {
+.empty-state i,
+.empty-state svg {
     width: 48px;
     height: 48px;
     color: var(--text-tertiary);
@@ -1188,7 +1207,8 @@ button:focus-visible {
     flex-shrink: 0;
 }
 
-.user-avatar-large i {
+.user-avatar-large i,
+.user-avatar-large svg {
     width: 24px;
     height: 24px;
     color: var(--primary);
@@ -1279,7 +1299,8 @@ button:focus-visible {
     margin-bottom: var(--spacing-md);
 }
 
-.permissions-section h3 i {
+.permissions-section h3 i,
+.permissions-section h3 svg {
     width: 20px;
     height: 20px;
     color: var(--primary);
@@ -1393,7 +1414,8 @@ button:focus-visible {
     box-shadow: var(--shadow-sm);
 }
 
-.template-btn i {
+.template-btn i,
+.template-btn svg {
     width: 14px;
     height: 14px;
 }
@@ -1521,7 +1543,8 @@ button:focus-visible {
     display: flex;
 }
 
-.empty-state i {
+.empty-state i,
+.empty-state svg {
     width: 64px;
     height: 64px;
     color: var(--text-tertiary);
@@ -1617,7 +1640,8 @@ button:focus-visible {
     flex-shrink: 0;
 }
 
-.user-avatar-large i {
+.user-avatar-large i,
+.user-avatar-large svg {
     width: 24px;
     height: 24px;
     color: white;
@@ -1653,7 +1677,8 @@ button:focus-visible {
     font-weight: 600;
 }
 
-.user-role-badge i {
+.user-role-badge i,
+.user-role-badge svg {
     width: 12px;
     height: 12px;
 }
@@ -1713,7 +1738,8 @@ button:focus-visible {
     margin-bottom: var(--spacing-md);
 }
 
-.permissions-section h3 i {
+.permissions-section h3 i,
+.permissions-section h3 svg {
     width: 20px;
     height: 20px;
     color: var(--primary);
@@ -1801,7 +1827,8 @@ button:focus-visible {
     margin-bottom: var(--spacing-md);
 }
 
-.role-template h4 i {
+.role-template h4 i,
+.role-template h4 svg {
     width: 16px;
     height: 16px;
     color: var(--primary);
@@ -1923,7 +1950,8 @@ button:focus-visible {
     display: flex;
 }
 
-.empty-state i {
+.empty-state i,
+.empty-state svg {
     width: 64px;
     height: 64px;
     color: var(--text-tertiary);
@@ -1963,7 +1991,8 @@ button:focus-visible {
     gap: var(--spacing-md);
 }
 
-.access-denied h1 i {
+.access-denied h1 i,
+.access-denied h1 svg {
     width: 48px;
     height: 48px;
 }
@@ -2137,7 +2166,8 @@ button:focus-visible {
     border-right: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.bulk-action-toolbar .selected-info i {
+.bulk-action-toolbar .selected-info i,
+.bulk-action-toolbar .selected-info svg {
     width: 16px;
     height: 16px;
 }
@@ -2231,7 +2261,8 @@ button:focus-visible {
     font-weight: 600;
 }
 
-.bulk-template-modal .modal-header h3 i {
+.bulk-template-modal .modal-header h3 i,
+.bulk-template-modal .modal-header h3 svg {
     width: 24px;
     height: 24px;
 }
@@ -2278,7 +2309,8 @@ button:focus-visible {
     margin-bottom: var(--spacing-md);
 }
 
-.bulk-template-section h4 i {
+.bulk-template-section h4 i,
+.bulk-template-section h4 svg {
     width: 16px;
     height: 16px;
 }
@@ -2308,7 +2340,8 @@ button:focus-visible {
     transition: all var(--transition-fast);
 }
 
-.template-option-content i {
+.template-option-content i,
+.template-option-content svg {
     width: 24px;
     height: 24px;
     margin-bottom: var(--spacing-xs);

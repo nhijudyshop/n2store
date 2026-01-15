@@ -679,7 +679,8 @@ button.success {
 }
 
 /* Empty state icons */
-.empty-state i {
+.empty-state i,
+.empty-state svg {
     width: 64px;
     height: 64px;
     color: var(--text-tertiary, #9ca3af);
@@ -687,7 +688,8 @@ button.success {
 }
 
 /* User role badge icons */
-.user-role-badge i {
+.user-role-badge i,
+.user-role-badge svg {
     width: 12px;
     height: 12px;
     margin-right: 4px;
@@ -697,20 +699,24 @@ button.success {
 
 /* Button icons */
 .btn i,
-.btn-icon i {
+.btn svg,
+.btn-icon i,
+.btn-icon svg {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
 }
 
-.user-actions button i {
+.user-actions button i,
+.user-actions button svg {
     width: 16px;
     height: 16px;
     margin-right: 4px;
 }
 
 /* Permission grid icons */
-.permissions-grid .permission-checkbox i {
+.permissions-grid .permission-checkbox i,
+.permissions-grid .permission-checkbox svg {
     transition: color 0.2s ease;
 }
 
@@ -719,14 +725,16 @@ button.success {
 }
 
 /* Stats section icons */
-.stat-icon i {
+.stat-icon i,
+.stat-icon svg {
     width: 28px;
     height: 28px;
     color: white;
 }
 
 /* Card header icons */
-.card-title i {
+.card-title i,
+.card-title svg {
     width: 24px;
     height: 24px;
     color: var(--primary, #6366f1);
@@ -734,7 +742,8 @@ button.success {
 }
 
 /* Form label icons */
-.form-group label i {
+.form-group label i,
+.form-group label svg {
     width: 16px;
     height: 16px;
     color: var(--primary, #6366f1);
@@ -742,40 +751,46 @@ button.success {
 }
 
 /* Tab icons */
-.tab-btn i {
+.tab-btn i,
+.tab-btn svg {
     width: 18px;
     height: 18px;
     margin-right: 8px;
 }
 
 /* Sidebar icons */
-.nav-item i {
+.nav-item i,
+.nav-item svg {
     width: 20px;
     height: 20px;
     flex-shrink: 0;
 }
 
 /* User avatar icons */
-.user-avatar i {
+.user-avatar i,
+.user-avatar svg {
     width: 24px;
     height: 24px;
 }
 
-.user-avatar-large i {
+.user-avatar-large i,
+.user-avatar-large svg {
     width: 24px;
     height: 24px;
     color: white;
 }
 
 /* Template button icons */
-.template-btn i {
+.template-btn i,
+.template-btn svg {
     width: 14px;
     height: 14px;
     margin-right: 6px;
 }
 
 /* Breadcrumb icons */
-.breadcrumb i {
+.breadcrumb i,
+.breadcrumb svg {
     width: 18px;
     height: 18px;
     margin-right: 6px;
@@ -790,13 +805,15 @@ button.success {
 }
 
 /* Search box icons */
-.search-box i {
+.search-box i,
+.search-box svg {
     width: 18px;
     height: 18px;
 }
 
 /* Loading overlay enhancement */
-.loading-state i {
+.loading-state i,
+.loading-state svg {
     width: 48px;
     height: 48px;
     color: var(--text-tertiary, #9ca3af);
@@ -804,7 +821,8 @@ button.success {
 }
 
 /* Access Denied icons */
-.access-denied h1 i {
+.access-denied h1 i,
+.access-denied h1 svg {
     width: 48px;
     height: 48px;
 }
@@ -815,13 +833,15 @@ button.success {
         width: 18px;
         height: 18px;
     }
-    
-    .empty-state i {
+
+    .empty-state i,
+    .empty-state svg {
         width: 48px;
         height: 48px;
     }
-    
-    .card-title i {
+
+    .card-title i,
+    .card-title svg {
         width: 20px;
         height: 20px;
     }
@@ -856,7 +876,9 @@ button.success {
 
 /* Hover effects for interactive icons */
 .btn:hover i,
-.btn-icon:hover i {
+.btn:hover svg,
+.btn-icon:hover i,
+.btn-icon:hover svg {
     transform: scale(1.05);
     transition: transform 0.2s ease;
 }
