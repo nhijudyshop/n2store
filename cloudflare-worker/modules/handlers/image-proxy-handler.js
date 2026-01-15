@@ -222,3 +222,81 @@ export async function handlePancakeAvatar(request, url) {
         });
     }
 }
+
+/**
+ * imgbb API key (free tier - anonymous uploads)
+ * Get free key at: https://api.imgbb.com/
+ */
+const IMGBB_API_KEY = '7e5f69e00afd2f0da71a994f3eb2f6c5';
+
+/**
+ * Handle POST /api/imgbb-upload
+ * Uploads image to imgbb as a fallback when Pancake fails
+ * @param {Request} request
+ * @returns {Promise<Response>}
+ */
+export async function handleImgbbUpload(request) {
+    try {
+        const body = await request.json();
+        const { image } = body; // base64 encoded image
+
+        if (!image) {
+            return errorResponse('Missing image parameter (base64)', 400, {
+                usage: 'POST /api/imgbb-upload with JSON body { image: "<base64>" }'
+            });
+        }
+
+        console.log('[IMGBB-UPLOAD] Uploading image to imgbb...');
+
+        // imgbb API expects form data
+        const formData = new FormData();
+        formData.append('key', IMGBB_API_KEY);
+        formData.append('image', image);
+
+        const response = await fetch('https://api.imgbb.com/1/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            console.error('[IMGBB-UPLOAD] Failed:', data);
+            return new Response(JSON.stringify({
+                success: false,
+                error: data.error?.message || 'imgbb upload failed',
+                status_code: data.status_code || response.status
+            }), {
+                status: response.status || 500,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...CORS_HEADERS
+                }
+            });
+        }
+
+        console.log('[IMGBB-UPLOAD] Success:', data.data?.url);
+
+        return new Response(JSON.stringify({
+            success: true,
+            data: {
+                url: data.data.url,
+                display_url: data.data.display_url,
+                delete_url: data.data.delete_url,
+                thumb_url: data.data.thumb?.url,
+                width: data.data.width,
+                height: data.data.height
+            }
+        }), {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                ...CORS_HEADERS
+            }
+        });
+
+    } catch (error) {
+        console.error('[IMGBB-UPLOAD] Error:', error);
+        return errorResponse('imgbb upload error: ' + error.message, 500);
+    }
+}

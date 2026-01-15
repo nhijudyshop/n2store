@@ -17,6 +17,7 @@ export const ROUTES = {
     IMAGE_PROXY: { pattern: '/api/image-proxy', method: 'GET' },
     FB_AVATAR: { pattern: '/api/fb-avatar', method: 'GET' },
     PANCAKE_AVATAR: { pattern: '/api/pancake-avatar', method: 'GET' },
+    IMGBB_UPLOAD: { pattern: '/api/imgbb-upload', method: 'POST' },
 
     // Facebook
     FACEBOOK_SEND: { pattern: '/api/facebook-send', method: 'POST' },
@@ -67,6 +68,7 @@ export function matchRoute(pathname) {
     if (pathname === '/api/image-proxy') return 'IMAGE_PROXY';
     if (pathname === '/api/fb-avatar') return 'FB_AVATAR';
     if (pathname === '/api/pancake-avatar') return 'PANCAKE_AVATAR';
+    if (pathname === '/api/imgbb-upload') return 'IMGBB_UPLOAD';
     if (pathname === '/api/facebook-send') return 'FACEBOOK_SEND';
     if (pathname === '/api/facebook-graph/livevideo') return 'FACEBOOK_LIVE';
     if (pathname === '/api/deepseek') return 'DEEPSEEK';

@@ -3862,6 +3862,7 @@ async function sendMessageInternal(messageData) {
 
         // Step 1: Process multiple images
         let imagesDataArray = [];
+        let hasFallbackImages = false; // Track if any images were uploaded via imgbb fallback
         if (uploadedImagesData && uploadedImagesData.length > 0) {
             console.log('[MESSAGE] Processing', uploadedImagesData.length, 'images');
             showChatSendingIndicator(`Đang xử lý ${uploadedImagesData.length} ảnh...`);
@@ -3874,6 +3875,11 @@ async function sendMessageInternal(messageData) {
                     if ((imageData.content_id || imageData.id) && !imageData.uploadFailed) {
                         console.log(`[MESSAGE] Image ${i + 1}: Using pre-uploaded ID:`, imageData.content_id || imageData.id);
                         imagesDataArray.push(imageData);
+                    } else if (imageData.fallback_url) {
+                        // Image was uploaded via imgbb fallback (no content_id)
+                        console.log(`[MESSAGE] Image ${i + 1}: Using fallback URL (imgbb):`, imageData.fallback_url);
+                        imagesDataArray.push(imageData);
+                        hasFallbackImages = true;
                     } else if (imageData.blob) {
                         // Retry upload
                         console.log(`[MESSAGE] Image ${i + 1}: Retrying upload...`);
@@ -3893,6 +3899,12 @@ async function sendMessageInternal(messageData) {
 
                         console.log(`[MESSAGE] Image ${i + 1}: Uploaded:`, result.data.content_url);
                         imagesDataArray.push(result.data);
+
+                        // Check if this was a fallback upload
+                        if (result.data.fallback_url || result.data.fallback_source) {
+                            hasFallbackImages = true;
+                            console.log(`[MESSAGE] Image ${i + 1}: Detected fallback source:`, result.data.fallback_source);
+                        }
                     }
                 } catch (uploadError) {
                     console.error(`[MESSAGE] Image ${i + 1} processing failed:`, uploadError);
@@ -3900,7 +3912,59 @@ async function sendMessageInternal(messageData) {
                 }
             }
 
-            console.log('[MESSAGE] All images processed:', imagesDataArray.length);
+            console.log('[MESSAGE] All images processed:', imagesDataArray.length, 'hasFallbackImages:', hasFallbackImages);
+        }
+
+        // Step 1.5: If we have fallback images (no content_id), go directly to Facebook Graph API
+        if (hasFallbackImages && imagesDataArray.length > 0) {
+            console.log('[MESSAGE] 🔄 Fallback images detected - sending directly via Facebook Graph API');
+            showChatSendingIndicator('Đang gửi qua Facebook Graph API...');
+
+            // Extract all image URLs
+            const imageUrls = imagesDataArray
+                .map(img => img.fallback_url || img.content_url)
+                .filter(url => url);
+
+            if (imageUrls.length > 0) {
+                // Get real PSID
+                let realPsid = psid || window.currentRealFacebookPSID || window.currentChatPSID;
+
+                const fbResult = await sendMessageViaFacebookTag({
+                    pageId: channelId,
+                    psid: realPsid,
+                    message: message,
+                    imageUrls: imageUrls
+                });
+
+                if (fbResult.success) {
+                    console.log('[MESSAGE] ✅ Facebook Graph API send success!');
+                    if (window.notificationManager) {
+                        window.notificationManager.show('✅ Đã gửi tin nhắn qua Facebook!', 'success');
+                    }
+
+                    // Optimistic UI update
+                    const now = new Date().toISOString();
+                    const tempMessage = {
+                        Id: `temp_${Date.now()}`,
+                        id: `temp_${Date.now()}`,
+                        Message: message,
+                        CreatedTime: now,
+                        IsOwner: true,
+                        is_temp: true,
+                        Attachments: imageUrls.map(url => ({
+                            Type: 'image',
+                            Payload: { Url: url }
+                        }))
+                    };
+                    window.allChatMessages.push(tempMessage);
+                    renderChatMessages(window.allChatMessages, true);
+
+                    return; // Success - exit early
+                } else {
+                    console.error('[MESSAGE] ❌ Facebook Graph API send failed:', fbResult.error);
+                    throw new Error('Gửi qua Facebook Graph API thất bại: ' + (fbResult.error || 'Unknown error'));
+                }
+            }
         }
 
         // Step 2: Build JSON payload based on reply type
@@ -4249,11 +4313,15 @@ async function sendMessageInternal(messageData) {
                 const imageUrls = [];
                 if (messageData.uploadedImagesData && messageData.uploadedImagesData.length > 0) {
                     for (const imgData of messageData.uploadedImagesData) {
-                        // Try content_url first (from cache)
-                        if (imgData.content_url) {
+                        // Try fallback_url first (from imgbb)
+                        if (imgData.fallback_url) {
+                            imageUrls.push(imgData.fallback_url);
+                        }
+                        // Try content_url (from Pancake cache)
+                        else if (imgData.content_url) {
                             imageUrls.push(imgData.content_url);
                         }
-                        // Otherwise build URL from content_id
+                        // Last resort: build URL from content_id (may not work)
                         else if (imgData.content_id || imgData.id) {
                             const contentId = imgData.content_id || imgData.id;
                             // Pancake content URL format

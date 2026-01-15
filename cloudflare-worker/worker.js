@@ -14,7 +14,7 @@ import { matchRoute } from './modules/config/routes.js';
 
 // Handlers
 import { handleTokenRequest } from './modules/handlers/token-handler.js';
-import { handleImageProxy, handleFacebookAvatar, handlePancakeAvatar } from './modules/handlers/image-proxy-handler.js';
+import { handleImageProxy, handleFacebookAvatar, handlePancakeAvatar, handleImgbbUpload } from './modules/handlers/image-proxy-handler.js';
 import { handleFacebookSend, handleFacebookLiveVideos } from './modules/handlers/facebook-handler.js';
 import { handlePancakeDirect, handlePancakeOfficial, handlePancakeGeneric } from './modules/handlers/pancake-handler.js';
 import {
@@ -66,6 +66,8 @@ export default {
                     return handleFacebookAvatar(request, url);
                 case 'PANCAKE_AVATAR':
                     return handlePancakeAvatar(request, url);
+                case 'IMGBB_UPLOAD':
+                    return handleImgbbUpload(request);
 
                 // Facebook
                 case 'FACEBOOK_SEND':

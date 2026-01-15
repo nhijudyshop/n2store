@@ -2108,14 +2108,67 @@ class PancakeDataManager {
     }
 
     /**
+     * Upload image to imgbb as fallback when Pancake fails
+     * @param {File|Blob} file - Image file or blob
+     * @returns {Promise<{url: string, delete_url: string}>}
+     */
+    async uploadToImgbb(file) {
+        try {
+            console.log('[PANCAKE] 🔄 Fallback: Uploading to imgbb...');
+
+            // Convert file to base64
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    // Remove data:image/xxx;base64, prefix
+                    const base64String = reader.result.split(',')[1];
+                    resolve(base64String);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            // imgbb API (free, no key required for anonymous uploads)
+            // Using our worker proxy to avoid CORS
+            const WORKER_URL = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const response = await fetch(`${WORKER_URL}/api/imgbb-upload`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64 })
+            });
+
+            if (!response.ok) {
+                throw new Error(`imgbb upload failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.success && data.data?.url) {
+                console.log('[PANCAKE] ✅ imgbb upload success:', data.data.url);
+                return {
+                    url: data.data.url,
+                    delete_url: data.data.delete_url || null
+                };
+            }
+
+            throw new Error(data.error?.message || 'imgbb upload failed');
+        } catch (error) {
+            console.error('[PANCAKE] ❌ imgbb fallback failed:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Upload image to Pancake API
      * Uses Internal API (pancake.vn/api/v1) for full response with content_url
      * POST /pages/{page_id}/contents
      * @param {string} pageId
      * @param {File} file
-     * @returns {Promise<{content_url: string, content_id: string, id: string}>}
+     * @param {boolean} allowFallback - If true, fallback to imgbb when Pancake fails (default: true)
+     * @returns {Promise<{content_url: string, content_id: string, id: string, fallback_url?: string}>}
      */
-    async uploadImage(pageId, file) {
+    async uploadImage(pageId, file, allowFallback = true) {
+        let pancakeError = null;
+
         try {
             const fileName = file.name || 'compressed-image.jpg';
             const fileType = file.type || 'image/jpeg';
@@ -2149,7 +2202,9 @@ class PancakeDataManager {
             if (!response.ok) {
                 const errorText = await response.text();
                 console.error('[PANCAKE] Upload failed:', response.status, errorText);
-                throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+                pancakeError = new Error(`Upload failed: ${response.status} ${response.statusText}`);
+                pancakeError.status = response.status;
+                throw pancakeError;
             }
 
             const data = await response.json();
@@ -2179,7 +2234,8 @@ class PancakeDataManager {
             // Validate response
             if (!result.content_id) {
                 console.error('[PANCAKE] ❌ Upload response missing content_id:', data);
-                throw new Error('Upload response missing content_id');
+                pancakeError = new Error('Upload response missing content_id');
+                throw pancakeError;
             }
 
             // ⚠️ Warning if content_url is missing
@@ -2194,6 +2250,30 @@ class PancakeDataManager {
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error uploading image:', error);
+
+            // Fallback to imgbb for 500/502/503 errors
+            const isServerError = error.status >= 500 && error.status < 600;
+            if (allowFallback && isServerError) {
+                console.log('[PANCAKE] 🔄 Server error detected, trying imgbb fallback...');
+                try {
+                    const imgbbResult = await this.uploadToImgbb(file);
+                    // Return a result that indicates fallback was used
+                    return {
+                        content_url: imgbbResult.url,
+                        content_id: null, // No Pancake content_id
+                        id: null,
+                        fallback_url: imgbbResult.url, // Mark that this is a fallback URL
+                        fallback_source: 'imgbb',
+                        width: null,
+                        height: null
+                    };
+                } catch (fallbackError) {
+                    console.error('[PANCAKE] ❌ Fallback also failed:', fallbackError);
+                    // Re-throw original error
+                    throw error;
+                }
+            }
+
             throw error;
         }
     }
