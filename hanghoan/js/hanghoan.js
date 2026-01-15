@@ -563,10 +563,15 @@ function handleEditButton(button) {
     if (!row || !DOM.editModal) return;
 
     const rowId = row.dataset?.id || row.querySelector("td[id]")?.id;
+    console.log('[HangHoan] handleEditButton - rowId:', rowId, 'type:', typeof rowId);
 
     // Get data from cache instead of table cells (more reliable)
     const cachedData = getCachedData() || [];
-    const item = cachedData.find(d => d.duyetHoanValue === rowId);
+    console.log('[HangHoan] handleEditButton - cache size:', cachedData.length);
+
+    // Find item - compare as strings
+    const item = cachedData.find(d => String(d.duyetHoanValue) === String(rowId));
+    console.log('[HangHoan] handleEditButton - found item:', item ? 'yes' : 'no');
 
     if (item) {
         // Use cached data (reliable)
