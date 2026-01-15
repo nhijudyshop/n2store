@@ -1937,19 +1937,25 @@ router.post('/customer-info', async (req, res) => {
                     created: customerResult.created
                 });
 
-                // Cập nhật balance_history.customer_id nếu tìm thấy giao dịch theo uniqueCode
-                // uniqueCode có thể là transaction_content hoặc reference_code
-                const updateResult = await db.query(`
-                    UPDATE balance_history
-                    SET customer_id = $1,
-                        linked_customer_phone = $2,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE (transaction_content LIKE '%' || $3 || '%' OR reference_code = $3)
-                      AND customer_id IS NULL
-                `, [customerId, customerPhone, uniqueCode]);
+                // Cập nhật balance_history.customer_id nếu tìm thấy giao dịch
+                // Có 2 trường hợp uniqueCode:
+                // 1. PHONExxxxxxxx - từ realtime event (không phải mã giao dịch thực) - KHÔNG cần update balance_history
+                // 2. Mã giao dịch thực (FT..., reference_code) - cần match và update
+                if (!uniqueCode.startsWith('PHONE')) {
+                    const updateResult = await db.query(`
+                        UPDATE balance_history
+                        SET customer_id = $1,
+                            linked_customer_phone = $2,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE (transaction_content LIKE '%' || $3 || '%' OR reference_code = $3)
+                          AND customer_id IS NULL
+                    `, [customerId, customerPhone, uniqueCode]);
 
-                if (updateResult.rowCount > 0) {
-                    console.log('[CUSTOMER-INFO] ✅ Linked', updateResult.rowCount, 'balance_history records to customer');
+                    if (updateResult.rowCount > 0) {
+                        console.log('[CUSTOMER-INFO] ✅ Linked', updateResult.rowCount, 'balance_history records to customer');
+                    }
+                } else {
+                    console.log('[CUSTOMER-INFO] ℹ️ uniqueCode is phone-based, skipping balance_history update');
                 }
             } catch (customerError) {
                 // Log nhưng không fail - vẫn trả về success vì đã lưu vào balance_customer_info

@@ -169,7 +169,7 @@ const CustomerInfoManager = {
             const result = await response.json();
 
             if (result.success) {
-                console.log('[CUSTOMER-INFO] ✅ Saved to database:', uniqueCode);
+                console.log('[CUSTOMER-INFO] ✅ Saved to database:', uniqueCode, 'customerId:', result.customerId);
 
                 // 🆕 SYNC TO FIREBASE (Phase 1)
                 // After saving to PostgreSQL, sync to Firebase for legacy compatibility
