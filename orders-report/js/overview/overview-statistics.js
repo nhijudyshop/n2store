@@ -41,17 +41,20 @@ async function loadEmployeeRanges() {
         // Try campaign-specific first
         if (currentTableName) {
             const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-            const campaignSnapshot = await database.ref(`settings/employee_ranges_by_campaign/${safeName}`).once('value');
-            if (campaignSnapshot.exists()) {
-                employeeRanges = normalizeEmployeeRanges(campaignSnapshot.val());
-                console.log('[REPORT] ✅ Loaded campaign-specific employee ranges:', employeeRanges.length);
-                return;
+            const campaignDoc = await database.collection('settings').doc('employee_ranges_by_campaign').get();
+            if (campaignDoc.exists) {
+                const campaignData = campaignDoc.data();
+                if (campaignData && campaignData[safeName]) {
+                    employeeRanges = normalizeEmployeeRanges(campaignData[safeName]);
+                    console.log('[REPORT] ✅ Loaded campaign-specific employee ranges:', employeeRanges.length);
+                    return;
+                }
             }
         }
 
         // Fallback to general
-        const snapshot = await database.ref(EMPLOYEE_RANGES_PATH).once('value');
-        employeeRanges = normalizeEmployeeRanges(snapshot.val());
+        const snapshot = await database.collection('settings').doc('employee_ranges').get();
+        employeeRanges = normalizeEmployeeRanges(snapshot.exists ? snapshot.data() : null);
         console.log('[REPORT] ✅ Loaded general employee ranges:', employeeRanges.length);
     } catch (error) {
         console.error('[REPORT] ❌ Error loading employee ranges:', error);
@@ -66,8 +69,9 @@ async function loadAvailableTagsFromFirebase() {
     if (!database) return;
 
     try {
-        const snapshot = await database.ref('settings/tags').once('value');
-        availableTags = snapshot.val() || [];
+        const snapshot = await database.collection('settings').doc('tags').get();
+        const data = snapshot.exists ? snapshot.data() : null;
+        availableTags = data?.tags || [];
         console.log('[REPORT] ✅ Loaded available tags:', availableTags.length);
     } catch (error) {
         console.error('[REPORT] ❌ Error loading available tags:', error);
@@ -82,8 +86,9 @@ async function loadTrackedTags() {
     if (!database) return;
 
     try {
-        const snapshot = await database.ref(TRACKED_TAGS_PATH).once('value');
-        const saved = snapshot.val();
+        const snapshot = await database.collection('settings').doc('tracked_tags').get();
+        const data = snapshot.exists ? snapshot.data() : null;
+        const saved = data?.tags;
         if (saved && Array.isArray(saved)) {
             trackedTags = saved;
         } else {
@@ -103,7 +108,7 @@ async function saveTrackedTags() {
     if (!database) return;
 
     try {
-        await database.ref(TRACKED_TAGS_PATH).set(trackedTags);
+        await database.collection('settings').doc('tracked_tags').set({ tags: trackedTags });
         console.log('[REPORT] ✅ Saved tracked tags');
     } catch (error) {
         console.error('[REPORT] ❌ Error saving tracked tags:', error);
@@ -127,9 +132,12 @@ async function requestAndSaveEmployeeRanges() {
 
                 if (ranges.length > 0 && database && currentTableName) {
                     try {
-                        // Save to campaign-specific path
+                        // Save to campaign-specific path using Firestore
                         const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-                        await database.ref(`settings/employee_ranges_by_campaign/${safeName}`).set(ranges);
+                        await database.collection('settings').doc('employee_ranges_by_campaign').set(
+                            { [safeName]: ranges },
+                            { merge: true }
+                        );
                         console.log('[REPORT] ✅ Saved employee ranges to Firebase for:', currentTableName);
                     } catch (error) {
                         console.error('[REPORT] ❌ Error saving employee ranges:', error);

@@ -1258,10 +1258,9 @@ async function confirmSaveReport() {
 
     // Check if name already exists
     const safeReportName = reportName.replace(/[.$#\[\]\/]/g, '_');
-    const existingRef = database.ref(`${FIREBASE_PATH}/${safeReportName}`);
-    const existingSnapshot = await existingRef.once('value');
+    const existingDoc = await database.collection(FIREBASE_PATH).doc(safeReportName).get();
 
-    if (existingSnapshot.exists()) {
+    if (existingDoc.exists) {
         if (!confirm(`Tên "${reportName}" đã tồn tại. Bạn có muốn ghi đè không?`)) {
             return;
         }
@@ -1283,12 +1282,12 @@ async function confirmSaveReport() {
             totalOrders: currentData.orders.length,
             successCount: currentData.successCount || currentData.orders.length,
             errorCount: currentData.errorCount || 0,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             isSavedCopy: true,
             originalCampaign: currentTableName
         };
 
-        await existingRef.set(saveData);
+        await database.collection(FIREBASE_PATH).doc(safeReportName).set(saveData);
 
         console.log(`[REPORT] ✅ Saved report copy: ${reportName}`);
 
@@ -1322,9 +1321,11 @@ function closeManageReportsModal() {
 // Load all reports for management modal
 async function loadAllReportsForManagement() {
     try {
-        const ref = database.ref(FIREBASE_PATH);
-        const snapshot = await ref.once('value');
-        const tables = snapshot.val() || {};
+        const snapshot = await database.collection(FIREBASE_PATH).get();
+        const tables = {};
+        snapshot.forEach(doc => {
+            tables[doc.id] = doc.data();
+        });
 
         const tbody = document.getElementById('manageReportsTableBody');
         tbody.innerHTML = '';
@@ -1413,8 +1414,7 @@ async function deleteReport(safeTableName, displayName, isSavedCopy) {
     }
 
     try {
-        const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
-        await ref.remove();
+        await database.collection(FIREBASE_PATH).doc(safeTableName).delete();
 
         console.log(`[REPORT] ✅ Deleted report: ${displayName}`);
 
@@ -1530,10 +1530,10 @@ async function syncAllDataFromTab1() {
 
         // Save updated data to Firebase
         const safeTableName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-        await database.ref(`${FIREBASE_PATH}/${safeTableName}`).update({
+        await database.collection(FIREBASE_PATH).doc(safeTableName).update({
             orders: sanitizeForFirebase(currentData.orders),
             lastSyncedAt: new Date().toISOString(),
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
         console.log('[REPORT] ✅ Data synced and saved to Firebase');

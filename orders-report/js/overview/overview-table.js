@@ -24,9 +24,11 @@ async function loadAvailableTables() {
     showCachedDetailsLoading();
 
     try {
-        const ref = database.ref(FIREBASE_PATH);
-        const snapshot = await ref.once('value');
-        const tables = snapshot.val() || {};
+        const snapshot = await database.collection(FIREBASE_PATH).get();
+        const tables = {};
+        snapshot.forEach(doc => {
+            tables[doc.id] = doc.data();
+        });
 
         const selector = document.getElementById('tableSelector');
         selector.innerHTML = '<option value="">-- Chọn bảng --</option>';
