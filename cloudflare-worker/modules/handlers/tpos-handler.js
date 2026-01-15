@@ -9,7 +9,7 @@ import { fetchWithRetry } from '../utils/fetch-utils.js';
 import { jsonResponse, errorResponse, proxyResponseWithCors, CORS_HEADERS } from '../utils/cors-utils.js';
 import { buildTposHeaders, learnFromResponse, getDynamicHeader } from '../utils/header-learner.js';
 import { getCachedToken, cacheToken } from '../utils/token-cache.js';
-import { API_ENDPOINTS } from '../../config/endpoints.js';
+import { API_ENDPOINTS } from '../config/endpoints.js';
 
 /**
  * Handle POST /api/Product/ExportProductV2

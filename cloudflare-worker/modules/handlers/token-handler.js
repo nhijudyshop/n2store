@@ -8,7 +8,7 @@
 import { fetchWithRetry } from '../utils/fetch-utils.js';
 import { jsonResponse, errorResponse } from '../utils/cors-utils.js';
 import { getCachedToken, cacheToken } from '../utils/token-cache.js';
-import { API_ENDPOINTS } from '../../config/endpoints.js';
+import { API_ENDPOINTS } from '../config/endpoints.js';
 
 /**
  * Handle POST /api/token

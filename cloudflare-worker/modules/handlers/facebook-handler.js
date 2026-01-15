@@ -8,7 +8,7 @@
 import { fetchWithRetry } from '../utils/fetch-utils.js';
 import { jsonResponse, errorResponse, CORS_HEADERS } from '../utils/cors-utils.js';
 import { buildTposHeaders, learnFromResponse } from '../utils/header-learner.js';
-import { API_ENDPOINTS } from '../../config/endpoints.js';
+import { API_ENDPOINTS } from '../config/endpoints.js';
 
 /**
  * Handle POST /api/facebook-send
