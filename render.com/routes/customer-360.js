@@ -216,8 +216,23 @@ router.get('/customer/:phone/tickets', async (req, res) => {
     }
 
     try {
+        // Select with timezone conversion for timestamp fields (UTC to Vietnam)
         let query = `
-            SELECT * FROM customer_tickets
+            SELECT id, ticket_code, firebase_id, phone, customer_id, customer_name,
+                order_id, tpos_order_id, tracking_code, carrier, type, status, priority,
+                subject, description, products, original_cod, new_cod, refund_amount,
+                wallet_credited, wallet_transaction_id, virtual_credit_id, virtual_credit_amount,
+                fix_cod_reason,
+                (deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as deadline,
+                (carrier_deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as carrier_deadline,
+                (received_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as received_at,
+                (settled_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as settled_at,
+                assigned_to, internal_note, attachments, action_history,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+                (updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as updated_at,
+                (completed_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as completed_at,
+                created_by
+            FROM customer_tickets
             WHERE phone = $1
         `;
         const params = [phone];
@@ -267,8 +282,11 @@ router.get('/customer/:phone/activities', async (req, res) => {
     }
 
     try {
+        // Select specific columns with timezone conversion for created_at (UTC to Vietnam)
         const result = await db.query(`
-            SELECT * FROM customer_activities
+            SELECT id, phone, customer_id, activity_type, title, description, metadata, icon, color,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+            FROM customer_activities
             WHERE phone = $1
             ORDER BY created_at DESC
             LIMIT $2 OFFSET $3
@@ -330,7 +348,11 @@ router.get('/customer/:phone/transactions', async (req, res) => {
     }
 
     try {
-        let query = `SELECT * FROM wallet_transactions WHERE phone = $1`;
+        // Select specific columns with timezone conversion for created_at (UTC to Vietnam)
+        let query = `SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
+            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+            reference_id, note, metadata, updated_at
+            FROM wallet_transactions WHERE phone = $1`;
         const params = [phone];
 
         if (type) {
@@ -338,8 +360,8 @@ router.get('/customer/:phone/transactions', async (req, res) => {
             params.push(type);
         }
 
-        const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
-        const countResult = await db.query(countQuery, params);
+        const countQuery = `SELECT COUNT(*) FROM wallet_transactions WHERE phone = $1` + (type ? ` AND type = $2` : '');
+        const countResult = await db.query(countQuery, type ? [phone, type] : [phone]);
         const total = parseInt(countResult.rows[0].count);
 
         query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
@@ -849,39 +871,56 @@ router.get('/ticket', async (req, res) => {
     const { page = 1, limit = 50, status, type, phone, order_id, assigned_to } = req.query;
 
     try {
-        let query = `SELECT * FROM customer_tickets WHERE 1=1`;
+        // Base columns with timezone conversion for timestamp fields (UTC to Vietnam)
+        const selectColumns = `
+            id, ticket_code, firebase_id, phone, customer_id, customer_name,
+            order_id, tpos_order_id, tracking_code, carrier, type, status, priority,
+            subject, description, products, original_cod, new_cod, refund_amount,
+            wallet_credited, wallet_transaction_id, virtual_credit_id, virtual_credit_amount,
+            fix_cod_reason,
+            (deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as deadline,
+            (carrier_deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as carrier_deadline,
+            (received_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as received_at,
+            (settled_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as settled_at,
+            assigned_to, internal_note, attachments, action_history,
+            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+            (updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as updated_at,
+            (completed_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as completed_at,
+            created_by
+        `;
+        let whereClause = `WHERE 1=1`;
         const params = [];
         let paramIndex = 1;
 
         if (status) {
-            query += ` AND status = $${paramIndex++}`;
+            whereClause += ` AND status = $${paramIndex++}`;
             params.push(status);
         }
         if (type) {
-            query += ` AND type = $${paramIndex++}`;
+            whereClause += ` AND type = $${paramIndex++}`;
             params.push(type);
         }
         if (phone) {
             const normalizedPhone = normalizePhone(phone);
-            query += ` AND phone = $${paramIndex++}`;
+            whereClause += ` AND phone = $${paramIndex++}`;
             params.push(normalizedPhone);
         }
         if (order_id) {
-            query += ` AND order_id ILIKE $${paramIndex++}`;
+            whereClause += ` AND order_id ILIKE $${paramIndex++}`;
             params.push(`%${order_id}%`);
         }
         if (assigned_to) {
-            query += ` AND assigned_to = $${paramIndex++}`;
+            whereClause += ` AND assigned_to = $${paramIndex++}`;
             params.push(assigned_to);
         }
 
         // Count total
-        const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+        const countQuery = `SELECT COUNT(*) FROM customer_tickets ${whereClause}`;
         const countResult = await db.query(countQuery, params);
         const total = parseInt(countResult.rows[0].count);
 
         // Add pagination
-        query += ` ORDER BY created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
+        let query = `SELECT ${selectColumns} FROM customer_tickets ${whereClause} ORDER BY created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
         params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
 
         const result = await db.query(query, params);
@@ -925,8 +964,23 @@ router.get('/ticket/:code', async (req, res) => {
     const { code } = req.params;
 
     try {
+        // Select with timezone conversion for timestamp fields (UTC to Vietnam)
         const result = await db.query(`
-            SELECT t.*, c.name as customer_full_name, w.balance as wallet_balance, w.virtual_balance as wallet_virtual
+            SELECT t.id, t.ticket_code, t.firebase_id, t.phone, t.customer_id, t.customer_name,
+                t.order_id, t.tpos_order_id, t.tracking_code, t.carrier, t.type, t.status, t.priority,
+                t.subject, t.description, t.products, t.original_cod, t.new_cod, t.refund_amount,
+                t.wallet_credited, t.wallet_transaction_id, t.virtual_credit_id, t.virtual_credit_amount,
+                t.fix_cod_reason,
+                (t.deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as deadline,
+                (t.carrier_deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as carrier_deadline,
+                (t.received_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as received_at,
+                (t.settled_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as settled_at,
+                t.assigned_to, t.internal_note, t.attachments, t.action_history,
+                (t.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+                (t.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as updated_at,
+                (t.completed_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as completed_at,
+                t.created_by,
+                c.name as customer_full_name, w.balance as wallet_balance, w.virtual_balance as wallet_virtual
             FROM customer_tickets t
             LEFT JOIN customers c ON t.phone = c.phone
             LEFT JOIN customer_wallets w ON t.phone = w.phone
@@ -1501,12 +1555,13 @@ router.get('/transactions/consolidated', async (req, res) => {
     const nullQuery = `SELECT NULL::int as id, NULL as source_type, NULL as type, NULL::timestamp as created_at, NULL::bigint as amount, NULL as description, NULL as customer_name, NULL as customer_phone, NULL as icon, NULL as color WHERE false`;
 
     // Wallet transactions query
+    // Convert created_at from UTC to Vietnam timezone (UTC+7)
     walletQuery = `
         SELECT
             wt.id,
             'wallet_transaction' as source_type,
             wt.type as type,
-            wt.created_at,
+            (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
             wt.amount,
             wt.note as description,
             c.name as customer_name,
@@ -1523,12 +1578,13 @@ router.get('/transactions/consolidated', async (req, res) => {
     `;
 
     // Customer activities query
+    // Convert created_at from UTC to Vietnam timezone (UTC+7)
     activityQuery = `
         SELECT
             ca.id,
             'customer_activity' as source_type,
             ca.activity_type as type,
-            ca.created_at,
+            (ca.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
             NULL::bigint as amount,
             COALESCE(ca.title, '') || CASE WHEN ca.description IS NOT NULL THEN ' - ' || ca.description ELSE '' END as description,
             c.name as customer_name,
@@ -1541,12 +1597,13 @@ router.get('/transactions/consolidated', async (req, res) => {
     `;
 
     // Customer tickets query
+    // Convert created_at from UTC to Vietnam timezone (UTC+7)
     ticketQuery = `
         SELECT
             ct.id,
             'customer_ticket' as source_type,
             ct.type as type,
-            ct.created_at,
+            (ct.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
             ct.refund_amount as amount,
             'Sự vụ ' || ct.type || ' - ' || COALESCE(ct.ticket_code, '') as description,
             c.name as customer_name,
