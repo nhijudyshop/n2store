@@ -22,7 +22,6 @@
 const express = require('express');
 const router = express.Router();
 const { normalizePhone, getOrCreateCustomer } = require('../../utils/customer-helpers');
-const { getOrCreateCustomerFromTPOS } = require('../../services/customer-creation-service');
 const { processDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
 
 // Try to import SSE router for notifications
@@ -206,9 +205,8 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        // Get or create customer with TPOS data
-        const customerResult = await getOrCreateCustomerFromTPOS(db, normalizedPhone, null);
-        const customerId = customerResult.customerId;
+        // Get or create customer
+        const customerId = await getOrCreateCustomer(db, normalizedPhone, customer_name);
 
         // Sync customer address from order if provided and customer has no address
         if (customer_address && customerId) {

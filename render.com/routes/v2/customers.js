@@ -24,7 +24,6 @@
 const express = require('express');
 const router = express.Router();
 const { normalizePhone, getOrCreateCustomer } = require('../../utils/customer-helpers');
-const { searchCustomerByPhone } = require('../../services/tpos-customer-service');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -222,7 +221,7 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/v2/customers
- * Create new customer (auto-fetch status from TPOS if not provided)
+ * Create new customer
  */
 router.post('/', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -234,24 +233,9 @@ router.post('/', async (req, res) => {
     }
 
     try {
-        // Fetch status from TPOS if not provided
-        let finalStatus = status;
-        let tposData = null;
-
-        if (!finalStatus) {
-            const tposResult = await searchCustomerByPhone(normalizedPhone);
-            if (tposResult.success && tposResult.customer) {
-                finalStatus = tposResult.customer.status || 'Bình thường';
-                tposData = tposResult.customer;
-                console.log(`[Customers V2] Fetched TPOS status for ${normalizedPhone}: ${finalStatus}`);
-            } else {
-                finalStatus = 'Bình thường';
-            }
-        }
-
         const result = await db.query(`
-            INSERT INTO customers (phone, name, email, address, status, tier, tags, tpos_id, tpos_data)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO customers (phone, name, email, address, status, tier, tags)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (phone) DO UPDATE SET
                 name = COALESCE(EXCLUDED.name, customers.name),
                 email = COALESCE(EXCLUDED.email, customers.email),
@@ -259,20 +243,16 @@ router.post('/', async (req, res) => {
                 status = COALESCE(EXCLUDED.status, customers.status),
                 tier = COALESCE(EXCLUDED.tier, customers.tier),
                 tags = COALESCE(EXCLUDED.tags, customers.tags),
-                tpos_id = COALESCE(EXCLUDED.tpos_id, customers.tpos_id),
-                tpos_data = COALESCE(EXCLUDED.tpos_data, customers.tpos_data),
                 updated_at = NOW()
             RETURNING *
         `, [
             normalizedPhone,
-            name || tposData?.name || 'Khách hàng ' + normalizedPhone,
+            name || 'Khách hàng ' + normalizedPhone,
             email,
-            address || tposData?.address,
-            finalStatus,
+            address,
+            status || 'Bình thường',
             tier || 'normal',
-            JSON.stringify(tags || []),
-            tposData?.id?.toString() || null,
-            tposData ? JSON.stringify(tposData) : null
+            JSON.stringify(tags || [])
         ]);
 
         res.json({ success: true, data: result.rows[0] });
