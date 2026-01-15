@@ -1886,6 +1886,7 @@ router.get('/customer-info/:uniqueCode', async (req, res) => {
 /**
  * POST /api/sepay/customer-info
  * Lưu hoặc cập nhật thông tin khách hàng
+ * Giờ đây cũng tạo/cập nhật customer trong bảng customers (Source of Truth)
  */
 router.post('/customer-info', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -1900,7 +1901,7 @@ router.post('/customer-info', async (req, res) => {
             });
         }
 
-        // Insert or update customer info
+        // Insert or update customer info (legacy table - sẽ xóa sau)
         const query = `
             INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone)
             VALUES ($1, $2, $3)
@@ -1918,17 +1919,48 @@ router.post('/customer-info', async (req, res) => {
             customerPhone || null
         ]);
 
-        console.log('[CUSTOMER-INFO] ✅ Saved:', {
+        console.log('[CUSTOMER-INFO] ✅ Saved to balance_customer_info:', {
             uniqueCode,
             customerName,
             customerPhone
         });
 
-        // NOTE: customers table has been removed - data is now only in balance_customer_info
+        // 🆕 PHASE 1.3 PREP: Cũng tạo/cập nhật customer trong bảng customers (Source of Truth)
+        let customerId = null;
+        if (customerPhone) {
+            try {
+                const customerResult = await getOrCreateCustomerFromTPOS(db, customerPhone, null);
+                customerId = customerResult.customerId;
+                console.log('[CUSTOMER-INFO] ✅ Also synced to customers table:', {
+                    phone: customerPhone,
+                    customerId,
+                    created: customerResult.created
+                });
+
+                // Cập nhật balance_history.customer_id nếu tìm thấy giao dịch theo uniqueCode
+                // uniqueCode có thể là transaction_content hoặc reference_code
+                const updateResult = await db.query(`
+                    UPDATE balance_history
+                    SET customer_id = $1,
+                        linked_customer_phone = $2,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE (transaction_content LIKE '%' || $3 || '%' OR reference_code = $3)
+                      AND customer_id IS NULL
+                `, [customerId, customerPhone, uniqueCode]);
+
+                if (updateResult.rowCount > 0) {
+                    console.log('[CUSTOMER-INFO] ✅ Linked', updateResult.rowCount, 'balance_history records to customer');
+                }
+            } catch (customerError) {
+                // Log nhưng không fail - vẫn trả về success vì đã lưu vào balance_customer_info
+                console.error('[CUSTOMER-INFO] ⚠️ Failed to sync to customers table:', customerError.message);
+            }
+        }
 
         res.json({
             success: true,
-            data: result.rows[0]
+            data: result.rows[0],
+            customerId // Trả thêm customerId để frontend biết
         });
     } catch (error) {
         console.error('[CUSTOMER-INFO] Error saving:', error);
