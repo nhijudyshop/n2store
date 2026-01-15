@@ -747,7 +747,13 @@ function saveChanges() {
     }
 
     const oldData = { ...currentData[itemIndex] };
-    const newTimestamp = convertToTimestamp(normalizedDate);
+
+    // Only update timestamp if date actually changed
+    const oldDateStr = formatDate(new Date(parseFloat(oldData.duyetHoanValue)));
+    const dateChanged = oldDateStr !== normalizedDate;
+    const newTimestamp = dateChanged ? convertToTimestamp(normalizedDate) : oldData.duyetHoanValue;
+
+    console.log('[HangHoan] Date comparison:', { oldDateStr, normalizedDate, dateChanged });
 
     // Update local data
     currentData[itemIndex] = {
@@ -757,7 +763,7 @@ function saveChanges() {
         customerInfoValue: infoValue,
         totalAmountValue: amountValue,
         causeValue: noteValue,
-        duyetHoanValue: newTimestamp,
+        duyetHoanValue: newTimestamp, // Only changes if date was modified
         user: cachedAuthState?.displayName || cachedAuthState?.username || "Unknown",
     };
 
