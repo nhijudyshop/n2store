@@ -1,25 +1,26 @@
 // =====================================================
 // OVERVIEW - FIREBASE: Database Operations
+// MIGRATION: Changed from Realtime Database to Firestore
 // =====================================================
 
 // FIREBASE FUNCTIONS
 // =====================================================
 
 /**
- * Load default table name from Firebase settings (same as tab1 uses)
+ * Load default table name from Firestore settings (same as tab1 uses)
  * This ensures the dropdown auto-selects the correct table on page refresh
  */
 async function loadDefaultTableNameFromFirebase() {
     if (!database) {
-        console.log('[REPORT] Firebase not available for loading default table name');
+        console.log('[REPORT] Firestore not available for loading default table name');
         return 'Bảng 1'; // Default fallback
     }
 
     try {
-        const snapshot = await database.ref(TABLE_NAME_SETTINGS_PATH).once('value');
-        const data = snapshot.val();
+        const doc = await database.collection('settings').doc('table_name').get();
+        const data = doc.exists ? doc.data() : null;
         if (data && data.name) {
-            console.log('[REPORT] ✅ Loaded default table name from Firebase:', data.name);
+            console.log('[REPORT] ✅ Loaded default table name from Firestore:', data.name);
             return data.name;
         }
     } catch (error) {
@@ -72,31 +73,31 @@ function sanitizeForFirebase(obj) {
     return obj;
 }
 
-// Save data to Firebase by table name
+// Save data to Firestore by table name
 async function saveToFirebase(tableName, data) {
     if (!database) {
-        console.error('[REPORT] Firebase database not initialized');
+        console.error('[REPORT] Firestore database not initialized');
         return false;
     }
 
     try {
         const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
-        const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
+        const docRef = database.collection(FIREBASE_PATH).doc(safeTableName);
 
         // Sanitize orders data to remove invalid keys
         const sanitizedOrders = sanitizeForFirebase(data.orders);
 
-        await ref.set({
+        await docRef.set({
             tableName: tableName, // Store original table name
             orders: sanitizedOrders,
             fetchedAt: data.fetchedAt,
             totalOrders: data.totalOrders,
             successCount: data.successCount,
             errorCount: data.errorCount,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP
-        });
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
 
-        console.log(`[REPORT] ✅ Saved to Firebase with table name: ${tableName}`);
+        console.log(`[REPORT] ✅ Saved to Firestore with table name: ${tableName}`);
 
         // Update Firebase status and broadcast
         firebaseTableName = tableName;
@@ -105,26 +106,26 @@ async function saveToFirebase(tableName, data) {
 
         return true;
     } catch (error) {
-        console.error('[REPORT] ❌ Error saving to Firebase:', error);
+        console.error('[REPORT] ❌ Error saving to Firestore:', error);
         return false;
     }
 }
 
-// Load data from Firebase by table name
+// Load data from Firestore by table name
 async function loadFromFirebase(tableName) {
     if (!database) {
-        console.error('[REPORT] Firebase database not initialized');
+        console.error('[REPORT] Firestore database not initialized');
         return null;
     }
 
     try {
         const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
-        const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
-        const snapshot = await ref.once('value');
+        const docRef = database.collection(FIREBASE_PATH).doc(safeTableName);
+        const doc = await docRef.get();
 
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            console.log(`[REPORT] ✅ Loaded from Firebase: ${tableName}, orders: ${data.orders?.length || 0}`);
+        if (doc.exists) {
+            const data = doc.data();
+            console.log(`[REPORT] ✅ Loaded from Firestore: ${tableName}, orders: ${data.orders?.length || 0}`);
 
             // Update Firebase status
             firebaseTableName = tableName;
@@ -133,26 +134,26 @@ async function loadFromFirebase(tableName) {
 
             return data;
         } else {
-            console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName}`);
+            console.log(`[REPORT] ⚠️ No Firestore data for table: ${tableName}`);
             return null;
         }
     } catch (error) {
-        console.error('[REPORT] ❌ Error loading from Firebase:', error);
+        console.error('[REPORT] ❌ Error loading from Firestore:', error);
         return null;
     }
 }
 
-// Check Firebase for current table data
+// Check Firestore for current table data
 async function checkFirebaseStatus() {
     if (!currentTableName || !database) return;
 
     try {
         const safeTableName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-        const ref = database.ref(`${FIREBASE_PATH}/${safeTableName}`);
-        const snapshot = await ref.once('value');
+        const docRef = database.collection(FIREBASE_PATH).doc(safeTableName);
+        const doc = await docRef.get();
 
-        if (snapshot.exists()) {
-            const data = snapshot.val();
+        if (doc.exists) {
+            const data = doc.data();
             firebaseTableName = currentTableName;
             firebaseDataFetchedAt = data.fetchedAt;
         } else {
@@ -162,7 +163,7 @@ async function checkFirebaseStatus() {
 
         broadcastTableStatus();
     } catch (error) {
-        console.error('[REPORT] Error checking Firebase status:', error);
+        console.error('[REPORT] Error checking Firestore status:', error);
     }
 }
 
