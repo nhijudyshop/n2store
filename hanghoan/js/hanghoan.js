@@ -714,7 +714,10 @@ function saveChanges() {
     const noteValue = sanitizeInput(document.getElementById("editNote").value);
     const dateValue = document.getElementById("editDate").value;
 
+    console.log('[HangHoan] Form values:', { deliveryValue, scenarioValue, infoValue, amountValue, noteValue, dateValue });
+
     if (!isValidDateFormat(dateValue)) {
+        console.error('[HangHoan] Invalid date format:', dateValue);
         showError("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         alert("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         isSaving = false;
@@ -723,23 +726,29 @@ function saveChanges() {
 
     // Normalize date to DD-MM-YY format
     const normalizedDate = normalizeDate(dateValue);
+    console.log('[HangHoan] Normalized date:', normalizedDate);
 
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
+        console.error('[HangHoan] Missing fields:', { deliveryValue, scenarioValue, infoValue, amountValue, noteValue });
         showError("Vui lòng điền đầy đủ thông tin");
         alert("Vui lòng điền đầy đủ thông tin");
         isSaving = false;
         return;
     }
 
+    console.log('[HangHoan] editingRow:', editingRow);
     if (!editingRow) {
-        console.error('[HangHoan] No editing row');
+        console.error('[HangHoan] No editing row - this should not happen!');
+        alert('Lỗi: Không tìm thấy dòng đang sửa. Vui lòng thử lại.');
         isSaving = false;
         return;
     }
 
     const rowId = editingRow.dataset?.id || editingRow.querySelector("td[id]")?.id;
+    console.log('[HangHoan] rowId:', rowId);
     if (!rowId) {
-        console.error('[HangHoan] No row ID found');
+        console.error('[HangHoan] No row ID found in editingRow');
+        alert('Lỗi: Không tìm thấy ID dòng. Vui lòng thử lại.');
         isSaving = false;
         return;
     }
