@@ -49,6 +49,7 @@ async function getOrCreateCustomerFromTPOS(db, phone, tposData = null) {
                     address = COALESCE($3, address),
                     tpos_id = COALESCE($4, tpos_id),
                     tpos_data = COALESCE($5, tpos_data),
+                    status = COALESCE($6, status),
                     updated_at = CURRENT_TIMESTAMP
                 WHERE phone = $1
             `, [
@@ -56,9 +57,10 @@ async function getOrCreateCustomerFromTPOS(db, phone, tposData = null) {
                 tposData.name,
                 tposData.address,
                 tposData.id?.toString(),
-                JSON.stringify(tposData)
+                JSON.stringify(tposData),
+                tposData.status || null
             ]);
-            console.log(`[CUSTOMER-SERVICE] Updated customer ${normalized} with TPOS data (ID: ${tposData.id})`);
+            console.log(`[CUSTOMER-SERVICE] Updated customer ${normalized} with TPOS data (ID: ${tposData.id}, Status: ${tposData.status || 'unchanged'})`);
         }
 
         return {
@@ -71,11 +73,16 @@ async function getOrCreateCustomerFromTPOS(db, phone, tposData = null) {
     // 2. Customer not exists - fetch TPOS data if not provided
     if (!tposData) {
         console.log(`[CUSTOMER-SERVICE] No TPOS data provided, fetching from TPOS for ${normalized}`);
-        const tposResult = await searchCustomerByPhone(normalized);
+        try {
+            const tposResult = await searchCustomerByPhone(normalized);
 
-        if (tposResult.success && tposResult.customer) {
-            tposData = tposResult.customer;
-            console.log(`[CUSTOMER-SERVICE] Got TPOS data: ${tposData.name} (ID: ${tposData.id})`);
+            if (tposResult.success && tposResult.customer) {
+                tposData = tposResult.customer;
+                console.log(`[CUSTOMER-SERVICE] Got TPOS data: ${tposData.name} (ID: ${tposData.id})`);
+            }
+        } catch (tposError) {
+            // Log error but continue - customer will be created without TPOS data
+            console.error(`[CUSTOMER-SERVICE] TPOS fetch failed for ${normalized}:`, tposError.message);
         }
     }
 
@@ -84,18 +91,21 @@ async function getOrCreateCustomerFromTPOS(db, phone, tposData = null) {
     const address = tposData?.address || null;
     const tposId = tposData?.id?.toString() || null;
     const tposDataJson = tposData ? JSON.stringify(tposData) : null;
+    // Status từ TPOS hoặc NULL nếu không có TPOS data
+    const status = tposData?.status || null;
 
     result = await db.query(`
         INSERT INTO customers (phone, name, address, tpos_id, tpos_data, status, tier, created_at)
-        VALUES ($1, $2, $3, $4, $5, 'Bình thường', 'new', CURRENT_TIMESTAMP)
+        VALUES ($1, $2, $3, $4, $5, $6, 'new', CURRENT_TIMESTAMP)
         ON CONFLICT (phone) DO UPDATE SET
             name = COALESCE(EXCLUDED.name, customers.name),
             address = COALESCE(EXCLUDED.address, customers.address),
             tpos_id = COALESCE(EXCLUDED.tpos_id, customers.tpos_id),
             tpos_data = COALESCE(EXCLUDED.tpos_data, customers.tpos_data),
+            status = COALESCE(EXCLUDED.status, customers.status),
             updated_at = CURRENT_TIMESTAMP
         RETURNING id, name
-    `, [normalized, name, address, tposId, tposDataJson]);
+    `, [normalized, name, address, tposId, tposDataJson, status]);
 
     const newCustomer = result.rows[0];
     console.log(`[CUSTOMER-SERVICE] Created customer: ${name} (${normalized}) - ID: ${newCustomer.id}, TPOS: ${tposId || 'N/A'}`);

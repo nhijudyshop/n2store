@@ -18,6 +18,7 @@ const express = require('express');
 const router = express.Router();
 const sseRouter = require('./realtime-sse');
 const { normalizePhone, getOrCreateCustomer } = require('../utils/customer-helpers');
+const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
 
 // =====================================================
@@ -1389,8 +1390,20 @@ router.post('/balance-history/link-customer', async (req, res) => {
 
         const tx = txResult.rows[0];
 
-        // 2. Get or create customer
-        const customerId = await getOrCreateCustomer(db, phone, tx.customer_name);
+        // Check if transaction already processed and has different customer (relink attempt)
+        if (tx.wallet_processed && tx.customer_id && tx.linked_customer_phone !== phone) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'Giao dịch đã được xử lý ví. Không thể đổi khách hàng.',
+                details: 'Liên hệ kế toán để điều chỉnh nếu cần thiết.',
+                current_customer: tx.linked_customer_phone
+            });
+        }
+
+        // 2. Get or create customer with TPOS data (fetches status from TPOS)
+        const customerResult = await getOrCreateCustomerFromTPOS(db, phone, null);
+        const customerId = customerResult.customerId;
 
         // 3. Link transaction to customer
         await db.query(`
