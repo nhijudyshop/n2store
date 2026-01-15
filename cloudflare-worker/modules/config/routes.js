@@ -53,6 +53,7 @@ export const ROUTES = {
     CUSTOMER_SEARCH: { pattern: '/api/customer-search*' },
     TRANSACTIONS: { pattern: '/api/transactions/*' },
     BALANCE_HISTORY: { pattern: '/api/balance-history/*' },
+    BALANCE_HISTORY_V2: { pattern: '/api/v2/balance-history/*' },
 };
 
 /**
@@ -93,6 +94,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/ticket')) return 'TICKET';
     if (pathname.startsWith('/api/customer-search')) return 'CUSTOMER_SEARCH';
     if (pathname.startsWith('/api/transactions/')) return 'TRANSACTIONS';
+    if (pathname.startsWith('/api/v2/balance-history/')) return 'BALANCE_HISTORY_V2';
     if (pathname.startsWith('/api/balance-history/')) return 'BALANCE_HISTORY';
 
     // TPOS Order patterns
