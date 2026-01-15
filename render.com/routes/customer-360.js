@@ -438,7 +438,7 @@ router.post('/customer/batch', async (req, res) => {
 
 /**
  * POST /api/customer/search
- * Search customers
+ * Search customers with wallet balance
  */
 router.post('/customer-search-v2', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -449,8 +449,15 @@ router.post('/customer-search-v2', async (req, res) => {
     }
 
     try {
+        // Search customers and JOIN with wallets to get balance
         const result = await db.query(`
-            SELECT * FROM search_customers_priority($1, $2)
+            SELECT
+                s.*,
+                COALESCE(w.balance, 0) as balance,
+                COALESCE(w.virtual_balance, 0) as virtual_balance,
+                COALESCE(w.real_balance, 0) as real_balance
+            FROM search_customers_priority($1, $2) s
+            LEFT JOIN wallets w ON s.phone = w.phone
         `, [query, parseInt(limit)]);
 
         res.json({ success: true, data: result.rows });
