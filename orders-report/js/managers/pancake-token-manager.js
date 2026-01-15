@@ -459,6 +459,11 @@ class PancakeTokenManager {
             console.log('[PANCAKE-TOKEN] Valid token found in active account');
             this.currentToken = token;
             this.currentTokenExpiry = payload.exp;
+
+            // Cache to localStorage for faster access next time
+            this.saveTokenToLocalStorage(token, payload.exp);
+            console.log('[PANCAKE-TOKEN] ✅ Token cached to localStorage');
+
             return token;
 
         } catch (error) {
