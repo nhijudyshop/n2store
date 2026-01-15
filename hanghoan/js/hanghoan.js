@@ -1099,11 +1099,16 @@ async function fixCorruptedTimestamps() {
         await collectionRef.doc("hanghoan").update({ data: data });
         console.log('[Migration] Firebase updated successfully');
 
-        // Clear cache and reload
-        invalidateCache();
-        updateTable(true);
+        // CRITICAL: Update local cache with fixed data BEFORE re-render
+        setCachedData(data);
+        localDataCache = data; // Also update in-memory cache directly
 
-        alert(`Đã sửa ${corruptedItems.length} items thành công!`);
+        // Clear persistent cache and reload UI
+        invalidateCache();
+        renderTableFromData(data);
+        updateStats(data);
+
+        alert(`Đã sửa ${corruptedItems.length} items thành công! Vui lòng refresh trang.`);
         console.log('[Migration] Complete!');
 
     } catch (error) {
