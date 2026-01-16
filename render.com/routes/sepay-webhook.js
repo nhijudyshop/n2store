@@ -1156,17 +1156,19 @@ async function processDebtUpdate(db, transactionId) {
                         // Got customer directly (newest match from TPOS)
                         customerName = tposResult.customer.name;
 
-                        // Update balance_customer_info with fetched name
-                        await db.query(
-                            `UPDATE balance_customer_info
-                             SET customer_name = $1,
-                                 name_fetch_status = 'SUCCESS',
-                                 updated_at = CURRENT_TIMESTAMP
-                             WHERE UPPER(unique_code) = $2`,
-                            [customerName, qrCode]
-                        );
+                        // DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+                        // Customer data is now stored in 'customers' table via getOrCreateCustomerFromTPOS below
+                        // Old UPDATE commented out:
+                        // await db.query(
+                        //     `UPDATE balance_customer_info
+                        //      SET customer_name = $1,
+                        //          name_fetch_status = 'SUCCESS',
+                        //          updated_at = CURRENT_TIMESTAMP
+                        //      WHERE UPPER(unique_code) = $2`,
+                        //     [customerName, qrCode]
+                        // );
 
-                        console.log('[DEBT-UPDATE] ✅ Updated customer name from TPOS:', customerName);
+                        console.log('[DEBT-UPDATE] ✅ Fetched customer name from TPOS:', customerName);
                     } else {
                         console.log('[DEBT-UPDATE] No TPOS match for phone:', phone);
                     }
@@ -1315,24 +1317,13 @@ async function processDebtUpdate(db, transactionId) {
             }
         }
 
-        // Save to balance_customer_info
-        await db.query(
-            `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (unique_code) DO UPDATE SET
-                 customer_phone = EXCLUDED.customer_phone,
-                 customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
-                 extraction_note = EXCLUDED.extraction_note,
-                 name_fetch_status = EXCLUDED.name_fetch_status,
-                 updated_at = CURRENT_TIMESTAMP`,
-            [
-                uniqueCode,
-                exactPhone,
-                customerName,
-                extractResult.note,
-                customerName ? 'SUCCESS' : 'PENDING'
-            ]
-        );
+        // DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+        // Customer data is now stored in 'customers' table via getOrCreateCustomerFromTPOS
+        // Old code commented out for reference:
+        // await db.query(
+        //     `INSERT INTO balance_customer_info ...`,
+        //     [uniqueCode, exactPhone, customerName, extractResult.note, ...]
+        // );
 
         // NEW: Create/Update customer with TPOS data + process wallet realtime
         let customerId = null;
@@ -1453,21 +1444,8 @@ async function processDebtUpdate(db, transactionId) {
         if (matchedPhones.length === 0) {
             console.log('[DEBT-UPDATE] No customers found for:', partialPhone);
 
-            await db.query(
-                `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-                 VALUES ($1, $2, $3, $4, $5)
-                 ON CONFLICT (unique_code) DO UPDATE SET
-                     extraction_note = EXCLUDED.extraction_note,
-                     name_fetch_status = EXCLUDED.name_fetch_status,
-                     updated_at = CURRENT_TIMESTAMP`,
-                [
-                    `PARTIAL${partialPhone}`,
-                    null,
-                    null,
-                    `PARTIAL_PHONE_NO_MATCH:${partialPhone}`,
-                    'NOT_FOUND'
-                ]
-            );
+            // DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+            // await db.query(`INSERT INTO balance_customer_info ...`);
 
             return {
                 success: false,
@@ -1487,23 +1465,8 @@ async function processDebtUpdate(db, transactionId) {
             console.log(`[DEBT-UPDATE] Auto-selecting: ${firstCustomer.name}`);
 
             const uniqueCode = `PHONE${fullPhone}`;
-            await db.query(
-                `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-                 VALUES ($1, $2, $3, $4, $5)
-                 ON CONFLICT (unique_code) DO UPDATE SET
-                     customer_phone = EXCLUDED.customer_phone,
-                     customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
-                     extraction_note = EXCLUDED.extraction_note,
-                     name_fetch_status = EXCLUDED.name_fetch_status,
-                     updated_at = CURRENT_TIMESTAMP`,
-                [
-                    uniqueCode,
-                    fullPhone,
-                    firstCustomer.name,
-                    `AUTO_MATCHED_FROM_PARTIAL:${partialPhone}`,
-                    'SUCCESS'
-                ]
-            );
+            // DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+            // await db.query(`INSERT INTO balance_customer_info ...`);
 
             // NEW: Create/Update customer with TPOS data + process wallet realtime
             let customerId = null;
@@ -1901,31 +1864,19 @@ router.post('/customer-info', async (req, res) => {
             });
         }
 
-        // Insert or update customer info (legacy table - sẽ xóa sau)
-        const query = `
-            INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (unique_code)
-            DO UPDATE SET
-                customer_name = EXCLUDED.customer_name,
-                customer_phone = EXCLUDED.customer_phone,
-                updated_at = CURRENT_TIMESTAMP
-            RETURNING *
-        `;
+        // DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+        // Customer data is now stored ONLY in 'customers' table via getOrCreateCustomerFromTPOS
+        // Old INSERT commented out:
+        // const query = `INSERT INTO balance_customer_info ...`;
+        // const result = await db.query(query, [uniqueCode, customerName, customerPhone]);
 
-        const result = await db.query(query, [
-            uniqueCode,
-            customerName || null,
-            customerPhone || null
-        ]);
-
-        console.log('[CUSTOMER-INFO] ✅ Saved to balance_customer_info:', {
+        console.log('[CUSTOMER-INFO] Processing:', {
             uniqueCode,
             customerName,
             customerPhone
         });
 
-        // 🆕 PHASE 1.3 PREP: Cũng tạo/cập nhật customer trong bảng customers (Source of Truth)
+        // 🆕 PHASE 1.3: Chỉ tạo/cập nhật customer trong bảng customers (Source of Truth)
         let customerId = null;
         if (customerPhone) {
             try {
@@ -2997,28 +2948,28 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
             ]
         );
 
-        // 5. NEW: Save resolved customer to balance_customer_info for debt tracking
-        const uniqueCode = `PHONE${selectedCustomer.phone}`;
-        await db.query(
-            `INSERT INTO balance_customer_info
-             (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (unique_code) DO UPDATE SET
-                 customer_phone = EXCLUDED.customer_phone,
-                 customer_name = EXCLUDED.customer_name,
-                 extraction_note = EXCLUDED.extraction_note,
-                 name_fetch_status = EXCLUDED.name_fetch_status,
-                 updated_at = CURRENT_TIMESTAMP`,
-            [
-                uniqueCode,
-                selectedCustomer.phone,
-                customerName,  // Use customerName which is updated from TPOS, not selectedCustomer.name
-                `RESOLVED_FROM_PENDING:${match.extracted_phone}`,
-                'SUCCESS'
-            ]
-        );
-
-        console.log('[RESOLVE-MATCH] ✅ Saved to balance_customer_info:', uniqueCode);
+        // DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+        // Customer data is now stored in 'customers' table via getOrCreateCustomerFromTPOS above
+        // Old INSERT commented out:
+        // const uniqueCode = `PHONE${selectedCustomer.phone}`;
+        // await db.query(
+        //     `INSERT INTO balance_customer_info
+        //      (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+        //      VALUES ($1, $2, $3, $4, $5)
+        //      ON CONFLICT (unique_code) DO UPDATE SET
+        //          customer_phone = EXCLUDED.customer_phone,
+        //          customer_name = EXCLUDED.customer_name,
+        //          extraction_note = EXCLUDED.extraction_note,
+        //          name_fetch_status = EXCLUDED.name_fetch_status,
+        //          updated_at = CURRENT_TIMESTAMP`,
+        //     [
+        //         uniqueCode,
+        //         selectedCustomer.phone,
+        //         customerName,
+        //         `RESOLVED_FROM_PENDING:${match.extracted_phone}`,
+        //         'SUCCESS'
+        //     ]
+        // );
 
         console.log('[RESOLVE-MATCH] ✅ Match resolved:', {
             match_id: id,
@@ -3328,81 +3279,31 @@ router.get('/phone-data', async (req, res) => {
 
 /**
  * PUT /api/sepay/customer-info/:unique_code
- * Update customer name and/or fetch status for a specific unique code
- * NOTE: This endpoint is used by backend processes for name fetching from TPOS
- * For transaction-level phone updates, use PUT /api/sepay/transaction/:id/phone instead
+ * DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+ * Customer data is now stored ONLY in 'customers' table via getOrCreateCustomerFromTPOS
+ * This endpoint is kept for backward compatibility but only logs the request
  * Body: {
  *   customer_name?: string,
  *   name_fetch_status?: string
  * }
  */
 router.put('/customer-info/:unique_code', async (req, res) => {
-    const db = req.app.locals.chatDb;
     const { unique_code } = req.params;
     const { customer_name, name_fetch_status } = req.body;
 
-    try {
-        // Build dynamic update query for balance_customer_info
-        const updates = [];
-        const values = [];
-        let paramIndex = 1;
+    // DEPRECATED: balance_customer_info is now a snapshot table
+    // Old UPDATE logic commented out - see migration 020_snapshot_balance_customer_info.sql
+    console.log(`[UPDATE-CUSTOMER-INFO] DEPRECATED - Skipping update to balance_customer_info for ${unique_code}:`, {
+        customer_name,
+        name_fetch_status
+    });
 
-        if (customer_name !== undefined) {
-            updates.push(`customer_name = $${paramIndex++}`);
-            values.push(customer_name);
-        }
-
-        if (name_fetch_status !== undefined) {
-            updates.push(`name_fetch_status = $${paramIndex++}`);
-            values.push(name_fetch_status);
-        } else if (customer_name !== undefined && customer_name !== null) {
-            // Auto-set SUCCESS if setting a name without explicit status
-            updates.push(`name_fetch_status = $${paramIndex++}`);
-            values.push('SUCCESS');
-        }
-
-        if (updates.length === 0) {
-            return res.status(400).json({
-                success: false,
-                error: 'No fields to update (customer_name or name_fetch_status required)'
-            });
-        }
-
-        updates.push('updated_at = CURRENT_TIMESTAMP');
-        values.push(unique_code);
-
-        // Update balance_customer_info
-        const query = `
-            UPDATE balance_customer_info
-            SET ${updates.join(', ')}
-            WHERE unique_code = $${paramIndex}
-            RETURNING *
-        `;
-
-        console.log(`[UPDATE-CUSTOMER-INFO] ${unique_code}:`, { customer_name, name_fetch_status });
-
-        const result = await db.query(query, values);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                error: 'Unique code not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: result.rows[0]
-        });
-
-    } catch (error) {
-        console.error('[UPDATE-CUSTOMER-INFO] Error:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to update customer info',
-            message: error.message
-        });
-    }
+    // Return success for backward compatibility
+    res.json({
+        success: true,
+        deprecated: true,
+        message: 'balance_customer_info is now a snapshot table. Customer data is stored in customers table.'
+    });
 });
 
 /**
@@ -3528,31 +3429,32 @@ router.put('/transaction/:id/phone', async (req, res) => {
             console.log(`[TRANSACTION-PHONE-UPDATE] Using provided name: ${customerName}`);
         }
 
-        // Save/update to balance_customer_info if we have customer info
-        if (customerName) {
-            try {
-                await db.query(
-                    `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
-                     VALUES ($1, $2, $3, $4, $5)
-                     ON CONFLICT (unique_code) DO UPDATE SET
-                         customer_phone = EXCLUDED.customer_phone,
-                         customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
-                         extraction_note = EXCLUDED.extraction_note,
-                         name_fetch_status = EXCLUDED.name_fetch_status,
-                         updated_at = CURRENT_TIMESTAMP`,
-                    [
-                        `PHONE${newPhone}`,
-                        newPhone,
-                        customerName,
-                        is_manual_entry ? 'MANUAL_ENTRY_BY_STAFF' : 'MANUAL_ENTRY_TPOS_LOOKUP',
-                        'SUCCESS'
-                    ]
-                );
-                console.log(`[TRANSACTION-PHONE-UPDATE] Saved customer info to balance_customer_info`);
-            } catch (saveError) {
-                console.error(`[TRANSACTION-PHONE-UPDATE] Failed to save customer info:`, saveError.message);
-            }
-        }
+        // DEPRECATED: balance_customer_info is now a snapshot table (Phase 1.3)
+        // Customer data is now stored in 'customers' table via getOrCreateCustomerFromTPOS above
+        // Old INSERT commented out:
+        // if (customerName) {
+        //     try {
+        //         await db.query(
+        //             `INSERT INTO balance_customer_info (unique_code, customer_phone, customer_name, extraction_note, name_fetch_status)
+        //              VALUES ($1, $2, $3, $4, $5)
+        //              ON CONFLICT (unique_code) DO UPDATE SET
+        //                  customer_phone = EXCLUDED.customer_phone,
+        //                  customer_name = COALESCE(NULLIF(EXCLUDED.customer_name, ''), balance_customer_info.customer_name),
+        //                  extraction_note = EXCLUDED.extraction_note,
+        //                  name_fetch_status = EXCLUDED.name_fetch_status,
+        //                  updated_at = CURRENT_TIMESTAMP`,
+        //             [
+        //                 `PHONE${newPhone}`,
+        //                 newPhone,
+        //                 customerName,
+        //                 is_manual_entry ? 'MANUAL_ENTRY_BY_STAFF' : 'MANUAL_ENTRY_TPOS_LOOKUP',
+        //                 'SUCCESS'
+        //             ]
+        //         );
+        //     } catch (saveError) {
+        //         console.error(`[TRANSACTION-PHONE-UPDATE] Failed to save customer info:`, saveError.message);
+        //     }
+        // }
 
         // For accountant edit (is_manual_entry = false), credit wallet immediately
         let walletResult = null;
