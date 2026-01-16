@@ -120,37 +120,54 @@ WebSocket connection cho Pancake realtime updates.
 
 ## Page Switching trong Chat Modal
 
-### Giải pháp: Dùng cùng fb_id, đổi pages[pageId] filter
+### Vấn đề: fb_id khác nhau giữa các page
 
-Customer `fb_id` (trong `customers[0].fb_id`) là **unique trong hệ thống Pancake** và dùng được cho tất cả pages.
+**QUAN TRỌNG:** Facebook PSID (`fb_id`) là **page-scoped** - cùng 1 người nhưng khác `fb_id` trên mỗi page.
 
-Khi switch page, chỉ cần đổi `pages[pageId]` filter:
+Ví dụ: Khách "Huỳnh Thành Đạt"
+- Page A: fb_id = `24948162744877764`
+- Page B: fb_id = `25717004554573583`
+
+→ Không thể dùng fb_id của page A để tìm conversation trên page B.
+
+### Giải pháp: Search by name, lấy conversation mới nhất
 
 ```
-1. Mở modal → Lưu fb_id: window.currentCustomerFbId = customers[0].fb_id
+1. Mở modal → Lưu tên khách: window.currentCustomerName = order.Name
 
 2. User chọn page khác từ dropdown
    ↓
-3. Gọi API với CÙNG fb_id, chỉ đổi pages[newPageId]=0
-   GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
+3. Search conversations theo tên khách trên page mới
+   GET /conversations/search?q={customerName}&access_token=...
    ↓
-4. Load messages từ conversation tương ứng
+4. Filter kết quả theo page_id, sort by updated_at
+   ↓
+5. Lấy conversation mới nhất, load messages
 ```
 
 ### API Flow
 
 ```javascript
-// Khi mở modal - lưu fb_id từ conversation data
-window.currentCustomerFbId = inboxConv.customers?.[0]?.fb_id;
+// Khi mở modal - lưu tên khách hàng
+window.currentCustomerName = order.Name || order.PartnerName;
 
-// Khi switch page - dùng CÙNG fb_id với page filter mới
-const result = await pancakeDataManager.fetchConversationsByCustomerFbId(newPageId, customerFbId);
-// API call: GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
+// Khi switch page - search by name
+const searchResult = await pancakeDataManager.searchConversations(customerName, [pageId]);
+
+// Filter và sort lấy conversation mới nhất
+let conversations = searchResult.conversations.filter(conv => conv.page_id === pageId);
+conversations.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+const mostRecentConv = conversations[0];
+
+// Update fb_id và UUID từ conversation mới
+window.currentCustomerFbId = mostRecentConv.customers[0].fb_id;
+window.currentCustomerUUID = mostRecentConv.customers[0].id;
 
 // Load messages
 const response = await pancakeDataManager.fetchMessagesForConversation(
     pageId,
-    conversationId,
+    mostRecentConv.id,
     null,
     customerUUID
 );
@@ -160,7 +177,7 @@ const response = await pancakeDataManager.fetchMessagesForConversation(
 
 | API | Endpoint | Mô tả |
 |-----|----------|-------|
-| Get by fb_id | `GET /conversations/customer/{fb_id}?pages[{pageId}]=0` | Lấy conversations của customer trên page |
+| Search | `GET /conversations/search?q={name}` | Tìm conversations theo tên |
 | Messages | `GET /pages/{pageId}/conversations/{convId}/messages` | Lấy tin nhắn |
 
 ### Implementation
@@ -169,9 +186,9 @@ const response = await pancakeDataManager.fetchMessagesForConversation(
 
 | Function | Line | Mô tả |
 |----------|------|-------|
-| `openChatModal()` | 1975-1980 | Lưu `window.currentCustomerFbId` |
-| `onChatPageChanged()` | 851 | Handle page dropdown change |
-| `reloadChatForSelectedPage()` | 887 | Dùng cùng fb_id, đổi pages[pageId] |
+| `openChatModal()` | ~1499 | Lưu `window.currentCustomerName` |
+| `onChatPageChanged()` | 851 | Handle page dropdown change, sync send dropdown |
+| `reloadChatForSelectedPage()` | 886 | Search by name, lấy conversation mới nhất |
 
 ### Sync Dropdowns
 
@@ -184,6 +201,11 @@ if (sendPageSelect) {
     sendPageSelect.value = pageId;
 }
 ```
+
+### Lưu ý về trùng tên
+
+Search by name có thể trả về nhiều người cùng tên. Hiện tại chỉ lấy conversation mới nhất.
+Nếu cần chính xác hơn, có thể kết hợp thêm số điện thoại hoặc thông tin khác.
 
 ---
 

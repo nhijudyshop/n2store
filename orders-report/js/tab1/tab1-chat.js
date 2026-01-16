@@ -880,8 +880,7 @@ window.onChatPageChanged = async function (pageId) {
 
 /**
  * Reload messages/comments when page is changed
- * Uses same customer fb_id with different pages[pageId] filter
- * API: GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
+ * Uses search by customer name, then gets most recent conversation
  * @param {string} pageId - New page ID to load messages from
  */
 window.reloadChatForSelectedPage = async function (pageId) {
@@ -890,17 +889,17 @@ window.reloadChatForSelectedPage = async function (pageId) {
     const modalBody = document.getElementById('chatModalBody');
     if (!modalBody) return;
 
-    // Get customer fb_id saved when modal opened
-    const customerFbId = window.currentCustomerFbId;
-    if (!customerFbId) {
-        console.error('[PAGE-RELOAD] No customer fb_id available');
+    // Get customer name saved when modal opened
+    const customerName = window.currentCustomerName;
+    if (!customerName) {
+        console.error('[PAGE-RELOAD] No customer name available');
         const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
         const pageName = selectedPage?.page_name || pageId;
         modalBody.innerHTML = `
             <div class="chat-error">
                 <i class="fas fa-exclamation-triangle"></i>
                 <p>Không thể chuyển page</p>
-                <p style="font-size: 12px; color: #9ca3af;">Thiếu thông tin customer fb_id</p>
+                <p style="font-size: 12px; color: #9ca3af;">Thiếu thông tin tên khách hàng</p>
             </div>`;
         return;
     }
@@ -914,13 +913,15 @@ window.reloadChatForSelectedPage = async function (pageId) {
         </div>`;
 
     try {
-        // STEP 1: Fetch conversations using SAME fb_id with NEW page filter
-        // API: GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
-        console.log('[PAGE-RELOAD] 🔍 Fetching conversations with fb_id:', customerFbId, 'on page:', pageId);
+        // STEP 1: Search conversations by customer name on the new page
+        console.log('[PAGE-RELOAD] 🔍 Searching conversations for name:', customerName, 'on page:', pageId);
 
-        const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(pageId, customerFbId);
+        const searchResult = await window.pancakeDataManager.searchConversations(customerName, [pageId]);
 
-        if (!result.success || result.conversations.length === 0) {
+        // Filter to only this page's conversations
+        let conversations = (searchResult.conversations || []).filter(conv => conv.page_id === pageId);
+
+        if (conversations.length === 0) {
             console.warn('[PAGE-RELOAD] ⚠️ No conversations found for this page');
             const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
             const pageName = selectedPage?.page_name || pageId;
@@ -933,12 +934,25 @@ window.reloadChatForSelectedPage = async function (pageId) {
             return;
         }
 
-        console.log('[PAGE-RELOAD] ✅ Found', result.conversations.length, 'conversations');
+        // Sort by updated_at to get most recent first
+        conversations.sort((a, b) => {
+            const dateA = new Date(a.updated_at || 0).getTime();
+            const dateB = new Date(b.updated_at || 0).getTime();
+            return dateB - dateA;
+        });
 
-        // Update customer UUID from result
-        if (result.customerUuid) {
-            window.currentCustomerUUID = result.customerUuid;
+        console.log('[PAGE-RELOAD] ✅ Found', conversations.length, 'conversations, sorted by most recent');
+
+        // Update customer fb_id and UUID from the most recent conversation
+        const mostRecentConv = conversations[0];
+        if (mostRecentConv.customers?.[0]) {
+            window.currentCustomerFbId = mostRecentConv.customers[0].fb_id;
+            window.currentCustomerUUID = mostRecentConv.customers[0].id;
+            console.log('[PAGE-RELOAD] Updated fb_id:', window.currentCustomerFbId, 'UUID:', window.currentCustomerUUID);
         }
+
+        // Use conversations as result for the rest of the function
+        const result = { conversations, success: true };
 
         // STEP 2: Filter conversations by current chat type
         const targetType = currentChatType === 'comment' ? 'COMMENT' : 'INBOX';
