@@ -163,14 +163,15 @@
     function highlightNewMessagesInTable(items) {
         if (!items || items.length === 0) return;
 
-        // Group by psid
+        // Group by psid + pageId for accurate matching
         const psidMap = new Map();
         items.forEach(item => {
             if (item.psid) {
-                if (!psidMap.has(item.psid)) {
-                    psidMap.set(item.psid, { messages: 0, comments: 0 });
+                const key = item.page_id ? `${item.psid}_${item.page_id}` : item.psid;
+                if (!psidMap.has(key)) {
+                    psidMap.set(key, { messages: 0, comments: 0, psid: item.psid, pageId: item.page_id });
                 }
-                const entry = psidMap.get(item.psid);
+                const entry = psidMap.get(key);
                 if (item.type === 'INBOX') {
                     entry.messages++;
                 } else {
@@ -180,9 +181,19 @@
         });
 
         // Find rows in table and add badge
-        psidMap.forEach((counts, psid) => {
-            // Find rows with matching PSID
-            const rows = document.querySelectorAll(`tr[data-psid="${psid}"]`);
+        psidMap.forEach((counts) => {
+            const { psid, pageId } = counts;
+            // Find rows with matching PSID (and optionally pageId for more precision)
+            let rows;
+            if (pageId) {
+                rows = document.querySelectorAll(`tr[data-psid="${psid}"][data-page-id="${pageId}"]`);
+                // Fallback to psid-only if no match with pageId
+                if (rows.length === 0) {
+                    rows = document.querySelectorAll(`tr[data-psid="${psid}"]`);
+                }
+            } else {
+                rows = document.querySelectorAll(`tr[data-psid="${psid}"]`);
+            }
             rows.forEach(row => {
                 // Add badge to messages column
                 if (counts.messages > 0) {

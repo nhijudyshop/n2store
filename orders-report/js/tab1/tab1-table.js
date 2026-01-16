@@ -631,8 +631,11 @@ function createRowHTML(order) {
                 ${order.noteEdited ? '<span class="note-edited-badge" style="margin-left: 4px;" title="Ghi chú đã được sửa">✏️</span>' : ''}
             </td>`;
 
+    // Extract pageId from Facebook_PostId (format: pageId_postId)
+    const pageId = order.Facebook_PostId ? order.Facebook_PostId.split('_')[0] : '';
+
     return `
-        <tr class="${rowClass} ${mergedClass}">
+        <tr class="${rowClass} ${mergedClass}" data-psid="${order.Facebook_ASUserId || ''}" data-page-id="${pageId}" data-order-id="${order.Id}">
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             ${actionsHTML}
             <td data-column="stt">
