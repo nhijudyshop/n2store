@@ -687,17 +687,11 @@ function handleDeleteButton(button) {
         });
 }
 
-function handleCheckboxClick(checkbox) {
+async function handleCheckboxClick(checkbox) {
     const isChecked = checkbox.checked;
     const row = checkbox.closest("tr");
 
-    if (!collectionRef) {
-        checkbox.checked = !isChecked;
-        showError("Database chưa sẵn sàng");
-        return;
-    }
-
-    // Parse stored item data
+    // Parse stored item data first to get customer info for confirm message
     let item;
     try {
         item = JSON.parse(row.dataset.item || "{}");
@@ -708,6 +702,23 @@ function handleCheckboxClick(checkbox) {
 
     if (!item.duyetHoanValue) {
         checkbox.checked = !isChecked;
+        return;
+    }
+
+    // Custom confirm dialog
+    const action = isChecked ? "đánh dấu đã nhận" : "hủy đánh dấu";
+    const confirmed = notificationManager
+        ? await notificationManager.confirm(`Bạn muốn ${action} đơn "${item.customerInfoValue}"?`, "Xác nhận")
+        : confirm(`Bạn muốn ${action} đơn "${item.customerInfoValue}"?`);
+
+    if (!confirmed) {
+        checkbox.checked = !isChecked;
+        return;
+    }
+
+    if (!collectionRef) {
+        checkbox.checked = !isChecked;
+        showError("Database chưa sẵn sàng");
         return;
     }
 
