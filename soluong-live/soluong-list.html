@@ -1090,6 +1090,13 @@
         let isSyncMode = false;
         let isMergeVariants = false; // Merge variants mode disabled by default
         let soluongIsHideEditControls = false; // Hide edit controls mode disabled by default
+        let firebaseDetachFn = null; // Store detach function for cleanup on page unload
+
+        // Sync listeners state (Optimization - Step 2: Only listen when needed)
+        let syncListenersAttached = false;
+        let syncPageListenerRef = null;
+        let syncSearchListenerRef = null;
+        let lastSyncedSearchTimestamp = 0; // Move here for cleanup function access
 
         // Optimization: Cache normalized product names for faster search
         let normalizedProductNames = new Map(); // productId -> normalized name
@@ -2275,80 +2282,20 @@
             });
         });
 
-        function setupFirebaseListeners() {
-            database.ref('soluongDisplaySettings').on('value', (snapshot) => {
-                const settings = snapshot.val();
-                if (settings && !isSyncingFromFirebase) {
-                    isSyncingFromFirebase = true;
-                    displaySettings = settings;
-                    itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
-                    // Cache to localStorage for faster next load
-                    localStorage.setItem('soluongDisplaySettings', JSON.stringify(settings));
-                    applySettings();
-                    updateProductGrid();
-                    console.log('🔥 Settings synced from Firebase');
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
-                }
-            });
+        /**
+         * Setup sync listeners (Optimization - Step 2)
+         * Only called when isSyncMode = true
+         */
+        function setupSyncListeners() {
+            if (syncListenersAttached) {
+                console.log('🔄 [setupSyncListeners] Sync listeners already attached, skipping');
+                return;
+            }
 
-            // Listen for merge variants mode changes
-            database.ref('soluongIsMergeVariants').on('value', (snapshot) => {
-                const mergeMode = snapshot.val();
-                if (mergeMode !== null && mergeMode !== undefined && !isSyncingFromFirebase) {
-                    isSyncingFromFirebase = true;
-                    isMergeVariants = mergeMode;
-                    localStorage.setItem('soluongIsMergeVariants', JSON.stringify(isMergeVariants));
-                    updateMergeVariantsUI();
-                    updateProductGrid();
-                    console.log('🔥 Merge variants mode synced from Firebase:', isMergeVariants);
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
-                }
-            });
+            console.log('🔄 [setupSyncListeners] Setting up sync listeners...');
 
-            // Products listener - USE CHILD LISTENERS
-            setupFirebaseChildListeners(database, soluongProducts, {
-                onProductAdded: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product added from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
-                        buildNormalizedCache(Object.values(soluongProducts));
-                        if (searchKeyword) {
-                            performSearch(searchKeyword, false);
-                        } else {
-                            updateProductGrid();
-                        }
-                    }
-                },
-                onProductChanged: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product updated from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
-                        buildNormalizedCache(Object.values(soluongProducts));
-                        if (searchKeyword) {
-                            performSearch(searchKeyword, false);
-                        } else {
-                            updateProductGrid();
-                        }
-                    }
-                },
-                onProductRemoved: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product removed from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
-                        buildNormalizedCache(Object.values(soluongProducts));
-                        if (searchKeyword) {
-                            performSearch(searchKeyword, false);
-                        } else {
-                            updateProductGrid();
-                        }
-                    }
-                },
-                onInitialLoadComplete: () => {
-                    console.log('✅ Firebase listeners setup complete');
-                }
-            });
-
-            database.ref('soluongSyncCurrentPage').on('value', (snapshot) => {
+            // Listen for page sync
+            syncPageListenerRef = database.ref('soluongSyncCurrentPage').on('value', (snapshot) => {
                 const page = snapshot.val();
 
                 if (isSyncMode && page && !isSyncingFromFirebase && page !== currentPage) {
@@ -2368,9 +2315,8 @@
                 }
             });
 
-            // Optimization: Listen for search data changes (with timestamp for race condition handling)
-            let lastSyncedSearchTimestamp = 0;
-            database.ref('soluongSyncSearchData').on('value', (snapshot) => {
+            // Listen for search data sync
+            syncSearchListenerRef = database.ref('soluongSyncSearchData').on('value', (snapshot) => {
                 const searchData = snapshot.val();
 
                 // Only sync if in sync mode and not already syncing
@@ -2414,6 +2360,110 @@
                     }
                 }
             });
+
+            syncListenersAttached = true;
+            console.log('✅ [setupSyncListeners] Sync listeners attached');
+        }
+
+        /**
+         * Cleanup sync listeners (Optimization - Step 2)
+         * Called when isSyncMode = false or on page unload
+         */
+        function cleanupSyncListeners() {
+            if (!syncListenersAttached) {
+                return;
+            }
+
+            console.log('🔄 [cleanupSyncListeners] Cleaning up sync listeners...');
+
+            database.ref('soluongSyncCurrentPage').off('value', syncPageListenerRef);
+            database.ref('soluongSyncSearchData').off('value', syncSearchListenerRef);
+
+            syncPageListenerRef = null;
+            syncSearchListenerRef = null;
+            syncListenersAttached = false;
+            lastSyncedSearchTimestamp = 0; // Reset timestamp
+
+            console.log('✅ [cleanupSyncListeners] Sync listeners detached');
+        }
+
+        function setupFirebaseListeners() {
+            database.ref('soluongDisplaySettings').on('value', (snapshot) => {
+                const settings = snapshot.val();
+                if (settings && !isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+                    displaySettings = settings;
+                    itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
+                    // Cache to localStorage for faster next load
+                    localStorage.setItem('soluongDisplaySettings', JSON.stringify(settings));
+                    applySettings();
+                    updateProductGrid();
+                    console.log('🔥 Settings synced from Firebase');
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
+            // Listen for merge variants mode changes
+            database.ref('soluongIsMergeVariants').on('value', (snapshot) => {
+                const mergeMode = snapshot.val();
+                if (mergeMode !== null && mergeMode !== undefined && !isSyncingFromFirebase) {
+                    isSyncingFromFirebase = true;
+                    isMergeVariants = mergeMode;
+                    localStorage.setItem('soluongIsMergeVariants', JSON.stringify(isMergeVariants));
+                    updateMergeVariantsUI();
+                    updateProductGrid();
+                    console.log('🔥 Merge variants mode synced from Firebase:', isMergeVariants);
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
+            // Products listener - USE CHILD LISTENERS
+            firebaseDetachFn = setupFirebaseChildListeners(database, soluongProducts, {
+                onProductAdded: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product added from Firebase:', product.NameGet);
+                        // Rebuild normalized cache
+                        buildNormalizedCache(Object.values(soluongProducts));
+                        if (searchKeyword) {
+                            performSearch(searchKeyword, false);
+                        } else {
+                            updateProductGrid();
+                        }
+                    }
+                },
+                onProductChanged: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product updated from Firebase:', product.NameGet);
+                        // Rebuild normalized cache
+                        buildNormalizedCache(Object.values(soluongProducts));
+                        if (searchKeyword) {
+                            performSearch(searchKeyword, false);
+                        } else {
+                            updateProductGrid();
+                        }
+                    }
+                },
+                onProductRemoved: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product removed from Firebase:', product.NameGet);
+                        // Rebuild normalized cache
+                        buildNormalizedCache(Object.values(soluongProducts));
+                        if (searchKeyword) {
+                            performSearch(searchKeyword, false);
+                        } else {
+                            updateProductGrid();
+                        }
+                    }
+                },
+                onInitialLoadComplete: () => {
+                    console.log('✅ Firebase listeners setup complete');
+                }
+            });
+
+            // Only setup sync listeners if isSyncMode is already true (from URL hash)
+            if (isSyncMode) {
+                setupSyncListeners();
+            }
         }
 
         const settingsChannel = new BroadcastChannel('soluong-settings');
@@ -2447,10 +2497,16 @@
 
             updateSyncToggleButton();
 
+            // Toggle sync listeners based on sync mode (Optimization - Step 2)
             if (isSyncMode && !wasSyncMode) {
+                // Sync mode just turned ON - setup listeners
+                setupSyncListeners();
                 database.ref('soluongSyncCurrentPage').set(currentPage).catch(error => {
                     console.error('❌ Lỗi sync page khi vào sync mode:', error);
                 });
+            } else if (!isSyncMode && wasSyncMode) {
+                // Sync mode just turned OFF - cleanup listeners
+                cleanupSyncListeners();
             }
 
             if (params.page) {
@@ -2591,6 +2647,23 @@
                     }
                 });
             }
+        });
+
+        // Cleanup Firebase listeners when leaving page
+        window.addEventListener('beforeunload', () => {
+            console.log('🧹 Cleaning up Firebase listeners...');
+
+            // Cleanup product listeners
+            if (firebaseDetachFn) {
+                firebaseDetachFn.detach();
+            }
+
+            // Cleanup settings listeners
+            database.ref('soluongDisplaySettings').off('value');
+            database.ref('soluongIsMergeVariants').off('value');
+
+            // Cleanup sync listeners (using dedicated function)
+            cleanupSyncListeners();
         });
     </script>
     <!-- Note: notification-system.js is loaded by compat.js ES Module -->

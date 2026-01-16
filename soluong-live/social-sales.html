@@ -766,6 +766,7 @@
         let isSyncMode = false;
         let isMergeVariants = false;
         let isSyncingFromFirebase = false;
+        let firebaseDetachFn = null; // Store detach function for cleanup on page unload
 
         // Staff info from AuthManager
         const authManager = new AuthManager();
@@ -1175,7 +1176,7 @@
             });
 
             // Products listener - real-time sync
-            setupFirebaseChildListeners(database, soluongProducts, {
+            firebaseDetachFn = setupFirebaseChildListeners(database, soluongProducts, {
                 onProductAdded: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product added:', product.NameGet);
@@ -1326,6 +1327,19 @@
                     }
                 });
             }
+        });
+
+        // Cleanup Firebase listeners when leaving page
+        window.addEventListener('beforeunload', () => {
+            console.log('🧹 Cleaning up Firebase listeners...');
+
+            // Cleanup product listeners
+            if (firebaseDetachFn) {
+                firebaseDetachFn.detach();
+            }
+
+            // Cleanup settings listener
+            database.ref('soluongDisplaySettings').off('value');
         });
     </script>
     <!-- Note: notification-system.js is loaded by compat.js ES Module -->

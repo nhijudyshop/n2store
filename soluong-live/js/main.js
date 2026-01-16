@@ -55,6 +55,7 @@ firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 let isSyncingFromFirebase = false;
+let firebaseDetachFn = null; // Store detach function for cleanup on page unload
 
 function checkSyncMode() {
     const hash = window.location.hash.substring(1);
@@ -2229,7 +2230,7 @@ function setupFirebaseListeners() {
     });
 
     // Setup child listeners for products (realtime sync)
-    setupFirebaseChildListeners(database, soluongProducts, {
+    firebaseDetachFn = setupFirebaseChildListeners(database, soluongProducts, {
         onProductAdded: (product) => {
             if (!isSyncingFromFirebase) {
                 console.log('🔥 Product added from Firebase:', product.NameGet);
@@ -2487,4 +2488,17 @@ Object.assign(window, {
     // Snapshot modal functions
     closeSnapshotModal,
     restoreSnapshotFromModal
+});
+
+// Cleanup Firebase listeners when leaving page
+window.addEventListener('beforeunload', () => {
+    console.log('🧹 Cleaning up Firebase listeners...');
+
+    // Cleanup product listeners
+    if (firebaseDetachFn) {
+        firebaseDetachFn.detach();
+    }
+
+    // Cleanup settings listener
+    database.ref('soluongDisplaySettings').off('value');
 });

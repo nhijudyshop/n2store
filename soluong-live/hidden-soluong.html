@@ -1054,6 +1054,13 @@
         let isSyncMode = false;
         let isMergeVariants = false;
         let soluongIsHideEditControls = false;
+        let firebaseDetachFn = null; // Store detach function for cleanup on page unload
+
+        // Sync listeners state (Optimization - Step 2: Only listen when needed)
+        let syncListenersAttached = false;
+        let syncPageListenerRef = null;
+        let syncSearchListenerRef = null;
+        let lastSyncedSearchTimestamp = 0; // Move here for cleanup function access
 
         let normalizedProductNames = new Map();
 
@@ -1992,6 +1999,111 @@
             });
         });
 
+        /**
+         * Setup sync listeners (Optimization - Step 2)
+         * Only called when isSyncMode = true
+         */
+        function setupSyncListeners() {
+            if (syncListenersAttached) {
+                console.log('🔄 [setupSyncListeners] Sync listeners already attached, skipping');
+                return;
+            }
+
+            console.log('🔄 [setupSyncListeners] Setting up sync listeners...');
+
+            // Listen for page sync
+            syncPageListenerRef = database.ref('hiddenSoluongSyncCurrentPage').on('value', (snapshot) => {
+                const page = snapshot.val();
+
+                if (isSyncMode && page && !isSyncingFromFirebase && page !== currentPage) {
+                    isSyncingFromFirebase = true;
+
+                    const totalPages = Math.ceil(Object.keys(soluongProducts).filter(key => soluongProducts[key].isHidden).length / itemsPerPage);
+
+                    if (page >= 1 && page <= totalPages) {
+                        currentPage = page;
+                        updateProductGrid();
+                        updateHashUrl();
+                        console.log('🔥 Sync page synced from Firebase: page', page);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+
+                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                }
+            });
+
+            // Listen for search data sync
+            syncSearchListenerRef = database.ref('hiddenSoluongSyncSearchData').on('value', (snapshot) => {
+                const searchData = snapshot.val();
+
+                // Only sync if in sync mode and not already syncing
+                if (isSyncMode && !isSyncingFromFirebase && searchData) {
+                    const keyword = searchData.keyword || '';
+                    const timestamp = searchData.timestamp || 0;
+
+                    // Optimization: Only apply if this is a newer search (prevent race conditions)
+                    if (timestamp > lastSyncedSearchTimestamp) {
+                        const currentKeyword = document.getElementById('searchInput')?.value || '';
+
+                        // Only update if keyword is different
+                        if (keyword !== currentKeyword) {
+                            isSyncingFromFirebase = true;
+                            lastSyncedSearchTimestamp = timestamp;
+
+                            const searchInput = document.getElementById('searchInput');
+                            const searchClear = document.getElementById('searchClear');
+                            const searchContainer = document.getElementById('searchContainer');
+
+                            if (searchInput) {
+                                searchInput.value = keyword;
+
+                                // Show/hide clear button
+                                if (keyword) {
+                                    searchClear.classList.add('show');
+                                    searchContainer.classList.add('active');
+                                } else {
+                                    searchClear.classList.remove('show');
+                                    searchContainer.classList.remove('active');
+                                }
+                            }
+
+                            // Perform search without syncing back to Firebase (prevent loop)
+                            performSearch(keyword, false);
+
+                            console.log('🔥 Search synced from Firebase:', keyword, '@', new Date(timestamp).toLocaleTimeString());
+
+                            setTimeout(() => { isSyncingFromFirebase = false; }, 100);
+                        }
+                    }
+                }
+            });
+
+            syncListenersAttached = true;
+            console.log('✅ [setupSyncListeners] Sync listeners attached');
+        }
+
+        /**
+         * Cleanup sync listeners (Optimization - Step 2)
+         * Called when isSyncMode = false or on page unload
+         */
+        function cleanupSyncListeners() {
+            if (!syncListenersAttached) {
+                return;
+            }
+
+            console.log('🔄 [cleanupSyncListeners] Cleaning up sync listeners...');
+
+            database.ref('hiddenSoluongSyncCurrentPage').off('value', syncPageListenerRef);
+            database.ref('hiddenSoluongSyncSearchData').off('value', syncSearchListenerRef);
+
+            syncPageListenerRef = null;
+            syncSearchListenerRef = null;
+            syncListenersAttached = false;
+            lastSyncedSearchTimestamp = 0; // Reset timestamp
+
+            console.log('✅ [cleanupSyncListeners] Sync listeners detached');
+        }
+
         function setupFirebaseListeners() {
             // Listen for hidden products display settings changes
             database.ref('hiddenSoluongDisplaySettings').on('value', (snapshot) => {
@@ -2029,7 +2141,7 @@
             });
 
             // Products listener - USE CHILD LISTENERS
-            setupFirebaseChildListeners(database, soluongProducts, {
+            firebaseDetachFn = setupFirebaseChildListeners(database, soluongProducts, {
                 onProductAdded: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product added from Firebase:', product.NameGet);
@@ -2068,66 +2180,10 @@
                 }
             });
 
-            database.ref('soluongSyncCurrentPage').on('value', (snapshot) => {
-                const page = snapshot.val();
-
-                if (isSyncMode && page && !isSyncingFromFirebase && page !== currentPage) {
-                    isSyncingFromFirebase = true;
-
-                    const totalPages = Math.ceil(Object.keys(soluongProducts).length / itemsPerPage);
-
-                    if (page >= 1 && page <= totalPages) {
-                        currentPage = page;
-                        updateProductGrid();
-                        updateHashUrl();
-                        console.log('🔥 Sync page synced from Firebase: page', page);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-
-                    setTimeout(() => { isSyncingFromFirebase = false; }, 100);
-                }
-            });
-
-            let lastSyncedSearchTimestamp = 0;
-            database.ref('soluongSyncSearchData').on('value', (snapshot) => {
-                const searchData = snapshot.val();
-
-                if (isSyncMode && !isSyncingFromFirebase && searchData) {
-                    const keyword = searchData.keyword || '';
-                    const timestamp = searchData.timestamp || 0;
-
-                    if (timestamp > lastSyncedSearchTimestamp) {
-                        const currentKeyword = document.getElementById('searchInput')?.value || '';
-
-                        if (keyword !== currentKeyword) {
-                            isSyncingFromFirebase = true;
-                            lastSyncedSearchTimestamp = timestamp;
-
-                            const searchInput = document.getElementById('searchInput');
-                            const searchClear = document.getElementById('searchClear');
-                            const searchContainer = document.getElementById('searchContainer');
-
-                            if (searchInput) {
-                                searchInput.value = keyword;
-
-                                if (keyword) {
-                                    searchClear.classList.add('show');
-                                    searchContainer.classList.add('active');
-                                } else {
-                                    searchClear.classList.remove('show');
-                                    searchContainer.classList.remove('active');
-                                }
-                            }
-
-                            performSearch(keyword, false);
-
-                            console.log('🔥 Search synced from Firebase:', keyword, '@', new Date(timestamp).toLocaleTimeString());
-
-                            setTimeout(() => { isSyncingFromFirebase = false; }, 100);
-                        }
-                    }
-                }
-            });
+            // Only setup sync listeners if isSyncMode is already true (from URL hash)
+            if (isSyncMode) {
+                setupSyncListeners();
+            }
         }
 
         window.addEventListener('storage', (e) => {
@@ -2148,10 +2204,16 @@
 
             updateSyncToggleButton();
 
+            // Toggle sync listeners based on sync mode (Optimization - Step 2)
             if (isSyncMode && !wasSyncMode) {
-                database.ref('soluongSyncCurrentPage').set(currentPage).catch(error => {
+                // Sync mode just turned ON - setup listeners
+                setupSyncListeners();
+                database.ref('hiddenSoluongSyncCurrentPage').set(currentPage).catch(error => {
                     console.error('❌ Lỗi sync page khi vào sync mode:', error);
                 });
+            } else if (!isSyncMode && wasSyncMode) {
+                // Sync mode just turned OFF - cleanup listeners
+                cleanupSyncListeners();
             }
 
             if (params.page) {
@@ -2274,6 +2336,23 @@
                     }
                 });
             }
+        });
+
+        // Cleanup Firebase listeners when leaving page
+        window.addEventListener('beforeunload', () => {
+            console.log('🧹 Cleaning up Firebase listeners...');
+
+            // Cleanup product listeners
+            if (firebaseDetachFn) {
+                firebaseDetachFn.detach();
+            }
+
+            // Cleanup settings listeners
+            database.ref('hiddenSoluongDisplaySettings').off('value');
+            database.ref('soluongIsMergeVariants').off('value');
+
+            // Cleanup sync listeners (using dedicated function)
+            cleanupSyncListeners();
         });
     </script>
     <!-- Note: notification-system.js is loaded by compat.js ES Module -->

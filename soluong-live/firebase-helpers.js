@@ -5,6 +5,7 @@
 
 /**
  * Add or update a single product in Firebase
+ * OPTIMIZED: Writes soldQty to separate node
  * @param {Object} database - Firebase database reference
  * @param {Object} product - Product object to add/update
  * @param {Object} localProductsObject - Local products object reference
@@ -18,15 +19,16 @@ async function addProductToFirebase(database, product, localProductsObject) {
 
     if (existingProduct) {
         // Update existing product
+        const soldQty = existingProduct.soldQty || 0;
         const updatedProduct = {
             ...product,
-            soldQty: existingProduct.soldQty || 0, // Keep existing soldQty
-            remainingQty: product.QtyAvailable - (existingProduct.soldQty || 0),
+            soldQty: soldQty, // Keep existing soldQty
+            remainingQty: product.QtyAvailable - soldQty,
             addedAt: existingProduct.addedAt || product.addedAt, // Keep original addedAt
             lastRefreshed: Date.now()
         };
 
-        // Update in Firebase
+        // Update in Firebase (product data)
         await database.ref(`soluongProducts/${productKey}`).set(updatedProduct);
 
         // Update local object
@@ -35,7 +37,15 @@ async function addProductToFirebase(database, product, localProductsObject) {
         return { action: 'updated', product: updatedProduct };
     } else {
         // Add new product
+        const soldQty = product.soldQty || 0;
+
+        // Write product to Firebase
         await database.ref(`soluongProducts/${productKey}`).set(product);
+
+        // OPTIMIZED: Also write qty to separate node
+        await database.ref(`soluongProductsQty/${productKey}`).set({
+            soldQty: soldQty
+        });
 
         // Add to local object
         localProductsObject[productKey] = product;
@@ -59,10 +69,12 @@ async function addProductToFirebase(database, product, localProductsObject) {
 
 /**
  * Add multiple products (batch operation)
+ * OPTIMIZED: Writes soldQty to separate node
  * Used for adding products with variants
  */
 async function addProductsToFirebase(database, products, localProductsObject) {
     const updates = {};
+    const qtyUpdates = {}; // OPTIMIZED: Separate qty updates
     const newIds = [];
 
     products.forEach(product => {
@@ -73,10 +85,11 @@ async function addProductsToFirebase(database, products, localProductsObject) {
 
         if (existingProduct) {
             // Update existing
+            const soldQty = existingProduct.soldQty || 0;
             const updatedProduct = {
                 ...product,
-                soldQty: existingProduct.soldQty || 0,
-                remainingQty: product.QtyAvailable - (existingProduct.soldQty || 0),
+                soldQty: soldQty,
+                remainingQty: product.QtyAvailable - soldQty,
                 addedAt: existingProduct.addedAt || product.addedAt,
                 lastRefreshed: Date.now()
             };
@@ -84,14 +97,22 @@ async function addProductsToFirebase(database, products, localProductsObject) {
             localProductsObject[productKey] = updatedProduct;
         } else {
             // Add new
+            const soldQty = product.soldQty || 0;
             updates[`soluongProducts/${productKey}`] = product;
+            // OPTIMIZED: Add qty to separate node
+            qtyUpdates[`soluongProductsQty/${productKey}`] = { soldQty: soldQty };
             localProductsObject[productKey] = product;
             newIds.push(product.Id.toString());
         }
     });
 
-    // Batch update in Firebase
+    // Batch update products in Firebase
     await database.ref().update(updates);
+
+    // OPTIMIZED: Batch update qty in Firebase (for new products)
+    if (Object.keys(qtyUpdates).length > 0) {
+        await database.ref().update(qtyUpdates);
+    }
 
     // Update metadata if there are new products
     if (newIds.length > 0) {
@@ -113,12 +134,14 @@ async function addProductsToFirebase(database, products, localProductsObject) {
 
 /**
  * Remove a product from Firebase
+ * OPTIMIZED: Also removes qty from separate node
  */
 async function removeProductFromFirebase(database, productId, localProductsObject) {
     const productKey = `product_${productId}`;
 
-    // Remove from Firebase
+    // Remove from Firebase (product and qty)
     await database.ref(`soluongProducts/${productKey}`).remove();
+    await database.ref(`soluongProductsQty/${productKey}`).remove(); // OPTIMIZED: Also remove qty
 
     // Remove from local object
     delete localProductsObject[productKey];
@@ -133,6 +156,7 @@ async function removeProductFromFirebase(database, productId, localProductsObjec
 
 /**
  * Update product quantity (soldQty)
+ * OPTIMIZED: Writes to separate node soluongProductsQty (~20 bytes instead of ~1KB)
  */
 async function updateProductQtyInFirebase(database, productId, change, localProductsObject) {
     const productKey = `product_${productId}`;
@@ -146,8 +170,8 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
     // Update local first (optimistic update)
     product.soldQty = newSoldQty;
 
-    // Sync to Firebase (just soldQty, remainingQty is now independent)
-    await database.ref(`soluongProducts/${productKey}`).update({
+    // OPTIMIZED: Write ONLY to qty node (~20 bytes instead of full product ~1KB)
+    await database.ref(`soluongProductsQty/${productKey}`).set({
         soldQty: newSoldQty
     });
 }
@@ -168,29 +192,8 @@ async function updateProductVisibility(database, productId, isHidden, localProdu
 }
 
 /**
- * Delete a product permanently from Firebase
- */
-async function removeProductFromFirebase(database, productId, localProductsObject) {
-    const productKey = `product_${productId}`;
-
-    // Prepare updates
-    const updates = {};
-    updates[`soluongProducts/${productKey}`] = null; // null means remove
-
-    // Sync to Firebase
-    await database.ref().update(updates);
-
-    // Update sortedIds metadata
-    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
-        return (currentIds || []).filter(id => id !== productId.toString());
-    });
-
-    // Update count metadata
-    await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
-}
-
-/**
  * Delete multiple products permanently from Firebase in a single batch operation
+ * OPTIMIZED: Also removes qty from separate node
  */
 async function removeProductsFromFirebase(database, productIds, localProductsObject) {
     if (!productIds || productIds.length === 0) return;
@@ -202,6 +205,7 @@ async function removeProductsFromFirebase(database, productIds, localProductsObj
     productIds.forEach(productId => {
         const productKey = `product_${productId}`;
         updates[`soluongProducts/${productKey}`] = null; // null means remove
+        updates[`soluongProductsQty/${productKey}`] = null; // OPTIMIZED: Also remove qty
         idsToRemove.push(productId.toString());
 
         // Remove from local object
@@ -222,6 +226,7 @@ async function removeProductsFromFirebase(database, productIds, localProductsObj
 
 /**
  * Cleanup old products (older than 7 days)
+ * OPTIMIZED: Also removes qty from separate node
  */
 async function cleanupOldProducts(database, localProductsObject) {
     const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
@@ -243,6 +248,7 @@ async function cleanupOldProducts(database, localProductsObject) {
 
     productsToRemove.forEach(([productKey, product]) => {
         updates[`soluongProducts/${productKey}`] = null; // null means remove
+        updates[`soluongProductsQty/${productKey}`] = null; // OPTIMIZED: Also remove qty
         idsToRemove.push(product.Id.toString());
     });
 
@@ -266,10 +272,12 @@ async function cleanupOldProducts(database, localProductsObject) {
 
 /**
  * Clear all products
+ * OPTIMIZED: Also clears qty from separate node
  */
 async function clearAllProducts(database, localProductsObject) {
-    // Remove all products
+    // Remove all products and qty
     await database.ref('soluongProducts').remove();
+    await database.ref('soluongProductsQty').remove(); // OPTIMIZED: Also remove qty
 
     // Reset metadata
     await database.ref('soluongProductsMeta').set({
@@ -284,19 +292,36 @@ async function clearAllProducts(database, localProductsObject) {
 
 /**
  * Load all products from Firebase (initial load)
+ * OPTIMIZED: Loads products and qty data from separate nodes, then merges them
  * Returns an object with products keyed by product_${Id}
  */
 async function loadAllProductsFromFirebase(database) {
     try {
-        // Load products
-        const productsSnapshot = await database.ref('soluongProducts').once('value');
+        // OPTIMIZED: Load products AND qty data in parallel
+        const [productsSnapshot, qtySnapshot] = await Promise.all([
+            database.ref('soluongProducts').once('value'),
+            database.ref('soluongProductsQty').once('value')
+        ]);
+
         const productsObject = productsSnapshot.val();
+        const qtyObject = qtySnapshot.val() || {};
 
         if (!productsObject || typeof productsObject !== 'object') {
             return {};
         }
 
-        // Return the object as-is (already in correct format)
+        // Merge qty data into products
+        Object.keys(productsObject).forEach(key => {
+            if (qtyObject[key]) {
+                productsObject[key].soldQty = qtyObject[key].soldQty || 0;
+            } else {
+                // Fallback to soldQty in product (for backward compatibility during migration)
+                productsObject[key].soldQty = productsObject[key].soldQty || 0;
+            }
+        });
+
+        console.log(`📦 [loadAllProductsFromFirebase] Loaded ${Object.keys(productsObject).length} products, merged ${Object.keys(qtyObject).length} qty entries`);
+
         return productsObject;
 
     } catch (error) {
@@ -307,10 +332,12 @@ async function loadAllProductsFromFirebase(database) {
 
 /**
  * Setup Firebase child listeners for realtime updates
+ * OPTIMIZED: Uses separate listener for qty changes (~20 bytes instead of ~1KB per update)
  * NOTE: This should be called AFTER loadAllProductsFromFirebase() to avoid duplicate loading
  */
 function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
     const productsRef = database.ref('soluongProducts');
+    const qtyRef = database.ref('soluongProductsQty'); // OPTIMIZED: Separate qty listener
 
     console.log('🔧 Setting up Firebase child listeners...');
 
@@ -375,18 +402,25 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
         }
     });
 
-    // child_changed: When a product is updated
+    // child_changed: When product STATIC data is updated (name, price, image, etc.)
+    // NOTE: soldQty changes now come from qtyRef listener below
     productsRef.on('child_changed', (snapshot) => {
         const updatedProduct = snapshot.val();
         const productKey = snapshot.key;
 
-        console.log('🔥 [child_changed] Product updated:', updatedProduct.NameGet);
+        // Preserve current soldQty from local (qty updates come from separate listener)
+        const currentSoldQty = localProductsObject[productKey]?.soldQty || 0;
 
-        // Always update local object with latest data
-        localProductsObject[productKey] = updatedProduct;
+        console.log('🔥 [child_changed] Product static data updated:', updatedProduct.NameGet);
+
+        // Update local object with new static data, keeping local soldQty
+        localProductsObject[productKey] = {
+            ...updatedProduct,
+            soldQty: currentSoldQty // Keep local qty (will be synced from qty listener)
+        };
 
         if (callbacks.onProductChanged) {
-            callbacks.onProductChanged(updatedProduct, productKey);
+            callbacks.onProductChanged(localProductsObject[productKey], productKey);
         }
     });
 
@@ -402,6 +436,41 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
 
             if (callbacks.onProductRemoved) {
                 callbacks.onProductRemoved(removedProduct, productKey);
+            }
+        }
+    });
+
+    // OPTIMIZED: Listen for qty changes on SEPARATE node (~20 bytes per update instead of ~1KB)
+    qtyRef.on('child_changed', (snapshot) => {
+        const qtyData = snapshot.val();
+        const productKey = snapshot.key;
+
+        console.log('🔥 [qty_changed] Qty updated:', productKey, '→', qtyData.soldQty);
+
+        // Update local object with new qty
+        if (localProductsObject[productKey]) {
+            localProductsObject[productKey].soldQty = qtyData.soldQty || 0;
+
+            // Use onQtyChanged callback if available, otherwise fallback to onProductChanged
+            if (callbacks.onQtyChanged) {
+                callbacks.onQtyChanged(localProductsObject[productKey], productKey);
+            } else if (callbacks.onProductChanged) {
+                callbacks.onProductChanged(localProductsObject[productKey], productKey);
+            }
+        }
+    });
+
+    // Also listen for new qty entries (when new product is added)
+    qtyRef.on('child_added', (snapshot) => {
+        const qtyData = snapshot.val();
+        const productKey = snapshot.key;
+
+        // Only process if product exists in local (ignore initial load)
+        if (localProductsObject[productKey] && alreadyLoaded) {
+            // Update qty if it's different from what we have
+            if (localProductsObject[productKey].soldQty !== qtyData.soldQty) {
+                console.log('🔥 [qty_added] New qty entry:', productKey, '→', qtyData.soldQty);
+                localProductsObject[productKey].soldQty = qtyData.soldQty || 0;
             }
         }
     });
@@ -429,6 +498,8 @@ function setupFirebaseChildListeners(database, localProductsObject, callbacks) {
             productsRef.off('child_added');
             productsRef.off('child_changed');
             productsRef.off('child_removed');
+            qtyRef.off('child_changed'); // OPTIMIZED: Cleanup qty listener
+            qtyRef.off('child_added');
         }
     };
 }
@@ -473,6 +544,59 @@ function getProductsArray(productsObject, sortedIds = null) {
  */
 
 /**
+ * ============================================================================
+ * CART CACHE HELPERS (Optimization - Step 4)
+ * ============================================================================
+ */
+const CART_CACHE_KEY = 'soluong_cartSnapshots_cache';
+const CART_CACHE_TTL = 5 * 60 * 1000; // 5 phút
+
+/**
+ * Get cart snapshots from localStorage cache
+ * @returns {Array|null} Cached data or null if expired/not found
+ */
+function getCartCache() {
+    try {
+        const cached = localStorage.getItem(CART_CACHE_KEY);
+        if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < CART_CACHE_TTL) {
+                console.log('📦 [getCartCache] Using cached data (age: ' + Math.round((Date.now() - timestamp) / 1000) + 's)');
+                return data;
+            }
+            console.log('📦 [getCartCache] Cache expired, will reload from Firebase');
+        }
+    } catch (e) {
+        console.warn('📦 [getCartCache] Cache read error:', e);
+    }
+    return null;
+}
+
+/**
+ * Save cart snapshots to localStorage cache
+ * @param {Array} data - Snapshots array to cache
+ */
+function setCartCache(data) {
+    try {
+        localStorage.setItem(CART_CACHE_KEY, JSON.stringify({
+            data,
+            timestamp: Date.now()
+        }));
+        console.log('📦 [setCartCache] Cached ' + data.length + ' snapshots');
+    } catch (e) {
+        console.warn('📦 [setCartCache] Cache write error:', e);
+    }
+}
+
+/**
+ * Invalidate cart cache (call after save/delete operations)
+ */
+function invalidateCartCache() {
+    localStorage.removeItem(CART_CACHE_KEY);
+    console.log('📦 [invalidateCartCache] Cache cleared');
+}
+
+/**
  * Save cart snapshot to Firebase
  * @param {Object} database - Firebase database reference
  * @param {Object} snapshot - Snapshot object with metadata and products
@@ -513,6 +637,9 @@ async function saveCartSnapshot(database, snapshot) {
     console.log('✅ [saveCartSnapshot] Metadata saved to Firebase');
     console.log('✅ [saveCartSnapshot] Total snapshots now:', newSortedIds.length);
 
+    // Invalidate cache after saving new snapshot
+    invalidateCartCache();
+
     return snapshotId;
 }
 
@@ -544,51 +671,82 @@ async function getCartSnapshot(database, snapshotId) {
 
 /**
  * Get all cart snapshots (sorted by date, newest first)
+ * OPTIMIZED: Uses batch load (1 query) + localStorage cache
  * @param {Object} database - Firebase database reference
+ * @param {boolean} forceRefresh - Skip cache and reload from Firebase
  * @returns {Promise<Array>} Array of snapshot objects
  */
-async function getAllCartSnapshots(database) {
+async function getAllCartSnapshots(database, forceRefresh = false) {
     console.log('🔵 [getAllCartSnapshots] Loading all snapshots...');
 
-    const metaSnapshot = await database.ref('cartHistoryMeta').once('value');
+    // Step 1: Check cache first (unless forceRefresh)
+    if (!forceRefresh) {
+        const cached = getCartCache();
+        if (cached) {
+            console.log(`✅ [getAllCartSnapshots] Returned ${cached.length} snapshots from cache`);
+            return cached;
+        }
+    }
+
+    console.log('🔵 [getAllCartSnapshots] Loading from Firebase (batch mode)...');
+
+    // Step 2: BATCH LOAD - Load all snapshots in 1 query (instead of N+1)
+    const [allSnapshotsRef, metaSnapshot] = await Promise.all([
+        database.ref('cartHistory').once('value'),
+        database.ref('cartHistoryMeta').once('value')
+    ]);
+
+    const allSnapshotsData = allSnapshotsRef.val() || {};
     const meta = metaSnapshot.val();
 
     console.log('🔵 [getAllCartSnapshots] Meta from Firebase:', meta);
+    console.log('🔵 [getAllCartSnapshots] Snapshots loaded in batch:', Object.keys(allSnapshotsData).length);
 
-    if (!meta) {
-        console.log('⚠️ [getAllCartSnapshots] No metadata found, returning empty array');
+    if (!meta || Object.keys(allSnapshotsData).length === 0) {
+        console.log('⚠️ [getAllCartSnapshots] No snapshots found');
+        setCartCache([]); // Cache empty result
         return [];
     }
 
     // Ensure sortedIds is always an array
     const sortedIds = Array.isArray(meta.sortedIds) ? meta.sortedIds : [];
 
-    console.log('🔵 [getAllCartSnapshots] Total snapshot IDs:', sortedIds.length);
-    console.log('🔵 [getAllCartSnapshots] Snapshot IDs:', sortedIds);
-
-    if (sortedIds.length === 0) {
-        console.log('⚠️ [getAllCartSnapshots] No snapshots in metadata');
-        return [];
-    }
-
+    // Step 3: Convert to array and sort according to sortedIds
     const snapshots = [];
     let loadedCount = 0;
     let failedCount = 0;
 
     for (const snapshotId of sortedIds) {
-        console.log(`🔵 [getAllCartSnapshots] Loading snapshot ${loadedCount + 1}/${sortedIds.length}: ${snapshotId}`);
-        const snapshot = await getCartSnapshot(database, snapshotId);
-        if (snapshot) {
-            snapshots.push(snapshot);
+        const data = allSnapshotsData[snapshotId];
+        if (data) {
+            snapshots.push({
+                id: snapshotId,
+                ...data
+            });
             loadedCount++;
-            console.log(`✅ [getAllCartSnapshots] Loaded: ${snapshot.metadata.name} (${Object.keys(snapshot.products || {}).length} products)`);
+            console.log(`✅ [getAllCartSnapshots] Loaded: ${data.metadata?.name || snapshotId} (${Object.keys(data.products || {}).length} products)`);
         } else {
             failedCount++;
-            console.error(`❌ [getAllCartSnapshots] Failed to load snapshot: ${snapshotId}`);
+            console.warn(`⚠️ [getAllCartSnapshots] Snapshot in meta but not in data: ${snapshotId}`);
         }
     }
 
-    console.log(`✅ [getAllCartSnapshots] Summary: ${loadedCount} loaded, ${failedCount} failed`);
+    // Also add any snapshots that exist but aren't in sortedIds (orphaned snapshots)
+    Object.keys(allSnapshotsData).forEach(snapshotId => {
+        if (!sortedIds.includes(snapshotId)) {
+            const data = allSnapshotsData[snapshotId];
+            snapshots.push({
+                id: snapshotId,
+                ...data
+            });
+            console.log(`⚠️ [getAllCartSnapshots] Found orphaned snapshot: ${snapshotId}`);
+        }
+    });
+
+    console.log(`✅ [getAllCartSnapshots] Summary: ${loadedCount} loaded, ${failedCount} missing from data`);
+
+    // Step 4: Cache the result
+    setCartCache(snapshots);
 
     return snapshots;
 }
@@ -657,4 +815,7 @@ async function deleteCartSnapshot(database, snapshotId) {
     });
 
     console.log(`✅ [deleteCartSnapshot] Metadata updated. Total snapshots now: ${newSortedIds.length}`);
+
+    // Invalidate cache after deleting snapshot
+    invalidateCartCache();
 }
