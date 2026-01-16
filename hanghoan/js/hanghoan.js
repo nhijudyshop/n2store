@@ -174,32 +174,24 @@ function formatDate(date) {
 }
 
 function convertToTimestamp(dateString) {
-    console.log('[DEBUG] convertToTimestamp input:', dateString);
     const parts = dateString.split("-");
     if (parts.length !== 3) {
-        console.log('[DEBUG] convertToTimestamp - invalid parts, using now');
-        return Date.now().toString(); // Fallback to current time
+        return Date.now().toString();
     }
 
     let day = parseInt(parts[0]);
     let month = parseInt(parts[1]);
     let year = parseInt(parts[2]);
-    console.log('[DEBUG] convertToTimestamp - parsed:', { day, month, year });
 
     if (year < 100) year = 2000 + year;
 
-    // Use Date constructor with explicit values (months are 0-indexed)
     const date = new Date(year, month - 1, day);
-    console.log('[DEBUG] convertToTimestamp - date object:', date, 'getTime:', date.getTime());
 
     if (isNaN(date.getTime())) {
-        console.log('[DEBUG] convertToTimestamp - invalid date, using now');
-        return Date.now().toString(); // Fallback to current time
+        return Date.now().toString();
     }
 
-    const result = date.getTime().toString();
-    console.log('[DEBUG] convertToTimestamp - result:', result);
-    return result;
+    return date.getTime().toString();
 }
 
 function isValidDateFormat(dateStr) {
@@ -334,9 +326,7 @@ function renderTableFromData(dataArray) {
     refreshAuthCache();
 
     for (let i = 0; i < maxRender; i++) {
-        // Find original index in unfiltered data for reliable lookups
-        const originalIndex = dataArray.indexOf(filteredData[i]);
-        fragment.appendChild(renderSingleRow(filteredData[i], i + 1, originalIndex));
+        fragment.appendChild(renderSingleRow(filteredData[i], i + 1));
     }
 
     DOM.tableBody.innerHTML = "";
@@ -399,13 +389,12 @@ function applyFiltersToData(dataArray) {
     });
 }
 
-function renderSingleRow(item, sttNumber, originalIndex) {
+function renderSingleRow(item, sttNumber) {
     const timestamp = parseFloat(item.duyetHoanValue) || 0;
     const formattedTime = formatDate(new Date(timestamp));
 
     const tr = document.createElement("tr");
     tr.style.opacity = item.muted ? "0.5" : "1.0";
-    tr.dataset.index = originalIndex; // Use array index for reliable lookups
 
     // Build row HTML in one go (faster than multiple createElement)
     tr.innerHTML = `
@@ -565,45 +554,32 @@ function handleEditButton(button) {
     const row = button.closest("tr");
     if (!row || !DOM.editModal) return;
 
-    // Use array index for reliable lookup
-    const originalIndex = parseInt(row.dataset?.index, 10);
-    const cachedData = getCachedData() || [];
-    const item = !isNaN(originalIndex) && originalIndex >= 0 ? cachedData[originalIndex] : null;
+    // Read values directly from table cells (most reliable!)
+    const cells = row.cells;
+    const shipValue = cells[1]?.innerText?.trim() || "";
+    const scenarioValue = cells[2]?.innerText?.trim() || "";
+    const customerInfoValue = cells[3]?.innerText?.trim() || "";
+    const totalAmountValue = cells[4]?.innerText?.trim() || "";
+    const causeValue = cells[5]?.innerText?.trim() || "";
+    const dateDisplay = cells[7]?.innerText?.trim() || "";
 
-    console.log('[DEBUG] handleEditButton - index:', originalIndex, 'item:', item ? 'found' : 'NOT FOUND');
+    // Populate form
+    document.getElementById("editDelivery").value = shipValue;
+    document.getElementById("eidtScenario").value = scenarioValue;
+    document.getElementById("editInfo").value = customerInfoValue;
+    document.getElementById("editAmount").value = totalAmountValue;
+    document.getElementById("editNote").value = causeValue;
 
-    if (item) {
-        // Use cached data (reliable)
-        document.getElementById("editDelivery").value = item.shipValue || "";
-        document.getElementById("eidtScenario").value = item.scenarioValue || "";
-        document.getElementById("editInfo").value = item.customerInfoValue || "";
-        document.getElementById("editAmount").value = item.totalAmountValue || "";
-        document.getElementById("editNote").value = item.causeValue || "";
-
-        // Format date from timestamp - handle corrupted timestamps
-        const timestamp = parseFloat(item.duyetHoanValue) || 0;
-        console.log('[DEBUG] handleEditButton - duyetHoanValue:', item.duyetHoanValue, 'timestamp:', timestamp);
-
-        if (timestamp > 946684800000) { // Valid date (after year 2000)
-            const dateStr = formatDate(new Date(timestamp));
-            console.log('[DEBUG] handleEditButton - valid date:', dateStr);
-            document.getElementById("editDate").value = dateStr;
-        } else {
-            // Corrupted timestamp - use today's date
-            const todayStr = formatDate(new Date());
-            console.log('[DEBUG] handleEditButton - corrupted, using today:', todayStr);
-            document.getElementById("editDate").value = todayStr;
-        }
+    // Handle date - if showing 01/01/1970, use today
+    if (dateDisplay === "01-01-70" || dateDisplay === "01/01/1970") {
+        document.getElementById("editDate").value = formatDate(new Date());
     } else {
-        // Fallback to table cells
-        const cells = row.cells;
-        document.getElementById("editDelivery").value = cells[1]?.innerText || "";
-        document.getElementById("eidtScenario").value = cells[2]?.innerText || "";
-        document.getElementById("editInfo").value = cells[3]?.innerText || "";
-        document.getElementById("editAmount").value = cells[4]?.innerText || "";
-        document.getElementById("editNote").value = cells[5]?.innerText || "";
-        document.getElementById("editDate").value = cells[7]?.innerText || "";
+        document.getElementById("editDate").value = dateDisplay;
     }
+
+    // Store original values for finding item in cache when saving
+    row.dataset.originalCustomer = customerInfoValue;
+    row.dataset.originalAmount = totalAmountValue;
 
     editingRow = row;
     DOM.editModal.classList.add("show");
@@ -618,12 +594,15 @@ function handleDeleteButton(button) {
     if (!confirm("Bạn có chắc chắn muốn xóa?")) return;
 
     const row = button.closest("tr");
-    const itemIndex = parseInt(row?.dataset?.index, 10);
-
-    if (isNaN(itemIndex) || itemIndex < 0) {
+    if (!row) {
         showError("Không thể xác định đơn hàng");
         return;
     }
+
+    // Read values from cells to find item
+    const cells = row.cells;
+    const customerInfoValue = cells[3]?.innerText?.trim() || "";
+    const totalAmountValue = cells[4]?.innerText?.trim() || "";
 
     // Check if Firebase is ready
     if (!collectionRef) {
@@ -631,10 +610,14 @@ function handleDeleteButton(button) {
         return;
     }
 
-    // Optimistic UI: Remove from display immediately
+    // Find item by matching fields
     const currentData = getCachedData() || [];
+    const itemIndex = currentData.findIndex(item =>
+        item.customerInfoValue === customerInfoValue &&
+        item.totalAmountValue === totalAmountValue
+    );
 
-    if (itemIndex >= currentData.length) {
+    if (itemIndex === -1) {
         showError("Không tìm thấy đơn hàng");
         return;
     }
@@ -672,7 +655,6 @@ function handleDeleteButton(button) {
 function handleCheckboxClick(checkbox) {
     const isChecked = checkbox.checked;
     const row = checkbox.closest("tr");
-    const itemIndex = parseInt(row?.dataset?.index, 10);
 
     // Check if Firebase is ready
     if (!collectionRef) {
@@ -681,12 +663,21 @@ function handleCheckboxClick(checkbox) {
         return;
     }
 
+    // Read values from cells to find item
+    const cells = row.cells;
+    const customerInfoValue = cells[3]?.innerText?.trim() || "";
+    const totalAmountValue = cells[4]?.innerText?.trim() || "";
+
     // Optimistic UI: Update immediately (no confirm, no loading)
     row.style.opacity = isChecked ? "0.5" : "1.0";
 
     const currentData = getCachedData() || [];
+    const itemIndex = currentData.findIndex(item =>
+        item.customerInfoValue === customerInfoValue &&
+        item.totalAmountValue === totalAmountValue
+    );
 
-    if (isNaN(itemIndex) || itemIndex < 0 || itemIndex >= currentData.length) {
+    if (itemIndex === -1) {
         checkbox.checked = !isChecked;
         row.style.opacity = isChecked ? "1.0" : "0.5";
         return;
@@ -741,10 +732,7 @@ function saveChanges() {
     const noteValue = sanitizeInput(document.getElementById("editNote").value);
     const dateValue = document.getElementById("editDate").value;
 
-    console.log('[DEBUG] saveChanges - dateValue from form:', dateValue);
-
     if (!isValidDateFormat(dateValue)) {
-        console.log('[DEBUG] saveChanges - INVALID date format!');
         showError("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         isSaving = false;
         return;
@@ -752,7 +740,6 @@ function saveChanges() {
 
     // Normalize date to DD-MM-YY format
     const normalizedDate = normalizeDate(dateValue);
-    console.log('[DEBUG] saveChanges - normalizedDate:', normalizedDate);
 
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
         showError("Vui lòng điền đầy đủ thông tin");
@@ -767,14 +754,6 @@ function saveChanges() {
         return;
     }
 
-    // Use array index for reliable lookup
-    const itemIndex = parseInt(editingRow.dataset?.index, 10);
-    if (isNaN(itemIndex) || itemIndex < 0) {
-        alert('Lỗi: Không tìm thấy index dòng. Vui lòng thử lại.');
-        isSaving = false;
-        return;
-    }
-
     // Check if Firebase is ready
     if (!collectionRef) {
         alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
@@ -783,8 +762,18 @@ function saveChanges() {
     }
 
     const currentData = getCachedData() || [];
-    if (itemIndex >= currentData.length) {
-        showError("Không tìm thấy đơn hàng");
+
+    // Find item by matching original values (stored when edit modal opened)
+    const originalCustomer = editingRow.dataset?.originalCustomer || "";
+    const originalAmount = editingRow.dataset?.originalAmount || "";
+
+    const itemIndex = currentData.findIndex(item =>
+        item.customerInfoValue === originalCustomer &&
+        item.totalAmountValue === originalAmount
+    );
+
+    if (itemIndex === -1) {
+        showError("Không tìm thấy đơn hàng trong cache");
         isSaving = false;
         return;
     }
@@ -793,7 +782,6 @@ function saveChanges() {
 
     // ALWAYS convert date to timestamp - fixes corrupted timestamps
     const newTimestamp = convertToTimestamp(normalizedDate);
-    console.log('[DEBUG] saveChanges - newTimestamp:', newTimestamp, '→', new Date(parseInt(newTimestamp)).toLocaleDateString());
 
     // Update local data
     currentData[itemIndex] = {
@@ -803,7 +791,7 @@ function saveChanges() {
         customerInfoValue: infoValue,
         totalAmountValue: amountValue,
         causeValue: noteValue,
-        duyetHoanValue: newTimestamp, // Only changes if date was modified
+        duyetHoanValue: newTimestamp,
         user: cachedAuthState?.displayName || cachedAuthState?.username || "Unknown",
     };
 
