@@ -19,51 +19,62 @@ async function addProductToFirebase(database, product, localProductsObject) {
 
     if (existingProduct) {
         // Update existing product
-        const updatedProduct = {
-            ...product,
-            soldQty: existingProduct.soldQty || 0, // Keep existing soldQty
-            remainingQty: product.QtyAvailable - (existingProduct.soldQty || 0),
+        const soldQty = existingProduct.soldQty || 0;
+
+        // OPTIMIZED: Don't store soldQty in soluongProducts (it's in soluongProductsQty)
+        const { soldQty: _, ...productWithoutSoldQty } = product;
+        const firebaseProduct = {
+            ...productWithoutSoldQty,
+            remainingQty: product.QtyAvailable - soldQty,
             addedAt: existingProduct.addedAt || product.addedAt, // Keep original addedAt
             lastRefreshed: Date.now()
         };
 
-        // Update in Firebase
-        await database.ref(`soluongProducts/${productKey}`).set(updatedProduct);
+        // Update in Firebase (WITHOUT soldQty)
+        await database.ref(`soluongProducts/${productKey}`).set(firebaseProduct);
 
-        // Update local object
-        localProductsObject[productKey] = updatedProduct;
+        // Update local object (WITH soldQty for UI)
+        const localProduct = { ...firebaseProduct, soldQty: soldQty };
+        localProductsObject[productKey] = localProduct;
 
-        return { action: 'updated', product: updatedProduct };
+        return { action: 'updated', product: localProduct };
     } else {
         // Add new product
-        await database.ref(`soluongProducts/${productKey}`).set(product);
+        const soldQty = product.soldQty || 0;
 
-        // Add to local object
-        localProductsObject[productKey] = product;
+        // OPTIMIZED: Don't store soldQty in soluongProducts
+        const { soldQty: _, ...productWithoutSoldQty } = product;
 
-        // Update sortedIds metadata
-        await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
-            const ids = currentIds || [];
-            const newId = product.Id.toString();
-            if (!ids.includes(newId)) {
-                ids.unshift(newId); // Add to beginning (newest first)
-            }
-            return ids;
+        // Write product to Firebase (WITHOUT soldQty)
+        await database.ref(`soluongProducts/${productKey}`).set(productWithoutSoldQty);
+
+        // OPTIMIZED: Also write qty to separate node
+        await database.ref(`soluongProductsQty/${productKey}`).set({
+            soldQty: soldQty
         });
+
+        // Add to local object (WITH soldQty for UI)
+        const localProduct = { ...productWithoutSoldQty, soldQty: soldQty };
+        localProductsObject[productKey] = localProduct;
+
+        // OPTIMIZED: No longer update sortedIds (use addedAt for sorting instead)
+        // This saves ~2KB bandwidth per add operation
 
         // Update count
         await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 
-        return { action: 'added', product: product };
+        return { action: 'added', product: localProduct };
     }
 }
 
 /**
  * Add multiple products (batch operation)
+ * OPTIMIZED: Writes soldQty to separate node
  * Used for adding products with variants
  */
 async function addProductsToFirebase(database, products, localProductsObject) {
     const updates = {};
+    const qtyUpdates = {}; // OPTIMIZED: Separate qty updates
     const newIds = [];
 
     products.forEach(product => {
@@ -74,38 +85,49 @@ async function addProductsToFirebase(database, products, localProductsObject) {
 
         if (existingProduct) {
             // Update existing
-            const updatedProduct = {
-                ...product,
-                soldQty: existingProduct.soldQty || 0,
-                remainingQty: product.QtyAvailable - (existingProduct.soldQty || 0),
+            const soldQty = existingProduct.soldQty || 0;
+
+            // OPTIMIZED: Don't store soldQty in soluongProducts
+            const { soldQty: _, ...productWithoutSoldQty } = product;
+            const firebaseProduct = {
+                ...productWithoutSoldQty,
+                remainingQty: product.QtyAvailable - soldQty,
                 addedAt: existingProduct.addedAt || product.addedAt,
                 lastRefreshed: Date.now()
             };
-            updates[`soluongProducts/${productKey}`] = updatedProduct;
-            localProductsObject[productKey] = updatedProduct;
+            updates[`soluongProducts/${productKey}`] = firebaseProduct;
+
+            // Local object WITH soldQty for UI
+            localProductsObject[productKey] = { ...firebaseProduct, soldQty: soldQty };
         } else {
             // Add new
-            updates[`soluongProducts/${productKey}`] = product;
-            localProductsObject[productKey] = product;
+            const soldQty = product.soldQty || 0;
+
+            // OPTIMIZED: Don't store soldQty in soluongProducts
+            const { soldQty: _, ...productWithoutSoldQty } = product;
+            updates[`soluongProducts/${productKey}`] = productWithoutSoldQty;
+
+            // Add qty to separate node
+            qtyUpdates[`soluongProductsQty/${productKey}`] = { soldQty: soldQty };
+
+            // Local object WITH soldQty for UI
+            localProductsObject[productKey] = { ...productWithoutSoldQty, soldQty: soldQty };
             newIds.push(product.Id.toString());
         }
     });
 
-    // Batch update in Firebase
+    // Batch update products in Firebase
     await database.ref().update(updates);
+
+    // OPTIMIZED: Batch update qty in Firebase (for new products)
+    if (Object.keys(qtyUpdates).length > 0) {
+        await database.ref().update(qtyUpdates);
+    }
 
     // Update metadata if there are new products
     if (newIds.length > 0) {
-        await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
-            const ids = currentIds || [];
-            newIds.forEach(id => {
-                if (!ids.includes(id)) {
-                    ids.unshift(id);
-                }
-            });
-            return ids;
-        });
-
+        // OPTIMIZED: No longer update sortedIds (use addedAt for sorting instead)
+        // This saves ~2KB bandwidth per batch add operation
         await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
     }
 
@@ -114,26 +136,26 @@ async function addProductsToFirebase(database, products, localProductsObject) {
 
 /**
  * Remove a product from Firebase
+ * OPTIMIZED: Also removes qty from separate node, no sortedIds update needed
  */
 async function removeProductFromFirebase(database, productId, localProductsObject) {
     const productKey = `product_${productId}`;
 
-    // Remove from Firebase
+    // Remove from Firebase (product and qty)
     await database.ref(`soluongProducts/${productKey}`).remove();
+    await database.ref(`soluongProductsQty/${productKey}`).remove(); // OPTIMIZED: Also remove qty
 
     // Remove from local object
     delete localProductsObject[productKey];
 
-    // Update metadata
-    await database.ref('soluongProductsMeta/sortedIds').transaction((currentIds) => {
-        return (currentIds || []).filter(id => id !== productId.toString());
-    });
-
+    // OPTIMIZED: No longer update sortedIds (saves ~2KB bandwidth per remove)
+    // Just update count
     await database.ref('soluongProductsMeta/count').set(Object.keys(localProductsObject).length);
 }
 
 /**
  * Update product quantity (soldQty)
+ * OPTIMIZED: Writes to separate node soluongProductsQty (~20 bytes instead of ~1KB)
  * @param {Object} database - Firebase database reference
  * @param {number} productId - Product ID to update
  * @param {number} change - Quantity change (+1 or -1)
@@ -153,10 +175,9 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
     product.soldQty = newSoldQty;
     product.remainingQty = product.QtyAvailable - newSoldQty;
 
-    // Sync to Firebase (just the fields that changed)
-    await database.ref(`soluongProducts/${productKey}`).update({
-        soldQty: newSoldQty,
-        remainingQty: product.remainingQty
+    // OPTIMIZED: Write ONLY to qty node (~20 bytes instead of full product ~1KB)
+    await database.ref(`soluongProductsQty/${productKey}`).set({
+        soldQty: newSoldQty
     });
 
     // Log transaction if logOptions provided
