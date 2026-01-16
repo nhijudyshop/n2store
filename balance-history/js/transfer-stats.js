@@ -158,8 +158,8 @@ function renderTSTable() {
                 <td class="truncate-cell" data-tooltip="${escapeHtml(item.customer_name || '')}" onmouseenter="showTooltip(event, this.dataset.tooltip)" onmouseleave="hideTooltip()">${item.customer_name || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="ts-customer-phone">${item.customer_phone || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="col-amount ${amountClass}">${formattedAmount}</td>
-                <td class="truncate-cell" data-tooltip="${escapeHtml(item.content || '')}" onmouseenter="showTooltip(event, this.dataset.tooltip)" onmouseleave="hideTooltip()">${item.content || '—'}</td>
-                <td class="truncate-cell" data-tooltip="${escapeHtml(item.notes || '')}" onmouseenter="showTooltip(event, this.dataset.tooltip)" onmouseleave="hideTooltip()">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
+                <td class="wrap-cell">${item.content || '—'}</td>
+                <td class="wrap-cell">${item.notes || '<span style="color: #9ca3af;">—</span>'}</td>
                 <td class="col-action">
                     <input type="checkbox" class="ts-checkbox ts-hide-checkbox"
                            ${item.is_checked ? 'checked' : ''}
