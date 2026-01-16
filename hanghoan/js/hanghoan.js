@@ -174,25 +174,32 @@ function formatDate(date) {
 }
 
 function convertToTimestamp(dateString) {
+    console.log('[DEBUG] convertToTimestamp input:', dateString);
     const parts = dateString.split("-");
     if (parts.length !== 3) {
+        console.log('[DEBUG] convertToTimestamp - invalid parts, using now');
         return Date.now().toString(); // Fallback to current time
     }
 
     let day = parseInt(parts[0]);
     let month = parseInt(parts[1]);
     let year = parseInt(parts[2]);
+    console.log('[DEBUG] convertToTimestamp - parsed:', { day, month, year });
 
     if (year < 100) year = 2000 + year;
 
     // Use Date constructor with explicit values (months are 0-indexed)
     const date = new Date(year, month - 1, day);
+    console.log('[DEBUG] convertToTimestamp - date object:', date, 'getTime:', date.getTime());
 
     if (isNaN(date.getTime())) {
+        console.log('[DEBUG] convertToTimestamp - invalid date, using now');
         return Date.now().toString(); // Fallback to current time
     }
 
-    return date.getTime().toString();
+    const result = date.getTime().toString();
+    console.log('[DEBUG] convertToTimestamp - result:', result);
+    return result;
 }
 
 function isValidDateFormat(dateStr) {
@@ -563,6 +570,8 @@ function handleEditButton(button) {
     const cachedData = getCachedData() || [];
     const item = !isNaN(originalIndex) && originalIndex >= 0 ? cachedData[originalIndex] : null;
 
+    console.log('[DEBUG] handleEditButton - index:', originalIndex, 'item:', item ? 'found' : 'NOT FOUND');
+
     if (item) {
         // Use cached data (reliable)
         document.getElementById("editDelivery").value = item.shipValue || "";
@@ -573,11 +582,17 @@ function handleEditButton(button) {
 
         // Format date from timestamp - handle corrupted timestamps
         const timestamp = parseFloat(item.duyetHoanValue) || 0;
+        console.log('[DEBUG] handleEditButton - duyetHoanValue:', item.duyetHoanValue, 'timestamp:', timestamp);
+
         if (timestamp > 946684800000) { // Valid date (after year 2000)
-            document.getElementById("editDate").value = formatDate(new Date(timestamp));
+            const dateStr = formatDate(new Date(timestamp));
+            console.log('[DEBUG] handleEditButton - valid date:', dateStr);
+            document.getElementById("editDate").value = dateStr;
         } else {
             // Corrupted timestamp - use today's date
-            document.getElementById("editDate").value = formatDate(new Date());
+            const todayStr = formatDate(new Date());
+            console.log('[DEBUG] handleEditButton - corrupted, using today:', todayStr);
+            document.getElementById("editDate").value = todayStr;
         }
     } else {
         // Fallback to table cells
@@ -726,7 +741,10 @@ function saveChanges() {
     const noteValue = sanitizeInput(document.getElementById("editNote").value);
     const dateValue = document.getElementById("editDate").value;
 
+    console.log('[DEBUG] saveChanges - dateValue from form:', dateValue);
+
     if (!isValidDateFormat(dateValue)) {
+        console.log('[DEBUG] saveChanges - INVALID date format!');
         showError("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         isSaving = false;
         return;
@@ -734,6 +752,7 @@ function saveChanges() {
 
     // Normalize date to DD-MM-YY format
     const normalizedDate = normalizeDate(dateValue);
+    console.log('[DEBUG] saveChanges - normalizedDate:', normalizedDate);
 
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
         showError("Vui lòng điền đầy đủ thông tin");
@@ -774,6 +793,7 @@ function saveChanges() {
 
     // ALWAYS convert date to timestamp - fixes corrupted timestamps
     const newTimestamp = convertToTimestamp(normalizedDate);
+    console.log('[DEBUG] saveChanges - newTimestamp:', newTimestamp, '→', new Date(parseInt(newTimestamp)).toLocaleDateString());
 
     // Update local data
     currentData[itemIndex] = {
