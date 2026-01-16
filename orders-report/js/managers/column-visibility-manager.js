@@ -160,6 +160,9 @@ function saveColumnSettings() {
     // Close modal
     closeColumnSettingsModal();
 
+    // Update main page display
+    updateExcludedTagsMainDisplay();
+
     // Re-apply search filter to hide/show rows based on excluded tags
     if (typeof performTableSearch === 'function') {
         performTableSearch();
@@ -412,6 +415,34 @@ function getSelectedExcludedTags() {
     return [...tempSelectedExcludedTags];
 }
 
+/**
+ * Update the excluded tags display on main page (outside modal)
+ */
+function updateExcludedTagsMainDisplay() {
+    const container = document.getElementById('excludedTagsDisplay');
+    const listEl = document.getElementById('excludedTagsDisplayList');
+    if (!container || !listEl) return;
+
+    const excludedTags = loadExcludedTags();
+    const tags = window.availableTags || [];
+
+    if (excludedTags.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    listEl.innerHTML = excludedTags.map(tagId => {
+        const tag = tags.find(t => String(t.Id) === String(tagId));
+        if (!tag) return '';
+        const tagColor = tag.Color || '#6b7280';
+        return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
+            ${tag.Name || 'Không tên'}
+        </span>`;
+    }).filter(Boolean).join('');
+}
+
 // Export functions for use in other scripts
 window.columnVisibility = {
     initialize: initializeColumnVisibility,
@@ -421,7 +452,8 @@ window.columnVisibility = {
     addAttributesToRow: addColumnAttributesToRow,
     loadExcludedTags: loadExcludedTags,
     saveExcludedTags: saveExcludedTagsToStorage,
-    populateExcludedTagsList: populateExcludedTagsList
+    populateExcludedTagsList: populateExcludedTagsList,
+    updateMainDisplay: updateExcludedTagsMainDisplay
 };
 
 // Make functions globally available
@@ -429,3 +461,4 @@ window.filterExcludedTagOptions = filterExcludedTagOptions;
 window.clearExcludedTags = clearExcludedTags;
 window.updateExcludedTagCount = updateExcludedTagCount;
 window.toggleExcludedTag = toggleExcludedTag;
+window.updateExcludedTagsMainDisplay = updateExcludedTagsMainDisplay;

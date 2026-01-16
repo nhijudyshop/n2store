@@ -831,6 +831,10 @@ function populateTagFilter() {
     if (typeof populateTagFilterOptions === 'function') {
         populateTagFilterOptions();
     }
+    // Update excluded tags display on main page
+    if (typeof updateExcludedTagsMainDisplay === 'function') {
+        updateExcludedTagsMainDisplay();
+    }
     console.log('[TAG-FILTER] populateTagFilter called');
 }
 

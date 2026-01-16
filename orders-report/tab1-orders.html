@@ -360,6 +360,20 @@
                     </button>
                 </div>
             </div>
+            <!-- Excluded Tags Display -->
+            <div id="excludedTagsDisplay" style="display: none; padding: 8px 0; border-top: 1px solid #e5e7eb; margin-top: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-size: 12px; color: #6b7280;">
+                        <i class="fas fa-eye-slash" style="color: #ef4444;"></i> Đang ẩn:
+                    </span>
+                    <div id="excludedTagsDisplayList" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        <!-- Excluded tag names will be shown here -->
+                    </div>
+                    <button onclick="openColumnSettingsModal()" style="padding: 2px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; color: #6b7280;">
+                        <i class="fas fa-edit"></i> Sửa
+                    </button>
+                </div>
+            </div>
         </div>
         <!-- Table Container -->
         <div class="table-container" id="tableContainer" style="display: none">
