@@ -3146,8 +3146,8 @@ async function showCustomerQuickView(phone) {
     contentEl.style.display = 'none';
     phoneEl.textContent = phone;
 
-    // Update Customer 360 link
-    linkEl.href = `../customer-hub/index.html?phone=${encodeURIComponent(phone)}`;
+    // Update Customer 360 link - use hash routing format
+    linkEl.href = `../customer-hub/index.html#/customer/${encodeURIComponent(phone)}`;
 
     // Reinitialize icons
     if (window.lucide) lucide.createIcons();
