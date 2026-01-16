@@ -120,50 +120,34 @@ WebSocket connection cho Pancake realtime updates.
 
 ## Page Switching trong Chat Modal
 
-### Vấn đề: Facebook PSID là Page-Scoped
+### Giải pháp: Dùng cùng fb_id, đổi pages[pageId] filter
 
-**Facebook PSID (fb_id) khác nhau cho mỗi page!**
+Customer `fb_id` (trong `customers[0].fb_id`) là **unique trong hệ thống Pancake** và dùng được cho tất cả pages.
 
-Cùng một khách hàng nhưng có fb_id khác nhau trên mỗi page:
-
-| Page | fb_id | Customer UUID |
-|------|-------|---------------|
-| Nhi Judy House (117267091364524) | `24948162744877764` | `658ffee5-09b2-...` |
-| NhiJudy Store (270136663390370) | `25717004554573583` | `a4396516-b395-...` |
-
-**Cả fb_id và Customer UUID đều khác nhau giữa các page!**
-
-### Giải pháp: Search by Customer Name
-
-Khi switch page trong chat modal, không thể dùng fb_id cũ. Giải pháp:
+Khi switch page, chỉ cần đổi `pages[pageId]` filter:
 
 ```
-1. Mở modal → Lưu tên khách: window.currentCustomerName = "Huỳnh Thành Đạt"
+1. Mở modal → Lưu fb_id: window.currentCustomerFbId = customers[0].fb_id
 
 2. User chọn page khác từ dropdown
    ↓
-3. searchConversations("Huỳnh Thành Đạt", [newPageId])
+3. Gọi API với CÙNG fb_id, chỉ đổi pages[newPageId]=0
+   GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
    ↓
-4. Từ kết quả search → lấy fb_id MỚI trên page mới
-   ↓
-5. fetchConversationsByCustomerFbId(newPageId, newFbId)
-   ↓
-6. Load messages từ conversation tương ứng
+4. Load messages từ conversation tương ứng
 ```
 
 ### API Flow
 
 ```javascript
-// STEP 1: Search by name on new page
-const searchResult = await pancakeDataManager.searchConversations(customerName, [pageId]);
+// Khi mở modal - lưu fb_id từ conversation data
+window.currentCustomerFbId = inboxConv.customers?.[0]?.fb_id;
 
-// STEP 2: Extract new fb_id from search result
-const newFbId = searchResult.conversations[0].customers[0].fb_id;
+// Khi switch page - dùng CÙNG fb_id với page filter mới
+const result = await pancakeDataManager.fetchConversationsByCustomerFbId(newPageId, customerFbId);
+// API call: GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
 
-// STEP 3: Fetch conversations with new fb_id
-const result = await pancakeDataManager.fetchConversationsByCustomerFbId(pageId, newFbId);
-
-// STEP 4: Load messages
+// Load messages
 const response = await pancakeDataManager.fetchMessagesForConversation(
     pageId,
     conversationId,
@@ -176,7 +160,6 @@ const response = await pancakeDataManager.fetchMessagesForConversation(
 
 | API | Endpoint | Mô tả |
 |-----|----------|-------|
-| Search | `POST /conversations/search?q={name}` | Tìm conversations theo tên |
 | Get by fb_id | `GET /conversations/customer/{fb_id}?pages[{pageId}]=0` | Lấy conversations của customer trên page |
 | Messages | `GET /pages/{pageId}/conversations/{convId}/messages` | Lấy tin nhắn |
 
@@ -186,9 +169,9 @@ const response = await pancakeDataManager.fetchMessagesForConversation(
 
 | Function | Line | Mô tả |
 |----------|------|-------|
-| `openChatModal()` | 1467 | Lưu `window.currentCustomerName` |
+| `openChatModal()` | 1975-1980 | Lưu `window.currentCustomerFbId` |
 | `onChatPageChanged()` | 851 | Handle page dropdown change |
-| `reloadChatForSelectedPage()` | 880 | Search by name → get fb_id → load messages |
+| `reloadChatForSelectedPage()` | 887 | Dùng cùng fb_id, đổi pages[pageId] |
 
 ### Sync Dropdowns
 
