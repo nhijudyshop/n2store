@@ -578,9 +578,29 @@ function handleEditButton(button) {
     const causeValue = cells[5]?.innerText?.trim() || "";
     const dateDisplay = cells[7]?.innerText?.trim() || "";
 
-    // Populate form
-    document.getElementById("editDelivery").value = shipValue;
-    document.getElementById("eidtScenario").value = scenarioValue;
+    // Populate form - handle both select and input elements
+    const deliverySelect = document.getElementById("editDelivery");
+    const scenarioSelect = document.getElementById("eidtScenario");
+
+    // For select elements, find matching option (case-insensitive)
+    if (deliverySelect) {
+        const options = Array.from(deliverySelect.options);
+        const match = options.find(opt =>
+            opt.value.toLowerCase() === shipValue.toLowerCase() ||
+            opt.text.toLowerCase() === shipValue.toLowerCase()
+        );
+        if (match) deliverySelect.value = match.value;
+    }
+
+    if (scenarioSelect) {
+        const options = Array.from(scenarioSelect.options);
+        const match = options.find(opt =>
+            opt.value.toLowerCase() === scenarioValue.toLowerCase() ||
+            opt.text.toLowerCase() === scenarioValue.toLowerCase()
+        );
+        if (match) scenarioSelect.value = match.value;
+    }
+
     document.getElementById("editInfo").value = customerInfoValue;
     document.getElementById("editAmount").value = totalAmountValue;
     document.getElementById("editNote").value = causeValue;
@@ -844,9 +864,32 @@ function saveChanges() {
     const oldData = { ...currentData[itemIndex] };
     console.log('[SAVE] Old duyetHoanValue:', oldData.duyetHoanValue);
 
-    // ALWAYS convert date to timestamp - fixes corrupted timestamps
-    const newTimestamp = convertToTimestamp(normalizedDate);
-    console.log('[SAVE] New timestamp:', newTimestamp, '→', new Date(parseInt(newTimestamp)).toLocaleDateString());
+    // INLINE timestamp calculation to avoid any caching issues
+    let newTimestamp;
+    try {
+        const parts = normalizedDate.split("-");
+        console.log('[SAVE] Date parts:', parts);
+
+        if (parts.length === 3) {
+            let day = parseInt(parts[0], 10);
+            let month = parseInt(parts[1], 10);
+            let year = parseInt(parts[2], 10);
+
+            if (year < 100) year = 2000 + year;
+
+            const dateObj = new Date(year, month - 1, day);
+            newTimestamp = dateObj.getTime().toString();
+            console.log('[SAVE] Calculated timestamp:', newTimestamp, 'from date:', dateObj.toISOString());
+        } else {
+            newTimestamp = Date.now().toString();
+            console.log('[SAVE] Invalid parts, using Date.now():', newTimestamp);
+        }
+    } catch (e) {
+        console.error('[SAVE] Error calculating timestamp:', e);
+        newTimestamp = Date.now().toString();
+    }
+
+    console.log('[SAVE] Final newTimestamp:', newTimestamp, '→', new Date(parseInt(newTimestamp)).toLocaleDateString());
 
     // Update local data
     currentData[itemIndex] = {
