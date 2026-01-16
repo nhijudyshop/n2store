@@ -95,8 +95,8 @@ async function getOrCreateCustomerFromTPOS(db, phone, tposData = null) {
     const status = tposData?.status || null;
 
     result = await db.query(`
-        INSERT INTO customers (phone, name, address, tpos_id, tpos_data, status, tier, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, 'new', CURRENT_TIMESTAMP)
+        INSERT INTO customers (phone, name, address, tpos_id, tpos_data, status, tier, created_source, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, 'new', 'bank_link', CURRENT_TIMESTAMP)
         ON CONFLICT (phone) DO UPDATE SET
             name = COALESCE(EXCLUDED.name, customers.name),
             address = COALESCE(EXCLUDED.address, customers.address),
@@ -108,7 +108,7 @@ async function getOrCreateCustomerFromTPOS(db, phone, tposData = null) {
     `, [normalized, name, address, tposId, tposDataJson, status]);
 
     const newCustomer = result.rows[0];
-    console.log(`[CUSTOMER-SERVICE] Created customer: ${name} (${normalized}) - ID: ${newCustomer.id}, TPOS: ${tposId || 'N/A'}`);
+    console.log(`[CUSTOMER-SERVICE] Created customer: ${name} (${normalized}) - ID: ${newCustomer.id}, TPOS: ${tposId || 'N/A'}, Source: bank_link`);
 
     return {
         customerId: newCustomer.id,
