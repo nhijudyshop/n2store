@@ -565,11 +565,11 @@ router.post('/', async (req, res) => {
         // Auto-detect carrier if not provided
         const carrier = customerData.carrier || detectCarrier(customerData.phone);
 
-        // Insert customer with source tracking
+        // Insert customer
         const result = await db.query(`
             INSERT INTO customers (
-                phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data, created_source
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'manual')
+                phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
         `, [
             customerData.phone.trim(),
@@ -585,7 +585,7 @@ router.post('/', async (req, res) => {
             customerData.tpos_data ? JSON.stringify(customerData.tpos_data) : null
         ]);
 
-        console.log(`[CUSTOMERS-CREATE] Created customer: ${result.rows[0].name} (${result.rows[0].phone}) - Source: manual`);
+        console.log(`[CUSTOMERS-CREATE] Created customer: ${result.rows[0].name} (${result.rows[0].phone})`);
 
         res.status(201).json({
             success: true,
@@ -877,12 +877,11 @@ router.post('/batch', async (req, res) => {
                 customer.active !== false,
                 customer.firebase_id || null,
                 customer.tpos_id || null,
-                customer.tpos_data ? JSON.stringify(customer.tpos_data) : null,
-                'import' // created_source for tracking
+                customer.tpos_data ? JSON.stringify(customer.tpos_data) : null
             );
 
-            placeholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10}, $${paramIndex + 11})`);
-            paramIndex += 12;
+            placeholders.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9}, $${paramIndex + 10})`);
+            paramIndex += 11;
         }
 
         if (placeholders.length === 0) {
@@ -894,10 +893,9 @@ router.post('/batch', async (req, res) => {
 
         // UPSERT: Insert new customers or update existing ones
         // IMPORTANT: When conflict on phone, update all fields EXCEPT debt (preserve existing debt)
-        // Add created_source = 'import' for new records
         const query = `
             INSERT INTO customers (
-                phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data, created_source
+                phone, name, email, address, carrier, status, debt, active, firebase_id, tpos_id, tpos_data
             ) VALUES ${placeholders.join(', ')}
             ON CONFLICT (phone) DO UPDATE SET
                 name = EXCLUDED.name,

@@ -507,7 +507,6 @@ router.get('/verification-queue', async (req, res) => {
         const total = parseInt(countResult.rows[0].total);
 
         // Get transactions pending verification
-        // Priority: 1) customers table (via customer_id), 2) linked_customer_phone as fallback
         const result = await db.query(`
             SELECT
                 bh.id,
@@ -518,7 +517,7 @@ router.get('/verification-queue', async (req, res) => {
                 bh.transaction_date,
                 bh.account_number as bank_account,
                 bh.reference_code,
-                COALESCE(c.phone, bh.linked_customer_phone) as linked_customer_phone,
+                bh.linked_customer_phone,
                 bh.customer_id,
                 bh.wallet_processed,
                 bh.verification_status,

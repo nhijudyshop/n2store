@@ -14,15 +14,7 @@ function normalizePhone(phone) {
     return normalized;
 }
 
-/**
- * Get existing customer or create new one with source tracking
- * @param {Object} db - Database connection
- * @param {string} phone - Customer phone number
- * @param {string} name - Customer name (optional)
- * @param {string} source - Source of creation: 'ticket', 'bank_link', 'manual', 'import', 'webhook_auto', 'unknown'
- * @returns {Promise<number>} Customer ID
- */
-async function getOrCreateCustomer(db, phone, name, source = 'unknown') {
+async function getOrCreateCustomer(db, phone, name) {
     const normalized = normalizePhone(phone);
 
     let result = await db.query('SELECT id FROM customers WHERE phone = $1', [normalized]);
@@ -31,15 +23,15 @@ async function getOrCreateCustomer(db, phone, name, source = 'unknown') {
         return result.rows[0].id;
     }
 
-    // Auto-create customer with source tracking
+    // Auto-create customer
     result = await db.query(`
-        INSERT INTO customers (phone, name, status, tier, created_source, created_at)
-        VALUES ($1, $2, 'Bình thường', 'new', $3, CURRENT_TIMESTAMP)
+        INSERT INTO customers (phone, name, status, tier, created_at)
+        VALUES ($1, $2, 'Bình thường', 'new', CURRENT_TIMESTAMP)
         ON CONFLICT (phone) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
         RETURNING id
-    `, [normalized, name || 'Khách hàng mới', source]);
+    `, [normalized, name || 'Khách hàng mới']);
 
-    console.log(`[AUTO-CREATE] Created customer: ${name || 'Khách hàng mới'} (${normalized}) - Source: ${source}`);
+    console.log(`[AUTO-CREATE] Created customer: ${name || 'Khách hàng mới'} (${normalized})`);
     return result.rows[0].id;
 }
 

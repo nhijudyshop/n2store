@@ -468,7 +468,7 @@ router.get('/history', async (req, res) => {
 
         // Get paginated data with customer info AND pending matches
         // PHASE 1.3: JOIN với bảng customers thay vì balance_customer_info
-        // Ưu tiên: 1) customers table (Source of Truth), 2) balance_customer_info (legacy/snapshot), 3) linked_customer_phone
+        // Ưu tiên: 1) customers table (Source of Truth), 2) balance_customer_info (legacy/snapshot)
         const paginatedQuery = `
             SELECT
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
@@ -477,8 +477,8 @@ router.get('/history', async (req, res) => {
                 bh.debt_added, bh.is_hidden, bh.linked_customer_phone,
                 bh.match_method, bh.verification_status, bh.verified_by, bh.verified_at,
                 bh.wallet_processed, bh.customer_id,
-                -- Priority 1: customers table, 2: balance_customer_info, 3: linked_customer_phone
-                COALESCE(c.phone, bci.customer_phone, bh.linked_customer_phone) as customer_phone,
+                -- Priority 1: Get from customers table (Source of Truth)
+                COALESCE(c.phone, bci.customer_phone) as customer_phone,
                 COALESCE(c.name, bci.customer_name) as customer_name,
                 bci.unique_code as qr_code,
                 bci.extraction_note,
