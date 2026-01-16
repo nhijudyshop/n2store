@@ -3484,6 +3484,25 @@ router.put('/transaction/:id/phone', async (req, res) => {
         //     }
         // }
 
+        // 🆕 PHASE 1.3: Create/update customer in customers table (Source of Truth)
+        let customerId = null;
+        try {
+            const customerResult = await getOrCreateCustomerFromTPOS(db, newPhone, null);
+            customerId = customerResult.customerId;
+            customerName = customerResult.name || customerName;
+            console.log(`[TRANSACTION-PHONE-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, Name: ${customerName}`);
+
+            // Update balance_history with customer_id
+            await db.query(`
+                UPDATE balance_history
+                SET customer_id = $1
+                WHERE id = $2
+            `, [customerId, id]);
+            console.log(`[TRANSACTION-PHONE-UPDATE] Updated balance_history with customer_id: ${customerId}`);
+        } catch (customerError) {
+            console.error(`[TRANSACTION-PHONE-UPDATE] Failed to create/find customer:`, customerError.message);
+        }
+
         // For accountant edit (is_manual_entry = false), credit wallet immediately
         let walletResult = null;
         let walletCredited = false;
@@ -3500,7 +3519,7 @@ router.put('/transaction/:id/phone', async (req, res) => {
                     tx.transfer_amount,
                     id,
                     `Nạp từ CK (Auto-approved by ${entered_by})`,
-                    tx.customer_id
+                    customerId || tx.customer_id  // 🆕 PHASE 1.3: Use newly created customer_id
                 );
 
                 // Mark as wallet processed
@@ -3516,7 +3535,7 @@ router.put('/transaction/:id/phone', async (req, res) => {
                     VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
                 `, [
                     newPhone,
-                    tx.customer_id,
+                    customerId || tx.customer_id,  // 🆕 PHASE 1.3: Use newly created customer_id
                     `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
                     `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - Auto-approved by ${entered_by}`,
                     id
