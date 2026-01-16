@@ -46,6 +46,8 @@ cron.schedule('*/5 * * * *', async () => {
     console.log('[CRON] Running process-bank-transactions (backup)...');
     try {
         // Get unprocessed bank transactions that have customer phone linked
+        // CRITICAL: Only process transactions that are APPROVED or AUTO_APPROVED
+        // This prevents bypassing the accountant approval workflow for manual entries
         const unprocessedResult = await db.query(`
             SELECT bh.id, bh.transfer_amount, bh.content, bh.code, bh.reference_code,
                    bh.linked_customer_phone, c.id as customer_id
@@ -55,6 +57,7 @@ cron.schedule('*/5 * * * *', async () => {
               AND (bh.wallet_processed = FALSE OR bh.wallet_processed IS NULL)
               AND bh.transfer_amount > 0
               AND bh.transfer_type = 'in'
+              AND bh.verification_status IN ('AUTO_APPROVED', 'APPROVED')
             ORDER BY bh.transaction_date ASC
             LIMIT 50
         `);

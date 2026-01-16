@@ -229,61 +229,27 @@ router.post('/:id/link', async (req, res) => {
         console.log(`[BalanceHistory V2] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
 
         // 4. Link transaction to customer
+        // Set verification_status = 'PENDING_VERIFICATION' for manual entries
+        // This requires accountant approval before wallet is credited
         await db.query(`
             UPDATE balance_history
             SET linked_customer_phone = $1,
                 customer_id = $2,
+                match_method = 'manual_entry',
+                verification_status = 'PENDING_VERIFICATION',
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $3
         `, [normalizedPhone, customerId, id]);
 
-        // 5. Process wallet deposit using wallet-event-processor
-        let depositResult = null;
-        if (auto_deposit && tx.transfer_amount > 0) {
-            try {
-                const walletResult = await processDeposit(
-                    db,
-                    normalizedPhone,
-                    tx.transfer_amount,
-                    id,
-                    `Nạp từ CK ${tx.code || tx.reference_code} (manual link)`,
-                    customerId
-                );
+        // 5. Manual entries require accountant approval - DO NOT auto deposit
+        // The wallet will be credited when accountant calls /approve endpoint
+        let depositResult = {
+            deposited: false,
+            requires_approval: true,
+            message: 'Giao dịch nhập tay cần kế toán duyệt trước khi nạp ví'
+        };
 
-                // Mark balance_history as wallet processed
-                await db.query(`
-                    UPDATE balance_history
-                    SET wallet_processed = TRUE
-                    WHERE id = $1
-                `, [id]);
-
-                // Log activity
-                await db.query(`
-                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
-                `, [
-                    normalizedPhone, customerId,
-                    `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
-                    `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
-                    id
-                ]);
-
-                depositResult = {
-                    deposited: true,
-                    amount: parseFloat(tx.transfer_amount),
-                    wallet_tx_id: walletResult.transactionId,
-                    newBalance: walletResult.wallet.balance
-                };
-
-                console.log(`[BalanceHistory V2] ✅ Wallet updated: TX ${walletResult.transactionId}`);
-            } catch (walletErr) {
-                console.error('[BalanceHistory V2] Wallet update failed:', walletErr.message);
-                depositResult = {
-                    deposited: false,
-                    error: walletErr.message
-                };
-            }
-        }
+        console.log(`[BalanceHistory V2] ⏳ Transaction ${id} linked with PENDING_VERIFICATION - awaiting accountant approval`);
 
         // Remove from pending matches if exists
         await db.query('DELETE FROM pending_customer_matches WHERE balance_history_id = $1', [id]);
