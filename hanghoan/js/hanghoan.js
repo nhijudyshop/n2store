@@ -174,38 +174,28 @@ function formatDate(date) {
 }
 
 function convertToTimestamp(dateString) {
-    console.log('[convertToTimestamp] INPUT:', JSON.stringify(dateString));
-
     if (!dateString || typeof dateString !== 'string') {
-        console.log('[convertToTimestamp] Invalid input, using Date.now()');
         return Date.now().toString();
     }
 
     const parts = dateString.split("-");
-    console.log('[convertToTimestamp] Parts:', parts);
-
     if (parts.length !== 3) {
-        console.log('[convertToTimestamp] Not 3 parts, using Date.now()');
         return Date.now().toString();
     }
 
     let day = parseInt(parts[0], 10);
     let month = parseInt(parts[1], 10);
     let year = parseInt(parts[2], 10);
-    console.log('[convertToTimestamp] Parsed:', { day, month, year });
 
     if (year < 100) year = 2000 + year;
 
     const date = new Date(year, month - 1, day);
     const timestamp = date.getTime();
-    console.log('[convertToTimestamp] Date:', date.toISOString(), 'Timestamp:', timestamp);
 
     if (isNaN(timestamp)) {
-        console.log('[convertToTimestamp] NaN timestamp, using Date.now()');
         return Date.now().toString();
     }
 
-    console.log('[convertToTimestamp] RETURNING:', timestamp.toString());
     return timestamp.toString();
 }
 
@@ -411,7 +401,9 @@ function renderSingleRow(item, sttNumber) {
     const tr = document.createElement("tr");
     tr.style.opacity = item.muted ? "0.5" : "1.0";
 
-    // Build row HTML in one go (faster than multiple createElement)
+    // Store FULL item data for reliable editing
+    tr.dataset.item = JSON.stringify(item);
+
     tr.innerHTML = `
         <td>${sttNumber}</td>
         <td>${sanitizeInput(item.shipValue || "")}</td>
@@ -425,9 +417,7 @@ function renderSingleRow(item, sttNumber) {
         <td><button class="delete-button" data-user="${item.user || 'Unknown'}"><i data-lucide="trash-2"></i></button></td>
     `;
 
-    // Apply permissions using cached role (not fetched per row)
     applyRowPermissions(tr, cachedUserRole);
-
     return tr;
 }
 
@@ -478,7 +468,6 @@ function initializeForm() {
 
 function handleFormSubmit(event) {
     event.preventDefault();
-    console.log('[HangHoan] handleFormSubmit called');
 
     const shipValue = sanitizeInput(DOM.form.querySelector("#ship").value);
     const scenarioValue = sanitizeInput(DOM.form.querySelector("#scenario").value);
@@ -525,13 +514,11 @@ function handleFormSubmit(event) {
     DOM.dataForm.style.display = "none";
     DOM.dataForm.classList.remove("show");
     showSuccess("Đã thêm đơn hàng!");
-    console.log('[HangHoan] UI updated, saving to Firebase...');
 
-    // Firebase update in background (non-blocking)
+    // Firebase update in background
     collectionRef.doc("hanghoan").update({
         data: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
     }).then(() => {
-        console.log('[HangHoan] Firebase add successful');
         logAction("add", `Thêm mới: ${customerInfoValue}`, null, dataToUpload);
     }).catch((error) => {
         console.error('[HangHoan] Firebase add error:', error);
@@ -569,16 +556,22 @@ function handleEditButton(button) {
     const row = button.closest("tr");
     if (!row || !DOM.editModal) return;
 
-    // Read values directly from table cells (most reliable!)
-    const cells = row.cells;
-    const shipValue = cells[1]?.innerText?.trim() || "";
-    const scenarioValue = cells[2]?.innerText?.trim() || "";
-    const customerInfoValue = cells[3]?.innerText?.trim() || "";
-    const totalAmountValue = cells[4]?.innerText?.trim() || "";
-    const causeValue = cells[5]?.innerText?.trim() || "";
-    const dateDisplay = cells[7]?.innerText?.trim() || "";
+    // Parse stored item data (stored as JSON when row was rendered)
+    let item;
+    try {
+        item = JSON.parse(row.dataset.item || "{}");
+    } catch (e) {
+        console.error('[EDIT] Failed to parse item data:', e);
+        showError("Lỗi đọc dữ liệu");
+        return;
+    }
 
-    // Populate form - handle both select and input elements
+    if (!item.duyetHoanValue) {
+        showError("Không tìm thấy dữ liệu đơn hàng");
+        return;
+    }
+
+    // Populate form from item data
     const deliverySelect = document.getElementById("editDelivery");
     const scenarioSelect = document.getElementById("eidtScenario");
 
@@ -586,8 +579,8 @@ function handleEditButton(button) {
     if (deliverySelect) {
         const options = Array.from(deliverySelect.options);
         const match = options.find(opt =>
-            opt.value.toLowerCase() === shipValue.toLowerCase() ||
-            opt.text.toLowerCase() === shipValue.toLowerCase()
+            opt.value.toLowerCase() === (item.shipValue || "").toLowerCase() ||
+            opt.text.toLowerCase() === (item.shipValue || "").toLowerCase()
         );
         if (match) deliverySelect.value = match.value;
     }
@@ -595,37 +588,29 @@ function handleEditButton(button) {
     if (scenarioSelect) {
         const options = Array.from(scenarioSelect.options);
         const match = options.find(opt =>
-            opt.value.toLowerCase() === scenarioValue.toLowerCase() ||
-            opt.text.toLowerCase() === scenarioValue.toLowerCase()
+            opt.value.toLowerCase() === (item.scenarioValue || "").toLowerCase() ||
+            opt.text.toLowerCase() === (item.scenarioValue || "").toLowerCase()
         );
         if (match) scenarioSelect.value = match.value;
     }
 
-    document.getElementById("editInfo").value = customerInfoValue;
-    document.getElementById("editAmount").value = totalAmountValue;
-    document.getElementById("editNote").value = causeValue;
+    document.getElementById("editInfo").value = item.customerInfoValue || "";
+    document.getElementById("editAmount").value = item.totalAmountValue || "";
+    document.getElementById("editNote").value = item.causeValue || "";
+
+    // Format date from timestamp
+    const timestamp = parseFloat(item.duyetHoanValue) || 0;
+    const dateDisplay = formatDate(new Date(timestamp));
 
     // Handle date - if showing 01/01/1970, use today
-    if (dateDisplay === "01-01-70" || dateDisplay === "01/01/1970") {
+    if (dateDisplay === "01-01-70" || timestamp < 946684800000) {
         document.getElementById("editDate").value = formatDate(new Date());
     } else {
         document.getElementById("editDate").value = dateDisplay;
     }
 
-    // Store ALL original values for finding item in cache when saving
-    row.dataset.originalShip = shipValue;
-    row.dataset.originalScenario = scenarioValue;
-    row.dataset.originalCustomer = customerInfoValue;
-    row.dataset.originalAmount = totalAmountValue;
-    row.dataset.originalCause = causeValue;
-
-    console.log('[EDIT] Stored original values:', {
-        ship: shipValue,
-        scenario: scenarioValue,
-        customer: customerInfoValue,
-        amount: totalAmountValue,
-        cause: causeValue
-    });
+    // Store original duyetHoanValue as unique identifier for save
+    row.dataset.originalId = item.duyetHoanValue;
 
     editingRow = row;
     DOM.editModal.classList.add("show");
@@ -645,29 +630,28 @@ function handleDeleteButton(button) {
         return;
     }
 
-    // Read ALL values from cells to find item
-    const cells = row.cells;
-    const shipValue = cells[1]?.innerText?.trim() || "";
-    const scenarioValue = cells[2]?.innerText?.trim() || "";
-    const customerInfoValue = cells[3]?.innerText?.trim() || "";
-    const totalAmountValue = cells[4]?.innerText?.trim() || "";
-    const causeValue = cells[5]?.innerText?.trim() || "";
-
-    // Check if Firebase is ready
-    if (!collectionRef) {
-        alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
+    // Parse stored item data
+    let item;
+    try {
+        item = JSON.parse(row.dataset.item || "{}");
+    } catch (e) {
+        showError("Lỗi đọc dữ liệu");
         return;
     }
 
-    // Find item by matching ALL fields
+    if (!item.duyetHoanValue) {
+        showError("Không tìm thấy ID đơn hàng");
+        return;
+    }
+
+    if (!collectionRef) {
+        showError("Database chưa sẵn sàng");
+        return;
+    }
+
+    // Find item by unique duyetHoanValue
     const currentData = getCachedData() || [];
-    const itemIndex = currentData.findIndex(item =>
-        item.shipValue === shipValue &&
-        item.scenarioValue === scenarioValue &&
-        item.customerInfoValue === customerInfoValue &&
-        item.totalAmountValue === totalAmountValue &&
-        item.causeValue === causeValue
-    );
+    const itemIndex = currentData.findIndex(d => d.duyetHoanValue === item.duyetHoanValue);
 
     if (itemIndex === -1) {
         showError("Không tìm thấy đơn hàng");
@@ -686,11 +670,10 @@ function handleDeleteButton(button) {
         updateStats(currentData);
     }, 200);
 
-    // Firebase update in background (non-blocking)
+    // Firebase update in background
     collectionRef.doc("hanghoan").update({ data: currentData })
         .then(() => {
             showSuccess("Đã xóa!");
-            console.log('[HangHoan] Delete successful');
             logAction("delete", `Xóa: ${deletedItem.customerInfoValue}`, deletedItem, null);
         })
         .catch((error) => {
@@ -708,32 +691,31 @@ function handleCheckboxClick(checkbox) {
     const isChecked = checkbox.checked;
     const row = checkbox.closest("tr");
 
-    // Check if Firebase is ready
     if (!collectionRef) {
         checkbox.checked = !isChecked;
-        alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
+        showError("Database chưa sẵn sàng");
         return;
     }
 
-    // Read ALL values from cells to find item
-    const cells = row.cells;
-    const shipValue = cells[1]?.innerText?.trim() || "";
-    const scenarioValue = cells[2]?.innerText?.trim() || "";
-    const customerInfoValue = cells[3]?.innerText?.trim() || "";
-    const totalAmountValue = cells[4]?.innerText?.trim() || "";
-    const causeValue = cells[5]?.innerText?.trim() || "";
+    // Parse stored item data
+    let item;
+    try {
+        item = JSON.parse(row.dataset.item || "{}");
+    } catch (e) {
+        checkbox.checked = !isChecked;
+        return;
+    }
 
-    // Optimistic UI: Update immediately (no confirm, no loading)
+    if (!item.duyetHoanValue) {
+        checkbox.checked = !isChecked;
+        return;
+    }
+
+    // Optimistic UI
     row.style.opacity = isChecked ? "0.5" : "1.0";
 
     const currentData = getCachedData() || [];
-    const itemIndex = currentData.findIndex(item =>
-        item.shipValue === shipValue &&
-        item.scenarioValue === scenarioValue &&
-        item.customerInfoValue === customerInfoValue &&
-        item.totalAmountValue === totalAmountValue &&
-        item.causeValue === causeValue
-    );
+    const itemIndex = currentData.findIndex(d => d.duyetHoanValue === item.duyetHoanValue);
 
     if (itemIndex === -1) {
         checkbox.checked = !isChecked;
@@ -745,19 +727,22 @@ function handleCheckboxClick(checkbox) {
     setCachedData(currentData);
     updateStats(currentData);
 
-    // Firebase update in background (non-blocking, silent)
+    // Update stored data on row
+    row.dataset.item = JSON.stringify(currentData[itemIndex]);
+
+    // Firebase update in background
     collectionRef.doc("hanghoan").update({ data: currentData })
         .then(() => {
-            console.log('[HangHoan] Checkbox update successful');
             logAction("update", `${isChecked ? "Đánh dấu" : "Hủy"}: ${currentData[itemIndex].customerInfoValue}`);
         })
         .catch((error) => {
-            console.error('[HangHoan] Checkbox update error:', error);
-            // Rollback silently
+            console.error('[HangHoan] Checkbox error:', error);
+            // Rollback
             currentData[itemIndex].muted = !isChecked;
             setCachedData(currentData);
             checkbox.checked = !isChecked;
             row.style.opacity = isChecked ? "1.0" : "0.5";
+            row.dataset.item = JSON.stringify(currentData[itemIndex]);
             updateStats(currentData);
             showError("Lỗi: " + error.message);
         });
@@ -780,7 +765,6 @@ let isSaving = false; // Guard against multiple saves
 function saveChanges() {
     // Prevent multiple simultaneous saves
     if (isSaving) return;
-
     isSaving = true;
 
     const deliveryValue = sanitizeInput(document.getElementById("editDelivery").value);
@@ -789,109 +773,68 @@ function saveChanges() {
     const amountValue = document.getElementById("editAmount").value.trim();
     const noteValue = sanitizeInput(document.getElementById("editNote").value);
     const dateValue = document.getElementById("editDate").value;
-    console.log('[SAVE] dateValue from form:', JSON.stringify(dateValue));
 
     if (!isValidDateFormat(dateValue)) {
-        console.log('[SAVE] Date format invalid!');
         showError("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         isSaving = false;
         return;
     }
 
-    // Normalize date to DD-MM-YY format
     const normalizedDate = normalizeDate(dateValue);
-    console.log('[SAVE] normalizedDate:', JSON.stringify(normalizedDate));
 
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
         showError("Vui lòng điền đầy đủ thông tin");
-        alert("Vui lòng điền đầy đủ thông tin");
         isSaving = false;
         return;
     }
 
     if (!editingRow) {
-        alert('Lỗi: Không tìm thấy dòng đang sửa. Vui lòng thử lại.');
+        showError("Không tìm thấy dòng đang sửa");
         isSaving = false;
         return;
     }
 
-    // Check if Firebase is ready
     if (!collectionRef) {
-        alert('Lỗi: Database chưa sẵn sàng. Vui lòng refresh trang.');
+        showError("Database chưa sẵn sàng");
+        isSaving = false;
+        return;
+    }
+
+    // Get original ID (duyetHoanValue) stored when edit modal opened
+    const originalId = editingRow.dataset.originalId;
+    if (!originalId) {
+        showError("Không tìm thấy ID đơn hàng");
         isSaving = false;
         return;
     }
 
     const currentData = getCachedData() || [];
 
-    // Find item by matching ALL original values (stored when edit modal opened)
-    const orig = {
-        ship: editingRow.dataset?.originalShip || "",
-        scenario: editingRow.dataset?.originalScenario || "",
-        customer: editingRow.dataset?.originalCustomer || "",
-        amount: editingRow.dataset?.originalAmount || "",
-        cause: editingRow.dataset?.originalCause || ""
-    };
-
-    console.log('[SAVE] Looking for:', orig);
-    console.log('[SAVE] Cache size:', currentData.length);
-
-    const itemIndex = currentData.findIndex(item =>
-        item.shipValue === orig.ship &&
-        item.scenarioValue === orig.scenario &&
-        item.customerInfoValue === orig.customer &&
-        item.totalAmountValue === orig.amount &&
-        item.causeValue === orig.cause
-    );
-
-    console.log('[SAVE] Found index:', itemIndex);
+    // Find item by unique duyetHoanValue
+    const itemIndex = currentData.findIndex(item => item.duyetHoanValue === originalId);
 
     if (itemIndex === -1) {
-        // Try looser match
-        const looseIndex = currentData.findIndex(item =>
-            item.customerInfoValue === orig.customer &&
-            item.totalAmountValue === orig.amount
-        );
-        console.log('[SAVE] Loose match index:', looseIndex);
-        if (looseIndex !== -1) {
-            console.log('[SAVE] Loose match item:', currentData[looseIndex]);
-        }
-        showError("Không tìm thấy đơn hàng trong cache");
+        showError("Không tìm thấy đơn hàng trong dữ liệu");
         isSaving = false;
         return;
     }
 
-    const oldData = { ...currentData[itemIndex] };
-    console.log('[SAVE] Old duyetHoanValue:', oldData.duyetHoanValue);
-
-    // INLINE timestamp calculation to avoid any caching issues
+    // Calculate new timestamp from date
     let newTimestamp;
-    try {
-        const parts = normalizedDate.split("-");
-        console.log('[SAVE] Date parts:', parts);
-
-        if (parts.length === 3) {
-            let day = parseInt(parts[0], 10);
-            let month = parseInt(parts[1], 10);
-            let year = parseInt(parts[2], 10);
-
-            if (year < 100) year = 2000 + year;
-
-            const dateObj = new Date(year, month - 1, day);
-            newTimestamp = dateObj.getTime().toString();
-            console.log('[SAVE] Calculated timestamp:', newTimestamp, 'from date:', dateObj.toISOString());
-        } else {
-            newTimestamp = Date.now().toString();
-            console.log('[SAVE] Invalid parts, using Date.now():', newTimestamp);
-        }
-    } catch (e) {
-        console.error('[SAVE] Error calculating timestamp:', e);
+    const parts = normalizedDate.split("-");
+    if (parts.length === 3) {
+        let day = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        let year = parseInt(parts[2], 10);
+        if (year < 100) year = 2000 + year;
+        newTimestamp = new Date(year, month - 1, day).getTime().toString();
+    } else {
         newTimestamp = Date.now().toString();
     }
 
-    console.log('[SAVE] Final newTimestamp:', newTimestamp, '→', new Date(parseInt(newTimestamp)).toLocaleDateString());
+    const oldData = { ...currentData[itemIndex] };
 
-    // Update local data
+    // Update item data
     currentData[itemIndex] = {
         ...currentData[itemIndex],
         shipValue: deliveryValue,
@@ -905,28 +848,25 @@ function saveChanges() {
 
     const updatedItem = currentData[itemIndex];
 
-    // Optimistic UI update (no loading block)
+    // Optimistic UI update
     setCachedData(currentData);
     renderTableFromData(currentData);
     closeModal();
     showSuccess("Đã lưu!");
-    console.log('[HangHoan] UI updated, saving to Firebase...');
 
-    // Firebase update in background (non-blocking)
+    // Firebase update in background
     collectionRef.doc("hanghoan").update({ data: currentData })
         .then(() => {
-            console.log('[HangHoan] Firebase save successful');
             logAction("edit", `Sửa: ${infoValue}`, oldData, updatedItem);
             isSaving = false;
         })
         .catch((error) => {
-            console.error('[HangHoan] Firebase save error:', error);
+            console.error('[HangHoan] Save error:', error);
             // Rollback
             currentData[itemIndex] = oldData;
             setCachedData(currentData);
             renderTableFromData(currentData);
             showError("Lỗi: " + error.message);
-            alert("Lỗi lưu: " + error.message);
             isSaving = false;
         });
 }
