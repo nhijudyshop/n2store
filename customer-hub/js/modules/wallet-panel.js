@@ -441,16 +441,15 @@ export class WalletPanelModule {
             'VIRTUAL_EXPIRE': 'Công nợ hết hạn'
         };
 
-        const date = new Date(tx.created_at);
-        const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
-        const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+        // Format datetime same as _getTimeAgo in customer-profile.js
+        const dateTimeStr = this._formatDateTime(tx.created_at);
 
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bgClass}">
                 <div class="flex-1">
                     <p class="font-medium text-slate-800 dark:text-slate-200">${typeLabels[tx.type] || tx.type}</p>
                     <p class="text-xs text-slate-500">${tx.note || tx.source || ''}</p>
-                    <p class="text-xs text-slate-400">${dateStr} ${timeStr}</p>
+                    <p class="text-xs text-slate-400">${dateTimeStr}</p>
                 </div>
                 <div class="text-right">
                     <p class="font-bold ${colorClass}">${sign}${this.formatCurrency(Math.abs(tx.amount))}</p>
@@ -470,6 +469,34 @@ export class WalletPanelModule {
             return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(amount / 1000) + 'K';
         }
         return new Intl.NumberFormat('vi-VN').format(amount || 0);
+    }
+
+    /**
+     * Format datetime same as _getTimeAgo in customer-profile.js
+     * Uses relative time for recent, full date for older
+     */
+    _formatDateTime(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Vừa xong';
+        if (diffMins < 60) return `${diffMins} phút trước`;
+        if (diffHours < 24) return `${diffHours} giờ trước`;
+        if (diffDays === 1) return 'Hôm qua';
+        if (diffDays < 7) return `${diffDays} ngày trước`;
+
+        // For older dates, show full date with time
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
     }
 
     // =====================================================
