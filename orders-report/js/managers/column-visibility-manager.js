@@ -340,13 +340,35 @@ function filterExcludedTagOptions() {
 }
 
 /**
- * Update excluded tag count display
+ * Update excluded tag count display and show tag names
  */
 function updateExcludedTagCount() {
     const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]:checked');
     const countEl = document.getElementById('excludedTagsCountNumber');
+    const namesEl = document.getElementById('excludedTagsNames');
+
     if (countEl) {
         countEl.textContent = checkboxes.length;
+    }
+
+    // Show selected tag names
+    if (namesEl) {
+        const tags = window.availableTags || [];
+        const selectedTagIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-tag-id'));
+
+        if (selectedTagIds.length === 0) {
+            namesEl.innerHTML = '';
+        } else {
+            namesEl.innerHTML = selectedTagIds.map(tagId => {
+                const tag = tags.find(t => String(t.Id) === String(tagId));
+                if (!tag) return '';
+                const tagColor = tag.Color || '#6b7280';
+                return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
+                    ${tag.Name || 'Không tên'}
+                </span>`;
+            }).filter(Boolean).join('');
+        }
     }
 }
 
@@ -356,6 +378,9 @@ function updateExcludedTagCount() {
 function clearExcludedTags() {
     const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
+    // Clear tag names display
+    const namesEl = document.getElementById('excludedTagsNames');
+    if (namesEl) namesEl.innerHTML = '';
     updateExcludedTagCount();
 }
 
