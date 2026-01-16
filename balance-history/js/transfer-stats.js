@@ -149,8 +149,8 @@ function renderTSTable() {
 
         // Format date with line break
         const dateObj = new Date(item.transaction_date);
-        const datePart = dateObj.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
-        const timePart = dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+        const datePart = dateObj.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timePart = dateObj.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
         return `
             <tr class="${rowClass} ${verifiedClass}" data-id="${item.id}">
