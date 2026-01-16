@@ -1916,7 +1916,11 @@ router.post('/customer-info', async (req, res) => {
 
         res.json({
             success: true,
-            data: result.rows[0],
+            data: {
+                unique_code: uniqueCode,
+                customer_name: customerName,
+                customer_phone: customerPhone
+            },
             customerId // Trả thêm customerId để frontend biết
         });
     } catch (error) {
