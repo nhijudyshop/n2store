@@ -857,6 +857,13 @@ window.onChatPageChanged = async function (pageId) {
     const oldChannelId = window.currentChatChannelId;
     window.currentChatChannelId = pageId;
 
+    // Also update the send page selector to match
+    const sendPageSelect = document.getElementById('chatSendPageSelect');
+    if (sendPageSelect && sendPageSelect.value !== pageId) {
+        sendPageSelect.value = pageId;
+        console.log('[PAGE-SELECTOR] ✅ Also updated chatSendPageSelect to:', pageId);
+    }
+
     // Show notification
     const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
     const pageName = selectedPage?.page_name || pageId;
