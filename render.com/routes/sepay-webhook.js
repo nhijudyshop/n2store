@@ -467,8 +467,8 @@ router.get('/history', async (req, res) => {
         }
 
         // Get paginated data with customer info AND pending matches
-        // Use linked_customer_phone for fast JOIN instead of expensive regex matching
-        // Use subquery with DISTINCT ON to avoid duplicates when multiple customer_info records exist
+        // PHASE 1.3: JOIN với bảng customers thay vì balance_customer_info
+        // Ưu tiên: 1) customers table (Source of Truth), 2) balance_customer_info (legacy/snapshot)
         const paginatedQuery = `
             SELECT
                 bh.id, bh.sepay_id, bh.gateway, bh.transaction_date, bh.account_number,
@@ -476,9 +476,10 @@ router.get('/history', async (req, res) => {
                 bh.sub_account, bh.reference_code, bh.description, bh.created_at,
                 bh.debt_added, bh.is_hidden, bh.linked_customer_phone,
                 bh.match_method, bh.verification_status, bh.verified_by, bh.verified_at,
-                bh.wallet_processed,
-                bci.customer_phone,
-                bci.customer_name,
+                bh.wallet_processed, bh.customer_id,
+                -- Priority 1: Get from customers table (Source of Truth)
+                COALESCE(c.phone, bci.customer_phone) as customer_phone,
+                COALESCE(c.name, bci.customer_name) as customer_name,
                 bci.unique_code as qr_code,
                 bci.extraction_note,
                 -- Pending match info
@@ -490,6 +491,9 @@ router.get('/history', async (req, res) => {
                 -- Transfer stats flag (only if table exists)
                 ${tsTableExists ? 'CASE WHEN ts.id IS NOT NULL THEN TRUE ELSE FALSE END' : 'FALSE'} as in_transfer_stats
             FROM balance_history bh
+            -- Priority 1: JOIN với customers table (Source of Truth) bằng customer_id
+            LEFT JOIN customers c ON c.id = bh.customer_id
+            -- Priority 2: Legacy JOIN với balance_customer_info (snapshot)
             LEFT JOIN (
                 SELECT DISTINCT ON (customer_phone)
                     customer_phone, customer_name, unique_code, extraction_note
