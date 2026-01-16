@@ -191,7 +191,7 @@
 
 .ts-table th:nth-child(3),
 .ts-table td:nth-child(3) {
-    width: 95px !important;
+    width: 110px !important;
 }
 
 .ts-table th:nth-child(4),
@@ -202,8 +202,8 @@
 
 .ts-table th:nth-child(5),
 .ts-table td:nth-child(5) {
-    width: 450px !important;
-    max-width: 450px !important;
+    width: 520px !important;
+    max-width: 520px !important;
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
     white-space: normal !important;
