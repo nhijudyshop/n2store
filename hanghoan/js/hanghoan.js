@@ -577,9 +577,12 @@ function handleEditButton(button) {
         document.getElementById("editDate").value = dateDisplay;
     }
 
-    // Store original values for finding item in cache when saving
+    // Store ALL original values for finding item in cache when saving
+    row.dataset.originalShip = shipValue;
+    row.dataset.originalScenario = scenarioValue;
     row.dataset.originalCustomer = customerInfoValue;
     row.dataset.originalAmount = totalAmountValue;
+    row.dataset.originalCause = causeValue;
 
     editingRow = row;
     DOM.editModal.classList.add("show");
@@ -599,10 +602,13 @@ function handleDeleteButton(button) {
         return;
     }
 
-    // Read values from cells to find item
+    // Read ALL values from cells to find item
     const cells = row.cells;
+    const shipValue = cells[1]?.innerText?.trim() || "";
+    const scenarioValue = cells[2]?.innerText?.trim() || "";
     const customerInfoValue = cells[3]?.innerText?.trim() || "";
     const totalAmountValue = cells[4]?.innerText?.trim() || "";
+    const causeValue = cells[5]?.innerText?.trim() || "";
 
     // Check if Firebase is ready
     if (!collectionRef) {
@@ -610,11 +616,14 @@ function handleDeleteButton(button) {
         return;
     }
 
-    // Find item by matching fields
+    // Find item by matching ALL fields
     const currentData = getCachedData() || [];
     const itemIndex = currentData.findIndex(item =>
+        item.shipValue === shipValue &&
+        item.scenarioValue === scenarioValue &&
         item.customerInfoValue === customerInfoValue &&
-        item.totalAmountValue === totalAmountValue
+        item.totalAmountValue === totalAmountValue &&
+        item.causeValue === causeValue
     );
 
     if (itemIndex === -1) {
@@ -663,18 +672,24 @@ function handleCheckboxClick(checkbox) {
         return;
     }
 
-    // Read values from cells to find item
+    // Read ALL values from cells to find item
     const cells = row.cells;
+    const shipValue = cells[1]?.innerText?.trim() || "";
+    const scenarioValue = cells[2]?.innerText?.trim() || "";
     const customerInfoValue = cells[3]?.innerText?.trim() || "";
     const totalAmountValue = cells[4]?.innerText?.trim() || "";
+    const causeValue = cells[5]?.innerText?.trim() || "";
 
     // Optimistic UI: Update immediately (no confirm, no loading)
     row.style.opacity = isChecked ? "0.5" : "1.0";
 
     const currentData = getCachedData() || [];
     const itemIndex = currentData.findIndex(item =>
+        item.shipValue === shipValue &&
+        item.scenarioValue === scenarioValue &&
         item.customerInfoValue === customerInfoValue &&
-        item.totalAmountValue === totalAmountValue
+        item.totalAmountValue === totalAmountValue &&
+        item.causeValue === causeValue
     );
 
     if (itemIndex === -1) {
@@ -763,13 +778,21 @@ function saveChanges() {
 
     const currentData = getCachedData() || [];
 
-    // Find item by matching original values (stored when edit modal opened)
-    const originalCustomer = editingRow.dataset?.originalCustomer || "";
-    const originalAmount = editingRow.dataset?.originalAmount || "";
+    // Find item by matching ALL original values (stored when edit modal opened)
+    const orig = {
+        ship: editingRow.dataset?.originalShip || "",
+        scenario: editingRow.dataset?.originalScenario || "",
+        customer: editingRow.dataset?.originalCustomer || "",
+        amount: editingRow.dataset?.originalAmount || "",
+        cause: editingRow.dataset?.originalCause || ""
+    };
 
     const itemIndex = currentData.findIndex(item =>
-        item.customerInfoValue === originalCustomer &&
-        item.totalAmountValue === originalAmount
+        item.shipValue === orig.ship &&
+        item.scenarioValue === orig.scenario &&
+        item.customerInfoValue === orig.customer &&
+        item.totalAmountValue === orig.amount &&
+        item.causeValue === orig.cause
     );
 
     if (itemIndex === -1) {
