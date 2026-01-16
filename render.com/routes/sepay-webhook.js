@@ -1459,11 +1459,65 @@ async function processDebtUpdate(db, transactionId) {
             };
         }
 
-        // Single match - auto link
+        // Single phone match - check if multiple customers share same phone
         if (matchedPhones.length === 1) {
             const phoneData = matchedPhones[0];
             const fullPhone = phoneData.phone;
-            const firstCustomer = phoneData.customers[0];
+            const customers = phoneData.customers;
+
+            // Nếu 1 SĐT có nhiều customers khác nhau → tạo pending match để nhân viên chọn
+            if (customers.length > 1) {
+                console.log(`[DEBT-UPDATE] ⚠️ Single phone ${fullPhone} has ${customers.length} different customers:`);
+                customers.forEach((c, i) => console.log(`  ${i + 1}. ${c.name} (TPOS ID: ${c.id})`));
+                console.log(`[DEBT-UPDATE] Creating pending match for employee to choose...`);
+
+                // Reformat as multiple phones for pending match logic
+                // Mỗi customer thành 1 "phone group" với cùng SĐT
+                const reformattedPhones = customers.map(c => ({
+                    phone: fullPhone,
+                    customers: [c]
+                }));
+
+                // Set verification_status = PENDING_VERIFICATION
+                await db.query(
+                    `UPDATE balance_history
+                     SET match_method = 'multiple_customers_same_phone',
+                         verification_status = 'PENDING_VERIFICATION'
+                     WHERE id = $1`,
+                    [transactionId]
+                );
+
+                // Create pending match record
+                const pendingResult = await db.query(
+                    `INSERT INTO pending_customer_matches
+                     (transaction_id, extracted_phone, matched_customers, unique_phones_count, status)
+                     VALUES ($1, $2, $3, $4, 'pending')
+                     ON CONFLICT (transaction_id) DO UPDATE SET
+                         extracted_phone = EXCLUDED.extracted_phone,
+                         matched_customers = EXCLUDED.matched_customers,
+                         unique_phones_count = EXCLUDED.unique_phones_count,
+                         status = 'pending',
+                         updated_at = CURRENT_TIMESTAMP
+                     RETURNING id`,
+                    [transactionId, partialPhone, JSON.stringify(reformattedPhones), customers.length]
+                );
+
+                console.log(`[DEBT-UPDATE] ✅ Pending match created: ID ${pendingResult.rows[0].id}`);
+
+                return {
+                    success: true,
+                    method: 'pending_match_created',
+                    transactionId,
+                    partialPhone,
+                    fullPhone,
+                    customersCount: customers.length,
+                    pendingMatchId: pendingResult.rows[0].id,
+                    reason: `${customers.length} customers share phone ${fullPhone}`
+                };
+            }
+
+            // Chỉ 1 customer duy nhất → auto-select như cũ
+            const firstCustomer = customers[0];
 
             console.log(`[DEBT-UPDATE] ✅ Single phone found: ${fullPhone} from ${dataSource}`);
             console.log(`[DEBT-UPDATE] Auto-selecting: ${firstCustomer.name}`);
