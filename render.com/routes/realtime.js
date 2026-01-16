@@ -80,7 +80,7 @@ router.get('/new-messages', async (req, res) => {
                 customer_name,
                 created_at
             FROM realtime_updates
-            WHERE created_at > $1
+            WHERE created_at > $1 AND (seen = FALSE OR seen IS NULL)
             ORDER BY created_at DESC
             LIMIT $2
         `;
@@ -136,7 +136,7 @@ router.get('/summary', async (req, res) => {
                 COUNT(*) as count,
                 COUNT(DISTINCT psid) as unique_customers
             FROM realtime_updates
-            WHERE created_at > $1
+            WHERE created_at > $1 AND (seen = FALSE OR seen IS NULL)
             GROUP BY type
         `;
 
@@ -156,11 +156,11 @@ router.get('/summary', async (req, res) => {
             }
         });
 
-        // Get total unique customers across all types
+        // Get total unique customers across all types (only unseen)
         const uniqueQuery = `
             SELECT COUNT(DISTINCT psid) as total
             FROM realtime_updates
-            WHERE created_at > $1 AND psid IS NOT NULL
+            WHERE created_at > $1 AND psid IS NOT NULL AND (seen = FALSE OR seen IS NULL)
         `;
         const uniqueResult = await db.query(uniqueQuery, [sinceDate]);
         summary.uniqueCustomers = parseInt(uniqueResult.rows[0]?.total || 0);

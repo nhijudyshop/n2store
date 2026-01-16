@@ -31,6 +31,28 @@
     }
 
     /**
+     * Mark messages as seen on server (so they don't appear again)
+     */
+    async function markMessagesAsSeen(timestamp) {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/realtime/mark-seen`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ before: timestamp })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`[NEW-MSG-NOTIFIER] Marked ${result.updated} messages as seen`);
+                return result;
+            }
+        } catch (error) {
+            console.warn('[NEW-MSG-NOTIFIER] Failed to mark messages as seen:', error.message);
+        }
+        return null;
+    }
+
+    /**
      * Fetch new messages from server
      */
     async function fetchNewMessages(since) {
@@ -260,6 +282,7 @@
     async function checkNewMessages() {
         try {
             const since = getLastSeenTimestamp();
+            const currentTimestamp = Date.now(); // Capture now for marking seen
             console.log(`[NEW-MSG-NOTIFIER] Checking messages since ${new Date(since).toISOString()}`);
 
             const summary = await fetchNewMessages(since);
@@ -267,31 +290,33 @@
             if (summary && summary.success && summary.total > 0) {
                 showNotification(summary);
 
-                // Optionally fetch full details to highlight rows
-                // (only if we have a small number of items)
-                if (summary.total <= 50) {
-                    try {
-                        const detailUrl = `${SERVER_URL}/api/realtime/new-messages?since=${since}&limit=50`;
-                        const detailResponse = await fetch(detailUrl);
-                        if (detailResponse.ok) {
-                            const details = await detailResponse.json();
-                            if (details.success) {
-                                const allItems = [
-                                    ...(details.messages?.items || []),
-                                    ...(details.comments?.items || [])
-                                ];
-                                highlightNewMessagesInTable(allItems);
-                            }
+                // Always fetch top 50 recent messages to highlight rows
+                // (regardless of total count)
+                try {
+                    const detailUrl = `${SERVER_URL}/api/realtime/new-messages?since=${since}&limit=50`;
+                    const detailResponse = await fetch(detailUrl);
+                    if (detailResponse.ok) {
+                        const details = await detailResponse.json();
+                        if (details.success) {
+                            const allItems = [
+                                ...(details.messages?.items || []),
+                                ...(details.comments?.items || [])
+                            ];
+                            highlightNewMessagesInTable(allItems);
                         }
-                    } catch (e) {
-                        console.warn('[NEW-MSG-NOTIFIER] Could not fetch details for highlighting');
                     }
+                } catch (e) {
+                    console.warn('[NEW-MSG-NOTIFIER] Could not fetch details for highlighting');
                 }
+
+                // Mark all messages before current timestamp as seen on server
+                // This prevents the count from accumulating forever
+                await markMessagesAsSeen(currentTimestamp);
             } else {
                 console.log('[NEW-MSG-NOTIFIER] No new messages');
             }
 
-            // Save current timestamp for next check
+            // Save current timestamp for next check (localStorage)
             saveCurrentTimestamp();
 
         } catch (error) {
