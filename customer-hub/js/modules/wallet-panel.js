@@ -472,31 +472,19 @@ export class WalletPanelModule {
     }
 
     /**
-     * Format datetime same as _getTimeAgo in customer-profile.js
-     * Uses relative time for recent, full date for older
+     * Format datetime same as formatTimestamp in transaction-activity.js
+     * Uses toLocaleString for consistent formatting
      */
     _formatDateTime(dateString) {
-        if (!dateString) return '';
+        if (!dateString) return 'N/A';
         const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Vừa xong';
-        if (diffMins < 60) return `${diffMins} phút trước`;
-        if (diffHours < 24) return `${diffHours} giờ trước`;
-        if (diffDays === 1) return 'Hôm qua';
-        if (diffDays < 7) return `${diffDays} ngày trước`;
-
-        // For older dates, show full date with time
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
+        return date.toLocaleString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 
     // =====================================================
