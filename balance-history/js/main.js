@@ -1571,7 +1571,8 @@ function formatDateTime(dateString) {
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit'
+        second: '2-digit',
+        timeZone: 'Asia/Ho_Chi_Minh'
     });
 }
 
@@ -3253,7 +3254,7 @@ function renderCustomerQuickViewContent(data) {
                         const isPositive = tx.amount > 0;
                         const amountClass = isPositive ? 'amount-positive' : 'amount-negative';
                         const icon = isPositive ? '↑' : '↓';
-                        const date = new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                        const date = new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
                         return `
                             <div class="transaction-row">
                                 <span class="tx-date">${date}</span>
