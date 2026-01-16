@@ -256,6 +256,8 @@ document.addEventListener('keydown', function (e) {
 document.addEventListener('DOMContentLoaded', function () {
     console.log('[COLUMN] Column visibility manager loaded');
     // Initialize will be called after table is rendered
+    // Show excluded tags display immediately (will update when tags are loaded)
+    updateExcludedTagsMainDisplay();
 });
 
 // =====================================================
@@ -432,16 +434,24 @@ function updateExcludedTagsMainDisplay() {
     }
 
     container.style.display = 'block';
+
+    // If tags not loaded yet, show loading state
+    if (tags.length === 0) {
+        listEl.innerHTML = `<span style="font-size: 11px; color: #9ca3af;"><i class="fas fa-spinner fa-spin"></i> ${excludedTags.length} tag...</span>`;
+        return;
+    }
+
     listEl.innerHTML = excludedTags.map(tagId => {
         const tag = tags.find(t => String(t.Id) === String(tagId));
-        if (!tag) return '';
-        const tagColor = tag.Color || '#6b7280';
+        // Show tag even if not found in availableTags (fallback)
+        const tagColor = tag?.Color || '#6b7280';
+        const tagName = tag?.Name || `Tag #${tagId}`;
         return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
-            ${tag.Name || 'Không tên'}
+            ${tagName}
             <button onclick="removeExcludedTagFromMain('${tagId}')" style="margin-left: 6px; background: none; border: none; cursor: pointer; padding: 0; color: ${tagColor}; font-size: 12px; line-height: 1; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Bỏ ẩn tag này">×</button>
         </span>`;
-    }).filter(Boolean).join('');
+    }).join('');
 }
 
 /**
