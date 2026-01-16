@@ -2566,19 +2566,20 @@
             loadMergeVariantsMode(); // Load merge variants mode from localStorage
             loadHideEditControlsMode(); // Load hide edit controls mode from localStorage
 
-            // Load products FIRST (before listeners)
-            await loadProducts();
-
-            // THEN setup Firebase listeners
-            setupFirebaseListeners();
-
-            // Cleanup products older than 7 days
-            await cleanupOldProductsLocal();
-
+            // Parse hash params and set sync mode BEFORE setting up listeners
             const params = parseHashParams();
 
             // Auto-enable sync mode by default
             isSyncMode = true;
+
+            // Load products FIRST (before listeners)
+            await loadProducts();
+
+            // THEN setup Firebase listeners (after isSyncMode is set)
+            setupFirebaseListeners();
+
+            // Cleanup products older than 7 days
+            await cleanupOldProductsLocal();
 
             if (params.page && params.page > 1) {
                 currentPage = params.page;
