@@ -565,58 +565,38 @@
         </div>
     </div>
 
-    <!-- Customer List By Phone Modal -->
-    <div id="customerListModal" class="modal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh;">
+    <!-- Customer Quick View Modal (New) -->
+    <div id="customerQuickViewModal" class="modal">
+        <div class="modal-content customer-quick-view" style="max-width: 500px;">
             <div class="modal-header">
-                <h2><i data-lucide="users"></i> Khách hàng với SĐT: <span id="customerListPhone"></span></h2>
-                <button class="modal-close" id="closeCustomerListModalBtn">&times;</button>
+                <h2><i data-lucide="user"></i> Khách hàng: <span id="customerQuickViewPhone"></span></h2>
+                <button class="modal-close" onclick="closeCustomerQuickViewModal()">&times;</button>
             </div>
-            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+            <div class="modal-body" style="padding: 0;">
                 <!-- Loading State -->
-                <div id="customerListLoading" style="text-align: center; padding: 40px; display: none;">
+                <div id="customerQuickViewLoading" style="text-align: center; padding: 40px;">
                     <i data-lucide="loader-2" class="animate-spin"
                         style="width: 48px; height: 48px; color: #3b82f6;"></i>
-                    <p style="margin-top: 15px; color: #6b7280;">Đang tải danh sách khách hàng...</p>
+                    <p style="margin-top: 15px; color: #6b7280;">Đang tải thông tin...</p>
                 </div>
 
                 <!-- Empty State -->
-                <div id="customerListEmpty" style="text-align: center; padding: 40px; display: none;">
+                <div id="customerQuickViewEmpty" style="text-align: center; padding: 40px; display: none;">
                     <i data-lucide="user-x" style="width: 48px; height: 48px; color: #9ca3af;"></i>
-                    <p style="margin-top: 15px; color: #6b7280;">Không tìm thấy khách hàng với số điện thoại này</p>
+                    <p style="margin-top: 15px; color: #6b7280;">Không tìm thấy khách hàng</p>
                 </div>
 
-                <!-- Customer List -->
-                <div id="customerListContent" style="display: none;">
-                    <div id="customerListCount"
-                        style="margin-bottom: 15px; padding: 10px; background: #f0f9ff; border-radius: 8px; color: #0369a1;">
-                        <i data-lucide="info" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                        <span>Tìm thấy <strong id="customerListTotal">0</strong> khách hàng</span>
-                    </div>
-                    <table class="data-table" style="width: 100%;">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Tên</th>
-                                <th>TPOS ID</th>
-                                <th>Trạng thái</th>
-                                <th>Tổng Công Nợ</th>
-                                <th>Địa chỉ</th>
-                                <th>Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="customerListTableBody">
-                        </tbody>
-                    </table>
+                <!-- Content (rendered by JS) -->
+                <div id="customerQuickViewContent" style="display: none;">
                 </div>
             </div>
             <div class="modal-footer"
-                style="padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-                <a href="../customer-hub/index.html" target="_blank" class="btn btn-primary"
+                style="padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                <a id="customerQuickViewLink" href="#" target="_blank" class="btn btn-primary"
                     style="text-decoration: none;">
                     <i data-lucide="external-link"></i> Mở Customer 360
                 </a>
-                <button class="btn btn-secondary" onclick="closeCustomerListModal()">Đóng</button>
+                <button class="btn btn-secondary" onclick="closeCustomerQuickViewModal()">Đóng</button>
             </div>
         </div>
     </div>

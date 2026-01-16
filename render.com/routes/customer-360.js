@@ -19,6 +19,7 @@ const router = express.Router();
 const sseRouter = require('./realtime-sse');
 const { normalizePhone, getOrCreateCustomer } = require('../utils/customer-helpers');
 const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
+const { searchCustomerByPhone } = require('../services/tpos-customer-service');
 const { processDeposit } = require('../services/wallet-event-processor');
 
 // =====================================================
@@ -129,6 +130,111 @@ router.get('/customer/:phone', async (req, res) => {
         });
     } catch (error) {
         handleError(res, error, 'Failed to fetch customer 360 data');
+    }
+});
+
+/**
+ * GET /api/customer/:phone/quick-view
+ * Get quick customer info for modal (Balance-History)
+ * - Customer info (from DB or TPOS fallback)
+ * - Wallet balance
+ * - Pending deposits
+ * - Recent 5 wallet transactions
+ */
+router.get('/customer/:phone/quick-view', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const phone = normalizePhone(req.params.phone);
+
+    if (!phone) {
+        return res.status(400).json({ success: false, error: 'Invalid phone number' });
+    }
+
+    try {
+        // 1. Tìm customer trong DB local
+        const customerResult = await db.query(`
+            SELECT c.*,
+                   w.balance as wallet_balance,
+                   w.virtual_balance as wallet_virtual_balance
+            FROM customers c
+            LEFT JOIN customer_wallets w ON w.phone = c.phone
+            WHERE c.phone = $1
+        `, [phone]);
+
+        let customer = customerResult.rows[0];
+        let source = 'customer360';
+        let isFromTpos = false;
+
+        // 2. Nếu không có trong DB → tìm trong TPOS
+        if (!customer) {
+            console.log(`[QUICK-VIEW] Customer not found in DB, searching TPOS for ${phone}`);
+            try {
+                const tposResult = await searchCustomerByPhone(phone);
+                if (tposResult && tposResult.customers && tposResult.customers.length > 0) {
+                    // Take the first (newest) customer
+                    const tposCustomer = tposResult.customers[0];
+                    customer = {
+                        id: null,
+                        name: tposCustomer.Name || tposCustomer.DisplayName,
+                        phone: phone,
+                        address: tposCustomer.FullAddress || tposCustomer.Street || '',
+                        status: tposCustomer.Status || 'Bình thường',
+                        tpos_id: tposCustomer.Id,
+                        wallet_balance: 0,
+                        wallet_virtual_balance: 0
+                    };
+                    source = 'tpos';
+                    isFromTpos = true;
+                    console.log(`[QUICK-VIEW] Found customer in TPOS: ${customer.name}`);
+                }
+            } catch (tposError) {
+                console.error('[QUICK-VIEW] TPOS search error:', tposError.message);
+            }
+        }
+
+        if (!customer) {
+            return res.json({ success: false, message: 'Không tìm thấy khách hàng' });
+        }
+
+        // 3. Lấy pending deposits
+        const pendingResult = await db.query(`
+            SELECT COUNT(*) as count, COALESCE(SUM(transfer_amount), 0) as total
+            FROM balance_history
+            WHERE linked_customer_phone = $1
+              AND verification_status = 'PENDING_VERIFICATION'
+              AND wallet_processed = FALSE
+        `, [phone]);
+
+        // 4. Lấy 5 giao dịch ví gần nhất
+        const transactionsResult = await db.query(`
+            SELECT type, amount, note, created_at
+            FROM wallet_transactions
+            WHERE phone = $1
+            ORDER BY created_at DESC
+            LIMIT 5
+        `, [phone]);
+
+        res.json({
+            success: true,
+            data: {
+                customer: customer,
+                source: source,
+                isFromTpos: isFromTpos,
+                wallet: {
+                    balance: parseFloat(customer.wallet_balance) || 0,
+                    virtual_balance: parseFloat(customer.wallet_virtual_balance) || 0,
+                    total: (parseFloat(customer.wallet_balance) || 0) + (parseFloat(customer.wallet_virtual_balance) || 0)
+                },
+                pending_deposits: {
+                    count: parseInt(pendingResult.rows[0].count) || 0,
+                    total: parseFloat(pendingResult.rows[0].total) || 0
+                },
+                recent_transactions: transactionsResult.rows
+            }
+        });
+
+    } catch (error) {
+        console.error('[QUICK-VIEW] Error:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

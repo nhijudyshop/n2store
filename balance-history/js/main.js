@@ -1344,7 +1344,7 @@ function renderTransactionRow(row) {
                 <button class="btn-copy-phone" onclick="copyPhoneToClipboard('${customerDisplay.phone}', this)" title="Copy SĐT" style="padding: 2px 4px; background: transparent; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; display: flex; align-items: center;">
                     <i data-lucide="copy" style="width: 12px; height: 12px; color: #6b7280;"></i>
                 </button>
-                <a href="javascript:void(0)" onclick="showCustomersByPhone('${customerDisplay.phone}')" class="phone-link" title="Xem danh sách khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
+                <a href="javascript:void(0)" onclick="showCustomerQuickView('${customerDisplay.phone}')" class="phone-link" title="Xem thông tin khách hàng" style="color: #3b82f6; text-decoration: none; cursor: pointer;">
                     ${customerDisplay.phone}
                     <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
                 </a>
@@ -3112,6 +3112,19 @@ async function fetchCustomersFromTpos(phone) {
  * @param {string} phone - Phone number to search
  */
 async function showCustomersByPhone(phone) {
+    // Redirect to new showCustomerQuickView function
+    return showCustomerQuickView(phone);
+}
+
+// =====================================================
+// CUSTOMER QUICK VIEW MODAL (NEW - Phase 1.3)
+// =====================================================
+
+/**
+ * Show quick customer info modal
+ * @param {string} phone - Phone number
+ */
+async function showCustomerQuickView(phone) {
     if (!phone || phone === 'N/A') {
         if (window.NotificationManager) {
             window.NotificationManager.showNotification('Không có số điện thoại để tìm kiếm', 'warning');
@@ -3119,379 +3132,207 @@ async function showCustomersByPhone(phone) {
         return;
     }
 
-    const modal = document.getElementById('customerListModal');
-    const loadingEl = document.getElementById('customerListLoading');
-    const emptyEl = document.getElementById('customerListEmpty');
-    const contentEl = document.getElementById('customerListContent');
-    const phoneEl = document.getElementById('customerListPhone');
+    const modal = document.getElementById('customerQuickViewModal');
+    const loadingEl = document.getElementById('customerQuickViewLoading');
+    const emptyEl = document.getElementById('customerQuickViewEmpty');
+    const contentEl = document.getElementById('customerQuickViewContent');
+    const linkEl = document.getElementById('customerQuickViewLink');
+    const phoneEl = document.getElementById('customerQuickViewPhone');
 
-    // Show modal and loading state
-    modal.style.display = 'block';
-    phoneEl.textContent = phone;
+    // Show modal
+    modal.style.display = 'flex';
     loadingEl.style.display = 'block';
     emptyEl.style.display = 'none';
     contentEl.style.display = 'none';
+    phoneEl.textContent = phone;
+
+    // Update Customer 360 link
+    linkEl.href = `../customer-hub/index.html?phone=${encodeURIComponent(phone)}`;
 
     // Reinitialize icons
     if (window.lucide) lucide.createIcons();
 
     try {
-        // Fetch customers and transaction stats in parallel
-        const [customersResponse, transactionsResponse] = await Promise.all([
-            fetch(`${CUSTOMER_API_URL}/api/customers/search?q=${encodeURIComponent(phone)}&limit=50`),
-            fetch(`${CUSTOMER_API_URL}/api/sepay/transactions-by-phone?phone=${encodeURIComponent(phone)}&limit=1`)
-        ]);
+        const response = await fetch(`${CUSTOMER_API_URL}/api/customer/${phone}/quick-view`);
+        const result = await response.json();
 
-        if (!customersResponse.ok) {
-            throw new Error(`HTTP error! status: ${customersResponse.status}`);
-        }
-
-        const customersResult = await customersResponse.json();
-        let balanceStats = null;
-
-        // Get balance statistics from transactions
-        if (transactionsResponse.ok) {
-            const transactionsResult = await transactionsResponse.json();
-            if (transactionsResult.success && transactionsResult.statistics) {
-                balanceStats = transactionsResult.statistics;
-                console.log('[CUSTOMER-LIST] Balance stats:', balanceStats);
-            }
-        }
-
-        if (!customersResult.success) {
-            throw new Error(customersResult.message || 'Failed to fetch customers');
-        }
-
-        // Filter customers with exact phone match
-        let customers = (customersResult.data || []).filter(c => {
-            const customerPhone = (c.phone || '').replace(/\D/g, '');
-            const searchPhone = phone.replace(/\D/g, '');
-            return customerPhone === searchPhone || customerPhone.endsWith(searchPhone) || searchPhone.endsWith(customerPhone);
-        });
-
-        // Fallback to TPOS OData API if proxy returned empty results
-        if (customers.length === 0) {
-            console.log('[CUSTOMER-LIST] Proxy API returned empty, trying TPOS fallback...');
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Đang tìm kiếm trong TPOS...', 'info');
-            }
-
-            const tposCustomers = await fetchCustomersFromTpos(phone);
-            if (tposCustomers.length > 0) {
-                customers = tposCustomers;
-                console.log('[CUSTOMER-LIST] Using TPOS fallback results:', customers.length, 'customers');
-                if (window.NotificationManager) {
-                    window.NotificationManager.showNotification(`Tìm thấy ${customers.length} khách hàng từ TPOS`, 'success');
-                }
-            }
-        }
-
-        renderCustomerList(customers, balanceStats, phone);
-
-    } catch (error) {
-        console.error('[CUSTOMER-LIST] Error:', error);
         loadingEl.style.display = 'none';
-        emptyEl.style.display = 'block';
-        emptyEl.querySelector('p').textContent = 'Lỗi khi tải dữ liệu: ' + error.message;
-    }
-}
 
-/**
- * Merge customers with the same phone number (like Customer Hub)
- * @param {Array} customers - List of customers
- * @returns {Array} - Merged customer list
- */
-function mergeCustomersByPhone(customers) {
-    const phoneMap = new Map();
-
-    customers.forEach(customer => {
-        const phone = (customer.phone || '').trim();
-        if (!phone) {
-            // Customers without phone are kept as-is
-            const uniqueKey = `no_phone_${customer.id}`;
-            phoneMap.set(uniqueKey, {
-                ...customer,
-                mergedNames: [customer.name || ''],
-                mergedAddresses: [customer.address || ''],
-                mergedIds: [customer.id]
-            });
+        if (!result.success || !result.data) {
+            emptyEl.style.display = 'block';
+            emptyEl.innerHTML = `
+                <i data-lucide="user-x" style="width: 48px; height: 48px; color: #9ca3af;"></i>
+                <p style="margin-top: 15px; color: #6b7280;">Không tìm thấy khách hàng</p>
+            `;
+            if (window.lucide) lucide.createIcons();
             return;
         }
 
-        if (phoneMap.has(phone)) {
-            // Merge with existing customer
-            const existing = phoneMap.get(phone);
-            const newName = (customer.name || '').trim();
-            const newAddress = (customer.address || '').trim();
+        contentEl.style.display = 'block';
+        contentEl.innerHTML = renderCustomerQuickViewContent(result.data);
 
-            // Add unique names
-            if (newName && !existing.mergedNames.includes(newName)) {
-                existing.mergedNames.push(newName);
-            }
+        if (window.lucide) lucide.createIcons();
 
-            // Add unique addresses
-            if (newAddress && !existing.mergedAddresses.includes(newAddress)) {
-                existing.mergedAddresses.push(newAddress);
-            }
-
-            // Merge IDs for reference
-            existing.mergedIds.push(customer.id);
-
-            // Keep the higher debt
-            if ((customer.debt || 0) > (existing.debt || 0)) {
-                existing.debt = customer.debt;
-            }
-
-            // Keep VIP or worse status
-            existing.status = getMergedCustomerStatus(existing.status, customer.status);
-        } else {
-            // First occurrence
-            phoneMap.set(phone, {
-                ...customer,
-                mergedNames: [customer.name || ''],
-                mergedAddresses: [customer.address || ''],
-                mergedIds: [customer.id]
-            });
-        }
-    });
-
-    return Array.from(phoneMap.values());
-}
-
-/**
- * Get merged status (prioritize VIP > Nguy hiểm > Cảnh báo > Bom hàng > Bình thường)
- */
-function getMergedCustomerStatus(status1, status2) {
-    const statusPriority = {
-        'VIP': 5,
-        'Nguy hiểm': 4,
-        'Cảnh báo': 3,
-        'Bom hàng': 2,
-        'Bình thường': 1
-    };
-
-    const priority1 = statusPriority[status1] || 1;
-    const priority2 = statusPriority[status2] || 1;
-
-    return priority1 >= priority2 ? status1 : status2;
-}
-
-/**
- * Render customer list in modal
- * @param {Array} customers - List of customers
- * @param {Object} balanceStats - Transaction statistics from balance-history
- * @param {string} phone - Phone number for debt lookup
- */
-function renderCustomerList(customers, balanceStats = null, phone = null) {
-    const loadingEl = document.getElementById('customerListLoading');
-    const emptyEl = document.getElementById('customerListEmpty');
-    const contentEl = document.getElementById('customerListContent');
-    const totalEl = document.getElementById('customerListTotal');
-    const tbody = document.getElementById('customerListTableBody');
-    const countDiv = document.getElementById('customerListCount');
-
-    // Safety check for null elements
-    if (!loadingEl || !emptyEl || !contentEl) {
-        console.error('[CUSTOMER-LIST] Required DOM elements not found');
-        return;
-    }
-
-    loadingEl.style.display = 'none';
-
-    if (!customers || customers.length === 0) {
+    } catch (error) {
+        console.error('[CUSTOMER-QUICK-VIEW] Error:', error);
+        loadingEl.style.display = 'none';
         emptyEl.style.display = 'block';
-        contentEl.style.display = 'none';
-        return;
+        emptyEl.innerHTML = `
+            <i data-lucide="alert-circle" style="width: 48px; height: 48px; color: #ef4444;"></i>
+            <p style="margin-top: 15px; color: #ef4444;">Lỗi khi tải thông tin</p>
+            <p style="color: #9ca3af; font-size: 13px;">${error.message}</p>
+        `;
+        if (window.lucide) lucide.createIcons();
     }
+}
 
-    emptyEl.style.display = 'none';
-    contentEl.style.display = 'block';
+/**
+ * Render customer quick view content
+ * @param {Object} data - Data from API
+ */
+function renderCustomerQuickViewContent(data) {
+    const { customer, wallet, pending_deposits, recent_transactions, isFromTpos, source } = data;
+    const pendingCount = pending_deposits?.count || 0;
+    const pendingTotal = pending_deposits?.total || 0;
 
-    // Merge customers with the same phone number
-    const mergedCustomers = mergeCustomersByPhone(customers);
+    // Warning banner nếu chưa có trong Customer360
+    const tposWarning = isFromTpos ? `
+        <div class="tpos-warning">
+            <i data-lucide="alert-triangle" style="width: 16px; height: 16px;"></i>
+            <span>Khách hàng chưa tạo trong Customer360 (Thông tin từ TPOS)</span>
+        </div>
+    ` : '';
 
-    // Safety check before setting textContent
-    if (totalEl) {
-        totalEl.textContent = mergedCustomers.length;
-    }
+    // Source badge
+    const sourceBadge = isFromTpos
+        ? '<span class="source-badge tpos">Từ TPOS</span>'
+        : '<span class="source-badge local">Customer360</span>';
 
-    // Update count div with balance statistics
-    if (balanceStats) {
-        const totalIn = balanceStats.total_in || 0;
-        countDiv.innerHTML = `
-            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
-                <span>
-                    <i data-lucide="users" style="width: 16px; height: 16px; vertical-align: middle;"></i>
-                    <strong>${mergedCustomers.length}</strong> khách hàng
-                </span>
-                <span style="color: #16a34a; font-weight: 600;">
-                    <i data-lucide="banknote" style="width: 14px; height: 14px; vertical-align: middle;"></i>
-                    Tổng GD: <strong>${formatCurrency(totalIn)}</strong>
-                </span>
-                <span style="color: #6b7280;">
-                    (${balanceStats.total_transactions || 0} giao dịch)
-                </span>
+    // Wallet section
+    let walletContent = '';
+    if (wallet.total > 0 || pendingCount > 0) {
+        walletContent = `
+            <div class="wallet-balance-main">
+                <span class="wallet-total">${formatCurrency(wallet.total)}</span>
+            </div>
+            <div class="wallet-breakdown">
+                <div class="wallet-row">
+                    <span>Thực:</span>
+                    <span class="amount-real">${formatCurrency(wallet.balance)}</span>
+                </div>
+                <div class="wallet-row">
+                    <span>Ảo:</span>
+                    <span class="amount-virtual">${formatCurrency(wallet.virtual_balance)}</span>
+                </div>
+            </div>
+            ${pendingCount > 0 ? `
+            <div class="pending-deposits">
+                <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                <span>Chờ duyệt: <strong>${formatCurrency(pendingTotal)}</strong></span>
+                <span class="pending-note">(${pendingCount} GD - chưa cộng vào số dư)</span>
+            </div>
+            ` : ''}
+        `;
+    } else {
+        walletContent = `
+            <div class="wallet-empty">
+                <i data-lucide="wallet" style="width: 24px; height: 24px; color: #9ca3af;"></i>
+                <span>Chưa có ví</span>
             </div>
         `;
     }
 
-    tbody.innerHTML = mergedCustomers.map((customer, index) => {
-        // Handle merged names display (Tên 1 | Tên 2 | Tên 3...)
-        const mergedNames = customer.mergedNames || [customer.name || ''];
-        const displayName = mergedNames.filter(n => n.trim()).join(' | ');
+    // Recent transactions
+    let transactionsContent = '';
+    if (recent_transactions && recent_transactions.length > 0) {
+        transactionsContent = `
+            <div class="quick-view-section">
+                <h4><i data-lucide="history"></i> Giao dịch ví gần đây</h4>
+                <div class="transactions-list">
+                    ${recent_transactions.map(tx => {
+                        const isPositive = tx.amount > 0;
+                        const amountClass = isPositive ? 'amount-positive' : 'amount-negative';
+                        const icon = isPositive ? '↑' : '↓';
+                        const date = new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                        return `
+                            <div class="transaction-row">
+                                <span class="tx-date">${date}</span>
+                                <span class="tx-amount ${amountClass}">${icon} ${formatCurrency(Math.abs(tx.amount))}</span>
+                                <span class="tx-note">${tx.note || tx.type || ''}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
 
-        // Check if this is a merged customer (has multiple entries)
-        const isMerged = (customer.mergedIds && customer.mergedIds.length > 1);
-        const mergedBadge = isMerged ? `<span style="background: #f59e0b; color: white; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px;">${customer.mergedIds.length} trùng</span>` : '';
+    return `
+        ${tposWarning}
 
-        // Get TPOS ID
-        const tposId = customer.tpos_id || '';
-
-        return `
-        <tr>
-            <td>${index + 1}</td>
-            <td>
-                <strong>${escapeHtmlForCustomer(displayName || 'N/A')}</strong>
-                ${mergedBadge}
-                ${customer.email ? `<br><small style="color: #6b7280;">${escapeHtmlForCustomer(customer.email)}</small>` : ''}
-            </td>
-            <td style="text-align: center;">
-                ${tposId ? `<code style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${tposId}</code>` : '<span style="color: #9ca3af;">-</span>'}
-            </td>
-            <td>
-                <span class="badge ${getStatusBadgeClass(customer.status)}">
-                    ${customer.status || 'Bình thường'}
-                </span>
-            </td>
-            <td id="debtCell_${index}" style="text-align: right;">
-                <span style="color: #9ca3af;">Đang tải...</span>
-            </td>
-            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlForCustomer(customer.address || '')}">
-                ${escapeHtmlForCustomer(customer.address || 'N/A')}
-            </td>
-            <td>
-                <a href="../customer-hub/index.html?phone=${encodeURIComponent(customer.phone || '')}"
-                   target="_blank"
-                   class="btn btn-sm btn-secondary"
-                   title="Xem chi tiết"
-                   style="padding: 4px 8px;">
-                    <i data-lucide="external-link" style="width: 14px; height: 14px;"></i>
-                </a>
-                ${customer.phone ? `
-                    <a href="https://zalo.me/${customer.phone}"
-                       target="_blank"
-                       class="btn btn-sm btn-success"
-                       title="Chat Zalo"
-                       style="padding: 4px 8px; margin-left: 4px;">
-                        <i data-lucide="message-circle" style="width: 14px; height: 14px;"></i>
-                    </a>
+        <!-- Thông tin cơ bản -->
+        <div class="quick-view-section">
+            <h4><i data-lucide="user"></i> Thông tin cơ bản ${sourceBadge}</h4>
+            <div class="info-grid">
+                <div class="info-row">
+                    <span class="label">Tên:</span>
+                    <span class="value"><strong>${customer.name || 'Chưa có'}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">SĐT:</span>
+                    <span class="value">
+                        <strong style="color: #3b82f6;">${customer.phone}</strong>
+                        <button onclick="copyPhoneToClipboard('${customer.phone}', this)" class="btn-copy-small" title="Copy">
+                            <i data-lucide="copy" style="width: 12px; height: 12px;"></i>
+                        </button>
+                        <a href="https://zalo.me/${customer.phone}" target="_blank" class="btn-zalo-small" title="Chat Zalo">
+                            <i data-lucide="message-circle" style="width: 12px; height: 12px;"></i>
+                        </a>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Địa chỉ:</span>
+                    <span class="value" style="max-width: 280px; text-align: right;">${customer.address || 'Chưa có'}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Trạng thái:</span>
+                    <span class="value">
+                        <span class="badge ${getStatusBadgeClass(customer.status)}">${customer.status || 'Bình thường'}</span>
+                    </span>
+                </div>
+                ${customer.tpos_id ? `
+                <div class="info-row">
+                    <span class="label">TPOS ID:</span>
+                    <span class="value"><code style="background: #e0e7ff; padding: 2px 6px; border-radius: 4px;">${customer.tpos_id}</code></span>
+                </div>
                 ` : ''}
-            </td>
-        </tr>
-    `}).join('');
+            </div>
+        </div>
 
-    // Reinitialize icons
-    if (window.lucide) lucide.createIcons();
+        <!-- Số dư ví -->
+        <div class="quick-view-section wallet-section">
+            <h4><i data-lucide="wallet"></i> Số dư ví</h4>
+            ${walletContent}
+        </div>
 
-    // Load debt data for this phone
-    if (phone) {
-        loadDebtForPhone(phone);
-    }
+        ${transactionsContent}
+    `;
 }
 
 /**
- * Load debt data for a phone number and update the debt cell
- * @param {string} phone - Phone number
+ * Close customer quick view modal
  */
-async function loadDebtForPhone(phone) {
-    try {
-        const response = await fetch(`${CUSTOMER_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(phone)}`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-            throw new Error(result.error || 'Failed to fetch debt');
-        }
-
-        const data = result.data;
-        const totalDebt = data.total_debt || 0;
-        const transactions = data.transactions || [];
-
-        console.log('[DEBT] Loaded for phone:', phone, 'Total:', totalDebt, 'Transactions:', transactions.length);
-
-        // Update all debt cells (there's only one row per phone now)
-        const debtCell = document.getElementById('debtCell_0');
-        if (debtCell) {
-            if (totalDebt > 0) {
-                // Build expandable transaction list
-                const transactionListHtml = transactions.length > 0 ? `
-                    <div id="debtDetail" style="display: none; margin-top: 8px; padding: 8px; background: #f9fafb; border-radius: 6px; font-size: 12px; text-align: left;">
-                        ${transactions.slice(0, 20).map((t, i) => {
-                    const isLast = i === Math.min(transactions.length - 1, 19);
-                    const prefix = isLast ? '└──' : '├──';
-                    const dateStr = t.date ? new Date(t.date).toLocaleDateString('vi-VN') : 'N/A';
-                    const statusIcon = t.debt_added ? '✓' : '○';
-                    return `
-                                <div style="padding: 2px 0; color: #374151; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                    ${prefix} ${statusIcon} <strong>${formatCurrency(t.amount)}</strong>
-                                    <span style="color: #9ca3af;">(${dateStr})</span>
-                                </div>
-                            `;
-                }).join('')}
-                        ${transactions.length > 20 ? `<div style="color: #9ca3af; font-style: italic;">... và ${transactions.length - 20} giao dịch khác</div>` : ''}
-                    </div>
-                ` : '';
-
-                debtCell.innerHTML = `
-                    <div onclick="toggleDebtDetail()" style="cursor: pointer;">
-                        <div style="color: #16a34a; font-weight: 600;">
-                            ${formatCurrency(totalDebt)}
-                        </div>
-                        <small style="color: #9ca3af; font-size: 10px;">
-                            ${transactions.length} giao dịch
-                            <span id="debtExpandIcon" style="font-size: 10px;">▼</span>
-                        </small>
-                    </div>
-                    ${transactionListHtml}
-                `;
-            } else {
-                debtCell.innerHTML = `
-                    <span style="color: #9ca3af;">0 đ</span>
-                    <br><small style="color: #9ca3af; font-size: 10px;">Chưa có GD</small>
-                `;
-            }
-        }
-
-    } catch (error) {
-        console.error('[DEBT] Error loading:', error);
-        const debtCell = document.getElementById('debtCell_0');
-        if (debtCell) {
-            debtCell.innerHTML = `<span style="color: #ef4444;">Lỗi</span>`;
-        }
+function closeCustomerQuickViewModal() {
+    const modal = document.getElementById('customerQuickViewModal');
+    if (modal) {
+        modal.style.display = 'none';
     }
 }
 
-/**
- * Toggle debt detail expandable row
- */
-function toggleDebtDetail() {
-    const detail = document.getElementById('debtDetail');
-    const icon = document.getElementById('debtExpandIcon');
-    if (detail) {
-        const isHidden = detail.style.display === 'none';
-        detail.style.display = isHidden ? 'block' : 'none';
-        if (icon) {
-            icon.textContent = isHidden ? '▲' : '▼';
-        }
-    }
+// Legacy function for backward compatibility
+function closeCustomerListModal() {
+    closeCustomerQuickViewModal();
 }
-
-// Export toggleDebtDetail
-window.toggleDebtDetail = toggleDebtDetail;
 
 /**
  * Get status badge CSS class
@@ -3507,38 +3348,22 @@ function getStatusBadgeClass(status) {
     return statusMap[status] || 'badge-secondary';
 }
 
-/**
- * Escape HTML for customer display
- */
-function escapeHtmlForCustomer(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * Close customer list modal
- */
-function closeCustomerListModal() {
-    const modal = document.getElementById('customerListModal');
-    modal.style.display = 'none';
-}
-
-// Setup Customer List Modal Event Listeners
-const customerListModal = document.getElementById('customerListModal');
-const closeCustomerListModalBtn = document.getElementById('closeCustomerListModalBtn');
-
-closeCustomerListModalBtn?.addEventListener('click', closeCustomerListModal);
-
-customerListModal?.addEventListener('click', (e) => {
-    if (e.target === customerListModal) {
-        closeCustomerListModal();
+// Setup Customer Quick View Modal Event Listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('customerQuickViewModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeCustomerQuickViewModal();
+            }
+        });
     }
 });
 
 // Export functions
 window.showCustomersByPhone = showCustomersByPhone;
+window.showCustomerQuickView = showCustomerQuickView;
+window.closeCustomerQuickViewModal = closeCustomerQuickViewModal;
 window.closeCustomerListModal = closeCustomerListModal;
 
 // Auto-connect on page load
