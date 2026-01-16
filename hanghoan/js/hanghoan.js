@@ -584,6 +584,14 @@ function handleEditButton(button) {
     row.dataset.originalAmount = totalAmountValue;
     row.dataset.originalCause = causeValue;
 
+    console.log('[EDIT] Stored original values:', {
+        ship: shipValue,
+        scenario: scenarioValue,
+        customer: customerInfoValue,
+        amount: totalAmountValue,
+        cause: causeValue
+    });
+
     editingRow = row;
     DOM.editModal.classList.add("show");
     DOM.editModal.style.display = "flex";
@@ -787,6 +795,9 @@ function saveChanges() {
         cause: editingRow.dataset?.originalCause || ""
     };
 
+    console.log('[SAVE] Looking for:', orig);
+    console.log('[SAVE] Cache size:', currentData.length);
+
     const itemIndex = currentData.findIndex(item =>
         item.shipValue === orig.ship &&
         item.scenarioValue === orig.scenario &&
@@ -795,16 +806,29 @@ function saveChanges() {
         item.causeValue === orig.cause
     );
 
+    console.log('[SAVE] Found index:', itemIndex);
+
     if (itemIndex === -1) {
+        // Try looser match
+        const looseIndex = currentData.findIndex(item =>
+            item.customerInfoValue === orig.customer &&
+            item.totalAmountValue === orig.amount
+        );
+        console.log('[SAVE] Loose match index:', looseIndex);
+        if (looseIndex !== -1) {
+            console.log('[SAVE] Loose match item:', currentData[looseIndex]);
+        }
         showError("Không tìm thấy đơn hàng trong cache");
         isSaving = false;
         return;
     }
 
     const oldData = { ...currentData[itemIndex] };
+    console.log('[SAVE] Old duyetHoanValue:', oldData.duyetHoanValue);
 
     // ALWAYS convert date to timestamp - fixes corrupted timestamps
     const newTimestamp = convertToTimestamp(normalizedDate);
+    console.log('[SAVE] New timestamp:', newTimestamp, '→', new Date(parseInt(newTimestamp)).toLocaleDateString());
 
     // Update local data
     currentData[itemIndex] = {
