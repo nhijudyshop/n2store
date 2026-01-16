@@ -1301,6 +1301,13 @@ async function updateProductQty(productId, change) {
     if (!isSyncingFromFirebase) {
         try {
             await updateProductQtyInFirebase(database, productId, change, soluongProducts);
+
+            // Recalculate remainingQty after helper updates soldQty
+            const productKey = `product_${productId}`;
+            if (soluongProducts[productKey]) {
+                soluongProducts[productKey].remainingQty = soluongProducts[productKey].QtyAvailable - (soluongProducts[productKey].soldQty || 0);
+            }
+
             updateProductListPreview();
             updateHiddenProductListPreview();
         } catch (error) {
@@ -2242,6 +2249,12 @@ function setupFirebaseListeners() {
                 console.log('🔥 Product updated from Firebase:', product.NameGet);
                 updateProductListPreview();
             }
+        },
+        onQtyChanged: (product, productKey) => {
+            // Recalculate remainingQty when soldQty changes
+            product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
+            console.log('🔥 Qty updated from Firebase:', product.NameGet, '→ soldQty:', product.soldQty, 'remainingQty:', product.remainingQty);
+            updateProductListPreview();
         },
         onProductRemoved: (product) => {
             if (!isSyncingFromFirebase) {
