@@ -4,6 +4,8 @@
  * Structure: pancake_images/{sanitized_key} = { product_name, product_code, content_id, content_url?, product_id?, updated_at }
  * Key priority: productCode (best) > productName > productId
  * content_id is REQUIRED for Pancake API reuse, content_url is optional
+ *
+ * MIGRATED: Now uses Firestore instead of Realtime Database
  */
 
 (function() {
@@ -11,20 +13,20 @@
 
     class FirebaseImageCache {
         constructor() {
-            this.cacheRef = null;
+            this.cacheCollection = null;
             this.isInitialized = false;
             this.initPromise = this.init();
         }
 
         /**
-         * Initialize Firebase reference
+         * Initialize Firestore reference
          * @returns {Promise<boolean>}
          */
         async init() {
             try {
                 // Check if Firebase is available
-                if (typeof firebase === 'undefined' || !firebase.database) {
-                    console.warn('[FIREBASE-CACHE] Firebase database not available');
+                if (typeof firebase === 'undefined' || !firebase.firestore) {
+                    console.warn('[FIREBASE-CACHE] Firestore not available');
                     this.isInitialized = false;
                     return false;
                 }
@@ -36,9 +38,9 @@
                     return false;
                 }
 
-                this.cacheRef = firebase.database().ref('pancake_images');
+                this.cacheCollection = firebase.firestore().collection('pancake_images');
                 this.isInitialized = true;
-                console.log('[FIREBASE-CACHE] ✅ Initialized successfully');
+                console.log('[FIREBASE-CACHE] ✅ Initialized successfully (Firestore)');
                 return true;
 
             } catch (error) {
@@ -49,10 +51,10 @@
         }
 
         /**
-         * Sanitize string to be a valid Firebase key
-         * Firebase keys cannot contain: . # $ / [ ]
+         * Sanitize string to be a valid Firestore document ID
+         * Firestore IDs cannot contain: / or be longer than 1500 bytes
          * @param {string} str - String to sanitize
-         * @returns {string} - Sanitized string safe for Firebase key
+         * @returns {string} - Sanitized string safe for Firestore key
          */
         sanitizeKey(str) {
             if (!str) return '';
@@ -101,7 +103,7 @@
                 // Wait for initialization
                 await this.initPromise;
 
-                if (!this.isInitialized || !this.cacheRef) {
+                if (!this.isInitialized || !this.cacheCollection) {
                     console.warn('[FIREBASE-CACHE] Not initialized, skipping cache get');
                     return null;
                 }
@@ -112,10 +114,10 @@
                     return null;
                 }
 
-                const snapshot = await this.cacheRef.child(cacheKey).once('value');
+                const doc = await this.cacheCollection.doc(cacheKey).get();
 
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
+                if (doc.exists) {
+                    const data = doc.data();
                     console.log(`[FIREBASE-CACHE] ✅ Cache HIT for "${cacheKey}":`, data.content_id);
                     return data;
                 } else {
@@ -146,7 +148,7 @@
                 // Wait for initialization
                 await this.initPromise;
 
-                if (!this.isInitialized || !this.cacheRef) {
+                if (!this.isInitialized || !this.cacheCollection) {
                     console.warn('[FIREBASE-CACHE] Not initialized, skipping cache set');
                     return false;
                 }
@@ -167,7 +169,7 @@
                     product_name: productName || '',
                     product_code: productCode || '',
                     content_id: contentId,  // Required
-                    updated_at: firebase.database.ServerValue.TIMESTAMP
+                    updated_at: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
                 // Store content_url if provided (optional)
@@ -188,7 +190,7 @@
                     cacheData.product_id = Number(productId);
                 }
 
-                await this.cacheRef.child(cacheKey).set(cacheData);
+                await this.cacheCollection.doc(cacheKey).set(cacheData);
 
                 console.log(`[FIREBASE-CACHE] ✅ Saved to cache: "${cacheKey}", content_id:`, contentId);
                 return true;
@@ -205,7 +207,7 @@
          * @returns {boolean}
          */
         isAvailable() {
-            return this.isInitialized && this.cacheRef !== null;
+            return this.isInitialized && this.cacheCollection !== null;
         }
 
         /**
@@ -219,7 +221,7 @@
             try {
                 await this.initPromise;
 
-                if (!this.isInitialized || !this.cacheRef) {
+                if (!this.isInitialized || !this.cacheCollection) {
                     return false;
                 }
 
@@ -228,7 +230,7 @@
                     return false;
                 }
 
-                await this.cacheRef.child(cacheKey).remove();
+                await this.cacheCollection.doc(cacheKey).delete();
                 console.log(`[FIREBASE-CACHE] ✅ Cleared cache for "${cacheKey}"`);
                 return true;
 
@@ -246,12 +248,16 @@
             try {
                 await this.initPromise;
 
-                if (!this.isInitialized || !this.cacheRef) {
+                if (!this.isInitialized || !this.cacheCollection) {
                     return {};
                 }
 
-                const snapshot = await this.cacheRef.once('value');
-                return snapshot.val() || {};
+                const snapshot = await this.cacheCollection.get();
+                const result = {};
+                snapshot.forEach(doc => {
+                    result[doc.id] = doc.data();
+                });
+                return result;
 
             } catch (error) {
                 console.error('[FIREBASE-CACHE] ❌ Error getting all cache:', error);
@@ -263,6 +269,6 @@
     // Initialize and expose globally
     window.firebaseImageCache = new FirebaseImageCache();
 
-    console.log('[FIREBASE-CACHE] Module loaded');
+    console.log('[FIREBASE-CACHE] Module loaded (Firestore version)');
 
 })();

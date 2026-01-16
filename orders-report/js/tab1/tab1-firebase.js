@@ -10,9 +10,18 @@
 let database = null;
 try {
     database = firebase.database();
-    console.log('[NOTE-TRACKER] Firebase database reference obtained');
+    console.log('[NOTE-TRACKER] Firebase Realtime Database reference obtained');
 } catch (error) {
-    console.error('[NOTE-TRACKER] Firebase database reference error:', error);
+    console.error('[NOTE-TRACKER] Firebase Realtime Database reference error:', error);
+}
+
+// Firestore reference for settings migration (employee_ranges, campaigns, etc.)
+let firestoreDb = null;
+try {
+    firestoreDb = firebase.firestore();
+    console.log('[TAB1] Firestore reference obtained');
+} catch (error) {
+    console.error('[TAB1] Firestore reference error:', error);
 }
 
 // =====================================================

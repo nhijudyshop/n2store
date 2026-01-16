@@ -16,12 +16,16 @@ window.campaignManager = {
 // FIREBASE OPERATIONS
 // ============================================
 
-// Load all campaigns from Firebase
+// Load all campaigns from Firestore
 window.loadAllCampaigns = async function() {
     try {
-        const db = firebase.database();
-        const snapshot = await db.ref('user_campaigns').once('value');
-        window.campaignManager.allCampaigns = snapshot.val() || {};
+        const db = firebase.firestore();
+        const snapshot = await db.collection('campaigns').get();
+        const campaigns = {};
+        snapshot.forEach(doc => {
+            campaigns[doc.id] = doc.data();
+        });
+        window.campaignManager.allCampaigns = campaigns;
         return window.campaignManager.allCampaigns;
     } catch (error) {
         console.error('[CAMPAIGN] Error loading campaigns:', error);
@@ -32,9 +36,12 @@ window.loadAllCampaigns = async function() {
 // Save active campaign ID for user
 window.saveActiveCampaign = async function(campaignId) {
     try {
-        const db = firebase.database();
+        const db = firebase.firestore();
         const userId = window.campaignManager.currentUserId;
-        await db.ref(`user_preferences/${userId}/activeCampaignId`).set(campaignId);
+        await db.collection('user_preferences').doc(userId).set(
+            { activeCampaignId: campaignId },
+            { merge: true }
+        );
 
         window.campaignManager.activeCampaignId = campaignId;
         window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[campaignId];
@@ -246,10 +253,10 @@ window.saveCampaignDatesAndContinue = async function() {
     }
 
     try {
-        const db = firebase.database();
+        const db = firebase.firestore();
 
-        // Update campaign in Firebase
-        await db.ref(`user_campaigns/${campaignId}`).update({
+        // Update campaign in Firestore
+        await db.collection('campaigns').doc(campaignId).update({
             customStartDate: startDate,
             customEndDate: endDate || '',
             timeFrame: 'custom',
@@ -422,10 +429,10 @@ window.saveEditCampaign = async function() {
     }
 
     try {
-        const db = firebase.database();
+        const db = firebase.firestore();
         const timeFrameLabel = 'Custom (lọc theo ngày tạo đơn)';
 
-        await db.ref(`user_campaigns/${campaignId}`).update({
+        await db.collection('campaigns').doc(campaignId).update({
             name: name,
             timeFrame: 'custom',
             timeFrameLabel: timeFrameLabel,
@@ -479,8 +486,8 @@ window.deleteCampaign = async function(campaignId) {
     }
 
     try {
-        const db = firebase.database();
-        await db.ref(`user_campaigns/${campaignId}`).remove();
+        const db = firebase.firestore();
+        await db.collection('campaigns').doc(campaignId).delete();
 
         // Remove from local cache
         delete window.campaignManager.allCampaigns[campaignId];
@@ -492,7 +499,9 @@ window.deleteCampaign = async function(campaignId) {
 
             // Clear user's active campaign
             const userId = window.campaignManager.currentUserId;
-            await db.ref(`user_preferences/${userId}/activeCampaignId`).remove();
+            await db.collection('user_preferences').doc(userId).update({
+                activeCampaignId: firebase.firestore.FieldValue.delete()
+            });
 
             // Show select modal if other campaigns exist
             const remainingCampaigns = Object.keys(window.campaignManager.allCampaigns).length;

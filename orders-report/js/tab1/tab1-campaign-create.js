@@ -83,11 +83,11 @@ window.saveNewCampaign = async function() {
 
     try {
         // Check if Firebase is available
-        if (typeof firebase === 'undefined' || !firebase.database) {
-            throw new Error('Firebase not available');
+        if (typeof firebase === 'undefined' || !firebase.firestore) {
+            throw new Error('Firestore not available');
         }
 
-        const db = firebase.database();
+        const db = firebase.firestore();
         const campaignId = 'campaign_' + Date.now();
 
         const campaignData = {
@@ -98,7 +98,7 @@ window.saveNewCampaign = async function() {
             createdAt: new Date().toISOString()
         };
 
-        await db.ref('user_campaigns/' + campaignId).set(campaignData);
+        await db.collection('campaigns').doc(campaignId).set(campaignData);
 
         // Add to local cache
         window.campaignManager.allCampaigns[campaignId] = campaignData;

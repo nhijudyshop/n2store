@@ -235,16 +235,16 @@ function getStatsCampaignId() {
 }
 
 /**
- * Load stats from Firebase for current campaign
+ * Load stats from Firestore for current campaign
  */
 async function loadStatsFromFirebase() {
     const modalBody = document.getElementById('productStatsModalBody');
     const campaignId = getStatsCampaignId();
 
     try {
-        const statsRef = window.firebase.database().ref(`product_stats/${campaignId}`);
-        const snapshot = await statsRef.once('value');
-        const data = snapshot.val();
+        const db = window.firebase.firestore();
+        const doc = await db.collection('product_stats').doc(campaignId).get();
+        const data = doc.exists ? doc.data() : null;
 
         if (data && data.statsHtml) {
             // Show campaign info
@@ -261,7 +261,7 @@ async function loadStatsFromFirebase() {
             `;
         }
     } catch (error) {
-        console.error('[PRODUCT-STATS] Error loading from Firebase:', error);
+        console.error('[PRODUCT-STATS] Error loading from Firestore:', error);
         modalBody.innerHTML = `
             <div class="stats-empty-state">
                 <i class="fas fa-chart-pie"></i>
@@ -272,15 +272,15 @@ async function loadStatsFromFirebase() {
 }
 
 /**
- * Save stats to Firebase for current campaign
+ * Save stats to Firestore for current campaign
  */
 async function saveStatsToFirebase(statsHtml, summaryData) {
     const campaignId = getStatsCampaignId();
     const campaignName = selectedCampaign ? selectedCampaign.campaignName : '';
 
     try {
-        const statsRef = window.firebase.database().ref(`product_stats/${campaignId}`);
-        await statsRef.set({
+        const db = window.firebase.firestore();
+        await db.collection('product_stats').doc(campaignId).set({
             campaignId: campaignId,
             campaignName: campaignName,
             statsHtml: statsHtml,
@@ -289,9 +289,9 @@ async function saveStatsToFirebase(statsHtml, summaryData) {
             totalOrders: summaryData.totalOrders,
             updatedAt: new Date().toISOString()
         });
-        console.log('[PRODUCT-STATS] Saved to Firebase successfully');
+        console.log('[PRODUCT-STATS] Saved to Firestore successfully');
     } catch (error) {
-        console.error('[PRODUCT-STATS] Error saving to Firebase:', error);
+        console.error('[PRODUCT-STATS] Error saving to Firestore:', error);
     }
 }
 
@@ -1003,7 +1003,7 @@ const QR_AMOUNT_SETTING_KEY = 'qr_show_amount';
 let qrShowAmountEnabled = true; // Default: show amount
 
 /**
- * Load QR amount toggle setting from localStorage and Firebase
+ * Load QR amount toggle setting from localStorage and Firestore
  */
 async function loadQRAmountSetting() {
     try {
@@ -1017,18 +1017,19 @@ async function loadQRAmountSetting() {
             }
         }
 
-        // 2. Try Firebase (source of truth)
-        if (window.firebase && window.userStorageManager) {
-            const firebaseValue = await window.userStorageManager.loadFromFirebase(
-                window.firebase.database(),
-                `settings/${QR_AMOUNT_SETTING_KEY}`
-            );
-            if (firebaseValue !== null) {
-                qrShowAmountEnabled = firebaseValue === true || firebaseValue === 'true';
+        // 2. Try Firestore (source of truth)
+        if (window.firebase && window.firebase.firestore) {
+            const db = window.firebase.firestore();
+            const doc = await db.collection('settings').doc(QR_AMOUNT_SETTING_KEY).get();
+            if (doc.exists) {
+                const data = doc.data();
+                qrShowAmountEnabled = data.enabled === true || data.enabled === 'true';
                 // Sync to localStorage
-                window.userStorageManager.saveToLocalStorage(QR_AMOUNT_SETTING_KEY, qrShowAmountEnabled);
+                if (window.userStorageManager) {
+                    window.userStorageManager.saveToLocalStorage(QR_AMOUNT_SETTING_KEY, qrShowAmountEnabled);
+                }
                 updateQRAmountToggleUI();
-                console.log('[QR-SETTING] Loaded from Firebase:', qrShowAmountEnabled);
+                console.log('[QR-SETTING] Loaded from Firestore:', qrShowAmountEnabled);
             }
         }
     } catch (error) {
@@ -1037,7 +1038,7 @@ async function loadQRAmountSetting() {
 }
 
 /**
- * Save QR amount toggle setting to localStorage and Firebase
+ * Save QR amount toggle setting to localStorage and Firestore
  */
 async function saveQRAmountSetting() {
     try {
@@ -1047,14 +1048,14 @@ async function saveQRAmountSetting() {
             console.log('[QR-SETTING] Saved to localStorage:', qrShowAmountEnabled);
         }
 
-        // 2. Save to Firebase
-        if (window.firebase && window.userStorageManager) {
-            await window.userStorageManager.saveToFirebase(
-                window.firebase.database(),
-                `settings/${QR_AMOUNT_SETTING_KEY}`,
-                qrShowAmountEnabled
-            );
-            console.log('[QR-SETTING] Saved to Firebase:', qrShowAmountEnabled);
+        // 2. Save to Firestore
+        if (window.firebase && window.firebase.firestore) {
+            const db = window.firebase.firestore();
+            await db.collection('settings').doc(QR_AMOUNT_SETTING_KEY).set({
+                enabled: qrShowAmountEnabled,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('[QR-SETTING] Saved to Firestore:', qrShowAmountEnabled);
         }
     } catch (error) {
         console.error('[QR-SETTING] Error saving setting:', error);

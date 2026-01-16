@@ -32,7 +32,7 @@ function normalizeEmployeeRanges(data) {
 }
 
 /**
- * Load employee ranges from Firebase
+ * Load employee ranges from Firestore
  */
 async function loadEmployeeRanges() {
     if (!database) return;
@@ -52,9 +52,10 @@ async function loadEmployeeRanges() {
             }
         }
 
-        // Fallback to general
+        // Fallback to general - handle both { ranges: [...] } and direct array format
         const snapshot = await database.collection('settings').doc('employee_ranges').get();
-        employeeRanges = normalizeEmployeeRanges(snapshot.exists ? snapshot.data() : null);
+        const data = snapshot.exists ? snapshot.data() : null;
+        employeeRanges = normalizeEmployeeRanges(data?.ranges || data);
         console.log('[REPORT] ✅ Loaded general employee ranges:', employeeRanges.length);
     } catch (error) {
         console.error('[REPORT] ❌ Error loading employee ranges:', error);
