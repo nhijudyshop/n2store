@@ -880,8 +880,8 @@ window.onChatPageChanged = async function (pageId) {
 
 /**
  * Reload messages/comments when page is changed
- * Uses search by customer name to find fb_id on the new page
- * (fb_id is page-scoped - different for each page!)
+ * Uses same customer fb_id with different pages[pageId] filter
+ * API: GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
  * @param {string} pageId - New page ID to load messages from
  */
 window.reloadChatForSelectedPage = async function (pageId) {
@@ -890,17 +890,17 @@ window.reloadChatForSelectedPage = async function (pageId) {
     const modalBody = document.getElementById('chatModalBody');
     if (!modalBody) return;
 
-    // Get customer name for searching on new page
-    const customerName = window.currentCustomerName;
-    if (!customerName) {
-        console.error('[PAGE-RELOAD] No customer name available');
+    // Get customer fb_id saved when modal opened
+    const customerFbId = window.currentCustomerFbId;
+    if (!customerFbId) {
+        console.error('[PAGE-RELOAD] No customer fb_id available');
         const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
         const pageName = selectedPage?.page_name || pageId;
         modalBody.innerHTML = `
             <div class="chat-error">
                 <i class="fas fa-exclamation-triangle"></i>
                 <p>Không thể chuyển page</p>
-                <p style="font-size: 12px; color: #9ca3af;">Thiếu thông tin tên khách hàng</p>
+                <p style="font-size: 12px; color: #9ca3af;">Thiếu thông tin customer fb_id</p>
             </div>`;
         return;
     }
@@ -914,70 +914,14 @@ window.reloadChatForSelectedPage = async function (pageId) {
         </div>`;
 
     try {
-        // STEP 1: Search conversations by customer name on the new page
-        console.log('[PAGE-RELOAD] 🔍 Searching conversations by name:', customerName, 'on page:', pageId);
+        // STEP 1: Fetch conversations using SAME fb_id with NEW page filter
+        // API: GET /conversations/customer/{fb_id}?pages[{newPageId}]=0
+        console.log('[PAGE-RELOAD] 🔍 Fetching conversations with fb_id:', customerFbId, 'on page:', pageId);
 
-        const searchResult = await window.pancakeDataManager.searchConversations(customerName, [pageId]);
-
-        if (!searchResult.conversations || searchResult.conversations.length === 0) {
-            console.warn('[PAGE-RELOAD] ⚠️ No conversations found by name search');
-            const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
-            const pageName = selectedPage?.page_name || pageId;
-            modalBody.innerHTML = `
-                <div class="chat-error">
-                    <i class="fas fa-info-circle"></i>
-                    <p>Không tìm thấy "${customerName}" trên page "${pageName}"</p>
-                    <p style="font-size: 12px; color: #9ca3af;">Khách hàng chưa từng nhắn tin hoặc bình luận với page này</p>
-                </div>`;
-            return;
-        }
-
-        console.log('[PAGE-RELOAD] ✅ Found', searchResult.conversations.length, 'conversations by name search');
-
-        // STEP 2: Find exact match by name (in case multiple results)
-        // Filter conversations that belong to this page
-        const pageConversations = searchResult.conversations.filter(conv => conv.page_id === pageId);
-
-        if (pageConversations.length === 0) {
-            console.warn('[PAGE-RELOAD] ⚠️ No conversations found for this specific page');
-            const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
-            const pageName = selectedPage?.page_name || pageId;
-            modalBody.innerHTML = `
-                <div class="chat-error">
-                    <i class="fas fa-info-circle"></i>
-                    <p>Không có cuộc hội thoại với page "${pageName}"</p>
-                    <p style="font-size: 12px; color: #9ca3af;">Khách hàng chưa từng nhắn tin hoặc bình luận với page này</p>
-                </div>`;
-            return;
-        }
-
-        // Get fb_id from the first conversation's customer data
-        const firstConv = pageConversations[0];
-        const newFbId = firstConv.customers?.[0]?.fb_id || firstConv.from?.id || firstConv.from_id;
-        const newCustomerUUID = firstConv.customers?.[0]?.id;
-
-        console.log('[PAGE-RELOAD] ✅ Found customer on new page:', {
-            fbId: newFbId,
-            customerUUID: newCustomerUUID,
-            name: firstConv.customers?.[0]?.name
-        });
-
-        // Update global state with new page-specific values
-        if (newFbId) {
-            window.currentChatPSID = newFbId;
-            window.currentRealFacebookPSID = newFbId;
-        }
-        if (newCustomerUUID) {
-            window.currentCustomerUUID = newCustomerUUID;
-        }
-
-        // STEP 3: Now fetch conversations using the new fb_id
-        console.log('[PAGE-RELOAD] 🔍 Fetching conversations with new fb_id:', newFbId);
-
-        const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(pageId, newFbId);
+        const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(pageId, customerFbId);
 
         if (!result.success || result.conversations.length === 0) {
-            console.warn('[PAGE-RELOAD] ⚠️ No conversations found with new fb_id');
+            console.warn('[PAGE-RELOAD] ⚠️ No conversations found for this page');
             const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
             const pageName = selectedPage?.page_name || pageId;
             modalBody.innerHTML = `
@@ -996,7 +940,7 @@ window.reloadChatForSelectedPage = async function (pageId) {
             window.currentCustomerUUID = result.customerUuid;
         }
 
-        // STEP 4: Filter conversations by current chat type
+        // STEP 2: Filter conversations by current chat type
         const targetType = currentChatType === 'comment' ? 'COMMENT' : 'INBOX';
         const filteredConversations = result.conversations.filter(conv => conv.type === targetType);
 
@@ -1019,7 +963,7 @@ window.reloadChatForSelectedPage = async function (pageId) {
             return;
         }
 
-        // STEP 5: Update conversation IDs
+        // STEP 3: Update conversation IDs
         const targetConv = filteredConversations[0];
         window.currentConversationId = targetConv.id;
 
@@ -1042,7 +986,7 @@ window.reloadChatForSelectedPage = async function (pageId) {
             realPSID: window.currentRealFacebookPSID
         });
 
-        // STEP 6: Fetch messages/comments with correct parameters
+        // STEP 4: Fetch messages/comments with correct parameters
         if (currentChatType === 'comment') {
             const response = await window.pancakeDataManager.fetchMessagesForConversation(
                 pageId,
@@ -1097,14 +1041,14 @@ window.reloadChatForSelectedPage = async function (pageId) {
             setupNewMessageIndicatorListener();
         }
 
-        // STEP 7: Update conversation selector if multiple conversations
+        // STEP 5: Update conversation selector if multiple conversations
         if (filteredConversations.length > 1) {
             window.populateConversationSelector(filteredConversations, window.currentConversationId);
         } else {
             window.hideConversationSelector();
         }
 
-        // STEP 8: Re-setup realtime messages for new page/conversation
+        // STEP 6: Re-setup realtime messages for new page/conversation
         setupRealtimeMessages();
 
         // Show success notification
@@ -1971,6 +1915,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                 || inboxConv.from?.id
                                 || (inboxConv.customers && inboxConv.customers[0]?.fb_id);
                             console.log('[CHAT-MODAL] ✅ Real Facebook PSID:', window.currentRealFacebookPSID);
+
+                            // Save customer fb_id for page switching
+                            // This fb_id is used with Pancake API: /conversations/customer/{fb_id}?pages[pageId]=0
+                            window.currentCustomerFbId = inboxConv.customers?.[0]?.fb_id
+                                || inboxConv.from?.id
+                                || inboxConv.from_psid;
+                            console.log('[CHAT-MODAL] ✅ Customer fb_id for page switching:', window.currentCustomerFbId);
 
                             console.log('[CHAT-MODAL] ✅ Using INBOX conversationId:', window.currentConversationId);
 
