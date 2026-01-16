@@ -258,6 +258,20 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize will be called after table is rendered
     // Show excluded tags display immediately (will update when tags are loaded)
     updateExcludedTagsMainDisplay();
+
+    // If tags not loaded yet, retry when they become available
+    const excludedTags = loadExcludedTags();
+    if (excludedTags.length > 0 && (!window.availableTags || window.availableTags.length === 0)) {
+        const retryInterval = setInterval(() => {
+            if (window.availableTags && window.availableTags.length > 0) {
+                console.log('[COLUMN] Tags loaded, updating excluded tags display');
+                updateExcludedTagsMainDisplay();
+                clearInterval(retryInterval);
+            }
+        }, 500);
+        // Stop retrying after 30 seconds
+        setTimeout(() => clearInterval(retryInterval), 30000);
+    }
 });
 
 // =====================================================
