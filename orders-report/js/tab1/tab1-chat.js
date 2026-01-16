@@ -873,6 +873,7 @@ window.onChatPageChanged = async function (pageId) {
 
 /**
  * Reload messages/comments when page is changed
+ * Uses customer UUID (consistent across pages) instead of fb_id (page-scoped)
  * @param {string} pageId - New page ID to load messages from
  */
 window.reloadChatForSelectedPage = async function (pageId) {
@@ -881,10 +882,19 @@ window.reloadChatForSelectedPage = async function (pageId) {
     const modalBody = document.getElementById('chatModalBody');
     if (!modalBody) return;
 
-    // Get Facebook PSID from current order
-    const facebookPsid = currentOrder?.Facebook_ASUserId || window.currentChatPSID;
-    if (!facebookPsid) {
-        console.error('[PAGE-RELOAD] No Facebook PSID available');
+    // IMPORTANT: Use customer UUID which is consistent across all pages
+    // fb_id (PSID) is page-scoped - different for each page!
+    const customerUUID = window.currentCustomerUUID;
+    if (!customerUUID) {
+        console.error('[PAGE-RELOAD] No customer UUID available');
+        const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
+        const pageName = selectedPage?.page_name || pageId;
+        modalBody.innerHTML = `
+            <div class="chat-error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Không thể chuyển page</p>
+                <p style="font-size: 12px; color: #9ca3af;">Thiếu thông tin khách hàng (customer UUID)</p>
+            </div>`;
         return;
     }
 
@@ -897,13 +907,13 @@ window.reloadChatForSelectedPage = async function (pageId) {
         </div>`;
 
     try {
-        // STEP 1: Fetch conversations for the NEW page first
-        console.log('[PAGE-RELOAD] 🔍 Fetching conversations for new page:', pageId, 'fb_id:', facebookPsid);
+        // STEP 1: Use inbox_preview API with customer UUID (works across pages)
+        console.log('[PAGE-RELOAD] 🔍 Fetching inbox_preview for page:', pageId, 'customerUUID:', customerUUID);
 
-        const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(pageId, facebookPsid);
+        const inboxPreview = await window.pancakeDataManager.fetchInboxPreview(pageId, customerUUID);
 
-        if (!result.success || result.conversations.length === 0) {
-            console.warn('[PAGE-RELOAD] ⚠️ No conversations found for this page');
+        if (!inboxPreview.success) {
+            console.warn('[PAGE-RELOAD] ⚠️ inbox_preview failed:', inboxPreview.error);
             const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
             const pageName = selectedPage?.page_name || pageId;
             modalBody.innerHTML = `
@@ -915,23 +925,42 @@ window.reloadChatForSelectedPage = async function (pageId) {
             return;
         }
 
-        console.log('[PAGE-RELOAD] ✅ Found', result.conversations.length, 'conversations');
+        console.log('[PAGE-RELOAD] ✅ inbox_preview success:', {
+            inbox: inboxPreview.inboxConversationId,
+            comment: inboxPreview.commentConversationId,
+            fromId: inboxPreview.fromId
+        });
 
-        // STEP 2: Update customer UUID
-        window.currentCustomerUUID = result.customerUuid;
-        console.log('[PAGE-RELOAD] ✅ Customer UUID:', window.currentCustomerUUID);
+        // STEP 2: Update conversation IDs from inbox_preview
+        window.currentInboxConversationId = inboxPreview.inboxConversationId;
+        window.currentCommentConversationId = inboxPreview.commentConversationId;
 
-        // STEP 3: Filter conversations by current chat type
-        const targetType = currentChatType === 'comment' ? 'COMMENT' : 'INBOX';
-        const filteredConversations = result.conversations.filter(conv => conv.type === targetType);
+        // Set current conversation based on chat type
+        if (currentChatType === 'comment') {
+            window.currentConversationId = inboxPreview.commentConversationId || inboxPreview.inboxConversationId;
+        } else {
+            window.currentConversationId = inboxPreview.inboxConversationId;
+        }
 
-        // Also get the other type for quick switching
-        const otherType = currentChatType === 'comment' ? 'INBOX' : 'COMMENT';
-        const otherConversations = result.conversations.filter(conv => conv.type === otherType);
+        // Update real Facebook PSID for this page
+        if (inboxPreview.fromId) {
+            window.currentRealFacebookPSID = inboxPreview.fromId;
+            window.currentChatPSID = inboxPreview.fromId;
+        }
 
-        console.log('[PAGE-RELOAD] Filtered:', targetType, '=', filteredConversations.length, ', ', otherType, '=', otherConversations.length);
+        console.log('[PAGE-RELOAD] ✅ Updated conversationIds:', {
+            current: window.currentConversationId,
+            inbox: window.currentInboxConversationId,
+            comment: window.currentCommentConversationId,
+            realPSID: window.currentRealFacebookPSID
+        });
 
-        if (filteredConversations.length === 0) {
+        // Check if we have the required conversation
+        const hasRequiredConversation = currentChatType === 'comment'
+            ? (inboxPreview.commentConversationId || inboxPreview.inboxConversationId)
+            : inboxPreview.inboxConversationId;
+
+        if (!hasRequiredConversation) {
             const selectedPage = window.availableChatPages.find(p => p.page_id === pageId);
             const pageName = selectedPage?.page_name || pageId;
             const typeText = currentChatType === 'comment' ? 'bình luận' : 'tin nhắn';
@@ -944,45 +973,28 @@ window.reloadChatForSelectedPage = async function (pageId) {
             return;
         }
 
-        // STEP 4: Update conversation IDs
-        const targetConv = filteredConversations[0];
-        window.currentConversationId = targetConv.id;
-
-        if (currentChatType === 'comment') {
-            window.currentCommentConversationId = targetConv.id;
-            if (otherConversations.length > 0) {
-                window.currentInboxConversationId = otherConversations[0].id;
-            }
-        } else {
-            window.currentInboxConversationId = targetConv.id;
-            if (otherConversations.length > 0) {
-                window.currentCommentConversationId = otherConversations[0].id;
-            }
-        }
-
-        // Update real Facebook PSID
-        window.currentRealFacebookPSID = targetConv.from_psid
-            || targetConv.from?.id
-            || (targetConv.customers && targetConv.customers[0]?.fb_id);
-
-        console.log('[PAGE-RELOAD] ✅ Updated conversationIds:', {
-            current: window.currentConversationId,
-            inbox: window.currentInboxConversationId,
-            comment: window.currentCommentConversationId,
-            realPSID: window.currentRealFacebookPSID
-        });
-
-        // STEP 5: Fetch messages/comments with correct parameters
-        if (currentChatType === 'comment') {
-            // Use fetchComments which handles COMMENT conversation format
-            const response = await window.pancakeDataManager.fetchComments(
+        // STEP 3: Fetch messages/comments with correct parameters
+        if (currentChatType === 'comment' && window.currentCommentConversationId) {
+            const response = await window.pancakeDataManager.fetchMessagesForConversation(
                 pageId,
-                facebookPsid,
-                window.currentConversationId,
-                currentOrder?.Facebook_PostId,
-                null
+                window.currentCommentConversationId,
+                null,
+                customerUUID
             );
-            window.allChatComments = response.comments || [];
+
+            // Map to comments format
+            window.allChatComments = (response.messages || []).map(msg => ({
+                Id: msg.id,
+                Message: msg.original_message || msg.message?.replace(/<[^>]*>/g, '') || '',
+                CreatedTime: msg.inserted_at,
+                IsOwner: msg.from?.id === pageId,
+                PostId: msg.page_id ? `${msg.page_id}_${msg.parent_id?.split('_')[0] || ''}` : null,
+                ParentId: msg.parent_id !== msg.id ? msg.parent_id : null,
+                FacebookId: msg.id,
+                Attachments: msg.attachments || [],
+                Status: msg.seen ? 10 : 30,
+                from: msg.from
+            }));
             currentChatCursor = response.after;
 
             console.log(`[PAGE-RELOAD] ✅ Loaded ${window.allChatComments.length} comments`);
@@ -1002,7 +1014,7 @@ window.reloadChatForSelectedPage = async function (pageId) {
                 pageId,
                 window.currentConversationId,
                 null,
-                window.currentCustomerUUID
+                customerUUID
             );
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after;
@@ -1016,14 +1028,10 @@ window.reloadChatForSelectedPage = async function (pageId) {
             setupNewMessageIndicatorListener();
         }
 
-        // STEP 6: Update conversation selector if multiple conversations
-        if (filteredConversations.length > 1) {
-            window.populateConversationSelector(filteredConversations, window.currentConversationId);
-        } else {
-            window.hideConversationSelector();
-        }
+        // STEP 4: Hide conversation selector (inbox_preview doesn't return multiple)
+        window.hideConversationSelector();
 
-        // STEP 7: Re-setup realtime messages for new page/conversation
+        // STEP 5: Re-setup realtime messages for new page/conversation
         setupRealtimeMessages();
 
         // Show success notification
