@@ -253,6 +253,41 @@ router.delete('/cleanup', async (req, res) => {
     }
 });
 
+/**
+ * DELETE /api/realtime/clear-all
+ * Xóa TẤT CẢ records trong realtime_updates (reset database)
+ */
+router.delete('/clear-all', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        // Safety: require confirmation query param
+        if (req.query.confirm !== 'yes') {
+            return res.status(400).json({
+                error: 'Missing confirmation',
+                hint: 'Add ?confirm=yes to confirm deletion of all records'
+            });
+        }
+
+        const result = await db.query('DELETE FROM realtime_updates RETURNING id');
+
+        console.log(`[REALTIME-DB] CLEARED ALL ${result.rowCount} records`);
+
+        res.json({
+            success: true,
+            deleted: result.rowCount,
+            message: 'All realtime_updates records have been deleted'
+        });
+
+    } catch (error) {
+        console.error('[REALTIME-API] Error clearing all:', error);
+        res.status(500).json({ error: 'Failed to clear all records' });
+    }
+});
+
 // Export both router and helper function
 module.exports = router;
 module.exports.saveRealtimeUpdate = saveRealtimeUpdate;
