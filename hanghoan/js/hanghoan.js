@@ -174,24 +174,39 @@ function formatDate(date) {
 }
 
 function convertToTimestamp(dateString) {
-    const parts = dateString.split("-");
-    if (parts.length !== 3) {
+    console.log('[convertToTimestamp] INPUT:', JSON.stringify(dateString));
+
+    if (!dateString || typeof dateString !== 'string') {
+        console.log('[convertToTimestamp] Invalid input, using Date.now()');
         return Date.now().toString();
     }
 
-    let day = parseInt(parts[0]);
-    let month = parseInt(parts[1]);
-    let year = parseInt(parts[2]);
+    const parts = dateString.split("-");
+    console.log('[convertToTimestamp] Parts:', parts);
+
+    if (parts.length !== 3) {
+        console.log('[convertToTimestamp] Not 3 parts, using Date.now()');
+        return Date.now().toString();
+    }
+
+    let day = parseInt(parts[0], 10);
+    let month = parseInt(parts[1], 10);
+    let year = parseInt(parts[2], 10);
+    console.log('[convertToTimestamp] Parsed:', { day, month, year });
 
     if (year < 100) year = 2000 + year;
 
     const date = new Date(year, month - 1, day);
+    const timestamp = date.getTime();
+    console.log('[convertToTimestamp] Date:', date.toISOString(), 'Timestamp:', timestamp);
 
-    if (isNaN(date.getTime())) {
+    if (isNaN(timestamp)) {
+        console.log('[convertToTimestamp] NaN timestamp, using Date.now()');
         return Date.now().toString();
     }
 
-    return date.getTime().toString();
+    console.log('[convertToTimestamp] RETURNING:', timestamp.toString());
+    return timestamp.toString();
 }
 
 function isValidDateFormat(dateStr) {
@@ -754,8 +769,10 @@ function saveChanges() {
     const amountValue = document.getElementById("editAmount").value.trim();
     const noteValue = sanitizeInput(document.getElementById("editNote").value);
     const dateValue = document.getElementById("editDate").value;
+    console.log('[SAVE] dateValue from form:', JSON.stringify(dateValue));
 
     if (!isValidDateFormat(dateValue)) {
+        console.log('[SAVE] Date format invalid!');
         showError("Định dạng ngày: DD-MM-YY hoặc DD/MM/YYYY");
         isSaving = false;
         return;
@@ -763,6 +780,7 @@ function saveChanges() {
 
     // Normalize date to DD-MM-YY format
     const normalizedDate = normalizeDate(dateValue);
+    console.log('[SAVE] normalizedDate:', JSON.stringify(normalizedDate));
 
     if (!deliveryValue || !scenarioValue || !infoValue || !amountValue || !noteValue) {
         showError("Vui lòng điền đầy đủ thông tin");
