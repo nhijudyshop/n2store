@@ -1928,6 +1928,9 @@
                 });
             }
 
+            // Recalculate remainingQty after helper updates soldQty
+            product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
+
             // Update UI after helper updates local (helper updates synchronously)
             if (searchKeyword) {
                 performSearch(searchKeyword, false);
@@ -1957,6 +1960,9 @@
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
+
+            // Recalculate remainingQty after helper updates soldQty
+            variant.remainingQty = variant.QtyAvailable - (variant.soldQty || 0);
 
             // Update UI after helper updates local (helper updates synchronously)
             if (searchKeyword) {
@@ -2449,6 +2455,18 @@
                         } else {
                             updateProductGrid();
                         }
+                    }
+                },
+                onQtyChanged: (product, productKey) => {
+                    // Recalculate remainingQty when soldQty changes
+                    product.remainingQty = product.QtyAvailable - (product.soldQty || 0);
+                    console.log('🔥 Qty updated from Firebase:', product.NameGet, '→ soldQty:', product.soldQty, 'remainingQty:', product.remainingQty);
+
+                    // Update UI
+                    if (searchKeyword) {
+                        performSearch(searchKeyword, false);
+                    } else {
+                        updateProductGrid();
                     }
                 },
                 onProductRemoved: (product) => {
