@@ -326,6 +326,26 @@ function performTableSearch() {
         });
     }
 
+    // Apply Excluded Tags filter (hide orders with certain tags)
+    const excludedTags = window.columnVisibility ? window.columnVisibility.loadExcludedTags() : [];
+    if (excludedTags.length > 0) {
+        tempData = tempData.filter(order => {
+            if (!order.Tags) return true; // Orders without tags are not excluded
+
+            try {
+                const orderTags = JSON.parse(order.Tags);
+                if (!Array.isArray(orderTags) || orderTags.length === 0) return true;
+
+                // Check if the order has ANY of the excluded tags
+                const hasExcludedTag = orderTags.some(tag => excludedTags.includes(String(tag.Id)));
+                return !hasExcludedTag; // Return false if order has excluded tag (to hide it)
+            } catch (e) {
+                return true;
+            }
+        });
+        console.log(`[FILTER] Excluded ${excludedTags.length} tags, remaining orders: ${tempData.length}`);
+    }
+
     filteredData = tempData;
 
     // Priority sorting: STT → Phone → Name

@@ -4,6 +4,7 @@
 
 // LocalStorage key for column visibility settings
 const COLUMN_VISIBILITY_KEY = 'orderTableColumnVisibility';
+const EXCLUDED_TAGS_KEY = 'orderTableExcludedTags';
 
 // Default column visibility settings
 const DEFAULT_COLUMN_VISIBILITY = {
@@ -109,6 +110,13 @@ function openColumnSettingsModal() {
     // Update checkboxes based on current settings
     updateColumnCheckboxes(settings);
 
+    // Populate excluded tags list
+    populateExcludedTagsList();
+
+    // Clear search input
+    const searchInput = document.getElementById('excludedTagsSearchInput');
+    if (searchInput) searchInput.value = '';
+
     // Show modal
     modal.classList.add('show');
 }
@@ -139,11 +147,20 @@ function saveColumnSettings() {
     // Apply to table
     applyColumnVisibility(settings);
 
+    // Save excluded tags
+    const excludedTags = getSelectedExcludedTags();
+    saveExcludedTagsToStorage(excludedTags);
+
     // Show success indicator
     showSaveIndicator('Đã lưu cài đặt cột');
 
     // Close modal
     closeColumnSettingsModal();
+
+    // Re-apply search filter to hide/show rows based on excluded tags
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
 }
 
 /**
@@ -152,6 +169,9 @@ function saveColumnSettings() {
 function resetColumnSettings() {
     // Update checkboxes to default
     updateColumnCheckboxes(DEFAULT_COLUMN_VISIBILITY);
+
+    // Clear excluded tags
+    clearExcludedTags();
 
     // Show notification
     showSaveIndicator('Đã đặt lại về mặc định');
@@ -232,11 +252,134 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize will be called after table is rendered
 });
 
+// =====================================================
+// EXCLUDED TAGS FUNCTIONS
+// =====================================================
+
+/**
+ * Load excluded tags from localStorage
+ */
+function loadExcludedTags() {
+    try {
+        const saved = localStorage.getItem(EXCLUDED_TAGS_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (error) {
+        console.error('[COLUMN] Error loading excluded tags:', error);
+    }
+    return [];
+}
+
+/**
+ * Save excluded tags to localStorage
+ */
+function saveExcludedTagsToStorage(tagIds) {
+    try {
+        localStorage.setItem(EXCLUDED_TAGS_KEY, JSON.stringify(tagIds));
+        console.log('[COLUMN] Excluded tags saved:', tagIds);
+    } catch (error) {
+        console.error('[COLUMN] Error saving excluded tags:', error);
+    }
+}
+
+/**
+ * Populate excluded tags list in modal
+ */
+function populateExcludedTagsList(searchTerm = '') {
+    const container = document.getElementById('excludedTagsList');
+    if (!container) return;
+
+    const tags = window.availableTags || [];
+    const excludedTags = loadExcludedTags();
+    const search = searchTerm.toLowerCase().trim();
+
+    // Filter tags by search term
+    const filteredTags = tags.filter(tag => {
+        if (!search) return true;
+        return (tag.Name || '').toLowerCase().includes(search);
+    });
+
+    if (filteredTags.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; color: #9ca3af; padding: 12px;">
+                ${tags.length === 0 ? '<i class="fas fa-spinner fa-spin"></i> Đang tải tags...' : 'Không tìm thấy tag nào'}
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = filteredTags.map(tag => {
+        const isExcluded = excludedTags.includes(String(tag.Id));
+        const tagColor = tag.Color || '#6b7280';
+        return `
+            <label class="excluded-tag-item" style="display: flex; align-items: center; padding: 8px 10px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; transition: background 0.15s; ${isExcluded ? 'background: #fef2f2;' : ''}"
+                onmouseover="this.style.background='${isExcluded ? '#fee2e2' : '#f9fafb'}'"
+                onmouseout="this.style.background='${isExcluded ? '#fef2f2' : 'transparent'}'">
+                <input type="checkbox" data-tag-id="${tag.Id}" ${isExcluded ? 'checked' : ''}
+                    onchange="updateExcludedTagCount()"
+                    style="margin-right: 10px; cursor: pointer;">
+                <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: ${tagColor}; margin-right: 6px;"></span>
+                    ${tag.Name || 'Không tên'}
+                </span>
+            </label>
+        `;
+    }).join('');
+
+    updateExcludedTagCount();
+}
+
+/**
+ * Filter excluded tags options based on search input
+ */
+function filterExcludedTagOptions() {
+    const searchInput = document.getElementById('excludedTagsSearchInput');
+    const searchTerm = searchInput ? searchInput.value : '';
+    populateExcludedTagsList(searchTerm);
+}
+
+/**
+ * Update excluded tag count display
+ */
+function updateExcludedTagCount() {
+    const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]:checked');
+    const countEl = document.getElementById('excludedTagsCountNumber');
+    if (countEl) {
+        countEl.textContent = checkboxes.length;
+    }
+}
+
+/**
+ * Clear all excluded tags selection
+ */
+function clearExcludedTags() {
+    const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+    updateExcludedTagCount();
+}
+
+/**
+ * Get currently selected excluded tag IDs from modal
+ */
+function getSelectedExcludedTags() {
+    const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]:checked');
+    return Array.from(checkboxes).map(cb => cb.getAttribute('data-tag-id'));
+}
+
 // Export functions for use in other scripts
 window.columnVisibility = {
     initialize: initializeColumnVisibility,
     apply: applyColumnVisibility,
     load: loadColumnVisibility,
     save: saveColumnVisibilityToStorage,
-    addAttributesToRow: addColumnAttributesToRow
+    addAttributesToRow: addColumnAttributesToRow,
+    loadExcludedTags: loadExcludedTags,
+    saveExcludedTags: saveExcludedTagsToStorage,
+    populateExcludedTagsList: populateExcludedTagsList
 };
+
+// Make functions globally available
+window.filterExcludedTagOptions = filterExcludedTagOptions;
+window.clearExcludedTags = clearExcludedTags;
+window.updateExcludedTagCount = updateExcludedTagCount;

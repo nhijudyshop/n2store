@@ -672,6 +672,35 @@
                         <span>Trạng thái</span>
                     </label>
                 </div>
+
+                <!-- Excluded Tags Section -->
+                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 14px; font-weight: 600; color: #374151;">
+                            <i class="fas fa-eye-slash" style="color: #ef4444; margin-right: 6px;"></i>
+                            Ẩn đơn theo TAG
+                        </h4>
+                        <button onclick="clearExcludedTags()" style="padding: 4px 10px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; color: #6b7280;">
+                            <i class="fas fa-times"></i> Bỏ chọn tất cả
+                        </button>
+                    </div>
+                    <p style="color: #6b7280; font-size: 12px; margin-bottom: 12px;">
+                        Chọn các tag để ẩn đơn hàng có tag đó:
+                    </p>
+                    <div class="excluded-tags-search" style="margin-bottom: 12px;">
+                        <input type="text" id="excludedTagsSearchInput" placeholder="Tìm tag..."
+                            oninput="filterExcludedTagOptions()"
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                    </div>
+                    <div id="excludedTagsList" class="excluded-tags-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px;">
+                        <div style="text-align: center; color: #9ca3af; padding: 12px;">
+                            <i class="fas fa-spinner fa-spin"></i> Đang tải tags...
+                        </div>
+                    </div>
+                    <div id="excludedTagsCount" style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+                        Đang ẩn: <span id="excludedTagsCountNumber">0</span> tag
+                    </div>
+                </div>
             </div>
             <div class="column-settings-modal-footer">
                 <button class="column-settings-btn-reset" onclick="resetColumnSettings()">
