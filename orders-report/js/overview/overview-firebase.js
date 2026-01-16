@@ -73,7 +73,10 @@ function sanitizeForFirebase(obj) {
     return obj;
 }
 
-// Save data to Firestore by table name
+// Chunk size for splitting large orders arrays (to stay under 1MB Firestore limit)
+const ORDERS_CHUNK_SIZE = 200; // ~200 orders per chunk to stay well under 1MB
+
+// Save data to Firestore by table name - with chunking for large datasets
 async function saveToFirebase(tableName, data) {
     if (!database) {
         console.error('[REPORT] Firestore database not initialized');
@@ -85,19 +88,63 @@ async function saveToFirebase(tableName, data) {
         const docRef = database.collection(FIREBASE_PATH).doc(safeTableName);
 
         // Sanitize orders data to remove invalid keys
-        const sanitizedOrders = sanitizeForFirebase(data.orders);
+        const sanitizedOrders = sanitizeForFirebase(data.orders) || [];
+        const totalOrders = sanitizedOrders.length;
 
-        await docRef.set({
-            tableName: tableName, // Store original table name
-            orders: sanitizedOrders,
-            fetchedAt: data.fetchedAt,
-            totalOrders: data.totalOrders,
-            successCount: data.successCount,
-            errorCount: data.errorCount,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        // Check if we need to chunk (Firestore 1MB limit)
+        if (totalOrders > ORDERS_CHUNK_SIZE) {
+            console.log(`[REPORT] Large dataset (${totalOrders} orders), splitting into chunks...`);
 
-        console.log(`[REPORT] ✅ Saved to Firestore with table name: ${tableName}`);
+            // Save metadata document (without orders)
+            await docRef.set({
+                tableName: tableName,
+                fetchedAt: data.fetchedAt,
+                totalOrders: data.totalOrders,
+                successCount: data.successCount,
+                errorCount: data.errorCount,
+                isChunked: true,
+                chunkCount: Math.ceil(totalOrders / ORDERS_CHUNK_SIZE),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Delete old chunks first
+            const chunksCollection = docRef.collection('order_chunks');
+            const oldChunks = await chunksCollection.get();
+            const deletePromises = oldChunks.docs.map(doc => doc.ref.delete());
+            await Promise.all(deletePromises);
+
+            // Save orders in chunks
+            const chunkPromises = [];
+            for (let i = 0; i < totalOrders; i += ORDERS_CHUNK_SIZE) {
+                const chunkIndex = Math.floor(i / ORDERS_CHUNK_SIZE);
+                const chunk = sanitizedOrders.slice(i, i + ORDERS_CHUNK_SIZE);
+
+                chunkPromises.push(
+                    chunksCollection.doc(`chunk_${chunkIndex}`).set({
+                        orders: chunk,
+                        chunkIndex: chunkIndex,
+                        orderCount: chunk.length
+                    })
+                );
+            }
+            await Promise.all(chunkPromises);
+
+            console.log(`[REPORT] ✅ Saved ${totalOrders} orders in ${Math.ceil(totalOrders / ORDERS_CHUNK_SIZE)} chunks`);
+        } else {
+            // Small dataset - save directly
+            await docRef.set({
+                tableName: tableName,
+                orders: sanitizedOrders,
+                fetchedAt: data.fetchedAt,
+                totalOrders: data.totalOrders,
+                successCount: data.successCount,
+                errorCount: data.errorCount,
+                isChunked: false,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            console.log(`[REPORT] ✅ Saved to Firestore with table name: ${tableName}`);
+        }
 
         // Update Firebase status and broadcast
         firebaseTableName = tableName;
@@ -111,7 +158,7 @@ async function saveToFirebase(tableName, data) {
     }
 }
 
-// Load data from Firestore by table name
+// Load data from Firestore by table name - with chunking support
 async function loadFromFirebase(tableName) {
     if (!database) {
         console.error('[REPORT] Firestore database not initialized');
@@ -125,7 +172,29 @@ async function loadFromFirebase(tableName) {
 
         if (doc.exists) {
             const data = doc.data();
-            console.log(`[REPORT] ✅ Loaded from Firestore: ${tableName}, orders: ${data.orders?.length || 0}`);
+
+            // Check if data is chunked
+            if (data.isChunked) {
+                console.log(`[REPORT] Loading chunked data (${data.chunkCount} chunks)...`);
+
+                // Load all chunks
+                const chunksSnapshot = await docRef.collection('order_chunks')
+                    .orderBy('chunkIndex')
+                    .get();
+
+                const allOrders = [];
+                chunksSnapshot.forEach(chunkDoc => {
+                    const chunkData = chunkDoc.data();
+                    if (chunkData.orders) {
+                        allOrders.push(...chunkData.orders);
+                    }
+                });
+
+                data.orders = allOrders;
+                console.log(`[REPORT] ✅ Loaded ${allOrders.length} orders from ${chunksSnapshot.size} chunks`);
+            } else {
+                console.log(`[REPORT] ✅ Loaded from Firestore: ${tableName}, orders: ${data.orders?.length || 0}`);
+            }
 
             // Update Firebase status
             firebaseTableName = tableName;
