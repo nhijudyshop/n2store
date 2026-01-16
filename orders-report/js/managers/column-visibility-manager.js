@@ -110,6 +110,9 @@ function openColumnSettingsModal() {
     // Update checkboxes based on current settings
     updateColumnCheckboxes(settings);
 
+    // Initialize temp state from localStorage
+    tempSelectedExcludedTags = loadExcludedTags();
+
     // Populate excluded tags list
     populateExcludedTagsList();
 
@@ -256,6 +259,9 @@ document.addEventListener('DOMContentLoaded', function () {
 // EXCLUDED TAGS FUNCTIONS
 // =====================================================
 
+// Temporary state for selected excluded tags while modal is open
+let tempSelectedExcludedTags = [];
+
 /**
  * Load excluded tags from localStorage
  */
@@ -291,7 +297,6 @@ function populateExcludedTagsList(searchTerm = '') {
     if (!container) return;
 
     const tags = window.availableTags || [];
-    const excludedTags = loadExcludedTags();
     const search = searchTerm.toLowerCase().trim();
 
     // Filter tags by search term
@@ -306,18 +311,20 @@ function populateExcludedTagsList(searchTerm = '') {
                 ${tags.length === 0 ? '<i class="fas fa-spinner fa-spin"></i> Đang tải tags...' : 'Không tìm thấy tag nào'}
             </div>
         `;
+        // Still update count to show selected tags even when search has no results
+        updateExcludedTagCount();
         return;
     }
 
     container.innerHTML = filteredTags.map(tag => {
-        const isExcluded = excludedTags.includes(String(tag.Id));
+        const isExcluded = tempSelectedExcludedTags.includes(String(tag.Id));
         const tagColor = tag.Color || '#6b7280';
         return `
             <label class="excluded-tag-item" style="display: flex; align-items: center; padding: 8px 10px; cursor: pointer; border-radius: 6px; margin-bottom: 4px; transition: background 0.15s; ${isExcluded ? 'background: #fef2f2;' : ''}"
                 onmouseover="this.style.background='${isExcluded ? '#fee2e2' : '#f9fafb'}'"
                 onmouseout="this.style.background='${isExcluded ? '#fef2f2' : 'transparent'}'">
                 <input type="checkbox" data-tag-id="${tag.Id}" ${isExcluded ? 'checked' : ''}
-                    onchange="updateExcludedTagCount()"
+                    onchange="toggleExcludedTag('${tag.Id}')"
                     style="margin-right: 10px; cursor: pointer;">
                 <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: ${tagColor}; margin-right: 6px;"></span>
@@ -327,6 +334,20 @@ function populateExcludedTagsList(searchTerm = '') {
         `;
     }).join('');
 
+    updateExcludedTagCount();
+}
+
+/**
+ * Toggle a tag in/out of excluded list
+ */
+function toggleExcludedTag(tagId) {
+    const tagIdStr = String(tagId);
+    const index = tempSelectedExcludedTags.indexOf(tagIdStr);
+    if (index > -1) {
+        tempSelectedExcludedTags.splice(index, 1);
+    } else {
+        tempSelectedExcludedTags.push(tagIdStr);
+    }
     updateExcludedTagCount();
 }
 
@@ -343,23 +364,21 @@ function filterExcludedTagOptions() {
  * Update excluded tag count display and show tag names
  */
 function updateExcludedTagCount() {
-    const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]:checked');
     const countEl = document.getElementById('excludedTagsCountNumber');
     const namesEl = document.getElementById('excludedTagsNames');
 
     if (countEl) {
-        countEl.textContent = checkboxes.length;
+        countEl.textContent = tempSelectedExcludedTags.length;
     }
 
     // Show selected tag names
     if (namesEl) {
         const tags = window.availableTags || [];
-        const selectedTagIds = Array.from(checkboxes).map(cb => cb.getAttribute('data-tag-id'));
 
-        if (selectedTagIds.length === 0) {
+        if (tempSelectedExcludedTags.length === 0) {
             namesEl.innerHTML = '';
         } else {
-            namesEl.innerHTML = selectedTagIds.map(tagId => {
+            namesEl.innerHTML = tempSelectedExcludedTags.map(tagId => {
                 const tag = tags.find(t => String(t.Id) === String(tagId));
                 if (!tag) return '';
                 const tagColor = tag.Color || '#6b7280';
@@ -376,6 +395,8 @@ function updateExcludedTagCount() {
  * Clear all excluded tags selection
  */
 function clearExcludedTags() {
+    tempSelectedExcludedTags = [];
+    // Uncheck visible checkboxes
     const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
     // Clear tag names display
@@ -388,8 +409,7 @@ function clearExcludedTags() {
  * Get currently selected excluded tag IDs from modal
  */
 function getSelectedExcludedTags() {
-    const checkboxes = document.querySelectorAll('#excludedTagsList input[type="checkbox"]:checked');
-    return Array.from(checkboxes).map(cb => cb.getAttribute('data-tag-id'));
+    return [...tempSelectedExcludedTags];
 }
 
 // Export functions for use in other scripts
@@ -408,3 +428,4 @@ window.columnVisibility = {
 window.filterExcludedTagOptions = filterExcludedTagOptions;
 window.clearExcludedTags = clearExcludedTags;
 window.updateExcludedTagCount = updateExcludedTagCount;
+window.toggleExcludedTag = toggleExcludedTag;
