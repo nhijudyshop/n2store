@@ -279,10 +279,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 username,
                 {
                     displayName: userData.displayName,
-                    checkLogin: userData.checkLogin,
+                    checkLogin: userData.checkLogin ?? userData.roleTemplate ?? 'user', // Support both old and new system
                     password: password,
                     uid: authResult.user.uid,
                     userId: userData.userId || null, // 🆕 Pass existing userId if available
+                    roleTemplate: userData.roleTemplate || null, // 🆕 New permission system
                 },
                 rememberMe,
             );
@@ -422,7 +423,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const authData = {
                 isLoggedIn: "true",
                 userType: `${username}-${userInfo.password}`,
-                checkLogin: userInfo.checkLogin.toString(), // Kept for backward display only
+                checkLogin: (userInfo.checkLogin || roleTemplate || 'user').toString(), // Kept for backward display only
                 timestamp: now,
                 expiresAt: now + duration,
                 lastActivity: now,
@@ -449,7 +450,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
                 localStorage.setItem(
                     "checkLogin",
-                    userInfo.checkLogin.toString(),
+                    (userInfo.checkLogin || roleTemplate || 'user').toString(),
                 );
                 sessionStorage.removeItem("loginindex_auth");
 

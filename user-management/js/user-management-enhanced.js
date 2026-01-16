@@ -1165,18 +1165,29 @@ function showFloatingAlert(message, type = "info") {
             return window.notify.loading(message);
         }
         window.notify.show(message, type, 3000);
+    } else {
+        console.log(`[${type.toUpperCase()}]`, message);
+        if (type !== "loading") {
+            alert(message);
+        }
     }
 }
 
 function showSuccess(message) {
     if (window.notify) {
         window.notify.success(message);
+    } else {
+        console.log("[SUCCESS]", message);
+        alert("✅ " + message);
     }
 }
 
 function showError(message) {
     if (window.notify) {
         window.notify.error(message);
+    } else {
+        console.error("[ERROR]", message);
+        alert("❌ " + message);
     }
 }
 
