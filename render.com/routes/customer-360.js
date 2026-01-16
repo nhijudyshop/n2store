@@ -455,10 +455,10 @@ router.get('/customer/:phone/transactions', async (req, res) => {
     }
 
     try {
-        // Select specific columns with timezone conversion for created_at (UTC to Vietnam)
+        // Select columns that exist in wallet_transactions table
         let query = `SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
-            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
-            reference_id, note, metadata, updated_at
+            virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
+            note, created_by, created_at
             FROM wallet_transactions WHERE phone = $1`;
         const params = [phone];
 
