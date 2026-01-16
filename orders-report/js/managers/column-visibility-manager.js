@@ -439,8 +439,26 @@ function updateExcludedTagsMainDisplay() {
         return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
             <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
             ${tag.Name || 'Không tên'}
+            <button onclick="removeExcludedTagFromMain('${tagId}')" style="margin-left: 6px; background: none; border: none; cursor: pointer; padding: 0; color: ${tagColor}; font-size: 12px; line-height: 1; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Bỏ ẩn tag này">×</button>
         </span>`;
     }).filter(Boolean).join('');
+}
+
+/**
+ * Remove a tag from excluded list directly from main page
+ */
+function removeExcludedTagFromMain(tagId) {
+    const excludedTags = loadExcludedTags();
+    const index = excludedTags.indexOf(String(tagId));
+    if (index > -1) {
+        excludedTags.splice(index, 1);
+        saveExcludedTagsToStorage(excludedTags);
+        updateExcludedTagsMainDisplay();
+        // Re-apply filter
+        if (typeof performTableSearch === 'function') {
+            performTableSearch();
+        }
+    }
 }
 
 // Export functions for use in other scripts
@@ -462,3 +480,4 @@ window.clearExcludedTags = clearExcludedTags;
 window.updateExcludedTagCount = updateExcludedTagCount;
 window.toggleExcludedTag = toggleExcludedTag;
 window.updateExcludedTagsMainDisplay = updateExcludedTagsMainDisplay;
+window.removeExcludedTagFromMain = removeExcludedTagFromMain;
