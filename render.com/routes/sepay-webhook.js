@@ -1508,7 +1508,7 @@ async function processDebtUpdate(db, transactionId) {
 
             // Update balance_history with customer_id
             // Single match from partial phone = AUTO_APPROVED
-            await db.query(
+            const updateResult = await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
@@ -1520,6 +1520,26 @@ async function processDebtUpdate(db, transactionId) {
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, fullPhone, customerId, amount]
             );
+
+            if (updateResult.rowCount === 0) {
+                // Giao dịch có thể đã có linked_customer_phone, thử update bằng cách khác
+                console.log('[DEBT-UPDATE] ⚠️ No rows updated (may already have linked_customer_phone), trying force update...');
+                await db.query(
+                    `UPDATE balance_history
+                     SET debt_added = TRUE,
+                         linked_customer_phone = $2,
+                         customer_id = COALESCE($3, customer_id),
+                         wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                         verification_status = 'AUTO_APPROVED',
+                         match_method = 'single_match',
+                         verified_at = CURRENT_TIMESTAMP
+                     WHERE id = $1`,
+                    [transactionId, fullPhone, customerId, amount]
+                );
+                console.log('[DEBT-UPDATE] ✅ Force updated balance_history');
+            } else {
+                console.log('[DEBT-UPDATE] ✅ Updated balance_history:', updateResult.rowCount, 'row(s)');
+            }
 
             console.log('[DEBT-UPDATE] ✅ Success (auto-matched):', {
                 transactionId,
