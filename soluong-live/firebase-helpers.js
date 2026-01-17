@@ -826,3 +826,121 @@ async function deleteCartSnapshot(database, snapshotId) {
     // Invalidate cache after deleting snapshot
     invalidateCartCache();
 }
+
+/**
+ * ============================================================================
+ * SALES LOG FUNCTIONS
+ * ============================================================================
+ */
+
+/**
+ * Log a sale transaction
+ * @param {Object} database - Firebase database reference
+ * @param {Object} logData - Log data object
+ * @param {number} logData.productId - Product ID
+ * @param {string} logData.productName - Product name
+ * @param {number} logData.change - Quantity change (+1 or -1)
+ * @param {string} logData.source - Sale source ('livestream' | 'facebook' | etc.)
+ * @param {string} logData.staffName - Staff display name
+ * @param {string} logData.staffUsername - Staff username
+ * @returns {Promise<string>} Log entry key
+ */
+async function logSaleTransaction(database, logData) {
+    const logEntry = {
+        productId: logData.productId,
+        productName: logData.productName,
+        change: logData.change,                    // +1 or -1
+        source: logData.source || 'unknown',       // 'livestream' | 'facebook'
+        staffName: logData.staffName || 'Unknown',
+        staffUsername: logData.staffUsername || 'unknown',
+        timestamp: Date.now(),
+        date: new Date().toISOString().split('T')[0]  // 'YYYY-MM-DD' for filtering
+    };
+
+    const newLogRef = database.ref('soluongSalesLog').push();
+    await newLogRef.set(logEntry);
+
+    console.log('📝 Sale logged:', logEntry);
+    return newLogRef.key;
+}
+
+/**
+ * Get sales log for a specific date
+ * @param {Object} database - Firebase database reference
+ * @param {string} date - Date string 'YYYY-MM-DD'
+ * @returns {Promise<Array>} Array of log entries
+ */
+async function getSalesLogByDate(database, date) {
+    const snapshot = await database.ref('soluongSalesLog')
+        .orderByChild('date')
+        .equalTo(date)
+        .once('value');
+
+    const logs = [];
+    snapshot.forEach(child => {
+        logs.push({
+            id: child.key,
+            ...child.val()
+        });
+    });
+
+    // Sort by timestamp descending (newest first)
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+
+    return logs;
+}
+
+/**
+ * Get all sales logs (for reporting)
+ * @param {Object} database - Firebase database reference
+ * @param {number} limit - Maximum number of logs to return (default: 1000)
+ * @returns {Promise<Array>} Array of log entries
+ */
+async function getAllSalesLogs(database, limit = 1000) {
+    const snapshot = await database.ref('soluongSalesLog')
+        .orderByChild('timestamp')
+        .limitToLast(limit)
+        .once('value');
+
+    const logs = [];
+    snapshot.forEach(child => {
+        logs.push({
+            id: child.key,
+            ...child.val()
+        });
+    });
+
+    // Sort by timestamp descending (newest first)
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+
+    return logs;
+}
+
+// ES Module exports
+export {
+    addProductToFirebase,
+    addProductsToFirebase,
+    removeProductFromFirebase,
+    removeProductsFromFirebase,
+    updateProductQtyInFirebase,
+    updateProductVisibility,
+    cleanupOldProducts,
+    clearAllProducts,
+    loadAllProductsFromFirebase,
+    setupFirebaseChildListeners,
+    getProductsArray,
+    // Cart cache helpers
+    getCartCache,
+    setCartCache,
+    invalidateCartCache,
+    // Cart snapshot functions
+    saveCartSnapshot,
+    getCartSnapshot,
+    getAllCartSnapshots,
+    restoreProductsFromSnapshot,
+    deleteCartSnapshot,
+    // Sales log functions
+    logSaleTransaction,
+    getSalesLogByDate,
+    getAllSalesLogs
+};

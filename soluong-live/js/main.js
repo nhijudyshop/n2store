@@ -23,7 +23,7 @@ import {
     logSaleTransaction,
     getSalesLogByDate,
     getAllSalesLogs
-} from './firebase-helpers.js';
+} from '../firebase-helpers.js';
 
 // State variables
 let productsData = [];
