@@ -2,21 +2,25 @@
 ## Tài liệu Đặc tả Toàn diện cho AI Agent
 
 > **Mục đích**: Tài liệu này cung cấp đặc tả hoàn chỉnh về nghiệp vụ, kỹ thuật và cấu trúc code để AI Agent có thể đọc hiểu toàn bộ hệ thống và thực hiện tối ưu hoặc phát triển tiếp.
+>
+> **Last Updated**: January 2025
 
 ---
 
 ## MỤC LỤC
 
 1. [Tổng Quan Hệ Thống](#1-tổng-quan-hệ-thống)
-2. [Kiến Trúc Kỹ Thuật](#2-kiến-trúc-kỹ-thuật)
-3. [Database Schema](#3-database-schema)
-4. [Business Logic - Nghiệp Vụ](#4-business-logic---nghiệp-vụ)
+2. [Cấu Trúc Thư Mục & File](#2-cấu-trúc-thư-mục--file)
+3. [Kiến Trúc Kỹ Thuật](#3-kiến-trúc-kỹ-thuật)
+4. [Database Schema](#4-database-schema)
 5. [API Endpoints](#5-api-endpoints)
 6. [Frontend Components](#6-frontend-components)
-7. [Code Index - Chi Tiết Các File](#7-code-index---chi-tiết-các-file)
-8. [Flow Diagrams](#8-flow-diagrams)
-9. [Cấu Hình & Environment](#9-cấu-hình--environment)
-10. [Dependencies & Libraries](#10-dependencies--libraries)
+7. [JavaScript Modules - Chi Tiết](#7-javascript-modules---chi-tiết)
+8. [Business Logic - Nghiệp Vụ](#8-business-logic---nghiệp-vụ)
+9. [UI Flow & Event Listeners](#9-ui-flow--event-listeners)
+10. [Flow Diagrams](#10-flow-diagrams)
+11. [Cấu Hình & Environment](#11-cấu-hình--environment)
+12. [Dependencies & Libraries](#12-dependencies--libraries)
 
 ---
 
@@ -28,11 +32,13 @@ Balance History là hệ thống theo dõi lịch sử biến động số dư t
 - Trích xuất thông tin khách hàng từ nội dung chuyển khoản
 - Quản lý công nợ tự động
 - Hiển thị lịch sử giao dịch với filter và pagination
+- **Verification Workflow** cho kế toán duyệt giao dịch
+- **Transfer Stats** theo dõi thống kê chuyển khoản
 
 ### 1.2 Tech Stack
 | Component | Technology |
 |-----------|------------|
-| Frontend | HTML5, CSS3, Vanilla JavaScript |
+| Frontend | HTML5, CSS3, Vanilla JavaScript (ES6+) |
 | Backend | Node.js, Express.js |
 | Database | PostgreSQL (Render.com) |
 | Hosting | Render.com (Backend), Cloudflare Workers (Proxy) |
@@ -40,30 +46,52 @@ Balance History là hệ thống theo dõi lịch sử biến động số dư t
 | Icons | Lucide Icons |
 | Bank API | VietQR, SePay Webhook |
 
-### 1.3 Cấu Trúc Thư Mục
+### 1.3 Main Features
+| Feature | Description |
+|---------|-------------|
+| Balance History | Xem lịch sử giao dịch với filter theo ngày, loại, ngân hàng |
+| QR Generation | Tạo mã QR VietQR với unique code N2... |
+| Transfer Stats | Thống kê chuyển khoản với workflow kiểm tra |
+| Verification Queue | Hàng đợi duyệt giao dịch cho kế toán |
+| Customer Mapping | Liên kết giao dịch với khách hàng qua QR/Phone |
+| Real-time Updates | SSE stream cập nhật giao dịch mới |
+
+---
+
+## 2. CẤU TRÚC THƯ MỤC & FILE
+
 ```
 balance-history/
-├── index.html              # Giao diện chính
-├── styles.css              # CSS styling (34KB)
-├── modern.css              # Modern design system (29KB)
-├── main.js                 # Logic chính (~3500 lines)
-├── config.js               # Cấu hình API
-├── auth.js                 # Authentication
-├── cache.js                # Cache management
-├── customer-info.js        # Customer info management
-├── qr-generator.js         # QR code generation
-├── notification-system.js  # Toast notifications
-├── SETUP_ALL.sql           # Database schema
-├── ADD_EXTRACTION_COLUMNS.sql  # Schema updates
-├── DEBUG_SCRIPT.sql        # Debug queries
-└── *.md                    # Documentation files
+├── index.html                    # Giao diện chính (3 tabs: Balance History, Transfer Stats, Verification)
+├── css/
+│   ├── modern.css               # Modern design system (~29KB)
+│   ├── styles.css               # Main page styles (~34KB)
+│   └── transfer-stats.css       # Transfer Stats specific styles
+├── js/
+│   ├── config.js                # Cấu hình API (32 lines)
+│   ├── main.js                  # Logic chính Balance History (~3500 lines)
+│   ├── customer-info.js         # Customer info management (443 lines)
+│   ├── qr-generator.js          # QR code generation (223 lines)
+│   ├── transfer-stats.js        # Transfer Stats module (750 lines)
+│   └── verification.js          # Verification workflow module (684 lines)
+└── docs/
+    ├── COMPLETE_SPECIFICATION.md # This file
+    ├── DEPLOYMENT_GUIDE.md
+    ├── IMPLEMENTATION_GUIDE.md
+    ├── PARTIAL_PHONE_TPOS_SEARCH.md
+    ├── PHONE_EXTRACTION_FEATURE.md
+    ├── PHONE_EXTRACTION_IMPROVEMENTS.md
+    ├── PHONE_PARTNER_FETCH_GUIDE.md
+    ├── PR_SUMMARY.md
+    ├── QR_DEBT_FLOW.md
+    └── README.md
 ```
 
 ---
 
-## 2. KIẾN TRÚC KỸ THUẬT
+## 3. KIẾN TRÚC KỸ THUẬT
 
-### 2.1 Architecture Diagram
+### 3.1 Architecture Diagram
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │   Frontend      │     │  Cloudflare      │     │   Render.com    │
@@ -82,26 +110,29 @@ balance-history/
 └─────────────────┘     └──────────────────┘
 ```
 
-### 2.2 Data Flow
+### 3.2 Data Flow
 1. **Tạo QR** → Frontend tạo mã QR với unique code (N2...)
 2. **Liên kết khách hàng** → Lưu mapping QR code ↔ SĐT khách hàng
 3. **Chuyển tiền** → Khách quét QR và chuyển tiền
 4. **Webhook** → SePay gửi notification về backend
 5. **Trích xuất mã** → Backend extract mã N2... từ nội dung
-6. **Cập nhật công nợ** → Tự động cộng tiền vào công nợ khách hàng
+6. **Verification** → Kiểm tra và duyệt giao dịch
+7. **Cập nhật công nợ** → Tự động cộng tiền vào công nợ khách hàng
 
-### 2.3 Storage Architecture
+### 3.3 Storage Architecture
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     MULTI-LAYER STORAGE                          │
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 1: localStorage (Offline Support)                        │
 │  - Key: 'balance_history_customer_info'                         │
-│  - Format: {uniqueCode: {name, phone, updatedAt}}               │
+│  - Key: 'bh_cache_*' (transaction cache, 5 min TTL)             │
+│  - Key: 'bh_view_mode' (view mode preference)                   │
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 2: PostgreSQL (Primary Database)                         │
-│  - Table: balance_customer_info                                  │
-│  - Synced via API: POST /api/sepay/customer-info                │
+│  - Table: balance_history (transactions)                        │
+│  - Table: balance_customer_info (QR ↔ customer mapping)         │
+│  - Table: pending_customer_matches (ambiguous matches)          │
 ├─────────────────────────────────────────────────────────────────┤
 │  Layer 3: Firebase Firestore (Cross-system sync)                │
 │  - Collection: 'customers'                                       │
@@ -111,9 +142,9 @@ balance-history/
 
 ---
 
-## 3. DATABASE SCHEMA
+## 4. DATABASE SCHEMA
 
-### 3.1 Table: `balance_history`
+### 4.1 Table: `balance_history`
 Lưu trữ tất cả giao dịch từ SePay webhook.
 
 ```sql
@@ -133,6 +164,20 @@ CREATE TABLE balance_history (
     description TEXT,                           -- Mô tả
     debt_added BOOLEAN DEFAULT FALSE,           -- Đã cập nhật công nợ chưa
     is_hidden BOOLEAN DEFAULT FALSE,            -- Ẩn giao dịch
+
+    -- Verification fields
+    verification_status VARCHAR(50),            -- PENDING, AUTO_APPROVED, PENDING_VERIFICATION, APPROVED, REJECTED
+    match_method VARCHAR(50),                   -- qr_code, exact_phone, single_match, pending_match, manual_entry, manual_link
+    verified_by VARCHAR(100),                   -- Người duyệt
+    verified_at TIMESTAMP,                      -- Thời điểm duyệt
+    verification_note TEXT,                     -- Ghi chú duyệt
+
+    -- Customer linking
+    linked_customer_phone VARCHAR(50),          -- SĐT khách hàng đã link
+    customer_name VARCHAR(255),                 -- Tên khách hàng
+    qr_code VARCHAR(50),                        -- Mã QR (N2...)
+    extraction_note VARCHAR(255),               -- Ghi chú trích xuất
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     webhook_received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -144,10 +189,10 @@ CREATE INDEX idx_balance_history_sepay_id ON balance_history(sepay_id);
 CREATE INDEX idx_balance_history_transaction_date ON balance_history(transaction_date DESC);
 CREATE INDEX idx_balance_history_transfer_type ON balance_history(transfer_type);
 CREATE INDEX idx_balance_history_gateway ON balance_history(gateway);
-CREATE INDEX idx_balance_history_debt_added ON balance_history(debt_added);
+CREATE INDEX idx_balance_history_verification_status ON balance_history(verification_status);
 ```
 
-### 3.2 Table: `balance_customer_info`
+### 4.2 Table: `balance_customer_info`
 Mapping giữa QR code và thông tin khách hàng.
 
 ```sql
@@ -167,7 +212,7 @@ CREATE INDEX idx_customer_info_unique_code ON balance_customer_info(unique_code)
 CREATE INDEX idx_customer_info_phone ON balance_customer_info(customer_phone);
 ```
 
-### 3.3 Table: `pending_customer_matches`
+### 4.3 Table: `pending_customer_matches`
 Quản lý các giao dịch có nhiều khách hàng khớp (cần admin chọn).
 
 ```sql
@@ -183,335 +228,144 @@ CREATE TABLE pending_customer_matches (
     resolved_at TIMESTAMP,
     resolved_by VARCHAR(100)
 );
-
--- JSONB format cho matched_customers:
--- [
---   {
---     "phone": "0797957828",
---     "count": 2,
---     "customers": [
---       {"id": 566098, "name": "Kim Anh Le", "phone": "0797957828"},
---       {"id": 444887, "name": "Kim Anh Le", "phone": "0797957828"}
---     ]
---   }
--- ]
 ```
-
-### 3.4 Table: `sepay_webhook_logs`
-Log tất cả webhook requests (debugging).
-
-```sql
-CREATE TABLE sepay_webhook_logs (
-    id SERIAL PRIMARY KEY,
-    sepay_id INTEGER,
-    request_method VARCHAR(10),
-    request_headers JSONB,
-    request_body JSONB,
-    response_status INTEGER,
-    response_body JSONB,
-    error_message TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### 3.5 View: `balance_statistics`
-View thống kê giao dịch theo ngày.
-
-```sql
-CREATE VIEW balance_statistics AS
-SELECT
-    DATE(transaction_date) as date,
-    gateway,
-    COUNT(*) as total_transactions,
-    SUM(CASE WHEN transfer_type = 'in' THEN transfer_amount ELSE 0 END) as total_in,
-    SUM(CASE WHEN transfer_type = 'out' THEN transfer_amount ELSE 0 END) as total_out,
-    SUM(CASE WHEN transfer_type = 'in' THEN transfer_amount ELSE -transfer_amount END) as net_change
-FROM balance_history
-GROUP BY DATE(transaction_date), gateway
-ORDER BY date DESC;
-```
-
----
-
-## 4. BUSINESS LOGIC - NGHIỆP VỤ
-
-### 4.1 QR Code Generation
-
-**Format Unique Code**: `N2` + 16 ký tự alphanumeric = **18 ký tự cố định**
-
-```javascript
-// File: qr-generator.js, Function: generateUniqueCode()
-generateUniqueCode(prefix = 'N2') {
-    const timestamp = Date.now().toString(36).toUpperCase().slice(-8);  // 8 chars
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();  // 6 chars
-    const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0');  // 2 chars
-    return `${prefix}${timestamp}${random}${sequence}`;  // Total: 18 chars
-}
-// Ví dụ output: "N2M5K8H2P9Q3R7T1AB"
-```
-
-**Bank Configuration**:
-```javascript
-BANK_CONFIG: {
-    ACB: {
-        bin: '970416',
-        name: 'ACB',
-        accountNo: '75918',
-        accountName: 'LAI THUY YEN NHI'
-    }
-}
-```
-
-**VietQR URL Format**:
-```
-https://img.vietqr.io/image/{BIN}-{ACCOUNT}-{TEMPLATE}.png?amount={AMOUNT}&addInfo={UNIQUE_CODE}&accountName={NAME}
-```
-
-### 4.2 Phone Extraction Logic
-
-**Priority Order**:
-1. **QR Code** (N2 + 16 chars) - Highest priority
-2. **MOMO Pattern** - Momo transfers
-3. **VCB Pattern** - Vietcombank MBVCB format
-4. **Partial Phone** (>= 5 digits) - Search TPOS for matches
-
-**Regex Patterns**:
-```javascript
-// QR Code: Exactly 18 chars starting with N2
-const qrMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
-
-// Phone extraction: >= 5 consecutive digits, take the last occurrence
-const phoneNumbers = content.match(/\d{5,}/g);
-const partialPhone = phoneNumbers ? phoneNumbers[phoneNumbers.length - 1] : null;
-```
-
-**Partial Phone TPOS Search Flow**:
-```
-1. Extract partial phone từ content (VD: "57828")
-2. Call TPOS API: GET /odata/Partner/ODataService.GetViewV2?Phone=57828
-3. Group kết quả theo unique 10-digit phone
-4. Nếu 1 unique phone → Auto save
-5. Nếu nhiều phones → Create pending_customer_matches
-6. Nếu không có matches → Mark as NOT_FOUND_IN_TPOS
-```
-
-### 4.3 Debt Calculation Logic
-
-**Có 2 trường hợp**:
-
-**Trường hợp 1**: Admin CHƯA điều chỉnh công nợ
-```
-Tổng công nợ = SUM(tất cả giao dịch từ các mã QR của khách)
-```
-
-**Trường hợp 2**: Admin ĐÃ điều chỉnh công nợ
-```
-Tổng công nợ = Công nợ baseline (do admin set) + SUM(giao dịch SAU thời điểm điều chỉnh)
-```
-
-### 4.4 Pending Match Resolution
-
-Khi có nhiều khách hàng khớp với partial phone, tạo pending match và hiển thị dropdown cho admin chọn:
-
-```javascript
-// API: POST /api/sepay/pending-matches/:id/resolve
-{
-    customer_id: 566098,           // ID khách hàng được chọn
-    resolved_by: "admin_username"  // Người xử lý
-}
-
-// API: POST /api/sepay/pending-matches/:id/skip
-{
-    reason: "Skipped by user via dropdown",
-    resolved_by: "admin_username"
-}
-```
-
-### 4.5 Mapping Source Types
-
-| Source | Icon | Color | Description |
-|--------|------|-------|-------------|
-| QR Code | qr-code | #10b981 (green) | Khách quét mã QR |
-| Trích xuất SĐT | scan-search | #f59e0b (orange) | Tự động extract từ content |
-| Momo | smartphone | #a50064 (magenta) | Giao dịch từ Momo |
-| Vietcombank | building-2 | #007b40 (green) | Giao dịch từ VCB (MBVCB) |
-| Nhập tay | pencil | #3b82f6 (blue) | Nhập thủ công |
-| Chọn KH | user-check | #8b5cf6 (purple) | Chọn từ pending matches |
-| Chờ xác nhận | clock | #f97316 (orange-dark) | Pending match chưa resolve |
-| Bỏ qua | x-circle | #9ca3af (gray) | Transaction đã skip |
 
 ---
 
 ## 5. API ENDPOINTS
 
-### 5.1 SePay Webhook
+### 5.1 Transaction History & Statistics
 
-**POST /api/sepay/webhook**
-```json
-// Request (from SePay)
-{
-  "id": 92704,
-  "gateway": "Vietcombank",
-  "transactionDate": "2023-03-25 14:02:37",
-  "accountNumber": "0123499999",
-  "code": null,
-  "content": "CT DEN:0123456789 ND:N2M5K8H2P9Q3R7T1AB CK",
-  "transferType": "in",
-  "transferAmount": 2277000,
-  "accumulated": 19077000,
-  "subAccount": null,
-  "referenceCode": "MBVCB.3278907687",
-  "description": ""
-}
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/sepay/history` | Lấy danh sách giao dịch với pagination & filters |
+| GET | `/api/sepay/statistics` | Lấy thống kê tổng hợp |
+| GET | `/api/sepay/history/stats` | Lấy thống kê theo verification status |
+| PUT | `/api/sepay/transaction/{id}/hidden` | Toggle ẩn/hiện giao dịch |
+| PUT | `/api/sepay/transaction/{id}/phone` | Cập nhật SĐT khách hàng cho giao dịch |
+| POST | `/api/sepay/batch-update-phones` | Batch reprocess transactions |
 
-// Response
-{
-  "success": true,
-  "id": 123,
-  "message": "Transaction recorded successfully"
-}
-```
+### 5.2 Customer Info
 
-### 5.2 Transaction History
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/sepay/customer-info` | Lấy tất cả customer info |
+| POST | `/api/sepay/customer-info` | Lưu customer info mới |
+| PUT | `/api/sepay/customer-info/{unique_code}` | Cập nhật customer info |
+| GET | `/api/sepay/phone-data` | Lấy phone data với pagination |
 
-**GET /api/sepay/history**
-```
-Query Parameters:
-- page (number): Số trang, default = 1
-- limit (number): Số records/trang, default = 50
-- type (string): "in" hoặc "out"
-- gateway (string): Tên ngân hàng
-- startDate (string): YYYY-MM-DD
-- endDate (string): YYYY-MM-DD
-- search (string): Tìm trong content, reference_code, customer info
-- showHidden (boolean): Include hidden transactions
-```
+### 5.3 Pending Matches
 
-### 5.3 Statistics
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/sepay/pending-matches` | Lấy danh sách pending matches |
+| POST | `/api/sepay/pending-matches/{id}/resolve` | Resolve pending match (chọn KH) |
+| PUT | `/api/sepay/pending-matches/{id}/customers` | Cập nhật matched customers |
 
-**GET /api/sepay/statistics**
-```json
-// Response
-{
-  "success": true,
-  "statistics": {
-    "total_transactions": 150,
-    "total_in_count": 100,
-    "total_out_count": 50,
-    "total_in": 50000000,
-    "total_out": 20000000,
-    "net_change": 30000000,
-    "latest_balance": 100000000
-  }
-}
-```
+### 5.4 TPOS Integration
 
-### 5.4 Customer Info
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/sepay/tpos/search/{partialPhone}` | Tìm KH theo partial phone |
+| GET | `/api/sepay/tpos/customer/{phone}` | Lấy thông tin KH từ TPOS |
+| GET | `/api/customer/{phone}/quick-view` | Quick view customer info |
 
-**POST /api/sepay/customer-info**
-```json
-// Request
-{
-  "uniqueCode": "N2M5K8H2P9Q3R7T1AB",
-  "customerName": "Nguyen Van A",
-  "customerPhone": "0901234567"
-}
+### 5.5 Transfer Stats
 
-// Response
-{
-  "success": true,
-  "message": "Customer info saved"
-}
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/sepay/transfer-stats` | Lấy tất cả transfer stats |
+| GET | `/api/sepay/transfer-stats/count` | Đếm unchecked items |
+| PUT | `/api/sepay/transfer-stats/{id}/check` | Toggle checked status |
+| PUT | `/api/sepay/transfer-stats/{id}/verify` | Toggle verified status |
+| PUT | `/api/sepay/transfer-stats/mark-all-checked` | Mark nhiều items checked |
+| POST | `/api/sepay/transfer-stats/add` | Thêm transaction vào stats |
+| POST | `/api/sepay/transfer-stats/sync` | Sync customer info |
+| PUT | `/api/sepay/transfer-stats/{id}` | Cập nhật notes/customer |
 
-**GET /api/sepay/customer-info**
-```json
-// Response
-{
-  "success": true,
-  "data": [
-    {
-      "unique_code": "N2M5K8H2P9Q3R7T1AB",
-      "customer_name": "Nguyen Van A",
-      "customer_phone": "0901234567",
-      "updated_at": "2024-01-15T10:30:00Z"
-    }
-  ]
-}
-```
+### 5.6 Verification Queue (v2 API)
 
-### 5.5 Pending Matches
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v2/balance-history/verification-queue` | Lấy danh sách chờ duyệt |
+| POST | `/api/v2/balance-history/{id}/approve` | Duyệt giao dịch |
+| POST | `/api/v2/balance-history/{id}/reject` | Từ chối giao dịch |
+| POST | `/api/v2/balance-history/{id}/resolve-match` | Resolve match và link KH |
+| GET | `/api/v2/balance-history/stats` | Lấy verification stats |
 
-**GET /api/sepay/pending-matches**
-```json
-// Response
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "transaction_id": 123,
-      "extracted_phone": "57828",
-      "matched_customers": [...],
-      "status": "pending",
-      "created_at": "2024-01-15T10:30:00Z"
-    }
-  ]
-}
-```
+### 5.7 Real-time & Other
 
-**POST /api/sepay/pending-matches/:id/resolve**
-**POST /api/sepay/pending-matches/:id/skip**
-**POST /api/sepay/pending-matches/:id/undo-skip**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| SSE | `/api/sepay/stream` | Real-time event stream |
+| POST | `/api/sepay/webhook` | SePay webhook receiver |
+| POST | `/api/sepay/detect-gaps` | Phát hiện giao dịch thiếu |
+| GET | `/api/sepay/gaps` | Lấy danh sách gaps |
+| POST | `/api/sepay/gaps/{ref}/ignore` | Ignore gap |
 
 ---
 
 ## 6. FRONTEND COMPONENTS
 
-### 6.1 Main Table Structure
-```html
-<table class="data-table">
-    <thead>
-        <tr>
-            <th>Ngày giờ</th>
-            <th>Ngân hàng</th>
-            <th>Loại</th>
-            <th>Số tiền</th>
-            <th>Số dư</th>
-            <th>Nội dung</th>
-            <th>Mã tham chiếu</th>
-            <th>Tên khách hàng</th>
-            <th>Số điện thoại</th>
-            <th>Nguồn</th>
-            <th>QR Code</th>
-        </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-</table>
+### 6.1 Main Tab Structure
+```
+index.html
+├── Tab 1: Lịch sử biến động số dư (Balance History)
+│   ├── Header với QR Generator inline
+│   ├── View Mode Tabs (Tất cả | Giao dịch hiện | Chưa có SĐT | Giao dịch ẩn)
+│   ├── Verification Status Filter Chips
+│   ├── Filters Container (hidden by default)
+│   ├── Data Table với columns:
+│   │   - Ngày giờ, Số tiền, Nội dung, Mã tham chiếu
+│   │   - Tên khách hàng, Số điện thoại, Nguồn, QR Code
+│   └── Pagination
+│
+├── Tab 2: Thống Kê Chuyển Khoản (Transfer Stats)
+│   ├── Filters (Ẩn/Hiện, Đã KT, Tìm kiếm)
+│   ├── Stats Summary
+│   ├── Data Table
+│   └── Pagination
+│
+└── Tab 3: Chờ Duyệt (Verification Queue)
+    ├── Stats Cards
+    ├── Verification Table
+    └── Action Buttons (Duyệt/Thay đổi/Từ chối)
 ```
 
 ### 6.2 Modals
 | Modal ID | Purpose |
 |----------|---------|
-| detailModal | Chi tiết giao dịch |
-| rawDataModal | Raw JSON data viewer |
-| qrModal | QR Code display |
-| customerListModal | Danh sách KH theo SĐT |
-| editCustomerModal | Chỉnh sửa thông tin KH |
-| gapsModal | Giao dịch bị thiếu |
-| phoneDataModal | Phone data from balance_customer_info |
+| `detailModal` | Chi tiết giao dịch |
+| `qrModal` | QR Code display |
+| `editCustomerModal` | Chỉnh sửa thông tin KH |
+| `phoneDataModal` | Phone data từ balance_customer_info |
+| `editTSModal` | Edit Transfer Stats item |
+| `rejectModal` | Nhập lý do từ chối |
 
-### 6.3 View Modes
+### 6.3 View Modes (Balance History Tab)
 ```javascript
-// Stored in: localStorage.getItem('bh_view_mode')
 const viewModes = {
     'all': 'Tất cả giao dịch',
     'visible': 'Chỉ giao dịch hiện',
-    'hidden': 'Chỉ giao dịch ẩn'
+    'hidden': 'Chỉ giao dịch ẩn',
+    'no-phone': 'Chưa có SĐT'
 };
+// Stored in: localStorage.getItem('bh_view_mode')
 ```
 
-### 6.4 Quick Filters
+### 6.4 Verification Status Filter Chips
+```javascript
+const verificationFilters = [
+    'all',                    // Tất cả
+    'AUTO_APPROVED',          // Tự động (QR Code, exact phone)
+    'APPROVED',               // Kế toán duyệt
+    'PENDING_VERIFICATION',   // Chờ duyệt
+    'REJECTED',               // Từ chối
+    'NO_PHONE'               // Chưa gán KH
+];
+```
+
+### 6.5 Quick Date Filters
 ```javascript
 const quickFilters = [
     'today',      // Hôm nay
@@ -527,115 +381,17 @@ const quickFilters = [
 
 ---
 
-## 7. CODE INDEX - CHI TIẾT CÁC FILE
+## 7. JAVASCRIPT MODULES - CHI TIẾT
 
-### 7.1 main.js (~3500 lines)
-File chính xử lý tất cả logic frontend.
-
-**State Variables (lines 12-25)**:
-```javascript
-let currentPage = 1;
-let totalPages = 1;
-let currentQuickFilter = 'last30days';
-let showHidden = false;
-let allLoadedData = [];  // Cache cho client-side filtering
-let filters = { type: '', gateway: '', startDate: '', endDate: '', search: '', amount: '' };
-```
-
-**Key Functions**:
-
-| Function | Line | Description |
-|----------|------|-------------|
-| `hasDetailedPermission(pageId, permissionKey)` | 50-61 | Check user permission |
-| `resolvePendingMatch(pendingMatchId, selectElement)` | 69-147 | Resolve pending customer match |
-| `skipPendingMatch(pendingMatchId, selectElement)` | 154-198 | Skip pending match |
-| `undoSkipMatch(pendingMatchId)` | 204-241 | Undo skipped match |
-| `showNotification(message, type)` | 246-261 | Display notification |
-| `setDefaultCurrentMonth()` | 264-289 | Set default date filter (30 days) |
-| `getQuickFilterDates(filterType)` | 292-368 | Calculate date ranges |
-| `applyQuickFilter(filterType)` | 371-397 | Apply quick date filter |
-| `setupEventListeners()` | 421-583 | Initialize all event listeners |
-| `applyFilters()` | 586-593 | Apply filter values |
-| `parseAmountInput(input)` | 596-619 | Parse amount with k/m suffix |
-| `resetFilters()` | 622-643 | Reset all filters |
-| `filterByCustomerInfo(data, searchQuery)` | 652-694 | Client-side search in customer info |
-| `getBHCache()` | 712-728 | Get cached data |
-| `setBHCache(data, pagination)` | 730-741 | Save data to cache |
-| `loadData(forceRefresh)` | 777-816 | Load transaction data |
-| `fetchFromAPI()` | 819-838 | Fetch data from API |
-| `renderCurrentView()` | 863-873 | Render table based on view mode |
-| `loadStatistics()` | 885-910 | Load statistics data |
-| `renderTable(data, skipGapDetection)` | 913-959 | Render transaction table |
-| `getMappingSource(row, uniqueCode)` | 971-1063 | Get mapping source info |
-| `renderTransactionRow(row)` | 1076-1240 | Render single transaction row |
-| `renderGapRow(missingRef, ...)` | 1245-1271 | Render missing transaction row |
-| `renderStatistics(stats)` | 1274-1290 | Render statistics |
-| `updatePagination(pagination)` | 1293-1301 | Update pagination controls |
-| `showDetail(id)` | 1304-1382 | Show transaction detail modal |
-| `formatCurrency(amount)` | 1385-1390 | Format VND currency |
-| `formatDateTime(dateString)` | 1392-1403 | Format datetime |
-| `showTransactionQR(uniqueCode, amount)` | ~1530+ | Show QR modal |
-| `generateDepositQRInline()` | ~1560+ | Generate inline QR |
-| `createCustomQRImage(qrUrl, customerInfo)` | ~1580+ | Create custom QR with canvas |
-| `showPhoneDataModal(page)` | ~1800+ | Show phone data modal |
-| `showCustomersByPhone(phone)` | ~2000+ | Show customers by phone |
-| `toggleHideTransaction(id, hide)` | ~2200+ | Toggle transaction visibility |
-| `fetchMissingTransaction(referenceCode)` | ~2300+ | Fetch missing transaction |
-| `editTransactionCustomer(transactionId, phone, name)` | ~2500+ | Edit customer info |
-| `fetchCustomerNamesFromTPOS()` | ~2700+ | Batch fetch names from TPOS |
-| `reprocessOldTransactions()` | ~3000+ | Reprocess old transactions |
-
-### 7.2 customer-info.js (443 lines)
-Quản lý thông tin khách hàng.
-
-**Object**: `window.CustomerInfoManager`
-
-| Method | Line | Description |
-|--------|------|-------------|
-| `init()` | 19-29 | Initialize manager, sync from DB |
-| `initFirebase()` | 34-61 | Initialize Firebase Firestore |
-| `syncFromDatabase()` | 66-89 | Sync from PostgreSQL to localStorage |
-| `getAllCustomerInfo()` | 95-103 | Get all from localStorage |
-| `saveAllCustomerInfo(data)` | 109-117 | Save all to localStorage |
-| `getCustomerInfo(uniqueCode)` | 124-129 | Get by unique code |
-| `saveCustomerInfo(uniqueCode, customerInfo)` | 139-188 | Save to localStorage + PostgreSQL + Firebase |
-| `syncToFirebase(customerInfo)` | 197-251 | Sync to Firebase (only update, no create) |
-| `detectCarrier(phone)` | 258-289 | Detect phone carrier |
-| `updateCustomerInfo(uniqueCode, updates)` | 297-310 | Update specific fields |
-| `deleteCustomerInfo(uniqueCode)` | 317-324 | Delete customer info |
-| `hasCustomerInfo(uniqueCode)` | 331-336 | Check if exists |
-| `getCustomerDisplay(uniqueCode)` | 343-359 | Get formatted display strings |
-| `searchCustomers(query)` | 366-388 | Search by name or phone |
-| `exportCustomerData()` | 394-397 | Export as JSON |
-| `importCustomerData(jsonString)` | 404-412 | Import from JSON |
-| `getStatistics()` | 418-437 | Get storage statistics |
-
-### 7.3 qr-generator.js (222 lines)
-Tạo QR code cho chuyển khoản ngân hàng.
-
-**Object**: `window.QRGenerator`
-
-| Method | Line | Description |
-|--------|------|-------------|
-| `BANK_CONFIG` | 12-19 | Bank configuration (ACB) |
-| `generateUniqueCode(prefix)` | 29-36 | Generate 18-char unique code |
-| `generateVietQRUrl(options)` | 47-69 | Generate VietQR URL |
-| `generateDepositQR(amount)` | 77-92 | Create new deposit QR |
-| `regenerateQR(uniqueCode, amount)` | 101-114 | Regenerate QR from existing code |
-| `copyQRUrl(qrUrl)` | 122-144 | Copy QR URL to clipboard |
-| `copyUniqueCode(uniqueCode)` | 152-160 | Copy unique code |
-| `downloadQRImage(qrUrl, filename)` | 168-185 | Download QR image |
-| `createQRHtml(qrUrl, options)` | 194-218 | Create QR HTML element |
-
-### 7.4 config.js (32 lines)
-Cấu hình API.
+### 7.1 config.js (32 lines)
+Cấu hình ứng dụng.
 
 ```javascript
 const CONFIG = {
     API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
     ITEMS_PER_PAGE: 50,
-    AUTO_REFRESH_INTERVAL: 0,  // 0 = disabled
-    CACHE_EXPIRY: 5 * 60 * 1000,  // 5 minutes
+    AUTO_REFRESH_INTERVAL: 0,          // 0 = disabled
+    CACHE_EXPIRY: 5 * 60 * 1000,       // 5 minutes
     DATE_FORMAT: 'vi-VN',
     CURRENCY: 'VND',
     CURRENCY_LOCALE: 'vi-VN'
@@ -643,83 +399,422 @@ const CONFIG = {
 window.CONFIG = CONFIG;
 ```
 
-### 7.5 auth.js (~200 lines)
-Xác thực và quản lý phiên.
+---
 
-**Object**: `window.AuthManager`
+### 7.2 main.js (~3500 lines)
+File logic chính cho Balance History tab.
 
-| Method | Description |
-|--------|-------------|
-| `isLoggedIn()` | Check if user is logged in |
-| `getCurrentUser()` | Get current user info |
-| `login(username, password, remember)` | Login user |
-| `logout()` | Logout user |
-| `hasPermission(level)` | Check permission level |
-| `getPermissions()` | Get user permissions |
+#### State Variables (lines 12-26)
+```javascript
+let currentPage = 1;
+let totalPages = 1;
+let currentQuickFilter = 'last30days';
+let viewMode = localStorage.getItem('bh_view_mode') || 'all';
+let verificationStatusFilter = 'all';
+let allLoadedData = [];  // Cache for client-side filtering
+let filters = { type: '', gateway: '', startDate: '', endDate: '', search: '', amount: '' };
+```
 
-**Session Configuration**:
-- Session timeout: 8 hours (sessionStorage)
-- Remember me: 30 days (localStorage)
+#### Key Functions
 
-### 7.6 cache.js (~180 lines)
-Cache management với localStorage.
+| Function | Line | Description |
+|----------|------|-------------|
+| `resolvePendingMatch(pendingMatchId, selectElement)` | 54-131 | Resolve pending match khi user chọn từ dropdown |
+| `refreshPendingMatchList(pendingMatchId, partialPhone, btn)` | 139-233 | Refresh danh sách KH từ TPOS |
+| `copyPhoneToClipboard(phone, button)` | 240-264 | Copy SĐT vào clipboard |
+| `showNotification(message, type)` | 269-304 | Hiển thị toast notification |
+| `setDefaultCurrentMonth()` | 307-332 | Set date filter mặc định (30 ngày) |
+| `getQuickFilterDates(filterType)` | 335-411 | Tính toán date range theo filter type |
+| `applyQuickFilter(filterType)` | 414-440 | Apply quick date filter |
+| `setupEventListeners()` | 466-628 | Initialize tất cả event listeners |
+| `applyFilters()` | 631-638 | Apply filter values từ form |
+| `parseAmountInput(input)` | 641-664 | Parse amount với suffix k/m/tr |
+| `resetFilters()` | 667-688 | Reset tất cả filters |
+| `filterByCustomerInfo(data, searchQuery)` | 697-739 | Client-side filter theo customer info |
+| `getBHCache()` / `setBHCache()` | 757-786 | LocalStorage cache management |
+| `loadData(forceRefresh)` | 822-861 | Load transaction data (cache-first) |
+| `fetchFromAPI()` | 864-892 | Fetch data từ API |
+| `renderCurrentView()` | 917-953 | Render table theo viewMode |
+| `updateHiddenCount()` | 956-971 | Update hidden/no-phone count badges |
+| `loadStatistics()` | 974-999 | Load thống kê |
+| `renderTable(data, skipGapDetection)` | 1002-1048 | Render transaction table với gap detection |
+| `getMappingSource(row, uniqueCode)` | 1060-1202 | Get mapping source info (QR/Phone/Manual...) |
+| `renderTransactionRow(row)` | 1215-1300+ | Render single transaction row |
 
-**Object**: `window.CacheManager`
-
-| Method | Description |
-|--------|-------------|
-| `get(key)` | Get cached item |
-| `set(key, value, ttl)` | Set cached item with TTL |
-| `remove(key)` | Remove cached item |
-| `clear()` | Clear all cache |
-| `cleanup()` | Remove expired items |
-
-### 7.7 notification-system.js (~350 lines)
-Toast notification system.
-
-**Object**: `window.NotificationSystem`
-
-| Method | Description |
-|--------|-------------|
-| `show(message, type, duration)` | Show notification |
-| `success(message)` | Show success notification |
-| `error(message)` | Show error notification |
-| `warning(message)` | Show warning notification |
-| `info(message)` | Show info notification |
-
-**Types**: success, error, warning, info
-
-### 7.8 index.html (627 lines)
-Giao diện chính.
-
-**Structure**:
-- Lines 1-20: Head (meta, CSS imports)
-- Lines 22-58: Sidebar navigation
-- Lines 60-128: Header with QR form and filters toggle
-- Lines 129-213: Filters container
-- Lines 262-302: Main table
-- Lines 304-454: Modals (detail, rawData, QR, customerList, editCustomer)
-- Lines 456-604: Phone data modal
-- Lines 606-625: Script imports
-
-### 7.9 SETUP_ALL.sql (187 lines)
-Complete database schema.
-
-**Objects Created**:
-- Table: `balance_history`
-- Table: `sepay_webhook_logs`
-- Table: `balance_customer_info`
-- Table: `pending_customer_matches`
-- Function: `update_updated_at_column()`
-- Trigger: `update_balance_history_updated_at`
-- Trigger: `update_customer_info_updated_at`
-- View: `balance_statistics`
+#### Event Listeners (setupEventListeners - line 466)
+- Quick filter buttons (`.btn-quick-filter`)
+- Refresh button (`#refreshBtn`)
+- View phone data (`#viewPhoneDataBtn`)
+- Reprocess old transactions (`#reprocessOldTransactionsBtn`)
+- Apply/Reset filters (`#applyFiltersBtn`, `#resetFiltersBtn`)
+- Pagination (`#prevPageBtn`, `#nextPageBtn`)
+- Modal close buttons
+- Search input với debounce
+- Date input changes
 
 ---
 
-## 8. FLOW DIAGRAMS
+### 7.3 customer-info.js (443 lines)
+Quản lý thông tin khách hàng.
 
-### 8.1 Complete Transaction Flow
+**Object**: `window.CustomerInfoManager`
+
+| Method | Line | Description |
+|--------|------|-------------|
+| `init()` | 19-29 | Initialize manager, Firebase, sync từ DB |
+| `initFirebase()` | 34-61 | Initialize Firebase Firestore |
+| `syncFromDatabase()` | 66-89 | Sync từ PostgreSQL → localStorage |
+| `getAllCustomerInfo()` | 95-103 | Lấy tất cả từ localStorage |
+| `saveAllCustomerInfo(data)` | 109-117 | Lưu tất cả vào localStorage |
+| `getCustomerInfo(uniqueCode)` | 124-129 | Lấy theo unique code |
+| `saveCustomerInfo(uniqueCode, customerInfo)` | 139-188 | Lưu vào localStorage + PostgreSQL + Firebase |
+| `syncToFirebase(customerInfo)` | 197-251 | Sync tới Firebase (chỉ update, không create) |
+| `detectCarrier(phone)` | 258-289 | Nhận diện nhà mạng từ SĐT |
+| `updateCustomerInfo(uniqueCode, updates)` | 297-310 | Cập nhật fields cụ thể |
+| `deleteCustomerInfo(uniqueCode)` | 317-324 | Xóa customer info |
+| `hasCustomerInfo(uniqueCode)` | 331-336 | Kiểm tra có tồn tại không |
+| `getCustomerDisplay(uniqueCode)` | 343-359 | Lấy formatted display strings |
+| `searchCustomers(query)` | 366-388 | Tìm kiếm theo name/phone |
+| `exportCustomerData()` | 394-397 | Export JSON |
+| `importCustomerData(jsonString)` | 404-412 | Import JSON |
+| `getStatistics()` | 418-437 | Lấy thống kê storage |
+
+---
+
+### 7.4 qr-generator.js (223 lines)
+Tạo QR code cho chuyển khoản ngân hàng.
+
+**Object**: `window.QRGenerator`
+
+| Property/Method | Line | Description |
+|-----------------|------|-------------|
+| `BANK_CONFIG` | 12-19 | Bank configuration (ACB) |
+| `generateUniqueCode(prefix)` | 29-36 | Tạo mã 18 ký tự (N2 + 16 chars) |
+| `generateVietQRUrl(options)` | 47-69 | Tạo VietQR URL |
+| `generateDepositQR(amount)` | 77-92 | Tạo QR mới với unique code |
+| `regenerateQR(uniqueCode, amount)` | 101-114 | Tạo lại QR từ existing code |
+| `copyQRUrl(qrUrl)` | 122-144 | Copy URL vào clipboard |
+| `copyUniqueCode(uniqueCode)` | 152-160 | Copy unique code |
+| `downloadQRImage(qrUrl, filename)` | 168-185 | Download QR image |
+| `createQRHtml(qrUrl, options)` | 194-218 | Tạo HTML element |
+
+**Bank Configuration**:
+```javascript
+BANK_CONFIG: {
+    ACB: {
+        bin: '970416',
+        name: 'ACB',
+        accountNo: '75918',
+        accountName: 'LAI THUY YEN NHI'
+    }
+}
+```
+
+**Unique Code Format**: `N2` + 16 chars = **18 ký tự cố định**
+```javascript
+generateUniqueCode(prefix = 'N2') {
+    const timestamp = Date.now().toString(36).toUpperCase().slice(-8);  // 8 chars
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();  // 6 chars
+    const sequence = Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0');  // 2 chars
+    return `${prefix}${timestamp}${random}${sequence}`;  // Total: 18 chars
+}
+// Example: "N2M5K8H2P9Q3R7T1AB"
+```
+
+---
+
+### 7.5 transfer-stats.js (750 lines)
+Module quản lý Transfer Stats tab.
+
+#### State Variables (lines 11-16)
+```javascript
+let tsData = [];
+let tsFilteredData = [];
+let tsCurrentPage = 1;
+let tsTotalPages = 1;
+const TS_PAGE_SIZE = 50;
+```
+
+#### Key Functions
+
+| Function | Line | Description |
+|----------|------|-------------|
+| `addNewTransferStatRealtime(transaction)` | 26-52 | Thêm transaction realtime (SSE) |
+| `loadTransferStats()` | 58-89 | Load data từ API |
+| `filterTransferStats()` | 91-126 | Filter theo visibility/verified/search |
+| `renderTSTable()` | 128-187 | Render table với pagination |
+| `updateTSStats()` | 208-223 | Update stats summary |
+| `updateTSPagination()` | 225-241 | Update pagination UI |
+| `tsChangePage(delta)` | 243-249 | Change page |
+| `updateUncheckedBadge()` | 251-263 | Update badge số unchecked |
+| `toggleTSChecked(id, checked)` | 269-336 | Toggle checked status |
+| `toggleTSVerified(id, verified)` | 338-377 | Toggle verified status |
+| `markAllChecked()` | 379-422 | Mark tất cả visible là checked |
+| `transferToStats(transactionId)` | 451-493 | Chuyển GD vào stats |
+| `syncTransferStats()` | 499-535 | Sync customer info |
+| `openEditTSModal(id)` | 623-634 | Mở modal edit |
+| `saveTSEdit(e)` | 640-688 | Lưu thay đổi |
+
+---
+
+### 7.6 verification.js (684 lines)
+Module Verification Workflow cho kế toán.
+
+#### Constants (lines 15-33)
+```javascript
+const VERIFICATION_STATUS = {
+    PENDING: 'PENDING',
+    AUTO_APPROVED: 'AUTO_APPROVED',
+    PENDING_VERIFICATION: 'PENDING_VERIFICATION',
+    APPROVED: 'APPROVED',
+    REJECTED: 'REJECTED'
+};
+
+const MATCH_METHOD_LABELS = {
+    qr_code: 'QR Code',
+    exact_phone: 'SĐT đầy đủ (10 số)',
+    single_match: 'Tự động (1 KH duy nhất)',
+    pending_match: 'NV chọn từ dropdown',
+    manual_entry: 'Nhập tay',
+    manual_link: 'Kế toán gán tay'
+};
+```
+
+#### State Variables (lines 71-73)
+```javascript
+let verificationQueueData = [];
+let verificationCurrentPage = 1;
+let verificationTotalPages = 1;
+```
+
+#### Key Functions
+
+| Function | Line | Description |
+|----------|------|-------------|
+| `renderVerificationBadge(status)` | 38-47 | Render status badge |
+| `renderMatchMethodBadge(method)` | 52-65 | Render match method badge |
+| `loadVerificationQueue(page, status)` | 79-124 | Load danh sách chờ duyệt |
+| `renderVerificationQueue(tableBody)` | 129-209 | Render verification table |
+| `updateVerificationPagination()` | 214-222 | Update pagination |
+| `approveTransaction(transactionId)` | 244-284 | Duyệt giao dịch |
+| `showRejectModal(transactionId)` | 289-303 | Hiện modal từ chối |
+| `rejectTransaction(transactionId, reason)` | 309-349 | Từ chối giao dịch |
+| `selectMatchAndApprove(transactionId, select)` | 356-401 | Chọn KH và tự động approve |
+| `loadVerificationStats()` | 410-434 | Load thống kê verification |
+| `showChangeModal(txId, phone, name)` | 450-522 | Modal thay đổi SĐT |
+| `changeAndApproveTransaction(txId, phone, name)` | 531-599 | Thay đổi SĐT và approve |
+| `initVerificationModule()` | 604-662 | Initialize module |
+
+#### Permission Checks
+```javascript
+// Sử dụng authManager.hasDetailedPermission()
+// Không có admin bypass - tất cả users phải có detailedPermissions
+const permissions = {
+    'viewVerificationQueue': 'Xem danh sách chờ duyệt',
+    'approveTransaction': 'Duyệt giao dịch',
+    'rejectTransaction': 'Từ chối giao dịch',
+    'resolveMatch': 'Chọn khách hàng từ dropdown'
+};
+```
+
+---
+
+## 8. BUSINESS LOGIC - NGHIỆP VỤ
+
+### 8.1 QR Code Generation Flow
+
+```
+1. User nhập SĐT khách hàng (optional)
+2. Click "Tạo QR"
+3. QRGenerator.generateDepositQR() tạo:
+   - uniqueCode: N2 + 16 random chars (18 total)
+   - qrUrl: VietQR URL với account info
+4. Nếu có SĐT → CustomerInfoManager.saveCustomerInfo()
+   - Lưu localStorage
+   - POST /api/sepay/customer-info
+   - Sync Firebase (update only, no create)
+5. Hiển thị QR inline
+```
+
+### 8.2 Phone Extraction Logic
+
+**Priority Order**:
+1. **QR Code** (N2 + 16 chars) - Highest priority → AUTO_APPROVED
+2. **Exact Phone** (10 digits) - Full phone match → AUTO_APPROVED
+3. **MOMO Pattern** - Momo transfers → Extract từ content
+4. **VCB Pattern** - Vietcombank MBVCB format
+5. **Partial Phone** (>= 5 digits) - Search TPOS for matches → PENDING_VERIFICATION
+
+**Regex Patterns**:
+```javascript
+// QR Code: Exactly 18 chars starting with N2
+const qrMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
+
+// Phone: 10 digits starting with 0
+const phoneMatch = content.match(/\b0\d{9}\b/);
+
+// Partial phone: >= 5 consecutive digits
+const partialPhone = content.match(/\d{5,}/g)?.pop();
+```
+
+### 8.3 Verification Workflow
+
+```
+                    ┌─────────────────┐
+                    │   New Transaction │
+                    └────────┬────────┘
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │
+          ▼                  ▼                  ▼
+   ┌────────────┐    ┌────────────┐    ┌────────────────┐
+   │  QR Code   │    │ Exact Phone│    │ Partial Phone  │
+   │  Found     │    │ (10 digits)│    │ or Manual Entry│
+   └─────┬──────┘    └─────┬──────┘    └───────┬────────┘
+         │                 │                    │
+         ▼                 ▼                    ▼
+  ┌─────────────────────────────┐      ┌───────────────────┐
+  │      AUTO_APPROVED          │      │PENDING_VERIFICATION│
+  │   (Tự động cộng ví)         │      │  (Chờ KT duyệt)   │
+  └─────────────────────────────┘      └─────────┬─────────┘
+                                                 │
+                                    ┌────────────┼────────────┐
+                                    │            │            │
+                                    ▼            ▼            ▼
+                              ┌──────────┐ ┌──────────┐ ┌──────────┐
+                              │ APPROVED │ │ REJECTED │ │ Changed  │
+                              │(Duyệt)   │ │(Từ chối) │ │+ Approve │
+                              └──────────┘ └──────────┘ └──────────┘
+```
+
+### 8.4 Pending Match Resolution
+
+Khi có nhiều khách hàng khớp với partial phone:
+
+```
+1. Backend extract partial phone từ content (VD: "57828")
+2. Call TPOS API: GET /odata/Partner?Phone=57828
+3. Group kết quả theo unique 10-digit phone
+4. Nếu 1 unique phone → Auto save → AUTO_APPROVED
+5. Nếu nhiều phones → Create pending_customer_matches
+   → verification_status = PENDING_VERIFICATION
+6. Frontend hiển thị dropdown với options
+7. Admin chọn → POST /api/sepay/pending-matches/:id/resolve
+8. Hoặc: Kế toán duyệt/từ chối
+```
+
+### 8.5 Mapping Source Types
+
+| Source | match_method | Icon | Color | Description |
+|--------|--------------|------|-------|-------------|
+| QR Code | qr_code | qr-code | #10b981 (green) | Khách quét mã QR |
+| SĐT chính xác | exact_phone | phone | #10b981 (green) | Match 10 số SĐT |
+| Tự động match | single_match | check-circle | #10b981 (green) | 1 KH duy nhất |
+| Nhiều KH | pending_match | users | #f97316 (orange) | Cần chọn KH |
+| Nhập tay | manual_entry | pencil | #3b82f6 (blue) | NV nhập thủ công |
+| Kế toán gán | manual_link | user-check | #10b981 (green) | Kế toán gán và duyệt |
+| Momo | - | smartphone | #a50064 (magenta) | Giao dịch từ Momo |
+| Vietcombank | - | building-2 | #007b40 (green) | Giao dịch từ VCB |
+
+---
+
+## 9. UI FLOW & EVENT LISTENERS
+
+### 9.1 Main Tab Switching
+
+```javascript
+// index.html inline script
+function switchMainTab(section) {
+    // Update tab active states
+    document.querySelectorAll('.main-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.section === section);
+    });
+
+    // Update panel visibility
+    document.querySelectorAll('.main-tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+
+    // Show selected panel and load data
+    switch(section) {
+        case 'balance-history':
+            document.getElementById('balanceHistoryPanel').classList.add('active');
+            if (window._balanceHistoryNeedsReload) {
+                loadData(true);
+                window._balanceHistoryNeedsReload = false;
+            }
+            break;
+        case 'transfer-stats':
+            document.getElementById('transferStatsPanel').classList.add('active');
+            loadTransferStats();
+            break;
+        case 'verification':
+            document.getElementById('verificationPanel').classList.add('active');
+            VerificationModule.loadVerificationQueue();
+            loadVerificationStats();
+            break;
+    }
+
+    localStorage.setItem('bh_main_tab', section);
+}
+```
+
+### 9.2 Balance History Event Flow
+
+```
+Page Load
+    ↓
+DOMContentLoaded
+    ↓
+├── setDefaultCurrentMonth() - Set date filter (30 days)
+├── setupEventListeners() - Attach all listeners
+├── setupVerificationFilterChips() - Setup filter chips
+├── loadData() - Load transactions (cache-first)
+├── loadStatistics() - Load stats
+├── loadVerificationStats() - Load verification stats
+└── CustomerInfoManager.init() - Init customer info (background)
+```
+
+### 9.3 Search & Filter Flow
+
+```
+User types in search box
+    ↓
+debounce(500ms)
+    ↓
+applyFilters() - Update filter state
+    ↓
+loadData() - Fetch from API or cache
+    ↓
+renderCurrentView() - Filter by viewMode
+    ↓
+renderTable() - Render HTML
+```
+
+### 9.4 Real-time Updates (SSE)
+
+```javascript
+// main.js connectRealtimeUpdates()
+SSE /api/sepay/stream
+    ↓
+Events:
+├── "new_transaction" → handleNewTransaction()
+│   ├── Add to allLoadedData
+│   ├── Re-render table
+│   └── addNewTransferStatRealtime() (transfer-stats.js)
+│
+├── "customer_info_updated" → handleCustomerInfoUpdated()
+│   └── Refresh affected rows
+│
+└── "pending_match_created" → handlePendingMatchCreated()
+    └── Refresh table to show dropdown
+```
+
+---
+
+## 10. FLOW DIAGRAMS
+
+### 10.1 Complete Transaction Flow
 ```
 PHASE 1: TẠO MÃ QR
 Frontend → QRGenerator.generateDepositQR() → Unique Code (N2...) + VietQR URL
@@ -741,32 +836,24 @@ PHASE 5: PROCESSING
 Backend:
 1. Lưu vào balance_history
 2. Extract QR code: /N2[A-Z0-9]{16}/
-3. Tìm customer_phone từ balance_customer_info
-4. UPSERT customers table (debt += amount)
-5. Đánh dấu debt_added = TRUE
+3. Hoặc extract phone từ content
+4. Tìm customer mapping
+5. Set verification_status:
+   - AUTO_APPROVED (QR/exact phone)
+   - PENDING_VERIFICATION (manual/partial)
+6. Nếu AUTO_APPROVED → Cập nhật công nợ
 
-PHASE 6: REALTIME UPDATE
+PHASE 6: VERIFICATION (if needed)
+Kế toán:
+├→ Approve → Cập nhật công nợ
+├→ Change + Approve → Sửa SĐT + cập nhật công nợ
+└→ Reject → Ghi lý do, không cập nhật công nợ
+
+PHASE 7: REALTIME UPDATE
 Backend SSE → Frontend → Refresh table
 ```
 
-### 8.2 Pending Match Resolution Flow
-```
-1. Transaction với partial phone (VD: "57828")
-    ↓
-2. Search TPOS: GET /odata/Partner?Phone=57828
-    ↓
-3. Kết quả: 4 unique phones found
-    ↓
-4. Create pending_customer_matches record
-    ↓
-5. Frontend hiển thị dropdown với options
-    ↓
-6. Admin chọn → POST /api/sepay/pending-matches/:id/resolve
-    ↓
-7. Update balance_customer_info + customers table
-```
-
-### 8.3 Cache Strategy
+### 10.2 Cache Strategy
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    loadData()                        │
@@ -787,11 +874,11 @@ Backend SSE → Frontend → Refresh table
 
 ---
 
-## 9. CẤU HÌNH & ENVIRONMENT
+## 11. CẤU HÌNH & ENVIRONMENT
 
-### 9.1 API Endpoints
+### 11.1 API Endpoints
 ```javascript
-// Production
+// Production (via Cloudflare Worker)
 API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev'
 
 // Alternative (direct to Render)
@@ -801,14 +888,14 @@ API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev'
 // API_BASE_URL: 'http://localhost:3000'
 ```
 
-### 9.2 Environment Variables (Backend)
+### 11.2 Environment Variables (Backend)
 ```bash
 DATABASE_URL=postgresql://user:password@host:port/database
 SEPAY_API_KEY=sepay_sk_xxx  # Optional, for webhook authentication
 TPOS_TOKEN=xxx              # For TPOS API calls
 ```
 
-### 9.3 Firebase Config
+### 11.3 Firebase Config
 ```javascript
 // File: ../shared/js/firebase-config.js
 window.FIREBASE_CONFIG = {
@@ -821,32 +908,39 @@ window.FIREBASE_CONFIG = {
 };
 ```
 
-### 9.4 LocalStorage Keys
+### 11.4 LocalStorage Keys
 | Key | Purpose |
 |-----|---------|
 | `balance_history_customer_info` | Customer info cache |
-| `bh_cache_*` | Transaction data cache |
-| `bh_view_mode` | Current view mode |
+| `bh_cache_*` | Transaction data cache (5 min TTL) |
+| `bh_view_mode` | Current view mode (all/visible/hidden/no-phone) |
+| `bh_main_tab` | Current main tab |
 | `n2shop_current_user` | Current user info |
 
 ---
 
-## 10. DEPENDENCIES & LIBRARIES
+## 12. DEPENDENCIES & LIBRARIES
 
-### 10.1 Frontend Dependencies
+### 12.1 Frontend Dependencies
 | Library | Version | Purpose |
 |---------|---------|---------|
 | Lucide Icons | latest | Icon system |
 | Firebase | 9.6.1 | Firestore sync |
 
-### 10.2 CDN Links
+### 12.2 CDN Links
 ```html
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 ```
 
-### 10.3 Backend Dependencies (Render.com)
+### 12.3 Shared Libraries
+```html
+<!-- ES Module compatibility -->
+<script type="module" src="../shared/esm/compat.js"></script>
+```
+
+### 12.4 Backend Dependencies (Render.com)
 | Package | Purpose |
 |---------|---------|
 | express | Web framework |
@@ -868,17 +962,29 @@ window.FIREBASE_CONFIG = {
 | `VCB:xxxxxxxxxx` | Giao dịch từ Vietcombank |
 | `PARTIAL_PHONE_EXTRACTED` | Đã extract partial phone |
 
-## APPENDIX B: Name Fetch Status Values
+## APPENDIX B: Verification Status Values
 
 | Value | Meaning |
 |-------|---------|
-| `SUCCESS` | Đã có tên (từ TPOS hoặc manual) |
-| `PENDING` | Chưa fetch tên |
-| `NOT_FOUND_IN_TPOS` | Phone không có trong TPOS |
-| `NO_PHONE_TO_FETCH` | Có QR hoặc không có phone |
+| `AUTO_APPROVED` | Tự động duyệt (QR/exact phone match) |
+| `PENDING_VERIFICATION` | Chờ kế toán duyệt |
+| `APPROVED` | Kế toán đã duyệt |
+| `REJECTED` | Kế toán từ chối |
+| `PENDING` | Chờ xử lý (legacy) |
+
+## APPENDIX C: Match Method Values
+
+| Value | Meaning |
+|-------|---------|
+| `qr_code` | Match từ QR code (N2...) |
+| `exact_phone` | Match chính xác 10 số SĐT |
+| `single_match` | Tự động match 1 KH duy nhất |
+| `pending_match` | NV chọn từ dropdown |
+| `manual_entry` | NV nhập SĐT thủ công |
+| `manual_link` | Kế toán gán tay |
 
 ---
 
-**Document Version**: 1.0
+**Document Version**: 2.0
 **Last Updated**: January 2025
 **Author**: AI Agent Documentation System
