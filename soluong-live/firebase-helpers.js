@@ -772,6 +772,8 @@ async function restoreProductsFromSnapshot(database, snapshotProducts, localProd
 
     Object.entries(snapshotProducts).forEach(([key, product]) => {
         updates[`soluongProducts/${key}`] = product;
+        // Also write soldQty to separate node for cross-page sync
+        updates[`soluongProductsQty/${key}`] = { soldQty: product.soldQty || 0 };
         productIds.push(product.Id);
 
         // Update local object
