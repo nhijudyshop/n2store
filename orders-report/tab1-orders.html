@@ -1288,10 +1288,22 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
+    <!-- Firebase Configuration (SHARED - initialize Firebase immediately after SDK) -->
+    <script src="../shared/js/firebase-config.js"></script>
+    <script>
+        // Initialize Firebase immediately
+        if (typeof initializeFirestore === 'function') {
+            const db = initializeFirestore();
+            const rtdb = initializeRealtimeDB();
+            window.database = rtdb; // Alias for compatibility
+            console.log('[TAB1] Firebase initialized via shared config');
+        }
+    </script>
+
     <!-- API Configuration (load first!) -->
     <script src="js/core/api-config.js"></script>
 
-    <!-- Firebase Configuration (must load before firebase-image-cache.js) -->
+    <!-- Firebase Configuration (local fallback - must load before firebase-image-cache.js) -->
     <script src="js/core/config.js"></script>
 
     <!-- User Employee Loader -->
