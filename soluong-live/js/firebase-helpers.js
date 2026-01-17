@@ -153,11 +153,16 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
     product.soldQty = newSoldQty;
     product.remainingQty = product.QtyAvailable - newSoldQty;
 
-    // Sync to Firebase (just the fields that changed)
-    await database.ref(`soluongProducts/${productKey}`).update({
-        soldQty: newSoldQty,
-        remainingQty: product.remainingQty
-    });
+    // Sync to Firebase - write to BOTH nodes for cross-page compatibility
+    await Promise.all([
+        database.ref(`soluongProducts/${productKey}`).update({
+            soldQty: newSoldQty,
+            remainingQty: product.remainingQty
+        }),
+        database.ref(`soluongProductsQty/${productKey}`).set({
+            soldQty: newSoldQty
+        })
+    ]);
 
     // Log transaction if logOptions provided
     if (logOptions && logOptions.source) {

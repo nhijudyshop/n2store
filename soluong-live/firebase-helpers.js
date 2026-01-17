@@ -156,7 +156,7 @@ async function removeProductFromFirebase(database, productId, localProductsObjec
 
 /**
  * Update product quantity (soldQty)
- * OPTIMIZED: Writes to separate node soluongProductsQty (~20 bytes instead of ~1KB)
+ * Writes to BOTH soluongProducts and soluongProductsQty for cross-page compatibility
  */
 async function updateProductQtyInFirebase(database, productId, change, localProductsObject) {
     const productKey = `product_${productId}`;
@@ -169,11 +169,18 @@ async function updateProductQtyInFirebase(database, productId, change, localProd
 
     // Update local first (optimistic update)
     product.soldQty = newSoldQty;
+    product.remainingQty = product.QtyAvailable - newSoldQty;
 
-    // OPTIMIZED: Write ONLY to qty node (~20 bytes instead of full product ~1KB)
-    await database.ref(`soluongProductsQty/${productKey}`).set({
-        soldQty: newSoldQty
-    });
+    // Write to BOTH nodes for cross-page compatibility
+    await Promise.all([
+        database.ref(`soluongProducts/${productKey}`).update({
+            soldQty: newSoldQty,
+            remainingQty: product.remainingQty
+        }),
+        database.ref(`soluongProductsQty/${productKey}`).set({
+            soldQty: newSoldQty
+        })
+    ]);
 }
 
 /**
