@@ -286,6 +286,12 @@ function renderTable() {
 
     // Update sort icons after rendering
     updateSortIcons();
+
+    // Re-apply pending customer highlights after table render
+    if (window.newMessagesNotifier && window.newMessagesNotifier.reapply) {
+        // Small delay to ensure DOM is fully updated
+        setTimeout(() => window.newMessagesNotifier.reapply(), 100);
+    }
 }
 
 function renderAllOrders() {
@@ -406,6 +412,11 @@ function loadMoreRows() {
     const phonesToFetch = nextBatch.map(order => order.Telephone).filter(Boolean);
     if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
         batchFetchDebts(phonesToFetch);
+    }
+
+    // Re-apply pending customer highlights to newly loaded rows
+    if (window.newMessagesNotifier && window.newMessagesNotifier.reapply) {
+        setTimeout(() => window.newMessagesNotifier.reapply(), 50);
     }
 }
 

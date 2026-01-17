@@ -326,6 +326,44 @@
         }
     }
 
+    // Cache pending customers để re-apply sau khi table render
+    let cachedPendingCustomers = [];
+
+    /**
+     * Wait for table rows to exist
+     */
+    function waitForTableRows(maxWait = 10000) {
+        return new Promise((resolve) => {
+            const startTime = Date.now();
+            const check = () => {
+                const rows = document.querySelectorAll('tr[data-psid]');
+                if (rows.length > 0) {
+                    resolve(true);
+                } else if (Date.now() - startTime > maxWait) {
+                    resolve(false);
+                } else {
+                    setTimeout(check, 500);
+                }
+            };
+            check();
+        });
+    }
+
+    /**
+     * Re-apply highlights (called after table re-renders)
+     */
+    function reapplyHighlights() {
+        if (cachedPendingCustomers.length > 0) {
+            console.log('[NEW-MSG-NOTIFIER] Re-applying highlights for', cachedPendingCustomers.length, 'pending customers');
+            highlightNewMessagesInTable(cachedPendingCustomers.map(c => ({
+                psid: c.psid,
+                page_id: c.page_id,
+                type: c.type,
+                message_count: c.message_count
+            })));
+        }
+    }
+
     /**
      * Main function - Check for new messages on page load
      * Sử dụng pending_customers API (persist qua tắt máy/đổi máy)
@@ -336,6 +374,7 @@
 
             // Fetch pending customers từ server (thay vì timestamp-based)
             const pendingCustomers = await fetchPendingCustomers();
+            cachedPendingCustomers = pendingCustomers || [];
 
             if (pendingCustomers && pendingCustomers.length > 0) {
                 console.log(`[NEW-MSG-NOTIFIER] Found ${pendingCustomers.length} pending customers`);
@@ -352,13 +391,18 @@
                     uniqueCustomers: pendingCustomers.length
                 });
 
-                // Highlight rows in table
-                highlightNewMessagesInTable(pendingCustomers.map(c => ({
-                    psid: c.psid,
-                    page_id: c.page_id,
-                    type: c.type,
-                    message_count: c.message_count
-                })));
+                // Wait for table rows to exist before highlighting
+                const tableReady = await waitForTableRows();
+                if (tableReady) {
+                    highlightNewMessagesInTable(pendingCustomers.map(c => ({
+                        psid: c.psid,
+                        page_id: c.page_id,
+                        type: c.type,
+                        message_count: c.message_count
+                    })));
+                } else {
+                    console.warn('[NEW-MSG-NOTIFIER] Table rows not found, will retry on render');
+                }
             } else {
                 console.log('[NEW-MSG-NOTIFIER] No pending customers');
             }
@@ -404,7 +448,9 @@
         saveTimestamp: saveCurrentTimestamp,
         fetchPending: fetchPendingCustomers,
         markReplied: markRepliedOnServer,
-        highlight: highlightNewMessagesInTable
+        highlight: highlightNewMessagesInTable,
+        reapply: reapplyHighlights,
+        getCached: () => cachedPendingCustomers
     };
 
     // Auto-initialize
