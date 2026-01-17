@@ -4974,14 +4974,53 @@ function renderChatMessages(messages, scrollToBottom = false) {
         }
 
         let content = '';
-        if (messageText) {
+
+        // Check for special message types
+        const isPostReply = messageText && messageText.includes('đã trả lời về một bài viết');
+        const hasPhone = msg.has_phone && msg.phone_info && msg.phone_info.length > 0;
+
+        if (isPostReply) {
+            // Post reply notification - format nicely with link
+            const linkMatch = messageText.match(/https?:\/\/[^\s\)]+/);
+            const linkUrl = linkMatch ? linkMatch[0] : null;
+            const displayText = messageText.replace(/\s*Xem bài viết\([^)]+\)/, '').trim();
+
+            content = `
+                <div class="chat-post-reply" style="background: #f8fafc; border-left: 3px solid #8b5cf6; padding: 10px 12px; border-radius: 0 8px 8px 0;">
+                    <p style="font-size: 13px; color: #475569; margin: 0;">
+                        <i class="fas fa-reply" style="margin-right: 6px; color: #8b5cf6;"></i>${displayText}
+                    </p>
+                    ${linkUrl ? `
+                        <a href="${linkUrl}" target="_blank" style="font-size: 12px; color: #3b82f6; text-decoration: none; display: inline-flex; align-items: center; margin-top: 6px;">
+                            <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i>Xem bài viết
+                        </a>
+                    ` : ''}
+                </div>`;
+        } else if (hasPhone) {
+            // Phone number message - highlight the phone
+            const phoneNumber = msg.phone_info[0].phone_number;
+            content = `
+                <div class="chat-phone-message" style="display: flex; align-items: center; gap: 8px;">
+                    <span class="phone-highlight" style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #047857; font-weight: 600; padding: 6px 12px; border-radius: 8px; font-size: 15px; letter-spacing: 0.5px; border: 1px solid #a7f3d0;">
+                        <i class="fas fa-phone" style="margin-right: 6px; font-size: 12px;"></i>${phoneNumber}
+                    </span>
+                    <button onclick="navigator.clipboard.writeText('${phoneNumber}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> Đã copy'; setTimeout(() => this.innerHTML='<i class=\\'fas fa-copy\\'></i> Copy', 1500);"
+                            style="background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; color: #6b7280; transition: all 0.2s;">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                </div>`;
+        } else if (messageText) {
+            // Regular text message
             // Escape HTML to prevent XSS but preserve emoji and special characters
-            // Only escape < and > to prevent HTML injection
             let escapedMessage = messageText
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/\n/g, '<br>')
                 .replace(/\r/g, '');
+
+            // Highlight phone numbers in regular messages
+            const phoneRegex = /(0[0-9]{9,10})/g;
+            escapedMessage = escapedMessage.replace(phoneRegex, '<span style="background: #ecfdf5; color: #047857; font-weight: 600; padding: 1px 4px; border-radius: 4px;">$1</span>');
 
             // Convert URLs to clickable links
             const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -5218,6 +5257,27 @@ function renderChatMessages(messages, scrollToBottom = false) {
                                  alt="GIF Sticker"
                                  style="max-width: 200px; max-height: 200px; border-radius: 8px;"
                                  loading="lazy" />
+                        </div>`;
+                }
+                // Ad click attachment - show ad preview
+                else if (att.type === 'ad_click') {
+                    const adPhoto = att.ad_click_photo_url || att.post_attachments?.[0]?.url || '';
+                    const adName = att.name || 'Quảng cáo';
+                    const adUrl = att.url || '#';
+                    content += `
+                        <div class="chat-ad-click" style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 12px; margin-top: 8px; overflow: hidden;">
+                            ${adPhoto ? `<img src="${adPhoto}" style="width: 100%; max-height: 200px; object-fit: cover;" loading="lazy" onerror="this.style.display='none'" />` : ''}
+                            <div style="padding: 10px 12px;">
+                                <p style="font-size: 11px; color: #0284c7; margin: 0 0 4px 0; font-weight: 500;">
+                                    <i class="fas fa-ad" style="margin-right: 6px;"></i>Đã click vào quảng cáo
+                                </p>
+                                <p style="font-size: 13px; color: #1e293b; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                    ${adName}
+                                </p>
+                                <a href="${adUrl}" target="_blank" style="font-size: 11px; color: #3b82f6; text-decoration: none; display: inline-block; margin-top: 6px;">
+                                    <i class="fas fa-external-link-alt" style="margin-right: 4px;"></i>Xem bài viết
+                                </a>
+                            </div>
                         </div>`;
                 }
             });

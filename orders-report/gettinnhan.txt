@@ -1,0 +1,524 @@
+fetch("https://pancake.vn/api/v1/pages/117267091364524/conversations/117267091364524_9608964609232745/messages?customer_id=1da678ac-462e-4bb7-b520-f0bb0e39b794&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&user_view=true&is_new_api=true&separate_pos=true", {
+  "headers": {
+    "accept": "application/json",
+    "accept-language": "en-US,en;q=0.9,vi;q=0.8",
+    "sec-ch-ua": "\"Google Chrome\";v=\"143\", \"Chromium\";v=\"143\", \"Not A(Brand\";v=\"24\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "cookie": "_fbp=fb.1.1763632135101.332718626139109354; __stripe_mid=65c230b0-071f-49ea-9d59-3e8cea763beb5bdf15; jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ; _gid=GA1.2.1186091117.1768570270; locale=vi; _gat=1; _ga=GA1.1.2056562400.1763631656; _ga_VG3LFY1C9R=GS2.1.s1768622190$o158$g1$t1768622242$j8$l0$h0",
+    "Referer": "https://pancake.vn/NhiJudyHouse.VietNam"
+  },
+  "body": null,
+  "method": "GET"
+});
+response:
+{
+    "conv_from": {
+        "email": "9608964609232745@facebook.com",
+        "id": "9608964609232745",
+        "name": "Cherry Pham"
+    },
+    "available_for_report_phone_numbers": [],
+    "is_banned": false,
+    "last_commented_at": "2026-01-17T03:39:16",
+    "global_id": null,
+    "banned_count": 0,
+    "ad_clicks": {
+        "1da678ac-462e-4bb7-b520-f0bb0e39b794": [
+            {
+                "ad_id": "120238608052660780",
+                "inserted_at": "2026-01-17T03:39:28",
+                "post_id": "117267091364524_1188578640094602"
+            }
+        ]
+    },
+    "recent_phone_numbers": [
+        "0901279795"
+    ],
+    "allow_use_data_for_training_ai": false,
+    "customers": [
+        {
+            "ad_clicks": [
+                {
+                    "ad_id": "120238608052660780",
+                    "inserted_at": "2026-01-17T03:39:28",
+                    "post_id": "117267091364524_1188578640094602"
+                }
+            ],
+            "address_source": [],
+            "can_inbox": true,
+            "customer_id": "ceee6ef2-1bab-4640-882c-a1cd0e8e6171",
+            "fb_id": "9608964609232745",
+            "global_id": null,
+            "id": "1da678ac-462e-4bb7-b520-f0bb0e39b794",
+            "is_followed": null,
+            "name": "Cherry Pham",
+            "personal_info": {},
+            "recent_phone_numbers": [
+                {
+                    "order_id": 180157013727263,
+                    "phone_number": "0901279795"
+                }
+            ],
+            "web_sources": []
+        }
+    ],
+    "lives_in": null,
+    "gender": null,
+    "comment_count": 16,
+    "app": "41",
+    "can_inbox": true,
+    "conv_customers": [
+        {
+            "fb_id": "9608964609232745",
+            "id": "1da678ac-462e-4bb7-b520-f0bb0e39b794",
+            "name": "Cherry Pham"
+        }
+    ],
+    "success": true,
+    "recent_orders": [],
+    "profile_updated_at": null,
+    "extra_info": {},
+    "messages": [
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "117267091364524_9608964609232745",
+            "edit_history": null,
+            "from": {
+                "email": "9608964609232745@facebook.com",
+                "id": "9608964609232745",
+                "name": "Cherry Pham"
+            },
+            "has_phone": false,
+            "id": "m_JT-rVmlSl9kHB1xD7D-QUEOvW3B4yKap5TcEeu6wAbdTb1im4Mw-Ujo5Ad1XZQCA4_ouaxGo5wbAT-M9tMlnwA",
+            "inserted_at": "2026-01-17T03:38:03.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div><img src = 'https://pages.fm/api/v1/pages/117267091364524/avatar/9608964609232745' classname='avatar-user'/>Cherry Pham đã trả lời về một bài viết. (<a href='https://www.facebook.com/story.php?story_fbid=1642289100263691&id=61552171484407' target='_blank'>Xem bài viết</a>)</div>",
+            "message_tags": [
+                {
+                    "length": 80,
+                    "link": "https://www.facebook.com/story.php?story_fbid=1642289100263691&id=61552171484407",
+                    "offset": 53,
+                    "type": "link"
+                }
+            ],
+            "original_message": "Cherry Pham đã trả lời về một bài viết. Xem bài viết(https://www.facebook.com/story.php?story_fbid=1642289100263691&id=61552171484407)",
+            "page_id": "117267091364524",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "117267091364524_9608964609232745",
+            "edit_history": null,
+            "from": {
+                "email": "117267091364524@facebook.com",
+                "id": "117267091364524",
+                "name": "Nhi Judy House"
+            },
+            "has_phone": false,
+            "id": "m_UTITSwn7UxAoOJ_dYvRas0OvW3B4yKap5TcEeu6wAbfy61_IpX3bUuiA04S7qPh52FcBxSlzIqtl4cIt-XjiwA",
+            "inserted_at": "2026-01-17T03:38:03.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Cherry Pham đã trả lời về một bài viết. (<a href='https://www.facebook.com/story.php?story_fbid=886037383781777&id=61552171484407' target='_blank'>Xem bài viết</a>)</div>",
+            "message_tags": [
+                {
+                    "length": 79,
+                    "link": "https://www.facebook.com/story.php?story_fbid=886037383781777&id=61552171484407",
+                    "offset": 53,
+                    "type": "link"
+                }
+            ],
+            "original_message": "Cherry Pham đã trả lời về một bài viết. Xem bài viết(https://www.facebook.com/story.php?story_fbid=886037383781777&id=61552171484407)",
+            "page_id": "117267091364524",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "117267091364524_9608964609232745",
+            "edit_history": null,
+            "from": {
+                "email": "9608964609232745@facebook.com",
+                "id": "9608964609232745",
+                "name": "Cherry Pham"
+            },
+            "has_phone": true,
+            "id": "m_wLCZ5Tka_ooOoTfXBWt1GUOvW3B4yKap5TcEeu6wAbeKC16WG20tgROmXKyHzkm_I_9oje-IQ_i79nD8bofcgw",
+            "inserted_at": "2026-01-17T03:38:04.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div><Copy key='0' id='m_wLCZ5Tka_ooOoTfXBWt1GUOvW3B4yKap5TcEeu6wAbeKC16WG20tgROmXKyHzkm_I_9oje-IQ_i79nD8bofcgw_0901279795' text='0901279795'><span class='phone-tag phone-tag-low-risk' key='0.1'>0901279795</span></Copy></div>",
+            "message_tags": [],
+            "original_message": "0901279795",
+            "page_id": "117267091364524",
+            "parent_id": null,
+            "phone_info": [
+                {
+                    "captured": "0901279795",
+                    "length": 10,
+                    "m_id": "m_wLCZ5Tka_ooOoTfXBWt1GUOvW3B4yKap5TcEeu6wAbeKC16WG20tgROmXKyHzkm_I_9oje-IQ_i79nD8bofcgw",
+                    "offset": 0,
+                    "phone_number": "0901279795",
+                    "status": 3
+                }
+            ],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "117267091364524_9608964609232745",
+            "edit_history": null,
+            "from": {
+                "email": "9608964609232745@facebook.com",
+                "id": "9608964609232745",
+                "name": "Cherry Pham"
+            },
+            "has_phone": false,
+            "id": "m_ytDvYrMVXMpkQD8IgtpYqkOvW3B4yKap5TcEeu6wAbf9177IpeW32p9qnzbuM6gwm4v5QYDPvK5i1YYkbr9x-g",
+            "inserted_at": "2026-01-17T03:38:39.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Quần trắng</div>",
+            "message_tags": [],
+            "original_message": "Quần trắng",
+            "page_id": "117267091364524",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "ad_click_photo_url": "https://content.pancake.vn/2-2601/2026/1/16/27a86555997cb19107fba8c83a4915e296da1e22.jpg",
+                    "name": "TỐI NAY XUYÊN ĐÊM NGÀN MÃ HOT ĐÓN TẾT !! THANH MAI VỀ HÀNGGG..",
+                    "post_attachments": [
+                        {
+                            "description": null,
+                            "image_data": {
+                                "height": 720,
+                                "width": 405
+                            },
+                            "title": null,
+                            "type": "video_inline",
+                            "url": "https://content.pancake.vn/2-2601/2026/1/16/8559f4f55238dc7e4fca002e11e4b2767e37573f.jpg"
+                        }
+                    ],
+                    "type": "ad_click",
+                    "url": "https://www.facebook.com/1188578640094602"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "117267091364524_9608964609232745",
+            "edit_history": null,
+            "from": {
+                "id": "117267091364524",
+                "name": "Nhi Judy House"
+            },
+            "has_phone": false,
+            "id": "ad-960896460923274512023860805266078017686080.0",
+            "inserted_at": "2026-01-17T03:39:28.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div></div>",
+            "message_tags": [],
+            "original_message": "",
+            "page_id": "117267091364524",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        }
+    ],
+    "activities": [
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-25/2025/5/22/eeffa44cb569575ee8ccc4ad4cd7358c7587c1d1.jpg"
+                    }
+                ],
+                "ids": [
+                    "1978742865862774"
+                ],
+                "target": {
+                    "id": "1978742865862774",
+                    "url": "https://www.facebook.com/122120965376072382/videos/1978742865862774"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2025-05-22T05:38:59.000000",
+            "message": "BAO NHIÊU SIÊU PHẦM CHẤT LƯỢNG HỘI TỤ ĐỦ HÔM NAY TRONG LIVE CỦA BẦU..GỐI MỀN SIÊU CẤP NỐT ĐỢT NÀY LÀ SẠCH KHO !!!",
+            "post_id": "117267091364524_1978742865862774",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-25/2025/7/5/528c398d06f268287f60845900caba1b308005cd.jpg"
+                    }
+                ],
+                "ids": [
+                    "1431718234531636"
+                ],
+                "target": {
+                    "id": "1431718234531636",
+                    "url": "https://www.facebook.com/122120965376072382/videos/1431718234531636"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2025-07-05T06:33:14.000000",
+            "message": "GIỜ VÀNG SIÊU NHIỀU HÀNG ĐẸP VỚI BẦU",
+            "post_id": "117267091364524_1431718234531636",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-25/2025/7/7/75330c45d139d20651b29e3e20175447e9b90565.jpg"
+                    }
+                ],
+                "ids": [
+                    "3922664621330481"
+                ],
+                "target": {
+                    "id": "3922664621330481",
+                    "url": "https://www.facebook.com/122120965376072382/videos/3922664621330481"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2025-07-07T05:32:33.000000",
+            "message": "BẦU SLAYYYYY TRƯA NAY",
+            "post_id": "117267091364524_3922664621330481",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2601/2026/1/10/cf1d04212374bcad0f3fc8f57f6ee152c3020cf7.jpg"
+                    }
+                ],
+                "ids": [
+                    "846022454910414"
+                ],
+                "target": {
+                    "id": "846022454910414",
+                    "url": "https://www.facebook.com/122120965376072382/videos/846022454910414"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2026-01-10T11:57:50.000000",
+            "message": "XUYÊN ĐÊM NGẬP LỐI... THANH MAI VỀ LÀ BIẾT TẾT ĐẾN...",
+            "post_id": "117267091364524_846022454910414",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2601/2026/1/13/613f9f1098e1543000e583e5692db5273b706ea0.jpg"
+                    }
+                ],
+                "ids": [
+                    "1344909133990690"
+                ],
+                "target": {
+                    "id": "1344909133990690",
+                    "url": "https://www.facebook.com/122120965376072382/videos/1344909133990690"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2026-01-13T05:01:56.000000",
+            "message": "NGÀN MÃ HÀNG ĐÓN TẾT BÍNH NGỌ...",
+            "post_id": "117267091364524_1344909133990690",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2601/2026/1/17/173bfbd91e051e50b62c73d80924550610a3de73.jpg"
+                    }
+                ],
+                "ids": [
+                    "1642289100263691"
+                ],
+                "target": {
+                    "id": "1642289100263691",
+                    "url": "https://www.facebook.com/122120965376072382/videos/1642289100263691"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2026-01-17T03:29:05.000000",
+            "message": "XÃ KHO THẬP CẨM !! ZÁ NGHE HOÁ ĐIÊNNNNN...",
+            "post_id": "117267091364524_1642289100263691",
+            "source": "POST"
+        }
+    ],
+    "birthday": null,
+    "matched_wa_fb_customers": null,
+    "conv_recent_phone_numbers": [
+        {
+            "captured": "0901279795",
+            "length": 10,
+            "m_id": "m_wLCZ5Tka_ooOoTfXBWt1GUOvW3B4yKap5TcEeu6wAbeKC16WG20tgROmXKyHzkm_I_9oje-IQ_i79nD8bofcgw",
+            "offset": 0,
+            "phone_number": "0901279795",
+            "status": 3
+        }
+    ],
+    "suggested_posts": null,
+    "reported_count": 0,
+    "reports_by_phone": [],
+    "conversation_id": "117267091364524_9608964609232745",
+    "conv_phone_numbers": [
+        "0901279795"
+    ],
+    "read_watermarks": [
+        {
+            "is_group_conv": null,
+            "message_id": "m_ytDvYrMVXMpkQD8IgtpYqkOvW3B4yKap5TcEeu6wAbf9177IpeW32p9qnzbuM6gwm4v5QYDPvK5i1YYkbr9x-g",
+            "psid": "9608964609232745",
+            "watermark": 1768621119
+        }
+    ],
+    "banned_by": null,
+    "post": null,
+    "notes": null
+}
