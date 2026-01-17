@@ -82,3 +82,32 @@
 .product-row {
     transition: all 0.3s ease;
 }
+
+/* =====================================================
+   PENDING CUSTOMER ROW
+   Khách hàng chưa được trả lời - highlight vàng
+   ===================================================== */
+
+/* Pending customer row - persistent highlight until replied */
+.pending-customer-row {
+    background-color: rgba(251, 191, 36, 0.15) !important;
+    border-left: 3px solid #f59e0b !important;
+}
+
+.pending-customer-row:hover {
+    background-color: rgba(251, 191, 36, 0.25) !important;
+}
+
+/* Animate new pending customers */
+.pending-customer-row.new-pending {
+    animation: pendingPulse 1s ease-in-out;
+}
+
+@keyframes pendingPulse {
+    0% {
+        background-color: rgba(251, 191, 36, 0.4);
+    }
+    100% {
+        background-color: rgba(251, 191, 36, 0.15);
+    }
+}

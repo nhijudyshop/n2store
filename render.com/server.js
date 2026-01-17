@@ -188,7 +188,7 @@ const customersRoutes = require('./routes/customers');
 const returnOrdersRoutes = require('./routes/return-orders');
 const cloudflareBackupRoutes = require('./routes/cloudflare-backup');
 const realtimeRoutes = require('./routes/realtime');
-const { saveRealtimeUpdate } = require('./routes/realtime');
+const { saveRealtimeUpdate, upsertPendingCustomer } = require('./routes/realtime');
 const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
@@ -440,6 +440,10 @@ class RealtimeClient {
                 saveRealtimeUpdate(this.db, updateData)
                     .then(() => console.log('[SERVER-WS] Update saved to DB'))
                     .catch(err => console.error('[SERVER-WS] Failed to save update:', err.message));
+
+                // Also upsert to pending_customers for tracking unread
+                upsertPendingCustomer(this.db, updateData)
+                    .catch(err => console.error('[SERVER-WS] Failed to upsert pending:', err.message));
             }
         }
     }

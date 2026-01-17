@@ -288,6 +288,123 @@ router.delete('/clear-all', async (req, res) => {
     }
 });
 
-// Export both router and helper function
+// =====================================================
+// PENDING CUSTOMERS APIs
+// Danh sách khách hàng chưa được trả lời
+// =====================================================
+
+/**
+ * GET /api/realtime/pending-customers
+ * Lấy danh sách khách chưa được trả lời
+ */
+router.get('/pending-customers', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const limit = Math.min(parseInt(req.query.limit) || 500, 1500);
+
+        const query = `
+            SELECT
+                psid,
+                page_id,
+                customer_name,
+                last_message_snippet,
+                last_message_time,
+                message_count,
+                type
+            FROM pending_customers
+            ORDER BY last_message_time DESC
+            LIMIT $1
+        `;
+
+        const result = await db.query(query, [limit]);
+
+        res.json({
+            success: true,
+            count: result.rows.length,
+            customers: result.rows
+        });
+
+    } catch (error) {
+        console.error('[REALTIME-API] Error fetching pending customers:', error);
+        res.status(500).json({ error: 'Failed to fetch pending customers' });
+    }
+});
+
+/**
+ * POST /api/realtime/mark-replied
+ * Đánh dấu đã trả lời khách (xóa khỏi pending)
+ */
+router.post('/mark-replied', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const { psid, pageId } = req.body;
+
+        if (!psid) {
+            return res.status(400).json({ error: 'Missing psid parameter' });
+        }
+
+        const query = `
+            DELETE FROM pending_customers
+            WHERE psid = $1 AND (page_id = $2 OR $2 IS NULL)
+            RETURNING *
+        `;
+
+        const result = await db.query(query, [psid, pageId || null]);
+
+        console.log(`[REALTIME-DB] Marked replied: ${psid} (${result.rowCount} removed)`);
+
+        res.json({
+            success: true,
+            removed: result.rowCount
+        });
+
+    } catch (error) {
+        console.error('[REALTIME-API] Error marking replied:', error);
+        res.status(500).json({ error: 'Failed to mark as replied' });
+    }
+});
+
+/**
+ * Upsert vào pending_customers khi có tin nhắn mới
+ * Được gọi từ saveRealtimeUpdate
+ */
+async function upsertPendingCustomer(db, data) {
+    try {
+        const query = `
+            INSERT INTO pending_customers
+            (psid, page_id, customer_name, last_message_snippet, last_message_time, message_count, type)
+            VALUES ($1, $2, $3, $4, NOW(), 1, $5)
+            ON CONFLICT (psid, page_id)
+            DO UPDATE SET
+                customer_name = COALESCE(EXCLUDED.customer_name, pending_customers.customer_name),
+                last_message_snippet = EXCLUDED.last_message_snippet,
+                last_message_time = NOW(),
+                message_count = pending_customers.message_count + 1
+        `;
+
+        await db.query(query, [
+            data.psid,
+            data.pageId,
+            data.customerName,
+            data.snippet ? data.snippet.substring(0, 200) : null,
+            data.type || 'INBOX'
+        ]);
+
+        console.log(`[REALTIME-DB] Upserted pending customer: ${data.customerName || data.psid}`);
+    } catch (error) {
+        console.error('[REALTIME-DB] Error upserting pending customer:', error.message);
+    }
+}
+
+// Export both router and helper functions
 module.exports = router;
 module.exports.saveRealtimeUpdate = saveRealtimeUpdate;
+module.exports.upsertPendingCustomer = upsertPendingCustomer;

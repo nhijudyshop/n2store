@@ -4411,6 +4411,22 @@ async function sendMessageInternal(messageData) {
 
         console.log('[MESSAGE] ✅ Sent successfully');
 
+        // Mark as replied on server (remove from pending_customers)
+        const replyPsid = psid || window.currentChatPSID;
+        const replyPageId = channelId || window.currentChatChannelId;
+        if (replyPsid && window.newMessagesNotifier?.markReplied) {
+            window.newMessagesNotifier.markReplied(replyPsid, replyPageId).then(() => {
+                // Remove highlight from row
+                const row = document.querySelector(`tr[data-psid="${replyPsid}"]`);
+                if (row) {
+                    row.querySelectorAll('.new-msg-badge').forEach(b => b.remove());
+                    row.classList.remove('pending-customer-row', 'product-row-highlight');
+                }
+            }).catch(err => {
+                console.warn('[MESSAGE] Failed to mark replied:', err);
+            });
+        }
+
     } catch (error) {
         console.error('[MESSAGE] ❌ Error:', error);
 

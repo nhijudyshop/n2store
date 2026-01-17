@@ -53,7 +53,7 @@
     }
 
     /**
-     * Fetch new messages from server
+     * Fetch new messages from server (legacy - based on timestamp)
      */
     async function fetchNewMessages(since) {
         const urls = [
@@ -78,6 +78,50 @@
         }
 
         return null;
+    }
+
+    /**
+     * Fetch pending customers từ server (khách chưa được trả lời)
+     * Đây là cách mới - persist qua tắt máy/đổi máy
+     */
+    async function fetchPendingCustomers() {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/realtime/pending-customers?limit=1500`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(15000)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.success ? data.customers : [];
+            }
+        } catch (error) {
+            console.warn('[NEW-MSG-NOTIFIER] Failed to fetch pending customers:', error.message);
+        }
+        return [];
+    }
+
+    /**
+     * Đánh dấu đã trả lời khách trên server
+     */
+    async function markRepliedOnServer(psid, pageId) {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/realtime/mark-replied`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ psid, pageId })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`[NEW-MSG-NOTIFIER] Marked replied on server: ${psid} (${data.removed} removed)`);
+                return true;
+            }
+        } catch (error) {
+            console.warn('[NEW-MSG-NOTIFIER] Failed to mark replied:', error.message);
+        }
+        return false;
     }
 
     /**
@@ -194,15 +238,18 @@
                     psidMap.set(key, { messages: 0, comments: 0, psid: item.psid, pageId: item.page_id });
                 }
                 const entry = psidMap.get(key);
+                // Use message_count if available (from pending_customers API)
+                const count = item.message_count || 1;
                 if (item.type === 'INBOX') {
-                    entry.messages++;
+                    entry.messages += count;
                 } else {
-                    entry.comments++;
+                    entry.comments += count;
                 }
             }
         });
 
         // Find rows in table and add badge
+        let highlightedCount = 0;
         psidMap.forEach((counts) => {
             const { psid, pageId } = counts;
             // Find rows with matching PSID (and optionally pageId for more precision)
@@ -217,6 +264,8 @@
                 rows = document.querySelectorAll(`tr[data-psid="${psid}"]`);
             }
             rows.forEach(row => {
+                highlightedCount++;
+
                 // Add badge to messages column
                 if (counts.messages > 0) {
                     const msgCell = row.querySelector('td[data-column="messages"]');
@@ -233,11 +282,12 @@
                     }
                 }
 
-                // Highlight row
-                row.classList.add('product-row-highlight');
-                setTimeout(() => row.classList.remove('product-row-highlight'), 3000);
+                // Highlight row (permanent until user replies)
+                row.classList.add('pending-customer-row');
             });
         });
+
+        console.log(`[NEW-MSG-NOTIFIER] Highlighted ${highlightedCount} rows`);
     }
 
     /**
@@ -278,45 +328,42 @@
 
     /**
      * Main function - Check for new messages on page load
+     * Sử dụng pending_customers API (persist qua tắt máy/đổi máy)
      */
     async function checkNewMessages() {
         try {
-            const since = getLastSeenTimestamp();
-            const currentTimestamp = Date.now(); // Capture now for marking seen
-            console.log(`[NEW-MSG-NOTIFIER] Checking messages since ${new Date(since).toISOString()}`);
+            console.log('[NEW-MSG-NOTIFIER] Checking pending customers from server...');
 
-            const summary = await fetchNewMessages(since);
+            // Fetch pending customers từ server (thay vì timestamp-based)
+            const pendingCustomers = await fetchPendingCustomers();
 
-            if (summary && summary.success && summary.total > 0) {
-                showNotification(summary);
+            if (pendingCustomers && pendingCustomers.length > 0) {
+                console.log(`[NEW-MSG-NOTIFIER] Found ${pendingCustomers.length} pending customers`);
 
-                // Always fetch top 50 recent messages to highlight rows
-                // (regardless of total count)
-                try {
-                    const detailUrl = `${SERVER_URL}/api/realtime/new-messages?since=${since}&limit=50`;
-                    const detailResponse = await fetch(detailUrl);
-                    if (detailResponse.ok) {
-                        const details = await detailResponse.json();
-                        if (details.success) {
-                            const allItems = [
-                                ...(details.messages?.items || []),
-                                ...(details.comments?.items || [])
-                            ];
-                            highlightNewMessagesInTable(allItems);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[NEW-MSG-NOTIFIER] Could not fetch details for highlighting');
-                }
+                // Count messages vs comments
+                const messages = pendingCustomers.filter(c => c.type === 'INBOX').length;
+                const comments = pendingCustomers.filter(c => c.type === 'COMMENT').length;
 
-                // Mark all messages before current timestamp as seen on server
-                // This prevents the count from accumulating forever
-                await markMessagesAsSeen(currentTimestamp);
+                // Show notification
+                showNotification({
+                    total: pendingCustomers.length,
+                    messages: messages,
+                    comments: comments,
+                    uniqueCustomers: pendingCustomers.length
+                });
+
+                // Highlight rows in table
+                highlightNewMessagesInTable(pendingCustomers.map(c => ({
+                    psid: c.psid,
+                    page_id: c.page_id,
+                    type: c.type,
+                    message_count: c.message_count
+                })));
             } else {
-                console.log('[NEW-MSG-NOTIFIER] No new messages');
+                console.log('[NEW-MSG-NOTIFIER] No pending customers');
             }
 
-            // Save current timestamp for next check (localStorage)
+            // Save current timestamp for reference
             saveCurrentTimestamp();
 
         } catch (error) {
@@ -354,7 +401,10 @@
     window.newMessagesNotifier = {
         check: checkNewMessages,
         getLastSeen: getLastSeenTimestamp,
-        saveTimestamp: saveCurrentTimestamp
+        saveTimestamp: saveCurrentTimestamp,
+        fetchPending: fetchPendingCustomers,
+        markReplied: markRepliedOnServer,
+        highlight: highlightNewMessagesInTable
     };
 
     // Auto-initialize
