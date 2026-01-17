@@ -2487,6 +2487,10 @@ Object.assign(window, {
     // Product list functions
     clearListSearch,
     clearHiddenListSearch,
+    updateProductQty,
+    removeProduct,
+    unhideProduct,
+    changeProductImage,
 
     // Cart functions
     clearAllProductsLocal,
