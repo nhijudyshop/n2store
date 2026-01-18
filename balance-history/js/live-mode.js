@@ -729,6 +729,7 @@ const LiveModeModule = (function() {
         const nameInput = document.getElementById('editCustomerName');
         const codeSpan = document.getElementById('editCustomerUniqueCode');
         const tposContainer = document.getElementById('tposLookupContainer');
+        const form = document.getElementById('editCustomerForm');
 
         if (modal && phoneInput && nameInput) {
             if (codeSpan) codeSpan.textContent = tx.reference_code || tx.id;
@@ -738,12 +739,175 @@ const LiveModeModule = (function() {
 
             // Store current tx id for form submission
             modal.dataset.txId = txId;
+            modal.dataset.isLiveMode = 'true';  // Flag để biết đang gọi từ Live Mode
 
             // Show TPOS lookup container
             if (tposContainer) tposContainer.style.display = 'block';
 
+            // Reset TPOS lookup display
+            resetTposLookupDisplay();
+
+            // Attach phone input listener for TPOS lookup
+            if (!phoneInput.dataset.liveModeListener) {
+                phoneInput.dataset.liveModeListener = 'true';
+                phoneInput.addEventListener('input', onEditPhoneInput);
+            }
+
+            // Attach form submit handler for Live Mode
+            if (!form.dataset.liveModeListener) {
+                form.dataset.liveModeListener = 'true';
+                form.addEventListener('submit', onEditFormSubmit);
+            }
+
             modal.style.display = 'flex';
             if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    // Reset TPOS lookup display elements
+    function resetTposLookupDisplay() {
+        const loadingEl = document.getElementById('tposLookupLoading');
+        const resultEl = document.getElementById('tposLookupResult');
+        const singleEl = document.getElementById('tposLookupSingle');
+        const multipleEl = document.getElementById('tposLookupMultiple');
+        const emptyEl = document.getElementById('tposLookupEmpty');
+        const noteEl = document.getElementById('tposLookupNote');
+
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (resultEl) resultEl.style.display = 'none';
+        if (singleEl) singleEl.style.display = 'none';
+        if (multipleEl) multipleEl.style.display = 'none';
+        if (emptyEl) emptyEl.style.display = 'none';
+        if (noteEl) noteEl.style.display = 'block';
+    }
+
+    // Handle phone input in edit modal - TPOS lookup
+    async function onEditPhoneInput(e) {
+        const phone = e.target.value.replace(/\D/g, '');
+        const loadingEl = document.getElementById('tposLookupLoading');
+        const resultEl = document.getElementById('tposLookupResult');
+        const singleEl = document.getElementById('tposLookupSingle');
+        const multipleEl = document.getElementById('tposLookupMultiple');
+        const emptyEl = document.getElementById('tposLookupEmpty');
+        const noteEl = document.getElementById('tposLookupNote');
+        const nameEl = document.getElementById('tposLookupName');
+        const nameInput = document.getElementById('editCustomerName');
+
+        // Hide note when typing
+        if (noteEl && phone.length > 0) noteEl.style.display = 'none';
+
+        // Only lookup when 10 digits
+        if (phone.length !== 10) {
+            if (resultEl) resultEl.style.display = 'none';
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (noteEl && phone.length === 0) noteEl.style.display = 'block';
+            return;
+        }
+
+        // Show loading
+        if (loadingEl) loadingEl.style.display = 'block';
+        if (resultEl) resultEl.style.display = 'none';
+
+        try {
+            const customer = await lookupTPOS(phone);
+
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (resultEl) resultEl.style.display = 'block';
+
+            if (customer) {
+                // Single customer found
+                if (singleEl) singleEl.style.display = 'flex';
+                if (multipleEl) multipleEl.style.display = 'none';
+                if (emptyEl) emptyEl.style.display = 'none';
+                if (nameEl) nameEl.textContent = customer.name || customer.customer_name || 'N/A';
+                // Auto-fill name input
+                if (nameInput) nameInput.value = customer.name || customer.customer_name || '';
+            } else {
+                // No customer found
+                if (singleEl) singleEl.style.display = 'none';
+                if (multipleEl) multipleEl.style.display = 'none';
+                if (emptyEl) emptyEl.style.display = 'block';
+            }
+
+            if (window.lucide) lucide.createIcons();
+
+        } catch (err) {
+            console.error('TPOS lookup error:', err);
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (resultEl) resultEl.style.display = 'block';
+            if (emptyEl) emptyEl.style.display = 'block';
+            if (singleEl) singleEl.style.display = 'none';
+            if (multipleEl) multipleEl.style.display = 'none';
+        }
+    }
+
+    // Handle form submit in edit modal for Live Mode
+    async function onEditFormSubmit(e) {
+        e.preventDefault();
+
+        const modal = document.getElementById('editCustomerModal');
+        const isLiveMode = modal?.dataset.isLiveMode === 'true';
+
+        // Only handle if from Live Mode
+        if (!isLiveMode) return;
+
+        const txId = modal.dataset.txId;
+        const phoneInput = document.getElementById('editCustomerPhone');
+        const nameInput = document.getElementById('editCustomerName');
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+
+        const phone = phoneInput?.value.replace(/\D/g, '');
+        const name = nameInput?.value.trim();
+
+        if (!phone || phone.length < 10) {
+            showNotification('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
+            return;
+        }
+
+        // Disable button
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Đang lưu...';
+        }
+
+        try {
+            // Update phone via API
+            const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/phone`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: phone,
+                    match_method: 'manual_entry'
+                })
+            });
+
+            if (!response.ok) throw new Error('Cập nhật thất bại');
+
+            // Update local state
+            const txIndex = state.confirmedItems.findIndex(t => String(t.id) === String(txId));
+            if (txIndex !== -1) {
+                state.confirmedItems[txIndex].customer_phone = phone;
+                state.confirmedItems[txIndex].customer_name = name;
+            }
+
+            showNotification('Đã cập nhật thông tin khách hàng!', 'success');
+
+            // Close modal
+            modal.style.display = 'none';
+            modal.dataset.isLiveMode = 'false';
+
+            // Re-render
+            renderKanbanBoard();
+
+        } catch (err) {
+            console.error('Update customer error:', err);
+            showNotification(getUserFriendlyError(err), 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-lucide="save"></i> Lưu thông tin';
+                if (window.lucide) lucide.createIcons();
+            }
         }
     }
 
