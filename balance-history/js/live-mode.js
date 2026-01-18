@@ -543,9 +543,9 @@ const LiveModeModule = (function() {
             return;
         }
 
-        // Lấy tên khách hàng từ gợi ý TPOS (nếu có)
-        const suggestNameEl = document.getElementById(`suggest-name-${txId}`);
-        const customerName = suggestNameEl?.textContent || '';
+        // Lấy tên khách hàng từ gợi ý TPOS (element tpos-${txId} có title = full name)
+        const tposSuggestEl = document.getElementById(`tpos-${txId}`);
+        const customerName = tposSuggestEl?.title || tposSuggestEl?.textContent || '';
 
         setButtonLoading(btn, true);
         setCardProcessing(txId, true);
@@ -843,13 +843,15 @@ const LiveModeModule = (function() {
 
     // Handle form submit in edit modal for Live Mode
     async function onEditFormSubmit(e) {
-        e.preventDefault();
-
         const modal = document.getElementById('editCustomerModal');
         const isLiveMode = modal?.dataset.isLiveMode === 'true';
 
         // Only handle if from Live Mode
         if (!isLiveMode) return;
+
+        // Prevent default and stop propagation to prevent main.js handler
+        e.preventDefault();
+        e.stopImmediatePropagation();
 
         const txId = modal.dataset.txId;
         const phoneInput = document.getElementById('editCustomerPhone');
