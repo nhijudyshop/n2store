@@ -317,10 +317,11 @@ function renderTableFromData(dataArray) {
 
     if (DOM.emptyState) DOM.emptyState.classList.remove("show");
 
-    // Sort: active first, then by date descending
+    // Sort by date descending (newest first)
     filteredData.sort((a, b) => {
-        if (a.muted !== b.muted) return a.muted ? 1 : -1;
-        return parseInt(b.duyetHoanValue) - parseInt(a.duyetHoanValue);
+        const timestampA = parseInt(a.duyetHoanValue) || 0;
+        const timestampB = parseInt(b.duyetHoanValue) || 0;
+        return timestampB - timestampA;
     });
 
     // Batch render with DocumentFragment
