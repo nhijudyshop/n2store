@@ -51,9 +51,23 @@ function updateOrderInTable(orderId, updatedOrderData) {
         console.log('[UPDATE] Updated in displayedData at index:', indexInDisplayed);
     }
 
-    // 5. Re-apply all filters and re-render table
-    // This ensures realtime filter updates (e.g., removing a tag will hide the order if filtering by that tag)
-    performTableSearch();
+    // 5. Check if only Tags are updated - if so, update row inline without re-rendering table
+    // This prevents scroll jumping when adding/removing quick tags
+    const updatedKeys = Object.keys(cleanedData);
+    const isTagsOnlyUpdate = updatedKeys.length === 1 && updatedKeys[0] === 'Tags';
+
+    if (isTagsOnlyUpdate) {
+        // Find order to get Code for parseOrderTags
+        const order = allData.find(o => o.Id === orderId);
+        if (order) {
+            updateRowTagsOnly(orderId, cleanedData.Tags, order.Code);
+            console.log('[UPDATE] ✓ Tags updated inline (no scroll reset)');
+        }
+    } else {
+        // Re-apply all filters and re-render table for non-tag updates
+        // This ensures realtime filter updates (e.g., removing a tag will hide the order if filtering by that tag)
+        performTableSearch();
+    }
 
     // 6. Cập nhật stats (nếu tổng tiền thay đổi)
     updateStats();
@@ -62,6 +76,34 @@ function updateOrderInTable(orderId, updatedOrderData) {
     // highlightUpdatedRow(orderId); // DISABLED: Removed auto-scroll and highlight
 
     console.log('[UPDATE] ✓ Table updated successfully');
+}
+
+// 🏷️ UPDATE CHỈ PHẦN TAGS CỦA ROW (KHÔNG RE-RENDER TABLE)
+// Dùng cho quick tag add/remove để tránh scroll jump
+function updateRowTagsOnly(orderId, tagsJson, orderCode) {
+    // Tìm tất cả rows có data-order-id matching (có thể có nhiều trong employee view)
+    const rows = document.querySelectorAll(`tr[data-order-id="${orderId}"]`);
+
+    if (rows.length === 0) {
+        console.log('[UPDATE-TAGS] Row not found in DOM, skipping inline update');
+        return;
+    }
+
+    // Parse tags và tạo HTML mới
+    const tagsHTML = parseOrderTags(tagsJson, orderId, orderCode);
+
+    rows.forEach(row => {
+        // Tìm tag cell
+        const tagCell = row.querySelector('td[data-column="tag"]');
+        if (!tagCell) return;
+
+        // Tìm container chứa tags (div thứ 2 trong tag cell)
+        const tagsContainer = tagCell.querySelector('div > div:last-child');
+        if (tagsContainer) {
+            tagsContainer.innerHTML = tagsHTML;
+            console.log('[UPDATE-TAGS] Updated tags for row:', orderId);
+        }
+    });
 }
 
 // 🌟 HIGHLIGHT ROW VỪA CẬP NHẬT
