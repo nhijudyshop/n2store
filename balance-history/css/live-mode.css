@@ -591,11 +591,12 @@
     margin-top: 4px;
     background: #1e293b;
     color: #ffffff;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 6px;
     font-size: 12px;
+    font-family: monospace;  /* Fixed-width for consistent character count */
     white-space: pre-wrap;
-    max-width: 280px;
+    max-width: 80ch;  /* 80 characters per line */
     word-break: break-word;
     z-index: 1000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
