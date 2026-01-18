@@ -755,10 +755,10 @@ const LiveModeModule = (function() {
             const fetchStartDate = startDateObj.toISOString().split('T')[0];
 
             const params = new URLSearchParams({
-                start_date: fetchStartDate,
-                end_date: endDate,
+                startDate: fetchStartDate,
+                endDate: endDate,
                 limit: 1000,
-                include_hidden: 'true'  // Include confirmed (hidden) transactions
+                showHidden: 'true'  // Include confirmed (hidden) transactions
             });
 
             console.log('[LiveMode] Fetching transactions:', fetchStartDate, 'to', endDate);

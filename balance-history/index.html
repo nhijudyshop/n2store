@@ -103,9 +103,17 @@
 
                     <!-- Date Range Filter -->
                     <div class="live-date-filter">
-                        <input type="date" id="liveStartDate" class="date-input" title="Từ ngày">
+                        <div class="date-input-wrapper">
+                            <input type="text" id="liveStartDateDisplay" class="date-input date-display" placeholder="dd/mm/yyyy" readonly>
+                            <input type="date" id="liveStartDate" class="date-input-hidden" title="Từ ngày">
+                            <i data-lucide="calendar" class="date-icon"></i>
+                        </div>
                         <span class="date-separator">→</span>
-                        <input type="date" id="liveEndDate" class="date-input" title="Đến ngày">
+                        <div class="date-input-wrapper">
+                            <input type="text" id="liveEndDateDisplay" class="date-input date-display" placeholder="dd/mm/yyyy" readonly>
+                            <input type="date" id="liveEndDate" class="date-input-hidden" title="Đến ngày">
+                            <i data-lucide="calendar" class="date-icon"></i>
+                        </div>
                     </div>
 
                     <button class="toggle-confirmed" id="toggleConfirmedBtn">
