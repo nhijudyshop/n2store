@@ -258,12 +258,20 @@ const LiveModeModule = (function() {
 
             if (hasPendingMatch && tx.pending_match_options?.length > 0) {
                 // Row with dropdown
-                const options = tx.pending_match_options.map(opt =>
-                    `<option value="${escapeHtml(opt.phone)}">${escapeHtml(opt.name || 'N/A')} - ${escapeHtml(opt.phone)}</option>`
-                ).join('');
+                // Structure: [{phone, count, customers: [{id, name, phone}]}]
+                const options = tx.pending_match_options.flatMap(opt => {
+                    const customers = opt.customers || [];
+                    return customers.map(c => {
+                        const customerId = c.id || c.customer_id || (c.phone ? `LOCAL_${c.phone}` : '');
+                        const customerName = c.name || c.customer_name || 'N/A';
+                        const customerPhone = c.phone || c.customer_phone || opt.phone || 'N/A';
+                        if (!customerId) return '';
+                        return `<option value="${escapeHtml(customerId)}" data-phone="${escapeHtml(customerPhone)}" data-name="${escapeHtml(customerName)}">${escapeHtml(customerName)} - ${escapeHtml(customerPhone)}</option>`;
+                    }).join('');
+                }).join('');
 
                 return `
-                    <div class="kanban-card manual has-dropdown" data-id="${tx.id}">
+                    <div class="kanban-card manual has-dropdown" data-id="${tx.id}" data-pending-id="${tx.pending_match_id || ''}">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
                         <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
                         <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
@@ -530,11 +538,11 @@ const LiveModeModule = (function() {
                 throw new Error('Gán SĐT thất bại');
             }
 
-            // 2. Đánh dấu is_hidden = true (chuyển thẳng sang ĐÃ XÁC NHẬN)
+            // 2. Đánh dấu hidden = true (chuyển thẳng sang ĐÃ XÁC NHẬN)
             const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_hidden: true })
+                body: JSON.stringify({ hidden: true })
             });
 
             if (!hideResponse.ok) {
@@ -557,42 +565,55 @@ const LiveModeModule = (function() {
     }
 
     async function assignFromDropdown(txId) {
+        const card = document.querySelector(`.kanban-card[data-id="${txId}"]`);
         const dropdown = document.querySelector(`.customer-dropdown[data-id="${txId}"]`);
-        const btn = document.querySelector(`.kanban-card[data-id="${txId}"] .btn-assign`);
-        const phone = dropdown?.value;
+        const btn = card?.querySelector('.btn-assign');
+        const pendingMatchId = card?.dataset.pendingId;
+        const customerId = dropdown?.value;
 
-        if (!phone) {
+        if (!customerId) {
             showNotification('Vui lòng chọn khách hàng', 'error');
             return;
         }
+
+        // Get customer info from selected option
+        const selectedOption = dropdown.options[dropdown.selectedIndex];
+        const customerPhone = selectedOption?.dataset.phone || '';
+        const customerName = selectedOption?.dataset.name || '';
 
         setButtonLoading(btn, true);
         setCardProcessing(txId, true);
 
         try {
-            // Resolve pending match
-            const response = await fetch(`${API_BASE}/api/sepay/pending-matches/${txId}/resolve`, {
+            // Resolve pending match using pendingMatchId and customer_id
+            const response = await fetch(`${API_BASE}/api/sepay/pending-matches/${pendingMatchId}/resolve`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ selected_phone: phone })
+                body: JSON.stringify({
+                    customer_id: customerId.startsWith('LOCAL_') ? customerId : parseInt(customerId),
+                    resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+                })
             });
 
-            if (!response.ok) throw new Error('Resolve thất bại');
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.error || 'Resolve thất bại');
+            }
 
-            // Đánh dấu is_hidden = true
+            // Đánh dấu hidden = true
             const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_hidden: true })
+                body: JSON.stringify({ hidden: true })
             });
 
             if (!hideResponse.ok) {
-                showNotification('Đã gán KH nhưng chưa xác nhận được. Vui lòng thử lại.', 'warning');
+                showNotification(`Đã gán ${customerName} nhưng chưa xác nhận được. Vui lòng thử lại.`, 'warning');
                 await loadTransactions();
                 return;
             }
 
-            showNotification('Đã gán và xác nhận giao dịch!', 'success');
+            showNotification(`Đã gán ${customerName} (${customerPhone}) và xác nhận!`, 'success');
             await loadTransactions();
 
         } catch (err) {
@@ -614,7 +635,7 @@ const LiveModeModule = (function() {
             const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ is_hidden: true })
+                body: JSON.stringify({ hidden: true })
             });
 
             if (!response.ok) throw new Error('Xác nhận thất bại');
