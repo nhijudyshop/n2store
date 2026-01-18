@@ -157,7 +157,18 @@ const LiveModeModule = (function() {
         state.autoMatchedItems = [];
         state.confirmedItems = [];
 
+        // Client-side date filtering (since API may not support it)
+        const startDate = state.filterStartDate ? new Date(state.filterStartDate + 'T00:00:00') : null;
+        const endDate = state.filterEndDate ? new Date(state.filterEndDate + 'T23:59:59') : null;
+
         transactions.forEach(tx => {
+            // Filter by date range (client-side)
+            if (tx.transaction_date) {
+                const txDate = new Date(tx.transaction_date);
+                if (startDate && txDate < startDate) return; // Skip if before start
+                if (endDate && txDate > endDate) return;     // Skip if after end
+            }
+
             const category = classifyTransaction(tx);
             if (category === 'confirmed') {
                 state.confirmedItems.push(tx);
@@ -173,6 +184,9 @@ const LiveModeModule = (function() {
         state.manualItems.sort(sortByDate);
         state.autoMatchedItems.sort(sortByDate);
         state.confirmedItems.sort(sortByDate);
+
+        console.log('[LiveMode] Classified:', state.manualItems.length, 'manual,',
+            state.autoMatchedItems.length, 'auto,', state.confirmedItems.length, 'confirmed');
     }
 
     // ===== RENDER FUNCTIONS =====
@@ -734,13 +748,20 @@ const LiveModeModule = (function() {
         updateLoadingState(true);
 
         try {
-            // Use date filter from state
+            // Fetch wider date range (7 days back from filter date), client will filter
+            const endDate = state.filterEndDate || new Date().toISOString().split('T')[0];
+            const startDateObj = new Date(endDate);
+            startDateObj.setDate(startDateObj.getDate() - 7);
+            const fetchStartDate = startDateObj.toISOString().split('T')[0];
+
             const params = new URLSearchParams({
-                start_date: state.filterStartDate,
-                end_date: state.filterEndDate,
-                limit: 500,
+                start_date: fetchStartDate,
+                end_date: endDate,
+                limit: 1000,
                 include_hidden: 'true'  // Include confirmed (hidden) transactions
             });
+
+            console.log('[LiveMode] Fetching transactions:', fetchStartDate, 'to', endDate);
 
             const response = await fetch(`${API_BASE}/api/sepay/history?${params}`);
             if (!response.ok) throw new Error('Load transactions failed');
@@ -1057,25 +1078,40 @@ const LiveModeModule = (function() {
 
         if (startDateInput && !startDateInput.dataset.listenerAttached) {
             startDateInput.dataset.listenerAttached = 'true';
-            // Set initial value
-            startDateInput.value = formatDateForInput(state.filterStartDate);
+            // Set initial value (dd/mm/yyyy format)
+            startDateInput.value = formatDateDisplay(state.filterStartDate);
             startDateInput.addEventListener('change', onDateFilterChange);
+            startDateInput.addEventListener('input', autoFormatDateInput);
         }
 
         if (endDateInput && !endDateInput.dataset.listenerAttached) {
             endDateInput.dataset.listenerAttached = 'true';
-            // Set initial value
-            endDateInput.value = formatDateForInput(state.filterEndDate);
+            // Set initial value (dd/mm/yyyy format)
+            endDateInput.value = formatDateDisplay(state.filterEndDate);
             endDateInput.addEventListener('change', onDateFilterChange);
+            endDateInput.addEventListener('input', autoFormatDateInput);
         }
     }
 
-    // Format date for input (dd/mm/yyyy -> yyyy-mm-dd)
-    function formatDateForInput(dateStr) {
+    // Format date for display: yyyy-mm-dd -> dd/mm/yyyy
+    function formatDateDisplay(dateStr) {
+        if (!dateStr) return '';
+        // Already in dd/mm/yyyy format
+        if (dateStr.includes('/')) return dateStr;
+        // Convert from yyyy-mm-dd to dd/mm/yyyy
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return dateStr;
+    }
+
+    // Parse date from dd/mm/yyyy to yyyy-mm-dd (for API)
+    function parseDateInput(dateStr) {
         if (!dateStr) return '';
         // Already in yyyy-mm-dd format
-        if (dateStr.includes('-')) return dateStr;
-        // Convert from dd/mm/yyyy
+        if (dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
+        // Convert from dd/mm/yyyy to yyyy-mm-dd
         const parts = dateStr.split('/');
         if (parts.length === 3) {
             return `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -1083,20 +1119,52 @@ const LiveModeModule = (function() {
         return dateStr;
     }
 
+    // Auto-format date input as user types (dd/mm/yyyy)
+    function autoFormatDateInput(e) {
+        const input = e.target;
+        let value = input.value.replace(/\D/g, ''); // Remove non-digits
+
+        if (value.length > 8) value = value.slice(0, 8);
+
+        if (value.length >= 4) {
+            value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4);
+        } else if (value.length >= 2) {
+            value = value.slice(0, 2) + '/' + value.slice(2);
+        }
+
+        input.value = value;
+    }
+
     // Handle date filter change
     function onDateFilterChange() {
         const startInput = document.getElementById('liveStartDate');
         const endInput = document.getElementById('liveEndDate');
 
+        // Validate and parse dd/mm/yyyy format
         if (startInput && startInput.value) {
-            state.filterStartDate = startInput.value;
+            const parsed = parseDateInput(startInput.value);
+            if (isValidDate(parsed)) {
+                state.filterStartDate = parsed;
+            }
         }
         if (endInput && endInput.value) {
-            state.filterEndDate = endInput.value;
+            const parsed = parseDateInput(endInput.value);
+            if (isValidDate(parsed)) {
+                state.filterEndDate = parsed;
+            }
         }
+
+        console.log('[LiveMode] Date filter changed:', state.filterStartDate, 'to', state.filterEndDate);
 
         // Reload with new date range
         loadTransactions();
+    }
+
+    // Validate date string (yyyy-mm-dd)
+    function isValidDate(dateStr) {
+        if (!dateStr || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return false;
+        const date = new Date(dateStr);
+        return !isNaN(date.getTime());
     }
 
     function destroy() {

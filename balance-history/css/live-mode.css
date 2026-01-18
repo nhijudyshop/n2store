@@ -78,13 +78,15 @@
 }
 
 .live-mode-header .live-date-filter .date-input {
+    width: 90px;
     padding: 6px 10px;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     font-size: 13px;
     background: #ffffff;
     color: #1e293b;
-    cursor: pointer;
+    text-align: center;
+    font-family: monospace;
 }
 
 .live-mode-header .live-date-filter .date-input:focus {
