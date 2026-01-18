@@ -251,57 +251,37 @@ const LiveModeModule = (function() {
             const amount = tx.amount_in || tx.amount_out || 0;
             const isPositive = tx.amount_in > 0;
             const hasPendingMatch = tx.has_pending_match || (tx.pending_match_skipped && tx.pending_match_options?.length > 0);
-            const escapedContent = escapeHtml(truncateText(tx.content, 60));
+            const escapedContent = escapeHtml(tx.content || '');
+            const fullContent = tx.content || '';
 
             if (hasPendingMatch && tx.pending_match_options?.length > 0) {
-                // Card with dropdown
+                // Row with dropdown
                 const options = tx.pending_match_options.map(opt =>
                     `<option value="${escapeHtml(opt.phone)}">${escapeHtml(opt.name || 'N/A')} - ${escapeHtml(opt.phone)}</option>`
                 ).join('');
 
                 return `
                     <div class="kanban-card manual has-dropdown" data-id="${tx.id}">
-                        <div class="card-header">
-                            <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                            <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                        </div>
-                        <div class="card-content">"${escapedContent}"</div>
-
+                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                        <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
                         <select class="customer-dropdown" data-id="${tx.id}">
-                            <option value="">-- Chọn KH (${escapeHtml(tx.extracted_phone || 'N/A')}) --</option>
+                            <option value="">-- Chọn KH --</option>
                             ${options}
                         </select>
-
-                        <button class="btn-assign" data-id="${tx.id}" disabled>
-                            Gán
-                        </button>
+                        <button class="btn-assign" data-id="${tx.id}" disabled>Gán</button>
                     </div>
                 `;
             } else {
-                // Card with phone input
+                // Row with phone input + TPOS suggest
                 return `
                     <div class="kanban-card manual" data-id="${tx.id}">
-                        <div class="card-header">
-                            <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                            <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                        </div>
-                        <div class="card-content">"${escapedContent}"</div>
-
-                        <div class="card-customer-suggest" id="suggest-${tx.id}" style="display:none;">
-                            <i data-lucide="user-check" class="suggest-icon" style="width:16px;height:16px;"></i>
-                            <span class="suggest-name" id="suggest-name-${tx.id}"></span>
-                        </div>
-
-                        <input type="text"
-                               class="phone-input"
-                               id="phone-${tx.id}"
-                               placeholder="Nhập SĐT"
-                               data-id="${tx.id}"
-                               maxlength="11">
-
-                        <button class="btn-assign" id="btn-${tx.id}" data-id="${tx.id}" disabled>
-                            Gán
-                        </button>
+                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                        <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
+                        <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
+                        <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
+                        <button class="btn-assign" id="btn-${tx.id}" data-id="${tx.id}" disabled>Gán</button>
                     </div>
                 `;
             }
@@ -321,19 +301,18 @@ const LiveModeModule = (function() {
             const isPositive = tx.amount_in > 0;
             const methodClass = tx.match_method === 'qr_code' ? 'qr' : 'phone';
             const methodLabel = tx.match_method === 'qr_code' ? 'QR' : 'SĐT';
+            const escapedContent = escapeHtml(tx.content || '');
+            const fullContent = tx.content || '';
 
             return `
                 <div class="kanban-card auto" data-id="${tx.id}">
-                    <div class="card-header">
-                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                    </div>
-                    <div class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</div>
-                    <div class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</div>
-                    <span class="card-method ${methodClass}">${methodLabel} ✓</span>
-                    <button class="btn-confirm" data-id="${tx.id}">
-                        Xác nhận ✓
-                    </button>
+                    <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                    <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                    <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
+                    <span class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</span>
+                    <span class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</span>
+                    <span class="card-method ${methodClass}">${methodLabel}</span>
+                    <button class="btn-confirm" data-id="${tx.id}">Xác nhận</button>
                 </div>
             `;
         }).join('');
@@ -353,27 +332,22 @@ const LiveModeModule = (function() {
             const methodClass = tx.match_method === 'qr_code' ? 'qr' :
                                tx.match_method === 'manual_entry' ? 'manual' : 'phone';
             const methodLabel = tx.match_method === 'qr_code' ? 'QR' :
-                               tx.match_method === 'manual_entry' ? 'Nhập tay' : 'SĐT';
+                               tx.match_method === 'manual_entry' ? 'Tay' : 'SĐT';
+            const escapedContent = escapeHtml(tx.content || '');
+            const fullContent = tx.content || '';
 
             // Cho phép sửa nếu chưa được kế toán duyệt
             const canEdit = tx.verification_status !== 'APPROVED';
 
             return `
                 <div class="kanban-card confirmed" data-id="${tx.id}">
-                    <div class="card-header">
-                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                    </div>
-                    <div class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</div>
-                    <div class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</div>
-                    <div class="card-footer">
-                        <span class="card-method ${methodClass}">${methodLabel}</span>
-                        ${canEdit ? `
-                            <button class="btn-edit" data-id="${tx.id}">
-                                ✏️ Sửa
-                            </button>
-                        ` : ''}
-                    </div>
+                    <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                    <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                    <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
+                    <span class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</span>
+                    <span class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</span>
+                    <span class="card-method ${methodClass}">${methodLabel}</span>
+                    ${canEdit ? `<button class="btn-edit" data-id="${tx.id}">Sửa</button>` : ''}
                 </div>
             `;
         }).join('');
@@ -411,29 +385,39 @@ const LiveModeModule = (function() {
         const phone = input.value.replace(/\D/g, '');
         const txId = input.dataset.id;
         const btn = document.getElementById(`btn-${txId}`);
-        const suggestBox = document.getElementById(`suggest-${txId}`);
-        const suggestName = document.getElementById(`suggest-name-${txId}`);
+        const tposSuggest = document.getElementById(`tpos-${txId}`);
 
         // Enable button if phone has 10+ digits
         if (btn) {
             btn.disabled = phone.length < 10;
         }
 
-        // TPOS lookup when phone has 10 digits
-        if (phone.length === 10) {
-            try {
-                const customer = await lookupTPOS(phone);
-                if (customer && suggestBox && suggestName) {
-                    suggestName.textContent = escapeHtml(customer.name || customer.customer_name || 'Khách hàng TPOS');
-                    suggestBox.style.display = 'flex';
-                    if (window.lucide) lucide.createIcons();
+        // Update TPOS suggest display
+        if (tposSuggest) {
+            if (phone.length < 10) {
+                tposSuggest.className = 'tpos-suggest empty';
+                tposSuggest.textContent = phone.length > 0 ? `${phone.length}/10...` : 'Nhập SĐT...';
+            } else if (phone.length === 10) {
+                // Show loading
+                tposSuggest.className = 'tpos-suggest loading';
+                tposSuggest.textContent = 'Đang tìm...';
+
+                try {
+                    const customer = await lookupTPOS(phone);
+                    if (customer && customer.name) {
+                        tposSuggest.className = 'tpos-suggest found';
+                        tposSuggest.textContent = truncateText(customer.name || customer.customer_name, 20);
+                        tposSuggest.title = customer.name || customer.customer_name;
+                    } else {
+                        tposSuggest.className = 'tpos-suggest not-found';
+                        tposSuggest.textContent = 'Không có TPOS';
+                    }
+                } catch (err) {
+                    console.log('TPOS lookup failed:', err);
+                    tposSuggest.className = 'tpos-suggest not-found';
+                    tposSuggest.textContent = 'Lỗi lookup';
                 }
-            } catch (err) {
-                console.log('TPOS lookup failed:', err);
-                if (suggestBox) suggestBox.style.display = 'none';
             }
-        } else {
-            if (suggestBox) suggestBox.style.display = 'none';
         }
     }
 
