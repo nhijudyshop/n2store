@@ -318,11 +318,11 @@ function renderAllOrders() {
         tbody.appendChild(spacer);
     }
 
-    // Batch fetch debts for all phones in initial data (ONE API call instead of 50!)
-    const phonesToFetch = initialData.map(order => order.Telephone).filter(Boolean);
-    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
-        batchFetchDebts(phonesToFetch);
-    }
+    // ⚠️ DISABLED: batchFetchDebts - API limit 200 phones per request
+    // const phonesToFetch = initialData.map(order => order.Telephone).filter(Boolean);
+    // if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+    //     batchFetchDebts(phonesToFetch);
+    // }
 
     // Clear rendering flag after render is complete
     isRendering = false;
@@ -398,11 +398,11 @@ function loadMoreRows() {
         tbody.appendChild(newSpacer);
     }
 
-    // Batch fetch debts for newly loaded phones
-    const phonesToFetch = nextBatch.map(order => order.Telephone).filter(Boolean);
-    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
-        batchFetchDebts(phonesToFetch);
-    }
+    // ⚠️ DISABLED: batchFetchDebts - API limit 200 phones per request
+    // const phonesToFetch = nextBatch.map(order => order.Telephone).filter(Boolean);
+    // if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+    //     batchFetchDebts(phonesToFetch);
+    // }
 
     // Re-apply pending customer highlights to newly loaded rows
     if (window.newMessagesNotifier && window.newMessagesNotifier.reapply) {
@@ -563,11 +563,11 @@ function renderByEmployee() {
         });
     });
 
-    // Batch fetch debts for all phones in displayed data (ONE API call!)
-    const phonesToFetch = displayedData.map(order => order.Telephone).filter(Boolean);
-    if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
-        batchFetchDebts(phonesToFetch);
-    }
+    // ⚠️ DISABLED: batchFetchDebts - API limit 200 phones per request
+    // const phonesToFetch = displayedData.map(order => order.Telephone).filter(Boolean);
+    // if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
+    //     batchFetchDebts(phonesToFetch);
+    // }
 
     // Clear rendering flag after render is complete
     isRendering = false;
