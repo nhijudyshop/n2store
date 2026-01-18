@@ -1172,6 +1172,14 @@ async function fetchOrders() {
         let hasMore = true;
         allData = [];
         renderedCount = 0; // Reset rendered count to prevent duplicate rows on new fetch
+
+        // ═══════════════════════════════════════════════════════════════════
+        // PHASE A: Sync OrderStore khi reset allData
+        // ═══════════════════════════════════════════════════════════════════
+        if (window.OrderStore) {
+            window.OrderStore.clear();
+        }
+
         const headers = await window.tokenManager.getAuthHeader();
 
         // ===== PHASE 1: Load first batch and show immediately =====
@@ -1186,6 +1194,14 @@ async function fetchOrders() {
         totalCount = firstData["@odata.count"] || 0;
 
         allData = firstOrders;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // PHASE A: Initialize OrderStore với batch đầu tiên
+        // ═══════════════════════════════════════════════════════════════════
+        if (window.OrderStore) {
+            window.OrderStore.setAll(firstOrders);
+        }
+
         // Show UI immediately with first batch
         document.getElementById("statsBar").style.display = "flex";
         document.getElementById("tableContainer").style.display = "block";
@@ -1294,6 +1310,13 @@ async function fetchOrders() {
 
                         if (orders.length > 0) {
                             allData = allData.concat(orders);
+
+                            // ═══════════════════════════════════════════════════════════════════
+                            // PHASE A: Thêm batch vào OrderStore (background loading)
+                            // ═══════════════════════════════════════════════════════════════════
+                            if (window.OrderStore) {
+                                window.OrderStore.addBatch(orders);
+                            }
 
                             // Update table every UPDATE_EVERY orders OR if this is the last batch
                             const shouldUpdate =

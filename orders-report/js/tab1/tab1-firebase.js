@@ -225,15 +225,27 @@ function handleRealtimeTagUpdate(updateData, source) {
 
     console.log('[TAG-REALTIME] Normalized tags:', normalizedTags);
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE A OPTIMIZATION: Sử dụng OrderStore O(1) lookup thay vì findIndex
+    // ═══════════════════════════════════════════════════════════════════
+
     // ✅ FIX SCROLL ISSUE: Check if order is in DISPLAYED data (after employee filter)
     // This prevents unnecessary re-renders for orders not in current user's view
     const orderInDisplayed = displayedData.find(o => o.Id === orderId);
     if (!orderInDisplayed) {
         console.log('[TAG-REALTIME] Order not in displayed data (not my range), skipping update');
-        // Still update allData silently for data consistency
-        const indexInAll = allData.findIndex(o => o.Id === orderId);
-        if (indexInAll !== -1) {
-            allData[indexInAll].Tags = JSON.stringify(normalizedTags);
+        // Still update OrderStore and allData silently for data consistency
+
+        // Update via OrderStore O(1)
+        if (window.OrderStore && window.OrderStore.isInitialized) {
+            window.OrderStore.update(orderId, { Tags: JSON.stringify(normalizedTags) });
+            console.log('[TAG-REALTIME] ✅ Updated silently via OrderStore O(1)');
+        } else {
+            // Fallback to findIndex if OrderStore not ready
+            const indexInAll = allData.findIndex(o => o.Id === orderId);
+            if (indexInAll !== -1) {
+                allData[indexInAll].Tags = JSON.stringify(normalizedTags);
+            }
         }
         return;
     }
@@ -258,6 +270,8 @@ function handleRealtimeTagUpdate(updateData, source) {
 /**
  * Update only the TAG cell in DOM without re-rendering entire table
  * This preserves scroll position when realtime tag updates occur
+ *
+ * PHASE A OPTIMIZED: Sử dụng OrderStore O(1) thay vì 3x findIndex O(n)
  */
 function updateTagCellOnly(orderId, orderCode, tags) {
     console.log('[TAG-REALTIME] Updating only TAG cell for order:', orderId);
@@ -265,11 +279,19 @@ function updateTagCellOnly(orderId, orderCode, tags) {
     // 1. Update data arrays first
     const tagsJson = JSON.stringify(tags);
 
-    const indexInAll = allData.findIndex(order => order.Id === orderId);
-    if (indexInAll !== -1) {
-        allData[indexInAll].Tags = tagsJson;
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE A OPTIMIZATION: Sử dụng OrderStore O(1) lookup
+    // Thay vì 3 lần findIndex O(n), chỉ cần 1 lần OrderStore.update O(1)
+    // ═══════════════════════════════════════════════════════════════════
+
+    if (window.OrderStore && window.OrderStore.isInitialized) {
+        // O(1) update - cập nhật trong OrderStore
+        window.OrderStore.update(orderId, { Tags: tagsJson });
+        console.log('[TAG-REALTIME] ✅ Updated Tags via OrderStore O(1)');
     }
 
+    // Vẫn cập nhật filteredData và displayedData vì chúng là các arrays riêng
+    // (không share reference với OrderStore trong trường hợp filter đã tạo copies mới)
     const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
     if (indexInFiltered !== -1) {
         filteredData[indexInFiltered].Tags = tagsJson;

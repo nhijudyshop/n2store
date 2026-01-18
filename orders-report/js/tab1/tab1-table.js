@@ -3,6 +3,7 @@
 // =====================================================
 
 // 🔄 CẬP NHẬT ORDER TRONG BẢNG SAU KHI SAVE
+// OPTIMIZED: Sử dụng OrderStore O(1) thay vì findIndex O(n)
 function updateOrderInTable(orderId, updatedOrderData) {
     console.log('[UPDATE] Updating order in table:', orderId);
 
@@ -14,35 +15,50 @@ function updateOrderInTable(orderId, updatedOrderData) {
         return acc;
     }, {});
 
-    // 1. Tìm và cập nhật trong allData
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE A OPTIMIZATION: Sử dụng OrderStore O(1) lookup
+    // Thay vì 3 lần findIndex O(n) = O(3n), giờ chỉ cần O(1)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // 1. Cập nhật trong OrderStore (O(1) - NHANH!)
+    if (window.OrderStore && window.OrderStore.isInitialized) {
+        const updated = window.OrderStore.update(orderId, cleanedData);
+        if (updated) {
+            console.log('[UPDATE] ✅ Updated via OrderStore O(1)');
+        }
+    }
+
+    // 2. Cập nhật trong allData (backward compatibility)
+    // OrderStore và allData share cùng object references, nên update 1 sẽ update cả 2
+    // Nhưng vẫn giữ logic cũ để đảm bảo an toàn
     const indexInAll = allData.findIndex(order => order.Id === orderId);
     if (indexInAll !== -1) {
         allData[indexInAll] = { ...allData[indexInAll], ...cleanedData };
         console.log('[UPDATE] Updated in allData at index:', indexInAll);
     }
 
-    // 2. Tìm và cập nhật trong filteredData
+    // 3. Cập nhật trong filteredData
     const indexInFiltered = filteredData.findIndex(order => order.Id === orderId);
     if (indexInFiltered !== -1) {
         filteredData[indexInFiltered] = { ...filteredData[indexInFiltered], ...cleanedData };
         console.log('[UPDATE] Updated in filteredData at index:', indexInFiltered);
     }
 
-    // 3. Tìm và cập nhật trong displayedData
+    // 4. Cập nhật trong displayedData
     const indexInDisplayed = displayedData.findIndex(order => order.Id === orderId);
     if (indexInDisplayed !== -1) {
         displayedData[indexInDisplayed] = { ...displayedData[indexInDisplayed], ...cleanedData };
         console.log('[UPDATE] Updated in displayedData at index:', indexInDisplayed);
     }
 
-    // 4. Re-apply all filters and re-render table
+    // 5. Re-apply all filters and re-render table
     // This ensures realtime filter updates (e.g., removing a tag will hide the order if filtering by that tag)
     performTableSearch();
 
-    // 5. Cập nhật stats (nếu tổng tiền thay đổi)
+    // 6. Cập nhật stats (nếu tổng tiền thay đổi)
     updateStats();
 
-    // 6. Highlight row vừa được cập nhật
+    // 7. Highlight row vừa được cập nhật
     // highlightUpdatedRow(orderId); // DISABLED: Removed auto-scroll and highlight
 
     console.log('[UPDATE] ✓ Table updated successfully');

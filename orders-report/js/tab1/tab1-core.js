@@ -186,6 +186,146 @@ window.formatTimeVN = function (dateInput, showFullDate = false) {
 let allData = [];
 let filteredData = [];
 let displayedData = [];
+
+// =====================================================
+// ORDER STORE - O(1) Lookup Data Structure (Phase A Optimization)
+// Replaces O(n) findIndex() calls with O(1) Map.get() lookups
+// =====================================================
+
+/**
+ * OrderStore - Centralized order storage using Map for O(1) lookups
+ *
+ * Vấn đề cũ: Mỗi lần cập nhật tag, phải dùng findIndex() duyệt qua 2,500 đơn
+ *            → 100 cập nhật = 125,000 phép so sánh
+ *
+ * Giải pháp: Dùng Map (từ điển) để tra cứu tức thì bằng Order ID
+ *            → 100 cập nhật = 100 phép tra cứu
+ *
+ * @example
+ * // Thay vì: allData.findIndex(o => o.Id === orderId)  // O(n)
+ * // Dùng:    OrderStore.get(orderId)                   // O(1)
+ */
+const OrderStore = {
+    _orders: new Map(),         // Main storage: orderId -> order object
+    _initialized: false,        // Flag to track initialization
+
+    /**
+     * Initialize store from API response (replaces allData = orders)
+     * @param {Array} orders - Array of order objects from API
+     */
+    setAll(orders) {
+        this._orders.clear();
+        if (orders && orders.length > 0) {
+            orders.forEach(order => {
+                if (order && order.Id) {
+                    this._orders.set(order.Id, order);
+                }
+            });
+        }
+        this._initialized = true;
+        console.log(`[OrderStore] ✅ Initialized with ${this._orders.size} orders`);
+    },
+
+    /**
+     * Add a batch of orders (used during progressive loading)
+     * @param {Array} orders - Array of order objects to add
+     */
+    addBatch(orders) {
+        if (!orders || orders.length === 0) return;
+        orders.forEach(order => {
+            if (order && order.Id) {
+                this._orders.set(order.Id, order);
+            }
+        });
+        console.log(`[OrderStore] ➕ Added batch of ${orders.length} orders, total: ${this._orders.size}`);
+    },
+
+    /**
+     * O(1) lookup by order ID - REPLACES findIndex()!
+     * @param {string} orderId - Order ID to find
+     * @returns {Object|undefined} Order object or undefined
+     */
+    get(orderId) {
+        return this._orders.get(orderId);
+    },
+
+    /**
+     * Check if order exists
+     * @param {string} orderId - Order ID to check
+     * @returns {boolean}
+     */
+    has(orderId) {
+        return this._orders.has(orderId);
+    },
+
+    /**
+     * O(1) update - REPLACES findIndex() + mutation!
+     * @param {string} orderId - Order ID to update
+     * @param {Object} data - Data to merge into the order
+     * @returns {boolean} True if order was found and updated
+     */
+    update(orderId, data) {
+        const order = this._orders.get(orderId);
+        if (order) {
+            Object.assign(order, data);
+            return true;
+        }
+        console.warn(`[OrderStore] ⚠️ Order not found for update: ${orderId}`);
+        return false;
+    },
+
+    /**
+     * Get all orders as array (for filtering/sorting operations)
+     * Note: This creates a new array, use sparingly
+     * @returns {Array} Array of all order objects
+     */
+    getAll() {
+        return Array.from(this._orders.values());
+    },
+
+    /**
+     * Get store size
+     * @returns {number} Number of orders in store
+     */
+    get size() {
+        return this._orders.size;
+    },
+
+    /**
+     * Check if store is initialized
+     * @returns {boolean}
+     */
+    get isInitialized() {
+        return this._initialized;
+    },
+
+    /**
+     * Clear the store
+     */
+    clear() {
+        this._orders.clear();
+        this._initialized = false;
+        console.log('[OrderStore] 🗑️ Cleared');
+    },
+
+    /**
+     * Sync with allData array (for backward compatibility)
+     * Call this after any operation that modifies allData directly
+     */
+    syncFromArray(arr) {
+        this._orders.clear();
+        arr.forEach(order => {
+            if (order && order.Id) {
+                this._orders.set(order.Id, order);
+            }
+        });
+        this._initialized = true;
+        console.log(`[OrderStore] 🔄 Synced from array: ${this._orders.size} orders`);
+    }
+};
+
+// Expose OrderStore globally for other modules
+window.OrderStore = OrderStore;
 let currentPage = 1;
 const itemsPerPage = 50;
 let selectedOrderIds = new Set();
