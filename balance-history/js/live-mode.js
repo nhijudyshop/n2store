@@ -1,0 +1,938 @@
+// =====================================================
+// LIVE MODE - KANBAN LAYOUT MODULE
+// Balance History - Realtime transaction monitoring
+// With XSS protection, proper error handling, loading states
+// =====================================================
+
+const LiveModeModule = (function() {
+    'use strict';
+
+    // ===== STATE =====
+    const state = {
+        // 3 Kanban columns
+        manualItems: [],        // NHẬP TAY - cần nhập SĐT
+        autoMatchedItems: [],   // TỰ ĐỘNG GÁN - có KH, chờ confirm
+        confirmedItems: [],     // ĐÃ XÁC NHẬN - hoàn thành
+
+        // UI state
+        showConfirmed: false,   // Column 3 ẩn mặc định
+        searchQuery: '',
+        isLoading: false,
+        lastUpdate: null,
+
+        // SSE
+        sseConnection: null,
+        sseReconnectAttempts: 0,
+        maxReconnectAttempts: 10,
+
+        // TPOS Cache with expiry
+        tposCache: new Map(),
+        tposCacheExpiry: 5 * 60 * 1000, // 5 minutes
+        tposCacheMaxSize: 100,
+
+        // Search debounce
+        searchDebounceTimer: null,
+
+        // Initialized flag
+        initialized: false,
+    };
+
+    // ===== CONSTANTS =====
+    const API_BASE = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const SSE_URL = `${API_BASE}/api/sepay/stream`;
+
+    // ===== SECURITY: XSS Protection =====
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ===== USER-FRIENDLY ERROR MESSAGES =====
+    function getUserFriendlyError(error) {
+        const message = error?.message || String(error);
+
+        if (message.includes('fetch') || message.includes('network') || message.includes('Failed to fetch')) {
+            return 'Không thể kết nối máy chủ. Vui lòng kiểm tra mạng.';
+        }
+        if (message.includes('401') || message.includes('Unauthorized')) {
+            return 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
+        }
+        if (message.includes('403') || message.includes('Forbidden')) {
+            return 'Bạn không có quyền thực hiện thao tác này.';
+        }
+        if (message.includes('404') || message.includes('Not found')) {
+            return 'Không tìm thấy dữ liệu. Vui lòng thử lại.';
+        }
+        if (message.includes('500') || message.includes('Internal Server')) {
+            return 'Lỗi máy chủ. Vui lòng thử lại sau.';
+        }
+        if (message.includes('timeout') || message.includes('Timeout')) {
+            return 'Yêu cầu quá thời gian. Vui lòng thử lại.';
+        }
+
+        return message || 'Đã xảy ra lỗi. Vui lòng thử lại.';
+    }
+
+    // ===== UTILITY FUNCTIONS =====
+
+    function formatCurrency(amount) {
+        if (!amount) return '0đ';
+        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+    }
+
+    function formatTime(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    }
+
+    function truncateText(text, maxLength = 50) {
+        if (!text) return '';
+        return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    }
+
+    // ===== BUTTON LOADING STATE =====
+    function setButtonLoading(button, isLoading) {
+        if (!button) return;
+        if (isLoading) {
+            button.classList.add('loading');
+            button.disabled = true;
+            button.dataset.originalText = button.textContent;
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+            if (button.dataset.originalText) {
+                button.textContent = button.dataset.originalText;
+            }
+        }
+    }
+
+    function setCardProcessing(txId, isProcessing) {
+        const card = document.querySelector(`.kanban-card[data-id="${txId}"]`);
+        if (card) {
+            card.classList.toggle('processing', isProcessing);
+        }
+    }
+
+    // ===== CLASSIFICATION LOGIC =====
+
+    function classifyTransaction(tx) {
+        // ĐÃ XÁC NHẬN: is_hidden = true
+        if (tx.is_hidden === true) {
+            return 'confirmed';
+        }
+
+        // NHẬP TAY: Chưa có khách hàng hoặc cần xử lý
+        if (
+            !tx.linked_customer_phone ||
+            tx.has_pending_match === true ||
+            (tx.pending_match_skipped && tx.pending_match_options?.length > 0)
+        ) {
+            return 'manual';
+        }
+
+        // TỰ ĐỘNG GÁN: Có KH nhưng chưa xác nhận
+        return 'autoMatched';
+    }
+
+    function classifyAllTransactions(transactions) {
+        state.manualItems = [];
+        state.autoMatchedItems = [];
+        state.confirmedItems = [];
+
+        transactions.forEach(tx => {
+            const category = classifyTransaction(tx);
+            if (category === 'confirmed') {
+                state.confirmedItems.push(tx);
+            } else if (category === 'manual') {
+                state.manualItems.push(tx);
+            } else {
+                state.autoMatchedItems.push(tx);
+            }
+        });
+
+        // Sort by date descending (newest first)
+        const sortByDate = (a, b) => new Date(b.transaction_date) - new Date(a.transaction_date);
+        state.manualItems.sort(sortByDate);
+        state.autoMatchedItems.sort(sortByDate);
+        state.confirmedItems.sort(sortByDate);
+    }
+
+    // ===== RENDER FUNCTIONS =====
+
+    function renderKanbanBoard() {
+        const board = document.getElementById('kanbanBoard');
+        if (!board) return;
+
+        // Filter by search query
+        const filterItems = (items) => {
+            if (!state.searchQuery) return items;
+            const query = state.searchQuery.toLowerCase();
+            return items.filter(tx =>
+                (tx.content || '').toLowerCase().includes(query) ||
+                (tx.linked_customer_name || '').toLowerCase().includes(query) ||
+                (tx.linked_customer_phone || '').includes(query) ||
+                String(tx.amount_in || tx.amount_out || '').includes(query)
+            );
+        };
+
+        const filteredManual = filterItems(state.manualItems);
+        const filteredAuto = filterItems(state.autoMatchedItems);
+        const filteredConfirmed = filterItems(state.confirmedItems);
+
+        board.innerHTML = `
+            <!-- Column 1: NHẬP TAY -->
+            <div class="kanban-column manual">
+                <div class="kanban-column-header">
+                    <div class="column-title">
+                        <span>⚠️ NHẬP TAY</span>
+                    </div>
+                    <span class="column-count">${filteredManual.length}</span>
+                </div>
+                <div class="kanban-column-content" id="columnManual">
+                    ${renderManualCards(filteredManual)}
+                </div>
+            </div>
+
+            <!-- Column 2: TỰ ĐỘNG GÁN -->
+            <div class="kanban-column auto">
+                <div class="kanban-column-header">
+                    <div class="column-title">
+                        <span>✅ TỰ ĐỘNG GÁN</span>
+                    </div>
+                    <span class="column-count">${filteredAuto.length}</span>
+                </div>
+                <div class="kanban-column-content" id="columnAuto">
+                    ${renderAutoCards(filteredAuto)}
+                </div>
+            </div>
+
+            <!-- Column 3: ĐÃ XÁC NHẬN (hidden by default) -->
+            <div class="kanban-column confirmed ${state.showConfirmed ? '' : 'column-hidden'}">
+                <div class="kanban-column-header">
+                    <div class="column-title">
+                        <span>📦 ĐÃ XÁC NHẬN</span>
+                    </div>
+                    <span class="column-count">${filteredConfirmed.length}</span>
+                </div>
+                <div class="kanban-column-content" id="columnConfirmed">
+                    ${renderConfirmedCards(filteredConfirmed)}
+                </div>
+            </div>
+        `;
+
+        // Update stats
+        updateStats();
+
+        // Re-render Lucide icons
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function renderManualCards(items) {
+        if (items.length === 0) {
+            return `<div class="kanban-empty">
+                <i data-lucide="inbox"></i>
+                <p>Không có giao dịch cần xử lý</p>
+            </div>`;
+        }
+
+        return items.map(tx => {
+            const amount = tx.amount_in || tx.amount_out || 0;
+            const isPositive = tx.amount_in > 0;
+            const hasPendingMatch = tx.has_pending_match || (tx.pending_match_skipped && tx.pending_match_options?.length > 0);
+            const escapedContent = escapeHtml(truncateText(tx.content, 60));
+
+            if (hasPendingMatch && tx.pending_match_options?.length > 0) {
+                // Card with dropdown
+                const options = tx.pending_match_options.map(opt =>
+                    `<option value="${escapeHtml(opt.phone)}">${escapeHtml(opt.name || 'N/A')} - ${escapeHtml(opt.phone)}</option>`
+                ).join('');
+
+                return `
+                    <div class="kanban-card manual has-dropdown" data-id="${tx.id}">
+                        <div class="card-header">
+                            <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                            <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                        </div>
+                        <div class="card-content">"${escapedContent}"</div>
+
+                        <select class="customer-dropdown" data-id="${tx.id}">
+                            <option value="">-- Chọn KH (${escapeHtml(tx.extracted_phone || 'N/A')}) --</option>
+                            ${options}
+                        </select>
+
+                        <button class="btn-assign" data-id="${tx.id}" disabled>
+                            Gán
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Card with phone input
+                return `
+                    <div class="kanban-card manual" data-id="${tx.id}">
+                        <div class="card-header">
+                            <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                            <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                        </div>
+                        <div class="card-content">"${escapedContent}"</div>
+
+                        <div class="card-customer-suggest" id="suggest-${tx.id}" style="display:none;">
+                            <i data-lucide="user-check" class="suggest-icon" style="width:16px;height:16px;"></i>
+                            <span class="suggest-name" id="suggest-name-${tx.id}"></span>
+                        </div>
+
+                        <input type="text"
+                               class="phone-input"
+                               id="phone-${tx.id}"
+                               placeholder="Nhập SĐT"
+                               data-id="${tx.id}"
+                               maxlength="11">
+
+                        <button class="btn-assign" id="btn-${tx.id}" data-id="${tx.id}" disabled>
+                            Gán
+                        </button>
+                    </div>
+                `;
+            }
+        }).join('');
+    }
+
+    function renderAutoCards(items) {
+        if (items.length === 0) {
+            return `<div class="kanban-empty">
+                <i data-lucide="check-circle"></i>
+                <p>Không có giao dịch chờ xác nhận</p>
+            </div>`;
+        }
+
+        return items.map(tx => {
+            const amount = tx.amount_in || tx.amount_out || 0;
+            const isPositive = tx.amount_in > 0;
+            const methodClass = tx.match_method === 'qr_code' ? 'qr' : 'phone';
+            const methodLabel = tx.match_method === 'qr_code' ? 'QR' : 'SĐT';
+
+            return `
+                <div class="kanban-card auto" data-id="${tx.id}">
+                    <div class="card-header">
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                    </div>
+                    <div class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</div>
+                    <div class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</div>
+                    <span class="card-method ${methodClass}">${methodLabel} ✓</span>
+                    <button class="btn-confirm" data-id="${tx.id}">
+                        Xác nhận ✓
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function renderConfirmedCards(items) {
+        if (items.length === 0) {
+            return `<div class="kanban-empty">
+                <i data-lucide="package"></i>
+                <p>Chưa có giao dịch đã xác nhận</p>
+            </div>`;
+        }
+
+        return items.map(tx => {
+            const amount = tx.amount_in || tx.amount_out || 0;
+            const isPositive = tx.amount_in > 0;
+            const methodClass = tx.match_method === 'qr_code' ? 'qr' :
+                               tx.match_method === 'manual_entry' ? 'manual' : 'phone';
+            const methodLabel = tx.match_method === 'qr_code' ? 'QR' :
+                               tx.match_method === 'manual_entry' ? 'Nhập tay' : 'SĐT';
+
+            // Cho phép sửa nếu chưa được kế toán duyệt
+            const canEdit = tx.verification_status !== 'APPROVED';
+
+            return `
+                <div class="kanban-card confirmed" data-id="${tx.id}">
+                    <div class="card-header">
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                    </div>
+                    <div class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</div>
+                    <div class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</div>
+                    <div class="card-footer">
+                        <span class="card-method ${methodClass}">${methodLabel}</span>
+                        ${canEdit ? `
+                            <button class="btn-edit" data-id="${tx.id}">
+                                ✏️ Sửa
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function updateStats() {
+        const totalGD = state.manualItems.length + state.autoMatchedItems.length + state.confirmedItems.length;
+        const totalAmount = [...state.manualItems, ...state.autoMatchedItems, ...state.confirmedItems]
+            .reduce((sum, tx) => sum + (tx.amount_in || 0), 0);
+
+        const statsEl = document.getElementById('liveStatsTotal');
+        if (statsEl) statsEl.textContent = totalGD;
+
+        const amountEl = document.getElementById('liveStatsAmount');
+        if (amountEl) amountEl.textContent = formatCurrency(totalAmount);
+
+        const updateEl = document.getElementById('liveLastUpdate');
+        if (updateEl && state.lastUpdate) {
+            updateEl.textContent = state.lastUpdate.toLocaleTimeString('vi-VN');
+        }
+
+        // Update toggle button text
+        const toggleBtn = document.getElementById('toggleConfirmedBtn');
+        if (toggleBtn) {
+            const count = state.confirmedItems.length;
+            toggleBtn.innerHTML = `<i data-lucide="${state.showConfirmed ? 'eye' : 'eye-off'}" style="width:14px;height:14px;"></i> Đã XN (${count})`;
+            toggleBtn.classList.toggle('active', state.showConfirmed);
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    // ===== EVENT HANDLERS =====
+
+    async function onPhoneInput(input) {
+        const phone = input.value.replace(/\D/g, '');
+        const txId = input.dataset.id;
+        const btn = document.getElementById(`btn-${txId}`);
+        const suggestBox = document.getElementById(`suggest-${txId}`);
+        const suggestName = document.getElementById(`suggest-name-${txId}`);
+
+        // Enable button if phone has 10+ digits
+        if (btn) {
+            btn.disabled = phone.length < 10;
+        }
+
+        // TPOS lookup when phone has 10 digits
+        if (phone.length === 10) {
+            try {
+                const customer = await lookupTPOS(phone);
+                if (customer && suggestBox && suggestName) {
+                    suggestName.textContent = escapeHtml(customer.name || customer.customer_name || 'Khách hàng TPOS');
+                    suggestBox.style.display = 'flex';
+                    if (window.lucide) lucide.createIcons();
+                }
+            } catch (err) {
+                console.log('TPOS lookup failed:', err);
+                if (suggestBox) suggestBox.style.display = 'none';
+            }
+        } else {
+            if (suggestBox) suggestBox.style.display = 'none';
+        }
+    }
+
+    function onDropdownChange(select) {
+        const txId = select.dataset.id;
+        const card = document.querySelector(`.kanban-card[data-id="${txId}"]`);
+        const btn = card?.querySelector('.btn-assign');
+        if (btn) {
+            btn.disabled = !select.value;
+        }
+    }
+
+    function onSearchInput(input) {
+        // Debounce search
+        if (state.searchDebounceTimer) {
+            clearTimeout(state.searchDebounceTimer);
+        }
+        state.searchDebounceTimer = setTimeout(() => {
+            state.searchQuery = input.value;
+            renderKanbanBoard();
+        }, 300);
+    }
+
+    function toggleConfirmedColumn() {
+        state.showConfirmed = !state.showConfirmed;
+        localStorage.setItem('livemode_show_confirmed', state.showConfirmed);
+        renderKanbanBoard();
+    }
+
+    // ===== TPOS CACHE WITH EXPIRY =====
+
+    async function lookupTPOS(phone) {
+        const now = Date.now();
+
+        // Check cache with expiry
+        if (state.tposCache.has(phone)) {
+            const cached = state.tposCache.get(phone);
+            if (now - cached.timestamp < state.tposCacheExpiry) {
+                return cached.data;
+            }
+            // Expired, remove
+            state.tposCache.delete(phone);
+        }
+
+        // Enforce cache size limit
+        if (state.tposCache.size >= state.tposCacheMaxSize) {
+            // Remove oldest entry
+            const oldestKey = state.tposCache.keys().next().value;
+            state.tposCache.delete(oldestKey);
+        }
+
+        const response = await fetch(`${API_BASE}/api/tpos/customer/${phone}`);
+        if (!response.ok) throw new Error('TPOS lookup failed');
+
+        const data = await response.json();
+        const customer = data.customer || data;
+
+        // Cache with timestamp
+        state.tposCache.set(phone, { data: customer, timestamp: now });
+
+        return customer;
+    }
+
+    // ===== API ACTIONS =====
+
+    async function assignManual(txId) {
+        const phoneInput = document.getElementById(`phone-${txId}`);
+        const btn = document.getElementById(`btn-${txId}`);
+        const phone = phoneInput?.value.replace(/\D/g, '');
+
+        if (!phone || phone.length < 10) {
+            showNotification('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
+            return;
+        }
+
+        setButtonLoading(btn, true);
+        setCardProcessing(txId, true);
+
+        try {
+            // 1. Gán SĐT
+            const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/phone`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: phone,
+                    match_method: 'manual_entry'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Gán SĐT thất bại');
+            }
+
+            // 2. Đánh dấu is_hidden = true (chuyển thẳng sang ĐÃ XÁC NHẬN)
+            const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_hidden: true })
+            });
+
+            if (!hideResponse.ok) {
+                // Partial success - phone was assigned but hide failed
+                showNotification('Đã gán SĐT nhưng chưa xác nhận được. Vui lòng thử xác nhận lại.', 'warning');
+                await loadTransactions();
+                return;
+            }
+
+            showNotification('Đã gán và xác nhận giao dịch!', 'success');
+            await loadTransactions();
+
+        } catch (err) {
+            console.error('assignManual error:', err);
+            showNotification(getUserFriendlyError(err), 'error');
+        } finally {
+            setButtonLoading(btn, false);
+            setCardProcessing(txId, false);
+        }
+    }
+
+    async function assignFromDropdown(txId) {
+        const dropdown = document.querySelector(`.customer-dropdown[data-id="${txId}"]`);
+        const btn = document.querySelector(`.kanban-card[data-id="${txId}"] .btn-assign`);
+        const phone = dropdown?.value;
+
+        if (!phone) {
+            showNotification('Vui lòng chọn khách hàng', 'error');
+            return;
+        }
+
+        setButtonLoading(btn, true);
+        setCardProcessing(txId, true);
+
+        try {
+            // Resolve pending match
+            const response = await fetch(`${API_BASE}/api/sepay/pending-matches/${txId}/resolve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selected_phone: phone })
+            });
+
+            if (!response.ok) throw new Error('Resolve thất bại');
+
+            // Đánh dấu is_hidden = true
+            const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_hidden: true })
+            });
+
+            if (!hideResponse.ok) {
+                showNotification('Đã gán KH nhưng chưa xác nhận được. Vui lòng thử lại.', 'warning');
+                await loadTransactions();
+                return;
+            }
+
+            showNotification('Đã gán và xác nhận giao dịch!', 'success');
+            await loadTransactions();
+
+        } catch (err) {
+            console.error('assignFromDropdown error:', err);
+            showNotification(getUserFriendlyError(err), 'error');
+        } finally {
+            setButtonLoading(btn, false);
+            setCardProcessing(txId, false);
+        }
+    }
+
+    async function confirmAutoMatched(txId) {
+        const btn = document.querySelector(`.kanban-card[data-id="${txId}"] .btn-confirm`);
+
+        setButtonLoading(btn, true);
+        setCardProcessing(txId, true);
+
+        try {
+            const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_hidden: true })
+            });
+
+            if (!response.ok) throw new Error('Xác nhận thất bại');
+
+            showNotification('Đã xác nhận giao dịch!', 'success');
+            await loadTransactions();
+
+        } catch (err) {
+            console.error('confirmAutoMatched error:', err);
+            showNotification(getUserFriendlyError(err), 'error');
+        } finally {
+            setButtonLoading(btn, false);
+            setCardProcessing(txId, false);
+        }
+    }
+
+    function editConfirmedItem(txId) {
+        // Mở modal chỉnh sửa có sẵn
+        const tx = state.confirmedItems.find(t => String(t.id) === String(txId));
+        if (!tx) return;
+
+        // Sử dụng modal editCustomerModal có sẵn trong index.html
+        const modal = document.getElementById('editCustomerModal');
+        const phoneInput = document.getElementById('editCustomerPhone');
+        const nameInput = document.getElementById('editCustomerName');
+        const codeSpan = document.getElementById('editCustomerUniqueCode');
+        const tposContainer = document.getElementById('tposLookupContainer');
+
+        if (modal && phoneInput && nameInput) {
+            if (codeSpan) codeSpan.textContent = tx.reference_code || tx.id;
+            phoneInput.value = tx.linked_customer_phone || '';
+            if (nameInput) nameInput.value = tx.linked_customer_name || '';
+
+            // Store current tx id for form submission
+            modal.dataset.txId = txId;
+
+            // Show TPOS lookup container
+            if (tposContainer) tposContainer.style.display = 'block';
+
+            modal.style.display = 'flex';
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    // ===== DATA LOADING =====
+
+    async function loadTransactions() {
+        state.isLoading = true;
+        updateLoadingState(true);
+
+        try {
+            // Lấy giao dịch trong 7 ngày gần nhất cho Live Mode
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+
+            const params = new URLSearchParams({
+                start_date: startDate.toISOString().split('T')[0],
+                end_date: endDate.toISOString().split('T')[0],
+                limit: 500
+            });
+
+            const response = await fetch(`${API_BASE}/api/sepay/history?${params}`);
+            if (!response.ok) throw new Error('Load transactions failed');
+
+            const data = await response.json();
+            const transactions = data.transactions || data.data || [];
+
+            // Classify into columns
+            classifyAllTransactions(transactions);
+
+            state.lastUpdate = new Date();
+            state.isLoading = false;
+
+            renderKanbanBoard();
+
+        } catch (err) {
+            console.error('loadTransactions error:', err);
+            showNotification(getUserFriendlyError(err), 'error');
+            state.isLoading = false;
+        }
+
+        updateLoadingState(false);
+    }
+
+    function updateLoadingState(isLoading) {
+        const board = document.getElementById('kanbanBoard');
+        if (!board) return;
+
+        if (isLoading && state.manualItems.length === 0 && state.autoMatchedItems.length === 0) {
+            board.innerHTML = `
+                <div class="kanban-loading">
+                    <i data-lucide="loader-2"></i>
+                    Đang tải dữ liệu...
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    // ===== SSE REALTIME WITH EXPONENTIAL BACKOFF =====
+
+    function connectSSE() {
+        if (state.sseConnection) {
+            state.sseConnection.close();
+        }
+
+        try {
+            state.sseConnection = new EventSource(SSE_URL);
+
+            state.sseConnection.onopen = () => {
+                console.log('[LiveMode] SSE connected');
+                state.sseReconnectAttempts = 0;
+                updateSSEStatus(true);
+            };
+
+            state.sseConnection.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleSSEMessage(data);
+                } catch (err) {
+                    console.log('[LiveMode] SSE message parse error:', err);
+                }
+            };
+
+            state.sseConnection.onerror = () => {
+                console.log('[LiveMode] SSE error, reconnecting...');
+                updateSSEStatus(false);
+                state.sseConnection.close();
+
+                if (state.sseReconnectAttempts < state.maxReconnectAttempts) {
+                    state.sseReconnectAttempts++;
+                    // True exponential backoff: 1s, 2s, 4s, 8s... max 30s
+                    const delay = Math.min(1000 * Math.pow(2, state.sseReconnectAttempts), 30000);
+                    console.log(`[LiveMode] Reconnecting in ${delay}ms (attempt ${state.sseReconnectAttempts})`);
+                    setTimeout(connectSSE, delay);
+                } else {
+                    console.log('[LiveMode] Max reconnect attempts reached');
+                    showNotification('Mất kết nối realtime. Vui lòng tải lại trang.', 'warning');
+                }
+            };
+
+        } catch (err) {
+            console.error('[LiveMode] SSE connection error:', err);
+            updateSSEStatus(false);
+        }
+    }
+
+    function handleSSEMessage(data) {
+        if (data.type === 'transaction_new' || data.type === 'transaction_update') {
+            // Reload to get fresh data
+            loadTransactions();
+        }
+    }
+
+    function updateSSEStatus(connected) {
+        const statusEl = document.getElementById('sseStatus');
+        if (!statusEl) return;
+
+        if (connected) {
+            statusEl.className = 'sse-status connected';
+            statusEl.innerHTML = '<span class="status-dot"></span> Realtime';
+        } else {
+            statusEl.className = 'sse-status disconnected';
+            statusEl.innerHTML = '<span class="status-dot"></span> Offline';
+        }
+    }
+
+    function disconnectSSE() {
+        if (state.sseConnection) {
+            state.sseConnection.close();
+            state.sseConnection = null;
+        }
+    }
+
+    // ===== NOTIFICATION =====
+
+    function showNotification(message, type = 'info') {
+        if (window.notificationManager) {
+            window.notificationManager.show(message, type);
+        } else if (window.getNotificationManager) {
+            window.getNotificationManager().show(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+            // Fallback: simple alert for errors
+            if (type === 'error') {
+                alert(message);
+            }
+        }
+    }
+
+    // ===== EVENT DELEGATION =====
+
+    function setupEventDelegation() {
+        const board = document.getElementById('kanbanBoard');
+        if (!board || board.dataset.listenerAttached) return;
+
+        board.dataset.listenerAttached = 'true';
+
+        // Click events
+        board.addEventListener('click', (e) => {
+            const target = e.target;
+
+            // Assign button (manual)
+            if (target.classList.contains('btn-assign')) {
+                const txId = target.dataset.id;
+                const card = target.closest('.kanban-card');
+                if (card?.classList.contains('has-dropdown')) {
+                    assignFromDropdown(txId);
+                } else {
+                    assignManual(txId);
+                }
+                return;
+            }
+
+            // Confirm button
+            if (target.classList.contains('btn-confirm')) {
+                const txId = target.dataset.id;
+                confirmAutoMatched(txId);
+                return;
+            }
+
+            // Edit button
+            if (target.classList.contains('btn-edit')) {
+                const txId = target.dataset.id;
+                editConfirmedItem(txId);
+                return;
+            }
+        });
+
+        // Input events
+        board.addEventListener('input', (e) => {
+            const target = e.target;
+
+            if (target.classList.contains('phone-input')) {
+                onPhoneInput(target);
+            }
+        });
+
+        // Change events (dropdown)
+        board.addEventListener('change', (e) => {
+            const target = e.target;
+
+            if (target.classList.contains('customer-dropdown')) {
+                onDropdownChange(target);
+            }
+        });
+    }
+
+    // ===== INITIALIZATION =====
+
+    function init() {
+        if (state.initialized) return;
+
+        console.log('[LiveMode] Initializing Kanban...');
+
+        // Load saved preference
+        state.showConfirmed = localStorage.getItem('livemode_show_confirmed') === 'true';
+
+        // Initial load
+        loadTransactions();
+
+        // Connect SSE
+        connectSSE();
+
+        // Set up event listeners
+        setupEventListeners();
+        setupEventDelegation();
+
+        state.initialized = true;
+    }
+
+    function setupEventListeners() {
+        // Search input
+        const searchInput = document.getElementById('liveSearchInput');
+        if (searchInput && !searchInput.dataset.listenerAttached) {
+            searchInput.dataset.listenerAttached = 'true';
+            searchInput.addEventListener('input', (e) => onSearchInput(e.target));
+        }
+
+        // Toggle button
+        const toggleBtn = document.getElementById('toggleConfirmedBtn');
+        if (toggleBtn && !toggleBtn.dataset.listenerAttached) {
+            toggleBtn.dataset.listenerAttached = 'true';
+            toggleBtn.addEventListener('click', toggleConfirmedColumn);
+        }
+
+        // Refresh button
+        const refreshBtn = document.getElementById('liveRefreshBtn');
+        if (refreshBtn && !refreshBtn.dataset.listenerAttached) {
+            refreshBtn.dataset.listenerAttached = 'true';
+            refreshBtn.addEventListener('click', loadTransactions);
+        }
+    }
+
+    function destroy() {
+        disconnectSSE();
+
+        // Clear cache
+        state.tposCache.clear();
+
+        // Clear debounce timer
+        if (state.searchDebounceTimer) {
+            clearTimeout(state.searchDebounceTimer);
+        }
+
+        state.initialized = false;
+    }
+
+    // ===== PUBLIC API =====
+    return {
+        init,
+        destroy,
+        loadTransactions,
+        onPhoneInput,
+        onDropdownChange,
+        assignManual,
+        assignFromDropdown,
+        confirmAutoMatched,
+        editConfirmedItem,
+        toggleConfirmedColumn,
+    };
+
+})();
+
+// Export to window
+window.LiveModeModule = LiveModeModule;

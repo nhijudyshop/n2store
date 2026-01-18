@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/modern.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/transfer-stats.css">
+    <link rel="stylesheet" href="css/live-mode.css">
 </head>
 
 <body>
@@ -67,6 +68,9 @@
         <div class="container">
             <!-- Main Section Tabs -->
             <div class="main-tabs">
+                <button class="main-tab" data-section="live-mode" onclick="switchMainTab('live-mode')">
+                    <i data-lucide="radio"></i> Live Mode
+                </button>
                 <button class="main-tab active" data-section="balance-history" onclick="switchMainTab('balance-history')">
                     <i data-lucide="wallet"></i> Lịch sử biến động số dư
                 </button>
@@ -79,6 +83,72 @@
                     <span id="verificationBadge" class="unchecked-badge verification-badge" style="display: none;">0</span>
                 </button>
             </div>
+
+            <!-- Tab Panel: Live Mode -->
+            <div id="liveModePanel" class="main-tab-panel">
+                <!-- Header -->
+                <div class="live-mode-header">
+                    <div class="live-indicator">
+                        <span class="pulse"></span>
+                        <span>LIVE MODE</span>
+                    </div>
+
+                    <div class="live-search">
+                        <input type="text" id="liveSearchInput" placeholder="🔍 Tìm kiếm...">
+                    </div>
+
+                    <div id="sseStatus" class="sse-status disconnected">
+                        <span class="status-dot"></span> Offline
+                    </div>
+
+                    <div class="live-stats">
+                        <div class="stat-item">
+                            <span>📊</span>
+                            <span class="stat-value" id="liveStatsTotal">0</span>
+                            <span>GD</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>💰</span>
+                            <span class="stat-value" id="liveStatsAmount">0đ</span>
+                        </div>
+                    </div>
+
+                    <button class="toggle-confirmed" id="toggleConfirmedBtn">
+                        <i data-lucide="eye-off" style="width:14px;height:14px;"></i> Đã XN (0)
+                    </button>
+
+                    <button class="btn btn-secondary btn-sm" id="liveRefreshBtn">
+                        <i data-lucide="refresh-cw"></i> Làm mới
+                    </button>
+                </div>
+
+                <!-- Kanban Board -->
+                <div class="kanban-board" id="kanbanBoard">
+                    <div class="kanban-loading">
+                        <i data-lucide="loader-2"></i>
+                        Đang tải dữ liệu...
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="live-mode-footer">
+                    <div class="footer-stats">
+                        <div class="stat">
+                            <span class="stat-label">Auto:</span>
+                            <span class="stat-value">65%</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Manual:</span>
+                            <span class="stat-value">35%</span>
+                        </div>
+                    </div>
+                    <div class="footer-update">
+                        <i data-lucide="clock" style="width:14px;height:14px;"></i>
+                        <span>Cập nhật:</span>
+                        <span id="liveLastUpdate">--:--:--</span>
+                    </div>
+                </div>
+            </div><!-- End Live Mode Panel -->
 
             <!-- Tab Panel: Balance History -->
             <div id="balanceHistoryPanel" class="main-tab-panel active">
@@ -895,6 +965,7 @@
     <script src="js/main.js"></script>
     <script src="js/transfer-stats.js"></script>
     <script src="js/verification.js"></script>
+    <script src="js/live-mode.js"></script>
 
     <!-- Initialize Lucide Icons, View Mode, and Main Tabs -->
     <script>
@@ -902,6 +973,16 @@
 
         // Main Tab Switching
         function switchMainTab(section) {
+            // Get previous section to handle cleanup
+            const previousSection = localStorage.getItem('bh_main_tab') || 'balance-history';
+
+            // Cleanup Live Mode when switching away
+            if (previousSection === 'live-mode' && section !== 'live-mode') {
+                if (window.LiveModeModule && typeof window.LiveModeModule.destroy === 'function') {
+                    window.LiveModeModule.destroy();
+                }
+            }
+
             // Update tab buttons
             document.querySelectorAll('.main-tab').forEach(tab => {
                 tab.classList.toggle('active', tab.dataset.section === section);
@@ -912,7 +993,13 @@
                 panel.classList.remove('active');
             });
 
-            if (section === 'balance-history') {
+            if (section === 'live-mode') {
+                document.getElementById('liveModePanel').classList.add('active');
+                // Initialize Live Mode
+                if (window.LiveModeModule && typeof window.LiveModeModule.init === 'function') {
+                    window.LiveModeModule.init();
+                }
+            } else if (section === 'balance-history') {
                 document.getElementById('balanceHistoryPanel').classList.add('active');
                 // Reload if flagged for update (from Transfer Stats edit)
                 if (window._balanceHistoryNeedsReload && typeof loadData === 'function') {
