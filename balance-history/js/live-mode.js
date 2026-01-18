@@ -477,16 +477,21 @@ const LiveModeModule = (function() {
             state.tposCache.delete(oldestKey);
         }
 
-        const response = await fetch(`${API_BASE}/api/tpos/customer/${phone}`);
-        if (!response.ok) throw new Error('TPOS lookup failed');
+        // Correct endpoint: /api/sepay/tpos/customer/{phone}
+        const response = await fetch(`${API_BASE}/api/sepay/tpos/customer/${phone}`);
+        const result = await response.json();
 
-        const data = await response.json();
-        const customer = data.customer || data;
+        // Handle response format: { success, data: [], count }
+        if (result.success && result.data && result.data.length > 0) {
+            const customer = result.data[0]; // First matching customer
+            // Cache with timestamp
+            state.tposCache.set(phone, { data: customer, timestamp: now });
+            return customer;
+        }
 
-        // Cache with timestamp
-        state.tposCache.set(phone, { data: customer, timestamp: now });
-
-        return customer;
+        // No customer found - cache null to avoid repeated lookups
+        state.tposCache.set(phone, { data: null, timestamp: now });
+        return null;
     }
 
     // ===== API ACTIONS =====
