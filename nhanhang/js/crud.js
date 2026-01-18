@@ -44,6 +44,10 @@ async function addReceipt(event) {
     const thoiGianNhan = getFormattedDateTime();
     const receiptId = generateUniqueID();
 
+    console.log("=== NEW RECEIPT DEBUG ===");
+    console.log("thoiGianNhan being saved:", thoiGianNhan);
+    console.log("Current date check:", new Date().toLocaleString('vi-VN'));
+
     // Receipt data with ID
     const newReceiptData = {
         id: receiptId,

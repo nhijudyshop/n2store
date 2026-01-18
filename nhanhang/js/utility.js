@@ -350,6 +350,11 @@ function sortDataByNewest(dataArray) {
         console.log(`  ${i}: ${item.thoiGianNhan} - ${item.tenNguoiNhan}`);
     });
 
+    console.log("LAST 3 items AFTER sort:");
+    sorted.slice(-3).forEach((item, i) => {
+        console.log(`  ${sorted.length - 3 + i}: ${item.thoiGianNhan} - ${item.tenNguoiNhan}`);
+    });
+
     return sorted;
 }
 
