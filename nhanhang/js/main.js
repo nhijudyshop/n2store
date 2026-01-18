@@ -196,7 +196,18 @@ function updateStatisticsDisplay(dataArray) {
 // =====================================================
 
 function renderDataToTable(dataArray) {
+    console.log("=== RENDER DEBUG ===");
+    console.log("Input dataArray length:", dataArray?.length);
+    console.log("tbody element:", tbody);
+
     const filteredData = applyFiltersToData(dataArray);
+    console.log("Filtered data length:", filteredData?.length);
+
+    if (!tbody) {
+        console.error("ERROR: tbody element not found!");
+        return;
+    }
+
     tbody.innerHTML = "";
 
     // Update statistics
@@ -333,6 +344,8 @@ function renderDataToTable(dataArray) {
         cells.forEach((cell) => tr.appendChild(cell));
         tbody.appendChild(tr);
     }
+
+    console.log("Rows appended to tbody:", tbody.children.length);
 
     if (filteredData.length > MAX_VISIBLE_ROWS) {
         const warningRow = document.createElement("tr");
