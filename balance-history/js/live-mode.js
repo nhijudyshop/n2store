@@ -5,23 +5,24 @@
 
 /**
  * LiveModeModule - Module quản lý Live Mode UI
- * - Zone "NHẬP TAY": Giao dịch cần match thủ công
- * - Zone "TỰ ĐỘNG GÁN": Giao dịch đã auto-match
- * - Zone "ĐÃ XÁC NHẬN": Giao dịch đã xác nhận (ẩn mặc định)
+ * - Zone "NHẬP TAY": Giao dịch cần match thủ công (has_pending_match hoặc chưa có phone)
+ * - Zone "TỰ ĐỘNG GÁN": Giao dịch đã auto-match, có phone
+ * - Zone "ĐÃ XÁC NHẬN": Giao dịch đã được hide (is_hidden = true)
  */
 const LiveModeModule = (() => {
     'use strict';
 
     // ===== STATE =====
     const state = {
-        manualMatchItems: [],      // Zone "NHẬP TAY" - verification_status = PENDING_VERIFICATION, no phone
-        autoMatchedItems: [],      // Zone "TỰ ĐỘNG GÁN" - verification_status = AUTO_APPROVED, has phone
-        confirmedItems: [],        // Zone "ĐÃ XÁC NHẬN" - staff_confirmed = true
+        manualMatchItems: [],      // Zone "NHẬP TAY" - cần action từ user
+        autoMatchedItems: [],      // Zone "TỰ ĐỘNG GÁN" - đã auto-match, có phone
+        confirmedItems: [],        // Zone "ĐÃ XÁC NHẬN" - is_hidden = true
         showConfirmed: false,      // Toggle hiện/ẩn đã xác nhận
         searchQuery: '',           // Search filter
         sseConnection: null,       // SSE EventSource
         isLoading: false,
         lastUpdate: null,
+        initialized: false,        // Prevent multiple init
     };
 
     // ===== CONFIG =====
@@ -37,11 +38,19 @@ const LiveModeModule = (() => {
 
     // ===== INITIALIZATION =====
     function init() {
+        // Prevent multiple initialization
+        if (state.initialized) {
+            console.log('[LiveMode] Already initialized, refreshing data...');
+            loadData();
+            return;
+        }
+
         console.log('[LiveMode] Initializing...');
         cacheElements();
         bindEvents();
         loadData();
         connectSSE();
+        state.initialized = true;
         console.log('[LiveMode] Initialized successfully');
     }
 
@@ -100,9 +109,11 @@ const LiveModeModule = (() => {
                 state.lastUpdate = new Date();
             } else {
                 console.error('[LiveMode] Failed to load data:', result.error);
+                showNotification('Không thể tải dữ liệu', 'error');
             }
         } catch (error) {
             console.error('[LiveMode] Error loading data:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
         } finally {
             state.isLoading = false;
         }
@@ -115,21 +126,26 @@ const LiveModeModule = (() => {
         state.confirmedItems = [];
 
         transactions.forEach(tx => {
+            // Only process incoming transactions (tiền vào)
+            if (!tx.amount_in || tx.amount_in <= 0) return;
+
             const item = transformTransaction(tx);
 
-            // Logic phân loại theo plan:
-            // 1. staff_confirmed = true → "ĐÃ XÁC NHẬN"
-            // 2. verification_status = AUTO_APPROVED && has phone → "TỰ ĐỘNG GÁN"
-            // 3. verification_status = PENDING_VERIFICATION or no phone → "NHẬP TAY"
+            // Logic phân loại:
+            // 1. is_hidden = true → "ĐÃ XÁC NHẬN"
+            // 2. has_pending_match hoặc (pending_match_skipped với options) hoặc không có phone → "NHẬP TAY"
+            // 3. Có phone và đã auto-match → "TỰ ĐỘNG GÁN"
 
-            if (tx.staff_confirmed) {
+            if (tx.is_hidden === true) {
                 state.confirmedItems.push(item);
-            } else if (tx.verification_status === 'AUTO_APPROVED' && tx.customer_phone) {
-                state.autoMatchedItems.push(item);
-            } else if (!tx.customer_phone || tx.verification_status === 'PENDING_VERIFICATION') {
+            } else if (
+                tx.has_pending_match === true ||
+                (tx.pending_match_skipped === true && tx.pending_match_options?.length > 0) ||
+                !tx.linked_customer_phone
+            ) {
                 state.manualMatchItems.push(item);
             } else {
-                // Fallback: có phone nhưng chưa confirmed
+                // Có phone, không pending, không hidden
                 state.autoMatchedItems.push(item);
             }
         });
@@ -155,13 +171,16 @@ const LiveModeModule = (() => {
             timestamp: tx.transaction_date,
             content: tx.content || '',
             customerName: tx.customer_name || '',
-            customerPhone: tx.customer_phone || '',
+            customerPhone: tx.linked_customer_phone || '',
             verificationStatus: tx.verification_status || '',
             matchMethod: tx.match_method || '',
-            staffConfirmed: tx.staff_confirmed || false,
-            pendingMatchId: tx.pending_match_id || null,
-            matchedCustomers: tx.matched_customers || [],
             isHidden: tx.is_hidden || false,
+            // Pending match fields
+            hasPendingMatch: tx.has_pending_match || false,
+            pendingMatchSkipped: tx.pending_match_skipped || false,
+            pendingMatchId: tx.pending_match_id || null,
+            pendingMatchOptions: tx.pending_match_options || [],
+            pendingExtractedPhone: tx.pending_extracted_phone || '',
         };
     }
 
@@ -244,20 +263,26 @@ const LiveModeModule = (() => {
         // Check if has pending match (dropdown) or needs phone input
         let actionHtml = '';
 
-        if (item.matchedCustomers && item.matchedCustomers.length > 0) {
+        if ((item.hasPendingMatch || item.pendingMatchSkipped) && item.pendingMatchOptions.length > 0) {
             // Has multiple customer matches - show dropdown
-            const options = item.matchedCustomers.map(c => {
-                const customers = c.customers || [c];
-                return customers.map(customer =>
-                    `<option value="${customer.phone}" data-name="${customer.name || ''}" data-id="${customer.id || ''}">${customer.name || 'N/A'} - ${customer.phone}</option>`
-                ).join('');
+            // Structure: [{phone, count, customers: [{id, name, phone}]}]
+            const options = item.pendingMatchOptions.map(opt => {
+                const customers = opt.customers || [];
+                return customers.map(customer => {
+                    const customerId = customer.id || customer.customer_id || (customer.phone ? `LOCAL_${customer.phone}` : '');
+                    const customerName = customer.name || customer.customer_name || 'N/A';
+                    const customerPhone = customer.phone || customer.customer_phone || opt.phone || 'N/A';
+                    if (!customerId) return '';
+                    return `<option value="${customerId}" data-phone="${customerPhone}" data-name="${escapeHtml(customerName)}">${escapeHtml(customerName)} - ${customerPhone}</option>`;
+                }).join('');
             }).join('');
 
             actionHtml = `
                 <select class="customer-dropdown"
-                        onchange="LiveModeModule.autoAssignCustomer(this, '${item.id}')"
-                        data-transaction-id="${item.id}">
-                    <option value="">-- Chọn KH --</option>
+                        onchange="LiveModeModule.autoAssignCustomer(this, '${item.id}', ${item.pendingMatchId})"
+                        data-transaction-id="${item.id}"
+                        data-pending-match-id="${item.pendingMatchId}">
+                    <option value="">-- Chọn KH (${item.pendingExtractedPhone || '?'}) --</option>
                     ${options}
                 </select>
             `;
@@ -331,31 +356,31 @@ const LiveModeModule = (() => {
 
     /**
      * Auto assign customer when selecting from dropdown (no extra click needed)
+     * Uses the existing resolvePendingMatch API
      */
-    async function autoAssignCustomer(selectElement, transactionId) {
+    async function autoAssignCustomer(selectElement, transactionId, pendingMatchId) {
         const selectedValue = selectElement.value;
         if (!selectedValue) return;
 
         const selectedOption = selectElement.options[selectElement.selectedIndex];
         const customerName = selectedOption.dataset.name || '';
-        const phone = selectedValue;
+        const phone = selectedOption.dataset.phone || '';
 
-        console.log('[LiveMode] Auto-assigning customer:', { transactionId, phone, customerName });
+        console.log('[LiveMode] Auto-assigning customer:', { transactionId, pendingMatchId, phone, customerName });
 
         // Mark item as loading
         const itemElement = selectElement.closest('.live-item');
         itemElement?.classList.add('loading');
 
         try {
-            // Call API to assign phone
-            const response = await fetch(`${config.API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
-                method: 'PUT',
+            // Use existing API endpoint for resolving pending match
+            const response = await fetch(`${config.API_BASE_URL}/api/sepay/pending-matches/${pendingMatchId}/resolve`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    phone: phone,
-                    customer_name: customerName,
-                    staff_confirmed: true,
-                    match_method: 'pending_match'
+                    selected_customer_id: selectedValue,
+                    selected_phone: phone,
+                    selected_name: customerName
                 })
             });
 
@@ -364,8 +389,8 @@ const LiveModeModule = (() => {
             if (result.success) {
                 showNotification(`Đã gán: ${customerName} (${phone})`, 'success');
 
-                // Move item from manual to confirmed
-                moveItemToConfirmed(transactionId, phone, customerName, 'pending_match');
+                // Move item from manual to auto (it now has a phone)
+                moveItemFromManualToAuto(transactionId, phone, customerName);
 
                 // Animate removal
                 itemElement?.classList.add('removing');
@@ -373,6 +398,9 @@ const LiveModeModule = (() => {
                     renderAllZones();
                     updateStats();
                 }, 300);
+
+                // Flag balance history to reload
+                window._balanceHistoryNeedsReload = true;
             } else {
                 showNotification(`Lỗi: ${result.error || 'Không thể gán'}`, 'error');
                 itemElement?.classList.remove('loading');
@@ -406,24 +434,22 @@ const LiveModeModule = (() => {
             // First, try to fetch customer name from TPOS
             let customerName = '';
             try {
-                const tposResponse = await fetch(`${config.API_BASE_URL}/api/sepay/tpos/search/${phone}`);
+                const tposResponse = await fetch(`${config.API_BASE_URL}/api/sepay/tpos/customer/${phone}`);
                 const tposResult = await tposResponse.json();
                 if (tposResult.success && tposResult.data && tposResult.data.length > 0) {
-                    const firstCustomer = tposResult.data[0].customers?.[0];
-                    customerName = firstCustomer?.name || '';
+                    customerName = tposResult.data[0].name || '';
                 }
             } catch (e) {
                 console.warn('[LiveMode] Could not fetch from TPOS:', e);
             }
 
-            // Call API to assign phone
+            // Call API to assign phone (use existing endpoint)
             const response = await fetch(`${config.API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phone: phone,
                     customer_name: customerName,
-                    staff_confirmed: true,
                     match_method: 'manual_entry'
                 })
             });
@@ -433,8 +459,8 @@ const LiveModeModule = (() => {
             if (result.success) {
                 showNotification(`Đã gán SĐT: ${phone}${customerName ? ` (${customerName})` : ''}`, 'success');
 
-                // Move item from manual to confirmed
-                moveItemToConfirmed(transactionId, phone, customerName, 'manual_entry');
+                // Move item from manual to auto
+                moveItemFromManualToAuto(transactionId, phone, customerName);
 
                 // Animate removal
                 itemElement?.classList.add('removing');
@@ -442,6 +468,9 @@ const LiveModeModule = (() => {
                     renderAllZones();
                     updateStats();
                 }, 300);
+
+                // Flag balance history to reload
+                window._balanceHistoryNeedsReload = true;
             } else {
                 showNotification(`Lỗi: ${result.error || 'Không thể gán'}`, 'error');
                 itemElement?.classList.remove('loading');
@@ -458,7 +487,7 @@ const LiveModeModule = (() => {
     }
 
     /**
-     * Confirm auto-matched transaction (single click)
+     * Confirm auto-matched transaction (single click) - Hide the transaction
      */
     async function confirmAutoMatched(transactionId) {
         console.log('[LiveMode] Confirming auto-matched:', transactionId);
@@ -467,11 +496,11 @@ const LiveModeModule = (() => {
         itemElement?.classList.add('loading');
 
         try {
-            // Call API to mark as staff_confirmed
-            const response = await fetch(`${config.API_BASE_URL}/api/sepay/transaction/${transactionId}/confirm`, {
+            // Use existing API to hide transaction (marks as confirmed)
+            const response = await fetch(`${config.API_BASE_URL}/api/sepay/transaction/${transactionId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ staff_confirmed: true })
+                body: JSON.stringify({ is_hidden: true })
             });
 
             const result = await response.json();
@@ -483,7 +512,7 @@ const LiveModeModule = (() => {
                 const itemIndex = state.autoMatchedItems.findIndex(i => i.id == transactionId);
                 if (itemIndex > -1) {
                     const item = state.autoMatchedItems.splice(itemIndex, 1)[0];
-                    item.staffConfirmed = true;
+                    item.isHidden = true;
                     state.confirmedItems.unshift(item);
                 }
 
@@ -493,6 +522,9 @@ const LiveModeModule = (() => {
                     renderAllZones();
                     updateStats();
                 }, 300);
+
+                // Flag balance history to reload
+                window._balanceHistoryNeedsReload = true;
             } else {
                 showNotification(`Lỗi: ${result.error || 'Không thể xác nhận'}`, 'error');
                 itemElement?.classList.remove('loading');
@@ -518,8 +550,8 @@ const LiveModeModule = (() => {
         }
 
         // Open edit modal (reuse existing modal from main.js)
-        if (typeof window.openEditCustomerModal === 'function') {
-            window.openEditCustomerModal(item.uniqueCode, item.customerName, item.customerPhone);
+        if (typeof window.editTransactionCustomer === 'function') {
+            window.editTransactionCustomer(item.id, item.customerPhone, item.customerName);
         } else {
             // Fallback: simple prompt
             const newPhone = prompt('Nhập SĐT mới:', item.customerPhone);
@@ -552,15 +584,15 @@ const LiveModeModule = (() => {
 
     // ===== HELPER FUNCTIONS =====
 
-    function moveItemToConfirmed(transactionId, phone, customerName, matchMethod) {
+    function moveItemFromManualToAuto(transactionId, phone, customerName) {
         const itemIndex = state.manualMatchItems.findIndex(i => i.id == transactionId);
         if (itemIndex > -1) {
             const item = state.manualMatchItems.splice(itemIndex, 1)[0];
             item.customerPhone = phone;
             item.customerName = customerName;
-            item.matchMethod = matchMethod;
-            item.staffConfirmed = true;
-            state.confirmedItems.unshift(item);
+            item.hasPendingMatch = false;
+            item.pendingMatchSkipped = false;
+            state.autoMatchedItems.unshift(item);
         }
     }
 
@@ -600,8 +632,9 @@ const LiveModeModule = (() => {
             elements.totalAmount.textContent = formatAmount(totalAmt, true);
         }
 
-        const autoCount = state.autoMatchedItems.length + state.confirmedItems.filter(i => i.matchMethod !== 'manual_entry').length;
-        const manualCount = state.manualMatchItems.length + state.confirmedItems.filter(i => i.matchMethod === 'manual_entry').length;
+        // Calculate percentages
+        const autoCount = state.autoMatchedItems.length + state.confirmedItems.length;
+        const manualCount = state.manualMatchItems.length;
         const total = autoCount + manualCount || 1;
 
         if (elements.autoPercent) {
@@ -612,12 +645,24 @@ const LiveModeModule = (() => {
         }
 
         // Update zone header counts
-        document.querySelector('#zoneManual .zone-count')?.textContent &&
-            (document.querySelector('#zoneManual .zone-count').textContent = state.manualMatchItems.length);
-        document.querySelector('#zoneAuto .zone-count')?.textContent &&
-            (document.querySelector('#zoneAuto .zone-count').textContent = state.autoMatchedItems.length);
-        document.querySelector('#zoneConfirmed .zone-count')?.textContent &&
-            (document.querySelector('#zoneConfirmed .zone-count').textContent = state.confirmedItems.length);
+        const manualZoneCount = document.querySelector('#zoneManual .zone-count');
+        const autoZoneCount = document.querySelector('#zoneAuto .zone-count');
+        const confirmedZoneCount = document.querySelector('#zoneConfirmed .zone-count');
+
+        if (manualZoneCount) manualZoneCount.textContent = state.manualMatchItems.length;
+        if (autoZoneCount) autoZoneCount.textContent = state.autoMatchedItems.length;
+        if (confirmedZoneCount) confirmedZoneCount.textContent = state.confirmedItems.length;
+
+        // Update Live Mode badge in tab
+        const liveModeBadge = document.getElementById('liveModeBadge');
+        if (liveModeBadge) {
+            if (state.manualMatchItems.length > 0) {
+                liveModeBadge.textContent = state.manualMatchItems.length;
+                liveModeBadge.style.display = 'inline-block';
+            } else {
+                liveModeBadge.style.display = 'none';
+            }
+        }
     }
 
     function handleSearch(e) {
@@ -688,15 +733,22 @@ const LiveModeModule = (() => {
     }
 
     function handleNewTransaction(data) {
-        const item = transformTransaction(data);
+        // Only process incoming transactions
+        if (!data.amount_in && !data.transfer_amount) return;
+
+        const item = transformTransaction({
+            ...data,
+            amount_in: data.amount_in || data.transfer_amount,
+            linked_customer_phone: data.linked_customer_phone || ''
+        });
 
         // Add to appropriate zone
-        if (item.staffConfirmed) {
+        if (item.isHidden) {
             state.confirmedItems.unshift(item);
-        } else if (item.verificationStatus === 'AUTO_APPROVED' && item.customerPhone) {
-            state.autoMatchedItems.unshift(item);
-        } else {
+        } else if (item.hasPendingMatch || !item.customerPhone) {
             state.manualMatchItems.unshift(item);
+        } else {
+            state.autoMatchedItems.unshift(item);
         }
 
         // Render with animation
@@ -709,7 +761,7 @@ const LiveModeModule = (() => {
             newItem?.classList.add('new');
         }, 50);
 
-        // Play sound notification (optional)
+        // Play sound notification
         playNotificationSound();
     }
 
@@ -759,7 +811,7 @@ const LiveModeModule = (() => {
             'manual_entry': 'Nhập tay',
             'manual_link': 'Gán tay'
         };
-        return labels[method] || method || 'N/A';
+        return labels[method] || method || 'Auto';
     }
 
     function escapeHtml(str) {
