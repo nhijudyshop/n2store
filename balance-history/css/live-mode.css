@@ -325,19 +325,26 @@
     color: #ef4444;
 }
 
-/* Content with tooltip */
+/* Content with tooltip - wrapper approach */
 .kanban-card .card-content {
+    position: relative;
     flex: 1;
     min-width: 0;
     font-size: 12px;
     color: #475569;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     cursor: help;
     padding: 4px 8px;
     background: #f8fafc;
     border-radius: 4px;
+    /* NO overflow hidden here - let tooltip show */
+}
+
+/* Inner text truncation */
+.kanban-card .card-content .content-text {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .kanban-card .card-content:hover {
