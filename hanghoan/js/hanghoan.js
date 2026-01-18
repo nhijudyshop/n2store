@@ -520,8 +520,15 @@ function handleFormSubmit(event) {
         data: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
     }).then(() => {
         logAction("add", `Thêm mới: ${customerInfoValue}`, null, dataToUpload);
-        // Force refresh from Firebase to ensure data consistency
-        updateTable(true);
+        // Ensure new item stays in cache (in case initial load overwrote it)
+        const currentCache = getCachedData() || [];
+        const exists = currentCache.some(d => d.duyetHoanValue === dataToUpload.duyetHoanValue);
+        if (!exists) {
+            currentCache.unshift(dataToUpload);
+            setCachedData(currentCache);
+            renderTableFromData(currentCache);
+            updateStats(currentCache);
+        }
     }).catch((error) => {
         console.error('[HangHoan] Firebase add error:', error);
         // Rollback on error
