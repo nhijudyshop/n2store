@@ -716,6 +716,27 @@ Khi có nhiều khách hàng khớp với partial phone:
 | Momo | - | smartphone | #a50064 (magenta) | Giao dịch từ Momo |
 | Vietcombank | - | building-2 | #007b40 (green) | Giao dịch từ VCB |
 
+### 8.6 Edit Permission Rules (QUAN TRỌNG)
+
+**Nguyên tắc chỉnh sửa giao dịch:**
+
+| Loại giao dịch | Tab Live Mode | Tab Lịch sử GD | Tab Chờ Duyệt |
+|----------------|---------------|----------------|---------------|
+| **Tự động gán** (qr_code, phone_match, exact_phone, single_match) | ❌ KHÔNG cho phép sửa | ✅ Chỉ **Kế toán** được sửa | ✅ Kế toán duyệt/từ chối |
+| **Nhập tay** (manual_entry) | ✅ Cho phép sửa SĐT (nếu chưa duyệt) | ✅ Cho phép sửa | ✅ Kế toán duyệt/từ chối |
+| **Đã duyệt** (verification_status = 'APPROVED') | ❌ KHÔNG cho phép sửa | ❌ KHÔNG cho phép sửa | - |
+
+**Lý do:**
+- Giao dịch **tự động gán** (QR, SĐT) có độ tin cậy cao, chỉ kế toán mới được phép chỉnh sửa để đảm bảo tính chính xác
+- Giao dịch **nhập tay** do nhân viên nhập thủ công, cho phép sửa trước khi kế toán duyệt
+- Giao dịch **đã duyệt** không được phép sửa để đảm bảo tính toàn vẹn dữ liệu
+
+**Code implementation (live-mode.js):**
+```javascript
+// Chỉ cho phép sửa với giao dịch NHẬP TAY (manual_entry) và chưa được kế toán duyệt
+const canEdit = tx.match_method === 'manual_entry' && tx.verification_status !== 'APPROVED';
+```
+
 ---
 
 ## 9. UI FLOW & EVENT LISTENERS

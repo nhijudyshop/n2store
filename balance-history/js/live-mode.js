@@ -370,8 +370,9 @@ const LiveModeModule = (function() {
             const escapedContent = escapeHtml(tx.content || '');
             const fullContent = tx.content || '';
 
-            // Cho phép sửa nếu chưa được kế toán duyệt
-            const canEdit = tx.verification_status !== 'APPROVED';
+            // Chỉ cho phép sửa với giao dịch NHẬP TAY (manual_entry) và chưa được kế toán duyệt
+            // Giao dịch tự động gán (qr_code, phone_match) KHÔNG cho phép sửa trong Live Mode
+            const canEdit = tx.match_method === 'manual_entry' && tx.verification_status !== 'APPROVED';
 
             return `
                 <div class="kanban-card confirmed" data-id="${tx.id}">
