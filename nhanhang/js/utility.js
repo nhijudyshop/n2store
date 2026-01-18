@@ -323,7 +323,13 @@ function logAction(
 function sortDataByNewest(dataArray) {
     if (!Array.isArray(dataArray)) return dataArray;
 
-    return dataArray.sort((a, b) => {
+    console.log("=== SORT DEBUG ===");
+    console.log("First 3 items BEFORE sort:");
+    dataArray.slice(0, 3).forEach((item, i) => {
+        console.log(`  ${i}: ${item.thoiGianNhan} - ${item.tenNguoiNhan}`);
+    });
+
+    const sorted = dataArray.sort((a, b) => {
         const timeA = parseVietnameseDate(a.thoiGianNhan);
         const timeB = parseVietnameseDate(b.thoiGianNhan);
 
@@ -338,6 +344,13 @@ function sortDataByNewest(dataArray) {
 
         return timeB - timeA;
     });
+
+    console.log("First 3 items AFTER sort:");
+    sorted.slice(0, 3).forEach((item, i) => {
+        console.log(`  ${i}: ${item.thoiGianNhan} - ${item.tenNguoiNhan}`);
+    });
+
+    return sorted;
 }
 
 function parseVietnameseDate(dateString) {
