@@ -1097,6 +1097,76 @@ const LiveModeModule = (function() {
             }
             endDateInput.addEventListener('change', onDateFilterChange);
         }
+
+        // Display input events (manual text entry)
+        if (startDateDisplay && !startDateDisplay.dataset.listenerAttached) {
+            startDateDisplay.dataset.listenerAttached = 'true';
+            startDateDisplay.addEventListener('input', (e) => autoFormatDateInput(e.target));
+            startDateDisplay.addEventListener('blur', () => onDisplayDateBlur('start'));
+        }
+
+        if (endDateDisplay && !endDateDisplay.dataset.listenerAttached) {
+            endDateDisplay.dataset.listenerAttached = 'true';
+            endDateDisplay.addEventListener('input', (e) => autoFormatDateInput(e.target));
+            endDateDisplay.addEventListener('blur', () => onDisplayDateBlur('end'));
+        }
+    }
+
+    // Auto-format date input as user types (dd/mm/yyyy)
+    function autoFormatDateInput(input) {
+        let value = input.value.replace(/[^\d/]/g, '');
+        const digits = value.replace(/\D/g, '');
+
+        if (digits.length > 8) {
+            value = digits.slice(0, 8);
+        } else {
+            value = digits;
+        }
+
+        if (value.length >= 4) {
+            value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4);
+        } else if (value.length >= 2) {
+            value = value.slice(0, 2) + '/' + value.slice(2);
+        }
+
+        input.value = value;
+    }
+
+    // Handle blur on display input - validate and sync
+    function onDisplayDateBlur(type) {
+        const displayId = type === 'start' ? 'liveStartDateDisplay' : 'liveEndDateDisplay';
+        const hiddenId = type === 'start' ? 'liveStartDate' : 'liveEndDate';
+        const displayInput = document.getElementById(displayId);
+        const hiddenInput = document.getElementById(hiddenId);
+
+        if (!displayInput || !hiddenInput) return;
+
+        const parsed = parseDateDisplay(displayInput.value);
+        if (parsed) {
+            hiddenInput.value = parsed;
+            if (type === 'start') {
+                state.filterStartDate = parsed;
+            } else {
+                state.filterEndDate = parsed;
+            }
+            console.log('[LiveMode] Date manually entered:', type, parsed);
+            loadTransactions();
+        }
+    }
+
+    // Parse dd/mm/yyyy to yyyy-mm-dd
+    function parseDateDisplay(dateStr) {
+        if (!dateStr) return null;
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            if (year.length === 4 && !isNaN(Date.parse(`${year}-${month}-${day}`))) {
+                return `${year}-${month}-${day}`;
+            }
+        }
+        return null;
     }
 
     // Format date for display: yyyy-mm-dd -> dd/mm/yyyy

@@ -284,14 +284,13 @@ body {
 .filter-group .date-input-wrapper .date-display {
     width: 100%;
     padding-right: 32px;
-    cursor: pointer;
 }
 
 .filter-group .date-input-wrapper .date-input-hidden {
     position: absolute;
     top: 0;
-    left: 0;
-    width: 100%;
+    right: 0;
+    width: 32px;
     height: 100%;
     opacity: 0;
     cursor: pointer;
