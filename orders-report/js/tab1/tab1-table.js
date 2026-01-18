@@ -1401,7 +1401,18 @@ function sendDataToTab2() {
             { type: "FILTER_CHANGED", filter: filterData },
             "*",
         );
-    localStorage.setItem("tab1_filter_data", JSON.stringify(filterData));
+
+    // Only store metadata in localStorage, not the full data (to avoid QuotaExceededError)
+    try {
+        const metadataOnly = {
+            totalRecords: filterData.totalRecords,
+            timestamp: filterData.timestamp,
+            // Don't store full data array - it's too large
+        };
+        localStorage.setItem("tab1_filter_data", JSON.stringify(metadataOnly));
+    } catch (e) {
+        console.warn('[STORAGE] Could not save filter data to localStorage:', e.message);
+    }
 }
 
 // =====================================================
