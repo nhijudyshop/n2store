@@ -305,14 +305,16 @@ const LiveModeModule = (function() {
                     </div>
                 `;
             } else {
-                // Row with phone input + TPOS suggest
+                // Row with phone input + TPOS suggest - stacked vertically
                 return `
                     <div class="kanban-card manual" data-id="${tx.id}">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
                         <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
                         <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
-                        <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
-                        <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
+                        <div class="card-phone-input-group">
+                            <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
+                            <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
+                        </div>
                         <button class="btn-assign" id="btn-${tx.id}" data-id="${tx.id}" disabled>Gán</button>
                     </div>
                 `;

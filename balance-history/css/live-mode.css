@@ -191,7 +191,7 @@
 .kanban-board {
     display: flex;
     gap: 16px;
-    height: calc(100vh - 280px);
+    height: calc(100vh - 200px);
     min-height: 400px;
     background: #f8fafc;
     padding: 16px;
@@ -306,11 +306,11 @@
 .kanban-card {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: #ffffff;
     border-radius: 6px;
-    padding: 8px 10px;
-    margin-bottom: 6px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     border: 1px solid #f1f5f9;
     transition: all 0.15s;
@@ -340,7 +340,7 @@
 /* Row columns */
 .kanban-card .card-time {
     flex-shrink: 0;
-    width: 85px;  /* Wider for hh:mm dd/mm format */
+    width: 70px;
     font-size: 11px;
     color: #64748b;
     font-weight: 500;
@@ -348,9 +348,9 @@
 
 .kanban-card .card-amount {
     flex-shrink: 0;
-    width: 75px;
+    width: 80px;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 13px;
     color: #10b981;
     text-align: right;
 }
@@ -362,7 +362,7 @@
 /* Content with tooltip - wrapper approach */
 .kanban-card .card-content {
     position: relative;
-    flex: 1;
+    flex: 1.5;
     min-width: 0;
     font-size: 12px;
     color: #475569;
@@ -370,7 +370,6 @@
     padding: 4px 8px;
     background: #f8fafc;
     border-radius: 4px;
-    /* NO overflow hidden here - let tooltip show */
 }
 
 /* Inner text truncation */
@@ -385,14 +384,44 @@
     background: #f1f5f9;
 }
 
-/* Phone input - fixed width */
-.kanban-card .phone-input {
+/* Phone input group - stacked vertically */
+.kanban-card .card-phone-input-group {
+    display: flex;
+    flex-direction: column;
     flex-shrink: 0;
-    width: 110px;
-    padding: 6px 8px;
+    min-width: 100px;
+    max-width: 130px;
+    gap: 2px;
+}
+
+.kanban-card .card-phone-input-group .phone-input {
+    width: 100%;
+    padding: 4px 6px;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 11px;
+    font-family: monospace;
+    background: #ffffff;
+}
+
+.kanban-card .card-phone-input-group .tpos-suggest {
+    width: 100%;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Phone input - standalone */
+.kanban-card .phone-input {
+    flex-shrink: 0;
+    width: 90px;
+    padding: 4px 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 11px;
     font-family: monospace;
     background: #ffffff;
 }
@@ -628,47 +657,6 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     pointer-events: none;
     line-height: 1.5;
-}
-
-/* ===== FOOTER STATS ===== */
-.live-mode-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    background: #ffffff;
-    border-radius: 12px;
-    margin-top: 16px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-    font-size: 13px;
-    color: #64748b;
-}
-
-.live-mode-footer .footer-stats {
-    display: flex;
-    gap: 20px;
-}
-
-.live-mode-footer .footer-stats .stat {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.live-mode-footer .footer-stats .stat-label {
-    color: #94a3b8;
-}
-
-.live-mode-footer .footer-stats .stat-value {
-    font-weight: 600;
-    color: #1e293b;
-}
-
-.live-mode-footer .footer-update {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: #94a3b8;
 }
 
 /* ===== EMPTY STATE ===== */
