@@ -561,7 +561,20 @@ const LiveModeModule = (function() {
             }
 
             showNotification('Đã gán và xác nhận giao dịch!', 'success');
-            await loadTransactions();
+
+            // Move item from manualItems to confirmedItems locally
+            const txIndex = state.manualItems.findIndex(t => String(t.id) === String(txId));
+            if (txIndex !== -1) {
+                const tx = state.manualItems[txIndex];
+                tx.is_hidden = true;
+                tx.customer_phone = phone;
+                tx.match_method = 'manual_entry';
+                state.manualItems.splice(txIndex, 1);
+                state.confirmedItems.unshift(tx);
+            }
+
+            // Re-render without fetching from API
+            renderKanbanBoard();
 
         } catch (err) {
             console.error('assignManual error:', err);
@@ -622,7 +635,21 @@ const LiveModeModule = (function() {
             }
 
             showNotification(`Đã gán ${customerName} (${customerPhone}) và xác nhận!`, 'success');
-            await loadTransactions();
+
+            // Move item from manualItems to confirmedItems locally
+            const txIndex = state.manualItems.findIndex(t => String(t.id) === String(txId));
+            if (txIndex !== -1) {
+                const tx = state.manualItems[txIndex];
+                tx.is_hidden = true;
+                tx.customer_phone = customerPhone;
+                tx.customer_name = customerName;
+                tx.match_method = 'manual_entry';
+                state.manualItems.splice(txIndex, 1);
+                state.confirmedItems.unshift(tx);
+            }
+
+            // Re-render without fetching from API
+            renderKanbanBoard();
 
         } catch (err) {
             console.error('assignFromDropdown error:', err);
@@ -648,8 +675,19 @@ const LiveModeModule = (function() {
 
             if (!response.ok) throw new Error('Xác nhận thất bại');
 
+            // Move item from autoMatchedItems to confirmedItems locally
+            const txIndex = state.autoMatchedItems.findIndex(t => String(t.id) === String(txId));
+            if (txIndex !== -1) {
+                const tx = state.autoMatchedItems[txIndex];
+                tx.is_hidden = true;  // Mark as confirmed
+                state.autoMatchedItems.splice(txIndex, 1);
+                state.confirmedItems.unshift(tx);  // Add to top of confirmed list
+            }
+
             showNotification('Đã xác nhận giao dịch!', 'success');
-            await loadTransactions();
+
+            // Re-render without fetching from API
+            renderKanbanBoard();
 
         } catch (err) {
             console.error('confirmAutoMatched error:', err);
@@ -854,6 +892,54 @@ const LiveModeModule = (function() {
         }
     }
 
+    // ===== TOOLTIP WITH FIXED POSITION =====
+
+    let tooltipElement = null;
+
+    function createTooltip() {
+        if (tooltipElement) return;
+        tooltipElement = document.createElement('div');
+        tooltipElement.className = 'live-tooltip';
+        tooltipElement.style.display = 'none';
+        document.body.appendChild(tooltipElement);
+    }
+
+    function showTooltip(e) {
+        const target = e.target.closest('.card-content[data-tooltip]');
+        if (!target) return;
+
+        createTooltip();
+        const text = target.getAttribute('data-tooltip');
+        if (!text) return;
+
+        tooltipElement.textContent = text;
+        tooltipElement.style.display = 'block';
+
+        // Position below the element
+        const rect = target.getBoundingClientRect();
+        let top = rect.bottom + 6;
+        let left = rect.left;
+
+        // Keep tooltip within viewport
+        const tooltipRect = tooltipElement.getBoundingClientRect();
+        if (left + tooltipRect.width > window.innerWidth - 10) {
+            left = window.innerWidth - tooltipRect.width - 10;
+        }
+        if (top + tooltipRect.height > window.innerHeight - 10) {
+            // Show above instead
+            top = rect.top - tooltipRect.height - 6;
+        }
+
+        tooltipElement.style.top = top + 'px';
+        tooltipElement.style.left = Math.max(10, left) + 'px';
+    }
+
+    function hideTooltip() {
+        if (tooltipElement) {
+            tooltipElement.style.display = 'none';
+        }
+    }
+
     // ===== EVENT DELEGATION =====
 
     function setupEventDelegation() {
@@ -861,6 +947,14 @@ const LiveModeModule = (function() {
         if (!board || board.dataset.listenerAttached) return;
 
         board.dataset.listenerAttached = 'true';
+
+        // Tooltip events - mouseover/mouseout for instant display
+        board.addEventListener('mouseover', showTooltip);
+        board.addEventListener('mouseout', (e) => {
+            if (e.target.closest('.card-content[data-tooltip]')) {
+                hideTooltip();
+            }
+        });
 
         // Click events
         board.addEventListener('click', (e) => {
@@ -1014,6 +1108,12 @@ const LiveModeModule = (function() {
         // Clear debounce timer
         if (state.searchDebounceTimer) {
             clearTimeout(state.searchDebounceTimer);
+        }
+
+        // Remove tooltip element
+        if (tooltipElement) {
+            tooltipElement.remove();
+            tooltipElement = null;
         }
 
         state.initialized = false;
