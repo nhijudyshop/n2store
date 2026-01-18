@@ -520,6 +520,8 @@ function handleFormSubmit(event) {
         data: firebase.firestore.FieldValue.arrayUnion(dataToUpload)
     }).then(() => {
         logAction("add", `Thêm mới: ${customerInfoValue}`, null, dataToUpload);
+        // Force refresh from Firebase to ensure data consistency
+        updateTable(true);
     }).catch((error) => {
         console.error('[HangHoan] Firebase add error:', error);
         // Rollback on error
