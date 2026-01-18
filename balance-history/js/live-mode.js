@@ -24,6 +24,7 @@ const LiveModeModule = (function() {
         sseConnection: null,
         sseReconnectAttempts: 0,
         maxReconnectAttempts: 10,
+        sseDebounceTimer: null,  // Debounce rapid SSE updates
 
         // TPOS Cache with expiry
         tposCache: new Map(),
@@ -753,14 +754,25 @@ const LiveModeModule = (function() {
                 updateSSEStatus(true);
             };
 
-            state.sseConnection.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    handleSSEMessage(data);
-                } catch (err) {
-                    console.log('[LiveMode] SSE message parse error:', err);
-                }
-            };
+            // Listen for specific SSE event types (same as main.js)
+            state.sseConnection.addEventListener('new-transaction', (event) => {
+                console.log('[LiveMode] SSE new-transaction received');
+                handleSSEMessage({ type: 'new-transaction', data: JSON.parse(event.data) });
+            });
+
+            state.sseConnection.addEventListener('customer-info-updated', (event) => {
+                console.log('[LiveMode] SSE customer-info-updated received');
+                handleSSEMessage({ type: 'customer-info-updated', data: JSON.parse(event.data) });
+            });
+
+            state.sseConnection.addEventListener('pending-match-created', (event) => {
+                console.log('[LiveMode] SSE pending-match-created received');
+                handleSSEMessage({ type: 'pending-match-created', data: JSON.parse(event.data) });
+            });
+
+            state.sseConnection.addEventListener('connected', (event) => {
+                console.log('[LiveMode] SSE connected event:', JSON.parse(event.data));
+            });
 
             state.sseConnection.onerror = () => {
                 console.log('[LiveMode] SSE error, reconnecting...');
@@ -785,10 +797,20 @@ const LiveModeModule = (function() {
         }
     }
 
-    function handleSSEMessage(data) {
-        if (data.type === 'transaction_new' || data.type === 'transaction_update') {
-            // Reload to get fresh data
-            loadTransactions();
+    function handleSSEMessage(message) {
+        const { type, data } = message;
+        console.log('[LiveMode] handleSSEMessage:', type);
+
+        // All event types should trigger a reload to get fresh data
+        if (type === 'new-transaction' || type === 'customer-info-updated' || type === 'pending-match-created') {
+            // Debounce rapid updates - wait 500ms before reloading
+            if (state.sseDebounceTimer) {
+                clearTimeout(state.sseDebounceTimer);
+            }
+            state.sseDebounceTimer = setTimeout(() => {
+                console.log('[LiveMode] Reloading transactions after SSE event');
+                loadTransactions();
+            }, 500);
         }
     }
 
