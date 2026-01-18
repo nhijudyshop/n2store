@@ -343,11 +343,8 @@ function sortDataByNewest(dataArray) {
         if (!timeB) return -1;
 
         // Descending: newest first (larger timestamp comes first)
-        // Nếu B mới hơn A (B > A) → B lên trước → return -1
-        // Nếu A mới hơn B (A > B) → A lên trước → return 1
-        if (timeB.getTime() > timeA.getTime()) return -1;
-        if (timeB.getTime() < timeA.getTime()) return 1;
-        return 0;
+        // timeB - timeA: nếu B mới hơn (B > A) → dương → B lên trước
+        return timeB.getTime() - timeA.getTime();
     });
 
     console.log("First 3 items AFTER sort:");
