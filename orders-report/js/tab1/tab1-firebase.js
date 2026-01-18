@@ -19,6 +19,7 @@ try {
 let firestoreDb = null;
 try {
     firestoreDb = firebase.firestore();
+    window.firestoreDb = firestoreDb; // Expose globally for debugging
     console.log('[TAB1] Firestore reference obtained');
 } catch (error) {
     console.error('[TAB1] Firestore reference error:', error);

@@ -124,6 +124,9 @@ function applyEmployeeRanges() {
         }
     });
 
+    // Use local firestoreDb or fallback to window.firestoreDb
+    const db = (typeof firestoreDb !== 'undefined' && firestoreDb) ? firestoreDb : window.firestoreDb;
+
     // Determine save logic based on selected campaign
     const campaignSelector = document.getElementById('employeeCampaignSelector');
     let campaignInfo = '(cấu hình chung)';
@@ -139,8 +142,8 @@ function applyEmployeeRanges() {
             console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaign.displayName} (key: ${sanitizedName})`);
 
             // Load current campaign configs, update the specific campaign, then save to Firestore
-            if (firestoreDb) {
-                const docRef = firestoreDb.collection('settings').doc('employee_ranges_by_campaign');
+            if (db) {
+                const docRef = db.collection('settings').doc('employee_ranges_by_campaign');
                 docRef.get()
                     .then((doc) => {
                         const allCampaignRanges = doc.exists ? doc.data() : {};
@@ -171,8 +174,8 @@ function applyEmployeeRanges() {
     }
 
     // Save general config (default path) to Firestore
-    if (firestoreDb) {
-        firestoreDb.collection('settings').doc('employee_ranges').set({ ranges: newRanges })
+    if (db) {
+        db.collection('settings').doc('employee_ranges').set({ ranges: newRanges })
             .then(() => {
                 if (window.notificationManager) {
                     window.notificationManager.show(`✅ Đã lưu phân chia cho ${newRanges.length} nhân viên ${campaignInfo}`, 'success');
@@ -293,31 +296,64 @@ function checkAdminPermission() {
 
 // Helper function to convert Firebase object to array if needed
 function normalizeEmployeeRanges(data) {
-    if (!data) return [];
+    if (!data) {
+        console.log('[EMPLOYEE] normalizeEmployeeRanges: data is null/undefined');
+        return [];
+    }
+
+    console.log('[EMPLOYEE] normalizeEmployeeRanges input:', typeof data, Array.isArray(data) ? 'array' : 'object', data);
 
     // If already an array, return it
     if (Array.isArray(data)) {
+        console.log('[EMPLOYEE] Data is already an array with', data.length, 'items');
         return data;
     }
 
     // If it's an object, convert to array
     if (typeof data === 'object') {
         const result = [];
-        // Get all numeric keys and sort them
-        const keys = Object.keys(data).filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
-        for (const key of keys) {
-            result.push(data[key]);
+        const allKeys = Object.keys(data);
+
+        // Try numeric keys first (Firebase array-like object: {0: {...}, 1: {...}})
+        const numericKeys = allKeys.filter(k => !isNaN(k)).sort((a, b) => Number(a) - Number(b));
+
+        if (numericKeys.length > 0) {
+            // Has numeric keys - Firebase stored array as object
+            for (const key of numericKeys) {
+                if (data[key] && typeof data[key] === 'object') {
+                    result.push(data[key]);
+                }
+            }
+            console.log(`[EMPLOYEE] Converted object with ${numericKeys.length} numeric keys to array`);
+        } else {
+            // No numeric keys - maybe keys are user IDs or other strings
+            // Check if values have the expected structure (name, start, end)
+            for (const key of allKeys) {
+                const item = data[key];
+                if (item && typeof item === 'object' && 'start' in item && 'end' in item) {
+                    // Add the key as id if not present
+                    if (!item.id) {
+                        item.id = key;
+                    }
+                    result.push(item);
+                }
+            }
+            console.log(`[EMPLOYEE] Converted object with ${allKeys.length} non-numeric keys to array (${result.length} valid items)`);
         }
-        console.log(`[EMPLOYEE] Converted object with ${keys.length} keys to array`);
+
         return result;
     }
 
+    console.log('[EMPLOYEE] Data type not recognized:', typeof data);
     return [];
 }
 
 function loadEmployeeRangesForCampaign(campaignName = null) {
-    if (!firestoreDb) {
-        console.log('[EMPLOYEE] Firestore not initialized');
+    // Use local firestoreDb or fallback to window.firestoreDb
+    const db = (typeof firestoreDb !== 'undefined' && firestoreDb) ? firestoreDb : window.firestoreDb;
+
+    if (!db) {
+        console.error('[EMPLOYEE] Firestore not initialized. firestoreDb:', typeof firestoreDb, 'window.firestoreDb:', typeof window.firestoreDb);
         return Promise.resolve();
     }
 
@@ -326,7 +362,7 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
         const sanitizedName = sanitizeCampaignName(campaignName);
         console.log(`[EMPLOYEE] Loading ranges for campaign: ${campaignName} (key: ${sanitizedName})`);
 
-        return firestoreDb.collection('settings').doc('employee_ranges_by_campaign').get()
+        return db.collection('settings').doc('employee_ranges_by_campaign').get()
             .then((doc) => {
                 const allCampaignRanges = doc.exists ? doc.data() : {};
                 const data = allCampaignRanges[sanitizedName];
@@ -334,14 +370,16 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 
                 if (normalized.length > 0) {
                     employeeRanges = normalized;
+                    window.employeeRanges = employeeRanges; // Sync to window
                     console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
                 } else {
                     // If no campaign-specific ranges found, fall back to general config
                     console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
-                    return firestoreDb.collection('settings').doc('employee_ranges').get()
+                    return db.collection('settings').doc('employee_ranges').get()
                         .then((doc) => {
                             const data = doc.exists ? doc.data() : null;
                             employeeRanges = normalizeEmployeeRanges(data?.ranges || data);
+                            window.employeeRanges = employeeRanges; // Sync to window
                             console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
                         });
                 }
@@ -359,10 +397,11 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
         // Load general config
         console.log('[EMPLOYEE] Loading general employee ranges');
 
-        return firestoreDb.collection('settings').doc('employee_ranges').get()
+        return db.collection('settings').doc('employee_ranges').get()
             .then((doc) => {
                 const data = doc.exists ? doc.data() : null;
                 employeeRanges = normalizeEmployeeRanges(data?.ranges || data);
+                window.employeeRanges = employeeRanges; // Sync to window
                 console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config`);
 
                 // Update employee table if drawer is open
@@ -378,12 +417,17 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 }
 
 function syncEmployeeRanges() {
-    if (!firestoreDb) return;
+    const db = (typeof firestoreDb !== 'undefined' && firestoreDb) ? firestoreDb : window.firestoreDb;
+    if (!db) {
+        console.error('[EMPLOYEE] syncEmployeeRanges: Firestore not available');
+        return;
+    }
 
     // Use Firestore onSnapshot for realtime sync
-    firestoreDb.collection('settings').doc('employee_ranges').onSnapshot((doc) => {
+    db.collection('settings').doc('employee_ranges').onSnapshot((doc) => {
         const data = doc.exists ? doc.data() : null;
         employeeRanges = normalizeEmployeeRanges(data?.ranges || data);
+        window.employeeRanges = employeeRanges; // Sync to window
         console.log(`[EMPLOYEE] Synced ${employeeRanges.length} ranges from Firestore`);
 
         // Re-apply filter to current view
