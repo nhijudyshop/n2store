@@ -207,6 +207,7 @@ let displayedData = [];
  */
 const OrderStore = {
     _orders: new Map(),         // Main storage: orderId -> order object
+    _ordersBySTT: new Map(),    // Secondary index: SessionIndex (STT) -> order object (for bulk tagging)
     _initialized: false,        // Flag to track initialization
 
     /**
@@ -215,15 +216,20 @@ const OrderStore = {
      */
     setAll(orders) {
         this._orders.clear();
+        this._ordersBySTT.clear();
         if (orders && orders.length > 0) {
             orders.forEach(order => {
                 if (order && order.Id) {
                     this._orders.set(order.Id, order);
+                    // Also index by SessionIndex (STT) for bulk tagging
+                    if (order.SessionIndex !== undefined && order.SessionIndex !== null) {
+                        this._ordersBySTT.set(String(order.SessionIndex), order);
+                    }
                 }
             });
         }
         this._initialized = true;
-        console.log(`[OrderStore] ✅ Initialized with ${this._orders.size} orders`);
+        console.log(`[OrderStore] ✅ Initialized with ${this._orders.size} orders, ${this._ordersBySTT.size} STT indexed`);
     },
 
     /**
@@ -235,9 +241,13 @@ const OrderStore = {
         orders.forEach(order => {
             if (order && order.Id) {
                 this._orders.set(order.Id, order);
+                // Also index by SessionIndex (STT) for bulk tagging
+                if (order.SessionIndex !== undefined && order.SessionIndex !== null) {
+                    this._ordersBySTT.set(String(order.SessionIndex), order);
+                }
             }
         });
-        console.log(`[OrderStore] ➕ Added batch of ${orders.length} orders, total: ${this._orders.size}`);
+        console.log(`[OrderStore] ➕ Added batch of ${orders.length} orders, total: ${this._orders.size}, STT: ${this._ordersBySTT.size}`);
     },
 
     /**
@@ -256,6 +266,15 @@ const OrderStore = {
      */
     has(orderId) {
         return this._orders.has(orderId);
+    },
+
+    /**
+     * O(1) lookup by SessionIndex (STT) - For bulk tagging operations
+     * @param {number|string} stt - SessionIndex value to find
+     * @returns {Object|undefined} Order object or undefined
+     */
+    getBySTT(stt) {
+        return this._ordersBySTT.get(String(stt));
     },
 
     /**
@@ -304,6 +323,7 @@ const OrderStore = {
      */
     clear() {
         this._orders.clear();
+        this._ordersBySTT.clear();
         this._initialized = false;
         console.log('[OrderStore] 🗑️ Cleared');
     },
@@ -314,13 +334,18 @@ const OrderStore = {
      */
     syncFromArray(arr) {
         this._orders.clear();
+        this._ordersBySTT.clear();
         arr.forEach(order => {
             if (order && order.Id) {
                 this._orders.set(order.Id, order);
+                // Also index by SessionIndex (STT) for bulk tagging
+                if (order.SessionIndex !== undefined && order.SessionIndex !== null) {
+                    this._ordersBySTT.set(String(order.SessionIndex), order);
+                }
             }
         });
         this._initialized = true;
-        console.log(`[OrderStore] 🔄 Synced from array: ${this._orders.size} orders`);
+        console.log(`[OrderStore] 🔄 Synced from array: ${this._orders.size} orders, ${this._ordersBySTT.size} STT indexed`);
     }
 };
 

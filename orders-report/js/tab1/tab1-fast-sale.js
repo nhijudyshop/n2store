@@ -190,7 +190,8 @@ async function fetchFastSaleOrdersData(orderIds) {
         // Fallback: return basic data from displayedData
         console.warn('[FAST-SALE] Using fallback data from displayedData');
         return orderIds.map(orderId => {
-            const order = displayedData.find(o => o.Id === orderId);
+            // O(1) via OrderStore with fallback
+            const order = window.OrderStore?.get(orderId) || displayedData.find(o => o.Id === orderId);
             if (!order) return null;
 
             return {
@@ -293,7 +294,8 @@ async function renderFastSaleModalBody() {
                 let saleOnlineOrder = null;
                 if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                     const saleOnlineId = order.SaleOnlineIds[0];
-                    saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+                    // O(1) via OrderStore with fallback
+                    saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
                     address = saleOnlineOrder?.Address || '';
                 }
 
@@ -314,11 +316,11 @@ async function renderFastSaleModalBody() {
  * @returns {string} HTML string
  */
 function renderFastSaleOrderRow(order, index, carriers = []) {
-    // Get SaleOnlineOrder from displayedData to get phone and address
+    // Get SaleOnlineOrder from displayedData to get phone and address - O(1) via OrderStore
     let saleOnlineOrder = null;
     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
         const saleOnlineId = order.SaleOnlineIds[0];
-        saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+        saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
     }
 
     const customerName = order.PartnerDisplayName || order.Partner?.PartnerDisplayName || saleOnlineOrder?.Name || 'N/A';
@@ -488,11 +490,11 @@ function collectFastSaleData() {
         const carrierId = parseInt(carrierSelect?.value) || 0;
         const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.dataset?.name || '';
 
-        // Get SaleOnlineOrder for phone and address
+        // Get SaleOnlineOrder for phone and address - O(1) via OrderStore
         let saleOnlineOrder = null;
         if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
             const saleOnlineId = order.SaleOnlineIds[0];
-            saleOnlineOrder = displayedData.find(o => o.Id === saleOnlineId);
+            saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
         }
 
         // Get dimensions
@@ -914,10 +916,10 @@ async function preGenerateBillImages() {
             );
             const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
 
-            // Find saleOnline order from displayedData
+            // Find saleOnline order from displayedData - O(1) via OrderStore
             const saleOnlineId = order.SaleOnlineIds?.[0];
             const saleOnlineOrderForData = saleOnlineId
-                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                ? (window.OrderStore?.get(saleOnlineId) || window.OrderStore?.get(String(saleOnlineId)) || displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)))
                 : null;
 
             // Get CarrierName from form dropdown
@@ -1378,10 +1380,10 @@ async function printSuccessOrders(type) {
             );
             const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
 
-            // Also try to find saleOnline order from displayedData for additional data
+            // Also try to find saleOnline order from displayedData for additional data - O(1) via OrderStore
             const saleOnlineId = order.SaleOnlineIds?.[0];
             const saleOnlineOrderForData = saleOnlineId
-                ? displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId))
+                ? (window.OrderStore?.get(saleOnlineId) || window.OrderStore?.get(String(saleOnlineId)) || displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)))
                 : null;
 
             // Get CarrierName from form dropdown (same logic as collectFastSaleData)

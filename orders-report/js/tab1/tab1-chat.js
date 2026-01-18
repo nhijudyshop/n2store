@@ -1480,8 +1480,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     window.hideConversationSelector();
 
     // Get order info
-    // First try to find order by exact ID match
-    let order = allData.find(o => o.Id === orderId);
+    // First try to find order by exact ID match - O(1) via OrderStore
+    let order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
     // If not found, check if this orderId is in a merged order's OriginalIds
     if (!order) {
         order = allData.find(o => o.IsMerged && o.OriginalIds && o.OriginalIds.includes(orderId));

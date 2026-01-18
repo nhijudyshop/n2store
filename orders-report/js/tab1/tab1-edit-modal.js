@@ -874,8 +874,8 @@ async function saveAllOrderChanges() {
         // Clear cache và reload data từ API
         window.cacheManager.clear("orders");
 
-        // 🔒 Preserve Tags từ dữ liệu cũ trước khi fetch
-        const existingOrder = allData.find(order => order.Id === currentEditOrderId);
+        // 🔒 Preserve Tags từ dữ liệu cũ trước khi fetch - O(1) via OrderStore
+        const existingOrder = window.OrderStore?.get(currentEditOrderId) || allData.find(order => order.Id === currentEditOrderId);
         const preservedTags = existingOrder ? existingOrder.Tags : null;
 
         await fetchOrderData(currentEditOrderId);

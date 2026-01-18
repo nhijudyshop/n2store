@@ -57,8 +57,8 @@ function updateOrderInTable(orderId, updatedOrderData) {
     const isTagsOnlyUpdate = updatedKeys.length === 1 && updatedKeys[0] === 'Tags';
 
     if (isTagsOnlyUpdate) {
-        // Find order to get Code for parseOrderTags
-        const order = allData.find(o => o.Id === orderId);
+        // Find order to get Code for parseOrderTags - O(1) via OrderStore
+        const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
         if (order) {
             updateRowTagsOnly(orderId, cleanedData.Tags, order.Code);
             console.log('[UPDATE] ✓ Tags updated inline (no scroll reset)');
@@ -1483,7 +1483,8 @@ function sendDataToTab2() {
 
 
 function isOrderSelectable(orderId) {
-    const order = allData.find(o => o.Id === orderId);
+    // O(1) via OrderStore with fallback
+    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
     if (!order) return true; // Nếu không tìm thấy, cho phép select
 
     // Kiểm tra số lượng = 0

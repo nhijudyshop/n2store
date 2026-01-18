@@ -476,8 +476,8 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
             }
         }
 
-        // Get current order from data
-        const order = allData.find(o => o.Id === orderId);
+        // Get current order from data - O(1) via OrderStore with fallback
+        const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
         if (!order) {
             throw new Error('Không tìm thấy đơn hàng');
         }
@@ -576,8 +576,8 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
     try {
         console.log('[QUICK-TAG] Removing tag:', { orderId, orderCode, tagId });
 
-        // Get current order from data
-        const order = allData.find(o => o.Id === orderId);
+        // Get current order from data - O(1) via OrderStore with fallback
+        const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
         if (!order) {
             throw new Error('Không tìm thấy đơn hàng');
         }
@@ -840,7 +840,8 @@ function populateTagFilter() {
 
 function openTagModal(orderId, orderCode) {
     currentEditingOrderId = orderId;
-    const order = allData.find((o) => o.Id === orderId);
+    // O(1) via OrderStore with fallback
+    const order = window.OrderStore?.get(orderId) || allData.find((o) => o.Id === orderId);
     currentOrderTags = order && order.Tags ? JSON.parse(order.Tags) : [];
 
     renderTagList();

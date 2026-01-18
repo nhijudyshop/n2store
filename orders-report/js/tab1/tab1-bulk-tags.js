@@ -537,8 +537,8 @@ function addSTTToBulkTagRow(tagId, inputElement) {
     const tagData = bulkTagModalData.find(t => t.tagId === tagId);
     if (!tagData) return;
 
-    // Check if STT exists in current data
-    const order = displayedData.find(o => o.SessionIndex === stt);
+    // Check if STT exists in current data - O(1) via OrderStore.getBySTT
+    const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
     if (!order) {
         if (window.notificationManager) {
             window.notificationManager.warning(`STT ${stt} không tồn tại trong danh sách hiện tại`, 2000);
@@ -614,9 +614,9 @@ function updateBulkTagModalTable() {
         const sttCount = sttArray.length;
         const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
 
-        // Get customer names for STTs
+        // Get customer names for STTs - O(1) via OrderStore.getBySTT
         const sttPillsHtml = sttArray.map(stt => {
-            const order = displayedData.find(o => o.SessionIndex === stt);
+            const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
             const customerName = order ? (order.Name || order.PartnerName || 'N/A') : 'N/A';
             return `
                 <div class="bulk-tag-stt-pill">
@@ -1754,8 +1754,8 @@ function addSTTToBulkTagDeleteRow(tagId, inputElement) {
     const tagData = bulkTagDeleteModalData.find(t => t.tagId === tagId);
     if (!tagData) return;
 
-    // Check if STT exists in current data
-    const order = displayedData.find(o => o.SessionIndex === stt);
+    // Check if STT exists in current data - O(1) via OrderStore.getBySTT
+    const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
     if (!order) {
         if (window.notificationManager) {
             window.notificationManager.warning(`STT ${stt} không tồn tại trong danh sách hiện tại`, 2000);
@@ -1831,9 +1831,9 @@ function updateBulkTagDeleteModalTable() {
         const sttCount = sttArray.length;
         const hasError = tagData.errorMessage && tagData.errorMessage.length > 0;
 
-        // Get customer names for STTs
+        // Get customer names for STTs - O(1) via OrderStore.getBySTT
         const sttPillsHtml = sttArray.map(stt => {
-            const order = displayedData.find(o => o.SessionIndex === stt);
+            const order = window.OrderStore?.getBySTT(stt) || displayedData.find(o => o.SessionIndex === stt);
             const customerName = order ? (order.Name || order.PartnerName || 'N/A') : 'N/A';
             return `
                 <div class="bulk-tag-stt-pill">

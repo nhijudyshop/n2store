@@ -1032,7 +1032,8 @@ async function openSaleButtonModal() {
     }
 
     const orderId = Array.from(selectedOrderIds)[0];
-    const order = allData.find(o => o.Id === orderId);
+    // O(1) via OrderStore with fallback
+    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
 
     if (!order) {
         if (window.notificationManager) {
