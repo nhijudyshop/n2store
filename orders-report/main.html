@@ -662,19 +662,11 @@
         // Listen for messages from iframes
         window.addEventListener("message", function (e) {
             if (e.data.type === "FILTER_CHANGED") {
-                // Tab 1 filter changed - only store metadata to avoid quota issues
-                try {
-                    const metadataOnly = {
-                        totalRecords: e.data.filter?.totalRecords,
-                        timestamp: e.data.filter?.timestamp,
-                    };
-                    localStorage.setItem(
-                        "tab1_filter_data",
-                        JSON.stringify(metadataOnly),
-                    );
-                } catch (err) {
-                    console.warn('[STORAGE] Could not save filter data:', err.message);
-                }
+                // Tab 1 filter changed
+                localStorage.setItem(
+                    "tab1_filter_data",
+                    JSON.stringify(e.data.filter),
+                );
                 showSyncIndicator();
             } else if (e.data.type === "REQUEST_FILTER_DATA") {
                 // Tab 2 requesting current filter data
