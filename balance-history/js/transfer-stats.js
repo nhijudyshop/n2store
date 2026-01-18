@@ -88,7 +88,7 @@ async function loadTransferStats() {
     }
 }
 
-function filterTransferStats() {
+function filterTransferStats(keepCurrentPage = false) {
     const visibilityFilter = document.getElementById('tsVisibilityFilter')?.value || 'all';
     const verifiedFilter = document.getElementById('tsVerifiedFilter')?.value || 'all';
     const searchInput = document.getElementById('tsSearchInput')?.value?.toLowerCase() || '';
@@ -117,9 +117,14 @@ function filterTransferStats() {
         return true;
     });
 
-    // Reset to page 1
-    tsCurrentPage = 1;
     tsTotalPages = Math.ceil(tsFilteredData.length / TS_PAGE_SIZE) || 1;
+
+    // Reset to page 1 only if not keeping current page, or if current page exceeds total
+    if (!keepCurrentPage) {
+        tsCurrentPage = 1;
+    } else if (tsCurrentPage > tsTotalPages) {
+        tsCurrentPage = tsTotalPages;
+    }
 
     renderTSTable();
     updateTSStats();
@@ -663,8 +668,8 @@ async function saveTSEdit(e) {
                 item.notes = notes || null;
             }
 
-            // Re-render
-            filterTransferStats();
+            // Re-render (keep current page position)
+            filterTransferStats(true);
             closeEditTSModal();
 
             if (window.NotificationManager) {
