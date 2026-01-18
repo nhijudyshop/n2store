@@ -158,15 +158,26 @@ function setupTagRealtimeListeners() {
     // 1. Setup Firebase listener
     if (database) {
         const refPath = `tag_updates`;
+        // ═══════════════════════════════════════════════════════════════════
+        // PHASE D: startAt(now) - Chỉ lắng nghe updates MỚI từ thời điểm này
+        // Không tải toàn bộ lịch sử tag_updates cũ (có thể 10,000+ records)
+        // ═══════════════════════════════════════════════════════════════════
+        const startTime = Date.now();
         console.log('[TAG-REALTIME] Setting up Firebase listener on:', refPath);
+        console.log('[TAG-REALTIME] Only listening for updates after:', new Date(startTime).toLocaleString());
 
         // Get current user name
         const auth = window.authManager ? window.authManager.getAuthState() : null;
         const currentUserName = auth && auth.displayName ? auth.displayName : 'Unknown';
         console.log('[TAG-REALTIME] Current user:', currentUserName);
 
-        // Listen for tag updates
-        database.ref(refPath).on('child_changed', (snapshot) => {
+        // ═══════════════════════════════════════════════════════════════════
+        // PHASE D: Query với orderByChild + startAt để chỉ nhận updates mới
+        // ═══════════════════════════════════════════════════════════════════
+        const tagUpdatesRef = database.ref(refPath).orderByChild('timestamp').startAt(startTime);
+
+        // Listen for tag updates (child_changed on existing entries)
+        tagUpdatesRef.on('child_changed', (snapshot) => {
             const updateData = snapshot.val();
             console.log('[TAG-REALTIME] Firebase tag update received:', updateData);
 
@@ -178,25 +189,22 @@ function setupTagRealtimeListeners() {
             }
         });
 
-        database.ref(refPath).on('child_added', (snapshot) => {
+        // Listen for NEW tag updates (child_added after startTime)
+        // Nhờ startAt(startTime), Firebase chỉ gửi các entries mới
+        tagUpdatesRef.on('child_added', (snapshot) => {
             const updateData = snapshot.val();
+            console.log('[TAG-REALTIME] Firebase new tag update:', updateData);
 
-            // Only process if timestamp is recent (within last 5 seconds)
-            // This prevents showing notifications for old data when first connecting
-            if (updateData.timestamp && (Date.now() - updateData.timestamp < 5000)) {
-                console.log('[TAG-REALTIME] Firebase new tag update:', updateData);
-
-                // Only process if update is from another user
-                if (updateData.updatedBy !== currentUserName) {
-                    handleRealtimeTagUpdate(updateData, 'firebase');
-                } else {
-                    console.log('[TAG-REALTIME] Skipping own update');
-                }
+            // Only process if update is from another user
+            if (updateData.updatedBy !== currentUserName) {
+                handleRealtimeTagUpdate(updateData, 'firebase');
+            } else {
+                console.log('[TAG-REALTIME] Skipping own update');
             }
         });
 
         tagListenersSetup = true;
-        console.log('[TAG-REALTIME] ✅ Firebase listeners setup complete');
+        console.log('[TAG-REALTIME] ✅ Firebase listeners setup complete (optimized with startAt)');
     }
 
     // 2. Setup WebSocket listener (for future backend support)

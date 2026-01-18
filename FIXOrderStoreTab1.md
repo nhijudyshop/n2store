@@ -473,3 +473,157 @@ To revert Phase A Extended changes:
 - [x] tab1-bulk-tags.js - 4 locations optimized with getBySTT()
 
 **Total: 22 O(n) lookups converted to O(1)**
+
+---
+
+## 🔄 PHASE C: DEBOUNCED BACKGROUND RENDER
+
+**Date:** 2026-01-18
+**Status:** ✅ COMPLETED
+**File:** `orders-report/js/tab1/tab1-search.js`
+
+### Problem
+Khi tải 2,500 đơn hàng với UPDATE_EVERY = 200:
+- Mỗi 200 đơn gọi `performTableSearch()` → 12-13 lần render
+- Mỗi lần render: filter O(n) + sort O(n log n) + DOM update
+- UI freezes 200-500ms mỗi lần render
+
+### Solution
+Thêm `scheduleRender()` debounce utility - gom nhiều lần render thành 1:
+- Đợi 500ms không có data mới thì mới render
+- Giảm từ 12 lần render xuống còn 2-3 lần (hoặc 1 nếu tải nhanh)
+
+### Changes
+
+**Lines 1139-1175:** Added debounce utility
+```javascript
+// PHASE C: Debounced Render
+let pendingRenderTimeout = null;
+const RENDER_DEBOUNCE_MS = 500;
+
+function scheduleRender(isFinalRender = false) {
+    if (isFinalRender) {
+        // Cancel pending và render ngay
+        if (pendingRenderTimeout) {
+            clearTimeout(pendingRenderTimeout);
+            pendingRenderTimeout = null;
+        }
+        performTableSearch();
+        updateSearchResultCount();
+        return;
+    }
+
+    if (pendingRenderTimeout) {
+        clearTimeout(pendingRenderTimeout);
+    }
+    pendingRenderTimeout = setTimeout(() => {
+        performTableSearch();
+        updateSearchResultCount();
+        pendingRenderTimeout = null;
+    }, RENDER_DEBOUNCE_MS);
+}
+```
+
+**Line 1370:** Replaced in background loading loop
+```javascript
+// BEFORE:
+performTableSearch();
+updateSearchResultCount();
+
+// AFTER:
+scheduleRender(); // Debounced - không render ngay
+```
+
+**Line 1397:** Final render
+```javascript
+// BEFORE:
+performTableSearch();
+updateSearchResultCount();
+
+// AFTER:
+scheduleRender(true); // Final - render ngay lập tức
+```
+
+### Revert Instructions
+1. Remove lines 1139-1175 (debounce utility)
+2. Replace `scheduleRender()` at line 1370 with:
+   ```javascript
+   performTableSearch();
+   updateSearchResultCount();
+   ```
+3. Replace `scheduleRender(true)` at line 1397 with:
+   ```javascript
+   performTableSearch();
+   updateSearchResultCount();
+   ```
+
+---
+
+## 🔄 PHASE D: FIREBASE startAt() OPTIMIZATION
+
+**Date:** 2026-01-18
+**Status:** ✅ COMPLETED
+**File:** `orders-report/js/tab1/tab1-firebase.js`
+
+### Problem
+Khi mở trang, Firebase listener tải **TOÀN BỘ** lịch sử `tag_updates`:
+- Có thể 10,000+ records (mỗi lần gán tag = 1 record)
+- Chỉ filter trong code bằng `if (Date.now() - timestamp < 5000)`
+- Download 2MB nhưng chỉ dùng vài KB → lãng phí 99%
+
+### Solution
+Dùng `orderByChild('timestamp').startAt(now)` - Firebase chỉ gửi updates MỚI:
+- Initial download: 0KB (không tải lịch sử)
+- Chỉ nhận real-time updates sau thời điểm mở trang
+
+### Changes
+
+**Lines 161-177:** Added startAt query
+```javascript
+// BEFORE:
+database.ref(refPath).on('child_added', ...)
+database.ref(refPath).on('child_changed', ...)
+
+// AFTER:
+const startTime = Date.now();
+const tagUpdatesRef = database.ref(refPath)
+    .orderByChild('timestamp')
+    .startAt(startTime);
+
+tagUpdatesRef.on('child_added', ...)
+tagUpdatesRef.on('child_changed', ...)
+```
+
+**Lines 192-204:** Simplified child_added (no timestamp check needed)
+```javascript
+// BEFORE:
+if (updateData.timestamp && (Date.now() - updateData.timestamp < 5000)) {
+    // process
+}
+
+// AFTER:
+// Không cần check timestamp nữa vì startAt đã filter rồi
+if (updateData.updatedBy !== currentUserName) {
+    handleRealtimeTagUpdate(updateData, 'firebase');
+}
+```
+
+### Revert Instructions
+Replace the entire `setupTagRealtimeListeners()` function (lines 151-216) with the original version that uses:
+```javascript
+database.ref(refPath).on('child_changed', ...)
+database.ref(refPath).on('child_added', ...)
+```
+Without the `orderByChild('timestamp').startAt(startTime)` query.
+
+### Firebase Index Required
+For optimal performance, add this index to Firebase rules:
+```json
+{
+  "rules": {
+    "tag_updates": {
+      ".indexOn": ["timestamp"]
+    }
+  }
+}
+```

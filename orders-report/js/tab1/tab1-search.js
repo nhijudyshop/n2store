@@ -1136,6 +1136,44 @@ let isLoadingConversations = false;
 // Guard flag to prevent duplicate fetchOrders calls
 let isFetchingOrders = false;
 
+// ═══════════════════════════════════════════════════════════════════
+// PHASE C: Debounced Render - Giảm từ 12 lần render xuống còn 1 lần
+// Thay vì render mỗi 200 đơn, gom lại render 1 lần sau khi tải xong batch
+// ═══════════════════════════════════════════════════════════════════
+let pendingRenderTimeout = null;
+const RENDER_DEBOUNCE_MS = 500; // Đợi 500ms không có data mới thì mới render
+
+/**
+ * Debounced render - gom nhiều lần render thành 1
+ * @param {boolean} isFinalRender - true nếu là lần render cuối (tải xong hoàn toàn)
+ */
+function scheduleRender(isFinalRender = false) {
+    // Nếu là final render, cancel pending và render ngay
+    if (isFinalRender) {
+        if (pendingRenderTimeout) {
+            clearTimeout(pendingRenderTimeout);
+            pendingRenderTimeout = null;
+        }
+        console.log('[PROGRESSIVE] Final render triggered');
+        performTableSearch();
+        updateSearchResultCount();
+        return;
+    }
+
+    // Clear pending timeout nếu có
+    if (pendingRenderTimeout) {
+        clearTimeout(pendingRenderTimeout);
+    }
+
+    // Schedule render sau RENDER_DEBOUNCE_MS
+    pendingRenderTimeout = setTimeout(() => {
+        console.log('[PROGRESSIVE] Debounced render triggered');
+        performTableSearch();
+        updateSearchResultCount();
+        pendingRenderTimeout = null;
+    }, RENDER_DEBOUNCE_MS);
+}
+
 async function fetchOrders() {
     // Prevent duplicate calls
     if (isFetchingOrders) {
@@ -1325,8 +1363,11 @@ async function fetchOrders() {
 
                             if (shouldUpdate) {
                                 console.log(`[PROGRESSIVE] Updating table: ${allData.length}/${totalCount} orders`);
-                                performTableSearch(); // Apply merging, employee filtering, and all other filters
-                                updateSearchResultCount();
+                                // ═══════════════════════════════════════════════════════════════════
+                                // PHASE C: Dùng scheduleRender() thay vì performTableSearch() trực tiếp
+                                // Gom nhiều lần render thành 1 lần sau 500ms không có data mới
+                                // ═══════════════════════════════════════════════════════════════════
+                                scheduleRender(); // Debounced - không render ngay mà đợi gom
                                 showInfoBanner(
                                     `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
                                 );
@@ -1350,8 +1391,10 @@ async function fetchOrders() {
                         // so renderByEmployee() knows loading is complete
                         isLoadingInBackground = false;
                         console.log('[PROGRESSIVE] Background loading completed');
-                        performTableSearch(); // Final merge and render
-                        updateSearchResultCount();
+                        // ═══════════════════════════════════════════════════════════════════
+                        // PHASE C: Final render - cancel pending debounce và render ngay
+                        // ═══════════════════════════════════════════════════════════════════
+                        scheduleRender(true); // Final merge and render (immediate, not debounced)
                         showInfoBanner(
                             `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
                         );
