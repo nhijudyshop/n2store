@@ -78,15 +78,24 @@
 }
 
 .live-mode-header .live-date-filter .date-input {
-    width: 90px;
+    width: 130px;
     padding: 6px 10px;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     font-size: 13px;
     background: #ffffff;
     color: #1e293b;
-    text-align: center;
-    font-family: monospace;
+    cursor: pointer;
+}
+
+.live-mode-header .live-date-filter .date-input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.7;
+    filter: invert(40%) sepia(10%) saturate(500%) hue-rotate(180deg);
+}
+
+.live-mode-header .live-date-filter .date-input::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
 }
 
 .live-mode-header .live-date-filter .date-input:focus {

@@ -1078,61 +1078,17 @@ const LiveModeModule = (function() {
 
         if (startDateInput && !startDateInput.dataset.listenerAttached) {
             startDateInput.dataset.listenerAttached = 'true';
-            // Set initial value (dd/mm/yyyy format)
-            startDateInput.value = formatDateDisplay(state.filterStartDate);
+            // Set initial value (native date input uses yyyy-mm-dd)
+            startDateInput.value = state.filterStartDate;
             startDateInput.addEventListener('change', onDateFilterChange);
-            startDateInput.addEventListener('input', autoFormatDateInput);
         }
 
         if (endDateInput && !endDateInput.dataset.listenerAttached) {
             endDateInput.dataset.listenerAttached = 'true';
-            // Set initial value (dd/mm/yyyy format)
-            endDateInput.value = formatDateDisplay(state.filterEndDate);
+            // Set initial value (native date input uses yyyy-mm-dd)
+            endDateInput.value = state.filterEndDate;
             endDateInput.addEventListener('change', onDateFilterChange);
-            endDateInput.addEventListener('input', autoFormatDateInput);
         }
-    }
-
-    // Format date for display: yyyy-mm-dd -> dd/mm/yyyy
-    function formatDateDisplay(dateStr) {
-        if (!dateStr) return '';
-        // Already in dd/mm/yyyy format
-        if (dateStr.includes('/')) return dateStr;
-        // Convert from yyyy-mm-dd to dd/mm/yyyy
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
-        return dateStr;
-    }
-
-    // Parse date from dd/mm/yyyy to yyyy-mm-dd (for API)
-    function parseDateInput(dateStr) {
-        if (!dateStr) return '';
-        // Already in yyyy-mm-dd format
-        if (dateStr.includes('-') && !dateStr.includes('/')) return dateStr;
-        // Convert from dd/mm/yyyy to yyyy-mm-dd
-        const parts = dateStr.split('/');
-        if (parts.length === 3) {
-            return `${parts[2]}-${parts[1]}-${parts[0]}`;
-        }
-        return dateStr;
-    }
-
-    // Auto-format date input as user types (dd/mm/yyyy)
-    function autoFormatDateInput(e) {
-        const input = e.target;
-        let value = input.value.replace(/\D/g, ''); // Remove non-digits
-
-        if (value.length > 8) value = value.slice(0, 8);
-
-        if (value.length >= 4) {
-            value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4);
-        } else if (value.length >= 2) {
-            value = value.slice(0, 2) + '/' + value.slice(2);
-        }
-
-        input.value = value;
     }
 
     // Handle date filter change
@@ -1140,31 +1096,18 @@ const LiveModeModule = (function() {
         const startInput = document.getElementById('liveStartDate');
         const endInput = document.getElementById('liveEndDate');
 
-        // Validate and parse dd/mm/yyyy format
+        // Native date input already returns yyyy-mm-dd format
         if (startInput && startInput.value) {
-            const parsed = parseDateInput(startInput.value);
-            if (isValidDate(parsed)) {
-                state.filterStartDate = parsed;
-            }
+            state.filterStartDate = startInput.value;
         }
         if (endInput && endInput.value) {
-            const parsed = parseDateInput(endInput.value);
-            if (isValidDate(parsed)) {
-                state.filterEndDate = parsed;
-            }
+            state.filterEndDate = endInput.value;
         }
 
         console.log('[LiveMode] Date filter changed:', state.filterStartDate, 'to', state.filterEndDate);
 
         // Reload with new date range
         loadTransactions();
-    }
-
-    // Validate date string (yyyy-mm-dd)
-    function isValidDate(dateStr) {
-        if (!dateStr || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return false;
-        const date = new Date(dateStr);
-        return !isNaN(date.getTime());
     }
 
     function destroy() {
