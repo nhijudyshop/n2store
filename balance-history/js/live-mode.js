@@ -131,8 +131,9 @@ const LiveModeModule = (function() {
         }
 
         // NHẬP TAY: Chưa có khách hàng hoặc cần xử lý
+        // Use customer_phone (from backend JOIN) as the primary field
         if (
-            !tx.linked_customer_phone ||
+            !tx.customer_phone ||
             tx.has_pending_match === true ||
             (tx.pending_match_skipped && tx.pending_match_options?.length > 0)
         ) {
@@ -181,9 +182,9 @@ const LiveModeModule = (function() {
             const query = state.searchQuery.toLowerCase();
             return items.filter(tx =>
                 (tx.content || '').toLowerCase().includes(query) ||
-                (tx.linked_customer_name || '').toLowerCase().includes(query) ||
-                (tx.linked_customer_phone || '').includes(query) ||
-                String(tx.amount_in || tx.amount_out || '').includes(query)
+                (tx.customer_name || '').toLowerCase().includes(query) ||
+                (tx.customer_phone || '').includes(query) ||
+                String(tx.transfer_amount || '').includes(query)
             );
         };
 
@@ -248,8 +249,9 @@ const LiveModeModule = (function() {
         }
 
         return items.map(tx => {
-            const amount = tx.amount_in || tx.amount_out || 0;
-            const isPositive = tx.amount_in > 0;
+            // Use transfer_amount and transfer_type (correct API fields)
+            const amount = tx.transfer_amount || 0;
+            const isPositive = tx.transfer_type === 'in';
             const hasPendingMatch = tx.has_pending_match || (tx.pending_match_skipped && tx.pending_match_options?.length > 0);
             const escapedContent = escapeHtml(tx.content || '');
             const fullContent = tx.content || '';
@@ -297,8 +299,9 @@ const LiveModeModule = (function() {
         }
 
         return items.map(tx => {
-            const amount = tx.amount_in || tx.amount_out || 0;
-            const isPositive = tx.amount_in > 0;
+            // Use transfer_amount and transfer_type (correct API fields)
+            const amount = tx.transfer_amount || 0;
+            const isPositive = tx.transfer_type === 'in';
             const methodClass = tx.match_method === 'qr_code' ? 'qr' : 'phone';
             const methodLabel = tx.match_method === 'qr_code' ? 'QR' : 'SĐT';
             const escapedContent = escapeHtml(tx.content || '');
@@ -309,8 +312,8 @@ const LiveModeModule = (function() {
                     <span class="card-time">${formatTime(tx.transaction_date)}</span>
                     <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
                     <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
-                    <span class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</span>
-                    <span class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</span>
+                    <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
+                    <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
                     <span class="card-method ${methodClass}">${methodLabel}</span>
                     <button class="btn-confirm" data-id="${tx.id}">Xác nhận</button>
                 </div>
@@ -327,8 +330,9 @@ const LiveModeModule = (function() {
         }
 
         return items.map(tx => {
-            const amount = tx.amount_in || tx.amount_out || 0;
-            const isPositive = tx.amount_in > 0;
+            // Use transfer_amount and transfer_type (correct API fields)
+            const amount = tx.transfer_amount || 0;
+            const isPositive = tx.transfer_type === 'in';
             const methodClass = tx.match_method === 'qr_code' ? 'qr' :
                                tx.match_method === 'manual_entry' ? 'manual' : 'phone';
             const methodLabel = tx.match_method === 'qr_code' ? 'QR' :
@@ -344,8 +348,8 @@ const LiveModeModule = (function() {
                     <span class="card-time">${formatTime(tx.transaction_date)}</span>
                     <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
                     <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
-                    <span class="card-customer">${escapeHtml(tx.linked_customer_name || 'Không tên')}</span>
-                    <span class="card-phone">${escapeHtml(tx.linked_customer_phone || '')}</span>
+                    <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
+                    <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
                     <span class="card-method ${methodClass}">${methodLabel}</span>
                     ${canEdit ? `<button class="btn-edit" data-id="${tx.id}">Sửa</button>` : ''}
                 </div>
@@ -355,8 +359,10 @@ const LiveModeModule = (function() {
 
     function updateStats() {
         const totalGD = state.manualItems.length + state.autoMatchedItems.length + state.confirmedItems.length;
+        // Use transfer_amount and filter for incoming only (transfer_type === 'in')
         const totalAmount = [...state.manualItems, ...state.autoMatchedItems, ...state.confirmedItems]
-            .reduce((sum, tx) => sum + (tx.amount_in || 0), 0);
+            .filter(tx => tx.transfer_type === 'in')
+            .reduce((sum, tx) => sum + (tx.transfer_amount || 0), 0);
 
         const statsEl = document.getElementById('liveStatsTotal');
         if (statsEl) statsEl.textContent = totalGD;
@@ -639,8 +645,9 @@ const LiveModeModule = (function() {
 
         if (modal && phoneInput && nameInput) {
             if (codeSpan) codeSpan.textContent = tx.reference_code || tx.id;
-            phoneInput.value = tx.linked_customer_phone || '';
-            if (nameInput) nameInput.value = tx.linked_customer_name || '';
+            // Use customer_phone and customer_name (correct API fields)
+            phoneInput.value = tx.customer_phone || '';
+            if (nameInput) nameInput.value = tx.customer_name || '';
 
             // Store current tx id for form submission
             modal.dataset.txId = txId;
