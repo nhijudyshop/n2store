@@ -308,12 +308,20 @@
 
                     <div class="filter-group">
                         <label><i data-lucide="calendar"></i> Từ ngày:</label>
-                        <input type="date" id="filterStartDate" class="filter-input">
+                        <div class="date-input-wrapper">
+                            <input type="text" id="filterStartDateDisplay" class="filter-input date-display" placeholder="dd/mm/yyyy" readonly>
+                            <input type="date" id="filterStartDate" class="date-input-hidden">
+                            <i data-lucide="calendar" class="date-icon"></i>
+                        </div>
                     </div>
 
                     <div class="filter-group">
                         <label><i data-lucide="calendar"></i> Đến ngày:</label>
-                        <input type="date" id="filterEndDate" class="filter-input">
+                        <div class="date-input-wrapper">
+                            <input type="text" id="filterEndDateDisplay" class="filter-input date-display" placeholder="dd/mm/yyyy" readonly>
+                            <input type="date" id="filterEndDate" class="date-input-hidden">
+                            <i data-lucide="calendar" class="date-icon"></i>
+                        </div>
                     </div>
 
                     <div class="filter-group">

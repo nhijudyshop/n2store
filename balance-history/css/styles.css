@@ -273,6 +273,39 @@ body {
     box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);
 }
 
+/* Date Input Wrapper */
+.filter-group .date-input-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+}
+
+.filter-group .date-input-wrapper .date-display {
+    width: 100%;
+    padding-right: 32px;
+    cursor: pointer;
+}
+
+.filter-group .date-input-wrapper .date-input-hidden {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.filter-group .date-input-wrapper .date-icon {
+    position: absolute;
+    right: 10px;
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
 /* Buttons */
 .btn {
     padding: var(--spacing-md) var(--spacing-lg);

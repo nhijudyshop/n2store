@@ -77,9 +77,15 @@
     gap: 8px;
 }
 
+.date-input-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
 .live-mode-header .live-date-filter .date-input {
-    width: 130px;
-    padding: 6px 10px;
+    width: 100px;
+    padding: 6px 30px 6px 10px;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     font-size: 13px;
@@ -88,14 +94,23 @@
     cursor: pointer;
 }
 
-.live-mode-header .live-date-filter .date-input::-webkit-calendar-picker-indicator {
+.date-input-wrapper .date-input-hidden {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
     cursor: pointer;
-    opacity: 0.7;
-    filter: invert(40%) sepia(10%) saturate(500%) hue-rotate(180deg);
 }
 
-.live-mode-header .live-date-filter .date-input::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
+.date-input-wrapper .date-icon {
+    position: absolute;
+    right: 8px;
+    width: 14px;
+    height: 14px;
+    color: #64748b;
+    pointer-events: none;
 }
 
 .live-mode-header .live-date-filter .date-input:focus {

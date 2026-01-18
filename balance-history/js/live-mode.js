@@ -1075,11 +1075,16 @@ const LiveModeModule = (function() {
         // Date filter inputs
         const startDateInput = document.getElementById('liveStartDate');
         const endDateInput = document.getElementById('liveEndDate');
+        const startDateDisplay = document.getElementById('liveStartDateDisplay');
+        const endDateDisplay = document.getElementById('liveEndDateDisplay');
 
         if (startDateInput && !startDateInput.dataset.listenerAttached) {
             startDateInput.dataset.listenerAttached = 'true';
             // Set initial value (native date input uses yyyy-mm-dd)
             startDateInput.value = state.filterStartDate;
+            if (startDateDisplay) {
+                startDateDisplay.value = formatDateDisplay(state.filterStartDate);
+            }
             startDateInput.addEventListener('change', onDateFilterChange);
         }
 
@@ -1087,21 +1092,42 @@ const LiveModeModule = (function() {
             endDateInput.dataset.listenerAttached = 'true';
             // Set initial value (native date input uses yyyy-mm-dd)
             endDateInput.value = state.filterEndDate;
+            if (endDateDisplay) {
+                endDateDisplay.value = formatDateDisplay(state.filterEndDate);
+            }
             endDateInput.addEventListener('change', onDateFilterChange);
         }
+    }
+
+    // Format date for display: yyyy-mm-dd -> dd/mm/yyyy
+    function formatDateDisplay(dateStr) {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+        return dateStr;
     }
 
     // Handle date filter change
     function onDateFilterChange() {
         const startInput = document.getElementById('liveStartDate');
         const endInput = document.getElementById('liveEndDate');
+        const startDisplay = document.getElementById('liveStartDateDisplay');
+        const endDisplay = document.getElementById('liveEndDateDisplay');
 
         // Native date input already returns yyyy-mm-dd format
         if (startInput && startInput.value) {
             state.filterStartDate = startInput.value;
+            if (startDisplay) {
+                startDisplay.value = formatDateDisplay(startInput.value);
+            }
         }
         if (endInput && endInput.value) {
             state.filterEndDate = endInput.value;
+            if (endDisplay) {
+                endDisplay.value = formatDateDisplay(endInput.value);
+            }
         }
 
         console.log('[LiveMode] Date filter changed:', state.filterStartDate, 'to', state.filterEndDate);

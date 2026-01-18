@@ -38,6 +38,24 @@ const detailModal = document.getElementById('detailModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const modalBody = document.getElementById('modalBody');
 
+// Format date for display: yyyy-mm-dd -> dd/mm/yyyy
+function formatDateDisplay(dateStr) {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+}
+
+// Update date display inputs
+function updateDateDisplayInputs(startDate, endDate) {
+    const startDisplay = document.getElementById('filterStartDateDisplay');
+    const endDisplay = document.getElementById('filterEndDateDisplay');
+    if (startDisplay) startDisplay.value = formatDateDisplay(startDate);
+    if (endDisplay) endDisplay.value = formatDateDisplay(endDate);
+}
+
 // =====================================================
 // PENDING MATCH FUNCTIONS - Xử lý chọn khách hàng từ dropdown
 // =====================================================
@@ -325,6 +343,7 @@ function setDefaultCurrentMonth() {
     // Set input values
     document.getElementById('filterStartDate').value = firstDay;
     document.getElementById('filterEndDate').value = lastDay;
+    updateDateDisplayInputs(firstDay, lastDay);
 
     // Update filters state
     filters.startDate = firstDay;
@@ -418,6 +437,7 @@ function applyQuickFilter(filterType) {
         // Update date inputs
         document.getElementById('filterStartDate').value = dates.startDate;
         document.getElementById('filterEndDate').value = dates.endDate;
+        updateDateDisplayInputs(dates.startDate, dates.endDate);
 
         // Update filters state
         filters.startDate = dates.startDate;
@@ -613,17 +633,21 @@ function setupEventListeners() {
         });
     });
 
-    // Date input change - clear quick filter active state
-    document.getElementById('filterStartDate').addEventListener('change', () => {
+    // Date input change - clear quick filter active state and update display
+    document.getElementById('filterStartDate').addEventListener('change', (e) => {
         document.querySelectorAll('.btn-quick-filter').forEach(btn => {
             btn.classList.remove('active');
         });
+        const startDisplay = document.getElementById('filterStartDateDisplay');
+        if (startDisplay) startDisplay.value = formatDateDisplay(e.target.value);
     });
 
-    document.getElementById('filterEndDate').addEventListener('change', () => {
+    document.getElementById('filterEndDate').addEventListener('change', (e) => {
         document.querySelectorAll('.btn-quick-filter').forEach(btn => {
             btn.classList.remove('active');
         });
+        const endDisplay = document.getElementById('filterEndDateDisplay');
+        if (endDisplay) endDisplay.value = formatDateDisplay(e.target.value);
     });
 }
 
