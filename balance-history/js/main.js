@@ -63,26 +63,6 @@ function parseDateDisplay(dateStr) {
     return null;
 }
 
-// Auto-format date input as user types (dd/mm/yyyy)
-function autoFormatDateInput(input) {
-    let value = input.value.replace(/[^\d/]/g, '');
-    const digits = value.replace(/\D/g, '');
-
-    if (digits.length > 8) {
-        value = digits.slice(0, 8);
-    } else {
-        value = digits;
-    }
-
-    if (value.length >= 4) {
-        value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4);
-    } else if (value.length >= 2) {
-        value = value.slice(0, 2) + '/' + value.slice(2);
-    }
-
-    input.value = value;
-}
-
 // Update date display inputs
 function updateDateDisplayInputs(startDate, endDate) {
     const startDisplay = document.getElementById('filterStartDateDisplay');
@@ -685,15 +665,15 @@ function setupEventListeners() {
         if (endDisplay) endDisplay.value = formatDateDisplay(e.target.value);
     });
 
-    // Display date inputs - manual text entry
+    // Display date inputs - manual text entry (only validate on blur, no auto-format)
     const startDateDisplay = document.getElementById('filterStartDateDisplay');
     const endDateDisplay = document.getElementById('filterEndDateDisplay');
 
     if (startDateDisplay) {
-        startDateDisplay.addEventListener('input', (e) => autoFormatDateInput(e.target));
         startDateDisplay.addEventListener('blur', () => {
             const parsed = parseDateDisplay(startDateDisplay.value);
             if (parsed) {
+                startDateDisplay.value = formatDateDisplay(parsed);
                 document.getElementById('filterStartDate').value = parsed;
                 document.querySelectorAll('.btn-quick-filter').forEach(btn => {
                     btn.classList.remove('active');
@@ -703,10 +683,10 @@ function setupEventListeners() {
     }
 
     if (endDateDisplay) {
-        endDateDisplay.addEventListener('input', (e) => autoFormatDateInput(e.target));
         endDateDisplay.addEventListener('blur', () => {
             const parsed = parseDateDisplay(endDateDisplay.value);
             if (parsed) {
+                endDateDisplay.value = formatDateDisplay(parsed);
                 document.getElementById('filterEndDate').value = parsed;
                 document.querySelectorAll('.btn-quick-filter').forEach(btn => {
                     btn.classList.remove('active');

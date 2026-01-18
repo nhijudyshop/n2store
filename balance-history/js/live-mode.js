@@ -543,6 +543,10 @@ const LiveModeModule = (function() {
             return;
         }
 
+        // Lấy tên khách hàng từ gợi ý TPOS (nếu có)
+        const suggestNameEl = document.getElementById(`suggest-name-${txId}`);
+        const customerName = suggestNameEl?.textContent || '';
+
         setButtonLoading(btn, true);
         setCardProcessing(txId, true);
 
@@ -583,6 +587,7 @@ const LiveModeModule = (function() {
                 const tx = state.manualItems[txIndex];
                 tx.is_hidden = true;
                 tx.customer_phone = phone;
+                tx.customer_name = customerName;  // Lấy tên từ gợi ý TPOS
                 tx.match_method = 'manual_entry';
                 state.manualItems.splice(txIndex, 1);
                 state.confirmedItems.unshift(tx);
@@ -1099,38 +1104,16 @@ const LiveModeModule = (function() {
             endDateInput.addEventListener('change', onDateFilterChange);
         }
 
-        // Display input events (manual text entry)
+        // Display input events (manual text entry) - only validate on blur, no auto-format
         if (startDateDisplay && !startDateDisplay.dataset.listenerAttached) {
             startDateDisplay.dataset.listenerAttached = 'true';
-            startDateDisplay.addEventListener('input', (e) => autoFormatDateInput(e.target));
             startDateDisplay.addEventListener('blur', () => onDisplayDateBlur('start'));
         }
 
         if (endDateDisplay && !endDateDisplay.dataset.listenerAttached) {
             endDateDisplay.dataset.listenerAttached = 'true';
-            endDateDisplay.addEventListener('input', (e) => autoFormatDateInput(e.target));
             endDateDisplay.addEventListener('blur', () => onDisplayDateBlur('end'));
         }
-    }
-
-    // Auto-format date input as user types (dd/mm/yyyy)
-    function autoFormatDateInput(input) {
-        let value = input.value.replace(/[^\d/]/g, '');
-        const digits = value.replace(/\D/g, '');
-
-        if (digits.length > 8) {
-            value = digits.slice(0, 8);
-        } else {
-            value = digits;
-        }
-
-        if (value.length >= 4) {
-            value = value.slice(0, 2) + '/' + value.slice(2, 4) + '/' + value.slice(4);
-        } else if (value.length >= 2) {
-            value = value.slice(0, 2) + '/' + value.slice(2);
-        }
-
-        input.value = value;
     }
 
     // Handle blur on display input - validate and sync
@@ -1144,6 +1127,8 @@ const LiveModeModule = (function() {
 
         const parsed = parseDateDisplay(displayInput.value);
         if (parsed) {
+            // Normalize display format
+            displayInput.value = formatDateDisplay(parsed);
             hiddenInput.value = parsed;
             if (type === 'start') {
                 state.filterStartDate = parsed;
