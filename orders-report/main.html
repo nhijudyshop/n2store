@@ -662,11 +662,24 @@
         // Listen for messages from iframes
         window.addEventListener("message", function (e) {
             if (e.data.type === "FILTER_CHANGED") {
-                // Tab 1 filter changed
-                localStorage.setItem(
-                    "tab1_filter_data",
-                    JSON.stringify(e.data.filter),
-                );
+                // Tab 1 filter changed - save with quota handling
+                try {
+                    localStorage.setItem(
+                        "tab1_filter_data",
+                        JSON.stringify(e.data.filter),
+                    );
+                } catch (err) {
+                    if (err.name === 'QuotaExceededError') {
+                        console.warn('[MAIN] localStorage quota exceeded, saving lightweight data...');
+                        localStorage.removeItem("tab1_filter_data");
+                        try {
+                            const lightData = { ...e.data.filter, data: [], dataSkipped: true };
+                            localStorage.setItem("tab1_filter_data", JSON.stringify(lightData));
+                        } catch (e2) {
+                            console.error('[MAIN] Failed to save lightweight data:', e2);
+                        }
+                    }
+                }
                 showSyncIndicator();
             } else if (e.data.type === "REQUEST_FILTER_DATA") {
                 // Tab 2 requesting current filter data

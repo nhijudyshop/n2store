@@ -1,0 +1,1738 @@
+main.html?t=1768711665107:29 [STORAGE] ⚠️ localStorage near quota (4.20MB), auto cleaning...
+(anonymous) @ main.html?t=1768711665107:29
+(anonymous) @ main.html?t=1768711665107:58
+main.html?t=1768711665107:53 [STORAGE] ✅ Auto cleaned 2 items
+main.html:29 [STORAGE] ⚠️ localStorage near quota (4.09MB), auto cleaning...
+(anonymous) @ main.html:29
+(anonymous) @ main.html:58
+main.html:53 [STORAGE] ✅ Auto cleaned 0 items
+main.html:29 [STORAGE] ⚠️ localStorage near quota (4.09MB), auto cleaning...
+(anonymous) @ main.html:29
+(anonymous) @ main.html:58
+main.html:53 [STORAGE] ✅ Auto cleaned 0 items
+config.js:73 [Config] Firebase initialized successfully
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+token-manager.js:80 [TOKEN] Firestore SDK is ready
+token-manager.js:521 [TOKEN] Token Manager initialized
+token-manager.js:97 [TOKEN] ✅ Firestore reference initialized successfully
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+api-handler.js:195 API Handler loaded successfully (34tinhthanh.com + tienich.vnhub.com)!
+api-handler.js:196 API Base URL: https://34tinhthanh.com/api
+api-handler.js:195 API Handler loaded successfully (34tinhthanh.com + tienich.vnhub.com)!
+api-handler.js:196 API Base URL: https://34tinhthanh.com/api
+product-search-manager.js:24 [PRODUCT] Initializing Enhanced Product Search Manager V2...
+product-search-manager.js:39 [PRODUCT] No Excel cache found
+product-search-manager.js:680 [PRODUCT] Enhanced Product Search Manager V2 initialized
+standard-price-manager.js:30 [STANDARD-PRICE] Initializing Standard Price Manager with IndexedDB...
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+token-manager.js:521 [TOKEN] Token Manager initialized
+indexeddb-storage.js:343 [IndexedDB] 📦 IndexedDB Storage Utility loaded
+user-storage-manager.js:353 [USER-STORAGE] User Storage Manager loaded
+firebase-config.js:190 [Firebase Config] Module loaded
+firebase-config.js:50 [Firebase] App initialized
+logger.ts:115 [2026-01-18T04:51:05.773Z]  @firebase/firestore: Firestore (10.7.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.
+_ @ logger.ts:115
+warn @ logger.ts:206
+Or @ log.ts:69
+(anonymous) @ database.ts:408
+enableMultiTabIndexedDbPersistence @ database.ts:159
+enablePersistence @ database.ts:247
+initializeFirestore @ firebase-config.js:74
+(anonymous) @ tab1-orders.html:1296
+firebase-config.js:86 [Firestore] Initialized successfully
+firebase-config.js:103 [RealtimeDB] Initialized successfully
+tab1-orders.html:1299 [TAB1] Firebase initialized via shared config
+ [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+ [TOKEN] Token Manager initialized
+ [IndexedDB] 📦 IndexedDB Storage Utility loaded
+ [USER-STORAGE] User Storage Manager loaded
+auth-manager.js:412 [AUTH-MANAGER] Module loaded
+persistent-cache.js:344 [PERSISTENT-CACHE] Module loaded
+logger.js:255 [LOGGER] Module loaded, production mode: true
+dom-utils.js:317 [DOM-UTILS] Module loaded
+common-utils.js:621 [COMMON-UTILS] Module loaded
+tpos-client.js:529 [TPOS-CLIENT] Module loaded
+tpos-odata.js:422 [TPOS-ODATA] Module loaded
+compat.js:233 [ESM Compat] AuthManager auto-initialized
+compat.js:243 [ESM Compat] NotificationManager auto-initialized
+compat.js:252 [ESM Compat] All shared modules loaded and exported to window
+navigation-modern.js:3484 [AI Widget] Loading from: ../shared/js/ai-chat-widget.js
+navigation-modern.js:3223 [Unified Nav] DOM loaded...
+navigation-modern.js:3181 [Unified Nav] Dependencies ready!
+navigation-modern.js:387 [Unified Nav] Starting initialization...
+navigation-modern.js:392 [Unified Nav] Auth check - authManager exists: true | authData: {isLoggedIn: 'true', userType: 'hanh-hanh1206', checkLogin: '3', timestamp: 1768711663605, expiresAt: 1771303663605, …}
+navigation-modern.js:410 [Unified Nav] Role Template: custom | Source: localStorage
+navigation-modern.js:505 [Permission Load] Loaded detailedPermissions: 22 pages configured
+navigation-modern.js:414 [Unified Nav] Permissions loaded: (11) ['order-log', 'live', 'balance-history', 'order-management', 'baocaosaleonline', 'order-live-tracking', 'sanphamlive', 'ck', 'tpos-pancake', 'livestream', 'ib']
+navigation-modern.js:624 [Unified Nav] Current path: /n2store/orders-report/main.html
+navigation-modern.js:643 [Unified Nav] Matched page: orders-report using pattern: /\/orders-report\//i
+navigation-modern.js:421 [Unified Nav] Current page: orders-report
+navigation-modern.js:683 [Permission Check] Details: {currentPage: 'orders-report', requiredPermission: 'baocaosaleonline', userPermissions: Array(11), roleTemplate: 'other', hasAccess: true}
+navigation-modern.js:425 [Unified Nav] Has access to page: true
+navigation-modern.js:455 [Unified Nav] Device type: Mobile
+navigation-modern.js:263 [Menu Names] Firebase not available or not initialized, using localStorage only
+navigation-modern.js:699 [Unified Nav] Rendering navigation...
+navigation-modern.js:713 [Unified Nav] Rendering mobile UI...
+navigation-modern.js:720 [Unified Nav] Desktop sidebar hidden
+navigation-modern.js:1318 [Get Accessible] Found 12 accessible pages
+navigation-modern.js:811 [Mobile Nav] Total accessible pages: 12
+navigation-modern.js:815 [Mobile Nav] Current page identifier: orders-report
+navigation-modern.js:819 [Mobile Nav] Bottom nav pages: (5) ['live', 'livestream', 'sanphamlive', 'ib', 'ck']
+navigation-modern.js:858 [Mobile Nav] Bottom nav created with 6 items
+navigation-modern.js:736 [Unified Nav] Main content padding adjusted
+navigation-modern.js:744 [Unified Nav] ✅ Mobile bottom nav exists in DOM
+navigation-modern.js:1253 [Unified Nav] User info updated
+navigation-modern.js:1307 [Unified Nav] Event listeners setup complete
+navigation-modern.js:1882 [Unified Nav] Font size applied: 14px
+navigation-modern.js:1896 [Unified Nav] Theme applied: light
+navigation-modern.js:1872 [Unified Nav] Settings loaded
+navigation-modern.js:447 [Unified Nav] Initialization complete!
+auth-manager.js:412 [AUTH-MANAGER] Module loaded
+persistent-cache.js:344 [PERSISTENT-CACHE] Module loaded
+logger.js:255 [LOGGER] Module loaded, production mode: true
+dom-utils.js:317 [DOM-UTILS] Module loaded
+common-utils.js:621 [COMMON-UTILS] Module loaded
+tpos-client.js:529 [TPOS-CLIENT] Module loaded
+tpos-odata.js:422 [TPOS-ODATA] Module loaded
+compat.js:233 [ESM Compat] AuthManager auto-initialized
+compat.js:243 [ESM Compat] NotificationManager auto-initialized
+compat.js:252 [ESM Compat] All shared modules loaded and exported to window
+navigation-modern.js:3484 [AI Widget] Loading from: ../shared/js/ai-chat-widget.js
+navigation-modern.js:3223 [Unified Nav] DOM loaded...
+navigation-modern.js:3181 [Unified Nav] Dependencies ready!
+navigation-modern.js:387 [Unified Nav] Starting initialization...
+navigation-modern.js:392 [Unified Nav] Auth check - authManager exists: true | authData: {isLoggedIn: 'true', userType: 'hanh-hanh1206', checkLogin: '3', timestamp: 1768711663605, expiresAt: 1771303663605, …}
+navigation-modern.js:410 [Unified Nav] Role Template: custom | Source: localStorage
+navigation-modern.js:505 [Permission Load] Loaded detailedPermissions: 22 pages configured
+navigation-modern.js:414 [Unified Nav] Permissions loaded: (11) ['order-log', 'live', 'balance-history', 'order-management', 'baocaosaleonline', 'order-live-tracking', 'sanphamlive', 'ck', 'tpos-pancake', 'livestream', 'ib']
+navigation-modern.js:624 [Unified Nav] Current path: /n2store/orders-report/main.html
+navigation-modern.js:643 [Unified Nav] Matched page: orders-report using pattern: /\/orders-report\//i
+navigation-modern.js:421 [Unified Nav] Current page: orders-report
+navigation-modern.js:683 [Permission Check] Details: {currentPage: 'orders-report', requiredPermission: 'baocaosaleonline', userPermissions: Array(11), roleTemplate: 'other', hasAccess: true}
+navigation-modern.js:425 [Unified Nav] Has access to page: true
+navigation-modern.js:455 [Unified Nav] Device type: Desktop
+navigation-modern.js:263 [Menu Names] Firebase not available or not initialized, using localStorage only
+navigation-modern.js:699 [Unified Nav] Rendering navigation...
+navigation-modern.js:944 [Unified Nav] Rendering desktop UI...
+navigation-modern.js:967 [Unified Nav] Rendering desktop sidebar...
+navigation-modern.js:986 [Unified Nav] Skipping: Cân Nặng Hàng (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Theo Dõi Nhập Hàng SL (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Quản Lý Đặt Hàng NCC (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Hàng Rớt - Xả (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Hàng Hoàn (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: CSKH + Hàng Hoàn Bưu Cục (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Customer 360° (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Quản Lý Số Lượng (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Quản Lý Tài Khoản (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: So Sánh Đơn Hàng (no permission)
+navigation-modern.js:986 [Unified Nav] Skipping: Lịch Sử Chỉnh Sửa (no permission)
+navigation-modern.js:1010 [Unified Nav] Rendered 12 desktop menu items
+navigation-modern.js:1060 [Unified Nav] Settings button added
+navigation-modern.js:1018 [Unified Nav] Lucide icons initialized
+navigation-modern.js:1157 [Unified Nav] Fixed toggle button created
+navigation-modern.js:1084 [Unified Nav] Sidebar toggle initialized
+navigation-modern.js:1253 [Unified Nav] User info updated
+navigation-modern.js:1307 [Unified Nav] Event listeners setup complete
+navigation-modern.js:1882 [Unified Nav] Font size applied: 14px
+navigation-modern.js:1896 [Unified Nav] Theme applied: light
+navigation-modern.js:1872 [Unified Nav] Settings loaded
+navigation-modern.js:447 [Unified Nav] Initialization complete!
+firebase-config.js:190 [Firebase Config] Module loaded
+firebase-config.js:50 [Firebase] App initialized
+logger.ts:115 [2026-01-18T04:51:05.930Z]  @firebase/firestore: Firestore (10.7.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.
+_ @ logger.ts:115
+warn @ logger.ts:206
+Or @ log.ts:69
+(anonymous) @ database.ts:408
+enableMultiTabIndexedDbPersistence @ database.ts:159
+enablePersistence @ database.ts:247
+initializeFirestore @ firebase-config.js:74
+(anonymous) @ tab1-orders.html:1296
+firebase-config.js:86 [Firestore] Initialized successfully
+firebase-config.js:103 [RealtimeDB] Initialized successfully
+tab1-orders.html:1299 [TAB1] Firebase initialized via shared config
+config.js:73 [Config] Firebase initialized successfully
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+token-manager.js:80 [TOKEN] Firestore SDK is ready
+token-manager.js:521 [TOKEN] Token Manager initialized
+token-manager.js:97 [TOKEN] ✅ Firestore reference initialized successfully
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+overview-init.js:8 [REPORT] Page loaded, initializing...
+overview-core.js:62 [PERMISSION] Analysis tab enabled
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+config.js:73 [Config] Firebase initialized successfully
+token-manager.js:80 [TOKEN] Firestore SDK is ready
+token-manager.js:521 [TOKEN] Token Manager initialized
+token-manager.js:97 [TOKEN] ✅ Firestore reference initialized successfully
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+indexeddb-storage.js:343 [IndexedDB] 📦 IndexedDB Storage Utility loaded
+pancake-token-manager.js:1144 [PANCAKE-TOKEN] PancakeTokenManager loaded
+pancake-data-manager.js:2335 [PANCAKE] PancakeDataManager loaded
+firebase-image-cache.js:43 [FIREBASE-CACHE] ✅ Initialized successfully (Firestore)
+firebase-image-cache.js:272 [FIREBASE-CACHE] Module loaded (Firestore version)
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+config.js:73 [Config] Firebase initialized successfully
+token-manager.js:80 [TOKEN] Firestore SDK is ready
+token-manager.js:521 [TOKEN] Token Manager initialized
+token-manager.js:97 [TOKEN] ✅ Firestore reference initialized successfully
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+indexeddb-storage.js:343 [IndexedDB] 📦 IndexedDB Storage Utility loaded
+pancake-token-manager.js:1144 [PANCAKE-TOKEN] PancakeTokenManager loaded
+pancake-data-manager.js:2335 [PANCAKE] PancakeDataManager loaded
+firebase-image-cache.js:43 [FIREBASE-CACHE] ✅ Initialized successfully (Firestore)
+firebase-image-cache.js:272 [FIREBASE-CACHE] Module loaded (Firestore version)
+config.js:73 [Config] Firebase initialized successfully
+token-manager.js:521 [TOKEN] Token Manager initialized
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+kpi-manager.js:799 [KPI] ✓ KPI Manager initialized
+product-search-manager.js:24 [PRODUCT] Initializing Enhanced Product Search Manager V2...
+product-search-manager.js:39 [PRODUCT] No Excel cache found
+product-search-manager.js:680 [PRODUCT] Enhanced Product Search Manager V2 initialized
+standard-price-manager.js:30 [STANDARD-PRICE] Initializing Standard Price Manager with IndexedDB...
+common-utils.js:697 Page title updated with role icon
+common-utils.js:697 Page title updated with role icon
+config.js:73 [Config] Firebase initialized successfully
+token-manager.js:521 [TOKEN] Token Manager initialized
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+kpi-manager.js:799 [KPI] ✓ KPI Manager initialized
+copy-template-helper.js:282 [CopyTemplate] copy-template-helper.js loaded
+live-comments-readonly-modal.js:583 [LiveComments] live-comments-readonly-modal.js loaded
+product-search-manager.js:24 [PRODUCT] Initializing Enhanced Product Search Manager V2...
+product-search-manager.js:39 [PRODUCT] No Excel cache found
+product-search-manager.js:680 [PRODUCT] Enhanced Product Search Manager V2 initialized
+held-products-manager.js:663 [HELD-PRODUCTS-MANAGER] Loaded
+kpi-manager.js:799 [KPI] ✓ KPI Manager initialized
+search-functions.js:458 [SEARCH] Enhanced search functions V2 loaded
+realtime-manager.js:507 [REALTIME] RealtimeManager loaded
+new-messages-notifier.js:459 [NEW-MSG-NOTIFIER] Module loaded
+debug-realtime.js:5 ============================================================
+debug-realtime.js:6 🔍 REALTIME DEBUG TOOL
+debug-realtime.js:7 ============================================================
+image-compressor.js:202 [IMAGE-COMPRESSOR] ✅ Image compressor utility loaded
+indexeddb-storage.js:25 [IndexedDB] ✅ Database "N2StoreDB" initialized
+indexeddb-storage.js:25 [IndexedDB] ✅ Database "N2StoreDB" initialized
+standard-price-manager.js:54 [STANDARD-PRICE] IndexedDB opened successfully
+overview-init.js:8 [REPORT] Page loaded, initializing...
+overview-core.js:62 [PERMISSION] Analysis tab enabled
+bill-service.js:1003 [BILL-SERVICE] Bill Service loaded successfully
+wallet-integration.js:679 [WALLET] WalletIntegration module loaded
+tab1-firebase.js:13 [NOTE-TRACKER] Firebase Realtime Database reference obtained
+tab1-firebase.js:23 [TAB1] Firestore reference obtained
+copy-template-helper.js:282 [CopyTemplate] copy-template-helper.js loaded
+live-comments-readonly-modal.js:583 [LiveComments] live-comments-readonly-modal.js loaded
+product-search-manager.js:24 [PRODUCT] Initializing Enhanced Product Search Manager V2...
+product-search-manager.js:39 [PRODUCT] No Excel cache found
+product-search-manager.js:680 [PRODUCT] Enhanced Product Search Manager V2 initialized
+held-products-manager.js:663 [HELD-PRODUCTS-MANAGER] Loaded
+kpi-manager.js:799 [KPI] ✓ KPI Manager initialized
+search-functions.js:458 [SEARCH] Enhanced search functions V2 loaded
+realtime-manager.js:507 [REALTIME] RealtimeManager loaded
+new-messages-notifier.js:459 [NEW-MSG-NOTIFIER] Module loaded
+debug-realtime.js:5 ============================================================
+debug-realtime.js:6 🔍 REALTIME DEBUG TOOL
+debug-realtime.js:7 ============================================================
+image-compressor.js:202 [IMAGE-COMPRESSOR] ✅ Image compressor utility loaded
+bill-service.js:1003 [BILL-SERVICE] Bill Service loaded successfully
+wallet-integration.js:679 [WALLET] WalletIntegration module loaded
+standard-price-manager.js:54 [STANDARD-PRICE] IndexedDB opened successfully
+indexeddb-storage.js:25 [IndexedDB] ✅ Database "N2StoreDB" initialized
+indexeddb-storage.js:25 [IndexedDB] ✅ Database "N2StoreDB" initialized
+tab1-firebase.js:13 [NOTE-TRACKER] Firebase Realtime Database reference obtained
+tab1-firebase.js:23 [TAB1] Firestore reference obtained
+cache.js:127 📦 [CACHE] Loaded 0 valid items from storage
+cache.js:38 [CACHE] ✅ Cache manager initialized with IndexedDB
+cache.js:127 📦 [CACHE] Loaded 0 valid items from storage
+cache.js:38 [CACHE] ✅ Cache manager initialized with IndexedDB
+ai-chat-widget.js:1114 [AI Chat Widget] Initializing...
+ai-chat-widget.js:1119 [AI Chat Widget] Ready!
+ai-chat-widget.js:1114 [AI Chat Widget] Initializing...
+ai-chat-widget.js:1119 [AI Chat Widget] Ready!
+chat-products-ui.js:885 [CHAT-PRODUCTS-UI] Loaded
+chat-products-actions.js:683 [CHAT-PRODUCTS-ACTIONS] Loaded
+comment-modal.js:890 [COMMENT MODAL] Module loaded
+tab1-checkbox.js:51 [TAB1-CHECKBOX] Module loaded
+tab1-campaign-settings.js:125 [TAB1-CAMPAIGN-SETTINGS] Module loaded
+tab1-campaign-create.js:154 [TAB1-CAMPAIGN-CREATE] Module loaded
+tab1-campaign-system.js:762 [TAB1-CAMPAIGN-SYSTEM] Module loaded
+tab1-pancake-settings.js:910 [TAB1-PANCAKE-SETTINGS] Module loaded
+cache.js:127 📦 [CACHE] Loaded 0 valid items from storage
+cache.js:38 [CACHE] ✅ Cache manager initialized with IndexedDB
+chat-products-ui.js:885 [CHAT-PRODUCTS-UI] Loaded
+chat-products-actions.js:683 [CHAT-PRODUCTS-ACTIONS] Loaded
+comment-modal.js:890 [COMMENT MODAL] Module loaded
+cache.js:127 📦 [CACHE] Loaded 0 valid items from storage
+cache.js:38 [CACHE] ✅ Cache manager initialized with IndexedDB
+tab1-checkbox.js:51 [TAB1-CHECKBOX] Module loaded
+tab1-campaign-settings.js:125 [TAB1-CAMPAIGN-SETTINGS] Module loaded
+tab1-campaign-create.js:154 [TAB1-CAMPAIGN-CREATE] Module loaded
+tab1-campaign-system.js:762 [TAB1-CAMPAIGN-SYSTEM] Module loaded
+tab1-pancake-settings.js:910 [TAB1-PANCAKE-SETTINGS] Module loaded
+standard-price-manager.js:111 [STANDARD-PRICE] Loaded 11918 products from IndexedDB cache
+standard-price-manager.js:112 [STANDARD-PRICE] Cache age: 13 minutes
+standard-price-manager.js:111 [STANDARD-PRICE] Loaded 11918 products from IndexedDB cache
+standard-price-manager.js:112 [STANDARD-PRICE] Cache age: 13 minutes
+api-handler.js:195 API Handler loaded successfully (34tinhthanh.com + tienich.vnhub.com)!
+api-handler.js:196 API Base URL: https://34tinhthanh.com/api
+debug-realtime.js:101 
+📋 Available Commands:
+debug-realtime.js:102 ────────────────────────────────────────────────────────────
+debug-realtime.js:103 window.debugRealtime.checkStatus()       - Check current status
+debug-realtime.js:104 window.debugRealtime.checkStorage()      - Check localStorage
+debug-realtime.js:105 window.debugRealtime.enableBrowser()     - Enable Browser Mode
+debug-realtime.js:106 window.debugRealtime.connect()           - Manually connect WebSocket
+debug-realtime.js:107 window.debugRealtime.watch()             - Watch WebSocket events
+debug-realtime.js:108 window.debugRealtime.disconnect()        - Disconnect WebSocket
+debug-realtime.js:109 ============================================================
+debug-realtime.js:11 
+📊 Current Status:
+debug-realtime.js:12 ────────────────────────────────────────────────────────────
+debug-realtime.js:24 API Source: Pancake (ChatOmni removed)
+debug-realtime.js:25 Realtime Enabled: true
+debug-realtime.js:26 Realtime Mode: server
+debug-realtime.js:27 WebSocket Connected: false
+debug-realtime.js:69 
+💾 LocalStorage Status:
+debug-realtime.js:70 ────────────────────────────────────────────────────────────
+debug-realtime.js:76 chat_api_source: (not set - default: pancake)
+debug-realtime.js:77 chat_realtime_enabled: (not set - default: true)
+debug-realtime.js:78 chat_realtime_mode: (not set - default: server)
+config.js:73 [Config] Firebase initialized successfully
+firebase-config.js:190 [Firebase Config] Module loaded
+firebase-config.js:50 [Firebase] App initialized
+logger.ts:115 [2026-01-18T04:51:06.976Z]  @firebase/firestore: Firestore (10.7.1): enableMultiTabIndexedDbPersistence() will be deprecated in the future, you can use `FirestoreSettings.cache` instead.
+_ @ logger.ts:115
+warn @ logger.ts:206
+Or @ log.ts:69
+(anonymous) @ database.ts:408
+enableMultiTabIndexedDbPersistence @ database.ts:159
+enablePersistence @ database.ts:247
+initializeFirestore @ firebase-config.js:74
+(anonymous) @ tab1-orders.html:1296
+firebase-config.js:86 [Firestore] Initialized successfully
+firebase-config.js:103 [RealtimeDB] Initialized successfully
+tab1-orders.html:1299 [TAB1] Firebase initialized via shared config
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+config.js:73 [Config] Firebase initialized successfully
+token-manager.js:80 [TOKEN] Firestore SDK is ready
+token-manager.js:521 [TOKEN] Token Manager initialized
+token-manager.js:97 [TOKEN] ✅ Firestore reference initialized successfully
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+indexeddb-storage.js:343 [IndexedDB] 📦 IndexedDB Storage Utility loaded
+pancake-token-manager.js:1144 [PANCAKE-TOKEN] PancakeTokenManager loaded
+pancake-data-manager.js:2335 [PANCAKE] PancakeDataManager loaded
+debug-realtime.js:101 
+📋 Available Commands:
+debug-realtime.js:102 ────────────────────────────────────────────────────────────
+debug-realtime.js:103 window.debugRealtime.checkStatus()       - Check current status
+debug-realtime.js:104 window.debugRealtime.checkStorage()      - Check localStorage
+debug-realtime.js:105 window.debugRealtime.enableBrowser()     - Enable Browser Mode
+debug-realtime.js:106 window.debugRealtime.connect()           - Manually connect WebSocket
+debug-realtime.js:107 window.debugRealtime.watch()             - Watch WebSocket events
+debug-realtime.js:108 window.debugRealtime.disconnect()        - Disconnect WebSocket
+debug-realtime.js:109 ============================================================
+debug-realtime.js:11 
+📊 Current Status:
+debug-realtime.js:12 ────────────────────────────────────────────────────────────
+debug-realtime.js:24 API Source: Pancake (ChatOmni removed)
+debug-realtime.js:25 Realtime Enabled: true
+debug-realtime.js:26 Realtime Mode: server
+debug-realtime.js:27 WebSocket Connected: false
+debug-realtime.js:69 
+💾 LocalStorage Status:
+debug-realtime.js:70 ────────────────────────────────────────────────────────────
+debug-realtime.js:76 chat_api_source: (not set - default: pancake)
+debug-realtime.js:77 chat_realtime_enabled: (not set - default: true)
+debug-realtime.js:78 chat_realtime_mode: (not set - default: server)
+config.js:73 [Config] Firebase initialized successfully
+token-manager.js:521 [TOKEN] Token Manager initialized
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+kpi-manager.js:799 [KPI] ✓ KPI Manager initialized
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+token-manager.js:80 [TOKEN] Firestore SDK is ready
+token-manager.js:521 [TOKEN] Token Manager initialized
+token-manager.js:97 [TOKEN] ✅ Firestore reference initialized successfully
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+auth-manager.js:412 [AUTH-MANAGER] Module loaded
+persistent-cache.js:344 [PERSISTENT-CACHE] Module loaded
+logger.js:255 [LOGGER] Module loaded, production mode: true
+dom-utils.js:317 [DOM-UTILS] Module loaded
+common-utils.js:621 [COMMON-UTILS] Module loaded
+tpos-client.js:529 [TPOS-CLIENT] Module loaded
+tpos-odata.js:422 [TPOS-ODATA] Module loaded
+compat.js:233 [ESM Compat] AuthManager auto-initialized
+compat.js:243 [ESM Compat] NotificationManager auto-initialized
+compat.js:252 [ESM Compat] All shared modules loaded and exported to window
+navigation-modern.js:3484 [AI Widget] Loading from: ../shared/js/ai-chat-widget.js
+navigation-modern.js:3223 [Unified Nav] DOM loaded...
+navigation-modern.js:3181 [Unified Nav] Dependencies ready!
+navigation-modern.js:387 [Unified Nav] Starting initialization...
+navigation-modern.js:392 [Unified Nav] Auth check - authManager exists: true | authData: {isLoggedIn: 'true', userType: 'hanh-hanh1206', checkLogin: '3', timestamp: 1768711663605, expiresAt: 1771303663605, …}
+navigation-modern.js:410 [Unified Nav] Role Template: custom | Source: localStorage
+navigation-modern.js:505 [Permission Load] Loaded detailedPermissions: 22 pages configured
+navigation-modern.js:414 [Unified Nav] Permissions loaded: (11) ['order-log', 'live', 'balance-history', 'order-management', 'baocaosaleonline', 'order-live-tracking', 'sanphamlive', 'ck', 'tpos-pancake', 'livestream', 'ib']
+navigation-modern.js:624 [Unified Nav] Current path: /n2store/orders-report/main.html
+navigation-modern.js:643 [Unified Nav] Matched page: orders-report using pattern: /\/orders-report\//i
+navigation-modern.js:421 [Unified Nav] Current page: orders-report
+navigation-modern.js:683 [Permission Check] Details: {currentPage: 'orders-report', requiredPermission: 'baocaosaleonline', userPermissions: Array(11), roleTemplate: 'other', hasAccess: true}
+navigation-modern.js:425 [Unified Nav] Has access to page: true
+navigation-modern.js:455 [Unified Nav] Device type: Mobile
+navigation-modern.js:263 [Menu Names] Firebase not available or not initialized, using localStorage only
+navigation-modern.js:699 [Unified Nav] Rendering navigation...
+navigation-modern.js:713 [Unified Nav] Rendering mobile UI...
+navigation-modern.js:720 [Unified Nav] Desktop sidebar hidden
+navigation-modern.js:1318 [Get Accessible] Found 12 accessible pages
+navigation-modern.js:811 [Mobile Nav] Total accessible pages: 12
+navigation-modern.js:815 [Mobile Nav] Current page identifier: orders-report
+navigation-modern.js:819 [Mobile Nav] Bottom nav pages: (5) ['live', 'livestream', 'sanphamlive', 'ib', 'ck']
+navigation-modern.js:858 [Mobile Nav] Bottom nav created with 6 items
+navigation-modern.js:736 [Unified Nav] Main content padding adjusted
+navigation-modern.js:744 [Unified Nav] ✅ Mobile bottom nav exists in DOM
+navigation-modern.js:1253 [Unified Nav] User info updated
+navigation-modern.js:1307 [Unified Nav] Event listeners setup complete
+navigation-modern.js:1882 [Unified Nav] Font size applied: 14px
+navigation-modern.js:1896 [Unified Nav] Theme applied: light
+navigation-modern.js:1872 [Unified Nav] Settings loaded
+navigation-modern.js:447 [Unified Nav] Initialization complete!
+firebase-image-cache.js:43 [FIREBASE-CACHE] ✅ Initialized successfully (Firestore)
+firebase-image-cache.js:272 [FIREBASE-CACHE] Module loaded (Firestore version)
+api-config.js:116 [API-CONFIG] Loaded: {worker: 'https://chatomni-proxy.nhijudyshop.workers.dev', tposOData: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata', pancake: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake'}
+token-manager.js:521 [TOKEN] Token Manager initialized
+indexeddb-storage.js:343 [IndexedDB] 📦 IndexedDB Storage Utility loaded
+ [USER-STORAGE] User Storage Manager loaded
+ [PRODUCT] Initializing Enhanced Product Search Manager V2...
+ [PRODUCT] No Excel cache found
+ [PRODUCT] Enhanced Product Search Manager V2 initialized
+ [STANDARD-PRICE] Initializing Standard Price Manager with IndexedDB...
+ [CopyTemplate] copy-template-helper.js loaded
+ [LiveComments] live-comments-readonly-modal.js loaded
+ [PRODUCT] Initializing Enhanced Product Search Manager V2...
+ [PRODUCT] No Excel cache found
+ [PRODUCT] Enhanced Product Search Manager V2 initialized
+ [HELD-PRODUCTS-MANAGER] Loaded
+ [KPI] ✓ KPI Manager initialized
+ [SEARCH] Enhanced search functions V2 loaded
+ [REALTIME] RealtimeManager loaded
+ [NEW-MSG-NOTIFIER] Module loaded
+ ============================================================
+ 🔍 REALTIME DEBUG TOOL
+ ============================================================
+ [IMAGE-COMPRESSOR] ✅ Image compressor utility loaded
+ [BILL-SERVICE] Bill Service loaded successfully
+ [WALLET] WalletIntegration module loaded
+ [IndexedDB] ✅ Database "N2StoreDB" initialized
+ [AUTH-MANAGER] Module loaded
+ [PERSISTENT-CACHE] Module loaded
+ [LOGGER] Module loaded, production mode: true
+ [DOM-UTILS] Module loaded
+ [COMMON-UTILS] Module loaded
+ [TPOS-CLIENT] Module loaded
+ [TPOS-ODATA] Module loaded
+ [ESM Compat] AuthManager auto-initialized
+ [ESM Compat] NotificationManager auto-initialized
+ [ESM Compat] All shared modules loaded and exported to window
+ [AUTH-MANAGER] Module loaded
+ [PERSISTENT-CACHE] Module loaded
+ [LOGGER] Module loaded, production mode: true
+ [DOM-UTILS] Module loaded
+ [COMMON-UTILS] Module loaded
+ [TPOS-CLIENT] Module loaded
+ [TPOS-ODATA] Module loaded
+ [ESM Compat] AuthManager auto-initialized
+ [ESM Compat] NotificationManager auto-initialized
+ [ESM Compat] All shared modules loaded and exported to window
+ [REPORT] Page loaded, initializing...
+ [PERMISSION] Analysis tab enabled
+ [AUTH-MANAGER] Module loaded
+ [PERSISTENT-CACHE] Module loaded
+ [LOGGER] Module loaded, production mode: true
+ [DOM-UTILS] Module loaded
+ [COMMON-UTILS] Module loaded
+ [TPOS-CLIENT] Module loaded
+ [TPOS-ODATA] Module loaded
+ [ESM Compat] AuthManager auto-initialized
+ [ESM Compat] NotificationManager auto-initialized
+ [ESM Compat] All shared modules loaded and exported to window
+ 🎨 ORDER IMAGE GENERATOR
+ [IMAGE-GEN] 🚀 OrderImageGenerator initialized
+ ✅ OrderImageGenerator initialized and ready
+ 🚀 MESSAGE TEMPLATE MANAGER - IMPROVED VERSION
+ [MESSAGE] 🚀 MessageTemplateManager initialized
+ [MESSAGE] API URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)
+ [MESSAGE] TokenManager available: true
+ [MESSAGE] 📝 Creating modal DOM...
+ [MESSAGE] ✅ Modal DOM created
+message-template-manager.js:30 [MESSAGE] 🔗 Attaching event listeners...
+message-template-manager.js:30 [MESSAGE] ✅ Event listeners attached
+message-template-manager.js:2145 ✅ MessageTemplateManager initialized and ready
+message-template-manager.js:2146 📊 Debug mode: true
+message-template-manager.js:2147 
+quick-reply-manager.js:1626 🚀 QUICK REPLY MANAGER
+quick-reply-manager.js:19 [QUICK-REPLY] 🚀 Initializing...
+quick-reply-manager.js:261 [QUICK-REPLY] ✅ Modal DOM created
+quick-reply-manager.js:90 [QUICK-REPLY] ✅ Settings modal DOM created
+quick-reply-manager.js:206 [QUICK-REPLY] ✅ Template input modal DOM created
+quick-reply-manager.js:691 [QUICK-REPLY] ✅ Autocomplete DOM created
+quick-reply-manager.js:35 [QUICK-REPLY] ✅ Firebase Firestore initialized
+quick-reply-manager.js:285 [QUICK-REPLY] 📥 Loading replies...
+quick-reply-manager.js:281 [QUICK-REPLY] ✅ Event listeners attached
+quick-reply-manager.js:1629 ✅ QuickReplyManager initialized and ready
+search-functions.js:423 [SEARCH] Initializing enhanced search functions...
+search-functions.js:446 [SEARCH] Enhanced search functions initialized
+column-visibility-manager.js:257 [COLUMN] Column visibility manager loaded
+tab1-init.js:32 [STORAGE] Current localStorage usage: 4.09 MB
+tab1-init.js:36 [STORAGE] ⚠️ localStorage near quota, cleaning up...
+cleanupLocalStorageIfNeeded @ tab1-init.js:36
+(anonymous) @ tab1-init.js:67
+tab1-init.js:62 [STORAGE] ✅ Cleaned 0 items
+tab1-init.js:69 [CACHE] Clearing all cache on page load...
+cache.js:180 [CACHE] Cleared 0 items of type: orders
+cache.js:180 [CACHE] Cleared 0 items of type: campaigns
+held-products-manager.js:650 [HELD-PRODUCTS] Found pending cleanup from previous session
+held-products-manager.js:540 [HELD-PRODUCTS] Cleaning up temporary held products for user: hanh
+tab1-init.js:131 [TOKEN] Retrying Firebase initialization for TokenManager...
+token-manager.js:114 [TOKEN] Firestore already initialized
+tab1-init.js:133 [TOKEN] ✅ Firebase connection established
+tab1-init.js:144 [PANCAKE] Initializing Pancake managers (background)...
+pancake-token-manager.js:197 [PANCAKE-TOKEN] Loading from storage first...
+pancake-token-manager.js:76 [PANCAKE-TOKEN] ✅ Valid JWT token found in localStorage
+pancake-token-manager.js:235 [PANCAKE-TOKEN] ✅ JWT token loaded from localStorage
+pancake-data-manager.js:2077 [PANCAKE] Initializing...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:195 [PANCAKE] Using cached pages (localStorage), count: 6
+tab1-init.js:171 [REALTIME] Initializing RealtimeManager...
+tab1-init.js:213 [AUTO-LOAD] Khởi tạo App...
+tab1-init.js:214 [AUTO-LOAD] chatDataManager available: false
+tab1-init.js:360 [APP] 🚀 Initializing...
+tab1-init.js:391 [APP] User ID: user_1768711066857
+tab1-init.js:394 [APP] Loading data in parallel...
+tab1-employee.js:398 [EMPLOYEE] Loading general employee ranges
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+tab1-firebase.js:13 [NOTE-TRACKER] Firebase Realtime Database reference obtained
+tab1-firebase.js:23 [TAB1] Firestore reference obtained
+indexeddb-storage.js:25 [IndexedDB] ✅ Database "N2StoreDB" initialized
+tab3-product-assignment.js:1585 [INIT] 🚀 Initializing Tab3 Product Assignment...
+tab3-product-assignment.js:1586 [INIT] ✅ Using server-side token caching (Cloudflare Worker & Render.com)
+tab3-product-assignment.js:1591 [INIT] ⚠️ UserStorageManager not available, creating fallback
+(anonymous) @ tab3-product-assignment.js:1591
+tab3-product-assignment.js:1594 [INIT] 📱 User identifier: guest
+tab3-product-assignment.js:413 [AUTH] Token expired or not available, fetching new token...
+tab3-product-assignment.js:1585 [INIT] 🚀 Initializing Tab3 Product Assignment...
+tab3-product-assignment.js:1586 [INIT] ✅ Using server-side token caching (Cloudflare Worker & Render.com)
+tab3-product-assignment.js:1591 [INIT] ⚠️ UserStorageManager not available, creating fallback
+(anonymous) @ tab3-product-assignment.js:1591
+tab3-product-assignment.js:1594 [INIT] 📱 User identifier: guest
+tab3-product-assignment.js:413 [AUTH] Token expired or not available, fetching new token...
+standard-price-manager.js:54 [STANDARD-PRICE] IndexedDB opened successfully
+common-utils.js:697 Page title updated with role icon
+user-storage-manager.js:37 [USER-STORAGE] Initialized for user: hanh (from userType: hanh-hanh1206)
+user-storage-manager.js:337 [USER-STORAGE] UserStorageManager initialized (delayed)
+quick-reply-manager.js:318 [QUICK-REPLY] ✅ Loaded 14 replies from cache
+chat-products-ui.js:885 [CHAT-PRODUCTS-UI] Loaded
+chat-products-actions.js:683 [CHAT-PRODUCTS-ACTIONS] Loaded
+comment-modal.js:890 [COMMENT MODAL] Module loaded
+user-storage-manager.js:37 [USER-STORAGE] Initialized for user: hanh (from userType: hanh-hanh1206)
+user-storage-manager.js:337 [USER-STORAGE] UserStorageManager initialized (delayed)
+cache.js:127 📦 [CACHE] Loaded 0 valid items from storage
+cache.js:38 [CACHE] ✅ Cache manager initialized with IndexedDB
+ai-chat-widget.js:1114 [AI Chat Widget] Initializing...
+ai-chat-widget.js:1119 [AI Chat Widget] Ready!
+auth-manager.js:412 [AUTH-MANAGER] Module loaded
+persistent-cache.js:344 [PERSISTENT-CACHE] Module loaded
+logger.js:255 [LOGGER] Module loaded, production mode: true
+dom-utils.js:317 [DOM-UTILS] Module loaded
+common-utils.js:621 [COMMON-UTILS] Module loaded
+tpos-client.js:529 [TPOS-CLIENT] Module loaded
+tpos-odata.js:422 [TPOS-ODATA] Module loaded
+compat.js:233 [ESM Compat] AuthManager auto-initialized
+compat.js:243 [ESM Compat] NotificationManager auto-initialized
+compat.js:252 [ESM Compat] All shared modules loaded and exported to window
+ [AUTH-MANAGER] Module loaded
+ [PERSISTENT-CACHE] Module loaded
+ [LOGGER] Module loaded, production mode: true
+ [DOM-UTILS] Module loaded
+ [COMMON-UTILS] Module loaded
+ [TPOS-CLIENT] Module loaded
+ [TPOS-ODATA] Module loaded
+ [ESM Compat] AuthManager auto-initialized
+ [ESM Compat] NotificationManager auto-initialized
+ [ESM Compat] All shared modules loaded and exported to window
+ [AUTH-MANAGER] Module loaded
+ [PERSISTENT-CACHE] Module loaded
+ [LOGGER] Module loaded, production mode: true
+ [DOM-UTILS] Module loaded
+ [COMMON-UTILS] Module loaded
+ [TPOS-CLIENT] Module loaded
+ [TPOS-ODATA] Module loaded
+ [ESM Compat] AuthManager auto-initialized
+ [ESM Compat] NotificationManager auto-initialized
+ [ESM Compat] All shared modules loaded and exported to window
+ 🎨 ORDER IMAGE GENERATOR
+ [IMAGE-GEN] 🚀 OrderImageGenerator initialized
+ ✅ OrderImageGenerator initialized and ready
+ 🚀 MESSAGE TEMPLATE MANAGER - IMPROVED VERSION
+ [MESSAGE] 🚀 MessageTemplateManager initialized
+ [MESSAGE] API URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)
+ [MESSAGE] TokenManager available: true
+ [MESSAGE] 📝 Creating modal DOM...
+ [MESSAGE] ✅ Modal DOM created
+ [MESSAGE] 🔗 Attaching event listeners...
+ [MESSAGE] ✅ Event listeners attached
+ ✅ MessageTemplateManager initialized and ready
+ 📊 Debug mode: true
+ 
+ 🚀 QUICK REPLY MANAGER
+ [QUICK-REPLY] 🚀 Initializing...
+ [QUICK-REPLY] ✅ Modal DOM created
+ [QUICK-REPLY] ✅ Settings modal DOM created
+ [QUICK-REPLY] ✅ Template input modal DOM created
+ [QUICK-REPLY] ✅ Autocomplete DOM created
+ [QUICK-REPLY] ✅ Firebase Firestore initialized
+ [QUICK-REPLY] 📥 Loading replies...
+ [QUICK-REPLY] ✅ Event listeners attached
+ ✅ QuickReplyManager initialized and ready
+ [SEARCH] Initializing enhanced search functions...
+ [SEARCH] Enhanced search functions initialized
+ [COLUMN] Column visibility manager loaded
+ [STORAGE] Current localStorage usage: 4.09 MB
+ [STORAGE] ⚠️ localStorage near quota, cleaning up...
+cleanupLocalStorageIfNeeded @ tab1-init.js:36
+(anonymous) @ tab1-init.js:67
+ [STORAGE] ✅ Cleaned 0 items
+ [CACHE] Clearing all cache on page load...
+ [CACHE] Cleared 0 items of type: orders
+ [CACHE] Cleared 0 items of type: campaigns
+ [HELD-PRODUCTS] Found pending cleanup from previous session
+ [HELD-PRODUCTS] Cleaning up temporary held products for user: hanh
+ [TOKEN] Retrying Firebase initialization for TokenManager...
+token-manager.js:114 [TOKEN] Firestore already initialized
+tab1-init.js:133 [TOKEN] ✅ Firebase connection established
+tab1-init.js:144 [PANCAKE] Initializing Pancake managers (background)...
+pancake-token-manager.js:197 [PANCAKE-TOKEN] Loading from storage first...
+pancake-token-manager.js:76 [PANCAKE-TOKEN] ✅ Valid JWT token found in localStorage
+pancake-token-manager.js:235 [PANCAKE-TOKEN] ✅ JWT token loaded from localStorage
+pancake-data-manager.js:2077 [PANCAKE] Initializing...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:195 [PANCAKE] Using cached pages (localStorage), count: 6
+tab1-init.js:171 [REALTIME] Initializing RealtimeManager...
+tab1-init.js:213 [AUTO-LOAD] Khởi tạo App...
+tab1-init.js:214 [AUTO-LOAD] chatDataManager available: false
+tab1-init.js:360 [APP] 🚀 Initializing...
+tab1-init.js:391 [APP] User ID: user_1768711066857
+tab1-init.js:394 [APP] Loading data in parallel...
+tab1-employee.js:398 [EMPLOYEE] Loading general employee ranges
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+tab1-checkbox.js:51 [TAB1-CHECKBOX] Module loaded
+tab1-campaign-settings.js:125 [TAB1-CAMPAIGN-SETTINGS] Module loaded
+tab1-campaign-create.js:154 [TAB1-CAMPAIGN-CREATE] Module loaded
+tab1-campaign-system.js:762 [TAB1-CAMPAIGN-SYSTEM] Module loaded
+tab1-pancake-settings.js:910 [TAB1-PANCAKE-SETTINGS] Module loaded
+quick-reply-manager.js:1316 [QUICK-REPLY] ✅ Template image paste listener attached
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: livestream_persistent_cache
+cache.js:75 💾 [CACHE] Saved 0 items to IndexedDB
+standard-price-manager.js:111 [STANDARD-PRICE] Loaded 11918 products from IndexedDB cache
+standard-price-manager.js:112 [STANDARD-PRICE] Cache age: 13 minutes
+tab3-product-assignment.js:396 [AUTH] ✅ Token received (server-side cached)
+tab3-product-assignment.js:498 [ORDERS] Requesting fresh orders data from tab1...
+tab3-product-assignment.js:514 📤 Đã gửi request lấy orders data từ tab1
+tab3-product-assignment.js:1600 [INIT] 📱 Loading from LocalStorage...
+tab3-product-assignment.js:1502 [INIT] 🔄 Loading assignments from LocalStorage...
+tab3-product-assignment.js:1524 [INIT] 📭 LocalStorage is empty
+tab3-product-assignment.js:1529 [INIT] ✅ Initial load complete, assignments count: 0
+tab3-product-assignment.js:1604 [INIT] 🔧 Setting up listeners...
+tab3-product-assignment.js:1539 [SYNC] 🔧 Setting up LocalStorage listeners
+tab3-product-assignment.js:408 [AUTH] ✅ Using locally cached token
+tab3-product-assignment.js:396 [AUTH] ✅ Token received (server-side cached)
+tab3-product-assignment.js:498 [ORDERS] Requesting fresh orders data from tab1...
+tab3-product-assignment.js:514 📤 Đã gửi request lấy orders data từ tab1
+tab3-product-assignment.js:1600 [INIT] 📱 Loading from LocalStorage...
+tab3-product-assignment.js:1502 [INIT] 🔄 Loading assignments from LocalStorage...
+tab3-product-assignment.js:1524 [INIT] 📭 LocalStorage is empty
+tab3-product-assignment.js:1529 [INIT] ✅ Initial load complete, assignments count: 0
+tab3-product-assignment.js:1604 [INIT] 🔧 Setting up listeners...
+tab3-product-assignment.js:1539 [SYNC] 🔧 Setting up LocalStorage listeners
+tab3-product-assignment.js:408 [AUTH] ✅ Using locally cached token
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: livestream_persistent_cache
+cache.js:75 💾 [CACHE] Saved 0 items to IndexedDB
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+quick-reply-manager.js:1316 [QUICK-REPLY] ✅ Template image paste listener attached
+quick-reply-manager.js:318 [QUICK-REPLY] ✅ Loaded 14 replies from cache
+cache.js:127 📦 [CACHE] Loaded 0 valid items from storage
+cache.js:38 [CACHE] ✅ Cache manager initialized with IndexedDB
+tab1-edit-modal.js:1545 📨 Nhận request orders data, allData length: 0
+tab1-edit-modal.js:1549 ⚠️ allData chưa có dữ liệu
+tab1-edit-modal.js:1545 📨 Nhận request orders data, allData length: 0
+tab1-edit-modal.js:1549 ⚠️ allData chưa có dữ liệu
+pancake-token-manager.js:137 [PANCAKE-TOKEN] ✅ Page access tokens loaded from IndexedDB: 3
+pancake-token-manager.js:243 [PANCAKE-TOKEN] ✅ Page access tokens loaded from storage
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+pancake-data-manager.js:2089 [PANCAKE] ✅ Initialized successfully
+tab1-init.js:153 [PANCAKE] ✅ PancakeDataManager initialized (background)
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: livestream_persistent_cache
+cache.js:75 💾 [CACHE] Saved 0 items to IndexedDB
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: livestream_persistent_cache
+cache.js:75 💾 [CACHE] Saved 0 items to IndexedDB
+pancake-token-manager.js:137 [PANCAKE-TOKEN] ✅ Page access tokens loaded from IndexedDB: 3
+pancake-token-manager.js:243 [PANCAKE-TOKEN] ✅ Page access tokens loaded from storage
+tab1-qr-debt.js:29 [DEBT] ✅ Loaded cache from IndexedDB
+tab1-qr-debt.js:29 [DEBT] ✅ Loaded cache from IndexedDB
+firebase-config.js:75 [Firestore] Offline persistence enabled
+firebase-config.js:75 [Firestore] Offline persistence enabled
+firebase-config.js:75 [Firestore] Offline persistence enabled
+ [PANCAKE] Conversations response status: 200 
+ [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+ [PANCAKE] Built conversation maps:
+   - INBOX by PSID: 0 entries
+   - INBOX by FBID: 0 entries
+   - COMMENT by PSID: 0 entries
+   - COMMENT by FBID: 0 entries
+   - By Customer FB ID: 0 entries
+ [PANCAKE] ✅ Fetched 0 conversations
+ [PANCAKE] ✅ Initialized successfully
+ [PANCAKE] ✅ PancakeDataManager initialized (background)
+ [AUTH-MANAGER] Module loaded
+ [PERSISTENT-CACHE] Module loaded
+ [LOGGER] Module loaded, production mode: true
+ [DOM-UTILS] Module loaded
+ [COMMON-UTILS] Module loaded
+ [TPOS-CLIENT] Module loaded
+ [TPOS-ODATA] Module loaded
+ [ESM Compat] AuthManager auto-initialized
+ [ESM Compat] NotificationManager auto-initialized
+ [ESM Compat] All shared modules loaded and exported to window
+ 🎨 ORDER IMAGE GENERATOR
+ [IMAGE-GEN] 🚀 OrderImageGenerator initialized
+ ✅ OrderImageGenerator initialized and ready
+ 🚀 MESSAGE TEMPLATE MANAGER - IMPROVED VERSION
+ [MESSAGE] 🚀 MessageTemplateManager initialized
+ [MESSAGE] API URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)
+ [MESSAGE] TokenManager available: true
+ [MESSAGE] 📝 Creating modal DOM...
+ [MESSAGE] ✅ Modal DOM created
+ [MESSAGE] 🔗 Attaching event listeners...
+ [MESSAGE] ✅ Event listeners attached
+ ✅ MessageTemplateManager initialized and ready
+ 📊 Debug mode: true
+ 
+ 🚀 QUICK REPLY MANAGER
+ [QUICK-REPLY] 🚀 Initializing...
+ [QUICK-REPLY] ✅ Modal DOM created
+ [QUICK-REPLY] ✅ Settings modal DOM created
+ [QUICK-REPLY] ✅ Template input modal DOM created
+ [QUICK-REPLY] ✅ Autocomplete DOM created
+ [QUICK-REPLY] ✅ Firebase Firestore initialized
+ [QUICK-REPLY] 📥 Loading replies...
+ [QUICK-REPLY] ✅ Event listeners attached
+ ✅ QuickReplyManager initialized and ready
+ [SEARCH] Initializing enhanced search functions...
+ [SEARCH] Enhanced search functions initialized
+ [COLUMN] Column visibility manager loaded
+ [STORAGE] Current localStorage usage: 4.10 MB
+ [STORAGE] ⚠️ localStorage near quota, cleaning up...
+cleanupLocalStorageIfNeeded @ tab1-init.js:36
+(anonymous) @ tab1-init.js:67
+ [STORAGE] Removed: firebase:previous_websocket_failure
+ [STORAGE] Removed: firebase:host:n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app
+ [STORAGE] ✅ Cleaned 2 items
+ [CACHE] Clearing all cache on page load...
+ [CACHE] Cleared 0 items of type: orders
+ [CACHE] Cleared 0 items of type: campaigns
+ [HELD-PRODUCTS] Found pending cleanup from previous session
+ [HELD-PRODUCTS] Cleaning up temporary held products for user: hanh
+ [TOKEN] Retrying Firebase initialization for TokenManager...
+ [TOKEN] Firestore already initialized
+ [TOKEN] ✅ Firebase connection established
+ [PANCAKE] Initializing Pancake managers (background)...
+ [PANCAKE-TOKEN] Loading from storage first...
+ [PANCAKE-TOKEN] ✅ Valid JWT token found in localStorage
+pancake-token-manager.js:235 [PANCAKE-TOKEN] ✅ JWT token loaded from localStorage
+pancake-data-manager.js:2077 [PANCAKE] Initializing...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:195 [PANCAKE] Using cached pages (localStorage), count: 6
+tab1-init.js:171 [REALTIME] Initializing RealtimeManager...
+tab1-init.js:213 [AUTO-LOAD] Khởi tạo App...
+tab1-init.js:214 [AUTO-LOAD] chatDataManager available: false
+tab1-init.js:360 [APP] 🚀 Initializing...
+tab1-init.js:391 [APP] User ID: user_1768711066857
+tab1-init.js:394 [APP] Loading data in parallel...
+tab1-employee.js:398 [EMPLOYEE] Loading general employee ranges
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+quick-reply-manager.js:318 [QUICK-REPLY] ✅ Loaded 14 replies from cache
+auth-manager.js:412 [AUTH-MANAGER] Module loaded
+persistent-cache.js:344 [PERSISTENT-CACHE] Module loaded
+logger.js:255 [LOGGER] Module loaded, production mode: true
+dom-utils.js:317 [DOM-UTILS] Module loaded
+common-utils.js:621 [COMMON-UTILS] Module loaded
+tpos-client.js:529 [TPOS-CLIENT] Module loaded
+tpos-odata.js:422 [TPOS-ODATA] Module loaded
+compat.js:233 [ESM Compat] AuthManager auto-initialized
+compat.js:243 [ESM Compat] NotificationManager auto-initialized
+compat.js:252 [ESM Compat] All shared modules loaded and exported to window
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: livestream_persistent_cache
+cache.js:75 💾 [CACHE] Saved 0 items to IndexedDB
+tab3-product-assignment.js:1585 [INIT] 🚀 Initializing Tab3 Product Assignment...
+tab3-product-assignment.js:1586 [INIT] ✅ Using server-side token caching (Cloudflare Worker & Render.com)
+tab3-product-assignment.js:1591 [INIT] ⚠️ UserStorageManager not available, creating fallback
+(anonymous) @ tab3-product-assignment.js:1591
+tab3-product-assignment.js:1594 [INIT] 📱 User identifier: guest
+tab3-product-assignment.js:413 [AUTH] Token expired or not available, fetching new token...
+auth-manager.js:412 [AUTH-MANAGER] Module loaded
+persistent-cache.js:344 [PERSISTENT-CACHE] Module loaded
+logger.js:255 [LOGGER] Module loaded, production mode: true
+dom-utils.js:317 [DOM-UTILS] Module loaded
+common-utils.js:621 [COMMON-UTILS] Module loaded
+tpos-client.js:529 [TPOS-CLIENT] Module loaded
+tpos-odata.js:422 [TPOS-ODATA] Module loaded
+compat.js:233 [ESM Compat] AuthManager auto-initialized
+compat.js:243 [ESM Compat] NotificationManager auto-initialized
+compat.js:252 [ESM Compat] All shared modules loaded and exported to window
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: livestream_persistent_cache
+cache.js:75 💾 [CACHE] Saved 0 items to IndexedDB
+held-products-manager.js:605 [HELD-PRODUCTS] No temporary held products to clean up (0 saved)
+pancake-token-manager.js:137 [PANCAKE-TOKEN] ✅ Page access tokens loaded from IndexedDB: 3
+pancake-token-manager.js:243 [PANCAKE-TOKEN] ✅ Page access tokens loaded from storage
+user-storage-manager.js:37 [USER-STORAGE] Initialized for user: hanh (from userType: hanh-hanh1206)
+user-storage-manager.js:337 [USER-STORAGE] UserStorageManager initialized (delayed)
+tab3-product-assignment.js:396 [AUTH] ✅ Token received (server-side cached)
+tab3-product-assignment.js:498 [ORDERS] Requesting fresh orders data from tab1...
+tab3-product-assignment.js:514 📤 Đã gửi request lấy orders data từ tab1
+tab3-product-assignment.js:1600 [INIT] 📱 Loading from LocalStorage...
+tab3-product-assignment.js:1502 [INIT] 🔄 Loading assignments from LocalStorage...
+tab3-product-assignment.js:1524 [INIT] 📭 LocalStorage is empty
+tab3-product-assignment.js:1529 [INIT] ✅ Initial load complete, assignments count: 0
+tab3-product-assignment.js:1604 [INIT] 🔧 Setting up listeners...
+tab3-product-assignment.js:1539 [SYNC] 🔧 Setting up LocalStorage listeners
+tab3-product-assignment.js:408 [AUTH] ✅ Using locally cached token
+tab1-edit-modal.js:1545 📨 Nhận request orders data, allData length: 0
+tab1-edit-modal.js:1549 ⚠️ allData chưa có dữ liệu
+quick-reply-manager.js:1316 [QUICK-REPLY] ✅ Template image paste listener attached
+debug-realtime.js:101 
+📋 Available Commands:
+debug-realtime.js:102 ────────────────────────────────────────────────────────────
+debug-realtime.js:103 window.debugRealtime.checkStatus()       - Check current status
+debug-realtime.js:104 window.debugRealtime.checkStorage()      - Check localStorage
+debug-realtime.js:105 window.debugRealtime.enableBrowser()     - Enable Browser Mode
+debug-realtime.js:106 window.debugRealtime.connect()           - Manually connect WebSocket
+debug-realtime.js:107 window.debugRealtime.watch()             - Watch WebSocket events
+debug-realtime.js:108 window.debugRealtime.disconnect()        - Disconnect WebSocket
+debug-realtime.js:109 ============================================================
+debug-realtime.js:11 
+📊 Current Status:
+debug-realtime.js:12 ────────────────────────────────────────────────────────────
+debug-realtime.js:24 API Source: Pancake (ChatOmni removed)
+debug-realtime.js:25 Realtime Enabled: true
+debug-realtime.js:26 Realtime Mode: server
+debug-realtime.js:27 WebSocket Connected: false
+debug-realtime.js:69 
+💾 LocalStorage Status:
+debug-realtime.js:70 ────────────────────────────────────────────────────────────
+debug-realtime.js:76 chat_api_source: (not set - default: pancake)
+debug-realtime.js:77 chat_realtime_enabled: (not set - default: true)
+debug-realtime.js:78 chat_realtime_mode: (not set - default: server)
+tab1-qr-debt.js:29 [DEBT] ✅ Loaded cache from IndexedDB
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+pancake-data-manager.js:2089 [PANCAKE] ✅ Initialized successfully
+tab1-init.js:153 [PANCAKE] ✅ PancakeDataManager initialized (background)
+held-products-manager.js:605 [HELD-PRODUCTS] No temporary held products to clean up (0 saved)
+navigation-modern.js:3449 [VERSION] Version Checker initialized
+held-products-manager.js:605 [HELD-PRODUCTS] No temporary held products to clean up (0 saved)
+navigation-modern.js:3449 [VERSION] Version Checker initialized
+overview-firebase.js:41 [REPORT] Using default table name: Bảng 1
+overview-init.js:28 [REPORT] 📋 Default table set to: Bảng 1
+quick-reply-manager.js:707 [QUICK-REPLY] ✅ Autocomplete setup complete
+tab1-init.js:183 [TAG-REALTIME] Setting up Firebase TAG listeners (deferred)...
+tab1-firebase.js:161 [TAG-REALTIME] Setting up Firebase listener on: tag_updates
+tab1-firebase.js:166 [TAG-REALTIME] Current user: Hạnh
+tab1-firebase.js:199 [TAG-REALTIME] ✅ Firebase listeners setup complete
+quick-reply-manager.js:707 [QUICK-REPLY] ✅ Autocomplete setup complete
+tab1-init.js:183 [TAG-REALTIME] Setting up Firebase TAG listeners (deferred)...
+tab1-firebase.js:161 [TAG-REALTIME] Setting up Firebase listener on: tag_updates
+tab1-firebase.js:166 [TAG-REALTIME] Current user: Hạnh
+tab1-firebase.js:199 [TAG-REALTIME] ✅ Firebase listeners setup complete
+overview-firebase.js:41 [REPORT] Using default table name: Bảng 1
+overview-init.js:28 [REPORT] 📋 Default table set to: Bảng 1
+tab3-product-assignment.js:484 Đã load 11918 sản phẩm
+tab3-product-assignment.js:1610 [INIT] ✅ Initialization complete!
+quick-reply-manager.js:707 [QUICK-REPLY] ✅ Autocomplete setup complete
+tab1-init.js:183 [TAG-REALTIME] Setting up Firebase TAG listeners (deferred)...
+tab1-firebase.js:161 [TAG-REALTIME] Setting up Firebase listener on: tag_updates
+tab1-firebase.js:166 [TAG-REALTIME] Current user: Hạnh
+tab1-firebase.js:199 [TAG-REALTIME] ✅ Firebase listeners setup complete
+overview-firebase.js:41 [REPORT] Using default table name: Bảng 1
+overview-init.js:28 [REPORT] 📋 Default table set to: Bảng 1
+tab2-statistics.html:661 [KPI-STATS] Loaded 7 campaigns
+navigation-modern.js:3449 [VERSION] Version Checker initialized
+new-messages-notifier.js:373 [NEW-MSG-NOTIFIER] Checking pending customers from server...
+tab1-address-stats.js:582 [QR] Syncing from balance-history API...
+new-messages-notifier.js:373 [NEW-MSG-NOTIFIER] Checking pending customers from server...
+tab1-address-stats.js:582 [QR] Syncing from balance-history API...
+tab2-statistics.html:661 [KPI-STATS] Loaded 7 campaigns
+tab3-product-assignment.js:484 Đã load 11918 sản phẩm
+tab3-product-assignment.js:1610 [INIT] ✅ Initialization complete!
+overview-statistics.js:76 [REPORT] ✅ Loaded available tags: 0
+overview-statistics.js:98 [REPORT] ✅ Loaded tracked tags: 10
+tab3-product-assignment.js:484 Đã load 11918 sản phẩm
+tab3-product-assignment.js:1610 [INIT] ✅ Initialization complete!
+new-messages-notifier.js:373 [NEW-MSG-NOTIFIER] Checking pending customers from server...
+tab1-address-stats.js:582 [QR] Syncing from balance-history API...
+tab1-qr-debt.js:400 [DEBT-REALTIME] Connecting to SSE endpoint...
+tab1-qr-debt.js:400 [DEBT-REALTIME] Connecting to SSE endpoint...
+overview-statistics.js:76 [REPORT] ✅ Loaded available tags: 0
+overview-statistics.js:98 [REPORT] ✅ Loaded tracked tags: 10
+overview-statistics.js:76 [REPORT] ✅ Loaded available tags: 0
+overview-statistics.js:98 [REPORT] ✅ Loaded tracked tags: 10
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-init.js:36 [REPORT] 📊 Statistics settings loaded
+tab1-address-stats.js:605 [QR] ✅ Synced 1083 new phone-QR mappings from balance-history
+tab1-address-stats.js:605 [QR] ✅ Synced 0 new phone-QR mappings from balance-history
+new-messages-notifier.js:380 [NEW-MSG-NOTIFIER] Found 1380 pending customers
+new-messages-notifier.js:157 [NEW-MSG-NOTIFIER] 627 tin nhắn và 753 bình luận mới từ 1380 khách hàng
+new-messages-notifier.js:380 [NEW-MSG-NOTIFIER] Found 1380 pending customers
+new-messages-notifier.js:157 [NEW-MSG-NOTIFIER] 627 tin nhắn và 753 bình luận mới từ 1380 khách hàng
+tab1-qr-debt.js:400 [DEBT-REALTIME] Connecting to SSE endpoint...
+tab1-address-stats.js:605 [QR] ✅ Synced 0 new phone-QR mappings from balance-history
+new-messages-notifier.js:380 [NEW-MSG-NOTIFIER] Found 1380 pending customers
+new-messages-notifier.js:157 [NEW-MSG-NOTIFIER] 627 tin nhắn và 753 bình luận mới từ 1380 khách hàng
+tab1-qr-debt.js:405 [DEBT-REALTIME] ✅ Connected to SSE
+tab1-qr-debt.js:405 [DEBT-REALTIME] ✅ Connected to SSE
+tab1-employee.js:304 [EMPLOYEE] normalizeEmployeeRanges input: object array (3) [{…}, {…}, {…}]
+tab1-employee.js:308 [EMPLOYEE] Data is already an array with 3 items
+tab1-employee.js:405 [EMPLOYEE] ✅ Loaded 3 ranges from general config
+tab1-init.js:400 [APP] Data loaded - Campaigns: 11 Active: null
+tab1-init.js:427 [APP] Found saved filter data in localStorage, using it...
+tab1-search.js:1166 [FETCH-CUSTOM] Fetching orders: 2025-12-19T11:50 -> 2026-01-18T11:50
+tab1-search.js:1178 [PROGRESSIVE] Loading first batch...
+pancake-token-manager.js:50 [PANCAKE-TOKEN] ✅ JWT token saved to localStorage
+pancake-token-manager.js:278 [PANCAKE-TOKEN] Loaded accounts: 2
+pancake-token-manager.js:279 [PANCAKE-TOKEN] Active account (local): c42ef91d-1a1d-43aa-b8af-8ac014d83d6c
+tab1-employee.js:304 [EMPLOYEE] normalizeEmployeeRanges input: object array (3) [{…}, {…}, {…}]
+tab1-employee.js:308 [EMPLOYEE] Data is already an array with 3 items
+tab1-employee.js:405 [EMPLOYEE] ✅ Loaded 3 ranges from general config
+tab1-init.js:400 [APP] Data loaded - Campaigns: 11 Active: null
+tab1-init.js:427 [APP] Found saved filter data in localStorage, using it...
+tab1-search.js:1166 [FETCH-CUSTOM] Fetching orders: 2025-12-19T11:50 -> 2026-01-18T11:50
+tab1-search.js:1178 [PROGRESSIVE] Loading first batch...
+tab1-qr-debt.js:405 [DEBT-REALTIME] ✅ Connected to SSE
+tab1-employee.js:304 [EMPLOYEE] normalizeEmployeeRanges input: object array (3) [{…}, {…}, {…}]
+tab1-employee.js:308 [EMPLOYEE] Data is already an array with 3 items
+tab1-employee.js:405 [EMPLOYEE] ✅ Loaded 3 ranges from general config
+tab1-init.js:400 [APP] Data loaded - Campaigns: 11 Active: null
+tab1-init.js:427 [APP] Found saved filter data in localStorage, using it...
+tab1-search.js:1166 [FETCH-CUSTOM] Fetching orders: 2025-12-19T11:50 -> 2026-01-18T11:50
+tab1-search.js:1178 [PROGRESSIVE] Loading first batch...
+pancake-token-manager.js:50 [PANCAKE-TOKEN] ✅ JWT token saved to localStorage
+pancake-token-manager.js:278 [PANCAKE-TOKEN] Loaded accounts: 2
+pancake-token-manager.js:279 [PANCAKE-TOKEN] Active account (local): c42ef91d-1a1d-43aa-b8af-8ac014d83d6c
+pancake-token-manager.js:50 [PANCAKE-TOKEN] ✅ JWT token saved to localStorage
+pancake-token-manager.js:278 [PANCAKE-TOKEN] Loaded accounts: 2
+pancake-token-manager.js:279 [PANCAKE-TOKEN] Active account (local): c42ef91d-1a1d-43aa-b8af-8ac014d83d6c
+pancake-token-manager.js:964 [PANCAKE-TOKEN] Loaded page_access_tokens: 3
+pancake-token-manager.js:217 [PANCAKE-TOKEN] Firestore reference initialized
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: pancake_page_access_tokens
+pancake-token-manager.js:107 [PANCAKE-TOKEN] ✅ Page access tokens saved to IndexedDB: 3
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-init.js:36 [REPORT] 📊 Statistics settings loaded
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-init.js:36 [REPORT] 📊 Statistics settings loaded
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-chat.js:168 [OVERVIEW] 📋 Campaign name from DOM label: 19/12/2025 - 18/1/2026
+tab1-chat.js:179 [OVERVIEW] 📋 Final campaign name to send: 19/12/2025 - 18/1/2026
+tab1-chat.js:187 📤 [OVERVIEW] Đã gửi 50 đơn hàng với campaign "19/12/2025 - 18/1/2026" về tab Báo Cáo Tổng Hợp
+tab1-search.js:1206 [PROGRESSIVE] Loading conversations in background...
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1220 [PROGRESSIVE] Found channel IDs: (2) ['270136663390370', '117267091364524']
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+tab1-pancake-settings.js:454 [TAG-FILTER] Loading available tags from API...
+tab1-encoding.js:358 [NOTE-TRACKER] Starting note edit detection for 50 orders...
+tab1-encoding.js:159 [NOTE-TRACKER] Loading note snapshots from Firebase...
+tab1-search.js:1275 [PROGRESSIVE] Starting background loading...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+tab1-init.js:220 [APP] ✅ Initialization complete
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 30 rows
+overview-events.js:10 [REPORT] Received orders data: 50
+overview-events.js:11 [REPORT] Received campaign name: 19/12/2025 - 18/1/2026
+overview-events.js:12 [REPORT] User manually selected table: false
+overview-table.js:266 [REPORT] ➕ Added table option: 19/12/2025 - 18/1/2026
+overview-events.js:55 [REPORT] Current campaign: STORE 13_01_2026
+overview-events.js:58 [REPORT] Using table name for mapping: 19/12/2025 - 18/1/2026
+overview-table.js:173 [REPORT] 📥 Loading Firebase data for table: 19/12/2025 - 18/1/2026 (Chi tiết đã tải)
+tab1-encoding.js:180 [NOTE-TRACKER] Loaded 0 snapshots, cleaned 0 expired
+tab1-encoding.js:270 [NOTE-TRACKER] Comparing notes with snapshots...
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-ca3a-08de55dfe40c (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-b9f9-08de55df7589 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-1907-08de55df568a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9c20-08de55df1ac2 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a350-08de55dec8c9 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-34c8-08de55debebd (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e81a-08de55debd71 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a419-08de55ddc788 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3279-08de55ddbac2 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-427f-08de55dd2b34 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-5881-08de55dc8afc (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4d64-08de55dc3808 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e58d-08de55dc0e2a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-c264-08de55dc024e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9973-08de55db9f02 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4144-08de55db2766 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-0bbd-08de55dac217 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-d3e5-08de55da7d1a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-1994-08de55da74c5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-56dd-08de55d995cc (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-f081-08de55d99561 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4a4d-08de55d88895 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-7299-08de55d87b52 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-8692-08de55d7cb06 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-14b8-08de55d7c3ed (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-6d50-08de55d7b40b (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9fd4-08de55d7aea7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-6b26-08de55d7a732 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-867d-08de55d798db (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3f31-08de55d797f4 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a23f-08de55d796f1 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-dbc1-08de55d784b0 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-afca-08de55d778fe (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-8f99-08de55d740b4 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-980e-08de55d73e4f (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-334b-08de55d72c8e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-83f5-08de55d729c5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-cd0a-08de55d71b20 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e42d-08de55d7062d (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-be9a-08de55d6d62a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-38b2-08de55d6a74c (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3ce1-08de55d68f1e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-dcb4-08de55d68cc5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-2180-08de55d61bf7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-75b9-08de55d601e6 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-c29f-08de55d5ffee (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-41ce-08de55d5f360 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-acb2-08de55d5d2c9 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4ab8-08de55d56ea7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-873d-08de55d56040 (no valid encoded products)
+tab1-encoding.js:321 [NOTE-TRACKER] ✅ Found 0 edited notes out of 50 orders
+tab1-encoding.js:366 [NOTE-TRACKER] Note edit detection completed
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1263 [NOTE-TRACKER] Table re-rendered with edit indicators
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-chat.js:168 [OVERVIEW] 📋 Campaign name from DOM label: 19/12/2025 - 18/1/2026
+tab1-chat.js:179 [OVERVIEW] 📋 Final campaign name to send: 19/12/2025 - 18/1/2026
+tab1-chat.js:187 📤 [OVERVIEW] Đã gửi 50 đơn hàng với campaign "19/12/2025 - 18/1/2026" về tab Báo Cáo Tổng Hợp
+tab1-search.js:1206 [PROGRESSIVE] Loading conversations in background...
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1220 [PROGRESSIVE] Found channel IDs: (2) ['270136663390370', '117267091364524']
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+tab1-pancake-settings.js:454 [TAG-FILTER] Loading available tags from API...
+tab1-encoding.js:358 [NOTE-TRACKER] Starting note edit detection for 50 orders...
+tab1-encoding.js:159 [NOTE-TRACKER] Loading note snapshots from Firebase...
+tab1-search.js:1275 [PROGRESSIVE] Starting background loading...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+tab1-init.js:220 [APP] ✅ Initialization complete
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-chat.js:168 [OVERVIEW] 📋 Campaign name from DOM label: 19/12/2025 - 18/1/2026
+tab1-chat.js:179 [OVERVIEW] 📋 Final campaign name to send: 19/12/2025 - 18/1/2026
+tab1-chat.js:187 📤 [OVERVIEW] Đã gửi 50 đơn hàng với campaign "19/12/2025 - 18/1/2026" về tab Báo Cáo Tổng Hợp
+tab1-search.js:1206 [PROGRESSIVE] Loading conversations in background...
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1220 [PROGRESSIVE] Found channel IDs: (2) ['270136663390370', '117267091364524']
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+tab1-pancake-settings.js:454 [TAG-FILTER] Loading available tags from API...
+tab1-encoding.js:358 [NOTE-TRACKER] Starting note edit detection for 50 orders...
+tab1-encoding.js:159 [NOTE-TRACKER] Loading note snapshots from Firebase...
+tab1-search.js:1275 [PROGRESSIVE] Starting background loading...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+tab1-init.js:220 [APP] ✅ Initialization complete
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+tab1-encoding.js:180 [NOTE-TRACKER] Loaded 0 snapshots, cleaned 0 expired
+tab1-encoding.js:270 [NOTE-TRACKER] Comparing notes with snapshots...
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-ca3a-08de55dfe40c (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-b9f9-08de55df7589 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-1907-08de55df568a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9c20-08de55df1ac2 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a350-08de55dec8c9 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-34c8-08de55debebd (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e81a-08de55debd71 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a419-08de55ddc788 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3279-08de55ddbac2 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-427f-08de55dd2b34 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-5881-08de55dc8afc (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4d64-08de55dc3808 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e58d-08de55dc0e2a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-c264-08de55dc024e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9973-08de55db9f02 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4144-08de55db2766 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-0bbd-08de55dac217 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-d3e5-08de55da7d1a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-1994-08de55da74c5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-56dd-08de55d995cc (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-f081-08de55d99561 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4a4d-08de55d88895 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-7299-08de55d87b52 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-8692-08de55d7cb06 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-14b8-08de55d7c3ed (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-6d50-08de55d7b40b (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9fd4-08de55d7aea7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-6b26-08de55d7a732 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-867d-08de55d798db (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3f31-08de55d797f4 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a23f-08de55d796f1 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-dbc1-08de55d784b0 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-afca-08de55d778fe (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-8f99-08de55d740b4 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-980e-08de55d73e4f (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-334b-08de55d72c8e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-83f5-08de55d729c5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-cd0a-08de55d71b20 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e42d-08de55d7062d (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-be9a-08de55d6d62a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-38b2-08de55d6a74c (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3ce1-08de55d68f1e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-dcb4-08de55d68cc5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-2180-08de55d61bf7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-75b9-08de55d601e6 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-c29f-08de55d5ffee (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-41ce-08de55d5f360 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-acb2-08de55d5d2c9 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4ab8-08de55d56ea7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-873d-08de55d56040 (no valid encoded products)
+tab1-encoding.js:321 [NOTE-TRACKER] ✅ Found 0 edited notes out of 50 orders
+tab1-encoding.js:366 [NOTE-TRACKER] Note edit detection completed
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1263 [NOTE-TRACKER] Table re-rendered with edit indicators
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+overview-events.js:10 [REPORT] Received orders data: 50
+overview-events.js:11 [REPORT] Received campaign name: 19/12/2025 - 18/1/2026
+overview-events.js:12 [REPORT] User manually selected table: false
+overview-table.js:266 [REPORT] ➕ Added table option: 19/12/2025 - 18/1/2026
+overview-events.js:55 [REPORT] Current campaign: STORE 13_01_2026
+overview-events.js:58 [REPORT] Using table name for mapping: 19/12/2025 - 18/1/2026
+overview-table.js:173 [REPORT] 📥 Loading Firebase data for table: 19/12/2025 - 18/1/2026 (Chi tiết đã tải)
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+tab1-encoding.js:180 [NOTE-TRACKER] Loaded 0 snapshots, cleaned 0 expired
+tab1-encoding.js:270 [NOTE-TRACKER] Comparing notes with snapshots...
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-ca3a-08de55dfe40c (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-b9f9-08de55df7589 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-1907-08de55df568a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9c20-08de55df1ac2 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a350-08de55dec8c9 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-34c8-08de55debebd (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e81a-08de55debd71 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a419-08de55ddc788 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3279-08de55ddbac2 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-427f-08de55dd2b34 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-5881-08de55dc8afc (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4d64-08de55dc3808 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e58d-08de55dc0e2a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-c264-08de55dc024e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9973-08de55db9f02 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4144-08de55db2766 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-0bbd-08de55dac217 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-d3e5-08de55da7d1a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-1994-08de55da74c5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-56dd-08de55d995cc (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-f081-08de55d99561 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4a4d-08de55d88895 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-7299-08de55d87b52 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-8692-08de55d7cb06 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-14b8-08de55d7c3ed (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-6d50-08de55d7b40b (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-9fd4-08de55d7aea7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-6b26-08de55d7a732 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-867d-08de55d798db (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3f31-08de55d797f4 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-a23f-08de55d796f1 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-dbc1-08de55d784b0 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-afca-08de55d778fe (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-8f99-08de55d740b4 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-980e-08de55d73e4f (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-334b-08de55d72c8e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-83f5-08de55d729c5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-cd0a-08de55d71b20 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-e42d-08de55d7062d (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-be9a-08de55d6d62a (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-38b2-08de55d6a74c (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-3ce1-08de55d68f1e (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-dcb4-08de55d68cc5 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-2180-08de55d61bf7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-75b9-08de55d601e6 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-c29f-08de55d5ffee (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-41ce-08de55d5f360 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-acb2-08de55d5d2c9 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-4ab8-08de55d56ea7 (no valid encoded products)
+tab1-encoding.js:310 [NOTE-TRACKER] ⏭️ Skipping order #01770000-5d70-0015-873d-08de55d56040 (no valid encoded products)
+tab1-encoding.js:321 [NOTE-TRACKER] ✅ Found 0 edited notes out of 50 orders
+tab1-encoding.js:366 [NOTE-TRACKER] Note edit detection completed
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1263 [NOTE-TRACKER] Table re-rendered with edit indicators
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+overview-events.js:10 [REPORT] Received orders data: 50
+overview-events.js:11 [REPORT] Received campaign name: 19/12/2025 - 18/1/2026
+overview-events.js:12 [REPORT] User manually selected table: false
+overview-table.js:266 [REPORT] ➕ Added table option: 19/12/2025 - 18/1/2026
+overview-events.js:55 [REPORT] Current campaign: STORE 13_01_2026
+overview-events.js:58 [REPORT] Using table name for mapping: 19/12/2025 - 18/1/2026
+overview-table.js:173 [REPORT] 📥 Loading Firebase data for table: 19/12/2025 - 18/1/2026 (Chi tiết đã tải)
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+tab1-search.js:1232 [PANCAKE] Fetching conversations for unread info...
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+tab1-pancake-settings.js:475 [TAG-FILTER] Loaded 1000 tags from API
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+tab1-search.js:1232 [PANCAKE] Fetching conversations for unread info...
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+tab1-pancake-settings.js:475 [TAG-FILTER] Loaded 1000 tags from API
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 1050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+tab1-search.js:1232 [PANCAKE] Fetching conversations for unread info...
+pancake-data-manager.js:697 [PANCAKE] Fetching conversations from API via Cloudflare...
+pancake-token-manager.js:668 [PANCAKE-TOKEN] Using cached token (memory)
+pancake-data-manager.js:711 [PANCAKE] Conversations URL: https://chatomni-proxy.nhijudyshop.workers.dev/api/pancake/conversations?pages[igo_17841474211813256]=0&pages[193642490509664]=0&pages[324873917372219]=0&pages[117267091364524]=0&pages[270136663390370]=0&pages[112678138086607]=0&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc3NjI0MDUzMSwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI2YjkzOTVlZC05MDRkLTRmN2MtODY4Yi1hYTBlMGE4ZTFjNTUiLCJpYXQiOjE3Njg0NjQ1MzEsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.lxQFnQIj8lyMQUd2If2_t_blb8t2yUImqDq_z_-vVVQ&cursor_mode=true&from_platform=web
+tab1-pancake-settings.js:475 [TAG-FILTER] Loaded 1000 tags from API
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 1050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+tab1-search.js:1234 [PANCAKE] ✅ Conversations fetched
+tab1-search.js:1239 [PROGRESSIVE] ✅ Conversations loaded (background)
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+pancake-data-manager.js:720 [PANCAKE] Conversations response status: 200 
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 1050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+tab1-search.js:1234 [PANCAKE] ✅ Conversations fetched
+tab1-search.js:1239 [PROGRESSIVE] ✅ Conversations loaded (background)
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+overview-table.js:71 [REPORT] ✅ Loaded 2 table metadata from Firebase
+overview-table.js:84 [REPORT] ➕ Added current table "19/12/2025 - 18/1/2026" to dropdown (not in Firebase yet)
+overview-table.js:95 [REPORT] ⚠️ Campaign "19/12/2025 - 18/1/2026" not in Firebase - Chi tiết đã tải will show empty
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-init.js:47 [REPORT] ⏳ Waiting for Tab1 data before rendering statistics...
+discount-stats-ui.js:76 [DISCOUNT-UI] Initializing...
+overview-init.js:52 [REPORT] 💰 Discount Stats UI initialized
+overview-init.js:55 [REPORT] 🎉 Firebase init complete. cachedOrders for "19/12/2025 - 18/1/2026": 0
+overview-init.js:109 [REPORT] ℹ️ No session cache - use manual fetch button or wait for Tab1 data
+overview-init.js:121 [REPORT] 📡 Requesting Tab1 data for Tổng quan...
+overview-ui.js:33 [REPORT] Requesting data from tab1...
+overview-fetch.js:539 [REPORT] 📡 Broadcast table status: current=19/12/2025 - 18/1/2026, firebase=null, match=null
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-firebase.js:206 [REPORT] ⚠️ No Firestore data for table: 19/12/2025 - 18/1/2026
+overview-table.js:186 [REPORT] ⚠️ No Firebase data for table: 19/12/2025 - 18/1/2026 - need to fetch
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+pancake-data-manager.js:729 [PANCAKE] Conversations response data: {error_code: 121, errors: Array(2), message: 'Không tìm thấy gói cước nào cho người dùng này', success: false}
+pancake-data-manager.js:795 [PANCAKE] Built conversation maps:
+pancake-data-manager.js:796   - INBOX by PSID: 0 entries
+pancake-data-manager.js:797   - INBOX by FBID: 0 entries
+pancake-data-manager.js:798   - COMMENT by PSID: 0 entries
+pancake-data-manager.js:799   - COMMENT by FBID: 0 entries
+pancake-data-manager.js:800   - By Customer FB ID: 0 entries
+pancake-data-manager.js:737 [PANCAKE] ✅ Fetched 0 conversations
+tab1-search.js:1234 [PANCAKE] ✅ Conversations fetched
+tab1-search.js:1239 [PROGRESSIVE] ✅ Conversations loaded (background)
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+overview-table.js:71 [REPORT] ✅ Loaded 2 table metadata from Firebase
+overview-table.js:84 [REPORT] ➕ Added current table "19/12/2025 - 18/1/2026" to dropdown (not in Firebase yet)
+overview-table.js:95 [REPORT] ⚠️ Campaign "19/12/2025 - 18/1/2026" not in Firebase - Chi tiết đã tải will show empty
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-init.js:47 [REPORT] ⏳ Waiting for Tab1 data before rendering statistics...
+discount-stats-ui.js:76 [DISCOUNT-UI] Initializing...
+overview-init.js:52 [REPORT] 💰 Discount Stats UI initialized
+overview-init.js:55 [REPORT] 🎉 Firebase init complete. cachedOrders for "19/12/2025 - 18/1/2026": 0
+overview-init.js:109 [REPORT] ℹ️ No session cache - use manual fetch button or wait for Tab1 data
+overview-init.js:121 [REPORT] 📡 Requesting Tab1 data for Tổng quan...
+overview-ui.js:33 [REPORT] Requesting data from tab1...
+overview-fetch.js:539 [REPORT] 📡 Broadcast table status: current=19/12/2025 - 18/1/2026, firebase=null, match=null
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-firebase.js:206 [REPORT] ⚠️ No Firestore data for table: 19/12/2025 - 18/1/2026
+overview-table.js:186 [REPORT] ⚠️ No Firebase data for table: 19/12/2025 - 18/1/2026 - need to fetch
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+overview-table.js:71 [REPORT] ✅ Loaded 2 table metadata from Firebase
+overview-table.js:84 [REPORT] ➕ Added current table "19/12/2025 - 18/1/2026" to dropdown (not in Firebase yet)
+overview-table.js:95 [REPORT] ⚠️ Campaign "19/12/2025 - 18/1/2026" not in Firebase - Chi tiết đã tải will show empty
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-init.js:47 [REPORT] ⏳ Waiting for Tab1 data before rendering statistics...
+discount-stats-ui.js:76 [DISCOUNT-UI] Initializing...
+overview-init.js:52 [REPORT] 💰 Discount Stats UI initialized
+overview-init.js:55 [REPORT] 🎉 Firebase init complete. cachedOrders for "19/12/2025 - 18/1/2026": 0
+overview-init.js:109 [REPORT] ℹ️ No session cache - use manual fetch button or wait for Tab1 data
+overview-init.js:121 [REPORT] 📡 Requesting Tab1 data for Tổng quan...
+overview-ui.js:33 [REPORT] Requesting data from tab1...
+overview-fetch.js:539 [REPORT] 📡 Broadcast table status: current=19/12/2025 - 18/1/2026, firebase=null, match=null
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-firebase.js:206 [REPORT] ⚠️ No Firestore data for table: 19/12/2025 - 18/1/2026
+overview-table.js:186 [REPORT] ⚠️ No Firebase data for table: 19/12/2025 - 18/1/2026 - need to fetch
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+tab1-edit-modal.js:1558 📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp
+tab1-edit-modal.js:1559 📊 [OVERVIEW] allData length: 1050
+tab1-chat.js:168 [OVERVIEW] 📋 Campaign name from DOM label: 19/12/2025 - 18/1/2026
+tab1-chat.js:179 [OVERVIEW] 📋 Final campaign name to send: 19/12/2025 - 18/1/2026
+tab1-chat.js:187 📤 [OVERVIEW] Đã gửi 1050 đơn hàng với campaign "19/12/2025 - 18/1/2026" về tab Báo Cáo Tổng Hợp
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:69 [REPORT] 📊 Rendering statistics from Tab1 data (allOrders)...
+overview-statistics.js:1007 [REPORT] ✅ Statistics rendered from allOrders (50 orders)
+overview-modals.js:239 [DISCOUNT-STATS] Rendered successfully
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 2050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-edit-modal.js:1558 📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp
+tab1-edit-modal.js:1559 📊 [OVERVIEW] allData length: 2050
+tab1-chat.js:168 [OVERVIEW] 📋 Campaign name from DOM label: 19/12/2025 - 18/1/2026
+tab1-chat.js:179 [OVERVIEW] 📋 Final campaign name to send: 19/12/2025 - 18/1/2026
+tab1-chat.js:187 📤 [OVERVIEW] Đã gửi 2050 đơn hàng với campaign "19/12/2025 - 18/1/2026" về tab Báo Cáo Tổng Hợp
+tab1-edit-modal.js:1558 📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp
+tab1-edit-modal.js:1559 📊 [OVERVIEW] allData length: 1050
+tab1-chat.js:168 [OVERVIEW] 📋 Campaign name from DOM label: 19/12/2025 - 18/1/2026
+tab1-chat.js:179 [OVERVIEW] 📋 Final campaign name to send: 19/12/2025 - 18/1/2026
+tab1-chat.js:187 📤 [OVERVIEW] Đã gửi 1050 đơn hàng với campaign "19/12/2025 - 18/1/2026" về tab Báo Cáo Tổng Hợp
+overview-events.js:10 [REPORT] Received orders data: 1050
+overview-events.js:11 [REPORT] Received campaign name: 19/12/2025 - 18/1/2026
+overview-events.js:12 [REPORT] User manually selected table: false
+overview-events.js:55 [REPORT] Current campaign: STORE 13_01_2026
+overview-events.js:58 [REPORT] Using table name for mapping: 19/12/2025 - 18/1/2026
+overview-table.js:173 [REPORT] 📥 Loading Firebase data for table: 19/12/2025 - 18/1/2026 (Chi tiết đã tải)
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 2050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:69 [REPORT] 📊 Rendering statistics from Tab1 data (allOrders)...
+overview-statistics.js:1007 [REPORT] ✅ Statistics rendered from allOrders (50 orders)
+overview-modals.js:239 [DISCOUNT-STATS] Rendered successfully
+overview-events.js:10 [REPORT] Received orders data: 2050
+overview-events.js:11 [REPORT] Received campaign name: 19/12/2025 - 18/1/2026
+overview-events.js:12 [REPORT] User manually selected table: false
+overview-events.js:55 [REPORT] Current campaign: STORE 13_01_2026
+overview-events.js:58 [REPORT] Using table name for mapping: 19/12/2025 - 18/1/2026
+overview-table.js:173 [REPORT] 📥 Loading Firebase data for table: 19/12/2025 - 18/1/2026 (Chi tiết đã tải)
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 2050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+overview-events.js:10 [REPORT] Received orders data: 1050
+overview-events.js:11 [REPORT] Received campaign name: 19/12/2025 - 18/1/2026
+overview-events.js:12 [REPORT] User manually selected table: false
+overview-events.js:55 [REPORT] Current campaign: STORE 13_01_2026
+overview-events.js:58 [REPORT] Using table name for mapping: 19/12/2025 - 18/1/2026
+overview-table.js:173 [REPORT] 📥 Loading Firebase data for table: 19/12/2025 - 18/1/2026 (Chi tiết đã tải)
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:69 [REPORT] 📊 Rendering statistics from Tab1 data (allOrders)...
+overview-statistics.js:1007 [REPORT] ✅ Statistics rendered from allOrders (1050 orders)
+overview-modals.js:239 [DISCOUNT-STATS] Rendered successfully
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:82 [REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab
+overview-fetch.js:539 [REPORT] 📡 Broadcast table status: current=19/12/2025 - 18/1/2026, firebase=null, match=null
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-firebase.js:206 [REPORT] ⚠️ No Firestore data for table: 19/12/2025 - 18/1/2026
+overview-table.js:186 [REPORT] ⚠️ No Firebase data for table: 19/12/2025 - 18/1/2026 - need to fetch
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+overview-fetch.js:539 [REPORT] 📡 Broadcast table status: current=19/12/2025 - 18/1/2026, firebase=null, match=null
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-firebase.js:206 [REPORT] ⚠️ No Firestore data for table: 19/12/2025 - 18/1/2026
+overview-table.js:186 [REPORT] ⚠️ No Firebase data for table: 19/12/2025 - 18/1/2026 - need to fetch
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-fetch.js:539 [REPORT] 📡 Broadcast table status: current=19/12/2025 - 18/1/2026, firebase=null, match=null
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-firebase.js:206 [REPORT] ⚠️ No Firestore data for table: 19/12/2025 - 18/1/2026
+overview-table.js:186 [REPORT] ⚠️ No Firebase data for table: 19/12/2025 - 18/1/2026 - need to fetch
+overview-fetch.js:559 [REPORT] 🔔 Showing helper: table "19/12/2025 - 18/1/2026" not in Firebase
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:82 [REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:69 [REPORT] 📊 Rendering statistics from Tab1 data (allOrders)...
+overview-statistics.js:1007 [REPORT] ✅ Statistics rendered from allOrders (2050 orders)
+overview-modals.js:239 [DISCOUNT-STATS] Rendered successfully
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:69 [REPORT] 📊 Rendering statistics from Tab1 data (allOrders)...
+overview-statistics.js:1007 [REPORT] ✅ Statistics rendered from allOrders (1050 orders)
+overview-modals.js:239 [DISCOUNT-STATS] Rendered successfully
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:82 [REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:69 [REPORT] 📊 Rendering statistics from Tab1 data (allOrders)...
+overview-statistics.js:1007 [REPORT] ✅ Statistics rendered from allOrders (1050 orders)
+overview-modals.js:239 [DISCOUNT-STATS] Rendered successfully
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 3050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1343 [PROGRESSIVE] Background loading error: QuotaExceededError: Failed to execute 'setItem' on 'Storage': Setting the value of 'tab1_filter_data' exceeded the quota.
+    at sendDataToTab2 (tab1-table.js:1394:18)
+    at tab1-search.js:1310:33
+(anonymous) @ tab1-search.js:1343
+await in (anonymous)
+fetchOrders @ tab1-search.js:1348
+main.html:666 Uncaught QuotaExceededError: Failed to execute 'setItem' on 'Storage': Setting the value of 'tab1_filter_data' exceeded the quota.
+    at main.html:666:30
+(anonymous) @ main.html:666
+postMessage
+sendDataToTab2 @ tab1-table.js:1390
+(anonymous) @ tab1-search.js:1310
+await in (anonymous)
+fetchOrders @ tab1-search.js:1348
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 3050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1343 [PROGRESSIVE] Background loading error: QuotaExceededError: Failed to execute 'setItem' on 'Storage': Setting the value of 'tab1_filter_data' exceeded the quota.
+    at sendDataToTab2 (tab1-table.js:1394:18)
+    at tab1-search.js:1310:33
+(anonymous) @ tab1-search.js:1343
+await in (anonymous)
+fetchOrders @ tab1-search.js:1348
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+main.html?t=1768711665107:666 Uncaught QuotaExceededError: Failed to execute 'setItem' on 'Storage': Setting the value of 'tab1_filter_data' exceeded the quota.
+    at main.html?t=1768711665107:666:30
+(anonymous) @ main.html?t=1768711665107:666
+postMessage
+sendDataToTab2 @ tab1-table.js:1390
+(anonymous) @ tab1-search.js:1310
+await in (anonymous)
+fetchOrders @ tab1-search.js:1348
+tab1-search.js:1304 [PROGRESSIVE] Updating table: 3050/7425 orders
+tab1-search.js:204 [FILTER] Current user: Hạnh ID: null
+tab1-search.js:261 [FILTER] No range found for user: Hạnh
+tab1-table.js:422 [EMPLOYEE-VIEW] Waiting for background loading to complete...
+column-visibility-manager.js:190 [COLUMN] Initializing column visibility...
+column-visibility-manager.js:70 [COLUMN] Applying column visibility: {actions: true, stt: true, employee: false, tag: true, order-code: false, …}
+column-visibility-manager.js:198 [COLUMN] Column visibility initialized
+tab1-search.js:1343 [PROGRESSIVE] Background loading error: QuotaExceededError: Failed to execute 'setItem' on 'Storage': Setting the value of 'tab1_filter_data' exceeded the quota.
+    at sendDataToTab2 (tab1-table.js:1394:18)
+    at tab1-search.js:1310:33
+(anonymous) @ tab1-search.js:1343
+await in (anonymous)
+fetchOrders @ tab1-search.js:1348
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:82 [REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab
+main.html:666 Uncaught QuotaExceededError: Failed to execute 'setItem' on 'Storage': Setting the value of 'tab1_filter_data' exceeded the quota.
+    at main.html:666:30
+(anonymous) @ main.html:666
+postMessage
+sendDataToTab2 @ tab1-table.js:1390
+(anonymous) @ tab1-search.js:1310
+await in (anonymous)
+fetchOrders @ tab1-search.js:1348
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:82 [REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab
+new-messages-notifier.js:357 [NEW-MSG-NOTIFIER] Re-applying highlights for 1380 pending customers
+new-messages-notifier.js:290 [NEW-MSG-NOTIFIER] Highlighted 0 rows
+overview-statistics.js:59 [REPORT] ✅ Loaded general employee ranges: 3
+overview-events.js:82 [REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab
+pancake-token-manager.js:964 [PANCAKE-TOKEN] Loaded page_access_tokens: 3
+pancake-token-manager.js:217 [PANCAKE-TOKEN] Firestore reference initialized
+tab1-tags.js:352 [QUICK-TAG] Loaded user identifier: Hạnh
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: pancake_page_access_tokens
+pancake-token-manager.js:107 [PANCAKE-TOKEN] ✅ Page access tokens saved to IndexedDB: 3
+pancake-token-manager.js:964 [PANCAKE-TOKEN] Loaded page_access_tokens: 3
+pancake-token-manager.js:217 [PANCAKE-TOKEN] Firestore reference initialized
+indexeddb-storage.js:91 [IndexedDB] ✅ Saved: pancake_page_access_tokens
+pancake-token-manager.js:107 [PANCAKE-TOKEN] ✅ Page access tokens saved to IndexedDB: 3
+tab1-tags.js:352 [QUICK-TAG] Loaded user identifier: Hạnh
+tab1-tags.js:352 [QUICK-TAG] Loaded user identifier: Hạnh
+token-manager.js:90 [TOKEN] Firestore SDK not available after 5 seconds, will use localStorage only
+waitForFirebase @ token-manager.js:90
+await in waitForFirebase
+(anonymous) @ token-manager.js:54
+waitForFirebaseAndInit @ token-manager.js:64
+TokenManager @ token-manager.js:41
+(anonymous) @ token-manager.js:518
+token-manager.js:100 [TOKEN] Firestore not available, will use localStorage only
+initFirestore @ token-manager.js:100
+(anonymous) @ token-manager.js:57
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+token-manager.js:90 [TOKEN] Firestore SDK not available after 5 seconds, will use localStorage only
+waitForFirebase @ token-manager.js:90
+await in waitForFirebase
+(anonymous) @ token-manager.js:54
+waitForFirebaseAndInit @ token-manager.js:64
+TokenManager @ token-manager.js:41
+(anonymous) @ token-manager.js:518
+token-manager.js:100 [TOKEN] Firestore not available, will use localStorage only
+initFirestore @ token-manager.js:100
+(anonymous) @ token-manager.js:57
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+token-manager.js:90 [TOKEN] Firestore SDK not available after 5 seconds, will use localStorage only
+waitForFirebase @ token-manager.js:90
+await in waitForFirebase
+(anonymous) @ token-manager.js:54
+waitForFirebaseAndInit @ token-manager.js:64
+TokenManager @ token-manager.js:41
+(anonymous) @ token-manager.js:518
+token-manager.js:100 [TOKEN] Firestore not available, will use localStorage only
+initFirestore @ token-manager.js:100
+(anonymous) @ token-manager.js:57
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+token-manager.js:90 [TOKEN] Firestore SDK not available after 5 seconds, will use localStorage only
+waitForFirebase @ token-manager.js:90
+await in waitForFirebase
+(anonymous) @ token-manager.js:54
+waitForFirebaseAndInit @ token-manager.js:64
+TokenManager @ token-manager.js:41
+(anonymous) @ token-manager.js:518
+token-manager.js:100 [TOKEN] Firestore not available, will use localStorage only
+initFirestore @ token-manager.js:100
+(anonymous) @ token-manager.js:57
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+token-manager.js:90 [TOKEN] Firestore SDK not available after 5 seconds, will use localStorage only
+waitForFirebase @ token-manager.js:90
+await in waitForFirebase
+(anonymous) @ token-manager.js:54
+waitForFirebaseAndInit @ token-manager.js:64
+TokenManager @ token-manager.js:41
+(anonymous) @ token-manager.js:518
+token-manager.js:100 [TOKEN] Firestore not available, will use localStorage only
+initFirestore @ token-manager.js:100
+(anonymous) @ token-manager.js:57
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+token-manager.js:90 [TOKEN] Firestore SDK not available after 5 seconds, will use localStorage only
+waitForFirebase @ token-manager.js:90
+await in waitForFirebase
+(anonymous) @ token-manager.js:54
+waitForFirebaseAndInit @ token-manager.js:64
+TokenManager @ token-manager.js:41
+(anonymous) @ token-manager.js:518
+token-manager.js:100 [TOKEN] Firestore not available, will use localStorage only
+initFirestore @ token-manager.js:100
+(anonymous) @ token-manager.js:57
+token-manager.js:122 [TOKEN] Initializing Token Manager...
+token-manager.js:127 [TOKEN] ✅ Valid token loaded from localStorage
+token-manager.js:63 [TOKEN] ✅ Token Manager fully initialized (Firestore)
+navigation-modern.js:3296 [VERSION] Firestore not available, version check disabled
+waitForFirebase @ navigation-modern.js:3296
+await in waitForFirebase
+init @ navigation-modern.js:3263
+(anonymous) @ navigation-modern.js:3448
+navigation-modern.js:3296 [VERSION] Firestore not available, version check disabled
+waitForFirebase @ navigation-modern.js:3296
+await in waitForFirebase
+init @ navigation-modern.js:3263
+(anonymous) @ navigation-modern.js:3448
+tab2-statistics.html:661 [KPI-STATS] Loaded 7 campaigns
+navigation-modern.js:3296 [VERSION] Firestore not available, version check disabled
+waitForFirebase @ navigation-modern.js:3296
+await in waitForFirebase
+init @ navigation-modern.js:3263
+(anonymous) @ navigation-modern.js:3448
+tab1-firebase.js:187 [TAG-REALTIME] Firebase new tag update: {STT: 574, orderCode: '260104635', orderId: '01770000-5d70-0015-f49d-08de5509509c', tags: Array(1), timestamp: 1768711880279, …}
+tab1-firebase.js:216 [TAG-REALTIME] Processing update from firebase: {STT: 574, orderCode: '260104635', orderId: '01770000-5d70-0015-f49d-08de5509509c', tags: Array(1), timestamp: 1768711880279, …}
+tab1-firebase.js:226 [TAG-REALTIME] Normalized tags: [{…}]
+tab1-firebase.js:263 [TAG-REALTIME] Updating only TAG cell for order: 01770000-5d70-0015-f49d-08de5509509c
+tab1-firebase.js:289 [TAG-REALTIME] Row not found in DOM, skipping cell update
+tab1-firebase.js:187 [TAG-REALTIME] Firebase new tag update: {STT: 574, orderCode: '260104635', orderId: '01770000-5d70-0015-f49d-08de5509509c', tags: Array(1), timestamp: 1768711880279, …}
+tab1-firebase.js:216 [TAG-REALTIME] Processing update from firebase: {STT: 574, orderCode: '260104635', orderId: '01770000-5d70-0015-f49d-08de5509509c', tags: Array(1), timestamp: 1768711880279, …}
+tab1-firebase.js:226 [TAG-REALTIME] Normalized tags: [{…}]
+tab1-firebase.js:263 [TAG-REALTIME] Updating only TAG cell for order: 01770000-5d70-0015-f49d-08de5509509c
+tab1-firebase.js:289 [TAG-REALTIME] Row not found in DOM, skipping cell update
+tab1-firebase.js:187 [TAG-REALTIME] Firebase new tag update: {STT: 574, orderCode: '260104635', orderId: '01770000-5d70-0015-f49d-08de5509509c', tags: Array(1), timestamp: 1768711880279, …}
+tab1-firebase.js:216 [TAG-REALTIME] Processing update from firebase: {STT: 574, orderCode: '260104635', orderId: '01770000-5d70-0015-f49d-08de5509509c', tags: Array(1), timestamp: 1768711880279, …}
+tab1-firebase.js:226 [TAG-REALTIME] Normalized tags: [{…}]
+tab1-firebase.js:263 [TAG-REALTIME] Updating only TAG cell for order: 01770000-5d70-0015-f49d-08de5509509c
+tab1-firebase.js:289 [TAG-REALTIME] Row not found in DOM, skipping cell update
+new-messages-notifier.js:404 [NEW-MSG-NOTIFIER] Table rows not found, will retry on render
+checkNewMessages @ new-messages-notifier.js:404
+new-messages-notifier.js:404 [NEW-MSG-NOTIFIER] Table rows not found, will retry on render
+checkNewMessages @ new-messages-notifier.js:404

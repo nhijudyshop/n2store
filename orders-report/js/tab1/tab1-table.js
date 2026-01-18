@@ -1391,7 +1391,27 @@ function sendDataToTab2() {
             { type: "FILTER_CHANGED", filter: filterData },
             "*",
         );
-    localStorage.setItem("tab1_filter_data", JSON.stringify(filterData));
+
+    // Save to localStorage with quota handling
+    try {
+        localStorage.setItem("tab1_filter_data", JSON.stringify(filterData));
+    } catch (e) {
+        if (e.name === 'QuotaExceededError') {
+            console.warn('[TAB1] localStorage quota exceeded, clearing old data...');
+            // Clear old data and try again
+            localStorage.removeItem("tab1_filter_data");
+            try {
+                // If still too large, save only metadata (no data array)
+                const lightData = { ...filterData, data: [], dataSkipped: true };
+                localStorage.setItem("tab1_filter_data", JSON.stringify(lightData));
+                console.log('[TAB1] Saved lightweight filter data (without orders array)');
+            } catch (e2) {
+                console.error('[TAB1] Failed to save even lightweight data:', e2);
+            }
+        } else {
+            console.error('[TAB1] localStorage error:', e);
+        }
+    }
 }
 
 // =====================================================
