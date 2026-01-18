@@ -70,23 +70,32 @@
     background: #ffffff;
 }
 
-.live-mode-header .live-stats {
+/* Date Range Filter */
+.live-mode-header .live-date-filter {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 8px;
+}
+
+.live-mode-header .live-date-filter .date-input {
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
     font-size: 13px;
-    color: #64748b;
-}
-
-.live-mode-header .live-stats .stat-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.live-mode-header .live-stats .stat-value {
-    font-weight: 600;
+    background: #ffffff;
     color: #1e293b;
+    cursor: pointer;
+}
+
+.live-mode-header .live-date-filter .date-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.live-mode-header .live-date-filter .date-separator {
+    color: #94a3b8;
+    font-size: 14px;
 }
 
 .live-mode-header .sse-status {
@@ -306,7 +315,7 @@
 /* Row columns */
 .kanban-card .card-time {
     flex-shrink: 0;
-    width: 45px;
+    width: 85px;  /* Wider for hh:mm dd/mm format */
     font-size: 11px;
     color: #64748b;
     font-weight: 500;

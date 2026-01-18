@@ -101,16 +101,11 @@
                         <span class="status-dot"></span> Offline
                     </div>
 
-                    <div class="live-stats">
-                        <div class="stat-item">
-                            <span>📊</span>
-                            <span class="stat-value" id="liveStatsTotal">0</span>
-                            <span>GD</span>
-                        </div>
-                        <div class="stat-item">
-                            <span>💰</span>
-                            <span class="stat-value" id="liveStatsAmount">0đ</span>
-                        </div>
+                    <!-- Date Range Filter -->
+                    <div class="live-date-filter">
+                        <input type="date" id="liveStartDate" class="date-input" title="Từ ngày">
+                        <span class="date-separator">→</span>
+                        <input type="date" id="liveEndDate" class="date-input" title="Đến ngày">
                     </div>
 
                     <button class="toggle-confirmed" id="toggleConfirmedBtn">

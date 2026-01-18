@@ -20,6 +20,10 @@ const LiveModeModule = (function() {
         isLoading: false,
         lastUpdate: null,
 
+        // Date filter - default today
+        filterStartDate: new Date().toISOString().split('T')[0],
+        filterEndDate: new Date().toISOString().split('T')[0],
+
         // SSE
         sseConnection: null,
         sseReconnectAttempts: 0,
@@ -86,7 +90,10 @@ const LiveModeModule = (function() {
     function formatTime(dateStr) {
         if (!dateStr) return '';
         const date = new Date(dateStr);
-        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const time = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${time} ${day}/${month}`;
     }
 
     function formatDate(dateStr) {
@@ -689,15 +696,12 @@ const LiveModeModule = (function() {
         updateLoadingState(true);
 
         try {
-            // Lấy giao dịch trong 7 ngày gần nhất cho Live Mode
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - 7);
-
+            // Use date filter from state
             const params = new URLSearchParams({
-                start_date: startDate.toISOString().split('T')[0],
-                end_date: endDate.toISOString().split('T')[0],
-                limit: 500
+                start_date: state.filterStartDate,
+                end_date: state.filterEndDate,
+                limit: 500,
+                include_hidden: 'true'  // Include confirmed (hidden) transactions
             });
 
             const response = await fetch(`${API_BASE}/api/sepay/history?${params}`);
@@ -952,6 +956,53 @@ const LiveModeModule = (function() {
             refreshBtn.dataset.listenerAttached = 'true';
             refreshBtn.addEventListener('click', loadTransactions);
         }
+
+        // Date filter inputs
+        const startDateInput = document.getElementById('liveStartDate');
+        const endDateInput = document.getElementById('liveEndDate');
+
+        if (startDateInput && !startDateInput.dataset.listenerAttached) {
+            startDateInput.dataset.listenerAttached = 'true';
+            // Set initial value
+            startDateInput.value = formatDateForInput(state.filterStartDate);
+            startDateInput.addEventListener('change', onDateFilterChange);
+        }
+
+        if (endDateInput && !endDateInput.dataset.listenerAttached) {
+            endDateInput.dataset.listenerAttached = 'true';
+            // Set initial value
+            endDateInput.value = formatDateForInput(state.filterEndDate);
+            endDateInput.addEventListener('change', onDateFilterChange);
+        }
+    }
+
+    // Format date for input (dd/mm/yyyy -> yyyy-mm-dd)
+    function formatDateForInput(dateStr) {
+        if (!dateStr) return '';
+        // Already in yyyy-mm-dd format
+        if (dateStr.includes('-')) return dateStr;
+        // Convert from dd/mm/yyyy
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        return dateStr;
+    }
+
+    // Handle date filter change
+    function onDateFilterChange() {
+        const startInput = document.getElementById('liveStartDate');
+        const endInput = document.getElementById('liveEndDate');
+
+        if (startInput && startInput.value) {
+            state.filterStartDate = startInput.value;
+        }
+        if (endInput && endInput.value) {
+            state.filterEndDate = endInput.value;
+        }
+
+        // Reload with new date range
+        loadTransactions();
     }
 
     function destroy() {
