@@ -83,8 +83,8 @@ const LiveModeModule = (function() {
     // ===== UTILITY FUNCTIONS =====
 
     function formatCurrency(amount) {
-        if (!amount) return '0đ';
-        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+        if (!amount) return '0';
+        return new Intl.NumberFormat('vi-VN').format(amount);
     }
 
     function formatTime(dateStr) {
@@ -295,7 +295,7 @@ const LiveModeModule = (function() {
                 return `
                     <div class="kanban-card manual has-dropdown" data-id="${tx.id}" data-pending-id="${tx.pending_match_id || ''}">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
                         <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
                         <select class="customer-dropdown" data-id="${tx.id}">
                             <option value="">-- Chọn KH --</option>
@@ -309,7 +309,7 @@ const LiveModeModule = (function() {
                 return `
                     <div class="kanban-card manual" data-id="${tx.id}">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                        <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
                         <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
                         <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
                         <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
@@ -340,10 +340,12 @@ const LiveModeModule = (function() {
             return `
                 <div class="kanban-card auto" data-id="${tx.id}">
                     <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                    <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                    <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
                     <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
-                    <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
-                    <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                    <div class="card-customer-info">
+                        <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
+                        <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                    </div>
                     <span class="card-method ${methodClass}">${methodLabel}</span>
                     <button class="btn-confirm" data-id="${tx.id}">Xác nhận</button>
                 </div>
@@ -377,10 +379,12 @@ const LiveModeModule = (function() {
             return `
                 <div class="kanban-card confirmed" data-id="${tx.id}">
                     <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                    <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
+                    <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
                     <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
-                    <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
-                    <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                    <div class="card-customer-info">
+                        <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
+                        <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                    </div>
                     <span class="card-method ${methodClass}">${methodLabel}</span>
                     ${canEdit ? `<button class="btn-edit" data-id="${tx.id}">Sửa</button>` : ''}
                 </div>
