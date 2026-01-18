@@ -164,16 +164,31 @@
     border-radius: 12px;
 }
 
+/* Default: 2 columns split 50/50 full width */
 .kanban-board .kanban-column {
     flex: 1;
-    min-width: 280px;
-    max-width: 450px;
+    min-width: 0;
     background: #ffffff;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     transition: all 0.3s ease;
+}
+
+/* When confirmed column is visible, all 3 columns share equally */
+.kanban-board.show-confirmed .kanban-column {
+    flex: 1;
+}
+
+/* Column 3 hidden by default */
+.kanban-board .kanban-column.confirmed {
+    display: none;
+}
+
+/* Show column 3 when board has show-confirmed class */
+.kanban-board.show-confirmed .kanban-column.confirmed {
+    display: flex;
 }
 
 .kanban-board .kanban-column-header {
@@ -253,25 +268,19 @@
     color: #1e40af;
 }
 
-/* Column hidden state */
-.kanban-board .kanban-column.confirmed.column-hidden {
-    display: none;
-}
-
-/* ===== KANBAN CARDS ===== */
+/* ===== KANBAN CARDS - COMPACT LAYOUT ===== */
 .kanban-card {
     background: #ffffff;
-    border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 10px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     border: 1px solid #f1f5f9;
     transition: all 0.2s;
 }
 
 .kanban-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     border-color: #e2e8f0;
 }
 
@@ -301,12 +310,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 }
 
 .kanban-card .card-amount {
     font-weight: 700;
-    font-size: 17px;
+    font-size: 15px;
     color: #10b981;
 }
 
@@ -315,44 +324,50 @@
 }
 
 .kanban-card .card-time {
-    font-size: 12px;
+    font-size: 11px;
     color: #94a3b8;
     background: #f8fafc;
-    padding: 2px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
 }
 
+/* Compact content - single line with ellipsis */
 .kanban-card .card-content {
-    font-size: 13px;
+    font-size: 12px;
     color: #64748b;
-    margin-bottom: 12px;
-    word-break: break-word;
+    margin-bottom: 8px;
     background: #f8fafc;
-    padding: 8px 10px;
-    border-radius: 6px;
+    padding: 6px 8px;
+    border-radius: 4px;
     border-left: 2px solid #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .kanban-card .card-customer {
     font-weight: 600;
     color: #1e293b;
-    font-size: 14px;
-    margin-bottom: 4px;
+    font-size: 13px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .kanban-card .card-phone {
-    font-size: 13px;
+    font-size: 12px;
     color: #3b82f6;
     font-family: monospace;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .kanban-card .card-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 10px;
-    padding-top: 10px;
+    margin-top: 6px;
+    padding-top: 6px;
     border-top: 1px solid #f1f5f9;
 }
 
@@ -380,16 +395,16 @@
     color: #92400e;
 }
 
-/* Gợi ý tên KH từ TPOS */
+/* Gợi ý tên KH từ TPOS - compact */
 .kanban-card .card-customer-suggest {
     background: #ecfdf5;
     border: 1px solid #a7f3d0;
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 10px;
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .kanban-card .card-customer-suggest .suggest-icon {
@@ -399,18 +414,18 @@
 .kanban-card .card-customer-suggest .suggest-name {
     font-weight: 600;
     color: #065f46;
-    font-size: 14px;
+    font-size: 13px;
 }
 
-/* Input SĐT */
+/* Input SĐT - compact */
 .kanban-card .phone-input {
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-size: 13px;
     font-family: monospace;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     background: #ffffff;
     transition: all 0.2s;
     box-sizing: border-box;
@@ -419,18 +434,18 @@
 .kanban-card .phone-input:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
-/* Dropdown chọn KH */
+/* Dropdown chọn KH - compact */
 .kanban-card .customer-dropdown {
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-size: 13px;
     background: #ffffff;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     cursor: pointer;
     box-sizing: border-box;
 }
@@ -438,18 +453,18 @@
 .kanban-card .customer-dropdown:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
 
-/* Button Gán */
+/* Button Gán - compact */
 .kanban-card .btn-assign {
     width: 100%;
-    padding: 10px 16px;
+    padding: 8px 12px;
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: #ffffff;
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -486,16 +501,16 @@
     animation: spin 0.8s linear infinite;
 }
 
-/* Button Xác nhận */
+/* Button Xác nhận - compact */
 .kanban-card .btn-confirm {
     width: 100%;
-    margin-top: 10px;
-    padding: 10px 16px;
+    margin-top: 6px;
+    padding: 8px 12px;
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: #ffffff;
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;

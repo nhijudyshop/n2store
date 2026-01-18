@@ -172,6 +172,9 @@ const LiveModeModule = (function() {
         const board = document.getElementById('kanbanBoard');
         if (!board) return;
 
+        // Toggle show-confirmed class on board based on state
+        board.classList.toggle('show-confirmed', state.showConfirmed);
+
         // Filter by search query
         const filterItems = (items) => {
             if (!state.searchQuery) return items;
@@ -215,8 +218,8 @@ const LiveModeModule = (function() {
                 </div>
             </div>
 
-            <!-- Column 3: ĐÃ XÁC NHẬN (hidden by default) -->
-            <div class="kanban-column confirmed ${state.showConfirmed ? '' : 'column-hidden'}">
+            <!-- Column 3: ĐÃ XÁC NHẬN (controlled by board.show-confirmed class) -->
+            <div class="kanban-column confirmed">
                 <div class="kanban-column-header">
                     <div class="column-title">
                         <span>📦 ĐÃ XÁC NHẬN</span>
@@ -457,7 +460,15 @@ const LiveModeModule = (function() {
     function toggleConfirmedColumn() {
         state.showConfirmed = !state.showConfirmed;
         localStorage.setItem('livemode_show_confirmed', state.showConfirmed);
-        renderKanbanBoard();
+
+        // Toggle class on board without re-rendering
+        const board = document.getElementById('kanbanBoard');
+        if (board) {
+            board.classList.toggle('show-confirmed', state.showConfirmed);
+        }
+
+        // Update button UI
+        updateStats();
     }
 
     // ===== TPOS CACHE WITH EXPIRY =====
