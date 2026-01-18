@@ -192,23 +192,13 @@ function performTableSearch() {
         : [...allData];
 
     // Apply Employee STT Range Filter
-    // Check if user has admin access via detailedPermissions
+    // Check if user has admin access via checkLogin level (0 = admin)
     const auth = window.authManager ? window.authManager.getAuthState() : null;
-    let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-        auth?.roleTemplate === 'admin';
+    let isAdmin = window.authManager?.hasPermission(0) || false;
 
     const currentUserType = auth && auth.userType ? auth.userType : null;
     const currentDisplayName = auth && auth.displayName ? auth.displayName : null;
     const currentUserId = auth && auth.id ? auth.id : null;
-
-    // Fallback: Check username string for Admin (legacy support)
-    if (!isAdmin && currentUserType) {
-        const lowerName = currentUserType.toLowerCase();
-        if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
-            isAdmin = true;
-            console.log('[FILTER] User identified as Admin by name check');
-        }
-    }
 
     if (!isAdmin && employeeRanges.length > 0) {
         console.log('[FILTER] Current user:', currentDisplayName || currentUserType, 'ID:', currentUserId);

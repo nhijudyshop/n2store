@@ -1052,18 +1052,8 @@ async function openSaleButtonModal() {
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
     const confirmDebtBtn = document.getElementById('confirmDebtBtn');
 
-    // Check admin access via detailedPermissions
-    const authState = window.authManager ? window.authManager.getAuthState() : null;
-    let isAdmin = authState?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-        authState?.roleTemplate === 'admin';
-    // Fallback: Check username for admin (legacy support)
-    if (!isAdmin) {
-        const currentUserType = window.authManager?.getCurrentUser?.()?.name || localStorage.getItem('current_user_name') || '';
-        const lowerName = currentUserType.toLowerCase();
-        if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
-            isAdmin = true;
-        }
-    }
+    // Check admin access via checkLogin level (0 = admin)
+    let isAdmin = window.authManager?.hasPermission(0) || false;
 
     if (prepaidAmountField) {
         if (isAdmin) {

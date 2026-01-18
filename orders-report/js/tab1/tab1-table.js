@@ -258,19 +258,9 @@ function renderTable() {
         return;
     }
 
-    // Check if user has admin access via detailedPermissions
-    const auth = window.authManager ? window.authManager.getAuthState() : null;
-    let isAdmin = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-        auth?.roleTemplate === 'admin';
-
-    // Fallback: Check username string for Admin (legacy support)
-    const currentUserType = auth && auth.userType ? auth.userType : null;
-    if (!isAdmin && currentUserType) {
-        const lowerName = currentUserType.toLowerCase();
-        if (lowerName.includes('admin') || lowerName.includes('quản trị') || lowerName.includes('administrator')) {
-            isAdmin = true;
-        }
-    }
+    // Check if user has admin access via checkLogin level (0 = admin)
+    // hasPermission(0) returns true only if checkLogin === 0
+    let isAdmin = window.authManager?.hasPermission(0) || false;
 
     // Group by employee if ranges are configured AND user is NOT admin
     if (!isAdmin && employeeRanges.length > 0) {
