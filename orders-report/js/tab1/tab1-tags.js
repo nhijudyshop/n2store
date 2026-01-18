@@ -375,12 +375,17 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
 
     const tagName = `${tagPrefix} ${currentUserIdentifier}`.toUpperCase();
 
-    try {
-        // Show loading
+    // Store original tags for rollback
+    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+    if (!order) {
         if (window.notificationManager) {
-            window.notificationManager.info(`Đang gán tag "${tagName}"...`);
+            window.notificationManager.error('Không tìm thấy đơn hàng');
         }
+        return;
+    }
+    const originalTags = order.Tags; // Save for rollback
 
+    try {
         // Check if tag exists in availableTags
         let existingTag = availableTags.find(t => t.Name.toUpperCase() === tagName);
 
@@ -476,12 +481,6 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
             }
         }
 
-        // Get current order from data - O(1) via OrderStore with fallback
-        const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
-        if (!order) {
-            throw new Error('Không tìm thấy đơn hàng');
-        }
-
         // Parse existing tags
         let orderTags = [];
         try {
@@ -519,7 +518,20 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
             Color: existingTag.Color
         });
 
-        // Assign tag via API
+        // ═══════════════════════════════════════════════════════════════════
+        // OPTIMISTIC UPDATE: Update UI immediately BEFORE API call
+        // ═══════════════════════════════════════════════════════════════════
+        const newTagsJson = JSON.stringify(orderTags);
+
+        // 1. Update local UI immediately
+        updateOrderInTable(orderId, { Tags: newTagsJson });
+
+        // 2. Emit to Firebase immediately (so other users see it too)
+        await emitTagUpdateToFirebase(orderId, orderTags);
+
+        console.log('[QUICK-TAG] Optimistic update applied, calling API...');
+
+        // 3. Now call API in background
         const headers = await window.tokenManager.getAuthHeader();
         const assignResponse = await API_CONFIG.smartFetch(
             'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
@@ -538,15 +550,9 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         );
 
         if (!assignResponse.ok) {
+            // API failed - need to rollback
             throw new Error(`Lỗi gán tag: ${assignResponse.status}`);
         }
-
-        // Update order in table
-        const updatedData = { Tags: JSON.stringify(orderTags) };
-        updateOrderInTable(orderId, updatedData);
-
-        // Emit Firebase realtime update
-        await emitTagUpdateToFirebase(orderId, orderTags);
 
         // Clear cache
         window.cacheManager.clear("orders");
@@ -560,6 +566,31 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
 
     } catch (error) {
         console.error('[QUICK-TAG] Error:', error);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ROLLBACK: Revert to original tags on error
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('[QUICK-TAG] Rolling back optimistic update...');
+
+        // Parse original tags for Firebase emit
+        let originalOrderTags = [];
+        try {
+            if (originalTags) {
+                originalOrderTags = JSON.parse(originalTags);
+                if (!Array.isArray(originalOrderTags)) originalOrderTags = [];
+            }
+        } catch (e) {
+            originalOrderTags = [];
+        }
+
+        // 1. Revert local UI
+        updateOrderInTable(orderId, { Tags: originalTags || '[]' });
+
+        // 2. Emit rollback to Firebase (so other users also revert)
+        await emitTagUpdateToFirebase(orderId, originalOrderTags);
+
+        console.log('[QUICK-TAG] Rollback completed');
+
         if (window.notificationManager) {
             window.notificationManager.error(`Lỗi: ${error.message}`);
         }
@@ -573,45 +604,59 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
  * @param {string} tagId - Tag ID to remove
  */
 async function quickRemoveTag(orderId, orderCode, tagId) {
-    try {
-        console.log('[QUICK-TAG] Removing tag:', { orderId, orderCode, tagId });
+    console.log('[QUICK-TAG] Removing tag:', { orderId, orderCode, tagId });
 
-        // Get current order from data - O(1) via OrderStore with fallback
-        const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
-        if (!order) {
-            throw new Error('Không tìm thấy đơn hàng');
-        }
-
-        // Parse existing tags
-        let orderTags = [];
-        try {
-            if (order.Tags) {
-                orderTags = JSON.parse(order.Tags);
-                if (!Array.isArray(orderTags)) orderTags = [];
-            }
-        } catch (e) {
-            orderTags = [];
-        }
-
-        console.log('[QUICK-TAG] Current tags:', orderTags);
-
-        // Find tag to remove (compare as string to handle both number and string IDs)
-        const tagIdStr = String(tagId);
-        const tagToRemove = orderTags.find(t => String(t.Id) === tagIdStr);
-        if (!tagToRemove) {
-            console.warn('[QUICK-TAG] Tag not found in order:', tagId, 'Available:', orderTags.map(t => t.Id));
-            return;
-        }
-
-        // Remove tag from list
-        orderTags = orderTags.filter(t => String(t.Id) !== tagIdStr);
-
-        // Show loading
+    // Get current order from data - O(1) via OrderStore with fallback
+    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
+    if (!order) {
         if (window.notificationManager) {
-            window.notificationManager.info(`Đang xóa tag "${tagToRemove.Name}"...`);
+            window.notificationManager.error('Không tìm thấy đơn hàng');
         }
+        return;
+    }
 
-        // Assign updated tags via API
+    // Store original tags for rollback
+    const originalTags = order.Tags;
+
+    // Parse existing tags
+    let orderTags = [];
+    try {
+        if (order.Tags) {
+            orderTags = JSON.parse(order.Tags);
+            if (!Array.isArray(orderTags)) orderTags = [];
+        }
+    } catch (e) {
+        orderTags = [];
+    }
+
+    console.log('[QUICK-TAG] Current tags:', orderTags);
+
+    // Find tag to remove (compare as string to handle both number and string IDs)
+    const tagIdStr = String(tagId);
+    const tagToRemove = orderTags.find(t => String(t.Id) === tagIdStr);
+    if (!tagToRemove) {
+        console.warn('[QUICK-TAG] Tag not found in order:', tagId, 'Available:', orderTags.map(t => t.Id));
+        return;
+    }
+
+    // Remove tag from list
+    const newOrderTags = orderTags.filter(t => String(t.Id) !== tagIdStr);
+
+    try {
+        // ═══════════════════════════════════════════════════════════════════
+        // OPTIMISTIC UPDATE: Update UI immediately BEFORE API call
+        // ═══════════════════════════════════════════════════════════════════
+        const newTagsJson = JSON.stringify(newOrderTags);
+
+        // 1. Update local UI immediately
+        updateOrderInTable(orderId, { Tags: newTagsJson });
+
+        // 2. Emit to Firebase immediately (so other users see it too)
+        await emitTagUpdateToFirebase(orderId, newOrderTags);
+
+        console.log('[QUICK-TAG] Optimistic update applied, calling API...');
+
+        // 3. Now call API in background
         const headers = await window.tokenManager.getAuthHeader();
         const assignResponse = await API_CONFIG.smartFetch(
             'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
@@ -623,22 +668,16 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({
-                    Tags: orderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                    Tags: newOrderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
                     OrderId: orderId
                 })
             }
         );
 
         if (!assignResponse.ok) {
+            // API failed - need to rollback
             throw new Error(`Lỗi xóa tag: ${assignResponse.status}`);
         }
-
-        // Update order in table
-        const updatedData = { Tags: JSON.stringify(orderTags) };
-        updateOrderInTable(orderId, updatedData);
-
-        // Emit Firebase realtime update
-        await emitTagUpdateToFirebase(orderId, orderTags);
 
         // Clear cache
         window.cacheManager.clear("orders");
@@ -652,6 +691,31 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
 
     } catch (error) {
         console.error('[QUICK-TAG] Error removing tag:', error);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ROLLBACK: Revert to original tags on error
+        // ═══════════════════════════════════════════════════════════════════
+        console.log('[QUICK-TAG] Rolling back optimistic update...');
+
+        // Parse original tags for Firebase emit
+        let originalOrderTags = [];
+        try {
+            if (originalTags) {
+                originalOrderTags = JSON.parse(originalTags);
+                if (!Array.isArray(originalOrderTags)) originalOrderTags = [];
+            }
+        } catch (e) {
+            originalOrderTags = [];
+        }
+
+        // 1. Revert local UI
+        updateOrderInTable(orderId, { Tags: originalTags || '[]' });
+
+        // 2. Emit rollback to Firebase (so other users also revert)
+        await emitTagUpdateToFirebase(orderId, originalOrderTags);
+
+        console.log('[QUICK-TAG] Rollback completed');
+
         if (window.notificationManager) {
             window.notificationManager.error(`Lỗi: ${error.message}`);
         }
