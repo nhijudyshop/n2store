@@ -342,7 +342,8 @@ function sortDataByNewest(dataArray) {
         if (!timeA) return 1;
         if (!timeB) return -1;
 
-        return timeB - timeA;
+        // Fix: đổi từ timeB - timeA sang timeA - timeB để newest first
+        return timeA - timeB;
     });
 
     console.log("First 3 items AFTER sort:");
