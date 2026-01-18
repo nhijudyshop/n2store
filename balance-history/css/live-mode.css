@@ -561,7 +561,38 @@
     to { transform: rotate(360deg); }
 }
 
-/* Native title tooltip is sufficient - no CSS tooltip needed */
+/* CSS Tooltip - Instant display (no delay) */
+.card-content[data-tooltip] {
+    position: relative;
+    cursor: pointer;
+}
+
+.card-content[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: #1e293b;
+    color: #ffffff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    max-width: 280px;
+    word-break: break-word;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    /* NO transition delay - instant */
+}
+
+.card-content[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
 
 /* ===== FOOTER STATS ===== */
 .live-mode-footer {

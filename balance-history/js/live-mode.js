@@ -274,7 +274,7 @@ const LiveModeModule = (function() {
                     <div class="kanban-card manual has-dropdown" data-id="${tx.id}" data-pending-id="${tx.pending_match_id || ''}">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
                         <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                        <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
+                        <span class="card-content" data-tooltip="${escapeHtml(fullContent)}">${escapedContent}</span>
                         <select class="customer-dropdown" data-id="${tx.id}">
                             <option value="">-- Chọn KH --</option>
                             ${options}
@@ -288,7 +288,7 @@ const LiveModeModule = (function() {
                     <div class="kanban-card manual" data-id="${tx.id}">
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
                         <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                        <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
+                        <span class="card-content" data-tooltip="${escapeHtml(fullContent)}">${escapedContent}</span>
                         <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
                         <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
                         <button class="btn-assign" id="btn-${tx.id}" data-id="${tx.id}" disabled>Gán</button>
@@ -319,7 +319,7 @@ const LiveModeModule = (function() {
                 <div class="kanban-card auto" data-id="${tx.id}">
                     <span class="card-time">${formatTime(tx.transaction_date)}</span>
                     <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                    <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
+                    <span class="card-content" data-tooltip="${escapeHtml(fullContent)}">${escapedContent}</span>
                     <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
                     <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
                     <span class="card-method ${methodClass}">${methodLabel}</span>
@@ -355,7 +355,7 @@ const LiveModeModule = (function() {
                 <div class="kanban-card confirmed" data-id="${tx.id}">
                     <span class="card-time">${formatTime(tx.transaction_date)}</span>
                     <span class="card-amount ${isPositive ? '' : 'negative'}">${isPositive ? '+' : '-'}${formatCurrency(amount)}</span>
-                    <span class="card-content" title="${escapeHtml(fullContent)}">${escapedContent}</span>
+                    <span class="card-content" data-tooltip="${escapeHtml(fullContent)}">${escapedContent}</span>
                     <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
                     <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
                     <span class="card-method ${methodClass}">${methodLabel}</span>
