@@ -1264,7 +1264,7 @@ function renderBulkTagHistoryItem(entry, index) {
                         <div class="bulk-tag-history-tag-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
-                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
+                            <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -1286,7 +1286,7 @@ function renderBulkTagHistoryItem(entry, index) {
                         <div class="bulk-tag-history-tag-item failed">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
-                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
+                            <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
                             <div class="fail-reason">→ ${r.reason}</div>
                         </div>
                     `).join('')}
@@ -2313,7 +2313,7 @@ function renderBulkTagDeleteHistoryItem(entry, index) {
                         <div class="bulk-tag-history-tag-item">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
-                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
+                            <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
                         </div>
                     `).join('')}
                 </div>
@@ -2335,7 +2335,7 @@ function renderBulkTagDeleteHistoryItem(entry, index) {
                         <div class="bulk-tag-history-tag-item failed">
                             <span class="tag-color-dot" style="background-color: ${r.tagColor || '#6b7280'}"></span>
                             <span class="tag-name">${r.tagName}:</span>
-                            <span class="stt-list">STT ${r.sttList.join(', ')}</span>
+                            <span class="stt-list">STT ${(r.sttList || []).join(', ')}</span>
                             <div class="fail-reason">→ ${r.reason}</div>
                         </div>
                     `).join('')}
