@@ -491,7 +491,7 @@ const LiveModeModule = (function() {
 
     function toggleConfirmedColumn() {
         state.showConfirmed = !state.showConfirmed;
-        localStorage.setItem('livemode_show_confirmed', state.showConfirmed);
+        localStorage.setItem('balanceHistory_livemode_show_confirmed', state.showConfirmed);
 
         // Toggle class on board without re-rendering
         const board = document.getElementById('kanbanBoard');
@@ -1218,7 +1218,7 @@ const LiveModeModule = (function() {
         console.log('[LiveMode] Initializing Kanban...');
 
         // Load saved preference
-        state.showConfirmed = localStorage.getItem('livemode_show_confirmed') === 'true';
+        state.showConfirmed = localStorage.getItem('balanceHistory_livemode_show_confirmed') === 'true';
 
         // Initial load
         loadTransactions();

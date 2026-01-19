@@ -627,7 +627,7 @@
                 timestamp: Date.now(),
                 pending: true
             };
-            localStorage.setItem('n2store_held_cleanup_pending', JSON.stringify(cleanupInfo));
+            localStorage.setItem('orders_held_cleanup_pending', JSON.stringify(cleanupInfo));
             console.log('[HELD-PRODUCTS] Marked cleanup as pending for next session');
         } catch (e) {
             console.error('[HELD-PRODUCTS] Failed to mark cleanup pending:', e);
@@ -640,7 +640,7 @@
      */
     window.checkPendingHeldCleanup = async function () {
         try {
-            const pendingCleanup = localStorage.getItem('n2store_held_cleanup_pending');
+            const pendingCleanup = localStorage.getItem('orders_held_cleanup_pending');
             if (!pendingCleanup) return;
 
             const cleanupInfo = JSON.parse(pendingCleanup);
@@ -652,11 +652,11 @@
             }
 
             // Clear pending flag
-            localStorage.removeItem('n2store_held_cleanup_pending');
+            localStorage.removeItem('orders_held_cleanup_pending');
 
         } catch (e) {
             console.error('[HELD-PRODUCTS] Error checking pending cleanup:', e);
-            localStorage.removeItem('n2store_held_cleanup_pending');
+            localStorage.removeItem('orders_held_cleanup_pending');
         }
     };
 

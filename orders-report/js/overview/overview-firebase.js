@@ -29,7 +29,7 @@ async function loadDefaultTableNameFromFirebase() {
 
     // Fallback to localStorage
     try {
-        const stored = localStorage.getItem('order_table_name');
+        const stored = localStorage.getItem('orders_table_name');
         if (stored) {
             console.log('[REPORT] ✅ Loaded default table name from localStorage:', stored);
             return stored;

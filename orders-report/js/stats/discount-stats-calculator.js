@@ -23,7 +23,7 @@ class DiscountStatsCalculator {
 
     loadThresholds() {
         try {
-            const saved = localStorage.getItem('discount_stats_thresholds');
+            const saved = localStorage.getItem('orders_discount_stats_thresholds');
             if (saved) {
                 const data = JSON.parse(saved);
                 this.thresholds = { ...this.thresholds, ...data };
@@ -34,7 +34,7 @@ class DiscountStatsCalculator {
     }
 
     saveThresholds() {
-        localStorage.setItem('discount_stats_thresholds', JSON.stringify(this.thresholds));
+        localStorage.setItem('orders_discount_stats_thresholds', JSON.stringify(this.thresholds));
     }
 
     setThresholds(safe, warning) {

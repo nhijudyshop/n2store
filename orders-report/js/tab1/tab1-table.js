@@ -1689,16 +1689,16 @@ function sendDataToTab2() {
 
     // Save to localStorage with quota handling
     try {
-        localStorage.setItem("tab1_filter_data", JSON.stringify(filterData));
+        localStorage.setItem("orders_tab1_filter_data", JSON.stringify(filterData));
     } catch (e) {
         if (e.name === 'QuotaExceededError') {
             console.warn('[TAB1] localStorage quota exceeded, clearing old data...');
             // Clear old data and try again
-            localStorage.removeItem("tab1_filter_data");
+            localStorage.removeItem("orders_tab1_filter_data");
             try {
                 // If still too large, save only metadata (no data array)
                 const lightData = { ...filterData, data: [], dataSkipped: true };
-                localStorage.setItem("tab1_filter_data", JSON.stringify(lightData));
+                localStorage.setItem("orders_tab1_filter_data", JSON.stringify(lightData));
                 console.log('[TAB1] Saved lightweight filter data (without orders array)');
             } catch (e2) {
                 console.error('[TAB1] Failed to save even lightweight data:', e2);

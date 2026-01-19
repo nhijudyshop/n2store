@@ -105,6 +105,17 @@
     <script defer src="../shared/js/navigation-modern.js"></script>
     <script defer src="../shared/js/common-utils.js"></script>
 
+    <!-- Storage Migration (run migration on load) -->
+    <script src="../shared/js/storage-migration.js"></script>
+    <script>
+        // Auto-migrate orders module storage on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.StorageMigration) {
+                window.StorageMigration.migrateModuleStorage('orders');
+            }
+        });
+    </script>
+
     <!-- Lucide Icons -->
     <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 

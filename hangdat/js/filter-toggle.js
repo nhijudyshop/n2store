@@ -34,7 +34,7 @@ function initializeFilterToggle() {
         }
 
         isCollapsed = true;
-        localStorage.setItem("filterCollapsed", "true");
+        localStorage.setItem("hangdat_filterCollapsed", "true");
     }
 
     // Function to expand
@@ -74,7 +74,7 @@ function initializeFilterToggle() {
         }
 
         isCollapsed = false;
-        localStorage.setItem("filterCollapsed", "false");
+        localStorage.setItem("hangdat_filterCollapsed", "false");
     }
 
     // Toggle function

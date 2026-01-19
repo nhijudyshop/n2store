@@ -118,7 +118,7 @@
         if (!userStorageManager) {
             userStorageManager = window.userStorageManager;
         }
-        return userStorageManager ? userStorageManager.getUserFirebasePath('productAssignments') : 'productAssignments/guest';
+        return userStorageManager ? userStorageManager.getUserFirebasePath('orders_productAssignments') : 'productAssignments/guest';
     }
 
     // Utility Functions
@@ -1221,7 +1221,7 @@
             // Function to perform LocalStorage save
             const performSave = () => {
                 try {
-                    localStorage.setItem('productAssignments', JSON.stringify(dataWithTimestamp));
+                    localStorage.setItem('orders_productAssignments', JSON.stringify(dataWithTimestamp));
                     console.log('[SAVE] ✅ LocalStorage save success');
 
                     // Dispatch storage event manually for same-window listeners (if any)
@@ -1501,7 +1501,7 @@
         try {
             console.log('[INIT] 🔄 Loading assignments from LocalStorage...');
 
-            const storedData = localStorage.getItem('productAssignments');
+            const storedData = localStorage.getItem('orders_productAssignments');
 
             if (storedData) {
                 const parsedData = JSON.parse(storedData);
@@ -1539,7 +1539,7 @@
         console.log('[SYNC] 🔧 Setting up LocalStorage listeners');
 
         window.addEventListener('storage', (event) => {
-            if (event.key === 'productAssignments') {
+            if (event.key === 'orders_productAssignments') {
                 console.log('[SYNC] 🔔 LocalStorage changed (from another tab)');
                 loadAssignmentsFromLocalStorage();
                 showNotification('🔄 Dữ liệu đã được cập nhật từ tab khác');
@@ -5162,7 +5162,7 @@
         const saveAction = () => {
             try {
                 // Save to localStorage
-                localStorage.setItem('productRemovals', JSON.stringify({
+                localStorage.setItem('orders_productRemovals', JSON.stringify({
                     removals: removals,
                     _timestamp: Date.now(),
                     _version: 1
@@ -5192,7 +5192,7 @@
 
     function loadRemovals() {
         try {
-            const saved = localStorage.getItem('productRemovals');
+            const saved = localStorage.getItem('orders_productRemovals');
             if (saved) {
                 const data = JSON.parse(saved);
                 removals = data.removals || [];

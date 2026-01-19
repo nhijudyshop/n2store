@@ -29,7 +29,7 @@ class PancakeTokenManager {
         this.LOCAL_STORAGE_KEYS = {
             JWT_TOKEN: 'pancake_jwt_token',
             JWT_TOKEN_EXPIRY: 'pancake_jwt_token_expiry',
-            JWT_ACCOUNT_ID: 'pancake_active_account_id',
+            JWT_ACCOUNT_ID: 'tpos_pancake_active_account_id',
             PAGE_ACCESS_TOKENS: 'pancake_page_access_tokens'
         };
     }
@@ -259,7 +259,7 @@ class PancakeTokenManager {
             this.accounts = doc.exists ? (doc.data()?.data || {}) : {};
 
             // Load active account ID from localStorage (per-device)
-            this.activeAccountId = localStorage.getItem('pancake_active_account_id');
+            this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');
 
             // If active account is set, load its token
             if (this.activeAccountId && this.accounts[this.activeAccountId]) {
@@ -512,7 +512,7 @@ class PancakeTokenManager {
             this.currentTokenExpiry = payload.exp;
 
             // Save to localStorage (fast, synchronous) - PRIMARY STORAGE
-            localStorage.setItem('pancake_active_account_id', accountId);
+            localStorage.setItem('tpos_pancake_active_account_id', accountId);
             this.saveTokenToLocalStorage(cleanedToken, payload.exp);
 
             // Save to Firestore (async, backup)
@@ -569,7 +569,7 @@ class PancakeTokenManager {
             this.currentTokenExpiry = account.exp;
 
             // Save to localStorage (per device) - fast access
-            localStorage.setItem('pancake_active_account_id', accountId);
+            localStorage.setItem('tpos_pancake_active_account_id', accountId);
             this.saveTokenToLocalStorage(account.token, account.exp);
 
             console.log('[PANCAKE-TOKEN] ✅ Active account set locally (this device only):', accountId);
@@ -603,7 +603,7 @@ class PancakeTokenManager {
 
             // If deleted account was active, clear local active account
             if (this.activeAccountId === accountId) {
-                localStorage.removeItem('pancake_active_account_id');
+                localStorage.removeItem('tpos_pancake_active_account_id');
                 this.activeAccountId = null;
                 this.currentToken = null;
                 this.currentTokenExpiry = null;
@@ -847,7 +847,7 @@ class PancakeTokenManager {
             }
 
             // Clear localStorage
-            localStorage.removeItem('pancake_active_account_id');
+            localStorage.removeItem('tpos_pancake_active_account_id');
             this.clearTokenFromLocalStorage();
             this.clearPageAccessTokensFromLocalStorage();
             console.log('[PANCAKE-TOKEN] All tokens cleared from localStorage');

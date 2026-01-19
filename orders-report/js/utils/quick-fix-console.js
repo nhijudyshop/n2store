@@ -9,7 +9,7 @@
 
     // Step 1: Check localStorage
     console.log('📦 Step 1: Checking localStorage...');
-    const storedData = localStorage.getItem('tab1_filter_data');
+    const storedData = localStorage.getItem('orders_tab1_filter_data');
     
     if (!storedData) {
         console.log('%c❌ PROBLEM FOUND: No data in localStorage', 'color: #ef4444; font-weight: bold;');
@@ -37,7 +37,7 @@
         console.log('%c❌ ERROR: Failed to parse data', 'color: #ef4444; font-weight: bold;');
         console.error('Parse error:', error);
         console.log('✅ SOLUTION: Clear corrupted data and search again');
-        localStorage.removeItem('tab1_filter_data');
+        localStorage.removeItem('orders_tab1_filter_data');
         return;
     }
 
@@ -137,7 +137,7 @@
 
 // 1. Force reload data
 window.forceReloadData = function() {
-    const data = JSON.parse(localStorage.getItem('tab1_filter_data'));
+    const data = JSON.parse(localStorage.getItem('orders_tab1_filter_data'));
     if (data && typeof handleDataFromTab1 === 'function') {
         handleDataFromTab1(data);
         console.log('✅ Data reloaded');
@@ -160,7 +160,7 @@ window.clearAllData = function() {
 window.showCurrentState = function() {
     console.log('Current State:');
     console.log('- allOrdersData:', window.allOrdersData?.length || 0, 'items');
-    console.log('- localStorage:', localStorage.getItem('tab1_filter_data') ? 'Has data' : 'Empty');
+    console.log('- localStorage:', localStorage.getItem('orders_tab1_filter_data') ? 'Has data' : 'Empty');
     console.log('- filterInfoBanner visible:', document.getElementById('filterInfoBanner')?.style.display !== 'none');
 };
 

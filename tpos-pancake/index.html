@@ -30,6 +30,16 @@
             }
         </script>
 
+    <!-- Storage Migration -->
+    <script src="../shared/js/storage-migration.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.StorageMigration) {
+                window.StorageMigration.migrateModuleStorage('tpos');
+            }
+        });
+    </script>
+
     <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
     <!-- Firebase SDKs -->

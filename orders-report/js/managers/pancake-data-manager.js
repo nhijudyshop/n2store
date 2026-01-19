@@ -89,7 +89,7 @@ class PancakeDataManager {
                 pageIds: this.pageIds,
                 timestamp: Date.now()
             };
-            localStorage.setItem('pancake_pages_cache', JSON.stringify(data));
+            localStorage.setItem('tpos_pancake_pages_cache', JSON.stringify(data));
             console.log('[PANCAKE] ✅ Pages saved to localStorage');
         } catch (error) {
             console.warn('[PANCAKE] Error saving pages to localStorage:', error);
@@ -102,7 +102,7 @@ class PancakeDataManager {
      */
     loadPagesFromLocalStorage() {
         try {
-            const cached = localStorage.getItem('pancake_pages_cache');
+            const cached = localStorage.getItem('tpos_pancake_pages_cache');
             if (!cached) return null;
 
             const data = JSON.parse(cached);

@@ -697,14 +697,14 @@ function toggleCartHistory() {
         icon.classList.add('expanded');
         if (dateFilter) dateFilter.style.display = 'block';
         // Save state to localStorage
-        localStorage.setItem('soluongCartHistoryExpanded', 'true');
+        localStorage.setItem('soluong_cartHistoryExpanded', 'true');
     } else {
         // Collapse
         list.classList.add('collapsed');
         icon.classList.remove('expanded');
         if (dateFilter) dateFilter.style.display = 'none';
         // Save state to localStorage
-        localStorage.setItem('soluongCartHistoryExpanded', 'false');
+        localStorage.setItem('soluong_cartHistoryExpanded', 'false');
     }
 }
 
@@ -719,7 +719,7 @@ function initCartHistoryState() {
     if (!list || !icon) return;
 
     // Check saved state (default is collapsed)
-    const isExpanded = localStorage.getItem('soluongCartHistoryExpanded') === 'true';
+    const isExpanded = localStorage.getItem('soluong_cartHistoryExpanded') === 'true';
 
     if (isExpanded) {
         list.classList.remove('collapsed');
@@ -750,8 +750,8 @@ async function getAuthToken() {
         bearerToken = data.access_token;
         tokenExpiry = Date.now() + (data.expires_in * 1000);
 
-        localStorage.setItem('bearerToken', bearerToken);
-        localStorage.setItem('tokenExpiry', tokenExpiry.toString());
+        localStorage.setItem('soluong_bearerToken', bearerToken);
+        localStorage.setItem('soluong_tokenExpiry', tokenExpiry.toString());
 
         console.log('✅ Đã xác thực thành công');
         return bearerToken;
@@ -762,8 +762,8 @@ async function getAuthToken() {
 }
 
 async function getValidToken() {
-    const storedToken = localStorage.getItem('bearerToken');
-    const storedExpiry = localStorage.getItem('tokenExpiry');
+    const storedToken = localStorage.getItem('soluong_bearerToken');
+    const storedExpiry = localStorage.getItem('soluong_tokenExpiry');
 
     if (storedToken && storedExpiry) {
         const expiry = parseInt(storedExpiry);
@@ -808,8 +808,8 @@ async function authenticatedFetch(url, options = {}) {
 function logoutUser() {
     if (confirm('Bạn có chắc muốn đăng xuất?')) {
         // Clear all auth data
-        localStorage.removeItem('bearerToken');
-        localStorage.removeItem('tokenExpiry');
+        localStorage.removeItem('soluong_bearerToken');
+        localStorage.removeItem('soluong_tokenExpiry');
         sessionStorage.removeItem('loginindex_auth');
         localStorage.removeItem('loginindex_auth');
 

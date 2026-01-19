@@ -17,8 +17,8 @@ function checkRealtimeStatus() {
     }
 
     // Read directly from localStorage since chatAPISettings was removed
-    const realtimeEnabled = localStorage.getItem('chat_realtime_enabled') !== 'false';
-    const realtimeMode = localStorage.getItem('chat_realtime_mode') || 'server';
+    const realtimeEnabled = localStorage.getItem('orders_chat_realtime_enabled') !== 'false';
+    const realtimeMode = localStorage.getItem('orders_chat_realtime_mode') || 'server';
     const isWSConnected = window.realtimeManager.isConnected;
 
     console.log(`API Source: Pancake (ChatOmni removed)`);
@@ -36,11 +36,11 @@ function enableRealtimeBrowserMode() {
 
     // Set realtime mode to browser
     console.log('  → Setting realtime mode to browser...');
-    localStorage.setItem('chat_realtime_mode', 'browser');
+    localStorage.setItem('orders_chat_realtime_mode', 'browser');
 
     // Enable realtime
     console.log('  → Enabling realtime...');
-    localStorage.setItem('chat_realtime_enabled', 'true');
+    localStorage.setItem('orders_chat_realtime_enabled', 'true');
 
     console.log('✅ Realtime Browser Mode Enabled!');
     console.log('⚠️  Please refresh the page to see WebSocket in Network tab');
@@ -69,9 +69,9 @@ function checkLocalStorage() {
     console.log('\n💾 LocalStorage Status:');
     console.log('─'.repeat(60));
 
-    const apiSource = localStorage.getItem('chat_api_source');
-    const realtimeEnabled = localStorage.getItem('chat_realtime_enabled');
-    const realtimeMode = localStorage.getItem('chat_realtime_mode');
+    const apiSource = localStorage.getItem('orders_chat_api_source');
+    const realtimeEnabled = localStorage.getItem('orders_chat_realtime_enabled');
+    const realtimeMode = localStorage.getItem('orders_chat_realtime_mode');
 
     console.log(`chat_api_source: ${apiSource || '(not set - default: pancake)'}`);
     console.log(`chat_realtime_enabled: ${realtimeEnabled || '(not set - default: true)'}`);

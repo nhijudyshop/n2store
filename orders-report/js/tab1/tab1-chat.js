@@ -104,7 +104,7 @@ function sendOrdersDataToTab3() {
     }));
 
     // Save to localStorage for persistence
-    localStorage.setItem('ordersData', JSON.stringify(ordersDataToSend));
+    localStorage.setItem('orders_data', JSON.stringify(ordersDataToSend));
 
     // Send to product assignment tab via parent window forwarding
     // Updated to avoid "SecurityError: Blocked a frame with origin 'null'"

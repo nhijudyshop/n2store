@@ -197,6 +197,33 @@ const MENU_CONFIG = [
     },
 ];
 
+/**
+ * Selective logout - clears auth data but preserves module-specific settings
+ * Use this instead of localStorage.clear() to prevent losing user preferences
+ */
+function selectiveLogoutStorage() {
+    // Auth keys to remove
+    const authKeys = [
+        'loginindex_auth',
+        'isLoggedIn',
+        'userType',
+        'checkLogin',
+        'remember_login_preference',
+        'bearer_token_data',
+        'tpos_token',
+        'auth',
+        'n2shop_current_user',
+        'currentUser'
+    ];
+
+    authKeys.forEach(function(key) {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+    });
+
+    console.log('[Navigation] Selective logout completed - module data preserved');
+}
+
 // localStorage key for custom menu names (cache)
 const CUSTOM_MENU_NAMES_KEY = 'n2shop_custom_menu_names';
 const CUSTOM_MENU_NAMES_TIMESTAMP_KEY = 'n2shop_custom_menu_names_timestamp';
@@ -393,7 +420,7 @@ class UnifiedNavigationManager {
 
         if (!auth || !auth.isAuthenticated()) {
             console.log("[Unified Nav] User not authenticated, redirecting...");
-            localStorage.clear();
+            selectiveLogoutStorage();
             sessionStorage.clear();
             window.location.href = "../index.html";
             return;
@@ -2628,7 +2655,7 @@ class UnifiedNavigationManager {
         });
 
         okBtn.addEventListener("click", () => {
-            localStorage.clear();
+            selectiveLogoutStorage();
             window.authManager?.logout();
         });
     }
@@ -3096,7 +3123,7 @@ class UnifiedNavigationManager {
             console.error(
                 "[Access Denied] No accessible pages found, redirecting to login",
             );
-            localStorage.clear();
+            selectiveLogoutStorage();
             sessionStorage.clear();
             window.location.href = "../index.html";
             return;
@@ -3208,7 +3235,7 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
         } else {
             console.error("[Unified Nav] Dependencies failed, redirecting...");
             console.error("[Unified Nav] Final state - _esmLoaded:", window._esmLoaded, "_authReady:", window._authReady, "authManager:", typeof window.authManager);
-            localStorage.clear();
+            selectiveLogoutStorage();
             sessionStorage.clear();
             window.location.href = "../index.html";
         }

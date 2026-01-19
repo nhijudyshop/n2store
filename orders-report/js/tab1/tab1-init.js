@@ -419,7 +419,7 @@ async function initializeApp() {
         }
 
         // 4. No active campaign → Check localStorage fallback first
-        const savedFilterData = localStorage.getItem('tab1_filter_data');
+        const savedFilterData = localStorage.getItem('orders_tab1_filter_data');
         if (savedFilterData) {
             try {
                 const filterData = JSON.parse(savedFilterData);
@@ -507,10 +507,10 @@ function getCurrentUserId() {
         return firebase.auth().currentUser.uid;
     }
     // Fallback to localStorage or generate one
-    let userId = localStorage.getItem('campaign_user_id');
+    let userId = localStorage.getItem('orders_campaign_user_id');
     if (!userId) {
         userId = 'user_' + Date.now();
-        localStorage.setItem('campaign_user_id', userId);
+        localStorage.setItem('orders_campaign_user_id', userId);
     }
     return userId;
 }

@@ -28,7 +28,7 @@ class DiscountStatsUI {
 
     loadOpportunityCostSettings() {
         try {
-            const saved = localStorage.getItem('discount_opportunity_cost_settings');
+            const saved = localStorage.getItem('orders_discount_opportunity_cost_settings');
             if (saved) {
                 const settings = JSON.parse(saved);
                 this.capitalCostRate = settings.capitalCostRate ?? 12;
@@ -41,7 +41,7 @@ class DiscountStatsUI {
 
     saveOpportunityCostSettings() {
         try {
-            localStorage.setItem('discount_opportunity_cost_settings', JSON.stringify({
+            localStorage.setItem('orders_discount_opportunity_cost_settings', JSON.stringify({
                 capitalCostRate: this.capitalCostRate,
                 storageCostRate: this.storageCostRate
             }));
@@ -992,7 +992,7 @@ class DiscountStatsUI {
 
     loadLivestreamCosts() {
         try {
-            const saved = localStorage.getItem('discount_livestream_costs');
+            const saved = localStorage.getItem('orders_discount_livestream_costs');
             if (saved) {
                 const data = JSON.parse(saved);
                 this.livestreamCosts = { ...this.livestreamCosts, ...data };
@@ -1004,7 +1004,7 @@ class DiscountStatsUI {
 
     saveLivestreamCosts() {
         try {
-            localStorage.setItem('discount_livestream_costs', JSON.stringify(this.livestreamCosts));
+            localStorage.setItem('orders_discount_livestream_costs', JSON.stringify(this.livestreamCosts));
         } catch (e) {
             console.error('[DISCOUNT-UI] Error saving livestream costs:', e);
         }

@@ -16,7 +16,7 @@ class PancakeChatManager {
         this.tposPancakeUrl = 'https://n2store-tpos-pancake.onrender.com';
 
         // Server mode: 'pancake' (default) or 'n2store' (Facebook Graph API)
-        this.serverMode = localStorage.getItem('pancake_server_mode') || 'pancake';
+        this.serverMode = localStorage.getItem('tpos_pancake_server_mode') || 'pancake';
         this.n2storeUrl = 'https://n2store-facebook.onrender.com';
 
         // TPOS saved customers cache
@@ -1386,9 +1386,9 @@ class PancakeChatManager {
     saveSelectedPage() {
         try {
             if (this.selectedPageId) {
-                localStorage.setItem('pancake_selected_page', this.selectedPageId);
+                localStorage.setItem('tpos_pancake_selected_page', this.selectedPageId);
             } else {
-                localStorage.removeItem('pancake_selected_page');
+                localStorage.removeItem('tpos_pancake_selected_page');
             }
         } catch (e) {
             console.warn('[PANCAKE-CHAT] Could not save selected page:', e);
@@ -1397,7 +1397,7 @@ class PancakeChatManager {
 
     loadSelectedPage() {
         try {
-            const savedPageId = localStorage.getItem('pancake_selected_page');
+            const savedPageId = localStorage.getItem('tpos_pancake_selected_page');
             if (savedPageId) {
                 // Verify page still exists
                 const pageExists = this.pages.some(p => p.id === savedPageId);
@@ -2409,7 +2409,7 @@ class PancakeChatManager {
         };
 
         // Load recent emojis from localStorage
-        const savedRecent = localStorage.getItem('pk_recent_emojis');
+        const savedRecent = localStorage.getItem('tpos_pk_recent_emojis');
         if (savedRecent) {
             try {
                 this.emojiData.recent = JSON.parse(savedRecent);
@@ -2487,7 +2487,7 @@ class PancakeChatManager {
         // Keep only 24 recent
         this.emojiData.recent = this.emojiData.recent.slice(0, 24);
         // Save to localStorage
-        localStorage.setItem('pk_recent_emojis', JSON.stringify(this.emojiData.recent));
+        localStorage.setItem('tpos_pk_recent_emojis', JSON.stringify(this.emojiData.recent));
     }
 
     /**
@@ -3847,7 +3847,7 @@ class PancakeChatManager {
         }
 
         this.serverMode = mode;
-        localStorage.setItem('pancake_server_mode', mode);
+        localStorage.setItem('tpos_pancake_server_mode', mode);
         console.log(`[PANCAKE-CHAT] Server mode set to: ${mode}`);
 
         // Update server mode indicator

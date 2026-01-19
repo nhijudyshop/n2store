@@ -43,10 +43,10 @@ function getFilterPrefsUserId() {
         return window.campaignManager.currentUserId;
     }
     // Fallback to localStorage
-    let userId = localStorage.getItem('campaign_user_id');
+    let userId = localStorage.getItem('orders_campaign_user_id');
     if (!userId) {
         userId = 'user_' + Date.now();
-        localStorage.setItem('campaign_user_id', userId);
+        localStorage.setItem('orders_campaign_user_id', userId);
     }
     return userId;
 }
