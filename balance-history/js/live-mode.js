@@ -23,6 +23,8 @@ const LiveModeModule = (function() {
         // Date filter - default today
         filterStartDate: new Date().toISOString().split('T')[0],
         filterEndDate: new Date().toISOString().split('T')[0],
+        filterStartTime: '00:00',
+        filterEndTime: '23:59',
 
         // SSE
         sseConnection: null,
@@ -158,15 +160,15 @@ const LiveModeModule = (function() {
         state.confirmedItems = [];
 
         // Client-side date filtering (since API may not support it)
-        const startDate = state.filterStartDate ? new Date(state.filterStartDate + 'T00:00:00') : null;
-        const endDate = state.filterEndDate ? new Date(state.filterEndDate + 'T23:59:59') : null;
+        const startDateTime = state.filterStartDate ? new Date(state.filterStartDate + 'T' + (state.filterStartTime || '00:00') + ':00') : null;
+        const endDateTime = state.filterEndDate ? new Date(state.filterEndDate + 'T' + (state.filterEndTime || '23:59') + ':59') : null;
 
         transactions.forEach(tx => {
             // Filter by date range (client-side)
             if (tx.transaction_date) {
                 const txDate = new Date(tx.transaction_date);
-                if (startDate && txDate < startDate) return; // Skip if before start
-                if (endDate && txDate > endDate) return;     // Skip if after end
+                if (startDateTime && txDate < startDateTime) return; // Skip if before start
+                if (endDateTime && txDate > endDateTime) return;     // Skip if after end
             }
 
             const category = classifyTransaction(tx);
@@ -1289,6 +1291,22 @@ const LiveModeModule = (function() {
             endDateDisplay.dataset.listenerAttached = 'true';
             endDateDisplay.addEventListener('blur', () => onDisplayDateBlur('end'));
         }
+
+        // Time filter inputs
+        const startTimeInput = document.getElementById('liveStartTime');
+        const endTimeInput = document.getElementById('liveEndTime');
+
+        if (startTimeInput && !startTimeInput.dataset.listenerAttached) {
+            startTimeInput.dataset.listenerAttached = 'true';
+            startTimeInput.value = state.filterStartTime;
+            startTimeInput.addEventListener('change', onTimeFilterChange);
+        }
+
+        if (endTimeInput && !endTimeInput.dataset.listenerAttached) {
+            endTimeInput.dataset.listenerAttached = 'true';
+            endTimeInput.value = state.filterEndTime;
+            endTimeInput.addEventListener('change', onTimeFilterChange);
+        }
     }
 
     // Handle blur on display input - validate and sync
@@ -1364,6 +1382,24 @@ const LiveModeModule = (function() {
         console.log('[LiveMode] Date filter changed:', state.filterStartDate, 'to', state.filterEndDate);
 
         // Reload with new date range
+        loadTransactions();
+    }
+
+    // Handle time filter change
+    function onTimeFilterChange() {
+        const startTimeInput = document.getElementById('liveStartTime');
+        const endTimeInput = document.getElementById('liveEndTime');
+
+        if (startTimeInput && startTimeInput.value) {
+            state.filterStartTime = startTimeInput.value;
+        }
+        if (endTimeInput && endTimeInput.value) {
+            state.filterEndTime = endTimeInput.value;
+        }
+
+        console.log('[LiveMode] Time filter changed:', state.filterStartTime, 'to', state.filterEndTime);
+
+        // Reload with new time range
         loadTransactions();
     }
 

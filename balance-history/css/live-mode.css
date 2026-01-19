@@ -123,6 +123,22 @@
     font-size: 14px;
 }
 
+.live-mode-header .live-date-filter .time-input {
+    width: 70px;
+    padding: 6px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #ffffff;
+    color: #1e293b;
+}
+
+.live-mode-header .live-date-filter .time-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
 .live-mode-header .sse-status {
     display: flex;
     align-items: center;
