@@ -192,57 +192,156 @@ function updateStatisticsDisplay(dataArray) {
 }
 
 // =====================================================
-// TABLE RENDERING (WITHOUT WATERMARKS)
+// TABLE RENDERING
 // =====================================================
 
-function renderDataToTable(dataArray) {
-    console.log("=== RENDER DEBUG ===");
-    console.log("Input dataArray length:", dataArray?.length);
-    console.log("tbody element:", tbody);
+/**
+ * Sort data by thoiGianNhan descending (newest first)
+ */
+function sortByDateDescending(data) {
+    return [...data].sort((a, b) => {
+        const dateA = parseVietnameseDate(a.thoiGianNhan);
+        const dateB = parseVietnameseDate(b.thoiGianNhan);
 
-    const filteredData = applyFiltersToData(dataArray);
+        // Handle null dates - push to end
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
 
-    // Sort by date descending (newest first) right before rendering
-    filteredData.sort((a, b) => {
-        const timeA = parseVietnameseDate(a.thoiGianNhan);
-        const timeB = parseVietnameseDate(b.thoiGianNhan);
-
-        if (!timeA && !timeB) return 0;
-        if (!timeA) return 1;
-        if (!timeB) return -1;
-
-        return timeB.getTime() - timeA.getTime(); // Descending: newest first
+        // Descending: newer dates first
+        return dateB.getTime() - dateA.getTime();
     });
+}
 
-    console.log("Filtered data length:", filteredData?.length);
+/**
+ * Create a table row for a receipt
+ */
+function createReceiptRow(receipt, imageObserver, imageCounter) {
+    const tr = document.createElement("tr");
+    tr.setAttribute("data-receipt-id", receipt.id || "");
 
+    // Cell 0: Tên người nhận
+    const cellName = document.createElement("td");
+    cellName.textContent = sanitizeInput(receipt.tenNguoiNhan || "");
+
+    // Cell 1: Số kg
+    const cellKg = document.createElement("td");
+    cellKg.textContent = parseFloat(receipt.soKg) || 0;
+
+    // Cell 2: Số kiện
+    const cellKien = document.createElement("td");
+    cellKien.textContent = parseFloat(receipt.soKien) || 0;
+
+    // Cell 3: Hình ảnh
+    const cellImage = document.createElement("td");
+    if (receipt.anhNhanHang) {
+        const img = document.createElement("img");
+        img.dataset.src = receipt.anhNhanHang;
+        img.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZGRkIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIyMCIgeT0iMjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5OTkiPi4uLjwvdGV4dD48L3N2Zz4=";
+        img.alt = "Ảnh nhận hàng";
+        img.className = "product-image";
+        img.style.cursor = "pointer";
+        imageCounter.total++;
+        imageObserver.observe(img);
+        cellImage.appendChild(img);
+    } else {
+        cellImage.textContent = "Không có ảnh";
+    }
+
+    // Cell 4: Ngày giờ nhận
+    const cellDate = document.createElement("td");
+    cellDate.textContent = receipt.thoiGianNhan || "Chưa nhập";
+
+    // Cell 5: Thao tác
+    const cellActions = document.createElement("td");
+    const actionContainer = document.createElement("div");
+    actionContainer.className = "action-buttons";
+
+    const editButton = document.createElement("button");
+    editButton.className = "edit-button";
+    editButton.setAttribute("data-receipt-id", receipt.id || "");
+    editButton.setAttribute("data-receipt-info", `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`);
+    editButton.innerHTML = '<i data-lucide="edit"></i><span>Sửa</span>';
+    editButton.addEventListener("click", openEditModal);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "delete-button";
+    deleteButton.setAttribute("data-receipt-id", receipt.id || "");
+    deleteButton.setAttribute("data-receipt-info", `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`);
+    deleteButton.innerHTML = '<i data-lucide="trash-2"></i><span>Xóa</span>';
+    deleteButton.addEventListener("click", deleteReceiptByID);
+
+    actionContainer.appendChild(editButton);
+    actionContainer.appendChild(deleteButton);
+    cellActions.appendChild(actionContainer);
+
+    // Apply permissions
+    const auth = getAuthState();
+    if (auth) {
+        applyRowPermissions(tr, [], deleteButton, parseInt(auth.checkLogin));
+    }
+
+    // Append all cells
+    tr.appendChild(cellName);
+    tr.appendChild(cellKg);
+    tr.appendChild(cellKien);
+    tr.appendChild(cellImage);
+    tr.appendChild(cellDate);
+    tr.appendChild(cellActions);
+
+    return tr;
+}
+
+/**
+ * Main render function
+ */
+function renderDataToTable(dataArray) {
     if (!tbody) {
-        console.error("ERROR: tbody element not found!");
+        console.error("tbody element not found!");
         return;
     }
 
+    // Clear table
     tbody.innerHTML = "";
+
+    // Filter data
+    const filteredData = applyFiltersToData(dataArray);
+
+    // Sort by date descending (newest first)
+    const sortedData = sortByDateDescending(filteredData);
 
     // Update statistics
     updateStatisticsDisplay(dataArray);
 
-    if (filteredData.length > 0) {
-        var summaryRow = document.createElement("tr");
-        summaryRow.style.backgroundColor = "#f8f9fa";
-        summaryRow.style.fontWeight = "bold";
-        var summaryTd = document.createElement("td");
-        summaryTd.colSpan = 6;
-        summaryTd.textContent = `Tổng: ${filteredData.length} phiếu nhận`;
-        summaryTd.style.textAlign = "center";
-        summaryTd.style.color = "#007bff";
-        summaryTd.style.padding = "8px";
-        summaryRow.appendChild(summaryTd);
-        tbody.appendChild(summaryRow);
+    // Show empty state if no data
+    if (sortedData.length === 0) {
+        const emptyRow = document.createElement("tr");
+        const emptyTd = document.createElement("td");
+        emptyTd.colSpan = 6;
+        emptyTd.textContent = "Không có dữ liệu";
+        emptyTd.style.textAlign = "center";
+        emptyTd.style.padding = "20px";
+        emptyTd.style.color = "#6c757d";
+        emptyRow.appendChild(emptyTd);
+        tbody.appendChild(emptyRow);
+        return;
     }
 
-    let totalImages = 0;
-    let loadedImages = 0;
+    // Summary row
+    const summaryRow = document.createElement("tr");
+    summaryRow.style.backgroundColor = "#f8f9fa";
+    summaryRow.style.fontWeight = "bold";
+    const summaryTd = document.createElement("td");
+    summaryTd.colSpan = 6;
+    summaryTd.textContent = `Tổng: ${sortedData.length} phiếu nhận`;
+    summaryTd.style.textAlign = "center";
+    summaryTd.style.color = "#007bff";
+    summaryTd.style.padding = "8px";
+    summaryRow.appendChild(summaryTd);
+    tbody.appendChild(summaryRow);
 
+    // Image lazy loading
+    const imageCounter = { total: 0, loaded: 0 };
     const imageObserver = new IntersectionObserver(
         (entries) => {
             entries.forEach((entry) => {
@@ -250,15 +349,11 @@ function renderDataToTable(dataArray) {
                     const img = entry.target;
                     const actualSrc = img.dataset.src;
                     if (actualSrc) {
-                        img.onload = () => {
-                            loadedImages++;
-                            if (loadedImages === totalImages)
+                        img.onload = img.onerror = () => {
+                            imageCounter.loaded++;
+                            if (imageCounter.loaded === imageCounter.total) {
                                 setCachedData(dataArray);
-                        };
-                        img.onerror = () => {
-                            loadedImages++;
-                            if (loadedImages === totalImages)
-                                setCachedData(dataArray);
+                            }
                         };
                         img.src = actualSrc;
                         img.removeAttribute("data-src");
@@ -267,113 +362,41 @@ function renderDataToTable(dataArray) {
                 }
             });
         },
-        { rootMargin: "50px" },
+        { rootMargin: "50px" }
     );
 
-    const maxRender = Math.min(filteredData.length, MAX_VISIBLE_ROWS);
-
+    // Render rows
+    const maxRender = Math.min(sortedData.length, MAX_VISIBLE_ROWS);
     for (let i = 0; i < maxRender; i++) {
-        const receipt = filteredData[i];
-        var tr = document.createElement("tr");
-        tr.setAttribute("data-receipt-id", receipt.id || "");
-
-        var cells = [];
-        for (let j = 0; j < 6; j++) {
-            cells[j] = document.createElement("td");
-        }
-
-        // Tên người nhận
-        cells[0].textContent = sanitizeInput(receipt.tenNguoiNhan || "");
-
-        // Số kg
-        cells[1].textContent = parseFloat(receipt.soKg);
-
-        // Số kiện
-        cells[2].textContent = parseFloat(receipt.soKien);
-
-        // Hình ảnh (WITHOUT watermark)
-        if (receipt.anhNhanHang) {
-            const img = document.createElement("img");
-            img.dataset.src = receipt.anhNhanHang;
-            img.src =
-                "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2RkZCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjIwIiB5PSIyNSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSI+Li4uPC90ZXh0Pgo8L3N2Zz4K";
-            img.alt = "Đang tải...";
-            img.className = "product-image";
-            img.style.cursor = "pointer";
-            totalImages++;
-            imageObserver.observe(img);
-
-            cells[3].appendChild(img);
-        } else {
-            cells[3].textContent = "Không có ảnh";
-        }
-
-        // Ngày giờ nhận
-        cells[4].textContent = receipt.thoiGianNhan || "Chưa nhập";
-
-        // Thao tác
-        const deleteButton = document.createElement("button");
-        deleteButton.className = "delete-button";
-        deleteButton.setAttribute("data-receipt-id", receipt.id || "");
-        deleteButton.setAttribute(
-            "data-receipt-info",
-            `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`,
-        );
-        deleteButton.innerHTML =
-            '<i data-lucide="trash-2"></i><span>Xóa</span>';
-        deleteButton.addEventListener("click", deleteReceiptByID);
-
-        const editButton = document.createElement("button");
-        editButton.className = "edit-button";
-        editButton.setAttribute("data-receipt-id", receipt.id || "");
-        editButton.setAttribute(
-            "data-receipt-info",
-            `${sanitizeInput(receipt.tenNguoiNhan || "")} - ${formatCurrency(receipt.soKg || 0)}`,
-        );
-        editButton.innerHTML = '<i data-lucide="edit"></i><span>Sửa</span>';
-        editButton.addEventListener("click", openEditModal);
-
-        const actionContainer = document.createElement("div");
-        actionContainer.className = "action-buttons";
-        actionContainer.appendChild(editButton);
-        actionContainer.appendChild(deleteButton);
-        cells[5].appendChild(actionContainer);
-
-        // Sau khi render xong tất cả, khởi tạo Lucide icons
-        if (typeof lucide !== "undefined") {
-            lucide.createIcons();
-        }
-
-        const auth = getAuthState();
-        if (auth) {
-            applyRowPermissions(
-                tr,
-                [],
-                deleteButton,
-                parseInt(auth.checkLogin),
-            );
-        }
-
-        cells.forEach((cell) => tr.appendChild(cell));
-        tbody.appendChild(tr);
+        const row = createReceiptRow(sortedData[i], imageObserver, imageCounter);
+        tbody.appendChild(row);
     }
 
-    console.log("Rows appended to tbody:", tbody.children.length);
-
-    if (filteredData.length > MAX_VISIBLE_ROWS) {
+    // Warning if data exceeds limit
+    if (sortedData.length > MAX_VISIBLE_ROWS) {
         const warningRow = document.createElement("tr");
         warningRow.style.backgroundColor = "#fff3cd";
         warningRow.style.color = "#856404";
         const warningTd = document.createElement("td");
         warningTd.colSpan = 6;
-        warningTd.textContent = `Hiển thị ${MAX_VISIBLE_ROWS} / ${filteredData.length} phiếu nhận. Sử dụng bộ lọc để xem dữ liệu cụ thể hơn.`;
+        warningTd.textContent = `Hiển thị ${MAX_VISIBLE_ROWS} / ${sortedData.length} phiếu nhận. Sử dụng bộ lọc để xem dữ liệu cụ thể hơn.`;
         warningTd.style.textAlign = "center";
         warningTd.style.padding = "8px";
         warningRow.appendChild(warningTd);
         tbody.appendChild(warningRow);
     }
 
-    if (totalImages === 0) setCachedData(dataArray);
+    // Initialize Lucide icons
+    if (typeof lucide !== "undefined") {
+        lucide.createIcons();
+    }
+
+    // Cache data if no images
+    if (imageCounter.total === 0) {
+        setCachedData(dataArray);
+    }
+
+    // Update dropdown options
     updateDropdownOptions(dataArray);
 }
 
