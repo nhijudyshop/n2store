@@ -1099,7 +1099,6 @@ function renderSingleCustomerMessage(order, columnType = 'messages') {
 // Render messages column only (not comments)
 function renderMessagesColumn(order) {
     if (!window.chatDataManager) {
-        console.log('[CHAT RENDER] chatDataManager not available');
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
@@ -1144,7 +1143,6 @@ function renderMessagesColumn(order) {
 // Render comments column only (not messages)
 function renderCommentsColumn(order) {
     if (!window.chatDataManager) {
-        console.log('[CHAT RENDER] chatDataManager not available');
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
