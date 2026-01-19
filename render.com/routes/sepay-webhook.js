@@ -1185,6 +1185,7 @@ async function processDebtUpdate(db, transactionId) {
             // 6. NEW: Create/Update customer with TPOS data + process wallet realtime
             let customerId = null;
             let tposData = null;
+            let walletProcessedSuccess = false; // Track if wallet was actually credited
 
             try {
                 // Fetch full TPOS data for customer creation
@@ -1211,8 +1212,10 @@ async function processDebtUpdate(db, transactionId) {
                             customerId
                         );
                         console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                        walletProcessedSuccess = true; // Only set true on SUCCESS
                     } catch (walletErr) {
                         console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                        walletProcessedSuccess = false; // Ensure false on failure
                     }
                 }
             } catch (err) {
@@ -1222,17 +1225,18 @@ async function processDebtUpdate(db, transactionId) {
 
             // 7. Mark transaction as processed AND link to customer phone + customer_id
             // QR code match = AUTO_APPROVED (no manual verification needed)
+            // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
-                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                     wallet_processed = $4,
                      verification_status = 'AUTO_APPROVED',
                      match_method = 'qr_code',
                      verified_at = CURRENT_TIMESTAMP
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone, customerId, amount]
+                [transactionId, phone, customerId, walletProcessedSuccess]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
@@ -1332,6 +1336,7 @@ async function processDebtUpdate(db, transactionId) {
         // NEW: Create/Update customer with TPOS data + process wallet realtime
         let customerId = null;
         let tposData = null;
+        let walletProcessedSuccess = false; // Track if wallet was actually credited
 
         try {
             // Fetch full TPOS data for customer creation
@@ -1358,8 +1363,10 @@ async function processDebtUpdate(db, transactionId) {
                         customerId
                     );
                     console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                    walletProcessedSuccess = true; // Only set true on SUCCESS
                 } catch (walletErr) {
                     console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                    walletProcessedSuccess = false; // Ensure false on failure
                 }
             }
         } catch (err) {
@@ -1369,17 +1376,18 @@ async function processDebtUpdate(db, transactionId) {
 
         // Mark transaction as processed AND link to customer phone + customer_id
         // Exact 10-digit phone = AUTO_APPROVED (no manual verification needed)
+        // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
         await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
                  linked_customer_phone = $2,
                  customer_id = COALESCE($3, customer_id),
-                 wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                 wallet_processed = $4,
                  verification_status = 'AUTO_APPROVED',
                  match_method = 'exact_phone',
                  verified_at = CURRENT_TIMESTAMP
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone, customerId, amount]
+            [transactionId, exactPhone, customerId, walletProcessedSuccess]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
@@ -1476,6 +1484,7 @@ async function processDebtUpdate(db, transactionId) {
             let customerId = null;
             let tposData = null;
             let customerName = firstCustomer.name;
+            let walletProcessedSuccess = false; // Track if wallet deposit actually succeeded
 
             try {
                 // Fetch full TPOS data for customer creation
@@ -1502,8 +1511,10 @@ async function processDebtUpdate(db, transactionId) {
                             customerId
                         );
                         console.log(`[DEBT-UPDATE] ✅ Wallet updated: TX ${walletResult.transactionId}`);
+                        walletProcessedSuccess = true; // Only set TRUE on success
                     } catch (walletErr) {
                         console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
+                        walletProcessedSuccess = false; // Ensure FALSE on failure
                     }
                 }
             } catch (err) {
@@ -1512,17 +1523,18 @@ async function processDebtUpdate(db, transactionId) {
 
             // Update balance_history with customer_id
             // Single match from partial phone = AUTO_APPROVED
+            // CRITICAL: wallet_processed = walletProcessedSuccess (only TRUE if processDeposit succeeded)
             const updateResult = await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
-                     wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                     wallet_processed = $4,
                      verification_status = 'AUTO_APPROVED',
                      match_method = 'single_match',
                      verified_at = CURRENT_TIMESTAMP
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone, customerId, amount]
+                [transactionId, fullPhone, customerId, walletProcessedSuccess]
             );
 
             if (updateResult.rowCount === 0) {
@@ -1533,12 +1545,12 @@ async function processDebtUpdate(db, transactionId) {
                      SET debt_added = TRUE,
                          linked_customer_phone = $2,
                          customer_id = COALESCE($3, customer_id),
-                         wallet_processed = CASE WHEN $4 > 0 THEN TRUE ELSE wallet_processed END,
+                         wallet_processed = $4,
                          verification_status = 'AUTO_APPROVED',
                          match_method = 'single_match',
                          verified_at = CURRENT_TIMESTAMP
                      WHERE id = $1`,
-                    [transactionId, fullPhone, customerId, amount]
+                    [transactionId, fullPhone, customerId, walletProcessedSuccess]
                 );
                 console.log('[DEBT-UPDATE] ✅ Force updated balance_history');
             } else {
@@ -1567,7 +1579,7 @@ async function processDebtUpdate(db, transactionId) {
                 customerName,
                 dataSource,
                 amount,
-                walletProcessed: amount > 0
+                walletProcessed: walletProcessedSuccess
             };
 
         } else {

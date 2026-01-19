@@ -403,6 +403,20 @@ router.post('/:id/unlink', async (req, res) => {
 
         const tx = txResult.rows[0];
 
+        // SECURITY: Block unlink for wallet-processed transactions
+        // Unlink would allow re-linking and double-crediting
+        if (tx.wallet_processed === true) {
+            await db.query('ROLLBACK');
+            console.log(`[SECURITY] Blocked unlink for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`);
+            return res.status(400).json({
+                success: false,
+                error: 'Không thể hủy liên kết - Giao dịch đã được cộng vào ví khách hàng',
+                wallet_processed: true,
+                linked_customer_phone: tx.linked_customer_phone,
+                suggestion: 'Sử dụng chức năng "Điều chỉnh công nợ" để hoàn tiền nếu cần'
+            });
+        }
+
         if (!tx.linked_customer_phone) {
             await db.query('ROLLBACK');
             return res.status(400).json({ success: false, error: 'Transaction is not linked to any customer' });
@@ -798,6 +812,19 @@ router.post('/:id/resolve-match', async (req, res) => {
         }
 
         const tx = txResult.rows[0];
+
+        // SECURITY: Block if already wallet processed
+        // This prevents changing customer after wallet has been credited
+        if (tx.wallet_processed === true) {
+            await db.query('ROLLBACK');
+            console.log(`[SECURITY] Blocked resolve-match for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`);
+            return res.status(400).json({
+                success: false,
+                error: 'Không thể chọn lại - Giao dịch đã được cộng vào ví',
+                wallet_processed: true,
+                current_phone: tx.linked_customer_phone
+            });
+        }
 
         // Check if already resolved
         if (tx.linked_customer_phone && tx.verification_status === 'APPROVED') {
