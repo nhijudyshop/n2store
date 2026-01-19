@@ -359,38 +359,19 @@ function renderAllOrders() {
     existingSections.forEach(section => section.remove());
 
     // ═══════════════════════════════════════════════════════════════════
-    // PHASE E: Sử dụng VirtualTable cho hiệu suất tốt hơn
-    // VirtualTable chỉ render dòng visible, giảm 99% DOM elements
+    // RENDER ALL: Render tất cả rows một lần
+    // - Progressive Loading vẫn load data theo batch từ API
+    // - Nhưng table render ALL rows mỗi lần update
+    // - Scroll mượt vì không cần re-render
+    // - Realtime chỉ update đúng cell cần thiết
     // ═══════════════════════════════════════════════════════════════════
-    if (window.VirtualTable) {
-        window.VirtualTable.render();
-        isRendering = false;
-        return;
-    }
-
-    // Fallback: Legacy infinite scroll (nếu VirtualTable không available)
     const tbody = document.getElementById("tableBody");
 
-    // INFINITE SCROLL: Render only first batch
-    renderedCount = INITIAL_RENDER_COUNT;
-    const initialData = displayedData.slice(0, renderedCount);
-    tbody.innerHTML = initialData.map(createRowHTML).join("");
+    // Render ALL rows at once
+    renderedCount = displayedData.length;
+    tbody.innerHTML = displayedData.map(order => createRowHTML(order)).join('');
 
-    // Add spacer if there are more items
-    if (displayedData.length > renderedCount) {
-        const spacer = document.createElement('tr');
-        spacer.id = 'table-spacer';
-        spacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
-            <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
-        </td>`;
-        tbody.appendChild(spacer);
-    }
-
-    // ⚠️ DISABLED: batchFetchDebts - API limit 200 phones per request
-    // const phonesToFetch = initialData.map(order => order.Telephone).filter(Boolean);
-    // if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
-    //     batchFetchDebts(phonesToFetch);
-    // }
+    console.log(`[RENDER-ALL] Rendered ${renderedCount} orders`);
 
     // Clear rendering flag after render is complete
     isRendering = false;
