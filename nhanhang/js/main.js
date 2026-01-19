@@ -201,6 +201,19 @@ function renderDataToTable(dataArray) {
     console.log("tbody element:", tbody);
 
     const filteredData = applyFiltersToData(dataArray);
+
+    // Sort by date descending (newest first) right before rendering
+    filteredData.sort((a, b) => {
+        const timeA = parseVietnameseDate(a.thoiGianNhan);
+        const timeB = parseVietnameseDate(b.thoiGianNhan);
+
+        if (!timeA && !timeB) return 0;
+        if (!timeA) return 1;
+        if (!timeB) return -1;
+
+        return timeB.getTime() - timeA.getTime(); // Descending: newest first
+    });
+
     console.log("Filtered data length:", filteredData?.length);
 
     if (!tbody) {
