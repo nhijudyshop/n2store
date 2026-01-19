@@ -993,7 +993,7 @@ async function handleConfirmAction() {
 
                     const compensationType = ticket.type === 'RETURN_SHIPPER' ? 'virtual_credit' : 'deposit';
 
-                    const resolveResult = await fetch(`${API_BASE}/api/v2/tickets/${pendingActionTicketId}/resolve`, {
+                    const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${pendingActionTicketId}/resolve`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
