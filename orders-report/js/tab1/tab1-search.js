@@ -1285,8 +1285,12 @@ async function fetchOrders() {
         performTableSearch();
         updateSearchResultCount();
         showInfoBanner(`✅ Đã tải ${allData.length} đơn hàng.`);
-        sendDataToTab2();
-        sendOrdersDataToOverview();
+
+        // Non-blocking: Send data to other tabs in background (avoid blocking main thread)
+        setTimeout(() => {
+            sendDataToTab2();
+            sendOrdersDataToOverview();
+        }, 100);
 
         // ⚡ PHASE 2 OPTIMIZATION: Load conversations in BACKGROUND (non-blocking)
         // This allows users to interact with the table immediately
@@ -1354,8 +1358,8 @@ async function fetchOrders() {
         // Hide loading overlay
         showLoading(false);
 
-        // Send data to Tab3
-        sendOrdersDataToTab3();
+        // Non-blocking: Send data to Tab3 in background
+        setTimeout(() => sendOrdersDataToTab3(), 200);
 
     } catch (error) {
         console.error("Error fetching data:", error);
