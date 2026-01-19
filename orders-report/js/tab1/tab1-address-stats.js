@@ -520,13 +520,19 @@ function getQRCache() {
 /**
  * Save QR cache to localStorage
  * @param {Object} cache - Cache object to save
+ * @note DISABLED - Cache quá lớn, không cần lưu
  */
 function saveQRCache(cache) {
+    // DISABLED: Cache quá lớn, gây QuotaExceededError
+    // Nếu cần bật lại, uncomment code bên dưới
+    return;
+    /*
     try {
         localStorage.setItem(QR_CACHE_KEY, JSON.stringify(cache));
     } catch (e) {
         console.error('[QR] Error saving cache:', e);
     }
+    */
 }
 
 /**
