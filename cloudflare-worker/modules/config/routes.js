@@ -46,7 +46,14 @@ export const ROUTES = {
     CHAT: { pattern: '/api/chat/*' },
     CUSTOMERS: { pattern: '/api/customers/*' },
 
-    // Customer 360
+    // Customer 360 v2 (NEW - unified API)
+    CUSTOMERS_V2: { pattern: '/api/v2/customers/*' },
+    WALLETS_V2: { pattern: '/api/v2/wallets/*' },
+    TICKETS_V2: { pattern: '/api/v2/tickets/*' },
+    BALANCE_HISTORY_V2: { pattern: '/api/v2/balance-history/*' },
+    ANALYTICS_V2: { pattern: '/api/v2/analytics/*' },
+
+    // Customer 360 v1 (legacy)
     CUSTOMER_360: { pattern: '/api/customer360/*' },
     CUSTOMER: { pattern: '/api/customer/*' },
     WALLET: { pattern: '/api/wallet/*' },
@@ -54,7 +61,6 @@ export const ROUTES = {
     CUSTOMER_SEARCH: { pattern: '/api/customer-search*' },
     TRANSACTIONS: { pattern: '/api/transactions/*' },
     BALANCE_HISTORY: { pattern: '/api/balance-history/*' },
-    BALANCE_HISTORY_V2: { pattern: '/api/v2/balance-history/*' },
 };
 
 /**
@@ -89,14 +95,20 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/chat/')) return 'CHAT';
     if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') return 'CUSTOMERS';
 
-    // Customer 360 routes
+    // Customer 360 v2 routes (match FIRST before v1)
+    if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';
+    if (pathname.startsWith('/api/v2/wallets/') || pathname === '/api/v2/wallets') return 'WALLETS_V2';
+    if (pathname.startsWith('/api/v2/tickets/') || pathname === '/api/v2/tickets') return 'TICKETS_V2';
+    if (pathname.startsWith('/api/v2/balance-history/')) return 'BALANCE_HISTORY_V2';
+    if (pathname.startsWith('/api/v2/analytics/') || pathname === '/api/v2/analytics') return 'ANALYTICS_V2';
+
+    // Customer 360 v1 routes (legacy)
     if (pathname.startsWith('/api/customer360/')) return 'CUSTOMER_360';
     if (pathname.startsWith('/api/customer/')) return 'CUSTOMER';
     if (pathname.startsWith('/api/wallet/')) return 'WALLET';
     if (pathname.startsWith('/api/ticket')) return 'TICKET';
     if (pathname.startsWith('/api/customer-search')) return 'CUSTOMER_SEARCH';
     if (pathname.startsWith('/api/transactions/')) return 'TRANSACTIONS';
-    if (pathname.startsWith('/api/v2/balance-history/')) return 'BALANCE_HISTORY_V2';
     if (pathname.startsWith('/api/balance-history/')) return 'BALANCE_HISTORY';
 
     // TPOS Order patterns

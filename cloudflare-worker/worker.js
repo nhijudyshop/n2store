@@ -113,7 +113,15 @@ export default {
                 case 'CUSTOMERS':
                     return handleCustomersProxy(request, url, pathname);
 
-                // Customer 360
+                // Customer 360 v2 (unified API)
+                case 'CUSTOMERS_V2':
+                case 'WALLETS_V2':
+                case 'TICKETS_V2':
+                case 'BALANCE_HISTORY_V2':
+                case 'ANALYTICS_V2':
+                    return handleCustomer360Proxy(request, url, pathname);
+
+                // Customer 360 v1 (legacy)
                 case 'CUSTOMER_360':
                 case 'CUSTOMER':
                 case 'WALLET':
@@ -121,7 +129,6 @@ export default {
                 case 'CUSTOMER_SEARCH':
                 case 'TRANSACTIONS':
                 case 'BALANCE_HISTORY':
-                case 'BALANCE_HISTORY_V2':
                     return handleCustomer360Proxy(request, url, pathname);
 
                 // TPOS generic (catch-all for /api/*)
