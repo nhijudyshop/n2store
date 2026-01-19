@@ -413,11 +413,16 @@ router.get('/duplicates', async (req, res) => {
         const countResult = await db.query(countQuery, [duplicatePhones]);
         const total = parseInt(countResult.rows[0].count);
 
-        // Get customers with duplicate phones
+        // Get customers with duplicate phones - optimized with JOIN instead of correlated subquery
         const customersQuery = `
-            SELECT c.*,
-                   (SELECT COUNT(*) FROM customers c2 WHERE c2.phone = c.phone) as duplicate_count
+            SELECT c.*, COALESCE(dp.duplicate_count, 1) as duplicate_count
             FROM customers c
+            LEFT JOIN (
+                SELECT phone, COUNT(*) as duplicate_count
+                FROM customers
+                WHERE phone IS NOT NULL AND phone != ''
+                GROUP BY phone
+            ) AS dp ON c.phone = dp.phone
             WHERE c.phone = ANY($1)
             ORDER BY c.phone, c.created_at DESC
             LIMIT $2 OFFSET $3

@@ -27,18 +27,30 @@ service cloud.firestore {
 
     // Purchase Orders collection
     match /purchase_orders/{orderId} {
+      // Helper: Check if user owns the order
+      function isOwner() {
+        return resource.data.created_by == request.auth.uid;
+      }
+
+      // Helper: Check if user is creating with their own ID
+      function isCreatingAsOwner() {
+        return request.resource.data.created_by == request.auth.uid;
+      }
+
       // Anyone authenticated can read
       allow read: if isAuthenticated();
 
-      // Anyone authenticated can create
-      allow create: if isAuthenticated();
+      // Can create if authenticated AND setting themselves as owner
+      allow create: if isAuthenticated() && isCreatingAsOwner();
 
-      // Can update if authenticated and order is not COMPLETED
+      // Can update if authenticated, is owner or admin, and order is not COMPLETED
       allow update: if isAuthenticated()
+        && (isOwner() || isAdmin())
         && resource.data.status != 'COMPLETED';
 
-      // Can delete if authenticated and order is DRAFT or CANCELLED
+      // Can delete if authenticated, is owner or admin, and order is DRAFT or CANCELLED
       allow delete: if isAuthenticated()
+        && (isOwner() || isAdmin())
         && resource.data.status in ['DRAFT', 'CANCELLED'];
     }
 

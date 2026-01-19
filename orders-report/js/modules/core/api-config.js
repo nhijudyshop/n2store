@@ -2,12 +2,22 @@
  * API Configuration - ES Module
  * Central configuration for all API endpoints
  * Primary: Cloudflare Worker
+ *
+ * NOTE: Uses centralized API_ENDPOINTS from /shared/universal/api-endpoints.js
  */
 
-// =====================================================
-// SERVER CONFIGURATION
-// =====================================================
-const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+// Try to import from centralized endpoints, fallback to hardcoded
+let WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+// Dynamic import for ES Module environments
+try {
+    // Check if running in ES Module context
+    if (typeof window !== 'undefined' && window.API_ENDPOINTS?.WORKER?.URL) {
+        WORKER_URL = window.API_ENDPOINTS.WORKER.URL;
+    }
+} catch (e) {
+    // Fallback already set
+}
 
 /**
  * Get current server URL

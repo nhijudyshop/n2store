@@ -3,9 +3,18 @@
 // Cấu hình API endpoint cho trang lịch sử biến động số dư
 // =====================================================
 
+// Import centralized API endpoints if available, fallback to hardcoded
+const API_BASE_URL_DEFAULT = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
 const CONFIG = {
-    // API Base URL - Thay đổi theo môi trường triển khai
-    API_BASE_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
+    // API Base URL - Use centralized config if available
+    get API_BASE_URL() {
+        // Try to get from centralized API_ENDPOINTS
+        if (typeof window.API_ENDPOINTS !== 'undefined' && window.API_ENDPOINTS.WORKER) {
+            return window.API_ENDPOINTS.WORKER.URL;
+        }
+        return API_BASE_URL_DEFAULT;
+    },
 
     // Hoặc sử dụng Render.com trực tiếp
     // API_BASE_URL: 'https://n2store-fallback.onrender.com',

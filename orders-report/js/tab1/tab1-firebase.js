@@ -456,7 +456,13 @@ async function preloadKPIBaseStatus() {
 function setupKPIBaseRealtimeListener() {
     if (!database) return;
 
-    database.ref('kpi_base').on('child_added', (snapshot) => {
+    // Cleanup existing listener before setting up new one
+    cleanupKPIBaseRealtimeListener();
+
+    // Store reference for cleanup
+    kpiBaseRef = database.ref('kpi_base');
+
+    kpiBaseRef.on('child_added', (snapshot) => {
         const orderId = snapshot.key;
         ordersWithKPIBase.add(orderId);
         console.log('[KPI-BASE] BASE added for order:', orderId);
@@ -465,7 +471,7 @@ function setupKPIBaseRealtimeListener() {
         updateKPIBaseIndicator(orderId, true);
     });
 
-    database.ref('kpi_base').on('child_removed', (snapshot) => {
+    kpiBaseRef.on('child_removed', (snapshot) => {
         const orderId = snapshot.key;
         ordersWithKPIBase.delete(orderId);
         console.log('[KPI-BASE] BASE removed for order:', orderId);
@@ -508,4 +514,27 @@ function updateKPIBaseIndicator(orderId, hasBase) {
         indicator.remove();
     }
 }
+
+// Store KPI Base reference for cleanup
+let kpiBaseRef = null;
+
+/**
+ * Cleanup KPI Base realtime listeners to prevent memory leaks
+ */
+function cleanupKPIBaseRealtimeListener() {
+    if (kpiBaseRef) {
+        kpiBaseRef.off();
+        kpiBaseRef = null;
+        console.log('[KPI-BASE] Realtime listeners cleaned up');
+    }
+}
+
+// Cleanup all Firebase listeners on page unload
+window.addEventListener('beforeunload', () => {
+    cleanupTagRealtimeListeners();
+    cleanupKPIBaseRealtimeListener();
+});
+
+// Export cleanup function for external use
+window.cleanupKPIBaseRealtimeListener = cleanupKPIBaseRealtimeListener;
 

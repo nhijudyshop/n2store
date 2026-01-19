@@ -3252,6 +3252,18 @@ class VersionChecker {
         this.firebaseRef = null;
         this.localVersion = window.APP_VERSION || { build: 0 };
         this.isChecking = false;
+        this.unsubscribeListener = null;
+    }
+
+    /**
+     * Cleanup Firestore listener to prevent memory leaks
+     */
+    cleanup() {
+        if (this.unsubscribeListener) {
+            this.unsubscribeListener();
+            this.unsubscribeListener = null;
+            console.log('[VERSION] Firestore listener cleaned up');
+        }
     }
 
     /**
@@ -3447,6 +3459,11 @@ setTimeout(() => {
         window.versionChecker = versionChecker;
         versionChecker.init();
         console.log('[VERSION] Version Checker initialized');
+
+        // Cleanup on page unload to prevent memory leaks
+        window.addEventListener('beforeunload', () => {
+            versionChecker.cleanup();
+        });
     }
 }, 2000); // Wait 2 seconds for Firebase to be ready
 
