@@ -199,7 +199,18 @@ function updateStatisticsDisplay(dataArray) {
  * Sort data by thoiGianNhan descending (newest first)
  */
 function sortByDateDescending(data) {
-    return [...data].sort((a, b) => {
+    console.log("=== sortByDateDescending DEBUG ===");
+    console.log("Input length:", data.length);
+
+    // Test first item parse
+    if (data.length > 0) {
+        const testDate = parseVietnameseDate(data[0].thoiGianNhan);
+        console.log("First item date string:", data[0].thoiGianNhan);
+        console.log("Parsed date:", testDate);
+        console.log("Timestamp:", testDate ? testDate.getTime() : "null");
+    }
+
+    const sorted = [...data].sort((a, b) => {
         const dateA = parseVietnameseDate(a.thoiGianNhan);
         const dateB = parseVietnameseDate(b.thoiGianNhan);
 
@@ -208,9 +219,15 @@ function sortByDateDescending(data) {
         if (!dateA) return 1;
         if (!dateB) return -1;
 
-        // Descending: newer dates first
+        // Descending: newer dates first (larger timestamp first)
         return dateB.getTime() - dateA.getTime();
     });
+
+    console.log("AFTER sortByDateDescending:");
+    console.log("  First:", sorted[0]?.thoiGianNhan);
+    console.log("  Last:", sorted[sorted.length - 1]?.thoiGianNhan);
+
+    return sorted;
 }
 
 /**
