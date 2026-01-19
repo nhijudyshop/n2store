@@ -1286,13 +1286,10 @@ async function fetchOrders() {
         updateSearchResultCount();
         showInfoBanner(`✅ Đã tải ${allData.length} đơn hàng.`);
 
-        // Non-blocking: Send data to other tabs in background (avoid blocking main thread)
-        setTimeout(() => {
-            sendDataToTab2();
-            sendOrdersDataToOverview();
-        }, 100);
+        // NOTE: Removed cross-tab sync (sendDataToTab2, sendOrdersDataToOverview, sendOrdersDataToTab3)
+        // Each tab now fetches its own data independently when user switches to it
 
-        // ⚡ PHASE 2 OPTIMIZATION: Load conversations in BACKGROUND (non-blocking)
+        // ⚡ Load conversations in BACKGROUND (non-blocking)
         // This allows users to interact with the table immediately
         // Chat columns will show loading spinners, then update when data arrives
         console.log('[PROGRESSIVE] Loading conversations in background...');
@@ -1356,9 +1353,6 @@ async function fetchOrders() {
 
         // Hide loading overlay
         showLoading(false);
-
-        // Non-blocking: Send data to Tab3 in background
-        setTimeout(() => sendOrdersDataToTab3(), 200);
 
     } catch (error) {
         console.error("Error fetching data:", error);
