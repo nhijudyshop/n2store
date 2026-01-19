@@ -1,102 +1,48 @@
+/**
+ * Verification Module for Balance History
+ * Handles verification queue, approval/rejection of transactions
+ */
+
 // =====================================================
-// BALANCE HISTORY - VERIFICATION WORKFLOW MODULE
-// Handles verification queue for accountant approval
-//
-// PERMISSION CHECKS: Uses authManager.hasDetailedPermission()
-// - viewVerificationQueue: Xem danh sách chờ duyệt
-// - approveTransaction: Duyệt giao dịch
-// - rejectTransaction: Từ chối giao dịch
-// - resolveMatch: Chọn khách hàng từ dropdown
+// GLOBAL STATE
 // =====================================================
+let verificationQueueData = [];
+let verificationCurrentPage = 1;
+let verificationTotalPages = 1;
+const VERIFICATION_PAGE_SIZE = 20;
 
-/**
- * Verification Status Constants
- */
-const VERIFICATION_STATUS = {
-    PENDING: 'PENDING',
-    AUTO_APPROVED: 'AUTO_APPROVED',
-    PENDING_VERIFICATION: 'PENDING_VERIFICATION',
-    APPROVED: 'APPROVED',
-    REJECTED: 'REJECTED'
-};
-
-/**
- * Match Method Labels
- */
-const MATCH_METHOD_LABELS = {
-    qr_code: 'QR Code',
-    exact_phone: 'SĐT đầy đủ (10 số)',
-    single_match: 'Tự động (1 KH duy nhất)',
-    pending_match: 'NV chọn từ dropdown',
-    manual_entry: 'Nhập tay',
-    manual_link: 'Kế toán gán tay'
-};
-
-/**
- * Verification Status Badge Renderer
- */
-function renderVerificationBadge(status) {
-    const badges = {
-        'PENDING': '<span class="badge badge-secondary" title="Chờ xử lý">Chờ xử lý</span>',
-        'AUTO_APPROVED': '<span class="badge badge-success" title="Tự động duyệt">Auto</span>',
-        'PENDING_VERIFICATION': '<span class="badge badge-warning" title="Chờ kế toán duyệt">Chờ duyệt</span>',
-        'APPROVED': '<span class="badge badge-success" title="Đã duyệt">Đã duyệt</span>',
-        'REJECTED': '<span class="badge badge-danger" title="Đã từ chối">Từ chối</span>'
-    };
-    return badges[status] || `<span class="badge badge-secondary">${status || 'N/A'}</span>`;
-}
-
-/**
- * Match Method Badge Renderer
- */
-function renderMatchMethodBadge(method) {
-    if (!method) return '';
-    const label = MATCH_METHOD_LABELS[method] || method;
-    const colors = {
-        qr_code: 'info',
-        exact_phone: 'success',
-        single_match: 'success',
-        pending_match: 'warning',
-        manual_entry: 'warning',
-        manual_link: 'primary'
-    };
-    const color = colors[method] || 'secondary';
-    return `<span class="badge badge-${color}" title="${label}">${label}</span>`;
-}
+// =====================================================
+// API CONFIGURATION
+// =====================================================
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000'
+    : 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 // =====================================================
 // VERIFICATION QUEUE FUNCTIONS
 // =====================================================
 
-let verificationQueueData = [];
-let verificationCurrentPage = 1;
-let verificationTotalPages = 1;
-
 /**
  * Load Verification Queue
- * Only for Admin/Accountant with viewVerificationQueue permission
+ * Fetches pending transactions that need accountant verification
+ * @param {number} page - Page number
  */
-async function loadVerificationQueue(page = 1, status = 'PENDING_VERIFICATION') {
-    // Permission check
-    if (!authManager?.hasDetailedPermission('balance-history', 'viewVerificationQueue')) {
-        console.warn('[VERIFICATION] No permission to view verification queue');
-        const tableBody = document.getElementById('verificationTableBody');
-        if (tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-warning py-4">
-                <i data-lucide="shield-x"></i> Bạn không có quyền xem danh sách chờ duyệt
-            </td></tr>`;
-            lucide?.createIcons();
-        }
-        return;
-    }
-
-    const loadingEl = document.getElementById('verificationLoading');
+async function loadVerificationQueue(page = 1) {
     const tableBody = document.getElementById('verificationTableBody');
+    const loadingEl = document.getElementById('verificationLoading');
 
     if (loadingEl) loadingEl.style.display = 'block';
+    if (tableBody) tableBody.innerHTML = '';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/verification-queue?page=${page}&limit=20&status=${status}`);
+        const response = await fetch(
+            `${API_BASE_URL}/api/v2/balance-history/verification-queue?page=${page}&limit=${VERIFICATION_PAGE_SIZE}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
         const result = await response.json();
 
         if (!result.success) {
@@ -178,6 +124,9 @@ function renderVerificationQueue(tableBody) {
                    </select>`
                 : '<span class="text-muted">Chưa link</span>');
 
+        // Escape customer name for onclick
+        const escapedName = (tx.customer_name || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+
         return `
             <tr data-tx-id="${tx.id}">
                 <td>${tx.id}</td>
@@ -192,11 +141,15 @@ function renderVerificationQueue(tableBody) {
                 </td>
                 <td>${tx.verification_note || ''}</td>
                 <td>
-                    ${hasCustomer ? `
+                    ${tx.wallet_processed === true ? `
+                        <span class="badge badge-secondary" title="Giao dịch đã được cộng vào ví, không thể thay đổi">
+                            🔒 Đã cộng ví
+                        </span>
+                    ` : (hasCustomer ? `
                         <button class="btn btn-sm btn-success" onclick="approveTransaction(${tx.id})" title="Duyệt">
                             <i class="fas fa-check"></i> Duyệt
                         </button>
-                        <button class="btn btn-sm btn-change" onclick="showChangeModal(${tx.id}, '${tx.linked_customer_phone || ''}', '${(tx.customer_name || '').replace(/'/g, "\\'")}')\" title="Thay đổi SĐT">
+                        <button class="btn btn-sm btn-change" onclick="showChangeModal(${tx.id}, '${tx.linked_customer_phone || ''}', '${escapedName}')" title="Thay đổi SĐT">
                             <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i> Thay đổi
                         </button>
                         <button class="btn btn-sm btn-danger" onclick="showRejectModal(${tx.id})" title="Từ chối">
@@ -204,7 +157,7 @@ function renderVerificationQueue(tableBody) {
                         </button>
                     ` : `
                         <span class="text-muted small">Chọn KH trước</span>
-                    `}
+                    `)}
                 </td>
             </tr>
         `;
@@ -251,6 +204,14 @@ async function approveTransaction(transactionId) {
         return;
     }
 
+    // SECURITY: Check if transaction already credited to wallet
+    const tx = verificationQueueData.find(t => t.id === transactionId);
+    if (tx && tx.wallet_processed === true) {
+        showNotification('Giao dịch đã được cộng vào ví, không thể duyệt lại', 'error');
+        console.log(`[SECURITY] Blocked approveTransaction for tx ${transactionId} - wallet_processed = true`);
+        return;
+    }
+
     // Disable button to prevent double-click
     const btn = document.querySelector(`button[onclick*="approveTransaction(${transactionId})"]`);
     if (btn) {
@@ -262,26 +223,17 @@ async function approveTransaction(transactionId) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     }
 
-    // Get current user from authManager
+    // Get current user
     const userInfo = authManager?.getUserInfo() || {};
-    const verifiedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
-
-    if (!confirm(`Xác nhận DUYỆT giao dịch #${transactionId}?\n\nTiền sẽ được cộng vào ví khách hàng ngay lập tức.`)) {
-        // Re-enable button if user cancels
-        if (btn) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-check"></i> Duyệt';
-        }
-        return;
-    }
+    const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                verified_by: verifiedBy,
-                note: 'Approved via Balance History UI'
+                verified_by: performedBy,
+                note: 'Approved by accountant'
             })
         });
 
@@ -291,58 +243,78 @@ async function approveTransaction(transactionId) {
             throw new Error(result.error || 'Failed to approve');
         }
 
-        showNotification(`Đã duyệt giao dịch #${transactionId}. Ví đã được cộng ${result.data.amount?.toLocaleString()}đ`, 'success');
+        showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
 
         // Refresh verification queue
         loadVerificationQueue(verificationCurrentPage);
 
+        // Also refresh main data if function exists
+        if (typeof loadData === 'function') {
+            loadData(true);
+        }
+
     } catch (error) {
         console.error('[VERIFICATION] Approve error:', error);
         showNotification(`Lỗi: ${error.message}`, 'error');
+        // Re-enable button on error
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check"></i> Duyệt';
+        }
     }
 }
 
 /**
  * Show Reject Modal
+ * @param {number} transactionId
  */
 function showRejectModal(transactionId) {
-    const modal = document.getElementById('rejectModal');
-    if (!modal) {
-        // Fallback to prompt
-        const reason = prompt('Nhập lý do từ chối:');
-        if (reason) {
-            rejectTransaction(transactionId, reason);
-        }
-        return;
-    }
-
-    document.getElementById('rejectTransactionId').value = transactionId;
-    document.getElementById('rejectReason').value = '';
-    modal.style.display = 'block';
-}
-
-/**
- * Reject Transaction
- * Requires rejectTransaction permission
- */
-async function rejectTransaction(transactionId, reason) {
     // Permission check
-    if (!authManager?.hasDetailedPermission('balance-history', 'rejectTransaction')) {
+    if (!authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
         showNotification('Bạn không có quyền từ chối giao dịch', 'error');
         return;
     }
 
-    // Get current user from authManager
+    const modal = document.getElementById('rejectModal');
+    const txIdInput = document.getElementById('rejectTransactionId');
+    const reasonInput = document.getElementById('rejectReason');
+
+    if (modal && txIdInput) {
+        txIdInput.value = transactionId;
+        if (reasonInput) reasonInput.value = '';
+        modal.style.display = 'block';
+    }
+}
+
+/**
+ * Reject Transaction
+ * Called from reject modal submit
+ */
+async function rejectTransaction() {
+    const txId = document.getElementById('rejectTransactionId')?.value;
+    const reason = document.getElementById('rejectReason')?.value;
+
+    if (!txId) {
+        showNotification('Transaction ID không hợp lệ', 'error');
+        return;
+    }
+
+    if (!reason || reason.trim().length < 5) {
+        showNotification('Vui lòng nhập lý do từ chối (ít nhất 5 ký tự)', 'error');
+        return;
+    }
+
+    // Get current user
     const userInfo = authManager?.getUserInfo() || {};
-    const verifiedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+    const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/reject`, {
+        const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/reject`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                verified_by: verifiedBy,
-                reason: reason
+                rejected_by: performedBy,
+                reason: reason.trim()
             })
         });
 
@@ -352,13 +324,12 @@ async function rejectTransaction(transactionId, reason) {
             throw new Error(result.error || 'Failed to reject');
         }
 
-        showNotification(`Đã từ chối giao dịch #${transactionId}`, 'warning');
+        showNotification(`Đã từ chối giao dịch #${txId}`, 'success');
 
-        // Close modal if exists
-        const modal = document.getElementById('rejectModal');
-        if (modal) modal.style.display = 'none';
+        // Close modal
+        document.getElementById('rejectModal').style.display = 'none';
 
-        // Refresh verification queue
+        // Refresh
         loadVerificationQueue(verificationCurrentPage);
 
     } catch (error) {
@@ -368,75 +339,85 @@ async function rejectTransaction(transactionId, reason) {
 }
 
 /**
- * Select customer from dropdown and auto-approve
- * For PENDING_MATCH transactions
- * Requires resolveMatch permission
+ * Select match from dropdown and approve
+ * @param {number} transactionId
+ * @param {HTMLSelectElement} selectEl
  */
-async function selectMatchAndApprove(transactionId, selectElement) {
-    // Permission check
-    if (!authManager?.hasDetailedPermission('balance-history', 'resolveMatch')) {
-        showNotification('Bạn không có quyền chọn khách hàng', 'error');
-        selectElement.value = '';
-        return;
-    }
-
-    const phone = selectElement.value;
+async function selectMatchAndApprove(transactionId, selectEl) {
+    const phone = selectEl.value;
     if (!phone) return;
 
-    // Get current user from authManager
-    const userInfo = authManager?.getUserInfo() || {};
-    const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+    // Get customer name from selected option
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const optionText = selectedOption.text;
+    const customerName = optionText.split(' - ')[1] || '';
 
+    // First link, then approve
     try {
-        selectElement.disabled = true;
-
-        // First resolve the match
-        const resolveResponse = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/resolve-match`, {
+        // Link transaction to selected phone
+        const linkResponse = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/link`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 phone: phone,
-                performed_by: performedBy,
-                note: 'Selected via verification queue'
+                match_method: 'pending_match_selected'
             })
         });
 
-        const resolveResult = await resolveResponse.json();
-
-        if (!resolveResult.success) {
-            throw new Error(resolveResult.error || 'Failed to resolve match');
+        const linkResult = await linkResponse.json();
+        if (!linkResult.success) {
+            throw new Error(linkResult.error || 'Failed to link');
         }
 
-        showNotification(`Đã chọn khách hàng ${phone}. Vui lòng bấm Duyệt để cộng tiền vào ví.`, 'info');
-
-        // Refresh to show updated state
-        loadVerificationQueue(verificationCurrentPage);
+        // Then approve
+        await approveTransaction(transactionId);
 
     } catch (error) {
-        console.error('[VERIFICATION] Select match error:', error);
+        console.error('[VERIFICATION] Select and approve error:', error);
         showNotification(`Lỗi: ${error.message}`, 'error');
-        selectElement.disabled = false;
+        selectEl.value = ''; // Reset dropdown
     }
 }
 
 // =====================================================
-// VERIFICATION STATS
+// BADGE RENDERING
 // =====================================================
 
-/**
- * Load Verification Stats
- */
+function renderVerificationBadge(status) {
+    const badges = {
+        'PENDING_VERIFICATION': '<span class="badge badge-warning">Chờ duyệt</span>',
+        'APPROVED': '<span class="badge badge-success">Đã duyệt</span>',
+        'REJECTED': '<span class="badge badge-danger">Từ chối</span>',
+        'AUTO_APPROVED': '<span class="badge badge-info">Tự động duyệt</span>'
+    };
+    return badges[status] || `<span class="badge badge-secondary">${status || 'Unknown'}</span>`;
+}
+
+function renderMatchMethodBadge(method) {
+    const badges = {
+        'qr_code': '<span class="badge badge-primary">QR Code</span>',
+        'exact_phone': '<span class="badge badge-success">SĐT chính xác</span>',
+        'single_match': '<span class="badge badge-info">1 KH khớp</span>',
+        'pending_match': '<span class="badge badge-warning">Nhiều KH</span>',
+        'manual_entry': '<span class="badge badge-secondary">Nhập tay</span>',
+        'manual_link': '<span class="badge badge-dark">Gán tay</span>'
+    };
+    return badges[method] || '';
+}
+
+// =====================================================
+// STATISTICS
+// =====================================================
+
 async function loadVerificationStats() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/stats`);
+        const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/verification-stats`);
         const result = await response.json();
 
-        if (result.success) {
-            const stats = result.data;
-
-            // Update stat badges if elements exist
+        if (result.success && result.stats) {
+            const stats = result.stats;
             const elements = {
-                'stat-pending-verification': stats.pending_verification || 0,
+                'stat-pending': stats.pending || 0,
                 'stat-auto-approved': stats.auto_approved || 0,
                 'stat-manually-approved': stats.manually_approved || 0,
                 'stat-rejected': stats.rejected || 0
@@ -580,7 +561,7 @@ async function changeAndApproveTransaction(transactionId, newPhone, newName) {
     }
 
     try {
-        // First, update the phone number
+        // Update the phone number - this also auto-approves and credits wallet
         const updateResponse = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -668,43 +649,29 @@ function initVerificationModule() {
         });
     }
 
-    // Reject modal confirm button
-    const confirmRejectBtn = document.getElementById('confirmRejectBtn');
-    if (confirmRejectBtn) {
-        confirmRejectBtn.addEventListener('click', () => {
-            const txId = document.getElementById('rejectTransactionId').value;
-            const reason = document.getElementById('rejectReason').value;
-            if (txId && reason) {
-                rejectTransaction(parseInt(txId), reason);
-            } else {
-                showNotification('Vui lòng nhập lý do từ chối', 'warning');
-            }
-        });
+    // Reject confirm button
+    const rejectConfirmBtn = document.getElementById('confirmRejectBtn');
+    if (rejectConfirmBtn) {
+        rejectConfirmBtn.addEventListener('click', rejectTransaction);
     }
-
-    // Load initial stats
-    loadVerificationStats();
 
     console.log('[VERIFICATION] Module initialized');
 }
 
-// Auto-init when DOM ready
+// Export for global access
+window.VerificationModule = {
+    loadVerificationQueue,
+    approveTransaction,
+    rejectTransaction,
+    showRejectModal,
+    showChangeModal,
+    changeAndApproveTransaction,
+    initVerificationModule
+};
+
+// Auto-initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initVerificationModule);
 } else {
     initVerificationModule();
 }
-
-// Export for use in main.js
-window.VerificationModule = {
-    loadVerificationQueue,
-    approveTransaction,
-    rejectTransaction,
-    loadVerificationStats,
-    renderVerificationBadge,
-    renderMatchMethodBadge,
-    showChangeModal,
-    changeAndApproveTransaction,
-    VERIFICATION_STATUS,
-    MATCH_METHOD_LABELS
-};
