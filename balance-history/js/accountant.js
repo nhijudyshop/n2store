@@ -1,0 +1,1264 @@
+/**
+ * =====================================================
+ * ACCOUNTANT MODULE
+ * =====================================================
+ * Tab Kế Toán - Duyệt giao dịch, Điều chỉnh công nợ
+ * Created: 2026-01-19
+ * =====================================================
+ */
+
+(function() {
+    'use strict';
+
+    // =====================================================
+    // CONFIGURATION
+    // =====================================================
+
+    const API_BASE_URL = window.location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+    const CONFIG = {
+        REFRESH_INTERVAL: 30000, // 30 seconds
+        PAGE_SIZE: 20,
+        PENDING_ALERT_HOURS: 24
+    };
+
+    // =====================================================
+    // STATE
+    // =====================================================
+
+    const state = {
+        currentSubTab: 'pending', // pending | approved | adjustment
+        pendingQueue: [],
+        approvedToday: [],
+        adjustmentsToday: [],
+        selectedIds: new Set(),
+        pagination: {
+            pending: { page: 1, totalPages: 1, total: 0 },
+            approved: { page: 1, totalPages: 1, total: 0 },
+            adjustments: { page: 1, totalPages: 1, total: 0 }
+        },
+        stats: {
+            pending: 0,
+            pendingOverdue: 0,
+            approvedToday: 0,
+            rejectedToday: 0,
+            adjustmentsToday: 0
+        },
+        refreshTimer: null,
+        isLoading: false
+    };
+
+    // =====================================================
+    // DOM ELEMENTS
+    // =====================================================
+
+    const elements = {
+        // Dashboard
+        dashboard: null,
+        statPending: null,
+        statApproved: null,
+        statRejected: null,
+        statAdjustment: null,
+        alertBar: null,
+
+        // Sub-tabs
+        subTabs: null,
+        tabPending: null,
+        tabApproved: null,
+        tabAdjustment: null,
+
+        // Panels
+        panelPending: null,
+        panelApproved: null,
+        panelAdjustment: null,
+
+        // Pending queue
+        pendingTable: null,
+        pendingTableBody: null,
+        bulkBar: null,
+        bulkCount: null,
+        selectAllCheckbox: null,
+
+        // Approved today
+        approvedTable: null,
+        approvedTableBody: null,
+        approvedDateFilter: null,
+
+        // Adjustment form
+        adjustmentForm: null,
+        adjustmentPhone: null,
+        adjustmentName: null,
+        adjustmentBalance: null,
+        adjustmentType: null,
+        adjustmentAmount: null,
+        adjustmentReason: null,
+        adjustmentSubmit: null,
+        customerLookup: null,
+
+        // Adjustment history
+        adjustmentHistoryBody: null,
+
+        // Modals
+        rejectModal: null,
+        changeModal: null,
+
+        // Pagination
+        paginationPending: null,
+        paginationApproved: null
+    };
+
+    // =====================================================
+    // INITIALIZATION
+    // =====================================================
+
+    function init() {
+        console.log('[ACCOUNTANT] Initializing module...');
+
+        // Cache DOM elements
+        cacheElements();
+
+        // Setup event listeners
+        setupEventListeners();
+
+        // Set default date for approved filter
+        if (elements.approvedDateFilter) {
+            elements.approvedDateFilter.value = new Date().toISOString().split('T')[0];
+        }
+
+        // Load initial data
+        loadDashboardStats();
+        loadPendingQueue();
+
+        // Start auto-refresh
+        startAutoRefresh();
+
+        console.log('[ACCOUNTANT] Module initialized');
+    }
+
+    function cacheElements() {
+        // Dashboard
+        elements.dashboard = document.getElementById('accDashboard');
+        elements.statPending = document.getElementById('accStatPending');
+        elements.statApproved = document.getElementById('accStatApproved');
+        elements.statRejected = document.getElementById('accStatRejected');
+        elements.statAdjustment = document.getElementById('accStatAdjustment');
+        elements.alertBar = document.getElementById('accAlertBar');
+
+        // Sub-tabs
+        elements.subTabs = document.getElementById('accSubTabs');
+        elements.tabPending = document.getElementById('accTabPending');
+        elements.tabApproved = document.getElementById('accTabApproved');
+        elements.tabAdjustment = document.getElementById('accTabAdjustment');
+
+        // Panels
+        elements.panelPending = document.getElementById('accPanelPending');
+        elements.panelApproved = document.getElementById('accPanelApproved');
+        elements.panelAdjustment = document.getElementById('accPanelAdjustment');
+
+        // Pending queue
+        elements.pendingTableBody = document.getElementById('accPendingTableBody');
+        elements.bulkBar = document.getElementById('accBulkBar');
+        elements.bulkCount = document.getElementById('accBulkCount');
+        elements.selectAllCheckbox = document.getElementById('accSelectAll');
+
+        // Approved today
+        elements.approvedTableBody = document.getElementById('accApprovedTableBody');
+        elements.approvedDateFilter = document.getElementById('accApprovedDate');
+
+        // Adjustment form
+        elements.adjustmentForm = document.getElementById('accAdjustmentForm');
+        elements.adjustmentPhone = document.getElementById('accAdjustmentPhone');
+        elements.adjustmentName = document.getElementById('accAdjustmentName');
+        elements.adjustmentBalance = document.getElementById('accAdjustmentBalance');
+        elements.adjustmentAmount = document.getElementById('accAdjustmentAmount');
+        elements.adjustmentReason = document.getElementById('accAdjustmentReason');
+        elements.adjustmentSubmit = document.getElementById('accAdjustmentSubmit');
+        elements.customerLookup = document.getElementById('accCustomerLookup');
+
+        // Adjustment history
+        elements.adjustmentHistoryBody = document.getElementById('accAdjustmentHistoryBody');
+
+        // Modals
+        elements.rejectModal = document.getElementById('accRejectModal');
+        elements.changeModal = document.getElementById('accChangeModal');
+
+        // Pagination
+        elements.paginationPending = document.getElementById('accPaginationPending');
+        elements.paginationApproved = document.getElementById('accPaginationApproved');
+    }
+
+    function setupEventListeners() {
+        // Sub-tab switching
+        if (elements.tabPending) {
+            elements.tabPending.addEventListener('click', () => switchSubTab('pending'));
+        }
+        if (elements.tabApproved) {
+            elements.tabApproved.addEventListener('click', () => switchSubTab('approved'));
+        }
+        if (elements.tabAdjustment) {
+            elements.tabAdjustment.addEventListener('click', () => switchSubTab('adjustment'));
+        }
+
+        // Select all checkbox
+        if (elements.selectAllCheckbox) {
+            elements.selectAllCheckbox.addEventListener('change', handleSelectAll);
+        }
+
+        // Adjustment form submit
+        if (elements.adjustmentForm) {
+            elements.adjustmentForm.addEventListener('submit', handleAdjustmentSubmit);
+        }
+
+        // Phone input for customer lookup
+        if (elements.adjustmentPhone) {
+            elements.adjustmentPhone.addEventListener('input', debounce(handlePhoneLookup, 500));
+        }
+
+        // Approved date filter
+        if (elements.approvedDateFilter) {
+            elements.approvedDateFilter.addEventListener('change', () => loadApprovedToday());
+        }
+
+        // Modal close buttons
+        document.querySelectorAll('.acc-modal-close').forEach(btn => {
+            btn.addEventListener('click', closeAllModals);
+        });
+
+        // Click outside modal to close
+        document.querySelectorAll('.acc-modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) closeAllModals();
+            });
+        });
+    }
+
+    function startAutoRefresh() {
+        if (state.refreshTimer) clearInterval(state.refreshTimer);
+
+        state.refreshTimer = setInterval(() => {
+            // Only refresh if on pending tab and visible
+            if (state.currentSubTab === 'pending' && document.visibilityState === 'visible') {
+                console.log('[ACCOUNTANT] Auto-refreshing...');
+                loadDashboardStats();
+                loadPendingQueue(state.pagination.pending.page);
+            }
+        }, CONFIG.REFRESH_INTERVAL);
+    }
+
+    function stopAutoRefresh() {
+        if (state.refreshTimer) {
+            clearInterval(state.refreshTimer);
+            state.refreshTimer = null;
+        }
+    }
+
+    // =====================================================
+    // SUB-TAB SWITCHING
+    // =====================================================
+
+    function switchSubTab(tabName) {
+        state.currentSubTab = tabName;
+
+        // Update tab buttons
+        document.querySelectorAll('.acc-sub-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+
+        // Update panels
+        document.querySelectorAll('.acc-sub-panel').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.panel === tabName);
+        });
+
+        // Load data for tab
+        switch (tabName) {
+            case 'pending':
+                loadPendingQueue();
+                break;
+            case 'approved':
+                loadApprovedToday();
+                break;
+            case 'adjustment':
+                loadAdjustmentsToday();
+                break;
+        }
+
+        // Reinitialize Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+
+    // =====================================================
+    // DASHBOARD STATS
+    // =====================================================
+
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/accountant/stats`);
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load stats');
+            }
+
+            state.stats = result.stats;
+            renderDashboard();
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Stats error:', error);
+        }
+    }
+
+    function renderDashboard() {
+        const { pending, pendingOverdue, approvedToday, rejectedToday, adjustmentsToday } = state.stats;
+
+        // Update stat cards
+        if (elements.statPending) {
+            elements.statPending.querySelector('.stat-value').textContent = pending;
+            const subEl = elements.statPending.querySelector('.stat-sub');
+            if (subEl) {
+                subEl.textContent = pendingOverdue > 0 ? `🔴 ${pendingOverdue} quá 24h` : '';
+                subEl.style.display = pendingOverdue > 0 ? 'inline-block' : 'none';
+            }
+        }
+
+        if (elements.statApproved) {
+            elements.statApproved.querySelector('.stat-value').textContent = approvedToday;
+        }
+
+        if (elements.statRejected) {
+            elements.statRejected.querySelector('.stat-value').textContent = rejectedToday;
+        }
+
+        if (elements.statAdjustment) {
+            elements.statAdjustment.querySelector('.stat-value').textContent = adjustmentsToday;
+        }
+
+        // Update alert bar
+        if (elements.alertBar) {
+            if (pendingOverdue > 0) {
+                elements.alertBar.classList.remove('hidden');
+                elements.alertBar.querySelector('.alert-text').textContent =
+                    `⚠️ ${pendingOverdue} giao dịch chờ duyệt > 24h`;
+            } else {
+                elements.alertBar.classList.add('hidden');
+            }
+        }
+
+        // Update tab badge
+        const pendingBadge = document.getElementById('accPendingBadge');
+        if (pendingBadge) {
+            pendingBadge.textContent = pending;
+            pendingBadge.style.display = pending > 0 ? 'inline' : 'none';
+        }
+    }
+
+    // =====================================================
+    // PENDING QUEUE
+    // =====================================================
+
+    async function loadPendingQueue(page = 1) {
+        if (state.isLoading) return;
+        state.isLoading = true;
+
+        showLoading(elements.pendingTableBody);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/api/v2/balance-history/verification-queue?page=${page}&limit=${CONFIG.PAGE_SIZE}`
+            );
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load queue');
+            }
+
+            state.pendingQueue = result.data;
+            state.pagination.pending = {
+                page: result.pagination.page,
+                totalPages: result.pagination.totalPages,
+                total: result.pagination.total
+            };
+
+            renderPendingQueue();
+            updatePagination('pending');
+
+            // Clear selection on page change
+            state.selectedIds.clear();
+            updateBulkBar();
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Load queue error:', error);
+            showError(elements.pendingTableBody, error.message);
+        } finally {
+            state.isLoading = false;
+        }
+    }
+
+    function renderPendingQueue() {
+        if (!elements.pendingTableBody) return;
+
+        if (state.pendingQueue.length === 0) {
+            elements.pendingTableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="acc-empty-state">
+                        <div class="empty-icon">✅</div>
+                        <div class="empty-text">Không có giao dịch nào chờ duyệt</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        elements.pendingTableBody.innerHTML = state.pendingQueue.map(tx => {
+            const amount = parseFloat(tx.amount || 0);
+            const amountFormatted = amount.toLocaleString('vi-VN') + 'đ';
+            const txDate = tx.transaction_date ? new Date(tx.transaction_date) : null;
+            const timeStr = txDate ? txDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+            // Calculate wait time
+            const waitTime = calculateWaitTime(tx.verified_at || tx.created_at);
+            const waitClass = waitTime.hours >= 24 ? 'danger' : (waitTime.hours >= 2 ? 'warning' : 'normal');
+
+            // Customer display
+            const hasCustomer = tx.linked_customer_phone;
+            const canChange = hasCustomer && tx.wallet_processed !== true;
+
+            // Escape for onclick
+            const escapedName = (tx.customer_name || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+            const escapedPhone = (tx.linked_customer_phone || '').replace(/'/g, "\\'");
+
+            return `
+                <tr data-tx-id="${tx.id}">
+                    <td class="col-checkbox">
+                        <input type="checkbox" class="acc-row-checkbox" data-id="${tx.id}"
+                            ${state.selectedIds.has(tx.id) ? 'checked' : ''}
+                            ${tx.wallet_processed ? 'disabled' : ''}
+                            onchange="AccountantModule.toggleSelect(${tx.id})">
+                    </td>
+                    <td class="col-time">${timeStr}</td>
+                    <td class="col-amount amount-in">${amountFormatted}</td>
+                    <td class="col-content content-cell" title="${tx.content || ''}">${truncate(tx.content || '', 40)}</td>
+                    <td class="col-customer">
+                        ${hasCustomer ? `
+                            <div class="acc-customer-info">
+                                <span class="customer-name">${tx.customer_name || 'Chưa có tên'}</span>
+                                <span class="customer-phone">${tx.linked_customer_phone}</span>
+                                ${canChange ? `<span class="btn-change" onclick="AccountantModule.showChangeModal(${tx.id}, '${escapedPhone}', '${escapedName}')">Thay đổi</span>` : ''}
+                            </div>
+                        ` : `<span class="acc-text-muted">Chưa gán KH</span>`}
+                    </td>
+                    <td class="col-staff">${tx.entered_by || 'N/A'}</td>
+                    <td class="col-wait">
+                        <span class="acc-wait-time ${waitClass}">${waitTime.display}</span>
+                    </td>
+                    <td class="col-actions">
+                        ${tx.wallet_processed ? `
+                            <span class="acc-text-muted acc-text-sm">🔒 Đã cộng ví</span>
+                        ` : (hasCustomer ? `
+                            <div class="acc-action-buttons">
+                                <button class="acc-btn acc-btn-approve" onclick="AccountantModule.approve(${tx.id})" title="Duyệt">
+                                    <i data-lucide="check" style="width:14px;height:14px"></i>
+                                </button>
+                                <button class="acc-btn acc-btn-reject" onclick="AccountantModule.showRejectModal(${tx.id})" title="Từ chối">
+                                    <i data-lucide="x" style="width:14px;height:14px"></i>
+                                </button>
+                            </div>
+                        ` : `<span class="acc-text-muted acc-text-sm">Gán KH trước</span>`)}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Re-render Lucide icons
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+
+    function calculateWaitTime(dateString) {
+        if (!dateString) return { hours: 0, display: 'N/A' };
+
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+        let display;
+        if (diffHours >= 24) {
+            const days = Math.floor(diffHours / 24);
+            display = `${days}d ${diffHours % 24}h`;
+        } else if (diffHours > 0) {
+            display = `${diffHours}h ${diffMins}m`;
+        } else {
+            display = `${diffMins}m`;
+        }
+
+        return { hours: diffHours, display };
+    }
+
+    // =====================================================
+    // BULK SELECTION
+    // =====================================================
+
+    function handleSelectAll(e) {
+        const isChecked = e.target.checked;
+        state.selectedIds.clear();
+
+        if (isChecked) {
+            state.pendingQueue.forEach(tx => {
+                if (!tx.wallet_processed && tx.linked_customer_phone) {
+                    state.selectedIds.add(tx.id);
+                }
+            });
+        }
+
+        // Update all checkboxes
+        document.querySelectorAll('.acc-row-checkbox').forEach(cb => {
+            const id = parseInt(cb.dataset.id);
+            const tx = state.pendingQueue.find(t => t.id === id);
+            if (tx && !tx.wallet_processed && tx.linked_customer_phone) {
+                cb.checked = isChecked;
+            }
+        });
+
+        updateBulkBar();
+    }
+
+    function toggleSelect(id) {
+        if (state.selectedIds.has(id)) {
+            state.selectedIds.delete(id);
+        } else {
+            state.selectedIds.add(id);
+        }
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        const count = state.selectedIds.size;
+
+        if (elements.bulkBar) {
+            if (count > 0) {
+                elements.bulkBar.classList.add('visible');
+                if (elements.bulkCount) {
+                    elements.bulkCount.textContent = count;
+                }
+            } else {
+                elements.bulkBar.classList.remove('visible');
+            }
+        }
+
+        // Update select all checkbox state
+        if (elements.selectAllCheckbox) {
+            const selectableCount = state.pendingQueue.filter(tx =>
+                !tx.wallet_processed && tx.linked_customer_phone
+            ).length;
+            elements.selectAllCheckbox.checked = count > 0 && count === selectableCount;
+            elements.selectAllCheckbox.indeterminate = count > 0 && count < selectableCount;
+        }
+    }
+
+    // =====================================================
+    // APPROVE / REJECT ACTIONS
+    // =====================================================
+
+    async function approve(transactionId) {
+        // Permission check
+        if (!window.authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
+            showNotification('Bạn không có quyền duyệt giao dịch', 'error');
+            return;
+        }
+
+        // Security check
+        const tx = state.pendingQueue.find(t => t.id === transactionId);
+        if (tx?.wallet_processed === true) {
+            showNotification('Giao dịch đã được cộng vào ví, không thể duyệt lại', 'error');
+            return;
+        }
+
+        // Disable button
+        const btn = document.querySelector(`button[onclick*="approve(${transactionId})"]`);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader" class="spin"></i>';
+        }
+
+        const userInfo = window.authManager?.getUserInfo() || {};
+        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    verified_by: performedBy,
+                    note: 'Approved by accountant'
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to approve');
+            }
+
+            showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
+
+            // Refresh
+            loadDashboardStats();
+            loadPendingQueue(state.pagination.pending.page);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Approve error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+
+            // Re-enable button
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i>';
+                if (window.lucide) lucide.createIcons();
+            }
+        }
+    }
+
+    async function bulkApprove() {
+        if (state.selectedIds.size === 0) {
+            showNotification('Chưa chọn giao dịch nào', 'warning');
+            return;
+        }
+
+        // Permission check
+        if (!window.authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
+            showNotification('Bạn không có quyền duyệt giao dịch', 'error');
+            return;
+        }
+
+        const ids = Array.from(state.selectedIds);
+        const userInfo = window.authManager?.getUserInfo() || {};
+        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        if (!confirm(`Xác nhận duyệt ${ids.length} giao dịch?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/bulk-approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transaction_ids: ids,
+                    verified_by: performedBy
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to bulk approve');
+            }
+
+            showNotification(`Đã duyệt ${result.approved} giao dịch`, 'success');
+
+            // Clear selection and refresh
+            state.selectedIds.clear();
+            updateBulkBar();
+            loadDashboardStats();
+            loadPendingQueue(state.pagination.pending.page);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Bulk approve error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        }
+    }
+
+    function showRejectModal(transactionId) {
+        // Permission check
+        if (!window.authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
+            showNotification('Bạn không có quyền từ chối giao dịch', 'error');
+            return;
+        }
+
+        if (!elements.rejectModal) return;
+
+        elements.rejectModal.dataset.txId = transactionId;
+        document.getElementById('accRejectReason').value = '';
+        elements.rejectModal.classList.add('visible');
+    }
+
+    async function confirmReject() {
+        const transactionId = elements.rejectModal?.dataset.txId;
+        const reason = document.getElementById('accRejectReason')?.value?.trim();
+
+        if (!reason || reason.length < 5) {
+            showNotification('Vui lòng nhập lý do từ chối (ít nhất 5 ký tự)', 'error');
+            return;
+        }
+
+        const userInfo = window.authManager?.getUserInfo() || {};
+        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    rejected_by: performedBy,
+                    reason: reason
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to reject');
+            }
+
+            showNotification(`Đã từ chối giao dịch #${transactionId}`, 'success');
+            closeAllModals();
+
+            // Refresh
+            loadDashboardStats();
+            loadPendingQueue(state.pagination.pending.page);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Reject error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        }
+    }
+
+    // =====================================================
+    // CHANGE PHONE MODAL
+    // =====================================================
+
+    function showChangeModal(transactionId, currentPhone, currentName) {
+        // Permission check
+        if (!window.authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
+            showNotification('Bạn không có quyền thay đổi giao dịch', 'error');
+            return;
+        }
+
+        // Security check
+        const tx = state.pendingQueue.find(t => t.id === transactionId);
+        if (tx?.wallet_processed === true) {
+            showNotification('Không thể thay đổi SĐT - Giao dịch đã được cộng vào ví', 'error');
+            return;
+        }
+
+        if (!elements.changeModal) return;
+
+        elements.changeModal.dataset.txId = transactionId;
+        document.getElementById('accChangePhone').value = currentPhone || '';
+        document.getElementById('accChangeName').value = currentName || '';
+
+        // Reset lookup state
+        const lookupResult = document.getElementById('accChangeLookupResult');
+        if (lookupResult) {
+            lookupResult.innerHTML = '';
+            lookupResult.className = '';
+        }
+
+        elements.changeModal.classList.add('visible');
+
+        // Trigger lookup if phone is valid
+        if (currentPhone?.replace(/\D/g, '').length === 10) {
+            lookupCustomerForChange(currentPhone);
+        }
+    }
+
+    async function lookupCustomerForChange(phone) {
+        const lookupResult = document.getElementById('accChangeLookupResult');
+        if (!lookupResult) return;
+
+        const normalized = phone.replace(/\D/g, '');
+        if (normalized.length !== 10) {
+            lookupResult.innerHTML = '';
+            return;
+        }
+
+        lookupResult.innerHTML = '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/tpos/customer/search?phone=${normalized}`);
+            const result = await response.json();
+
+            if (!result.success || !result.customers?.length) {
+                lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH trong TPOS</div>';
+                return;
+            }
+
+            if (result.customers.length === 1) {
+                const customer = result.customers[0];
+                document.getElementById('accChangeName').value = customer.name || '';
+                lookupResult.innerHTML = `<div class="tpos-result">✅ ${customer.name}</div>`;
+            } else {
+                // Multiple customers
+                const options = result.customers.map(c =>
+                    `<option value="${c.name}">${c.name} - ${c.code || ''}</option>`
+                ).join('');
+                lookupResult.innerHTML = `
+                    <div class="tpos-multiple">
+                        <span>⚠️ Tìm thấy ${result.customers.length} KH</span>
+                        <select id="accChangeCustomerSelect" onchange="document.getElementById('accChangeName').value = this.value">
+                            <option value="">-- Chọn KH --</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('[ACCOUNTANT] TPOS lookup error:', error);
+            lookupResult.innerHTML = '<div class="tpos-result error">Lỗi kết nối TPOS</div>';
+        }
+    }
+
+    async function confirmChange() {
+        const transactionId = elements.changeModal?.dataset.txId;
+        const newPhone = document.getElementById('accChangePhone')?.value?.trim();
+        const newName = document.getElementById('accChangeName')?.value?.trim();
+
+        if (!newPhone || newPhone.replace(/\D/g, '').length !== 10) {
+            showNotification('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
+            return;
+        }
+
+        const userInfo = window.authManager?.getUserInfo() || {};
+        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        if (!confirm(`Xác nhận THAY ĐỔI SĐT thành ${newPhone} và DUYỆT giao dịch #${transactionId}?\n\nTiền sẽ được cộng vào ví khách hàng mới ngay lập tức.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: newPhone,
+                    customer_name: newName || null,
+                    entered_by: performedBy,
+                    is_accountant_correction: true
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to update');
+            }
+
+            showNotification(`Đã thay đổi SĐT thành ${newPhone} và duyệt`, 'success');
+            closeAllModals();
+
+            // Refresh
+            loadDashboardStats();
+            loadPendingQueue(state.pagination.pending.page);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Change error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        }
+    }
+
+    // =====================================================
+    // APPROVED TODAY
+    // =====================================================
+
+    async function loadApprovedToday(page = 1) {
+        if (!elements.approvedTableBody) return;
+
+        showLoading(elements.approvedTableBody);
+
+        const dateFilter = elements.approvedDateFilter?.value || new Date().toISOString().split('T')[0];
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/api/v2/balance-history/approved-today?date=${dateFilter}&page=${page}&limit=${CONFIG.PAGE_SIZE}`
+            );
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load');
+            }
+
+            state.approvedToday = result.data;
+            state.pagination.approved = {
+                page: result.pagination.page,
+                totalPages: result.pagination.totalPages,
+                total: result.pagination.total
+            };
+
+            renderApprovedToday();
+            updatePagination('approved');
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Load approved error:', error);
+            showError(elements.approvedTableBody, error.message);
+        }
+    }
+
+    function renderApprovedToday() {
+        if (!elements.approvedTableBody) return;
+
+        if (state.approvedToday.length === 0) {
+            elements.approvedTableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="acc-empty-state">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-text">Chưa có giao dịch được duyệt ngày này</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        elements.approvedTableBody.innerHTML = state.approvedToday.map(tx => {
+            const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN') + 'đ';
+            const verifiedAt = tx.verified_at ? new Date(tx.verified_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            const txDate = tx.transaction_date ? new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+            return `
+                <tr>
+                    <td>${verifiedAt}</td>
+                    <td>${txDate}</td>
+                    <td class="amount-in">${amount}</td>
+                    <td>
+                        <div class="acc-customer-info">
+                            <span class="customer-name">${tx.customer_name || 'N/A'}</span>
+                            <span class="customer-phone">${tx.linked_customer_phone || ''}</span>
+                        </div>
+                    </td>
+                    <td>${tx.entered_by || 'N/A'}</td>
+                    <td>${tx.verified_by || 'N/A'}</td>
+                    <td class="acc-text-muted">${tx.verification_note || ''}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // =====================================================
+    // MANUAL ADJUSTMENT
+    // =====================================================
+
+    async function handlePhoneLookup(e) {
+        const phone = e.target.value.replace(/\D/g, '');
+
+        if (phone.length !== 10) {
+            if (elements.customerLookup) {
+                elements.customerLookup.classList.remove('visible');
+            }
+            if (elements.adjustmentName) elements.adjustmentName.value = '';
+            if (elements.adjustmentBalance) elements.adjustmentBalance.value = '';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/tpos/customer/search?phone=${phone}`);
+            const result = await response.json();
+
+            if (!result.success || !result.customers?.length) {
+                if (elements.customerLookup) {
+                    elements.customerLookup.classList.add('visible');
+                    elements.customerLookup.innerHTML = '<span class="acc-text-danger">Không tìm thấy KH</span>';
+                }
+                return;
+            }
+
+            const customer = result.customers[0];
+
+            if (elements.adjustmentName) {
+                elements.adjustmentName.value = customer.name || '';
+            }
+
+            // Get wallet balance
+            const balanceResponse = await fetch(`${API_BASE_URL}/api/v2/wallet/balance?phone=${phone}`);
+            const balanceResult = await balanceResponse.json();
+
+            const balance = balanceResult.success ? (balanceResult.balance || 0) : 0;
+            if (elements.adjustmentBalance) {
+                elements.adjustmentBalance.value = balance.toLocaleString('vi-VN') + 'đ';
+            }
+
+            if (elements.customerLookup) {
+                elements.customerLookup.classList.add('visible');
+                elements.customerLookup.innerHTML = `
+                    <span class="lookup-name">✅ ${customer.name}</span>
+                    <span class="lookup-balance">Số dư: ${balance.toLocaleString('vi-VN')}đ</span>
+                `;
+            }
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Phone lookup error:', error);
+        }
+    }
+
+    async function handleAdjustmentSubmit(e) {
+        e.preventDefault();
+
+        const phone = elements.adjustmentPhone?.value?.replace(/\D/g, '');
+        const name = elements.adjustmentName?.value?.trim();
+        const typeRadio = document.querySelector('input[name="adjustmentType"]:checked');
+        const type = typeRadio?.value;
+        const amount = parseFloat(elements.adjustmentAmount?.value || 0);
+        const reason = elements.adjustmentReason?.value?.trim();
+
+        // Validation
+        if (!phone || phone.length !== 10) {
+            showNotification('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
+            return;
+        }
+
+        if (!type) {
+            showNotification('Vui lòng chọn loại điều chỉnh', 'error');
+            return;
+        }
+
+        if (!amount || amount <= 0) {
+            showNotification('Vui lòng nhập số tiền hợp lệ', 'error');
+            return;
+        }
+
+        if (!reason || reason.length < 10) {
+            showNotification('Vui lòng nhập lý do (ít nhất 10 ký tự)', 'error');
+            return;
+        }
+
+        // Permission check
+        if (!window.authManager?.hasDetailedPermission('balance-history', 'adjustWallet')) {
+            showNotification('Bạn không có quyền điều chỉnh công nợ', 'error');
+            return;
+        }
+
+        const userInfo = window.authManager?.getUserInfo() || {};
+        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        if (!confirm(`Xác nhận ${type === 'add' ? 'CỘNG' : 'TRỪ'} ${amount.toLocaleString('vi-VN')}đ cho khách ${name || phone}?\n\nLý do: ${reason}`)) {
+            return;
+        }
+
+        if (elements.adjustmentSubmit) {
+            elements.adjustmentSubmit.disabled = true;
+            elements.adjustmentSubmit.textContent = 'Đang xử lý...';
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/wallet/manual-adjustment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: phone,
+                    customer_name: name,
+                    type: type, // 'add' or 'subtract'
+                    amount: amount,
+                    reason: reason,
+                    performed_by: performedBy
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to adjust');
+            }
+
+            showNotification(`Đã ${type === 'add' ? 'cộng' : 'trừ'} ${amount.toLocaleString('vi-VN')}đ cho ${name || phone}`, 'success');
+
+            // Reset form
+            elements.adjustmentForm.reset();
+            if (elements.customerLookup) {
+                elements.customerLookup.classList.remove('visible');
+            }
+
+            // Refresh
+            loadDashboardStats();
+            loadAdjustmentsToday();
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Adjustment error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        } finally {
+            if (elements.adjustmentSubmit) {
+                elements.adjustmentSubmit.disabled = false;
+                elements.adjustmentSubmit.textContent = 'Thực hiện điều chỉnh';
+            }
+        }
+    }
+
+    async function loadAdjustmentsToday() {
+        if (!elements.adjustmentHistoryBody) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/wallet/adjustments-today`);
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to load');
+            }
+
+            state.adjustmentsToday = result.data;
+            renderAdjustmentsToday();
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Load adjustments error:', error);
+            elements.adjustmentHistoryBody.innerHTML = `<tr><td colspan="6" class="acc-text-danger">Lỗi: ${error.message}</td></tr>`;
+        }
+    }
+
+    function renderAdjustmentsToday() {
+        if (!elements.adjustmentHistoryBody) return;
+
+        if (state.adjustmentsToday.length === 0) {
+            elements.adjustmentHistoryBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="acc-text-muted" style="text-align: center; padding: 20px;">
+                        Chưa có điều chỉnh nào hôm nay
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        elements.adjustmentHistoryBody.innerHTML = state.adjustmentsToday.map(adj => {
+            const time = new Date(adj.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            const amount = parseFloat(adj.amount || 0).toLocaleString('vi-VN') + 'đ';
+            const typeClass = adj.type === 'add' ? 'type-add' : 'type-subtract';
+            const typeIcon = adj.type === 'add' ? '+' : '-';
+
+            return `
+                <tr>
+                    <td>${time}</td>
+                    <td class="${typeClass}">${typeIcon}${amount}</td>
+                    <td>${adj.customer_name || adj.phone}</td>
+                    <td>${adj.reason || ''}</td>
+                    <td>${adj.performed_by || 'N/A'}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // =====================================================
+    // PAGINATION
+    // =====================================================
+
+    function updatePagination(type) {
+        const pag = state.pagination[type];
+        const container = type === 'pending' ? elements.paginationPending : elements.paginationApproved;
+
+        if (!container) return;
+
+        container.innerHTML = `
+            <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.changePage('${type}', -1)" ${pag.page <= 1 ? 'disabled' : ''}>
+                <i data-lucide="chevron-left" style="width:16px;height:16px"></i> Trước
+            </button>
+            <span class="page-info">Trang ${pag.page} / ${pag.totalPages} (${pag.total} GD)</span>
+            <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.changePage('${type}', 1)" ${pag.page >= pag.totalPages ? 'disabled' : ''}>
+                Sau <i data-lucide="chevron-right" style="width:16px;height:16px"></i>
+            </button>
+        `;
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function changePage(type, delta) {
+        const newPage = state.pagination[type].page + delta;
+        if (newPage < 1 || newPage > state.pagination[type].totalPages) return;
+
+        if (type === 'pending') {
+            loadPendingQueue(newPage);
+        } else if (type === 'approved') {
+            loadApprovedToday(newPage);
+        }
+    }
+
+    // =====================================================
+    // UTILITIES
+    // =====================================================
+
+    function showLoading(container) {
+        if (!container) return;
+        container.innerHTML = `
+            <tr>
+                <td colspan="8" class="acc-loading">
+                    <div class="loading-spinner"></div>
+                    <div>Đang tải...</div>
+                </td>
+            </tr>
+        `;
+    }
+
+    function showError(container, message) {
+        if (!container) return;
+        container.innerHTML = `
+            <tr>
+                <td colspan="8" class="acc-empty-state">
+                    <div class="empty-icon">❌</div>
+                    <div class="empty-text acc-text-danger">Lỗi: ${message}</div>
+                </td>
+            </tr>
+        `;
+    }
+
+    function closeAllModals() {
+        document.querySelectorAll('.acc-modal-overlay').forEach(modal => {
+            modal.classList.remove('visible');
+        });
+    }
+
+    function showNotification(message, type = 'info') {
+        // Use existing notification system if available
+        if (window.notificationManager) {
+            window.notificationManager.show(message, type);
+        } else if (window.showNotification) {
+            window.showNotification(message, type);
+        } else {
+            alert(message);
+        }
+    }
+
+    function truncate(str, len) {
+        if (!str) return '';
+        return str.length > len ? str.substring(0, len) + '...' : str;
+    }
+
+    function debounce(fn, delay) {
+        let timeoutId;
+        return function(...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // =====================================================
+    // PUBLIC API
+    // =====================================================
+
+    window.AccountantModule = {
+        init,
+        switchSubTab,
+        loadDashboardStats,
+        loadPendingQueue,
+        loadApprovedToday,
+        loadAdjustmentsToday,
+        approve,
+        bulkApprove,
+        showRejectModal,
+        confirmReject,
+        showChangeModal,
+        lookupCustomerForChange,
+        confirmChange,
+        toggleSelect,
+        changePage,
+        stopAutoRefresh
+    };
+
+    // Auto-initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        // DOM already loaded, but wait a tick for other scripts
+        setTimeout(init, 100);
+    }
+
+})();

@@ -902,4 +902,492 @@ router.post('/:id/resolve-match', async (req, res) => {
     }
 });
 
+// =====================================================
+// ACCOUNTANT MODULE ENDPOINTS
+// =====================================================
+
+/**
+ * GET /api/v2/balance-history/accountant/stats
+ * Dashboard stats for accountant tab
+ */
+router.get('/accountant/stats', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        // Get today's date range
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Parallel queries for stats
+        const [pendingResult, pendingOverdueResult, approvedTodayResult, rejectedTodayResult, adjustmentsTodayResult] = await Promise.all([
+            // Pending verification count
+            db.query(`
+                SELECT COUNT(*) as count
+                FROM balance_history
+                WHERE verification_status = 'PENDING_VERIFICATION'
+                  AND transfer_type = 'in'
+            `),
+            // Pending > 24h count
+            db.query(`
+                SELECT COUNT(*) as count
+                FROM balance_history
+                WHERE verification_status = 'PENDING_VERIFICATION'
+                  AND transfer_type = 'in'
+                  AND created_at < NOW() - INTERVAL '24 hours'
+            `),
+            // Approved today count
+            db.query(`
+                SELECT COUNT(*) as count
+                FROM balance_history
+                WHERE verification_status = 'APPROVED'
+                  AND transfer_type = 'in'
+                  AND verified_at >= $1
+                  AND verified_at < $2
+            `, [today, tomorrow]),
+            // Rejected today count
+            db.query(`
+                SELECT COUNT(*) as count
+                FROM balance_history
+                WHERE verification_status = 'REJECTED'
+                  AND transfer_type = 'in'
+                  AND verified_at >= $1
+                  AND verified_at < $2
+            `, [today, tomorrow]),
+            // Manual adjustments today count
+            db.query(`
+                SELECT COUNT(*) as count
+                FROM wallet_transactions
+                WHERE transaction_type = 'MANUAL_ADJUSTMENT'
+                  AND created_at >= $1
+                  AND created_at < $2
+            `, [today, tomorrow])
+        ]);
+
+        res.json({
+            success: true,
+            stats: {
+                pending: parseInt(pendingResult.rows[0].count),
+                pendingOverdue: parseInt(pendingOverdueResult.rows[0].count),
+                approvedToday: parseInt(approvedTodayResult.rows[0].count),
+                rejectedToday: parseInt(rejectedTodayResult.rows[0].count),
+                adjustmentsToday: parseInt(adjustmentsTodayResult.rows[0].count)
+            }
+        });
+
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch accountant stats');
+    }
+});
+
+/**
+ * GET /api/v2/balance-history/approved-today
+ * Get transactions approved today (or specific date)
+ */
+router.get('/approved-today', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { date, page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    try {
+        // Parse date or use today
+        let targetDate;
+        if (date) {
+            targetDate = new Date(date);
+        } else {
+            targetDate = new Date();
+        }
+        targetDate.setHours(0, 0, 0, 0);
+        const nextDate = new Date(targetDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+
+        // Get total count
+        const countResult = await db.query(`
+            SELECT COUNT(*) as total
+            FROM balance_history
+            WHERE verification_status = 'APPROVED'
+              AND transfer_type = 'in'
+              AND verified_at >= $1
+              AND verified_at < $2
+        `, [targetDate, nextDate]);
+        const total = parseInt(countResult.rows[0].total);
+
+        // Get transactions
+        const result = await db.query(`
+            SELECT
+                bh.id,
+                bh.content,
+                bh.transfer_amount as amount,
+                bh.transaction_date,
+                bh.linked_customer_phone,
+                bh.verified_at,
+                bh.verified_by,
+                bh.verification_note,
+                bh.entered_by,
+                c.name as customer_name
+            FROM balance_history bh
+            LEFT JOIN customers c ON bh.customer_id = c.id
+            WHERE bh.verification_status = 'APPROVED'
+              AND bh.transfer_type = 'in'
+              AND bh.verified_at >= $1
+              AND bh.verified_at < $2
+            ORDER BY bh.verified_at DESC
+            LIMIT $3 OFFSET $4
+        `, [targetDate, nextDate, parseInt(limit), offset]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch approved transactions');
+    }
+});
+
+/**
+ * POST /api/v2/balance-history/bulk-approve
+ * Bulk approve multiple transactions
+ */
+router.post('/bulk-approve', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { transaction_ids, verified_by } = req.body;
+
+    if (!transaction_ids || !Array.isArray(transaction_ids) || transaction_ids.length === 0) {
+        return res.status(400).json({ success: false, error: 'transaction_ids array is required' });
+    }
+
+    if (!verified_by) {
+        return res.status(400).json({ success: false, error: 'verified_by is required' });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        let approved = 0;
+        let failed = 0;
+        const results = [];
+
+        for (const txId of transaction_ids) {
+            try {
+                // Get transaction
+                const txResult = await db.query(
+                    'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+                    [parseInt(txId)]
+                );
+
+                if (txResult.rows.length === 0) {
+                    results.push({ id: txId, success: false, error: 'Not found' });
+                    failed++;
+                    continue;
+                }
+
+                const tx = txResult.rows[0];
+
+                // Skip if already processed
+                if (tx.wallet_processed === true) {
+                    results.push({ id: txId, success: false, error: 'Already processed' });
+                    failed++;
+                    continue;
+                }
+
+                // Skip if not pending verification
+                if (tx.verification_status !== 'PENDING_VERIFICATION' && tx.verification_status !== 'PENDING') {
+                    results.push({ id: txId, success: false, error: `Status: ${tx.verification_status}` });
+                    failed++;
+                    continue;
+                }
+
+                // Skip if no customer linked
+                if (!tx.linked_customer_phone) {
+                    results.push({ id: txId, success: false, error: 'No customer linked' });
+                    failed++;
+                    continue;
+                }
+
+                // Process wallet deposit
+                const walletResult = await processDeposit(
+                    db,
+                    tx.linked_customer_phone,
+                    tx.transfer_amount,
+                    txId,
+                    `Nạp từ CK ${tx.code || tx.reference_code} (bulk approve)`,
+                    tx.customer_id
+                );
+
+                // Update transaction
+                await db.query(`
+                    UPDATE balance_history
+                    SET verification_status = 'APPROVED',
+                        verified_by = $2,
+                        verified_at = CURRENT_TIMESTAMP,
+                        wallet_processed = TRUE,
+                        verification_note = 'Bulk approved'
+                    WHERE id = $1
+                `, [txId, verified_by]);
+
+                results.push({
+                    id: txId,
+                    success: true,
+                    amount: parseFloat(tx.transfer_amount),
+                    new_balance: walletResult.wallet.balance
+                });
+                approved++;
+
+            } catch (txError) {
+                console.error(`[BULK APPROVE] Error processing tx ${txId}:`, txError.message);
+                results.push({ id: txId, success: false, error: txError.message });
+                failed++;
+            }
+        }
+
+        await db.query('COMMIT');
+
+        console.log(`[BULK APPROVE] Approved ${approved}, Failed ${failed} by ${verified_by}`);
+
+        res.json({
+            success: true,
+            approved,
+            failed,
+            total: transaction_ids.length,
+            results
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to bulk approve');
+    }
+});
+
+/**
+ * POST /api/v2/wallet/manual-adjustment
+ * Create a manual wallet adjustment (add or subtract)
+ */
+router.post('/wallet/manual-adjustment', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone, customer_name, type, amount, reason, performed_by } = req.body;
+
+    // Validation
+    if (!phone) {
+        return res.status(400).json({ success: false, error: 'phone is required' });
+    }
+
+    if (!type || !['add', 'subtract'].includes(type)) {
+        return res.status(400).json({ success: false, error: 'type must be "add" or "subtract"' });
+    }
+
+    if (!amount || amount <= 0) {
+        return res.status(400).json({ success: false, error: 'amount must be greater than 0' });
+    }
+
+    if (!reason || reason.length < 10) {
+        return res.status(400).json({ success: false, error: 'reason is required (min 10 chars)' });
+    }
+
+    if (!performed_by) {
+        return res.status(400).json({ success: false, error: 'performed_by is required' });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+        return res.status(400).json({ success: false, error: 'Invalid phone number' });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        // 1. Get or create customer wallet
+        let walletResult = await db.query(
+            'SELECT * FROM customer_wallets WHERE phone = $1 FOR UPDATE',
+            [normalizedPhone]
+        );
+
+        if (walletResult.rows.length === 0) {
+            // Create wallet
+            walletResult = await db.query(`
+                INSERT INTO customer_wallets (phone, balance, total_deposits, total_spent)
+                VALUES ($1, 0, 0, 0)
+                RETURNING *
+            `, [normalizedPhone]);
+        }
+
+        const wallet = walletResult.rows[0];
+        const currentBalance = parseFloat(wallet.balance || 0);
+        const adjustAmount = parseFloat(amount);
+
+        // Check if subtract would make balance negative
+        if (type === 'subtract' && currentBalance < adjustAmount) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: `Số dư không đủ. Hiện tại: ${currentBalance.toLocaleString()}đ, cần trừ: ${adjustAmount.toLocaleString()}đ`
+            });
+        }
+
+        // 2. Calculate new balance
+        const newBalance = type === 'add'
+            ? currentBalance + adjustAmount
+            : currentBalance - adjustAmount;
+
+        // 3. Update wallet
+        await db.query(`
+            UPDATE customer_wallets
+            SET balance = $2,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE phone = $1
+        `, [normalizedPhone, newBalance]);
+
+        // 4. Create wallet transaction record
+        const txResult = await db.query(`
+            INSERT INTO wallet_transactions (
+                phone, transaction_type, amount, balance_before, balance_after,
+                description, reference_type, performed_by, created_at
+            ) VALUES (
+                $1, 'MANUAL_ADJUSTMENT', $2, $3, $4,
+                $5, 'manual', $6, CURRENT_TIMESTAMP
+            )
+            RETURNING id
+        `, [
+            normalizedPhone,
+            type === 'add' ? adjustAmount : -adjustAmount,
+            currentBalance,
+            newBalance,
+            `${type === 'add' ? 'CỘNG' : 'TRỪ'}: ${reason}`,
+            performed_by
+        ]);
+
+        // 5. Log activity
+        await db.query(`
+            INSERT INTO customer_activities (
+                phone, activity_type, title, description, icon, color, created_at
+            ) VALUES (
+                $1, 'WALLET_ADJUSTMENT', $2, $3, $4, $5, CURRENT_TIMESTAMP
+            )
+        `, [
+            normalizedPhone,
+            `${type === 'add' ? 'Cộng' : 'Trừ'} ví: ${adjustAmount.toLocaleString()}đ`,
+            `${reason} - thực hiện bởi ${performed_by}`,
+            type === 'add' ? 'plus-circle' : 'minus-circle',
+            type === 'add' ? 'green' : 'red'
+        ]);
+
+        await db.query('COMMIT');
+
+        console.log(`[WALLET ADJUSTMENT] ${type.toUpperCase()} ${adjustAmount} for ${normalizedPhone} by ${performed_by}`);
+
+        res.json({
+            success: true,
+            message: `Đã ${type === 'add' ? 'cộng' : 'trừ'} ${adjustAmount.toLocaleString()}đ cho khách ${customer_name || normalizedPhone}`,
+            data: {
+                phone: normalizedPhone,
+                type,
+                amount: adjustAmount,
+                previous_balance: currentBalance,
+                new_balance: newBalance,
+                transaction_id: txResult.rows[0].id
+            }
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to process adjustment');
+    }
+});
+
+/**
+ * GET /api/v2/wallet/adjustments-today
+ * Get manual adjustments made today
+ */
+router.get('/wallet/adjustments-today', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const result = await db.query(`
+            SELECT
+                wt.id,
+                wt.phone,
+                wt.amount,
+                wt.balance_before,
+                wt.balance_after,
+                wt.description,
+                wt.performed_by,
+                wt.created_at,
+                c.name as customer_name
+            FROM wallet_transactions wt
+            LEFT JOIN customers c ON wt.phone = c.phone
+            WHERE wt.transaction_type = 'MANUAL_ADJUSTMENT'
+              AND wt.created_at >= $1
+              AND wt.created_at < $2
+            ORDER BY wt.created_at DESC
+        `, [today, tomorrow]);
+
+        // Parse type from amount sign
+        const data = result.rows.map(row => ({
+            ...row,
+            type: parseFloat(row.amount) >= 0 ? 'add' : 'subtract',
+            amount: Math.abs(parseFloat(row.amount)),
+            reason: row.description?.replace(/^(CỘNG|TRỪ): /, '') || ''
+        }));
+
+        res.json({
+            success: true,
+            data
+        });
+
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch adjustments');
+    }
+});
+
+/**
+ * GET /api/v2/wallet/balance
+ * Get wallet balance for a phone number
+ */
+router.get('/wallet/balance', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.query;
+
+    if (!phone) {
+        return res.status(400).json({ success: false, error: 'phone is required' });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+
+    try {
+        const result = await db.query(
+            'SELECT balance FROM customer_wallets WHERE phone = $1',
+            [normalizedPhone]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({
+                success: true,
+                balance: 0,
+                exists: false
+            });
+        }
+
+        res.json({
+            success: true,
+            balance: parseFloat(result.rows[0].balance),
+            exists: true
+        });
+
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch balance');
+    }
+});
+
 module.exports = router;

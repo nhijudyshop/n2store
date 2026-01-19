@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/transfer-stats.css">
     <link rel="stylesheet" href="css/live-mode.css">
+    <link rel="stylesheet" href="css/accountant.css">
 </head>
 
 <body>
@@ -89,7 +90,7 @@
                     <span id="uncheckedBadge" class="unchecked-badge" style="display: none;">0</span>
                 </button>
                 <button class="main-tab" data-section="verification" onclick="switchMainTab('verification')" id="verificationTab">
-                    <i data-lucide="shield-check"></i> Chờ Duyệt
+                    <i data-lucide="calculator"></i> Kế Toán
                     <span id="verificationBadge" class="unchecked-badge verification-badge" style="display: none;">0</span>
                 </button>
             </div>
@@ -511,80 +512,307 @@
                 </div>
             </div><!-- End Transfer Stats Panel -->
 
-            <!-- Tab Panel: Verification Queue (Chờ Duyệt) -->
+            <!-- Tab Panel: Kế Toán (Accountant) -->
             <div id="verificationPanel" class="main-tab-panel">
-                <header class="header" style="margin-bottom: 15px;">
-                    <div class="header-content">
-                        <h1 style="font-size: 1.2rem;"><i data-lucide="shield-check"></i> Chờ Kế Toán Duyệt</h1>
-                        <div class="header-actions">
-                            <button class="btn btn-secondary" onclick="if(window.VerificationModule) window.VerificationModule.loadVerificationQueue()">
-                                <i data-lucide="refresh-cw"></i> Làm mới
+
+                <!-- Dashboard Cards -->
+                <div class="acc-dashboard" id="accDashboard">
+                    <div class="acc-stat-card pending" id="accStatPending" onclick="AccountantModule.switchSubTab('pending')">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Chờ Duyệt</div>
+                        <div class="stat-sub" style="display: none;"></div>
+                    </div>
+                    <div class="acc-stat-card approved" id="accStatApproved" onclick="AccountantModule.switchSubTab('approved')">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Đã Duyệt</div>
+                        <div class="stat-sub">Hôm nay</div>
+                    </div>
+                    <div class="acc-stat-card rejected" id="accStatRejected">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Từ Chối</div>
+                        <div class="stat-sub">Hôm nay</div>
+                    </div>
+                    <div class="acc-stat-card adjustment" id="accStatAdjustment" onclick="AccountantModule.switchSubTab('adjustment')">
+                        <div class="stat-icon">🔄</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Điều Chỉnh</div>
+                        <div class="stat-sub">Hôm nay</div>
+                    </div>
+                </div>
+
+                <!-- Alert Bar (>24h warning) -->
+                <div class="acc-alert-bar hidden" id="accAlertBar">
+                    <div class="alert-content">
+                        <span class="alert-icon">⚠️</span>
+                        <span class="alert-text">3 giao dịch chờ duyệt > 24h</span>
+                    </div>
+                    <button class="alert-action" onclick="AccountantModule.switchSubTab('pending')">Xem ngay</button>
+                </div>
+
+                <!-- Sub-tabs -->
+                <div class="acc-sub-tabs" id="accSubTabs">
+                    <button class="acc-sub-tab active" data-tab="pending" id="accTabPending">
+                        <i data-lucide="clock" style="width:16px;height:16px"></i>
+                        Chờ Duyệt
+                        <span class="tab-badge" id="accPendingBadge" style="display: none;">0</span>
+                    </button>
+                    <button class="acc-sub-tab" data-tab="approved" id="accTabApproved">
+                        <i data-lucide="check-circle" style="width:16px;height:16px"></i>
+                        Đã Duyệt Hôm Nay
+                    </button>
+                    <button class="acc-sub-tab" data-tab="adjustment" id="accTabAdjustment">
+                        <i data-lucide="wallet" style="width:16px;height:16px"></i>
+                        Điều Chỉnh Công Nợ
+                    </button>
+                </div>
+
+                <!-- ========== SUB-PANEL: Pending Queue ========== -->
+                <div class="acc-sub-panel active" data-panel="pending" id="accPanelPending">
+
+                    <!-- Queue Header -->
+                    <div class="acc-queue-header">
+                        <div class="queue-title">
+                            <i data-lucide="list" style="width:20px;height:20px"></i>
+                            Giao dịch chờ duyệt
+                        </div>
+                        <div class="queue-actions">
+                            <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.loadPendingQueue()">
+                                <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Làm mới
                             </button>
                         </div>
                     </div>
-                </header>
 
-                <!-- Verification Stats -->
-                <div class="stats-grid" style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-                    <div class="stat-card" style="padding: 15px; background: #fef3c7; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold; color: #f59e0b;" id="stat-pending-verification">0</div>
-                        <div style="font-size: 12px; color: #92400e;">Chờ Duyệt</div>
+                    <!-- Bulk Action Bar -->
+                    <div class="acc-bulk-bar" id="accBulkBar">
+                        <div class="bulk-info">
+                            <input type="checkbox" id="accSelectAll">
+                            <span>Đã chọn <strong id="accBulkCount">0</strong> giao dịch</span>
+                        </div>
+                        <div class="bulk-actions">
+                            <button class="acc-btn acc-btn-approve" onclick="AccountantModule.bulkApprove()">
+                                <i data-lucide="check-check" style="width:14px;height:14px"></i>
+                                Duyệt đã chọn
+                            </button>
+                        </div>
                     </div>
-                    <div class="stat-card" style="padding: 15px; background: #d1fae5; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold; color: #10b981;" id="stat-auto-approved">0</div>
-                        <div style="font-size: 12px; color: #065f46;">Tự Động</div>
+
+                    <!-- Pending Queue Table -->
+                    <div class="table-container">
+                        <table class="acc-queue-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-checkbox">
+                                        <input type="checkbox" id="accSelectAllHeader" onchange="document.getElementById('accSelectAll').checked = this.checked; AccountantModule.toggleSelect && AccountantModule.loadPendingQueue()">
+                                    </th>
+                                    <th class="col-time">Giờ</th>
+                                    <th class="col-amount">Số tiền</th>
+                                    <th class="col-content">Nội dung CK</th>
+                                    <th class="col-customer">Khách hàng</th>
+                                    <th class="col-staff">NV nhập</th>
+                                    <th class="col-wait">Chờ</th>
+                                    <th class="col-actions">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accPendingTableBody">
+                                <tr>
+                                    <td colspan="8" class="acc-loading">
+                                        <div class="loading-spinner"></div>
+                                        <div>Đang tải...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                    <div class="stat-card" style="padding: 15px; background: #dbeafe; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold; color: #3b82f6;" id="stat-manually-approved">0</div>
-                        <div style="font-size: 12px; color: #1e40af;">Đã Duyệt</div>
+
+                    <!-- Pagination -->
+                    <div class="acc-pagination" id="accPaginationPending"></div>
+
+                </div><!-- End Pending Panel -->
+
+                <!-- ========== SUB-PANEL: Approved Today ========== -->
+                <div class="acc-sub-panel" data-panel="approved" id="accPanelApproved">
+
+                    <!-- Filters -->
+                    <div class="acc-approved-filters">
+                        <label>Ngày:</label>
+                        <input type="date" id="accApprovedDate" value="">
                     </div>
-                    <div class="stat-card" style="padding: 15px; background: #fee2e2; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 24px; font-weight: bold; color: #ef4444;" id="stat-rejected">0</div>
-                        <div style="font-size: 12px; color: #991b1b;">Từ Chối</div>
+
+                    <!-- Approved Table -->
+                    <div class="table-container">
+                        <table class="acc-approved-table">
+                            <thead>
+                                <tr>
+                                    <th>Giờ duyệt</th>
+                                    <th>Giờ GD</th>
+                                    <th>Số tiền</th>
+                                    <th>Khách hàng</th>
+                                    <th>NV nhập</th>
+                                    <th>Duyệt bởi</th>
+                                    <th>Ghi chú</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accApprovedTableBody">
+                                <tr>
+                                    <td colspan="7" class="acc-empty-state">
+                                        <div class="empty-text">Chọn ngày để xem</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="acc-pagination" id="accPaginationApproved"></div>
+
+                </div><!-- End Approved Panel -->
+
+                <!-- ========== SUB-PANEL: Manual Adjustment ========== -->
+                <div class="acc-sub-panel" data-panel="adjustment" id="accPanelAdjustment">
+
+                    <div class="acc-adjustment-container">
+
+                        <!-- Adjustment Form -->
+                        <div class="acc-adjustment-form">
+                            <div class="form-title">
+                                <i data-lucide="edit-3" style="width:20px;height:20px"></i>
+                                Điều Chỉnh Công Nợ
+                            </div>
+
+                            <form id="accAdjustmentForm">
+                                <div class="acc-form-group">
+                                    <label for="accAdjustmentPhone">Số điện thoại khách hàng</label>
+                                    <input type="tel" id="accAdjustmentPhone" placeholder="Nhập 10 số" maxlength="10">
+                                    <div class="acc-customer-lookup" id="accCustomerLookup"></div>
+                                </div>
+
+                                <div class="acc-form-group">
+                                    <label for="accAdjustmentName">Tên khách hàng</label>
+                                    <input type="text" id="accAdjustmentName" placeholder="Tự động điền từ TPOS" readonly style="background: #f9fafb;">
+                                </div>
+
+                                <div class="acc-form-group">
+                                    <label for="accAdjustmentBalance">Số dư hiện tại</label>
+                                    <input type="text" id="accAdjustmentBalance" placeholder="--" readonly style="background: #f9fafb;">
+                                </div>
+
+                                <div class="acc-form-group">
+                                    <label>Loại điều chỉnh</label>
+                                    <div class="acc-radio-group">
+                                        <label class="acc-radio-label add">
+                                            <input type="radio" name="adjustmentType" value="add">
+                                            <span>➕ Cộng ví</span>
+                                        </label>
+                                        <label class="acc-radio-label subtract">
+                                            <input type="radio" name="adjustmentType" value="subtract">
+                                            <span>➖ Trừ ví</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="acc-form-group">
+                                    <label for="accAdjustmentAmount">Số tiền (VNĐ)</label>
+                                    <input type="number" id="accAdjustmentAmount" placeholder="Nhập số tiền" min="1000" step="1000">
+                                </div>
+
+                                <div class="acc-form-group">
+                                    <label for="accAdjustmentReason">Lý do điều chỉnh</label>
+                                    <textarea id="accAdjustmentReason" placeholder="Nhập lý do chi tiết (tối thiểu 10 ký tự)"></textarea>
+                                    <div class="helper-text">VD: Hoàn tiền đơn #12345, Sửa sai match nhầm, Cộng khuyến mãi...</div>
+                                </div>
+
+                                <button type="submit" class="acc-form-submit" id="accAdjustmentSubmit">
+                                    <i data-lucide="send" style="width:16px;height:16px"></i>
+                                    Thực hiện điều chỉnh
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Adjustment History -->
+                        <div class="acc-adjustment-history">
+                            <div class="history-title">
+                                <i data-lucide="history" style="width:18px;height:18px"></i>
+                                Lịch sử điều chỉnh hôm nay
+                            </div>
+
+                            <table class="acc-adjustment-table">
+                                <thead>
+                                    <tr>
+                                        <th>Giờ</th>
+                                        <th>Số tiền</th>
+                                        <th>Khách hàng</th>
+                                        <th>Lý do</th>
+                                        <th>Người thực hiện</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="accAdjustmentHistoryBody">
+                                    <tr>
+                                        <td colspan="5" class="acc-text-muted" style="text-align: center; padding: 20px;">
+                                            Chưa có điều chỉnh nào hôm nay
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+
+                </div><!-- End Adjustment Panel -->
+
+            </div><!-- End Verification/Accountant Panel -->
+
+            <!-- ========== MODALS ========== -->
+
+            <!-- Reject Modal -->
+            <div class="acc-modal-overlay" id="accRejectModal">
+                <div class="acc-modal">
+                    <div class="acc-modal-header">
+                        <h3>❌ Từ chối giao dịch</h3>
+                        <button class="acc-modal-close">&times;</button>
+                    </div>
+                    <div class="acc-modal-body">
+                        <div class="acc-form-group">
+                            <label for="accRejectReason">Lý do từ chối</label>
+                            <textarea id="accRejectReason" placeholder="Nhập lý do từ chối (tối thiểu 5 ký tự)"></textarea>
+                        </div>
+                    </div>
+                    <div class="acc-modal-footer">
+                        <button class="acc-btn acc-btn-secondary" onclick="document.getElementById('accRejectModal').classList.remove('visible')">Hủy</button>
+                        <button class="acc-btn acc-btn-reject" onclick="AccountantModule.confirmReject()">Xác nhận từ chối</button>
                     </div>
                 </div>
+            </div>
 
-                <!-- Loading Indicator -->
-                <div id="verificationLoading" style="display: none; text-align: center; padding: 20px;">
-                    <i data-lucide="loader" class="spin"></i> Đang tải...
+            <!-- Change Phone Modal -->
+            <div class="acc-modal-overlay acc-change-modal" id="accChangeModal">
+                <div class="acc-modal">
+                    <div class="acc-modal-header">
+                        <h3>📱 Thay đổi SĐT khách hàng</h3>
+                        <button class="acc-modal-close">&times;</button>
+                    </div>
+                    <div class="acc-modal-body">
+                        <div class="acc-form-group">
+                            <label for="accChangePhone">Số điện thoại mới</label>
+                            <input type="tel" id="accChangePhone" placeholder="Nhập 10 số" maxlength="10" oninput="AccountantModule.lookupCustomerForChange && AccountantModule.lookupCustomerForChange(this.value)">
+                            <div id="accChangeLookupResult" class="tpos-lookup"></div>
+                        </div>
+                        <div class="acc-form-group">
+                            <label for="accChangeName">Tên khách hàng</label>
+                            <input type="text" id="accChangeName" placeholder="Tự động điền từ TPOS">
+                        </div>
+                        <p class="acc-text-muted acc-text-sm acc-mt-4">
+                            ⚠️ Thay đổi SĐT sẽ tự động DUYỆT giao dịch và CỘNG VÍ cho khách hàng mới.
+                        </p>
+                    </div>
+                    <div class="acc-modal-footer">
+                        <button class="acc-btn acc-btn-secondary" onclick="document.getElementById('accChangeModal').classList.remove('visible')">Hủy</button>
+                        <button class="acc-btn acc-btn-approve" onclick="AccountantModule.confirmChange()">Thay đổi & Duyệt</button>
+                    </div>
                 </div>
-
-                <!-- Verification Queue Table -->
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 60px;">ID</th>
-                                <th style="width: 200px;">Nội dung CK</th>
-                                <th style="width: 120px;">Số tiền</th>
-                                <th style="width: 150px;">Ngày GD</th>
-                                <th style="width: 180px;">Khách hàng</th>
-                                <th style="width: 140px;">Trạng thái</th>
-                                <th style="width: 150px;">Ghi chú</th>
-                                <th style="width: 130px;">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="verificationTableBody">
-                            <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
-                                    Chưa tải dữ liệu. Click "Làm mới" hoặc chọn tab này.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                <div class="pagination" style="margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 15px;">
-                    <button id="verificationPrevBtn" class="btn btn-secondary" disabled>
-                        <i data-lucide="chevron-left"></i> Trước
-                    </button>
-                    <span id="verificationPageInfo">Trang 1 / 1</span>
-                    <button id="verificationNextBtn" class="btn btn-secondary" disabled>
-                        Sau <i data-lucide="chevron-right"></i>
-                    </button>
-                </div>
-            </div><!-- End Verification Panel -->
+            </div>
 
         </div>
     </div>
@@ -969,7 +1197,7 @@
     <script src="js/customer-info.js"></script>
     <script src="js/main.js"></script>
     <script src="js/transfer-stats.js"></script>
-    <script src="js/verification.js"></script>
+    <script src="js/accountant.js"></script>
     <script src="js/live-mode.js"></script>
 
     <!-- Initialize Lucide Icons, View Mode, and Main Tabs -->
@@ -1021,10 +1249,10 @@
                 }
             } else if (section === 'verification') {
                 document.getElementById('verificationPanel').classList.add('active');
-                // Load verification queue when switching to this tab
-                if (window.VerificationModule) {
-                    window.VerificationModule.loadVerificationQueue();
-                    window.VerificationModule.loadVerificationStats();
+                // Initialize Accountant Module when switching to this tab
+                if (window.AccountantModule) {
+                    window.AccountantModule.loadDashboardStats();
+                    window.AccountantModule.loadPendingQueue();
                 }
             }
 
