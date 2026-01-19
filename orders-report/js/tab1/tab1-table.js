@@ -379,57 +379,76 @@ function renderAllOrders() {
 
 // =====================================================
 // UPDATE CHAT COLUMNS ONLY (no full re-render)
+// Uses chunked processing to avoid UI lag
 // =====================================================
 function updateChatColumnsOnly() {
     const tbody = document.getElementById("tableBody");
     if (!tbody) return;
 
-    const rows = tbody.querySelectorAll('tr');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const CHUNK_SIZE = 50; // Process 50 rows per frame
+    let index = 0;
     let updated = 0;
 
-    rows.forEach(row => {
-        const checkbox = row.querySelector('input[type="checkbox"][value]');
-        if (!checkbox) return;
+    // Build orderId -> order map for O(1) lookup instead of O(n) find
+    const orderMap = new Map();
+    displayedData.forEach(o => orderMap.set(o.Id, o));
 
-        const orderId = checkbox.value;
-        const order = displayedData.find(o => o.Id === orderId);
-        if (!order) return;
+    function processChunk() {
+        const end = Math.min(index + CHUNK_SIZE, rows.length);
 
-        // Update messages column
-        const messagesCell = row.querySelector('td[data-column="messages"]');
-        if (messagesCell) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = renderMessagesColumn(order);
-            const newCell = tempDiv.querySelector('td');
-            if (newCell) {
-                messagesCell.innerHTML = newCell.innerHTML;
-                messagesCell.onclick = newCell.onclick;
-                if (newCell.getAttribute('onclick')) {
-                    messagesCell.setAttribute('onclick', newCell.getAttribute('onclick'));
+        for (; index < end; index++) {
+            const row = rows[index];
+            const checkbox = row.querySelector('input[type="checkbox"][value]');
+            if (!checkbox) continue;
+
+            const orderId = checkbox.value;
+            const order = orderMap.get(orderId);
+            if (!order) continue;
+
+            // Update messages column
+            const messagesCell = row.querySelector('td[data-column="messages"]');
+            if (messagesCell) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = renderMessagesColumn(order);
+                const newCell = tempDiv.querySelector('td');
+                if (newCell) {
+                    messagesCell.innerHTML = newCell.innerHTML;
+                    if (newCell.getAttribute('onclick')) {
+                        messagesCell.setAttribute('onclick', newCell.getAttribute('onclick'));
+                    }
+                    messagesCell.style.cursor = 'pointer';
                 }
-                messagesCell.style.cursor = 'pointer';
             }
+
+            // Update comments column
+            const commentsCell = row.querySelector('td[data-column="comments"]');
+            if (commentsCell) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = renderCommentsColumn(order);
+                const newCell = tempDiv.querySelector('td');
+                if (newCell) {
+                    commentsCell.innerHTML = newCell.innerHTML;
+                    if (newCell.getAttribute('onclick')) {
+                        commentsCell.setAttribute('onclick', newCell.getAttribute('onclick'));
+                    }
+                    commentsCell.style.cursor = 'pointer';
+                }
+            }
+
+            updated++;
         }
 
-        // Update comments column
-        const commentsCell = row.querySelector('td[data-column="comments"]');
-        if (commentsCell) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = renderCommentsColumn(order);
-            const newCell = tempDiv.querySelector('td');
-            if (newCell) {
-                commentsCell.innerHTML = newCell.innerHTML;
-                if (newCell.getAttribute('onclick')) {
-                    commentsCell.setAttribute('onclick', newCell.getAttribute('onclick'));
-                }
-                commentsCell.style.cursor = 'pointer';
-            }
+        // More rows to process? Schedule next chunk
+        if (index < rows.length) {
+            requestAnimationFrame(processChunk);
+        } else {
+            console.log(`[CHAT] Updated ${updated} chat columns`);
         }
+    }
 
-        updated++;
-    });
-
-    console.log(`[CHAT] Updated ${updated} chat columns`);
+    // Start processing
+    requestAnimationFrame(processChunk);
 }
 
 // Expose globally
