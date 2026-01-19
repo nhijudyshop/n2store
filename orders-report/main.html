@@ -536,8 +536,14 @@
     <!-- These are loaded in individual tabs to avoid duplicates -->
 
     <script>
-        // Initialize Lucide icons
-        lucide.createIcons();
+        // Initialize Lucide icons (wait for defer script to load)
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        } else {
+            window.addEventListener('DOMContentLoaded', () => {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        }
 
         // Tab switching
         function switchTab(tabName) {
