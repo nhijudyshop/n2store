@@ -1654,40 +1654,28 @@ function updatePageInfo() {
 // EVENT HANDLERS & HELPERS
 // =====================================================
 function sendDataToTab2() {
-    const filterData = {
+    // Only send metadata via postMessage (Tab2 can request full data if needed)
+    const filterMeta = {
         startDate: convertToUTC(document.getElementById("startDate").value),
         endDate: convertToUTC(document.getElementById("endDate").value),
         campaignId: selectedCampaign?.campaignId || null,
         campaignName: selectedCampaign?.displayName || "",
-        data: allData,
         totalRecords: allData.length,
         timestamp: new Date().toISOString(),
     };
-    if (window.parent)
+
+    if (window.parent) {
         window.parent.postMessage(
-            { type: "FILTER_CHANGED", filter: filterData },
+            { type: "FILTER_CHANGED", filter: filterMeta },
             "*",
         );
+    }
 
-    // Save to localStorage with quota handling
+    // Save only metadata to localStorage (no full data - prevents quota exceeded)
     try {
-        localStorage.setItem("orders_tab1_filter_data", JSON.stringify(filterData));
+        localStorage.setItem("orders_tab1_filter_data", JSON.stringify(filterMeta));
     } catch (e) {
-        if (e.name === 'QuotaExceededError') {
-            console.warn('[TAB1] localStorage quota exceeded, clearing old data...');
-            // Clear old data and try again
-            localStorage.removeItem("orders_tab1_filter_data");
-            try {
-                // If still too large, save only metadata (no data array)
-                const lightData = { ...filterData, data: [], dataSkipped: true };
-                localStorage.setItem("orders_tab1_filter_data", JSON.stringify(lightData));
-                console.log('[TAB1] Saved lightweight filter data (without orders array)');
-            } catch (e2) {
-                console.error('[TAB1] Failed to save even lightweight data:', e2);
-            }
-        } else {
-            console.error('[TAB1] localStorage error:', e);
-        }
+        console.error('[TAB1] localStorage error:', e);
     }
 }
 

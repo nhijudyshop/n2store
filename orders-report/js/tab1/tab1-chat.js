@@ -103,8 +103,8 @@ function sendOrdersDataToTab3() {
         })) || []
     }));
 
-    // Save to localStorage for persistence
-    localStorage.setItem('orders_data', JSON.stringify(ordersDataToSend));
+    // NOTE: Removed localStorage.setItem to prevent quota exceeded with 1000+ orders
+    // Tab3 receives data via postMessage instead
 
     // Send to product assignment tab via parent window forwarding
     // Updated to avoid "SecurityError: Blocked a frame with origin 'null'"
