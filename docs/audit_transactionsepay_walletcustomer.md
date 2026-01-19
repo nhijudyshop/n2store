@@ -434,3 +434,70 @@ Không cần sửa gì thêm. Hệ thống đã được thiết kế tốt vớ
 |------|---------|-------|--------|
 | 2026-01-19 | AI Security Analysis | Sepay webhook + Wallet | ✅ PASS |
 | 2026-01-19 | AI Security Analysis | Phone change vulnerability | 🔴 FOUND → ✅ FIXED |
+| 2026-01-19 | AI Security Analysis | UI Bugs after security update | 🔴 FOUND → ✅ FIXED |
+
+---
+
+## 12. BUGFIXES AFTER SECURITY UPDATE
+
+### Bug 1: Live Mode "Sửa" button - "Không tìm thấy mã giao dịch"
+
+**Symptoms:**
+- Click "Sửa" button in Live Mode confirmed column
+- Modal opens but clicking "Lưu thông tin" shows error "Không tìm thấy mã giao dịch"
+
+**Root Cause:**
+- `live-mode.js:onEditFormSubmit()` and `main.js:saveEditCustomerInfo()` both handle form submit
+- `main.js` looks for `form.dataset.uniqueCode` which doesn't exist in Live Mode flow
+
+**Fix:** Added `isLiveMode` check in `main.js:saveEditCustomerInfo()` to skip when Live Mode is handling.
+
+**File:** `balance-history/js/main.js:2716-2721`
+
+---
+
+### Bug 2: Tab Kế Toán "Duyệt" double-click issue
+
+**Symptoms:**
+- Click "Duyệt" on a transaction
+- Error: "Transaction is not pending verification. Current status: APPROVED"
+
+**Root Cause:**
+- User double-clicks "Duyệt" before reload completes
+- Second click fails because transaction already approved
+
+**Fix:** Disable button immediately when clicked, show spinner.
+
+**File:** `balance-history/js/verification.js:254-276`
+
+---
+
+### Bug 3: Tab Kế Toán "Thay đổi" + "Lưu thông tin" error
+
+**Symptoms:**
+- Click "Thay đổi" → Modal opens
+- Fill new phone → Click "Lưu thông tin"
+- Error: "Transaction is not pending verification. Current status: APPROVED"
+
+**Root Cause:**
+- `changeAndApproveTransaction()` calls PUT `/api/sepay/transaction/:id/phone`
+- Backend auto-approves and credits wallet when `is_manual_entry = false`
+- Then frontend calls POST `/api/v2/balance-history/:id/approve`
+- But transaction already APPROVED → 400 error
+
+**Fix:** Removed redundant approve API call. PUT endpoint already handles:
+1. Sets `verification_status = 'APPROVED'`
+2. Credits wallet immediately via `processDeposit()`
+3. Sets `wallet_processed = TRUE`
+
+**File:** `balance-history/js/verification.js:601-608`
+
+```javascript
+// NOTE: The PUT /api/sepay/transaction/:id/phone endpoint already:
+// 1. Sets verification_status = 'APPROVED' (when is_manual_entry = false)
+// 2. Credits wallet immediately via processDeposit()
+// 3. Sets wallet_processed = TRUE
+// So we do NOT need to call the approve endpoint - it would fail with "already approved"
+
+console.log(`[VERIFICATION] Transaction ${transactionId} updated and auto-approved by backend`);
+```

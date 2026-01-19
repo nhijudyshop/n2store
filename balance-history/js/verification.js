@@ -598,22 +598,13 @@ async function changeAndApproveTransaction(transactionId, newPhone, newName) {
             throw new Error(updateResult.error || 'Failed to update phone');
         }
 
-        // Then approve the transaction
-        const approveResponse = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                verified_by: performedBy,
-                note: `Changed by accountant: ${newPhone}${newName ? ` (${newName})` : ''}`
-            })
-        });
+        // NOTE: The PUT /api/sepay/transaction/:id/phone endpoint already:
+        // 1. Sets verification_status = 'APPROVED' (when is_manual_entry = false)
+        // 2. Credits wallet immediately via processDeposit()
+        // 3. Sets wallet_processed = TRUE
+        // So we do NOT need to call the approve endpoint - it would fail with "already approved"
 
-        const approveResult = await approveResponse.json();
-
-        if (!approveResult.success) {
-            throw new Error(approveResult.error || 'Failed to approve');
-        }
-
+        console.log(`[VERIFICATION] Transaction ${transactionId} updated and auto-approved by backend`);
         showNotification(`Đã thay đổi SĐT thành ${newPhone} và duyệt giao dịch #${transactionId}`, 'success');
 
         // Close the modal
