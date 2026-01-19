@@ -312,7 +312,7 @@ function renderTable() {
     if (displayedData.length === 0) {
         const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
-            '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
 
@@ -380,7 +380,7 @@ function renderAllOrders() {
     if (displayedData.length > renderedCount) {
         const spacer = document.createElement('tr');
         spacer.id = 'table-spacer';
-        spacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
+        spacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(spacer);
@@ -500,7 +500,7 @@ const VirtualTable = {
     renderStandard() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
@@ -515,7 +515,7 @@ const VirtualTable = {
     renderVisibleRows() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
@@ -545,7 +545,7 @@ const VirtualTable = {
 
         // Top spacer (giữ scroll position)
         if (topPadding > 0) {
-            html += `<tr class="virtual-spacer-top" style="height:${topPadding}px"><td colspan="18"></td></tr>`;
+            html += `<tr class="virtual-spacer-top" style="height:${topPadding}px"><td colspan="17"></td></tr>`;
         }
 
         // Visible rows
@@ -553,7 +553,7 @@ const VirtualTable = {
 
         // Bottom spacer
         if (bottomPadding > 0) {
-            html += `<tr class="virtual-spacer-bottom" style="height:${bottomPadding}px"><td colspan="18"></td></tr>`;
+            html += `<tr class="virtual-spacer-bottom" style="height:${bottomPadding}px"><td colspan="17"></td></tr>`;
         }
 
         this.tbody.innerHTML = html;
@@ -687,7 +687,7 @@ function loadMoreRows() {
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
         newSpacer.id = 'table-spacer';
-        newSpacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
+        newSpacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(newSpacer);
@@ -827,7 +827,6 @@ function renderByEmployee() {
                                 <th data-column="messages">Tin nhắn</th>
                                 <th data-column="comments">Bình luận</th>
                                 <th data-column="qr" style="width: 50px; text-align: center;">QR</th>
-                                <th data-column="debt" style="width: 100px; text-align: right;">Công Nợ</th>
                                 <th data-column="address">Địa chỉ</th>
                                 <th data-column="notes">Ghi chú</th>
                                 <th data-column="total">Tổng tiền</th>
@@ -971,7 +970,6 @@ function createRowHTML(order) {
             ${messagesHTML}
             ${commentsHTML}
             <td data-column="qr" style="text-align: center;">${renderQRColumn(order.Telephone)}</td>
-            <td data-column="debt" style="text-align: right;">${renderDebtColumn(order.Telephone)}</td>
             <td data-column="address">${highlight(order.Address)}</td>
             <td data-column="notes">${window.DecodingUtility ? window.DecodingUtility.formatNoteWithDecodedData(order.Note) : highlight(order.Note)}</td>
             ${renderMergedTotalColumn(order)}
