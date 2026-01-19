@@ -1320,77 +1320,72 @@ async function fetchOrders() {
         // Hide loading overlay after first batch
         showLoading(false);
 
-        // ===== PHASE 2: Continue loading remaining orders in background =====
-        hasMore = firstOrders.length === INITIAL_PAGE_SIZE;
-        skip += INITIAL_PAGE_SIZE;
+        // ===== PHASE 2: PARALLEL FETCH remaining orders =====
+        const remainingCount = totalCount - firstOrders.length;
 
-        if (hasMore) {
+        if (remainingCount > 0) {
             isLoadingInBackground = true;
-            console.log('[PROGRESSIVE] Starting background loading...');
+            console.log(`[PARALLEL] Starting parallel fetch for ${remainingCount} remaining orders...`);
+            showInfoBanner(`⏳ Đang tải ${remainingCount} đơn hàng còn lại...`);
 
-            // Run background loading
+            // Run parallel fetching in background
             (async () => {
                 try {
-                    let lastUpdateCount = allData.length; // Track when we last updated
+                    // Calculate batches needed
+                    const batchSize = PAGE_SIZE; // 1000 per batch
+                    const batches = [];
+                    for (let skipOffset = INITIAL_PAGE_SIZE; skipOffset < totalCount; skipOffset += batchSize) {
+                        batches.push(skipOffset);
+                    }
 
-                    while (hasMore && !loadingAborted) {
-                        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
-                        const response = await API_CONFIG.smartFetch(url, {
-                            headers: { ...headers, accept: "application/json" },
-                        });
-                        if (!response.ok) {
-                            console.error(`[PROGRESSIVE] Error fetching batch at skip=${skip}`);
-                            break;
+                    console.log(`[PARALLEL] Fetching ${batches.length} batches in parallel:`, batches);
+
+                    // Create all fetch promises
+                    const fetchPromises = batches.map(async (skipValue, index) => {
+                        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${batchSize}&$skip=${skipValue}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
+                        try {
+                            const response = await API_CONFIG.smartFetch(url, {
+                                headers: { ...headers, accept: "application/json" },
+                            });
+                            if (!response.ok) {
+                                console.error(`[PARALLEL] Batch ${index + 1} failed: HTTP ${response.status}`);
+                                return { skipValue, orders: [], error: true };
+                            }
+                            const data = await response.json();
+                            const orders = data.value || [];
+                            console.log(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}): ${orders.length} orders`);
+                            return { skipValue, orders, error: false };
+                        } catch (err) {
+                            console.error(`[PARALLEL] Batch ${index + 1} error:`, err);
+                            return { skipValue, orders: [], error: true };
                         }
+                    });
 
-                        const data = await response.json();
-                        const orders = data.value || [];
+                    // Wait for all fetches to complete
+                    const results = await Promise.all(fetchPromises);
 
-                        if (orders.length > 0) {
-                            allData = allData.concat(orders);
+                    // Sort by skipValue to maintain order, then combine
+                    results.sort((a, b) => a.skipValue - b.skipValue);
 
-                            // ═══════════════════════════════════════════════════════════════════
-                            // PHASE A: Thêm batch vào OrderStore (background loading)
-                            // ═══════════════════════════════════════════════════════════════════
+                    let totalFetched = firstOrders.length;
+                    for (const result of results) {
+                        if (result.orders.length > 0) {
+                            allData = allData.concat(result.orders);
+                            totalFetched += result.orders.length;
+
+                            // Add to OrderStore
                             if (window.OrderStore) {
-                                window.OrderStore.addBatch(orders);
+                                window.OrderStore.addBatch(result.orders);
                             }
-
-                            // Update table every UPDATE_EVERY orders OR if this is the last batch
-                            const shouldUpdate =
-                                allData.length - lastUpdateCount >= UPDATE_EVERY ||
-                                orders.length < PAGE_SIZE;
-
-                            if (shouldUpdate) {
-                                console.log(`[PROGRESSIVE] Loaded: ${allData.length}/${totalCount} orders`);
-                                // ═══════════════════════════════════════════════════════════════════
-                                // OPTIMIZATION: Không re-render giữa chừng, chỉ update banner
-                                // - Batch đầu đã render rồi (user thấy data ngay)
-                                // - Các batch sau chỉ load data, không render
-                                // - Final render 1 lần khi load xong tất cả
-                                // ═══════════════════════════════════════════════════════════════════
-                                showInfoBanner(
-                                    `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
-                                );
-                                lastUpdateCount = allData.length;
-                            }
-                        }
-
-                        hasMore = orders.length === PAGE_SIZE;
-                        skip += PAGE_SIZE;
-
-                        // Small delay to allow UI interaction
-                        if (hasMore) {
-                            await new Promise((resolve) => setTimeout(resolve, 100));
                         }
                     }
 
+                    console.log(`[PARALLEL] ✅ All batches complete: ${totalFetched}/${totalCount} orders`);
+
                     // Final update
                     if (!loadingAborted) {
-                        // Set flag to false BEFORE calling performTableSearch
-                        // so renderByEmployee() knows loading is complete
                         isLoadingInBackground = false;
-                        console.log('[PROGRESSIVE] Background loading completed');
+                        console.log('[PARALLEL] Background loading completed');
                         // ═══════════════════════════════════════════════════════════════════
                         // PHASE C: Final render - cancel pending debounce và render ngay
                         // ═══════════════════════════════════════════════════════════════════
@@ -1406,7 +1401,7 @@ async function fetchOrders() {
                     }
 
                 } catch (error) {
-                    console.error('[PROGRESSIVE] Background loading error:', error);
+                    console.error('[PARALLEL] Background loading error:', error);
                 } finally {
                     // Ensure flag is always reset even on error or abort
                     isLoadingInBackground = false;
