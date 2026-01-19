@@ -2713,6 +2713,13 @@ function editCustomerInfo(uniqueCode) {
 async function saveEditCustomerInfo(event) {
     event.preventDefault();
 
+    // Check if Live Mode is handling this modal - skip if so
+    const modal = document.getElementById('editCustomerModal');
+    if (modal?.dataset.isLiveMode === 'true') {
+        console.log('[EDIT-CUSTOMER] Skipping - Live Mode is handling this form');
+        return;
+    }
+
     const form = document.getElementById('editCustomerForm');
     const phone = document.getElementById('editCustomerPhone').value;
 

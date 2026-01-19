@@ -251,11 +251,27 @@ async function approveTransaction(transactionId) {
         return;
     }
 
+    // Disable button to prevent double-click
+    const btn = document.querySelector(`button[onclick*="approveTransaction(${transactionId})"]`);
+    if (btn) {
+        if (btn.disabled) {
+            console.log('[VERIFICATION] Button already disabled, skipping');
+            return;
+        }
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+
     // Get current user from authManager
     const userInfo = authManager?.getUserInfo() || {};
     const verifiedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
     if (!confirm(`Xác nhận DUYỆT giao dịch #${transactionId}?\n\nTiền sẽ được cộng vào ví khách hàng ngay lập tức.`)) {
+        // Re-enable button if user cancels
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check"></i> Duyệt';
+        }
         return;
     }
 
