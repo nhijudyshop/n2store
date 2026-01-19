@@ -404,9 +404,9 @@ function renderAllOrders() {
 const VirtualTable = {
     // Configuration
     ROW_HEIGHT: 52,              // Chiều cao mỗi dòng (px) - đo thực tế
-    BUFFER_ROWS: 40,             // Số dòng buffer trên/dưới viewport (tăng từ 15 để giảm re-render)
-    MIN_ROWS_FOR_VIRTUAL: 100,   // Chỉ dùng virtual khi có nhiều dòng
-    RERENDER_THRESHOLD: 10,      // Chỉ re-render khi scroll >= 10 rows (giảm giật)
+    BUFFER_ROWS: 40,             // Số dòng buffer trên/dưới viewport
+    MIN_ROWS_FOR_VIRTUAL: 5000,  // Tắt VirtualTable cho < 5000 orders → dùng Lazy Loading (không re-render khi scroll)
+    RERENDER_THRESHOLD: 10,      // Chỉ re-render khi scroll >= 10 rows
 
     // State
     container: null,
