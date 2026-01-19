@@ -404,8 +404,9 @@ function renderAllOrders() {
 const VirtualTable = {
     // Configuration
     ROW_HEIGHT: 52,              // Chiều cao mỗi dòng (px) - đo thực tế
-    BUFFER_ROWS: 15,             // Số dòng buffer trên/dưới viewport
+    BUFFER_ROWS: 40,             // Số dòng buffer trên/dưới viewport (tăng từ 15 để giảm re-render)
     MIN_ROWS_FOR_VIRTUAL: 100,   // Chỉ dùng virtual khi có nhiều dòng
+    RERENDER_THRESHOLD: 10,      // Chỉ re-render khi scroll >= 10 rows (giảm giật)
 
     // State
     container: null,
@@ -528,8 +529,10 @@ const VirtualTable = {
         const endIndex = Math.min(orders.length,
             Math.ceil((this.scrollTop + containerHeight) / this.ROW_HEIGHT) + this.BUFFER_ROWS);
 
-        // Skip render if range unchanged
-        if (startIndex === this.visibleStart && endIndex === this.visibleEnd) {
+        // Skip render if range hasn't changed significantly (reduce jank)
+        const startDiff = Math.abs(startIndex - this.visibleStart);
+        const endDiff = Math.abs(endIndex - this.visibleEnd);
+        if (startDiff < this.RERENDER_THRESHOLD && endDiff < this.RERENDER_THRESHOLD) {
             return;
         }
 
