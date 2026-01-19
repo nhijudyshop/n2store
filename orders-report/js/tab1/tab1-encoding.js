@@ -304,12 +304,8 @@ async function compareAndUpdateNoteStatus(orders, snapshots) {
                     stt: order.SessionIndex,
                     timestamp: Date.now()
                 };
-            } else {
-                // No valid encoded products → Skip saving snapshot
-                if (currentNote) {
-                    console.log(`[NOTE-TRACKER] ⏭️ Skipping order #${orderId} (no valid encoded products)`);
-                }
             }
+            // else: No valid encoded products → Skip silently
         }
     });
 
