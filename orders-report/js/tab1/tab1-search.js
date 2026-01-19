@@ -1362,16 +1362,16 @@ async function fetchOrders() {
                                 orders.length < PAGE_SIZE;
 
                             if (shouldUpdate) {
-                                console.log(`[PROGRESSIVE] Updating table: ${allData.length}/${totalCount} orders`);
+                                console.log(`[PROGRESSIVE] Loaded: ${allData.length}/${totalCount} orders`);
                                 // ═══════════════════════════════════════════════════════════════════
-                                // PHASE C: Dùng scheduleRender() thay vì performTableSearch() trực tiếp
-                                // Gom nhiều lần render thành 1 lần sau 500ms không có data mới
+                                // OPTIMIZATION: Không re-render giữa chừng, chỉ update banner
+                                // - Batch đầu đã render rồi (user thấy data ngay)
+                                // - Các batch sau chỉ load data, không render
+                                // - Final render 1 lần khi load xong tất cả
                                 // ═══════════════════════════════════════════════════════════════════
-                                scheduleRender(); // Debounced - không render ngay mà đợi gom
                                 showInfoBanner(
                                     `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
                                 );
-                                sendDataToTab2();
                                 lastUpdateCount = allData.length;
                             }
                         }
