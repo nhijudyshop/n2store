@@ -84,7 +84,7 @@
 }
 
 .live-mode-header .live-date-filter .date-input {
-    width: 95px;
+    width: 105px;
     padding: 6px 28px 6px 8px;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
@@ -124,7 +124,7 @@
 }
 
 .live-mode-header .live-date-filter .time-input {
-    width: 75px;
+    width: 85px;
     padding: 6px 6px;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
