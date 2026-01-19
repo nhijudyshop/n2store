@@ -445,35 +445,8 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
         }
     }
 
-    // NEW: Check if chat modal is open for THIS conversation
-    const chatModal = document.getElementById('chatModal');
-    const isChatModalOpen = chatModal && chatModal.style.display !== 'none';
-
-    if (isChatModalOpen && window.currentChatPSID) {
-        const conversationPsid = conversation.from_psid || conversation.customers?.[0]?.fb_id;
-        const conversationId = conversation.id;
-
-        // IMPORTANT: Only update if this is THE conversation currently open in modal
-        const isCurrentConversation =
-            conversationPsid === window.currentChatPSID ||
-            conversationId === window.currentChatConversationId;
-
-        if (isCurrentConversation) {
-            console.log('[REALTIME] Update for OPEN chat modal - fetching new messages for PSID:', conversationPsid);
-
-            // Prevent fetch if we're currently sending (skipWebhookUpdate flag)
-            if (!window.skipWebhookUpdate) {
-                // Async fetch new messages without blocking table update
-                fetchAndAppendNewMessages(conversation).catch(err => {
-                    console.error('[REALTIME] Error fetching new messages:', err);
-                });
-            } else {
-                console.log('[REALTIME] Skipping fetch - currently sending message');
-            }
-        } else {
-            console.log('[REALTIME] Update for DIFFERENT conversation - only updating table');
-        }
-    }
+    // NOTE: Chat modal updates are handled by tab1-chat.js (handleRealtimeConversationEvent)
+    // This listener only updates the TABLE COLUMNS, not the modal content
 
     // 2. CHECK FILTER
     // If filtering by read/unread, we MUST re-run search to show/hide rows
@@ -633,87 +606,6 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
 // =====================================================
 // INCREMENTAL MESSAGE UPDATE HELPERS
 // =====================================================
-
-/**
- * Fetch only NEW messages and append to chat (WebSocket triggered)
- */
-async function fetchAndAppendNewMessages(conversation) {
-    try {
-        const channelId = window.currentChatChannelId;
-        const psid = window.currentChatPSID;
-        const chatType = window.currentChatType || 'message';
-
-        if (!channelId || !psid) {
-            console.log('[REALTIME] Missing channelId or psid, cannot fetch');
-            return;
-        }
-
-        // Get last message/comment ID from current list
-        let lastId = null;
-        if (chatType === 'message' && window.allChatMessages && window.allChatMessages.length > 0) {
-            const lastMsg = window.allChatMessages[window.allChatMessages.length - 1];
-            lastId = lastMsg.id || lastMsg.Id;
-        } else if (chatType === 'comment' && window.allChatComments && window.allChatComments.length > 0) {
-            const lastComment = window.allChatComments[window.allChatComments.length - 1];
-            lastId = lastComment.id || lastComment.Id;
-        }
-
-        console.log('[REALTIME] Fetching messages after ID:', lastId);
-
-        let newItems = [];
-
-        if (chatType === 'message') {
-            // Fetch ALL messages (API doesn't support 'after' parameter yet)
-            const response = await window.chatDataManager.fetchMessages(channelId, psid, null);
-
-            if (response && response.messages) {
-                // Filter to only get messages we don't have yet
-                const existingIds = new Set(window.allChatMessages.map(m => m.id || m.Id));
-                newItems = response.messages.filter(msg => {
-                    const msgId = msg.id || msg.Id;
-                    return !existingIds.has(msgId);
-                });
-            }
-        } else {
-            // Fetch ALL comments
-            const response = await window.chatDataManager.fetchComments(channelId, psid, null);
-
-            if (response && response.comments) {
-                // Filter to only get comments we don't have yet
-                const existingIds = new Set(window.allChatComments.map(c => c.id || c.Id));
-                newItems = response.comments.filter(comment => {
-                    const commentId = comment.id || comment.Id;
-                    return !existingIds.has(commentId);
-                });
-            }
-        }
-
-        if (newItems.length > 0) {
-            console.log('[REALTIME] Got', newItems.length, 'new items');
-
-            // Check if user is at bottom before updating
-            const modalBody = document.getElementById('chatModalBody');
-            const wasAtBottom = modalBody &&
-                (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
-
-            // Add to global array
-            if (chatType === 'message') {
-                window.allChatMessages.push(...newItems);
-                // Re-render all messages with full formatting (avatar, name, quoted messages, etc.)
-                renderChatMessages(window.allChatMessages, wasAtBottom);
-            } else {
-                window.allChatComments.push(...newItems);
-                // Re-render all comments with full formatting
-                renderChatMessages(window.allChatComments, wasAtBottom);
-            }
-        } else {
-            console.log('[REALTIME] No new items found');
-        }
-
-    } catch (error) {
-        console.error('[REALTIME] Error fetching new messages:', error);
-    }
-}
 
 /**
  * Create DOM element for a single message (without re-rendering all)
