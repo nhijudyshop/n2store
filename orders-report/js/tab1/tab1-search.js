@@ -1348,12 +1348,11 @@ async function fetchOrders() {
         // Load user identifier for quick tag feature
         loadCurrentUserIdentifier().catch(err => console.error('[QUICK-TAG] Error loading identifier:', err));
 
-        // Detect edited notes using Firebase snapshots (fast, no API spam!)
-        detectEditedNotes().then(() => {
-            // Re-apply filters and merge with noteEdited flags
-            performTableSearch();
-            console.log('[NOTE-TRACKER] Table re-rendered with edit indicators');
-        }).catch(err => console.error('[NOTE-TRACKER] Error detecting edited notes:', err));
+        // NOTE-TRACKER disabled - uncomment to re-enable
+        // detectEditedNotes().then(() => {
+        //     performTableSearch();
+        //     console.log('[NOTE-TRACKER] Table re-rendered with edit indicators');
+        // }).catch(err => console.error('[NOTE-TRACKER] Error detecting edited notes:', err));
 
         // Hide loading overlay
         showLoading(false);
