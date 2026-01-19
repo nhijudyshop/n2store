@@ -1204,10 +1204,7 @@ async function fetchOrders() {
         console.log(`[FETCH-CUSTOM] Fetching orders: ${customStartDateValue} -> ${customEndDateValue}`);
 
         const PAGE_SIZE = 200; // Batch size for parallel fetching (smaller = faster response)
-        const INITIAL_PAGE_SIZE = 200; // First batch size (render immediately)
-        // With 1090 orders: ceil((1090-200)/200) = 5 parallel requests
-        let skip = 0;
-        let hasMore = true;
+        // With 1090 orders: ceil(1090/200) = 6 parallel requests
         allData = [];
         renderedCount = 0; // Reset rendered count to prevent duplicate rows on new fetch
 
@@ -1220,38 +1217,75 @@ async function fetchOrders() {
 
         const headers = await window.tokenManager.getAuthHeader();
 
-        // ===== PHASE 1: Load first batch and show immediately =====
-        console.log('[PROGRESSIVE] Loading first batch...');
-        const firstUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${INITIAL_PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
-        const firstResponse = await fetch(firstUrl, {
+        // ===== PHASE 1: Quick count request (top=1) =====
+        console.log('[PARALLEL] Getting total count...');
+        const countUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=1&$skip=0&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+        const countResponse = await fetch(countUrl, {
             headers: { ...headers, accept: "application/json" },
         });
-        if (!firstResponse.ok) throw new Error(`HTTP ${firstResponse.status}`);
-        const firstData = await firstResponse.json();
-        const firstOrders = firstData.value || [];
-        totalCount = firstData["@odata.count"] || 0;
+        if (!countResponse.ok) throw new Error(`HTTP ${countResponse.status}`);
+        const countData = await countResponse.json();
+        totalCount = countData["@odata.count"] || 0;
 
-        allData = firstOrders;
+        console.log(`[PARALLEL] Total count: ${totalCount}`);
 
-        // ═══════════════════════════════════════════════════════════════════
-        // PHASE A: Initialize OrderStore với batch đầu tiên
-        // ═══════════════════════════════════════════════════════════════════
-        if (window.OrderStore) {
-            window.OrderStore.setAll(firstOrders);
-        }
-
-        // Show UI immediately with first batch
+        // Show UI with loading state
         document.getElementById("statsBar").style.display = "flex";
         document.getElementById("tableContainer").style.display = "block";
         document.getElementById("searchSection").classList.add("active");
+        showInfoBanner(`⏳ Đang tải ${totalCount} đơn hàng...`);
 
-        performTableSearch(); // Apply merging and filters immediately
+        // ===== PHASE 2: Parallel fetch ALL batches =====
+        const batches = [];
+        for (let skipOffset = 0; skipOffset < totalCount; skipOffset += PAGE_SIZE) {
+            batches.push(skipOffset);
+        }
+        console.log(`[PARALLEL] Fetching ${batches.length} batches in parallel:`, batches);
+
+        const fetchPromises = batches.map(async (skipValue, index) => {
+            const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skipValue}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
+            try {
+                const response = await API_CONFIG.smartFetch(url, {
+                    headers: { ...headers, accept: "application/json" },
+                });
+                if (!response.ok) {
+                    console.error(`[PARALLEL] Batch ${index + 1} failed: HTTP ${response.status}`);
+                    return { skipValue, orders: [], error: true };
+                }
+                const data = await response.json();
+                const orders = data.value || [];
+                console.log(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}): ${orders.length} orders`);
+                return { skipValue, orders, error: false };
+            } catch (err) {
+                console.error(`[PARALLEL] Batch ${index + 1} error:`, err);
+                return { skipValue, orders: [], error: true };
+            }
+        });
+
+        // Wait for ALL batches
+        const results = await Promise.all(fetchPromises);
+
+        // Sort by skipValue and combine (maintains DateCreated desc order)
+        results.sort((a, b) => a.skipValue - b.skipValue);
+        allData = [];
+        for (const result of results) {
+            if (result.orders.length > 0) {
+                allData = allData.concat(result.orders);
+            }
+        }
+
+        console.log(`[PARALLEL] ✅ All batches complete: ${allData.length}/${totalCount} orders`);
+
+        // Initialize OrderStore with all data
+        if (window.OrderStore) {
+            window.OrderStore.setAll(allData);
+        }
+
+        // Render table with all data
+        performTableSearch();
         updateSearchResultCount();
-        showInfoBanner(
-            `⏳ Đã tải ${allData.length}/${totalCount} đơn hàng. Đang tải thêm...`,
-        );
+        showInfoBanner(`✅ Đã tải ${allData.length} đơn hàng.`);
         sendDataToTab2();
-        // Also update Overview tab with first batch
         sendOrdersDataToOverview();
 
         // ⚡ PHASE 2 OPTIMIZATION: Load conversations in BACKGROUND (non-blocking)
@@ -1317,102 +1351,11 @@ async function fetchOrders() {
             console.log('[NOTE-TRACKER] Table re-rendered with edit indicators');
         }).catch(err => console.error('[NOTE-TRACKER] Error detecting edited notes:', err));
 
-        // Hide loading overlay after first batch
+        // Hide loading overlay
         showLoading(false);
 
-        // ===== PHASE 2: PARALLEL FETCH remaining orders =====
-        const remainingCount = totalCount - firstOrders.length;
-
-        if (remainingCount > 0) {
-            isLoadingInBackground = true;
-            console.log(`[PARALLEL] Starting parallel fetch for ${remainingCount} remaining orders...`);
-            showInfoBanner(`⏳ Đang tải ${remainingCount} đơn hàng còn lại...`);
-
-            // Run parallel fetching in background
-            (async () => {
-                try {
-                    // Calculate batches needed
-                    const batchSize = PAGE_SIZE; // 1000 per batch
-                    const batches = [];
-                    for (let skipOffset = INITIAL_PAGE_SIZE; skipOffset < totalCount; skipOffset += batchSize) {
-                        batches.push(skipOffset);
-                    }
-
-                    console.log(`[PARALLEL] Fetching ${batches.length} batches in parallel:`, batches);
-
-                    // Create all fetch promises
-                    const fetchPromises = batches.map(async (skipValue, index) => {
-                        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${batchSize}&$skip=${skipValue}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
-                        try {
-                            const response = await API_CONFIG.smartFetch(url, {
-                                headers: { ...headers, accept: "application/json" },
-                            });
-                            if (!response.ok) {
-                                console.error(`[PARALLEL] Batch ${index + 1} failed: HTTP ${response.status}`);
-                                return { skipValue, orders: [], error: true };
-                            }
-                            const data = await response.json();
-                            const orders = data.value || [];
-                            console.log(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}): ${orders.length} orders`);
-                            return { skipValue, orders, error: false };
-                        } catch (err) {
-                            console.error(`[PARALLEL] Batch ${index + 1} error:`, err);
-                            return { skipValue, orders: [], error: true };
-                        }
-                    });
-
-                    // Wait for all fetches to complete
-                    const results = await Promise.all(fetchPromises);
-
-                    // Sort by skipValue to maintain order, then combine
-                    results.sort((a, b) => a.skipValue - b.skipValue);
-
-                    let totalFetched = firstOrders.length;
-                    for (const result of results) {
-                        if (result.orders.length > 0) {
-                            allData = allData.concat(result.orders);
-                            totalFetched += result.orders.length;
-
-                            // Add to OrderStore
-                            if (window.OrderStore) {
-                                window.OrderStore.addBatch(result.orders);
-                            }
-                        }
-                    }
-
-                    console.log(`[PARALLEL] ✅ All batches complete: ${totalFetched}/${totalCount} orders`);
-
-                    // Final update
-                    if (!loadingAborted) {
-                        isLoadingInBackground = false;
-                        console.log('[PARALLEL] Background loading completed');
-                        // ═══════════════════════════════════════════════════════════════════
-                        // PHASE C: Final render - cancel pending debounce và render ngay
-                        // ═══════════════════════════════════════════════════════════════════
-                        scheduleRender(true); // Final merge and render (immediate, not debounced)
-                        showInfoBanner(
-                            `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
-                        );
-                        sendDataToTab2();
-                        // Auto-update Tab3 with full data after background loading completes
-                        sendOrdersDataToTab3();
-                        // Auto-update Overview tab with full data after background loading completes
-                        sendOrdersDataToOverview();
-                    }
-
-                } catch (error) {
-                    console.error('[PARALLEL] Background loading error:', error);
-                } finally {
-                    // Ensure flag is always reset even on error or abort
-                    isLoadingInBackground = false;
-                }
-            })();
-        } else {
-            // No more data, we're done
-            showInfoBanner(
-                `✅ Đã tải và hiển thị TOÀN BỘ ${filteredData.length} đơn hàng.`,
-            );
-        }
+        // Send data to Tab3
+        sendOrdersDataToTab3();
 
     } catch (error) {
         console.error("Error fetching data:", error);
