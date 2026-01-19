@@ -491,14 +491,23 @@ const ApiService = {
 
     /**
      * Process refund (Nhận hàng) - TPOS Refund Flow
-     * Flow: ActionRefund -> Get Details -> PUT with SaveAndPrint -> ActionInvoiceOpenV2 -> PrintRefund
+     * Flow: ActionRefund -> Get Details -> Filter OrderLines (partial) -> PUT with SaveAndPrint -> ActionInvoiceOpenV2 -> PrintRefund
      * @param {number} originalOrderId - ID của đơn hàng gốc (tposId)
+     * @param {Array|Function} productsToRefund - Specific products to refund OR legacy callback
+     *        Format: [{ productId: 123, code: 'SKU', returnQuantity: 1 }, ...]
+     *        If null/empty, refunds ALL products (full order refund)
      * @param {Function} onProgress - Callback for progress updates (step, message)
      * @returns {Promise<{refundOrderId: number, printHtml: string}>}
      */
-    async processRefund(originalOrderId, onProgress = null) {
+    async processRefund(originalOrderId, productsToRefund = null, onProgress = null) {
         if (!originalOrderId) {
             throw new Error('Missing original order ID');
+        }
+
+        // Handle legacy calls where 2nd param is callback (backward compatibility)
+        if (typeof productsToRefund === 'function') {
+            onProgress = productsToRefund;
+            productsToRefund = null;
         }
 
         // Helper to call progress callback
@@ -558,6 +567,55 @@ const ApiService = {
 
         const refundDetails = await detailsResponse.json();
         console.log('[API] Refund order details loaded');
+
+        // ========== STEP 2.5: Filter OrderLines for Partial Refund ==========
+        if (productsToRefund && Array.isArray(productsToRefund) && productsToRefund.length > 0) {
+            console.log('[API] Step 2.5: Filtering OrderLines for partial refund');
+            console.log('[API] Products to refund:', productsToRefund);
+
+            const originalOrderLines = refundDetails.OrderLines || [];
+            console.log('[API] Original OrderLines count:', originalOrderLines.length);
+
+            // Filter and update quantities based on productsToRefund
+            const filteredOrderLines = originalOrderLines.filter(line => {
+                // Match by ProductId, ProductCode (code), or product name
+                const productMatch = productsToRefund.find(p =>
+                    (p.productId && p.productId === line.ProductId) ||
+                    (p.id && p.id === line.ProductId) ||
+                    (p.code && p.code === line.ProductCode) ||
+                    (p.ProductCode && p.ProductCode === line.ProductCode)
+                );
+
+                if (productMatch) {
+                    // Update quantity to returnQuantity if specified
+                    if (productMatch.returnQuantity && productMatch.returnQuantity > 0) {
+                        console.log(`[API] Updating line ${line.ProductCode}: ${line.Quantity} -> ${productMatch.returnQuantity}`);
+                        line.Quantity = productMatch.returnQuantity;
+                        // Recalculate price total
+                        line.PriceTotal = line.PriceUnit * line.Quantity;
+                    }
+                    return true; // Include this line
+                }
+                console.log(`[API] Excluding line ${line.ProductCode} - not in products to refund`);
+                return false; // Exclude this line
+            });
+
+            console.log('[API] Filtered OrderLines count:', filteredOrderLines.length);
+
+            // Update refundDetails with filtered OrderLines
+            refundDetails.OrderLines = filteredOrderLines;
+
+            // Recalculate totals
+            const newTotalQuantity = filteredOrderLines.reduce((sum, line) => sum + line.Quantity, 0);
+            const newAmountTotal = filteredOrderLines.reduce((sum, line) => sum + (line.PriceUnit * line.Quantity), 0);
+
+            refundDetails.TotalQuantity = newTotalQuantity;
+            refundDetails.AmountTotal = newAmountTotal;
+            refundDetails.AmountUntaxed = newAmountTotal;
+            refundDetails.AmountTotalSigned = -newAmountTotal; // Refund is negative
+
+            console.log('[API] Recalculated totals - Qty:', newTotalQuantity, 'Amount:', newAmountTotal);
+        }
 
         // ========== FETCH 3: PUT Update with FormAction: SaveAndPrint ==========
         console.log('[API] Step 3: PUT update with SaveAndPrint');
