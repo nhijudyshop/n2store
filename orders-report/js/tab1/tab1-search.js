@@ -1203,9 +1203,9 @@ async function fetchOrders() {
         filter = `(DateCreated ge ${customStartDate} and DateCreated le ${customEndDate})`;
         console.log(`[FETCH-CUSTOM] Fetching orders: ${customStartDateValue} -> ${customEndDateValue}`);
 
-        const PAGE_SIZE = 1000; // API fetch size for background loading
-        const INITIAL_PAGE_SIZE = 50; // Smaller size for instant first load
-        const UPDATE_EVERY = 200; // Update UI every 200 orders
+        const PAGE_SIZE = 200; // Batch size for parallel fetching (smaller = faster response)
+        const INITIAL_PAGE_SIZE = 200; // First batch size (render immediately)
+        // With 1090 orders: ceil((1090-200)/200) = 5 parallel requests
         let skip = 0;
         let hasMore = true;
         allData = [];
