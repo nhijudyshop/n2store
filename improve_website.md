@@ -13,7 +13,7 @@
 | 1.2 | Xóa duplicate cache.js | ⏸️ SKIP | Code consistency |
 | 1.3 | Logger production mode | ⏳ Pending | Reduce console noise |
 | 1.4 | Pin Lucide version | ✅ DONE | CDN cache efficiency |
-| 2.1 | Bundle core utilities | ⏳ Pending | Reduce HTTP requests |
+| 2.1 | Bundle core utilities | ✅ DONE | Reduce HTTP requests 8→1 |
 | 2.2 | Image optimization | ⏳ Pending | Page weight -40-70% |
 
 ---
@@ -122,15 +122,54 @@ overrideConsoleInProduction();
 ## 2.1 BUNDLE CORE UTILITIES
 
 ### Mục tiêu
-- Tạo script bundle thay vì load 9 scripts tuần tự
-- Giảm HTTP requests
+- Tạo script bundle thay vì load 8 scripts tuần tự
+- Giảm HTTP requests từ 8 → 1
 
 ### Files mới tạo
 
 | # | File | Purpose | Status |
 |---|------|---------|--------|
-| 1 | build-scripts/bundle-core.js | Bundle script | ⏳ |
-| 2 | shared/js/shared-core-bundle.js | Bundled output | ⏳ |
+| 1 | build-scripts/bundle-core.js | Bundle script | ✅ DONE |
+| 2 | shared/js/shared-core-bundle.js | Bundled output (92.42 KB) | ✅ DONE |
+| 3 | shared/js/shared-core-bundle.min.js | Minified (51.42 KB, -44.4%) | ✅ DONE |
+
+### Files được bundle (theo thứ tự)
+
+| # | File | Size |
+|---|------|------|
+| 1 | logger.js | 2.50 KB |
+| 2 | dom-utils.js | 4.13 KB |
+| 3 | common-utils.js | 32.95 KB |
+| 4 | date-utils.js | 6.21 KB |
+| 5 | form-utils.js | 6.01 KB |
+| 6 | shared-cache-manager.js | 8.55 KB |
+| 7 | notification-system.js | 18.17 KB |
+| 8 | shared-auth-manager.js | 10.44 KB |
+| **Total** | | **88.95 KB** |
+
+### Cách sử dụng
+
+```html
+<!-- BEFORE: 8 separate requests -->
+<script src="../shared/js/logger.js"></script>
+<script src="../shared/js/dom-utils.js"></script>
+<script src="../shared/js/common-utils.js"></script>
+<script src="../shared/js/date-utils.js"></script>
+<script src="../shared/js/form-utils.js"></script>
+<script src="../shared/js/shared-cache-manager.js"></script>
+<script src="../shared/js/notification-system.js"></script>
+<script src="../shared/js/shared-auth-manager.js"></script>
+
+<!-- AFTER: 1 request -->
+<script src="../shared/js/shared-core-bundle.js"></script>
+<!-- or minified version -->
+<script src="../shared/js/shared-core-bundle.min.js"></script>
+```
+
+### Lưu ý
+- `firebase-config.js` và `navigation-modern.js` vẫn load riêng (có dependencies riêng)
+- Bundle tự động khởi tạo `authManager` và `notificationManager`
+- Dispatch event `coreUtilitiesLoaded` khi load xong
 
 ---
 
