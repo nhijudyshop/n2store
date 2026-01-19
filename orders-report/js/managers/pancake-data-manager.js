@@ -26,8 +26,57 @@ class PancakeDataManager {
 
         // Global request throttle to prevent 429 rate limiting
         this.lastRequestTime = 0;
-        this.MIN_REQUEST_INTERVAL = 500; // Minimum 500ms between requests
+        this.MIN_REQUEST_INTERVAL = 1000; // Minimum 1000ms between requests (increased from 500ms)
         this.requestQueue = Promise.resolve(); // Sequential request queue
+
+        // Session storage key for conversations cache
+        this.CONVERSATIONS_CACHE_KEY = 'pancake_conversations_cache';
+    }
+
+    /**
+     * Save conversations to sessionStorage for persistence across page refreshes
+     */
+    saveConversationsToSessionStorage() {
+        try {
+            const data = {
+                conversations: this.conversations,
+                lastFetchTime: this.lastFetchTime,
+                timestamp: Date.now()
+            };
+            sessionStorage.setItem(this.CONVERSATIONS_CACHE_KEY, JSON.stringify(data));
+            console.log('[PANCAKE] Saved conversations to sessionStorage');
+        } catch (error) {
+            console.warn('[PANCAKE] Failed to save conversations to sessionStorage:', error);
+        }
+    }
+
+    /**
+     * Load conversations from sessionStorage
+     * @returns {boolean} True if loaded successfully and cache is still valid
+     */
+    loadConversationsFromSessionStorage() {
+        try {
+            const stored = sessionStorage.getItem(this.CONVERSATIONS_CACHE_KEY);
+            if (!stored) return false;
+
+            const data = JSON.parse(stored);
+            const cacheAge = Date.now() - (data.timestamp || 0);
+
+            // Check if cache is still valid (within CACHE_DURATION)
+            if (cacheAge < this.CACHE_DURATION && data.conversations && data.conversations.length > 0) {
+                this.conversations = data.conversations;
+                this.lastFetchTime = data.lastFetchTime;
+                this.buildConversationMap();
+                console.log(`[PANCAKE] Loaded ${this.conversations.length} conversations from sessionStorage (age: ${Math.round(cacheAge / 1000)}s)`);
+                return true;
+            }
+
+            console.log('[PANCAKE] SessionStorage cache expired or empty');
+            return false;
+        } catch (error) {
+            console.warn('[PANCAKE] Failed to load conversations from sessionStorage:', error);
+            return false;
+        }
     }
 
     /**
@@ -669,13 +718,18 @@ class PancakeDataManager {
      */
     async fetchConversations(forceRefresh = false) {
         try {
-            // Check cache
+            // Check memory cache first
             if (!forceRefresh && this.conversations.length > 0 && this.lastFetchTime) {
                 const cacheAge = Date.now() - this.lastFetchTime;
                 if (cacheAge < this.CACHE_DURATION) {
                     console.log('[PANCAKE] Using cached conversations, count:', this.conversations.length);
                     return this.conversations;
                 }
+            }
+
+            // Check sessionStorage cache (survives page refresh)
+            if (!forceRefresh && this.loadConversationsFromSessionStorage()) {
+                return this.conversations;
             }
 
             if (this.isLoading) {
@@ -696,9 +750,6 @@ class PancakeDataManager {
             this.isLoading = true;
             console.log('[PANCAKE] Fetching conversations from API via Cloudflare...');
 
-            // Throttle to prevent 429
-            await this.throttleRequest();
-
             const token = await this.getToken();
 
             // Build query params - format: pages[pageId]=offset
@@ -710,33 +761,66 @@ class PancakeDataManager {
 
             console.log('[PANCAKE] Conversations URL:', url);
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
+            // Retry with exponential backoff for 429 errors
+            const maxRetries = 3;
+            let lastError = null;
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                // Throttle to prevent 429
+                await this.throttleRequest();
+
+                try {
+                    const response = await API_CONFIG.smartFetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    console.log('[PANCAKE] Conversations response status:', response.status);
+
+                    if (response.status === 429) {
+                        // Rate limited - wait and retry with exponential backoff
+                        const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 10000); // 2s, 4s, 8s (max 10s)
+                        console.warn(`[PANCAKE] Rate limited (429), attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`);
+                        await new Promise(r => setTimeout(r, backoffMs));
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('[PANCAKE] Error response:', errorText);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    console.log('[PANCAKE] Conversations response data:', data);
+
+                    this.conversations = data.conversations || [];
+                    this.lastFetchTime = Date.now();
+
+                    // Build conversation map
+                    this.buildConversationMap();
+
+                    // Save to sessionStorage for page refresh
+                    this.saveConversationsToSessionStorage();
+
+                    console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations`);
+
+                    return this.conversations;
+
+                } catch (fetchError) {
+                    lastError = fetchError;
+                    if (attempt < maxRetries) {
+                        const backoffMs = 2000 * Math.pow(2, attempt - 1);
+                        console.warn(`[PANCAKE] Fetch error, attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`, fetchError.message);
+                        await new Promise(r => setTimeout(r, backoffMs));
+                    }
                 }
-            });
-
-            console.log('[PANCAKE] Conversations response status:', response.status, response.statusText);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[PANCAKE] Error response:', errorText);
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            const data = await response.json();
-            console.log('[PANCAKE] Conversations response data:', data);
-
-            this.conversations = data.conversations || [];
-            this.lastFetchTime = Date.now();
-
-            // Build conversation map
-            this.buildConversationMap();
-
-            console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations`);
-
-            return this.conversations;
+            // All retries failed
+            throw lastError || new Error('Failed after all retries');
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching conversations:', error);
