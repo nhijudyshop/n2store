@@ -378,6 +378,64 @@ function renderAllOrders() {
 }
 
 // =====================================================
+// UPDATE CHAT COLUMNS ONLY (no full re-render)
+// =====================================================
+function updateChatColumnsOnly() {
+    const tbody = document.getElementById("tableBody");
+    if (!tbody) return;
+
+    const rows = tbody.querySelectorAll('tr');
+    let updated = 0;
+
+    rows.forEach(row => {
+        const checkbox = row.querySelector('input[type="checkbox"][value]');
+        if (!checkbox) return;
+
+        const orderId = checkbox.value;
+        const order = displayedData.find(o => o.Id === orderId);
+        if (!order) return;
+
+        // Update messages column
+        const messagesCell = row.querySelector('td[data-column="messages"]');
+        if (messagesCell) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = renderMessagesColumn(order);
+            const newCell = tempDiv.querySelector('td');
+            if (newCell) {
+                messagesCell.innerHTML = newCell.innerHTML;
+                messagesCell.onclick = newCell.onclick;
+                if (newCell.getAttribute('onclick')) {
+                    messagesCell.setAttribute('onclick', newCell.getAttribute('onclick'));
+                }
+                messagesCell.style.cursor = 'pointer';
+            }
+        }
+
+        // Update comments column
+        const commentsCell = row.querySelector('td[data-column="comments"]');
+        if (commentsCell) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = renderCommentsColumn(order);
+            const newCell = tempDiv.querySelector('td');
+            if (newCell) {
+                commentsCell.innerHTML = newCell.innerHTML;
+                if (newCell.getAttribute('onclick')) {
+                    commentsCell.setAttribute('onclick', newCell.getAttribute('onclick'));
+                }
+                commentsCell.style.cursor = 'pointer';
+            }
+        }
+
+        updated++;
+    });
+
+    console.log(`[CHAT] Updated ${updated} chat columns`);
+}
+
+// Expose globally
+window.updateChatColumnsOnly = updateChatColumnsOnly;
+
+// =====================================================
 // PHASE E: VIRTUAL TABLE - Chỉ render dòng nhìn thấy
 // Giảm 45,000 DOM elements xuống còn ~500 (giảm 99%)
 // =====================================================

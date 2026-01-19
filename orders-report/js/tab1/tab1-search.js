@@ -1290,53 +1290,29 @@ async function fetchOrders() {
         // Each tab now fetches its own data independently when user switches to it
 
         // ⚡ Load conversations in BACKGROUND (non-blocking)
-        // This allows users to interact with the table immediately
-        // Chat columns will show loading spinners, then update when data arrives
-        console.log('[PROGRESSIVE] Loading conversations in background...');
+        // Chat columns will update incrementally, no full table re-render
         if (window.chatDataManager) {
-            // Set loading state for messages column indicator (shows spinner)
-            isLoadingConversations = true;
-
-            // Re-render to show loading spinners in chat columns
-            performTableSearch();
-
-            // Collect unique channel IDs from orders (parse from Facebook_PostId)
             const channelIds = [...new Set(
                 allData
                     .map(order => window.chatDataManager.parseChannelId(order.Facebook_PostId))
-                    .filter(id => id) // Remove null/undefined
+                    .filter(id => id)
             )];
-            console.log('[PROGRESSIVE] Found channel IDs:', channelIds);
 
-            // ⚡ Run conversations loading in BACKGROUND (no await!)
+            // Run in background - no await, no re-render
             (async () => {
                 try {
-                    // FIX: fetchConversations now uses Type="all" to fetch both messages and comments in 1 request
-                    // No need to call both methods anymore - this reduces API calls by 50%!
-                    // Force refresh (true) to always fetch fresh data when searching
                     await window.chatDataManager.fetchConversations(true, channelIds);
-
-                    // Fetch Pancake conversations for unread info
                     if (window.pancakeDataManager) {
-                        console.log('[PANCAKE] Fetching conversations for unread info...');
                         await window.pancakeDataManager.fetchConversations(true);
-                        console.log('[PANCAKE] ✅ Conversations fetched');
                     }
+                    console.log('[CHAT] ✅ Conversations loaded');
 
-                    // Clear loading state
-                    isLoadingConversations = false;
-                    console.log('[PROGRESSIVE] ✅ Conversations loaded (background)');
-
-                    // Re-render with actual chat data
-                    performTableSearch();
+                    // Update chat columns without full re-render (use setTimeout to not block)
+                    setTimeout(() => updateChatColumnsOnly(), 0);
                 } catch (err) {
-                    console.error('[PROGRESSIVE] ❌ Conversations loading error:', err);
-                    isLoadingConversations = false;
+                    console.error('[CHAT] ❌ Error:', err);
                 }
             })();
-        } else {
-            // chatDataManager not ready yet - will be handled by Phase 1 re-render
-            console.log('[PROGRESSIVE] chatDataManager not ready, skipping conversations for now');
         }
 
         // Load tags in background
