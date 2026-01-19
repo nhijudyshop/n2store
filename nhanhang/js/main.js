@@ -196,38 +196,47 @@ function updateStatisticsDisplay(dataArray) {
 // =====================================================
 
 /**
+ * Parse Vietnamese date format DD/MM/YYYY, HH:mm
+ * Returns Date object or null if invalid
+ */
+function parseDateDDMMYYYY(dateString) {
+    if (!dateString) return null;
+
+    // Format: "17/01/2026, 09:51" or "17/01/2026"
+    const match = dateString.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,?\s*(\d{1,2}):(\d{2}))?/);
+
+    if (!match) return null;
+
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
+    const year = parseInt(match[3], 10);
+    const hour = match[4] ? parseInt(match[4], 10) : 0;
+    const minute = match[5] ? parseInt(match[5], 10) : 0;
+
+    const date = new Date(year, month, day, hour, minute);
+
+    // Validate the date is real
+    if (isNaN(date.getTime())) return null;
+
+    return date;
+}
+
+/**
  * Sort data by thoiGianNhan descending (newest first)
  */
 function sortByDateDescending(data) {
-    console.log("=== sortByDateDescending DEBUG ===");
-    console.log("Input length:", data.length);
-
-    // Test first item parse
-    if (data.length > 0) {
-        const testDate = parseVietnameseDate(data[0].thoiGianNhan);
-        console.log("First item date string:", data[0].thoiGianNhan);
-        console.log("Parsed date:", testDate);
-        console.log("Timestamp:", testDate ? testDate.getTime() : "null");
-    }
-
-    const sorted = [...data].sort((a, b) => {
-        const dateA = parseVietnameseDate(a.thoiGianNhan);
-        const dateB = parseVietnameseDate(b.thoiGianNhan);
+    return [...data].sort((a, b) => {
+        const dateA = parseDateDDMMYYYY(a.thoiGianNhan);
+        const dateB = parseDateDDMMYYYY(b.thoiGianNhan);
 
         // Handle null dates - push to end
         if (!dateA && !dateB) return 0;
         if (!dateA) return 1;
         if (!dateB) return -1;
 
-        // Descending: newer dates first (larger timestamp first)
+        // Descending: newer dates first
         return dateB.getTime() - dateA.getTime();
     });
-
-    console.log("AFTER sortByDateDescending:");
-    console.log("  First:", sorted[0]?.thoiGianNhan);
-    console.log("  Last:", sorted[sorted.length - 1]?.thoiGianNhan);
-
-    return sorted;
 }
 
 /**
