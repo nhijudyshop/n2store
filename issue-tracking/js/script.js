@@ -1000,7 +1000,7 @@ async function handleConfirmAction() {
                         body: JSON.stringify({
                             compensation_amount: compensationAmount,
                             compensation_type: compensationType,
-                            performed_by: currentUser?.email || 'warehouse_staff',
+                            performed_by: window.authManager?.getUserInfo()?.username || 'warehouse_staff',
                             note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`
                         })
                     });
