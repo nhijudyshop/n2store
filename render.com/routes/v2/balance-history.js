@@ -193,6 +193,19 @@ router.post('/:id/link', async (req, res) => {
 
         const tx = txResult.rows[0];
 
+        // SECURITY: Block re-linking if transaction already credited to wallet
+        // This prevents fraud where one transaction is used to credit multiple wallets
+        if (tx.wallet_processed === true) {
+            await db.query('ROLLBACK');
+            console.log(`[SECURITY] Blocked link for tx ${id} - already credited to wallet of ${tx.linked_customer_phone}`);
+            return res.status(400).json({
+                success: false,
+                error: 'Không thể link lại - Giao dịch đã được cộng vào ví khách hàng',
+                current_linked_to: tx.linked_customer_phone,
+                wallet_processed: true
+            });
+        }
+
         // Check if already linked
         if (tx.linked_customer_phone) {
             await db.query('ROLLBACK');

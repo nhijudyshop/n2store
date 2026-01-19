@@ -3378,8 +3378,25 @@ router.put('/transaction/:id/phone', async (req, res) => {
             });
         }
 
-        const oldPhone = currentResult.rows[0].linked_customer_phone;
+        const currentTx = currentResult.rows[0];
+        const oldPhone = currentTx.linked_customer_phone;
         const newPhone = phone;
+
+        // SECURITY: Block phone change if transaction already credited to wallet
+        // This prevents fraud where one transaction is used to credit multiple wallets
+        if (currentTx.wallet_processed === true) {
+            console.log(`[SECURITY] Blocked phone change for tx ${id} - already credited to wallet of ${oldPhone}`);
+            return res.status(400).json({
+                success: false,
+                error: 'Không thể đổi SĐT - Giao dịch đã được cộng vào ví khách hàng',
+                details: {
+                    transaction_id: parseInt(id),
+                    current_phone: oldPhone,
+                    wallet_processed: true,
+                    suggestion: 'Sử dụng chức năng "Điều chỉnh công nợ" để trừ ví cũ và cộng ví mới'
+                }
+            });
+        }
 
         // Build update query based on is_manual_entry flag
         let updateQuery;

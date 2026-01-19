@@ -166,6 +166,9 @@ function renderVerificationQueue(tableBody) {
         }
 
         const hasCustomer = tx.linked_customer_phone;
+        // SECURITY: Chỉ cho phép thay đổi SĐT nếu chưa cộng ví
+        // Nếu đã cộng ví (wallet_processed = true) thì KHÔNG cho phép thay đổi
+        const canChangePhone = hasCustomer && tx.wallet_processed !== true;
         const customerDisplay = hasCustomer
             ? `<strong>${tx.customer_name || tx.linked_customer_phone}</strong><br><small>${tx.linked_customer_phone}</small>`
             : (matchOptions
@@ -454,6 +457,15 @@ function showChangeModal(transactionId, currentPhone, currentName) {
         return;
     }
 
+    // SECURITY: Check if transaction already credited to wallet
+    // Find transaction in verificationQueueData to check wallet_processed
+    const tx = verificationQueueData.find(t => t.id === transactionId);
+    if (tx && tx.wallet_processed === true) {
+        showNotification('Không thể thay đổi SĐT - Giao dịch đã được cộng vào ví khách hàng', 'error');
+        console.log(`[SECURITY] Blocked showChangeModal for tx ${transactionId} - wallet_processed = true`);
+        return;
+    }
+
     // Use the existing editCustomerModal but with special handling
     const modal = document.getElementById('editCustomerModal');
     const editCustomerUniqueCode = document.getElementById('editCustomerUniqueCode');
@@ -532,6 +544,14 @@ async function changeAndApproveTransaction(transactionId, newPhone, newName) {
     // Permission check
     if (!authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
         showNotification('Bạn không có quyền thay đổi và duyệt giao dịch', 'error');
+        return;
+    }
+
+    // SECURITY: Check if transaction already credited to wallet
+    const tx = verificationQueueData.find(t => t.id === transactionId);
+    if (tx && tx.wallet_processed === true) {
+        showNotification('Không thể thay đổi SĐT - Giao dịch đã được cộng vào ví khách hàng', 'error');
+        console.log(`[SECURITY] Blocked changeAndApproveTransaction for tx ${transactionId} - wallet_processed = true`);
         return;
     }
 
