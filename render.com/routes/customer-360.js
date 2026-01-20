@@ -1575,9 +1575,9 @@ router.delete('/ticket/:code', async (req, res) => {
     const { hard } = req.query;
 
     try {
-        // Find the ticket first
+        // Find the ticket first - support both ticket_code and firebase_id
         const findResult = await db.query(
-            'SELECT * FROM customer_tickets WHERE ticket_code = $1',
+            'SELECT * FROM customer_tickets WHERE ticket_code = $1 OR firebase_id = $1',
             [code]
         );
 
@@ -1589,20 +1589,21 @@ router.delete('/ticket/:code', async (req, res) => {
         }
 
         const ticket = findResult.rows[0];
+        const ticketCode = ticket.ticket_code;
 
         if (hard === 'true') {
             // Hard delete - permanently remove from database
-            await db.query('DELETE FROM customer_tickets WHERE ticket_code = $1', [code]);
-            console.log(`[DELETE] Hard deleted ticket: ${code}`);
+            await db.query('DELETE FROM customer_tickets WHERE id = $1', [ticket.id]);
+            console.log(`[DELETE] Hard deleted ticket: ${ticketCode || code}`);
         } else {
             // Soft delete - mark as deleted
             await db.query(
                 `UPDATE customer_tickets
                  SET status = 'DELETED', updated_at = NOW()
-                 WHERE ticket_code = $1`,
-                [code]
+                 WHERE id = $1`,
+                [ticket.id]
             );
-            console.log(`[DELETE] Soft deleted ticket: ${code}`);
+            console.log(`[DELETE] Soft deleted ticket: ${ticketCode || code}`);
         }
 
         // Log activity
@@ -1611,9 +1612,9 @@ router.delete('/ticket/:code', async (req, res) => {
             VALUES ($1, $2, 'TICKET_DELETED', $3, $4, 'ticket', $5, 'trash', 'red')
         `, [
             ticket.phone, ticket.customer_id,
-            `Ticket deleted: ${code}`,
+            `Ticket deleted: ${ticketCode || code}`,
             hard === 'true' ? 'Permanently deleted' : 'Soft deleted',
-            code,
+            ticketCode || code,
         ]);
 
         // Notify SSE clients

@@ -1970,13 +1970,17 @@ window.deleteTicket = async function (firebaseId) {
         return;
     }
 
-    const confirmed = confirm(`Xác nhận xóa phiếu #${firebaseId.slice(-4)} - ${ticket.orderId}?`);
+    // Use ticketCode if available, fallback to firebaseId
+    const ticketIdentifier = ticket.ticketCode || firebaseId;
+    const displayCode = ticket.ticketCode || `#${firebaseId.slice(-4)}`;
+
+    const confirmed = confirm(`Xác nhận xóa phiếu ${displayCode} - ${ticket.orderId}?`);
     if (!confirmed) return;
 
     showLoading(true);
     try {
         // Use ApiService.deleteTicket for PostgreSQL (hard delete = true)
-        await ApiService.deleteTicket(firebaseId, true);
+        await ApiService.deleteTicket(ticketIdentifier, true);
         console.log('[DELETE] Ticket deleted successfully:', firebaseId);
         notificationManager.success('Đã xóa phiếu thành công!', 3000, 'Xóa phiếu');
     } catch (error) {
