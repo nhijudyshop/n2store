@@ -444,11 +444,14 @@ export class WalletPanelModule {
         // Format datetime same as _getTimeAgo in customer-profile.js
         const dateTimeStr = this._formatDateTime(tx.created_at);
 
+        // Escape HTML to prevent XSS and broken image rendering
+        const noteText = this._escapeHtml(tx.note || tx.source || '');
+
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bgClass}">
                 <div class="flex-1">
                     <p class="font-medium text-slate-800 dark:text-slate-200">${typeLabels[tx.type] || tx.type}</p>
-                    <p class="text-xs text-slate-500">${tx.note || tx.source || ''}</p>
+                    <p class="text-xs text-slate-500">${noteText}</p>
                     <p class="text-xs text-slate-400">${dateTimeStr}</p>
                 </div>
                 <div class="text-right">
@@ -456,6 +459,16 @@ export class WalletPanelModule {
                 </div>
             </div>
         `;
+    }
+
+    /**
+     * Escape HTML entities to prevent XSS
+     */
+    _escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     formatCurrency(amount) {
