@@ -33,6 +33,18 @@
 
         </header>
 
+        <!-- Alert Banner for Overdue Tickets -->
+        <div id="overdue-alert" class="overdue-alert hidden">
+            <div class="overdue-alert-content">
+                <span class="overdue-icon">⚠️</span>
+                <span class="overdue-text">
+                    Có <strong id="overdue-count">0</strong> ticket Thu về quá 20 ngày chưa nhận hàng!
+                </span>
+                <button id="btn-show-overdue" class="btn btn-sm btn-warning">Xem danh sách</button>
+                <button id="btn-dismiss-overdue" class="overdue-dismiss" title="Ẩn thông báo">×</button>
+            </div>
+        </div>
+
         <!-- Dashboard Stats (Optional, nice to have) -->
         <div class="stats-overview">
             <div class="stat-card">

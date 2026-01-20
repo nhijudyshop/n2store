@@ -773,6 +773,32 @@ function updateCodReduceFromProducts() {
 // Expose for checkbox/quantity change events
 window.updateCodReduceFromProducts = updateCodReduceFromProducts;
 
+/**
+ * Check if a RETURN ticket already exists for this order
+ * Prevents creating duplicate RETURN_CLIENT or RETURN_SHIPPER tickets
+ * @param {string} orderId - TPOS order code (e.g., NJD/2025/xxx)
+ * @returns {{exists: boolean, ticketCode: string|null}} - Whether a return ticket exists
+ */
+function checkExistingReturnTicket(orderId) {
+    if (!orderId) return { exists: false, ticketCode: null };
+
+    // Search in local TICKETS array for existing RETURN tickets
+    const existingTicket = TICKETS.find(ticket =>
+        ticket.orderId === orderId &&
+        (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER')
+    );
+
+    if (existingTicket) {
+        return {
+            exists: true,
+            ticketCode: existingTicket.code,
+            ticketType: existingTicket.type
+        };
+    }
+
+    return { exists: false, ticketCode: null };
+}
+
 async function handleSubmitTicket() {
     // If selectedOrder is a minimal object for a new customer
     const isNewCustomerTicket = selectedOrder && !selectedOrder.tposCode;
@@ -878,6 +904,15 @@ async function handleSubmitTicket() {
     const orderStateCode = selectedOrder?.stateCode;
 
     if (!customerPhone) return alert("Không tìm thấy thông tin số điện thoại khách hàng!");
+
+    // VALIDATION: Check for duplicate RETURN tickets (1 đơn = 1 ticket hoàn hàng)
+    if ((type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') && tposOrderId) {
+        const existingReturn = checkExistingReturnTicket(tposOrderId);
+        if (existingReturn.exists) {
+            const typeLabel = existingReturn.ticketType === 'RETURN_CLIENT' ? 'Khách gửi về' : 'Thu về';
+            return alert(`Đơn hàng này đã có ticket hoàn hàng!\n\nMã ticket: ${existingReturn.ticketCode}\nLoại: ${typeLabel}\n\nMỗi đơn hàng chỉ được tạo 1 ticket hoàn hàng.`);
+        }
+    }
 
 
     const ticketData = {
@@ -1468,7 +1503,17 @@ function renderDashboard(tabName, searchTerm = '') {
     let filtered = TICKETS;
 
     // Filter by Tab
-    if (tabName !== 'all') {
+    if (tabName === 'overdue') {
+        // Special filter: Show only overdue RETURN_SHIPPER tickets (20+ days old)
+        const OVERDUE_DAYS = 20;
+        const overdueThreshold = Date.now() - (OVERDUE_DAYS * 24 * 60 * 60 * 1000);
+        filtered = filtered.filter(t =>
+            t.type === 'RETURN_SHIPPER' &&
+            t.status !== 'COMPLETED' &&
+            t.status !== 'CANCELLED' &&
+            (t.createdAt || 0) < overdueThreshold
+        );
+    } else if (tabName !== 'all') {
         let filterStatus = [];
         if (tabName === 'pending-goods') filterStatus = ['PENDING_GOODS'];
         else if (tabName === 'pending-finance') filterStatus = ['PENDING_FINANCE'];
@@ -1731,6 +1776,75 @@ function updateStats() {
 
     elements.badgePendingGoods.textContent = pendingGoods > 0 ? pendingGoods : '';
     elements.badgePendingFinance.textContent = pendingFinance > 0 ? pendingFinance : '';
+
+    // Check for overdue RETURN_SHIPPER tickets (20 days old)
+    checkOverdueTickets();
+}
+
+/**
+ * Check for overdue RETURN_SHIPPER tickets and show alert banner
+ * Overdue = created more than 20 days ago and not COMPLETED/CANCELLED
+ */
+function checkOverdueTickets() {
+    const OVERDUE_DAYS = 20;
+    const now = new Date();
+    const overdueThreshold = now.getTime() - (OVERDUE_DAYS * 24 * 60 * 60 * 1000);
+
+    const overdueTickets = TICKETS.filter(ticket => {
+        if (ticket.type !== 'RETURN_SHIPPER') return false;
+        if (ticket.status === 'COMPLETED' || ticket.status === 'CANCELLED') return false;
+
+        const createdAt = ticket.createdAt || 0;
+        return createdAt < overdueThreshold;
+    });
+
+    const alertBanner = document.getElementById('overdue-alert');
+    const countEl = document.getElementById('overdue-count');
+    const btnShow = document.getElementById('btn-show-overdue');
+    const btnDismiss = document.getElementById('btn-dismiss-overdue');
+
+    if (!alertBanner) return;
+
+    if (overdueTickets.length > 0) {
+        // Show banner
+        alertBanner.classList.remove('hidden');
+        countEl.textContent = overdueTickets.length;
+
+        // Store overdue tickets for filter
+        window.overdueTickets = overdueTickets;
+
+        // Setup event handlers (only once)
+        if (!btnShow._handlerAdded) {
+            btnShow.addEventListener('click', () => {
+                // Filter to show only overdue tickets
+                showOverdueTicketsFilter();
+            });
+            btnShow._handlerAdded = true;
+        }
+
+        if (!btnDismiss._handlerAdded) {
+            btnDismiss.addEventListener('click', () => {
+                alertBanner.classList.add('hidden');
+            });
+            btnDismiss._handlerAdded = true;
+        }
+    } else {
+        // Hide banner
+        alertBanner.classList.add('hidden');
+    }
+}
+
+/**
+ * Filter and show only overdue tickets
+ */
+function showOverdueTicketsFilter() {
+    // Switch to "All" tab first
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    const allTab = document.querySelector('.tab-btn[data-tab="all"]');
+    if (allTab) allTab.classList.add('active');
+
+    // Render with overdue filter
+    renderDashboard('overdue');
 }
 
 function formatCurrency(amount) {

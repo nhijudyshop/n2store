@@ -158,4 +158,57 @@ cron.schedule('0 2 * * *', async () => {
     }
 });
 
+// Chạy mỗi ngày lúc 9AM để kiểm tra tickets RETURN_SHIPPER quá 20 ngày chưa nhận hàng
+cron.schedule('0 9 * * *', async () => {
+    console.log('[CRON] Running expired RETURN_SHIPPER tickets checker...');
+    try {
+        // Find RETURN_SHIPPER tickets that are older than 20 days and not completed
+        const result = await db.query(`
+            WITH expired_tickets AS (
+                SELECT
+                    id, ticket_code, phone, order_id, customer_name,
+                    virtual_credit_amount, created_at,
+                    EXTRACT(DAY FROM NOW() - created_at) as days_old
+                FROM customer_tickets
+                WHERE type = 'RETURN_SHIPPER'
+                  AND status NOT IN ('COMPLETED', 'CANCELLED')
+                  AND created_at <= NOW() - INTERVAL '20 days'
+            )
+            INSERT INTO customer_activities (phone, activity_type, title, description, icon, color, metadata)
+            SELECT
+                phone,
+                'TICKET_OVERDUE',
+                'Ticket hoàn hàng quá hạn 20 ngày',
+                'Ticket ' || ticket_code || ' (đơn ' || COALESCE(order_id, 'N/A') || ') đã quá 20 ngày chưa nhận hàng. Cần kiểm tra và xử lý.',
+                'alert-triangle',
+                'orange',
+                jsonb_build_object(
+                    'ticket_code', ticket_code,
+                    'order_id', order_id,
+                    'days_old', days_old,
+                    'virtual_credit_amount', virtual_credit_amount
+                )
+            FROM expired_tickets
+            WHERE NOT EXISTS (
+                -- Prevent duplicate notifications for the same ticket
+                SELECT 1 FROM customer_activities ca
+                WHERE ca.phone = expired_tickets.phone
+                  AND ca.activity_type = 'TICKET_OVERDUE'
+                  AND ca.metadata->>'ticket_code' = expired_tickets.ticket_code
+                  AND ca.created_at > NOW() - INTERVAL '7 days'
+            )
+            RETURNING ticket_code, phone, days_old;
+        `);
+
+        if (result.rows.length > 0) {
+            const ticketCodes = result.rows.map(r => r.ticket_code).join(', ');
+            console.log(`[CRON] 🚨 Found ${result.rows.length} overdue RETURN_SHIPPER tickets: ${ticketCodes}`);
+        } else {
+            console.log('[CRON] ✅ No overdue RETURN_SHIPPER tickets found.');
+        }
+    } catch (error) {
+        console.error('[CRON] ❌ Error running expired tickets checker:', error);
+    }
+});
+
 console.log('[CRON] Scheduler started');
