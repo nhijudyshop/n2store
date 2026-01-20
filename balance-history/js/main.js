@@ -3045,8 +3045,9 @@ async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
     const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const { isManualEntry = false, name = '' } = options;
 
-    // Check if user is accountant/admin - they don't need approval for their changes
-    const isAccountant = authManager?.hasDetailedPermission('balance-history', 'approveTransaction');
+    // Check if user is accountant/admin - MUST use === true to prevent undefined becoming truthy
+    const hasApprovePermission = authManager?.hasDetailedPermission('balance-history', 'approveTransaction');
+    const isAccountant = hasApprovePermission === true;
     const shouldRequireApproval = isManualEntry && !isAccountant;
 
     // Get current user email for audit trail

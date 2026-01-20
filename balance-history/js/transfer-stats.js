@@ -867,8 +867,9 @@ async function saveTSEdit(e) {
         localStorage.getItem('user_email') ||
         'staff';
 
-    // Check if user is accountant/admin
-    const isAccountant = window.authManager?.hasDetailedPermission?.('balance-history', 'approveTransaction');
+    // Check if user is accountant/admin - MUST use === true to prevent undefined becoming truthy
+    const hasApprovePermission = window.authManager?.hasDetailedPermission?.('balance-history', 'approveTransaction');
+    const isAccountant = hasApprovePermission === true;
 
     try {
         // Step 1: Update transfer_stats record
