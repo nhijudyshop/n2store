@@ -4020,14 +4020,14 @@ router.get('/transfer-stats', async (req, res) => {
         await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_verified BOOLEAN DEFAULT FALSE`);
         await db.query(`ALTER TABLE balance_history ADD COLUMN IF NOT EXISTS ts_notes TEXT`);
 
-        // Query from balance_history JOIN balance_customer_info for customer name
-        // Priority: bh.customer_name (edited) > bci.customer_name (from balance_customer_info)
+        // Query from balance_history JOIN customers + balance_customer_info for customer name
+        // Priority: bh.customer_name (edited) > c.name (customers table) > bci.customer_name (legacy)
         const result = await db.query(`
             SELECT
                 bh.id,
                 bh.id as transaction_id,
-                COALESCE(NULLIF(bh.customer_name, ''), bci.customer_name, '') as customer_name,
-                bh.linked_customer_phone as customer_phone,
+                COALESCE(NULLIF(bh.customer_name, ''), c.name, bci.customer_name, '') as customer_name,
+                COALESCE(c.phone, bh.linked_customer_phone) as customer_phone,
                 bh.transfer_amount as amount,
                 bh.content,
                 bh.ts_notes as notes,
@@ -4036,6 +4036,7 @@ router.get('/transfer-stats', async (req, res) => {
                 bh.ts_verified as is_verified,
                 bh.created_at
             FROM balance_history bh
+            LEFT JOIN customers c ON c.id = bh.customer_id
             LEFT JOIN (
                 SELECT DISTINCT ON (customer_phone)
                     customer_phone, customer_name
