@@ -316,35 +316,41 @@
     }
 
     /**
-     * Add "NEW" badge to cell
+     * Set badge content in cell (replaces cell content)
+     * Used for simplified message/comment columns
      */
     function addNewBadge(cell, count) {
-        // Check if badge already exists
-        if (cell.querySelector('.new-msg-badge')) return;
+        // Skip if badge already exists with same count
+        const existingBadge = cell.querySelector('.new-msg-badge');
+        if (existingBadge && existingBadge.dataset.count === String(count)) return;
 
-        const badge = document.createElement('span');
-        badge.className = 'new-msg-badge';
-        badge.innerHTML = `<span style="
-            background: #ef4444;
+        // SET innerHTML instead of appending (cells now only have "-" placeholder)
+        cell.innerHTML = `<span class="new-msg-badge" data-count="${count}" style="
+            display: inline-block;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 700;
-            padding: 2px 6px;
+            padding: 4px 10px;
             border-radius: 9999px;
-            margin-left: 6px;
-            animation: pulse 1s infinite;
+            animation: pulse 2s infinite;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
         ">${count} MỚI</span>`;
 
-        cell.appendChild(badge);
-
-        // Add pulse animation
+        // Add pulse animation style (only once)
         if (!document.getElementById('new-msg-badge-style')) {
             const style = document.createElement('style');
             style.id = 'new-msg-badge-style';
             style.textContent = `
                 @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.7; }
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.85; transform: scale(1.02); }
+                }
+                .pending-customer-row {
+                    background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, transparent 50%) !important;
+                }
+                .pending-customer-row:hover {
+                    background: linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(249, 250, 251, 1) 50%) !important;
                 }
             `;
             document.head.appendChild(style);

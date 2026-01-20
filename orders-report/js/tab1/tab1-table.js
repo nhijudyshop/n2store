@@ -378,80 +378,22 @@ function renderAllOrders() {
 }
 
 // =====================================================
-// UPDATE CHAT COLUMNS ONLY (no full re-render)
-// Uses chunked processing to avoid UI lag
+// UPDATE CHAT COLUMNS ONLY - DEPRECATED
+// Message/comment columns are now simplified (just placeholders)
+// Badges are set by new-messages-notifier.js from pending_customers database
 // =====================================================
 function updateChatColumnsOnly() {
-    const tbody = document.getElementById("tableBody");
-    if (!tbody) return;
+    // DEPRECATED: No longer needed since columns are simplified
+    // Badges are now handled by new-messages-notifier.js
+    console.log('[CHAT] updateChatColumnsOnly() is deprecated - badges handled by new-messages-notifier.js');
 
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    const CHUNK_SIZE = 50; // Process 50 rows per frame
-    let index = 0;
-    let updated = 0;
-
-    // Build orderId -> order map for O(1) lookup instead of O(n) find
-    const orderMap = new Map();
-    displayedData.forEach(o => orderMap.set(o.Id, o));
-
-    function processChunk() {
-        const end = Math.min(index + CHUNK_SIZE, rows.length);
-
-        for (; index < end; index++) {
-            const row = rows[index];
-            const checkbox = row.querySelector('input[type="checkbox"][value]');
-            if (!checkbox) continue;
-
-            const orderId = checkbox.value;
-            const order = orderMap.get(orderId);
-            if (!order) continue;
-
-            // Update messages column
-            const messagesCell = row.querySelector('td[data-column="messages"]');
-            if (messagesCell) {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = renderMessagesColumn(order);
-                const newCell = tempDiv.querySelector('td');
-                if (newCell) {
-                    messagesCell.innerHTML = newCell.innerHTML;
-                    if (newCell.getAttribute('onclick')) {
-                        messagesCell.setAttribute('onclick', newCell.getAttribute('onclick'));
-                    }
-                    messagesCell.style.cursor = 'pointer';
-                }
-            }
-
-            // Update comments column
-            const commentsCell = row.querySelector('td[data-column="comments"]');
-            if (commentsCell) {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = renderCommentsColumn(order);
-                const newCell = tempDiv.querySelector('td');
-                if (newCell) {
-                    commentsCell.innerHTML = newCell.innerHTML;
-                    if (newCell.getAttribute('onclick')) {
-                        commentsCell.setAttribute('onclick', newCell.getAttribute('onclick'));
-                    }
-                    commentsCell.style.cursor = 'pointer';
-                }
-            }
-
-            updated++;
-        }
-
-        // More rows to process? Schedule next chunk
-        if (index < rows.length) {
-            requestAnimationFrame(processChunk);
-        } else {
-            console.log(`[CHAT] Updated ${updated} chat columns`);
-        }
+    // Trigger notifier to re-apply badges
+    if (window.newMessagesNotifier && window.newMessagesNotifier.reapply) {
+        window.newMessagesNotifier.reapply();
     }
-
-    // Start processing
-    requestAnimationFrame(processChunk);
 }
 
-// Expose globally
+// Expose globally (for backward compatibility)
 window.updateChatColumnsOnly = updateChatColumnsOnly;
 
 // =====================================================
@@ -1173,81 +1115,46 @@ function renderSingleCustomerMessage(order, columnType = 'messages') {
     return renderChatColumnWithData(targetOrder, messageInfo, chatInfo.channelId, chatInfo.psid, columnType);
 }
 
-// Render messages column only (not comments)
+// =====================================================
+// SIMPLIFIED MESSAGE/COMMENT COLUMNS
+// Only shows badge "X MỚI" from pending_customers database
+// Content is set by new-messages-notifier.js after table render
+// =====================================================
+
+// Render messages column - simple placeholder, badge added by notifier
 function renderMessagesColumn(order) {
-    if (!window.chatDataManager) {
+    // Extract channelId from Facebook_PostId (format: pageId_postId)
+    const channelId = order.Facebook_PostId ? order.Facebook_PostId.split('_')[0] : '';
+    const psid = order.Facebook_ASUserId || '';
+
+    // If no PSID or Channel ID, show dash (no click handler)
+    if (!psid || !channelId) {
         return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Show loading indicator when conversations are being fetched
-    if (isLoadingConversations) {
-        return '<td data-column="messages" style="text-align: center; color: #9ca3af;" title="Đang tải tin nhắn..."><i class="fas fa-spinner fa-spin" style="font-size: 12px; color: #667eea;"></i></td>';
-    }
+    // Render clickable cell with placeholder "-"
+    // Badge "X MỚI" will be set by new-messages-notifier.js based on pending_customers data
+    const clickHandler = `openChatModal('${order.Id}', '${channelId}', '${psid}')`;
 
-    // Check if this is a merged order - always show STT-based format
-    if (order.IsMerged && order.OriginalOrders && order.OriginalOrders.length > 1) {
-        return renderMergedMessagesColumn(order, 'messages');
-    }
-
-    // Get chat info for order
-    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
-
-    // Debug log first few orders
-    if (order.SessionIndex && order.SessionIndex <= 3) {
-        console.log(`[CHAT RENDER] Order ${order.Code}:`, {
-            Facebook_ASUserId: order.Facebook_ASUserId,
-            Facebook_PostId: order.Facebook_PostId,
-            channelId: orderChatInfo.channelId,
-            psid: orderChatInfo.psid,
-            hasChat: orderChatInfo.hasChat
-        });
-    }
-
-    // If no PSID or Channel ID, show dash
-    if (!orderChatInfo.psid || !orderChatInfo.channelId) {
-        return '<td data-column="messages" style="text-align: center; color: #9ca3af;">−</td>';
-    }
-
-    const messageInfo = window.chatDataManager.getLastMessageForOrder(order);
-    const channelId = orderChatInfo.channelId;
-    const psid = orderChatInfo.psid;
-
-    // Always render with clickable cell (even when showing "-") as long as we have channelId and psid
-    // This allows users to open the modal even when there are no messages yet
-    return renderChatColumnWithData(order, messageInfo, channelId, psid, 'messages');
+    return `<td data-column="messages" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem tin nhắn">−</td>`;
 }
 
-// Render comments column only (not messages)
+// Render comments column - simple placeholder, badge added by notifier
 function renderCommentsColumn(order) {
-    if (!window.chatDataManager) {
+    // Extract channelId from Facebook_PostId (format: pageId_postId)
+    const channelId = order.Facebook_PostId ? order.Facebook_PostId.split('_')[0] : '';
+    const psid = order.Facebook_ASUserId || '';
+
+    // If no PSID or Channel ID, show dash (no click handler)
+    if (!psid || !channelId) {
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
-    // Show loading indicator when conversations are being fetched
-    if (isLoadingConversations) {
-        return '<td data-column="comments" style="text-align: center; color: #9ca3af;" title="Đang tải bình luận..."><i class="fas fa-spinner fa-spin" style="font-size: 12px; color: #667eea;"></i></td>';
-    }
+    // Render clickable cell with placeholder "-"
+    // Badge "X MỚI" will be set by new-messages-notifier.js based on pending_customers data
+    const clickHandler = `openCommentModal('${order.Id}', '${channelId}', '${psid}')`;
 
-    // Check if this is a merged order - always show STT-based format
-    if (order.IsMerged && order.OriginalOrders && order.OriginalOrders.length > 1) {
-        return renderMergedMessagesColumn(order, 'comments');
-    }
-
-    // Get chat info for order
-    const orderChatInfo = window.chatDataManager.getChatInfoForOrder(order);
-
-    // If no PSID or Channel ID, show dash
-    if (!orderChatInfo.psid || !orderChatInfo.channelId) {
-        return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
-    }
-
-    const commentInfo = window.chatDataManager.getLastCommentForOrder(orderChatInfo.channelId, orderChatInfo.psid, order);
-    const channelId = orderChatInfo.channelId;
-    const psid = orderChatInfo.psid;
-
-    // Always render with clickable cell (even when showing "-") as long as we have channelId and psid
-    // This allows users to open the modal even when there are no comments yet
-    return renderChatColumnWithData(order, commentInfo, channelId, psid, 'comments');
+    return `<td data-column="comments" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem bình luận">−</td>`;
 }
 
 // #region ═══════════════════════════════════════════════════════════════════════
@@ -1257,54 +1164,21 @@ function renderCommentsColumn(order) {
 
 // =====================================================
 // MERGED ORDER COLUMNS - Messages & Comments (STT-based) #MERGED
+// Simplified: Only shows placeholder, badges added by notifier
 // =====================================================
 
-// Render merged messages/comments column with individual STT values
 function renderMergedMessagesColumn(order, columnType = 'messages') {
-    // Debug log
-    console.log('[renderMergedMessagesColumn]', {
-        columnType,
-        IsMerged: order.IsMerged,
-        OriginalOrdersCount: order.OriginalOrders?.length,
-        OriginalOrders: order.OriginalOrders
-    });
-
-    // Check if user wants to show message content (from column visibility settings)
-    const columnSettings = window.columnVisibility?.load() || {};
-    const showContent = columnSettings.messagesContent !== false; // Default true
-
     // Sort by STT descending (largest first)
     const sortedOrders = [...order.OriginalOrders].sort((a, b) =>
         (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0)
     );
 
     const rows = sortedOrders.map(originalOrder => {
-        // Get chat info for this specific order
-        const chatInfo = window.chatDataManager ? window.chatDataManager.getChatInfoForOrder(originalOrder) : null;
-        const channelId = chatInfo?.channelId || window.chatDataManager?.parseChannelId(originalOrder.Facebook_PostId);
-        const psid = originalOrder.Facebook_ASUserId;
+        // Extract channelId and psid
+        const channelId = originalOrder.Facebook_PostId ? originalOrder.Facebook_PostId.split('_')[0] : '';
+        const psid = originalOrder.Facebook_ASUserId || '';
 
-        // Get message or comment info - always show something even without chat info
-        let displayMessage = '−';
-        let hasUnread = false;
-        let unreadCount = 0;
-
-        // If user disabled content display, always show "-" (no preview, no badge)
-        if (!showContent) {
-            displayMessage = '–';
-        } else if (window.chatDataManager && channelId && psid) {
-            const msgInfo = columnType === 'messages'
-                ? window.chatDataManager.getLastMessageForOrder(originalOrder)
-                : window.chatDataManager.getLastCommentForOrder(channelId, psid, originalOrder);
-
-            if (msgInfo && (msgInfo.message || msgInfo.content || msgInfo.text)) {
-                displayMessage = formatMessagePreview(msgInfo);
-                hasUnread = msgInfo.hasUnread || false;
-                unreadCount = msgInfo.unreadCount || 0;
-            }
-        }
-
-        // Create click handler - always allow click if we have channelId and psid
+        // Create click handler
         const clickHandler = channelId && psid
             ? (columnType === 'messages'
                 ? `openChatModal('${originalOrder.Id}', '${channelId}', '${psid}')`
@@ -1314,22 +1188,13 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const cursorStyle = clickHandler ? 'cursor: pointer;' : 'cursor: default;';
         const hoverStyle = clickHandler ? `onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"` : '';
 
-        // Only show unread indicators if content display is enabled
-        const unreadBadge = (showContent && hasUnread) ? '<span style="width: 6px; height: 6px; background: #ef4444; border-radius: 50%; flex-shrink: 0;"></span>' : '';
-        const fontWeight = (showContent && hasUnread) ? '600' : '400';
-        const color = (showContent && hasUnread) ? '#111827' : '#6b7280';
-
-        // Always show unread count if > 0 (only when content display is enabled)
-        const unreadText = (showContent && unreadCount > 0) ? `<span style="font-size: 10px; color: #ef4444; font-weight: 600; margin-left: 4px;">${unreadCount} tin mới</span>` : '';
-
         return `
-            <div class="merged-detail-row" ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''} 
+            <div class="merged-detail-row" data-psid="${psid}" data-page-id="${channelId}" data-stt="${originalOrder.SessionIndex}"
+                 ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''}
                  style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; ${cursorStyle} transition: background 0.2s;"
                  ${hoverStyle}>
                 <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${originalOrder.SessionIndex}:</span>
-                ${unreadBadge}
-                <span style="font-size: 12px; font-weight: ${fontWeight}; color: ${color}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">${displayMessage}</span>
-                ${unreadText}
+                <span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>
             </div>
         `;
     }).join('');
