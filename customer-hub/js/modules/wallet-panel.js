@@ -119,10 +119,10 @@ export class WalletPanelModule {
                         <p class="text-4xl font-bold text-green-600 dark:text-green-500 tracking-tight tabular-nums">${this.formatCurrency(totalBalance)}</p>
                     </div>
 
-                    <!-- Tiền nạp CK & Công nợ ảo -->
+                    <!-- Tiền thật & Công nợ ảo -->
                     <div class="flex items-center gap-3 py-3 border-y border-dashed border-slate-200 dark:border-slate-700">
                         <div class="flex-1">
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Tiền nạp CK</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Tiền thật</p>
                             <p class="text-xl font-semibold text-slate-700 dark:text-slate-300 tabular-nums">${this.formatCurrencyShort(realBalance)}</p>
                         </div>
                         <div class="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>

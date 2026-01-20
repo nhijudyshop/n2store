@@ -75,12 +75,16 @@
 
 | Loai | Ma | Status Ban Dau | Co Hang Ve? | Cong Vi? | Loai Cong Vi |
 |------|-----|---------------|-------------|----------|--------------|
-| **Boom hang** | `BOOM` | PENDING_GOODS | Co | Co | deposit |
+| **Boom hang** | `BOOM` | PENDING_GOODS | Co | **Khong** | - |
 | **Sua COD (Tu choi 1 phan)** | `FIX_COD` + `REJECT_PARTIAL` | PENDING_GOODS | Co | Khong | - |
 | **Sua COD (Ship sai/Giam gia/Tru no)** | `FIX_COD` + (khac) | PENDING_FINANCE | Khong | Khong | - |
 | **Khach gui ve** | `RETURN_CLIENT` | PENDING_GOODS | Co | Co | **deposit** (tien that) |
 | **Thu ve (Doi hang)** | `RETURN_SHIPPER` | PENDING_GOODS | Co | Co | **virtual_credit** (cong no ao 15 ngay) |
 | **CSKH khac** | `OTHER` | COMPLETED | Khong | Khong | - |
+
+> **LUU Y QUAN TRONG:**
+> - **BOOM/FIX_COD khong cong vi** vi khach CHUA tra tien (khong nhan hang = khong tra COD)
+> - Chi **RETURN_CLIENT** va **RETURN_SHIPPER** moi cong vi vi khach DA tra COD roi moi tra hang
 
 ---
 
@@ -115,15 +119,22 @@
 |  | * He thong tu dong:                                                   |  |
 |  |   1. Tao Phieu tra hang tren TPOS (5 API calls)                       |  |
 |  |   2. In phieu tra hang                                                |  |
-|  |   3. Cong tien vao vi KH (deposit)                                    |  |
+|  |   3. KHONG cong vi (khach khong tra COD)                              |  |
 |  |   4. Status --> COMPLETED                                             |  |
 |  +-----------------------------------------------------------------------+  |
 |                                                                             |
 |  KET QUA:                                                                   |
 |  +-----------------------------------------------------------------------+  |
 |  | * Ton kho TPOS +1 (hang ve kho)                                       |  |
-|  | * Vi khach +350,000d (tien that, dung cho don sau)                    |  |
-|  | * Customer 360 hien thi: ticket + wallet transaction                  |  |
+|  | * Vi khach KHONG THAY DOI (khach khong tra COD nen khong hoan)        |  |
+|  | * Customer 360 hien thi: ticket hoan tat                              |  |
+|  +-----------------------------------------------------------------------+  |
+|                                                                             |
+|  ** TRUONG HOP DAC BIET: DON THANH TOAN TRUOC **                           |
+|  +-----------------------------------------------------------------------+  |
+|  | Neu don da duoc thanh toan truoc (CK truoc giao), khach boom:         |  |
+|  | -> Ke toan phai cong vi THU CONG qua Customer Hub                     |  |
+|  | -> Ghi chu: "Hoan tien don TT truoc - [Ma don]"                       |  |
 |  +-----------------------------------------------------------------------+  |
 |                                                                             |
 +-----------------------------------------------------------------------------+
