@@ -154,7 +154,8 @@ window.SoOrderElements = {
 
 // Export for other modules
 window.SoOrderConfig = {
-    firebaseConfig,
+    firebaseConfig: (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG :
+                    (typeof firebaseConfig !== 'undefined') ? firebaseConfig : null,
     app,
     db,
     orderLogsCollectionRef,
