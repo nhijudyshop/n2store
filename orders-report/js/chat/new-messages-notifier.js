@@ -7,8 +7,11 @@
     'use strict';
 
     const STORAGE_KEY = 'last_realtime_check';
-    const SERVER_URL = 'https://n2store-fallback.onrender.com';
-    // Fallback to Cloudflare Worker if needed
+    // Use n2store-realtime server (has WebSocket + Database + pending-customers API)
+    const SERVER_URL = 'https://n2store-realtime.onrender.com';
+    // Fallback to n2store-fallback if realtime server is down
+    const FALLBACK_URL = 'https://n2store-fallback.onrender.com';
+    // Cloudflare Worker fallback
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     /**
@@ -83,44 +86,66 @@
     /**
      * Fetch pending customers từ server (khách chưa được trả lời)
      * Đây là cách mới - persist qua tắt máy/đổi máy
+     * Server 24/7 lưu tin nhắn vào database, frontend fetch nhanh
      */
     async function fetchPendingCustomers() {
-        try {
-            const response = await fetch(`${SERVER_URL}/api/realtime/pending-customers?limit=1500`, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' },
-                signal: AbortSignal.timeout(15000)
-            });
+        const urls = [
+            `${SERVER_URL}/api/realtime/pending-customers?limit=1500`,
+            `${FALLBACK_URL}/api/realtime/pending-customers?limit=1500`
+        ];
 
-            if (response.ok) {
-                const data = await response.json();
-                return data.success ? data.customers : [];
+        for (const url of urls) {
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(10000)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        console.log(`[NEW-MSG-NOTIFIER] Fetched from ${url.includes('realtime') ? 'realtime' : 'fallback'} server`);
+                        return data.customers || [];
+                    }
+                }
+            } catch (error) {
+                console.warn(`[NEW-MSG-NOTIFIER] Failed to fetch from ${url}:`, error.message);
             }
-        } catch (error) {
-            console.warn('[NEW-MSG-NOTIFIER] Failed to fetch pending customers:', error.message);
         }
+
+        console.warn('[NEW-MSG-NOTIFIER] All servers failed to fetch pending customers');
         return [];
     }
 
     /**
      * Đánh dấu đã trả lời khách trên server
+     * Gọi cả 2 server để đảm bảo đồng bộ (nếu dùng chung database thì chỉ cần 1)
      */
     async function markRepliedOnServer(psid, pageId) {
-        try {
-            const response = await fetch(`${SERVER_URL}/api/realtime/mark-replied`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ psid, pageId })
-            });
+        const urls = [
+            `${SERVER_URL}/api/realtime/mark-replied`,
+            `${FALLBACK_URL}/api/realtime/mark-replied`
+        ];
 
-            if (response.ok) {
-                const data = await response.json();
-                console.log(`[NEW-MSG-NOTIFIER] Marked replied on server: ${psid} (${data.removed} removed)`);
-                return true;
+        for (const url of urls) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ psid, pageId })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(`[NEW-MSG-NOTIFIER] Marked replied: ${psid} (${data.removed} removed)`);
+                    return true;
+                }
+            } catch (error) {
+                console.warn(`[NEW-MSG-NOTIFIER] Failed to mark replied on ${url}:`, error.message);
             }
-        } catch (error) {
-            console.warn('[NEW-MSG-NOTIFIER] Failed to mark replied:', error.message);
         }
+
         return false;
     }
 

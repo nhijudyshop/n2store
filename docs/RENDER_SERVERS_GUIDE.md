@@ -38,7 +38,7 @@
 
 ---
 
-## Server 1: n2store-realtime (MỚI)
+## Server 1: n2store-realtime (MỚI - v2.0)
 
 ### Thông tin cơ bản
 
@@ -46,18 +46,22 @@
 |------------|---------|
 | **URL** | https://n2store-realtime.onrender.com |
 | **WebSocket** | wss://n2store-realtime.onrender.com |
-| **Plan** | Standard |
+| **Plan** | Standard (24/7) |
 | **Region** | Singapore |
 | **Repository** | nhijudyshop/n2store |
 | **Root Directory** | `n2store-realtime` |
+| **Database** | PostgreSQL (shared với n2store-fallback) |
 
 ### Chức năng
 
-Server này **CHỈ** xử lý WebSocket realtime:
+Server này xử lý WebSocket realtime VÀ lưu trữ tin nhắn:
 
 1. **Pancake Realtime** - Nhận tin nhắn mới từ Facebook/Pancake
 2. **TPOS Realtime** - Nhận events từ TPOS ChatOmni
 3. **Broadcast** - Forward events tới browser clients
+4. **Database Persistence** - Lưu tin nhắn vào `pending_customers` table
+5. **Auto-Connect** - Tự động kết nối lại WebSocket khi server restart
+6. **Pending Customers API** - API để frontend fetch khách chưa trả lời
 
 ### API Endpoints
 
@@ -105,7 +109,25 @@ GET /api/realtime/tpos/status
 
 ```bash
 GET /health
-# Response: { "status": "ok", "uptime": 3600, "clients": {...} }
+# Response: { "status": "ok", "uptime": 3600, "database": "connected", "clients": {...} }
+```
+
+#### Pending Customers (MỚI v2.0)
+
+```bash
+# Lấy danh sách khách chưa được trả lời
+GET /api/realtime/pending-customers?limit=500
+# Response: { "success": true, "count": 50, "customers": [...] }
+
+# Đánh dấu đã trả lời khách
+POST /api/realtime/mark-replied
+Content-Type: application/json
+{ "psid": "123456789", "pageId": "987654321" }
+# Response: { "success": true, "removed": 1 }
+
+# Clear all pending (debug only)
+POST /api/realtime/clear-pending
+{ "confirm": "yes" }
 ```
 
 ### WebSocket Connection (Frontend)
@@ -242,16 +264,20 @@ GET /api/fb-avatar?id=xxx
 
 ## So sánh 2 Server
 
-| Feature | n2store-realtime | n2store-fallback |
-|---------|------------------|------------------|
-| **Purpose** | WebSocket only | Full API + DB |
+| Feature | n2store-realtime (v2.0) | n2store-fallback |
+|---------|--------------------------|------------------|
+| **Purpose** | WebSocket + Pending Customers | Full API + DB |
 | **Plan** | Standard | Standard |
-| **Database** | None | PostgreSQL |
+| **Database** | PostgreSQL (shared) | PostgreSQL (shared) |
 | **Sleep** | No | No |
 | **Uptime** | 24/7 | 24/7 |
-| **Size** | ~18KB | ~900KB |
-| **Dependencies** | 4 packages | 15+ packages |
-| **Cold start** | ~2s | ~5s |
+| **WebSocket** | ✅ Pancake + TPOS | ❌ None |
+| **Auto-Connect** | ✅ On restart | ❌ None |
+| **Pending API** | ✅ Yes | ✅ Yes (fallback) |
+| **Dependencies** | 5 packages (pg added) | 15+ packages |
+| **Cold start** | ~3s | ~5s |
+
+### Lưu ý: Cả 2 server dùng CHUNG PostgreSQL database
 
 ---
 
@@ -449,6 +475,10 @@ POST /api/upload/image
 
 | Date | Change |
 |------|--------|
+| 2026-01-20 | **v2.0**: Thêm Database persistence cho n2store-realtime |
+| 2026-01-20 | Thêm pending_customers table + API |
+| 2026-01-20 | Thêm auto-connect WebSocket khi server restart |
+| 2026-01-20 | Frontend sử dụng n2store-realtime cho pending-customers API |
 | 2026-01-11 | Bổ sung thêm 3 servers: n2store-facebook, n2shop, n2store-balance |
 | 2026-01-05 | Tạo server mới `n2store-realtime` (Standard plan) |
 | 2026-01-05 | Chuyển WebSocket realtime sang server mới |
