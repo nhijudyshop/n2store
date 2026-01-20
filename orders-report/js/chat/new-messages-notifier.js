@@ -250,6 +250,7 @@
 
     /**
      * Update table cells with "NEW" badge
+     * Uses chunked processing to avoid blocking main thread
      */
     function highlightNewMessagesInTable(items) {
         if (!items || items.length === 0) return;
@@ -273,46 +274,68 @@
             }
         });
 
-        // Find rows in table and add badge
+        // Convert to array for chunked processing
+        const entries = Array.from(psidMap.values());
+        const CHUNK_SIZE = 50; // Process 50 customers per frame
+        let index = 0;
         let highlightedCount = 0;
-        psidMap.forEach((counts) => {
-            const { psid, pageId } = counts;
-            // Find rows with matching PSID (and optionally pageId for more precision)
-            let rows;
-            if (pageId) {
-                rows = document.querySelectorAll(`tr[data-psid="${psid}"][data-page-id="${pageId}"]`);
-                // Fallback to psid-only if no match with pageId
-                if (rows.length === 0) {
+
+        console.log(`[NEW-MSG-NOTIFIER] Starting chunked highlight for ${entries.length} customers...`);
+
+        // Process in chunks using requestAnimationFrame
+        function processChunk() {
+            const chunkEnd = Math.min(index + CHUNK_SIZE, entries.length);
+
+            for (; index < chunkEnd; index++) {
+                const counts = entries[index];
+                const { psid, pageId } = counts;
+
+                // Find rows with matching PSID (and optionally pageId for more precision)
+                let rows;
+                if (pageId) {
+                    rows = document.querySelectorAll(`tr[data-psid="${psid}"][data-page-id="${pageId}"]`);
+                    // Fallback to psid-only if no match with pageId
+                    if (rows.length === 0) {
+                        rows = document.querySelectorAll(`tr[data-psid="${psid}"]`);
+                    }
+                } else {
                     rows = document.querySelectorAll(`tr[data-psid="${psid}"]`);
                 }
-            } else {
-                rows = document.querySelectorAll(`tr[data-psid="${psid}"]`);
+
+                rows.forEach(row => {
+                    highlightedCount++;
+
+                    // Add badge to messages column
+                    if (counts.messages > 0) {
+                        const msgCell = row.querySelector('td[data-column="messages"]');
+                        if (msgCell) {
+                            addNewBadge(msgCell, counts.messages);
+                        }
+                    }
+
+                    // Add badge to comments column
+                    if (counts.comments > 0) {
+                        const cmtCell = row.querySelector('td[data-column="comments"]');
+                        if (cmtCell) {
+                            addNewBadge(cmtCell, counts.comments);
+                        }
+                    }
+
+                    // Highlight row (permanent until user replies)
+                    row.classList.add('pending-customer-row');
+                });
             }
-            rows.forEach(row => {
-                highlightedCount++;
 
-                // Add badge to messages column
-                if (counts.messages > 0) {
-                    const msgCell = row.querySelector('td[data-column="messages"]');
-                    if (msgCell) {
-                        addNewBadge(msgCell, counts.messages);
-                    }
-                }
+            // Continue with next chunk or finish
+            if (index < entries.length) {
+                requestAnimationFrame(processChunk);
+            } else {
+                console.log(`[NEW-MSG-NOTIFIER] Highlighted ${highlightedCount} rows (chunked)`);
+            }
+        }
 
-                // Add badge to comments column
-                if (counts.comments > 0) {
-                    const cmtCell = row.querySelector('td[data-column="comments"]');
-                    if (cmtCell) {
-                        addNewBadge(cmtCell, counts.comments);
-                    }
-                }
-
-                // Highlight row (permanent until user replies)
-                row.classList.add('pending-customer-row');
-            });
-        });
-
-        console.log(`[NEW-MSG-NOTIFIER] Highlighted ${highlightedCount} rows`);
+        // Start processing
+        requestAnimationFrame(processChunk);
     }
 
     /**
