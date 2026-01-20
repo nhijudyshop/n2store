@@ -533,4 +533,46 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/v2/tickets/:id/resolve-credit
+ * Issue virtual credit when creating RETURN_SHIPPER ticket
+ * This is called immediately after ticket creation (before goods are returned)
+ */
+router.post('/:id/resolve-credit', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { phone, amount, ticket_code, note, expires_in_days = 15 } = req.body;
+
+    if (!phone || !amount || amount <= 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'Phone and positive amount are required'
+        });
+    }
+
+    try {
+        console.log(`[Tickets V2] Issuing virtual credit: ${phone} - ${amount}đ for ticket ${ticket_code || id}`);
+
+        // Issue virtual credit using wallet-event-processor
+        const result = await issueVirtualCredit(
+            db,
+            phone,
+            parseFloat(amount),
+            ticket_code || id,
+            note || `Công nợ ảo - Thu về đơn hàng`,
+            expires_in_days
+        );
+
+        console.log(`[Tickets V2] Virtual credit issued successfully:`, result);
+
+        res.json({
+            success: true,
+            data: result,
+            message: `Đã cấp ${parseFloat(amount).toLocaleString()}đ công nợ ảo cho ${phone}`
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to issue virtual credit');
+    }
+});
+
 module.exports = router;

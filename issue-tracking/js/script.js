@@ -935,6 +935,50 @@ async function handleSubmitTicket() {
     showLoading(true);
     try {
         await ApiService.createTicket(ticketData);
+
+        // =====================================================
+        // RETURN_SHIPPER: Cấp ngay virtual_credit khi tạo ticket
+        // (Khách sẽ dùng credit này để đặt đơn mới trước khi trả hàng cũ)
+        // =====================================================
+        if (type === 'RETURN_SHIPPER' && money > 0 && customerPhone) {
+            try {
+                console.log('[APP] Issuing virtual credit for RETURN_SHIPPER:', customerPhone, money);
+
+                const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/new/resolve-credit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: customerPhone,
+                        amount: money,
+                        ticket_code: tposOrderId, // Dùng orderId làm reference
+                        note: `Công nợ ảo - Thu về đơn ${tposOrderId}`,
+                        expires_in_days: 15
+                    })
+                });
+
+                const resolveData = await resolveResult.json();
+
+                if (resolveData.success) {
+                    console.log('[APP] Virtual credit issued successfully:', resolveData);
+                    notificationManager.success(
+                        `Đã cấp ${money.toLocaleString()}đ công nợ ảo cho ${customerPhone}`,
+                        3000,
+                        'Công nợ ảo'
+                    );
+                } else {
+                    console.error('[APP] Failed to issue virtual credit:', resolveData.error);
+                    notificationManager.warning(
+                        'Không thể cấp công nợ ảo tự động, cần xử lý thủ công',
+                        5000,
+                        'Cảnh báo'
+                    );
+                }
+            } catch (creditError) {
+                console.error('[APP] Error issuing virtual credit:', creditError);
+                notificationManager.warning('Không thể cấp công nợ ảo tự động', 5000);
+            }
+        }
+
         closeModal(elements.modalCreate);
         resetCreateForm();
         notificationManager.success('Tạo phiếu thành công!');
@@ -1016,7 +1060,8 @@ async function handleConfirmAction() {
             });
 
             // =====================================================
-            // Credit wallet for RETURN tickets - ONLY if TPOS amount matches
+            // Credit wallet for RETURN_CLIENT only - ONLY if TPOS amount matches
+            // RETURN_SHIPPER: virtual_credit đã được cấp khi TẠO ticket (không cộng lại ở đây)
             // Validate "Tổng tiền" from PrintRefund HTML before crediting
             // =====================================================
             const compensationAmount = parseFloat(ticket.money) || 0;
@@ -1025,14 +1070,17 @@ async function handleConfirmAction() {
 
             console.log('[APP] Wallet validation - Expected:', compensationAmount, 'TPOS HTML:', refundAmountFromHtml);
 
-            if (compensationAmount > 0 && customerPhone && (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER')) {
+            // CHỈ cộng deposit cho RETURN_CLIENT (tiền thật khi hàng đã về)
+            // RETURN_SHIPPER đã được cấp virtual_credit ngay khi tạo ticket
+            if (compensationAmount > 0 && customerPhone && ticket.type === 'RETURN_CLIENT') {
                 // Validate: TPOS refund amount must match ticket.money
                 if (refundAmountFromHtml !== null && refundAmountFromHtml === compensationAmount) {
                     try {
                         notificationManager.remove(loadingId);
                         loadingId = notificationManager.loading('Đang cộng tiền vào ví khách...', 'Hoàn tất');
 
-                        const compensationType = ticket.type === 'RETURN_SHIPPER' ? 'virtual_credit' : 'deposit';
+                        // RETURN_CLIENT: luôn dùng deposit (tiền thật)
+                        const compensationType = 'deposit';
 
                         const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${pendingActionTicketId}/resolve`, {
                             method: 'POST',
