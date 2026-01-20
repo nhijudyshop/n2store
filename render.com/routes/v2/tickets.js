@@ -545,6 +545,17 @@ router.post('/:id/resolve-credit', async (req, res) => {
     const { id } = req.params;
     const { phone, amount, ticket_code, note, expires_in_days = 15 } = req.body;
 
+    console.log(`[Tickets V2] resolve-credit called: id=${id}, phone=${phone}, amount=${amount}, ticket_code=${ticket_code}`);
+    console.log(`[Tickets V2] db available:`, !!db);
+
+    if (!db) {
+        console.error('[Tickets V2] ERROR: chatDb is not available!');
+        return res.status(500).json({
+            success: false,
+            error: 'Database connection not available'
+        });
+    }
+
     if (!phone || !amount || amount <= 0) {
         return res.status(400).json({
             success: false,
@@ -573,6 +584,8 @@ router.post('/:id/resolve-credit', async (req, res) => {
             message: `Đã cấp ${parseFloat(amount).toLocaleString()}đ công nợ ảo cho ${phone}`
         });
     } catch (error) {
+        console.error(`[Tickets V2] resolve-credit ERROR:`, error.message);
+        console.error(`[Tickets V2] Full error:`, error);
         handleError(res, error, 'Failed to issue virtual credit');
     }
 });
