@@ -959,7 +959,8 @@ async function handleConfirmAction() {
             loadingId = notificationManager.loading('Bước 1/5: Tạo phiếu hoàn...', 'Đang xử lý nhận hàng');
 
             // Call the refund process with progress callback
-            const result = await ApiService.processRefund(ticket.tposId, (step, message) => {
+            // Pass ticket.products to filter OrderLines for partial refund
+            const result = await ApiService.processRefund(ticket.tposId, ticket.products, (step, message) => {
                 // Update loading notification with step progress
                 notificationManager.remove(loadingId);
                 loadingId = notificationManager.loading(message, `Bước ${step}/5`);
