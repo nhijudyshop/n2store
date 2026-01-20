@@ -31,12 +31,12 @@ const ApiService = {
 
         console.log(`[API] Searching orders for phone: ${cleanQuery}`);
 
-        // Build date range (last 30 days)
+        // Build date range (last 60 days)
         const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
         // Format dates for OData (ISO 8601 with timezone)
-        const startDate = thirtyDaysAgo.toISOString().replace('Z', '+00:00');
+        const startDate = sixtyDaysAgo.toISOString().replace('Z', '+00:00');
         const endDate = now.toISOString().replace('Z', '+00:00');
 
         // Build OData filter - matches the working TPOS request
