@@ -1606,19 +1606,27 @@ router.delete('/ticket/:code', async (req, res) => {
             console.log(`[DELETE] Soft deleted ticket: ${ticketCode || code}`);
         }
 
-        // Log activity
-        await db.query(`
-            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-            VALUES ($1, $2, 'TICKET_DELETED', $3, $4, 'ticket', $5, 'trash', 'red')
-        `, [
-            ticket.phone, ticket.customer_id,
-            `Ticket deleted: ${ticketCode || code}`,
-            hard === 'true' ? 'Permanently deleted' : 'Soft deleted',
-            ticketCode || code,
-        ]);
+        // Log activity (non-blocking - don't fail if logging fails)
+        try {
+            await db.query(`
+                INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
+                VALUES ($1, $2, 'TICKET_DELETED', $3, $4, 'ticket', $5, 'trash', 'red')
+            `, [
+                ticket.phone, ticket.customer_id,
+                `Ticket deleted: ${ticketCode || code}`,
+                hard === 'true' ? 'Permanently deleted' : 'Soft deleted',
+                ticketCode || code,
+            ]);
+        } catch (logErr) {
+            console.error('[DELETE] Failed to log activity (non-critical):', logErr.message);
+        }
 
-        // Notify SSE clients
-        sseRouter.notifyClients('tickets', { action: 'deleted', ticketCode: code }, 'deleted');
+        // Notify SSE clients (non-blocking)
+        try {
+            sseRouter.notifyClients('tickets', { action: 'deleted', ticketCode: code }, 'deleted');
+        } catch (sseErr) {
+            console.error('[DELETE] Failed to notify SSE (non-critical):', sseErr.message);
+        }
 
         res.json({
             success: true,
