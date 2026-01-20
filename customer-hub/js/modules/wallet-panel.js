@@ -445,6 +445,14 @@ export class WalletPanelModule {
         // Format datetime same as _getTimeAgo in customer-profile.js
         const dateTimeStr = this._formatDateTime(tx.created_at);
 
+        // Format expiry date for virtual credits
+        let expiryText = '';
+        if (tx.type === 'VIRTUAL_CREDIT_ISSUED' && tx.expires_at) {
+            const expiryDate = new Date(tx.expires_at);
+            const expiryStr = expiryDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            expiryText = `<span class="text-orange-500 ml-1">• HSD: ${expiryStr}</span>`;
+        }
+
         // Escape HTML to prevent XSS and broken image rendering
         const noteText = this._escapeHtml(tx.note || tx.source || '');
 
@@ -453,7 +461,7 @@ export class WalletPanelModule {
                 <div class="flex-1">
                     <p class="font-medium text-slate-800 dark:text-slate-200">${typeLabels[tx.type] || tx.type}</p>
                     <p class="text-xs text-slate-500">${noteText}</p>
-                    <p class="text-xs text-slate-400">${dateTimeStr}</p>
+                    <p class="text-xs text-slate-400">${dateTimeStr}${expiryText}</p>
                 </div>
                 <div class="text-right">
                     <p class="font-bold ${colorClass}">${sign}${this.formatCurrency(Math.abs(tx.amount))}</p>

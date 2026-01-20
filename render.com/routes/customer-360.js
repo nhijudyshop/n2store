@@ -482,7 +482,7 @@ router.get('/customer/:phone/transactions', async (req, res) => {
                     -- Wallet transactions (deposits, withdrawals, etc)
                     SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
                         virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
-                        note, created_by, created_at
+                        note, created_by, created_at, NULL::timestamp as expires_at
                     FROM wallet_transactions
                     WHERE phone = $1
 
@@ -493,13 +493,14 @@ router.get('/customer/:phone/transactions', async (req, res) => {
                         original_amount as amount, 0 as balance_before, 0 as balance_after,
                         0 as virtual_balance_before, original_amount as virtual_balance_after,
                         source_type as source, 'ticket' as reference_type, source_id as reference_id,
-                        note, NULL as created_by, created_at
+                        note, NULL as created_by, created_at, expires_at
                     FROM virtual_credits
                     WHERE phone = $1 AND status = 'ACTIVE'
                 )
                 SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
                     virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
-                    note, created_by, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                    note, created_by, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+                    (expires_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as expires_at
                 FROM combined
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
