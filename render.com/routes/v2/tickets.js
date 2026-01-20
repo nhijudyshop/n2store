@@ -22,7 +22,7 @@
 const express = require('express');
 const router = express.Router();
 const { normalizePhone, getOrCreateCustomer } = require('../../utils/customer-helpers');
-const { processDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
+const { processDeposit, processManualDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
 
 // Try to import SSE router for notifications
 let sseRouter;
@@ -406,12 +406,14 @@ router.post('/:id/resolve', async (req, res) => {
                 updates.wallet_credited = true;
 
             } else if (compensation_type === 'deposit') {
-                // Use centralized wallet-event-processor for deposit
-                await processDeposit(
+                // Use processManualDeposit for RETURN_CLIENT (return goods)
+                // processDeposit is only for bank transfers with balance_history
+                await processManualDeposit(
                     db,
                     ticket.phone,
                     compensation_amount,
-                    ticket.id, // use ticket id as reference
+                    'RETURN_GOODS', // Source: hàng trả về
+                    ticket.ticket_code, // Reference ID
                     note || `Hoàn tiền ticket ${ticket.ticket_code}`,
                     ticket.customer_id
                 );

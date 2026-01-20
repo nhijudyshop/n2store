@@ -41,12 +41,14 @@ const WALLET_EVENT_TYPES = {
     ADJUSTMENT: 'ADJUSTMENT'
 };
 
-// Source types
+// Source types - MUST MATCH database constraint in wallet_transactions table
 const WALLET_SOURCES = {
     BANK_TRANSFER: 'BANK_TRANSFER',
-    TICKET_REFUND: 'TICKET_REFUND',
-    TICKET_COMPENSATION: 'TICKET_COMPENSATION',
+    RETURN_GOODS: 'RETURN_GOODS',
     ORDER_PAYMENT: 'ORDER_PAYMENT',
+    VIRTUAL_CREDIT_ISSUE: 'VIRTUAL_CREDIT_ISSUE',
+    VIRTUAL_CREDIT_USE: 'VIRTUAL_CREDIT_USE',
+    VIRTUAL_CREDIT_EXPIRE: 'VIRTUAL_CREDIT_EXPIRE',
     MANUAL_ADJUSTMENT: 'MANUAL_ADJUSTMENT'
 };
 
@@ -420,7 +422,7 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
         type: WALLET_EVENT_TYPES.VIRTUAL_CREDIT_ISSUED,
         phone,
         amount,
-        source: WALLET_SOURCES.TICKET_REFUND,
+        source: WALLET_SOURCES.VIRTUAL_CREDIT_ISSUE,
         referenceType: 'ticket',
         referenceId: ticketId,
         note: reason
