@@ -412,7 +412,7 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
             phone, wallet_id, original_amount, remaining_amount,
             expires_at, source_type, source_id, note, status
         )
-        VALUES ($1, $2, $3, $3, $4, 'TICKET', $5, $6, 'ACTIVE')
+        VALUES ($1, $2, $3, $3, $4, 'RETURN_SHIPPER', $5, $6, 'ACTIVE')
     `, [phone, wallet.id, amount, expiresAt, ticketId, reason]);
 
     // Then process the wallet event
