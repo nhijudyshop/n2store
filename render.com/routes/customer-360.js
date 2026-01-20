@@ -1607,10 +1607,11 @@ router.delete('/ticket/:code', async (req, res) => {
         }
 
         // Log activity (non-blocking - don't fail if logging fails)
+        // Note: Using TICKET_UPDATED because TICKET_DELETED is not in activity_type constraint
         try {
             await db.query(`
                 INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-                VALUES ($1, $2, 'TICKET_DELETED', $3, $4, 'ticket', $5, 'trash', 'red')
+                VALUES ($1, $2, 'TICKET_UPDATED', $3, $4, 'ticket', $5, 'trash', 'red')
             `, [
                 ticket.phone, ticket.customer_id,
                 `Ticket deleted: ${ticketCode || code}`,
