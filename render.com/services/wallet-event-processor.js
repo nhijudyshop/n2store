@@ -403,30 +403,46 @@ async function processWithdrawal(db, phone, amount, referenceType, referenceId, 
  * Issue virtual credit (from ticket completion)
  */
 async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresInDays = 30) {
-    // First create the virtual credit record
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+    console.log(`[WALLET-PROCESSOR] issueVirtualCredit called: phone=${phone}, amount=${amount}, ticketId=${ticketId}, expiresInDays=${expiresInDays}`);
 
-    const wallet = await getOrCreateWallet(db, phone);
+    try {
+        // First create the virtual credit record
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
-    await db.query(`
-        INSERT INTO virtual_credits (
-            phone, wallet_id, original_amount, remaining_amount,
-            expires_at, source_type, source_id, note, status
-        )
-        VALUES ($1, $2, $3, $3, $4, 'RETURN_SHIPPER', $5, $6, 'ACTIVE')
-    `, [phone, wallet.id, amount, expiresAt, ticketId, reason]);
+        console.log(`[WALLET-PROCESSOR] Getting/creating wallet for ${phone}`);
+        const wallet = await getOrCreateWallet(db, phone);
+        console.log(`[WALLET-PROCESSOR] Wallet obtained: id=${wallet.id}`);
 
-    // Then process the wallet event
-    return processWalletEvent(db, {
-        type: WALLET_EVENT_TYPES.VIRTUAL_CREDIT_ISSUED,
-        phone,
-        amount,
-        source: WALLET_SOURCES.VIRTUAL_CREDIT_ISSUE,
-        referenceType: 'ticket',
-        referenceId: ticketId,
-        note: reason
-    });
+        console.log(`[WALLET-PROCESSOR] Inserting virtual_credits record...`);
+        await db.query(`
+            INSERT INTO virtual_credits (
+                phone, wallet_id, original_amount, remaining_amount,
+                expires_at, source_type, source_id, note, status
+            )
+            VALUES ($1, $2, $3, $3, $4, 'RETURN_SHIPPER', $5, $6, 'ACTIVE')
+        `, [phone, wallet.id, amount, expiresAt, ticketId, reason]);
+        console.log(`[WALLET-PROCESSOR] Virtual credit record inserted successfully`);
+
+        // Then process the wallet event
+        console.log(`[WALLET-PROCESSOR] Processing wallet event...`);
+        const result = await processWalletEvent(db, {
+            type: WALLET_EVENT_TYPES.VIRTUAL_CREDIT_ISSUED,
+            phone,
+            amount,
+            source: WALLET_SOURCES.VIRTUAL_CREDIT_ISSUE,
+            referenceType: 'ticket',
+            referenceId: ticketId,
+            note: reason
+        });
+        console.log(`[WALLET-PROCESSOR] Wallet event processed successfully`);
+
+        return result;
+    } catch (error) {
+        console.error(`[WALLET-PROCESSOR] issueVirtualCredit FAILED:`, error.message);
+        console.error(`[WALLET-PROCESSOR] Error details:`, error);
+        throw error;
+    }
 }
 
 /**
