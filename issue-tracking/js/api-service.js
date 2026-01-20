@@ -701,10 +701,28 @@ const ApiService = {
         const printHtml = await printResponse.text();
         console.log('[API] Print HTML received, length:', printHtml.length);
 
+        // ========== Extract "Tổng tiền" from HTML for validation ==========
+        let refundAmountFromHtml = null;
+        try {
+            // Pattern: <strong>Tổng tiền:</strong> ... <td class="text-right">180.000</td>
+            const totalMatch = printHtml.match(/Tổng tiền:.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)<\/td>/is);
+            if (totalMatch && totalMatch[1]) {
+                // Convert "180.000" -> 180000
+                const amountStr = totalMatch[1].replace(/\./g, '').replace(/,/g, '');
+                refundAmountFromHtml = parseInt(amountStr, 10);
+                console.log('[API] Extracted refund amount from HTML:', refundAmountFromHtml);
+            } else {
+                console.warn('[API] Could not extract Tổng tiền from HTML');
+            }
+        } catch (parseError) {
+            console.error('[API] Error parsing refund amount from HTML:', parseError);
+        }
+
         return {
             refundOrderId: refundOrderId,
             printHtml: printHtml,
-            confirmResult: confirmResult
+            confirmResult: confirmResult,
+            refundAmountFromHtml: refundAmountFromHtml  // For validation before wallet credit
         };
     },
 

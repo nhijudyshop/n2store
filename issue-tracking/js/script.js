@@ -981,53 +981,67 @@ async function handleConfirmAction() {
             });
 
             // =====================================================
-            // NEW: Credit wallet for RETURN tickets (AUTO because Kho = Kế toán)
-            // Gọi resolve API để cộng tiền vào ví khách hàng
+            // Credit wallet for RETURN tickets - ONLY if TPOS amount matches
+            // Validate "Tổng tiền" from PrintRefund HTML before crediting
             // =====================================================
             const compensationAmount = parseFloat(ticket.money) || 0;
             const customerPhone = ticket.phone;
+            const refundAmountFromHtml = result.refundAmountFromHtml;
+
+            console.log('[APP] Wallet validation - Expected:', compensationAmount, 'TPOS HTML:', refundAmountFromHtml);
 
             if (compensationAmount > 0 && customerPhone && (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER')) {
-                try {
-                    notificationManager.remove(loadingId);
-                    loadingId = notificationManager.loading('Đang cộng tiền vào ví khách...', 'Hoàn tất');
+                // Validate: TPOS refund amount must match ticket.money
+                if (refundAmountFromHtml !== null && refundAmountFromHtml === compensationAmount) {
+                    try {
+                        notificationManager.remove(loadingId);
+                        loadingId = notificationManager.loading('Đang cộng tiền vào ví khách...', 'Hoàn tất');
 
-                    const compensationType = ticket.type === 'RETURN_SHIPPER' ? 'virtual_credit' : 'deposit';
+                        const compensationType = ticket.type === 'RETURN_SHIPPER' ? 'virtual_credit' : 'deposit';
 
-                    const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${pendingActionTicketId}/resolve`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            compensation_amount: compensationAmount,
-                            compensation_type: compensationType,
-                            performed_by: window.authManager?.getUserInfo()?.username || 'warehouse_staff',
-                            note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`
-                        })
-                    });
+                        const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${pendingActionTicketId}/resolve`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                compensation_amount: compensationAmount,
+                                compensation_type: compensationType,
+                                performed_by: window.authManager?.getUserInfo()?.username || 'warehouse_staff',
+                                note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`
+                            })
+                        });
 
-                    const resolveData = await resolveResult.json();
+                        const resolveData = await resolveResult.json();
 
-                    if (resolveData.success) {
-                        console.log('[APP] Wallet credited successfully:', resolveData);
-                        notificationManager.success(
-                            `Đã cộng ${compensationAmount.toLocaleString()}đ vào ví ${customerPhone}`,
-                            3000,
-                            'Ví đã cập nhật'
-                        );
-                    } else {
-                        console.error('[APP] Wallet credit failed:', resolveData.error);
+                        if (resolveData.success) {
+                            console.log('[APP] Wallet credited successfully:', resolveData);
+                            notificationManager.success(
+                                `Đã cộng ${compensationAmount.toLocaleString()}đ vào ví ${customerPhone}`,
+                                3000,
+                                'Ví đã cập nhật'
+                            );
+                        } else {
+                            console.error('[APP] Wallet credit failed:', resolveData.error);
+                            notificationManager.warning(
+                                'Cộng ví thất bại, cần xử lý thủ công qua Customer 360',
+                                5000,
+                                'Cảnh báo'
+                            );
+                        }
+                    } catch (walletError) {
+                        console.error('[APP] Wallet credit error:', walletError);
                         notificationManager.warning(
-                            'Cộng ví thất bại, cần xử lý thủ công qua Customer 360',
+                            'Không thể cộng ví tự động, vui lòng kiểm tra lại',
                             5000,
                             'Cảnh báo'
                         );
                     }
-                } catch (walletError) {
-                    console.error('[APP] Wallet credit error:', walletError);
+                } else {
+                    // Amount mismatch - DO NOT auto-credit, warn user
+                    console.error('[APP] Amount mismatch! Expected:', compensationAmount, 'TPOS:', refundAmountFromHtml);
                     notificationManager.warning(
-                        'Không thể cộng ví tự động, vui lòng kiểm tra lại',
-                        5000,
-                        'Cảnh báo'
+                        `Số tiền không khớp! Ticket: ${compensationAmount.toLocaleString()}đ, TPOS: ${(refundAmountFromHtml || 0).toLocaleString()}đ. Không tự động cộng ví.`,
+                        8000,
+                        'Cảnh báo: Cần kiểm tra'
                     );
                 }
             }
