@@ -135,6 +135,26 @@ async function upsertPendingCustomer(data) {
     }
 }
 
+/**
+ * Auto-cleanup: Delete pending_customers older than 3 days
+ */
+async function cleanupExpiredPendingCustomers() {
+    if (!dbPool) return;
+
+    try {
+        const result = await dbPool.query(`
+            DELETE FROM pending_customers
+            WHERE last_message_time < NOW() - INTERVAL '3 days'
+        `);
+
+        if (result.rowCount > 0) {
+            console.log(`[DATABASE] 🧹 Cleaned up ${result.rowCount} expired pending customers (>3 days)`);
+        }
+    } catch (error) {
+        console.error('[DATABASE] Error cleaning up expired customers:', error.message);
+    }
+}
+
 async function saveRealtimeCredentials(clientType, credentials) {
     if (!dbPool) return;
 
@@ -984,6 +1004,16 @@ async function startServer() {
         setTimeout(() => {
             autoConnectClients();
         }, 3000);
+
+        // Cleanup expired pending_customers on start and every hour
+        setTimeout(() => {
+            cleanupExpiredPendingCustomers();
+        }, 5000);
+
+        // Run cleanup every hour (3600000ms)
+        setInterval(() => {
+            cleanupExpiredPendingCustomers();
+        }, 3600000);
     });
 }
 
