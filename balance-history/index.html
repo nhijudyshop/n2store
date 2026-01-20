@@ -1061,7 +1061,7 @@
                         <label for="editTSCustomerName" style="display: block; margin-bottom: 5px; font-weight: 500;">
                             <i data-lucide="user" style="width: 16px; height: 16px; vertical-align: middle;"></i> Tên khách hàng:
                         </label>
-                        <input type="text" id="editTSCustomerName" class="filter-input" placeholder="Nhập tên khách hàng" style="width: 100%;">
+                        <input type="text" id="editTSCustomerName" class="filter-input" placeholder="Tự động tìm từ TPOS..." style="width: 100%; background: #f9fafb;" readonly>
                     </div>
 
                     <div>
@@ -1069,6 +1069,38 @@
                             <i data-lucide="phone" style="width: 16px; height: 16px; vertical-align: middle;"></i> Số điện thoại:
                         </label>
                         <input type="tel" id="editTSCustomerPhone" class="filter-input" placeholder="Nhập số điện thoại" style="width: 100%;">
+                        <!-- TPOS Lookup UI for Transfer Stats -->
+                        <div id="tsTPOSLookupContainer" style="margin-top: 8px;">
+                            <div id="tsTPOSLookupLoading" style="display: none; color: #6b7280; font-size: 13px;">
+                                <i data-lucide="loader-2" style="width: 14px; height: 14px; animation: spin 1s linear infinite;"></i>
+                                Đang tìm từ TPOS...
+                            </div>
+                            <div id="tsTPOSLookupResult" style="display: none;">
+                                <!-- Single customer result -->
+                                <div id="tsTPOSLookupSingle" style="display: none; padding: 8px; background: #dcfce7; border-radius: 4px; color: #166534; font-size: 13px;">
+                                    <i data-lucide="check-circle" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    <span>Tìm thấy: </span><span id="tsTPOSLookupName"></span>
+                                </div>
+                                <!-- Multiple customers dropdown -->
+                                <div id="tsTPOSLookupMultiple" style="display: none;">
+                                    <div style="padding: 8px; background: #fef3c7; border-radius: 4px; color: #92400e; font-size: 13px; margin-bottom: 8px;">
+                                        <i data-lucide="alert-triangle" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                        <span>Tìm thấy nhiều KH - Chọn một:</span>
+                                    </div>
+                                    <select id="tsTPOSCustomerDropdown" class="filter-input" style="width: 100%;">
+                                        <option value="">-- Chọn khách hàng --</option>
+                                    </select>
+                                </div>
+                                <!-- No customer found -->
+                                <div id="tsTPOSLookupEmpty" style="display: none; padding: 8px; background: #fef2f2; border-radius: 4px; color: #991b1b; font-size: 13px;">
+                                    <i data-lucide="user-x" style="width: 14px; height: 14px; vertical-align: middle;"></i>
+                                    Không tìm thấy KH trong TPOS
+                                </div>
+                            </div>
+                            <p id="tsTPOSLookupNote" style="margin-top: 6px; font-size: 12px; color: #9ca3af;">
+                                Nhập đủ 10 số để tự động tìm tên từ TPOS
+                            </p>
+                        </div>
                     </div>
 
                     <div>

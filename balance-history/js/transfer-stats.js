@@ -625,14 +625,41 @@ document.addEventListener('DOMContentLoaded', () => {
 // EDIT MODAL
 // =====================================================
 
+// TPOS Lookup state for Transfer Stats
+let tsTPOSLookupTimeout = null;
+let tsTPOSLookupCache = {};
+let tsCurrentEditItem = null; // Store current editing item
+
 function openEditTSModal(id) {
     const item = tsData.find(d => d.id === id);
     if (!item) return;
+
+    tsCurrentEditItem = item; // Store for later use
 
     document.getElementById('editTSId').value = id;
     document.getElementById('editTSCustomerName').value = item.customer_name || '';
     document.getElementById('editTSCustomerPhone').value = item.customer_phone || '';
     document.getElementById('editTSNotes').value = item.notes || '';
+
+    // Reset TPOS lookup UI
+    resetTSTPOSLookupUI();
+
+    // Setup phone input listener for TPOS lookup
+    const phoneInput = document.getElementById('editTSCustomerPhone');
+    phoneInput.removeEventListener('input', handleTSPhoneInputForTPOS);
+    phoneInput.addEventListener('input', handleTSPhoneInputForTPOS);
+
+    // Setup dropdown change listener
+    const dropdown = document.getElementById('tsTPOSCustomerDropdown');
+    if (dropdown) {
+        dropdown.removeEventListener('change', handleTSTPOSDropdownChange);
+        dropdown.addEventListener('change', handleTSTPOSDropdownChange);
+    }
+
+    // If phone already has 10 digits, trigger lookup
+    if (item.customer_phone && item.customer_phone.length === 10) {
+        handleTSPhoneInputForTPOS();
+    }
 
     document.getElementById('editTSModal').classList.add('active');
     lucide.createIcons();
@@ -640,6 +667,182 @@ function openEditTSModal(id) {
 
 function closeEditTSModal() {
     document.getElementById('editTSModal').classList.remove('active');
+    tsCurrentEditItem = null;
+    resetTSTPOSLookupUI();
+}
+
+/**
+ * Reset TPOS lookup UI elements
+ */
+function resetTSTPOSLookupUI() {
+    const loading = document.getElementById('tsTPOSLookupLoading');
+    const result = document.getElementById('tsTPOSLookupResult');
+    const single = document.getElementById('tsTPOSLookupSingle');
+    const multiple = document.getElementById('tsTPOSLookupMultiple');
+    const empty = document.getElementById('tsTPOSLookupEmpty');
+    const note = document.getElementById('tsTPOSLookupNote');
+    const nameInput = document.getElementById('editTSCustomerName');
+
+    if (loading) loading.style.display = 'none';
+    if (result) result.style.display = 'none';
+    if (single) single.style.display = 'none';
+    if (multiple) multiple.style.display = 'none';
+    if (empty) empty.style.display = 'none';
+    if (note) note.style.display = 'block';
+
+    // Reset name input state
+    if (nameInput) {
+        nameInput.readOnly = true;
+        nameInput.style.background = '#f9fafb';
+        nameInput.placeholder = 'Tự động tìm từ TPOS...';
+    }
+}
+
+/**
+ * Fetch customer(s) from TPOS by phone number (for Transfer Stats)
+ */
+async function fetchTSTPOSCustomer(phone) {
+    // Check cache first
+    if (tsTPOSLookupCache[phone]) {
+        return tsTPOSLookupCache[phone];
+    }
+
+    try {
+        const response = await fetch(`${TS_API_BASE_URL}/api/sepay/tpos/customer/${phone}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const cacheResult = {
+                success: true,
+                customers: result.data || [],
+                count: result.count || 0
+            };
+            // Cache for 5 minutes
+            tsTPOSLookupCache[phone] = cacheResult;
+            setTimeout(() => delete tsTPOSLookupCache[phone], 5 * 60 * 1000);
+            return cacheResult;
+        } else {
+            return { success: false, customers: [], count: 0, error: result.error };
+        }
+    } catch (error) {
+        console.error('[TS-TPOS-LOOKUP] Error:', error);
+        return { success: false, customers: [], count: 0, error: error.message };
+    }
+}
+
+/**
+ * Handle phone input for TPOS auto-lookup
+ */
+function handleTSPhoneInputForTPOS() {
+    const phoneInput = document.getElementById('editTSCustomerPhone');
+    const phone = phoneInput?.value?.replace(/\D/g, '') || '';
+
+    // Clear previous timeout
+    if (tsTPOSLookupTimeout) {
+        clearTimeout(tsTPOSLookupTimeout);
+    }
+
+    // Reset UI
+    resetTSTPOSLookupUI();
+
+    // Only lookup if exactly 10 digits
+    if (phone.length !== 10) {
+        return;
+    }
+
+    // Show loading
+    const loading = document.getElementById('tsTPOSLookupLoading');
+    const note = document.getElementById('tsTPOSLookupNote');
+    if (loading) loading.style.display = 'block';
+    if (note) note.style.display = 'none';
+    lucide.createIcons();
+
+    // Debounce the lookup
+    tsTPOSLookupTimeout = setTimeout(async () => {
+        try {
+            const result = await fetchTSTPOSCustomer(phone);
+
+            // Hide loading
+            if (loading) loading.style.display = 'none';
+
+            const resultContainer = document.getElementById('tsTPOSLookupResult');
+            const single = document.getElementById('tsTPOSLookupSingle');
+            const multiple = document.getElementById('tsTPOSLookupMultiple');
+            const empty = document.getElementById('tsTPOSLookupEmpty');
+            const nameInput = document.getElementById('editTSCustomerName');
+
+            if (resultContainer) resultContainer.style.display = 'block';
+
+            if (result.success && result.count > 0) {
+                if (result.count === 1) {
+                    // Single customer found
+                    const customer = result.customers[0];
+                    if (single) {
+                        single.style.display = 'block';
+                        document.getElementById('tsTPOSLookupName').textContent = customer.name || customer.Name || 'N/A';
+                    }
+                    // Auto-fill name
+                    if (nameInput) {
+                        nameInput.value = customer.name || customer.Name || '';
+                    }
+                } else {
+                    // Multiple customers found
+                    if (multiple) {
+                        multiple.style.display = 'block';
+                        const dropdown = document.getElementById('tsTPOSCustomerDropdown');
+                        if (dropdown) {
+                            dropdown.innerHTML = '<option value="">-- Chọn khách hàng --</option>' +
+                                result.customers.map(c => {
+                                    const name = c.name || c.Name || 'N/A';
+                                    const balance = c.wallet_balance !== undefined ? c.wallet_balance : (c.WalletBalance || 0);
+                                    return `<option value="${escapeHtml(name)}" data-balance="${balance}">${name} (Ví: ${formatCurrency(balance)})</option>`;
+                                }).join('');
+                        }
+                    }
+                    // Clear name - user must select
+                    if (nameInput) {
+                        nameInput.value = '';
+                        nameInput.placeholder = 'Chọn khách hàng từ danh sách...';
+                    }
+                }
+            } else {
+                // No customer found
+                if (empty) empty.style.display = 'block';
+                // Allow manual name entry
+                if (nameInput) {
+                    nameInput.readOnly = false;
+                    nameInput.style.background = '#fff';
+                    nameInput.placeholder = 'Nhập tên khách hàng (không tìm thấy trong TPOS)';
+                }
+            }
+
+            lucide.createIcons();
+        } catch (error) {
+            console.error('[TS-TPOS-LOOKUP] Error:', error);
+            if (loading) loading.style.display = 'none';
+            const empty = document.getElementById('tsTPOSLookupEmpty');
+            if (empty) {
+                empty.style.display = 'block';
+                empty.innerHTML = '<i data-lucide="alert-circle" style="width: 14px; height: 14px; vertical-align: middle;"></i> Lỗi khi tìm TPOS';
+            }
+            lucide.createIcons();
+        }
+    }, 500);
+}
+
+/**
+ * Handle TPOS dropdown selection
+ */
+function handleTSTPOSDropdownChange() {
+    const dropdown = document.getElementById('tsTPOSCustomerDropdown');
+    const nameInput = document.getElementById('editTSCustomerName');
+
+    if (dropdown && nameInput) {
+        const selectedName = dropdown.value;
+        if (selectedName) {
+            nameInput.value = selectedName;
+        }
+    }
 }
 
 async function saveTSEdit(e) {
@@ -650,40 +853,94 @@ async function saveTSEdit(e) {
     const customer_phone = document.getElementById('editTSCustomerPhone').value.trim();
     const notes = document.getElementById('editTSNotes').value.trim();
 
+    // Get the current item to access transaction_id
+    const item = tsData.find(d => d.id === parseInt(id));
+    if (!item) {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Không tìm thấy giao dịch', 'error');
+        }
+        return;
+    }
+
+    // Get current user email for audit trail
+    const currentUserEmail = window.authManager?.getUserEmail?.() ||
+        localStorage.getItem('user_email') ||
+        'staff';
+
+    // Check if user is accountant/admin
+    const isAccountant = window.authManager?.hasDetailedPermission?.('balance-history', 'approveTransaction');
+
     try {
-        const response = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/${id}`, {
+        // Step 1: Update transfer_stats record
+        const tsResponse = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ customer_name, customer_phone, notes })
         });
 
-        const result = await response.json();
+        const tsResult = await tsResponse.json();
 
-        if (result.success) {
-            // Update local data
-            const item = tsData.find(d => d.id === parseInt(id));
-            if (item) {
-                item.customer_name = customer_name || null;
-                item.customer_phone = customer_phone || null;
-                item.notes = notes || null;
-            }
-
-            // Re-render (keep current page position)
-            filterTransferStats(true);
-            closeEditTSModal();
-
+        if (!tsResult.success) {
+            console.error('[TS] Error saving transfer stats:', tsResult.error);
             if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Đã cập nhật thông tin', 'success');
+                window.NotificationManager.showNotification('Lỗi cập nhật: ' + tsResult.error, 'error');
             }
+            return;
+        }
 
-            // Sync Balance History tab - mark for reload when it becomes active
-            window._balanceHistoryNeedsReload = true;
-        } else {
-            console.error('[TS] Error saving edit:', result.error);
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Lỗi cập nhật: ' + result.error, 'error');
+        // Step 2: Also update transaction to trigger TPOS wallet credit
+        // Only if phone is valid (10 digits) and we have a transaction_id
+        let tposResult = { success: true };
+        if (customer_phone && customer_phone.length === 10 && item.transaction_id) {
+            console.log('[TS] Updating transaction for TPOS:', { transaction_id: item.transaction_id, phone: customer_phone, name: customer_name });
+
+            const tposResponse = await fetch(`${TS_API_BASE_URL}/api/sepay/transaction/${item.transaction_id}/phone`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: customer_phone,
+                    name: customer_name,
+                    is_manual_entry: !isAccountant, // Requires approval if not accountant
+                    entered_by: currentUserEmail
+                })
+            });
+
+            tposResult = await tposResponse.json();
+
+            if (!tposResult.success) {
+                console.warn('[TS] TPOS update warning:', tposResult.error);
+                // Don't fail the whole operation, just warn
             }
         }
+
+        // Update local data
+        if (item) {
+            item.customer_name = customer_name || null;
+            item.customer_phone = customer_phone || null;
+            item.notes = notes || null;
+        }
+
+        // Re-render (keep current page position)
+        filterTransferStats(true);
+        closeEditTSModal();
+
+        // Show appropriate notification
+        let message = 'Đã cập nhật thông tin';
+        if (tposResult.success && customer_phone && customer_phone.length === 10) {
+            if (tposResult.requires_approval) {
+                message = '✅ Đã lưu - Chờ kế toán duyệt cộng ví!';
+            } else {
+                message = '✅ Đã cập nhật & gửi yêu cầu cộng ví TPOS!';
+            }
+        }
+
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification(message, 'success');
+        }
+
+        // Sync Balance History tab - mark for reload when it becomes active
+        window._balanceHistoryNeedsReload = true;
+
     } catch (error) {
         console.error('[TS] Error:', error);
         if (window.NotificationManager) {
