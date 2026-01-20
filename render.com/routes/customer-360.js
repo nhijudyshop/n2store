@@ -444,6 +444,7 @@ router.post('/customer/:phone/note', async (req, res) => {
 /**
  * GET /api/customer/:phone/transactions
  * Get wallet transaction history (paginated)
+ * Includes both wallet_transactions AND virtual_credits (for complete history)
  */
 router.get('/customer/:phone/transactions', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -455,25 +456,65 @@ router.get('/customer/:phone/transactions', async (req, res) => {
     }
 
     try {
-        // Select columns that exist in wallet_transactions table
-        // Convert created_at from UTC to Vietnam timezone (UTC+7) - same as /transactions/consolidated
-        let query = `SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
-            virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
-            note, created_by, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
-            FROM wallet_transactions WHERE phone = $1`;
-        const params = [phone];
+        // Build UNION query to combine wallet_transactions and virtual_credits
+        // This ensures virtual credit issuance shows in history even without wallet_transaction record
+        let query;
+        let params = [phone];
+        let countQuery;
 
         if (type) {
-            query += ` AND type = $2`;
-            params.push(type);
+            // Filter by type - only wallet_transactions have type field
+            query = `
+                SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
+                    virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
+                    note, created_by, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                FROM wallet_transactions
+                WHERE phone = $1 AND type = $2
+                ORDER BY created_at DESC
+                LIMIT $3 OFFSET $4
+            `;
+            params.push(type, parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+            countQuery = `SELECT COUNT(*) FROM wallet_transactions WHERE phone = $1 AND type = $2`;
+        } else {
+            // No type filter - combine wallet_transactions and virtual_credits
+            query = `
+                WITH combined AS (
+                    -- Wallet transactions (deposits, withdrawals, etc)
+                    SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
+                        virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
+                        note, created_by, created_at
+                    FROM wallet_transactions
+                    WHERE phone = $1
+
+                    UNION ALL
+
+                    -- Virtual credits (issued but not in wallet_transactions due to constraint)
+                    SELECT id, phone, wallet_id, 'VIRTUAL_CREDIT_ISSUED' as type,
+                        original_amount as amount, 0 as balance_before, 0 as balance_after,
+                        0 as virtual_balance_before, original_amount as virtual_balance_after,
+                        source_type as source, 'ticket' as reference_type, source_id as reference_id,
+                        note, NULL as created_by, created_at
+                    FROM virtual_credits
+                    WHERE phone = $1 AND status = 'ACTIVE'
+                )
+                SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
+                    virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
+                    note, created_by, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                FROM combined
+                ORDER BY created_at DESC
+                LIMIT $2 OFFSET $3
+            `;
+            params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
+            countQuery = `
+                SELECT (
+                    (SELECT COUNT(*) FROM wallet_transactions WHERE phone = $1) +
+                    (SELECT COUNT(*) FROM virtual_credits WHERE phone = $1 AND status = 'ACTIVE')
+                ) as count
+            `;
         }
 
-        const countQuery = `SELECT COUNT(*) FROM wallet_transactions WHERE phone = $1` + (type ? ` AND type = $2` : '');
         const countResult = await db.query(countQuery, type ? [phone, type] : [phone]);
         const total = parseInt(countResult.rows[0].count);
-
-        query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-        params.push(parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
 
         const result = await db.query(query, params);
 

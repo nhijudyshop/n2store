@@ -428,7 +428,7 @@ export class WalletPanelModule {
     }
 
     _renderTransactionItem(tx) {
-        const isCredit = tx.type === 'DEPOSIT' || tx.type === 'VIRTUAL_CREDIT';
+        const isCredit = tx.type === 'DEPOSIT' || tx.type === 'VIRTUAL_CREDIT' || tx.type === 'VIRTUAL_CREDIT_ISSUED';
         const colorClass = isCredit ? 'text-green-600' : 'text-red-600';
         const bgClass = isCredit ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
         const sign = isCredit ? '+' : '-';
@@ -437,6 +437,7 @@ export class WalletPanelModule {
             'DEPOSIT': 'Nạp tiền',
             'WITHDRAW': 'Rút tiền',
             'VIRTUAL_CREDIT': 'Cộng công nợ ảo',
+            'VIRTUAL_CREDIT_ISSUED': 'Cộng công nợ ảo (Thu về)',
             'VIRTUAL_DEBIT': 'Trừ công nợ ảo',
             'VIRTUAL_EXPIRE': 'Công nợ hết hạn'
         };
