@@ -380,9 +380,9 @@ export class WalletPanelModule {
 
             // Create modal HTML
             const modalHTML = `
-                <div id="transaction-history-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-                        <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <div id="transaction-history-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style="padding: 24px;">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col" style="max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px);">
+                        <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between flex-shrink-0">
                             <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                                 <span class="material-symbols-outlined text-green-600">history</span>
                                 Lịch sử giao dịch ví
@@ -391,7 +391,7 @@ export class WalletPanelModule {
                                 <span class="material-symbols-outlined">close</span>
                             </button>
                         </div>
-                        <div class="flex-1 overflow-y-auto p-4">
+                        <div class="overflow-y-auto p-4 flex-1" style="min-height: 0;">
                             ${transactions.length === 0 ? `
                                 <div class="text-center py-8 text-slate-500">
                                     <span class="material-symbols-outlined text-4xl mb-2">receipt_long</span>
