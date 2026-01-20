@@ -481,20 +481,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     setupVerificationFilterChips();
 
-    // Load data and statistics in parallel (don't wait for each other)
-    const loadPromises = [
-        loadData(),
-        loadStatistics(),
-        loadVerificationStats()
-    ];
+    // Check which tab is saved - only load Balance History data if it's the active tab
+    const savedTab = localStorage.getItem('bh_main_tab') || 'balance-history';
 
     // Initialize CustomerInfoManager in background (non-blocking)
     if (window.CustomerInfoManager) {
         window.CustomerInfoManager.init();
     }
 
-    // Wait for critical data (main table) to load
-    await Promise.all(loadPromises);
+    // Only load Balance History data if that tab is active
+    if (savedTab === 'balance-history') {
+        const loadPromises = [
+            loadData(),
+            loadStatistics(),
+            loadVerificationStats()
+        ];
+        await Promise.all(loadPromises);
+    } else {
+        // Still load statistics for badge counts, but don't load main table data
+        loadVerificationStats();
+    }
 });
 
 // Event Listeners
