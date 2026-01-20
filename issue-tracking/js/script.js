@@ -1792,10 +1792,16 @@ function renderActionButtons(ticket) {
     }
 
     // Icon buttons for Edit/Delete
+    // Check delete permission to show/hide delete button
+    const canDelete = window.authManager?.hasDetailedPermission('issue-tracking', 'delete');
+    const deleteButton = canDelete
+        ? `<button onclick="deleteTicket('${id}')" title="Xóa" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑️</button>`
+        : '';
+
     const iconButtons = `
         <div style="display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle;">
             <button onclick="editTicket('${id}')" title="Sửa" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">✏️</button>
-            <button onclick="deleteTicket('${id}')" title="Xóa" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🗑️</button>
+            ${deleteButton}
         </div>
     `;
 
@@ -1949,9 +1955,15 @@ window.editTicket = function (firebaseId) {
 };
 
 /**
- * Delete ticket
+ * Delete ticket (requires 'delete' permission)
  */
 window.deleteTicket = async function (firebaseId) {
+    // Check permission first
+    if (!window.authManager?.hasDetailedPermission('issue-tracking', 'delete')) {
+        notificationManager.error('Bạn không có quyền xóa phiếu. Liên hệ Admin để cấp quyền.', 5000, 'Không có quyền');
+        return;
+    }
+
     const ticket = TICKETS.find(t => t.firebaseId === firebaseId);
     if (!ticket) {
         alert('Không tìm thấy phiếu');
@@ -1966,9 +1978,10 @@ window.deleteTicket = async function (firebaseId) {
         // Use ApiService.deleteTicket for PostgreSQL (hard delete = true)
         await ApiService.deleteTicket(firebaseId, true);
         console.log('[DELETE] Ticket deleted successfully:', firebaseId);
+        notificationManager.success('Đã xóa phiếu thành công!', 3000, 'Xóa phiếu');
     } catch (error) {
         console.error('Delete ticket failed:', error);
-        alert('Lỗi khi xóa phiếu: ' + error.message);
+        notificationManager.error('Lỗi khi xóa phiếu: ' + error.message, 5000, 'Lỗi');
     } finally {
         showLoading(false);
     }
