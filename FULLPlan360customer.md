@@ -1127,7 +1127,8 @@ walletEvents.on('update', (data) => {
 | POST | `/` | Create ticket |
 | PATCH | `/:id` | Update ticket |
 | POST | `/:id/notes` | Add note |
-| POST | `/:id/resolve` | Resolve with compensation |
+| POST | `/:id/resolve` | Resolve RETURN_CLIENT with deposit compensation |
+| POST | `/new/resolve-credit` | Cap virtual_credit cho RETURN_SHIPPER (goi khi tao ticket) |
 | DELETE | `/:id` | Delete ticket |
 
 ### Balance History `/api/v2/balance-history`
@@ -1425,3 +1426,66 @@ Thay thế placeholder alert() bằng actual API calls với modal confirmation.
 | `user-management/js/permissions-registry.js` | Added 5 new permissions for verification |
 | `issue-tracking/js/script.js` | Added wallet credit call after RECEIVE action |
 | `customer-hub/js/modules/wallet-panel.js` | Replaced placeholders with actual modal + API calls |
+
+---
+
+# NEW: VIRTUAL CREDIT LOGIC FIX (2026-01-20)
+
+## Vấn đề đã sửa
+
+**Trước đây (SAI):**
+- RETURN_SHIPPER: Cap virtual_credit khi RECEIVE (nhan hang ve kho)
+- RETURN_CLIENT: Cong deposit khi RECEIVE
+
+**Sau khi sửa (ĐÚNG theo nghiệp vụ):**
+- **RETURN_SHIPPER**: Cap virtual_credit **NGAY khi tao ticket** (khong phai khi RECEIVE)
+- **RETURN_CLIENT**: Cong deposit khi RECEIVE (giu nguyen)
+
+## Logic nghiệp vụ
+
+| Loai Ticket | Khi Tao Ticket | Khi RECEIVE |
+|-------------|----------------|-------------|
+| RETURN_SHIPPER | **CAP NGAY virtual_credit (15 ngay)** | Chi tao phieu TPOS, KHONG cong vi |
+| RETURN_CLIENT | Khong cong vi | **Cong deposit (tien that)** |
+| BOOM/FIX_COD | Khong cong vi | Khong cong vi |
+
+## Files đã sửa
+
+| File | Line | Thay đổi |
+|------|------|----------|
+| `issue-tracking/js/script.js` | 943-980 | Thêm logic cap virtual_credit khi tao ticket RETURN_SHIPPER |
+| `issue-tracking/js/script.js` | 1073-1130 | Sửa RECEIVE chi cong deposit cho RETURN_CLIENT |
+| `render.com/routes/v2/tickets.js` | 539-591 | Thêm endpoint `/new/resolve-credit` |
+| `render.com/services/wallet-event-processor.js` | 407-482 | issueVirtualCredit bypass wallet_transactions (do constraint) |
+| `render.com/routes/customer-360.js` | 478-507 | UNION query để hiển thị virtual credits trong wallet history |
+| `customer-hub/js/modules/wallet-panel.js` | 430-471 | Thêm VIRTUAL_CREDIT_ISSUED type, hiển thị hạn sử dụng (HSD) |
+
+## API mới: `/api/v2/tickets/new/resolve-credit`
+
+```javascript
+// Request
+POST /api/v2/tickets/new/resolve-credit
+{
+    "phone": "0977888999",
+    "amount": 300000,
+    "ticket_code": "TKRS-20260120-001",
+    "note": "Cong no ao - Thu ve don 123456",
+    "expires_in_days": 15
+}
+
+// Response
+{
+    "success": true,
+    "data": {
+        "expires_at": "2026-02-04T10:30:00.000Z"
+    }
+}
+```
+
+## Lưu ý kỹ thuật
+
+1. **issueVirtualCredit() bypass wallet_transactions**: Do constraint `wallet_transactions_type_check` không có type 'VIRTUAL_CREDIT_ISSUED', function này trực tiếp insert vào `virtual_credits` và update `customer_wallets.virtual_balance`
+
+2. **UNION query cho wallet history**: Để hiển thị virtual credits trong lịch sử giao dịch, phải dùng UNION query kết hợp `wallet_transactions` và `virtual_credits`
+
+3. **UI expiry display**: Virtual credits hiển thị với badge "HSD: dd/mm/yyyy" màu cam để phân biệt với tiền thật

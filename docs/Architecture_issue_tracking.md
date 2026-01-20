@@ -1217,22 +1217,34 @@ flowchart TD
 
 **⚠️ ĐÂY LÀ FLOW PHỨC TẠP NHẤT - CẦN ĐỌC KỸ**
 
+> **CẬP NHẬT 2026-01-20:** Virtual credit được cấp NGAY khi tạo ticket (không phải khi RECEIVE)
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  🔄 FLOW CÔNG NỢ ẢO (Virtual Credit)                                       │
+│  🔄 FLOW CÔNG NỢ ẢO (Virtual Credit) - ĐÃ CẬP NHẬT                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  Bước 1: KH muốn đổi hàng → CSKH cấp "Công nợ ảo" = Giá trị hàng cũ        │
+│  Bước 1: CSKH TẠO TICKET THU VỀ (RETURN_SHIPPER)                           │
+│          → Hệ thống CẤP NGAY công nợ ảo = Giá trị hàng cũ (hết hạn 15 ngày)│
+│          → API: POST /api/v2/tickets/new/resolve-credit                    │
+│          → Ticket status: PENDING_GOODS                                    │
 │                                                                             │
 │  Bước 2: KH dùng công nợ ảo để đặt đơn mới (COD = Đơn mới - Công nợ ảo)    │
 │                                                                             │
 │  Bước 3: Shipper giao đơn mới → Thu hàng cũ về                             │
 │                                                                             │
-│  Bước 4: Kho nhận hàng cũ → Hoàn tất                                       │
+│  Bước 4: Kho nhận hàng cũ                                                  │
+│          → Tạo Phiếu trả hàng TPOS                                         │
+│          → KHÔNG CỘNG VÍ (đã cấp ở bước 1)                                 │
+│          → Ticket: COMPLETED                                                │
 │                                                                             │
 │  ⏰ QUAN TRỌNG: Công nợ ảo có THỜI HẠN 15 NGÀY                              │
 │     - Nếu KH không đặt đơn mới → Công nợ ảo TỰ ĐỘNG HẾT HẠN                │
 │     - Cần gọi KH nhắc trước khi hết hạn                                    │
+│                                                                             │
+│  📋 ĐIỂM KHÁC BIỆT VỚI RETURN_CLIENT:                                       │
+│     - RETURN_SHIPPER: Cấp virtual_credit NGAY khi tạo ticket               │
+│     - RETURN_CLIENT: Cộng deposit khi RECEIVE (nhận hàng về kho)           │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -2303,6 +2315,13 @@ Acceptance Criteria:
 | | | - Thêm bảng tổng hợp 4 luồng chuyển trạng thái | |
 | | | - Quick reference table cho AI Agent xác định status | |
 | | | - Ghi chú OTHER sẽ hoàn thiện sau | |
+| 2026-01-20 | 5.5 | **Sửa logic cộng ví theo đúng nghiệp vụ:** | AI |
+| | | - RETURN_SHIPPER: Cấp virtual_credit NGAY khi tạo ticket (không phải khi RECEIVE) | |
+| | | - RETURN_CLIENT: Cộng deposit khi RECEIVE (giữ nguyên) | |
+| | | - Thêm API endpoint `/new/resolve-credit` | |
+| | | - Thêm UNION query để hiển thị virtual credits trong wallet history | |
+| | | - Thêm UI hiển thị hạn sử dụng (HSD) công nợ ảo | |
+| | | - issueVirtualCredit bypass wallet_transactions (do constraint) | |
 
 ---
 

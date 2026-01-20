@@ -189,6 +189,8 @@
 
 ### 1.4.3 THU VE (RETURN_SHIPPER) - Doi Hang Tai Nha
 
+> **CAP NHAT 2026-01-20:** RETURN_SHIPPER cap virtual_credit NGAY khi tao ticket (khong phai khi RECEIVE)
+
 ```
 +-----------------------------------------------------------------------------+
 |                    LUONG THU VE (RETURN_SHIPPER)                            |
@@ -202,7 +204,8 @@
 |  | * Chon SP khach se tra lai                                            |  |
 |  | * So tien = Gia SP (VD: 300,000d)                                     |  |
 |  | * Status: PENDING_GOODS                                               |  |
-|  | * He thong cap CONG NO AO 300,000d (het han 15 ngay)                  |  |
+|  | * **He thong CAP NGAY virtual_credit 300,000d (het han 15 ngay)**     |  |
+|  | * **API: POST /api/v2/tickets/new/resolve-credit**                    |  |
 |  +-----------------------------------------------------------------------+  |
 |                                                                             |
 |  BUOC 2: KH DAT DON MOI (trong 15 ngay)                                     |
@@ -218,7 +221,7 @@
 |  | * Kho kiem tra --> Bam "Nhan hang"                                    |  |
 |  | * Tao Phieu tra hang TPOS                                             |  |
 |  | * Status --> COMPLETED                                                |  |
-|  | * Cong no ao da dung --> USED                                         |  |
+|  | * **KHONG CONG VI (da cap khi tao ticket)**                           |  |
 |  +-----------------------------------------------------------------------+  |
 |                                                                             |
 |  TRUONG HOP XAU: KH KHONG DAT DON MOI                                       |
@@ -228,9 +231,10 @@
 |  | * CSKH can lien he KH de xu ly                                        |  |
 |  +-----------------------------------------------------------------------+  |
 |                                                                             |
-|  DIEM KHAC BIET:                                                            |
-|  * Cong vao vi = CONG NO AO (virtual_credit)                                |
-|  * Het han sau 15 ngay neu khong dung                                       |
+|  DIEM KHAC BIET VOI RETURN_CLIENT:                                          |
+|  * RETURN_SHIPPER: Cap virtual_credit NGAY khi tao ticket                   |
+|  * RETURN_CLIENT: Cong deposit khi RECEIVE (nhan hang ve kho)               |
+|  * Cong no ao het han sau 15 ngay neu khong dung                            |
 |  * KHONG THE rut tien ve tai khoan                                          |
 |                                                                             |
 +-----------------------------------------------------------------------------+
@@ -555,7 +559,11 @@ router.post('/', async (req, res) => {
 
 ### 2.3.2 RECEIVE Action + Cong Vi
 
-**Frontend: issue-tracking/js/script.js (line 935-1071)**
+> **CAP NHAT 2026-01-20:** Logic cong vi da thay doi:
+> - **RETURN_SHIPPER**: Cap virtual_credit NGAY khi tao ticket (KHONG phai khi RECEIVE)
+> - **RETURN_CLIENT**: Cong deposit khi RECEIVE (giu nguyen)
+
+**Frontend: issue-tracking/js/script.js (line 1073-1130)**
 
 ```javascript
 async function handleConfirmAction() {
@@ -572,28 +580,25 @@ async function handleConfirmAction() {
       completedAt: new Date().toISOString()
     });
 
-    // 3. Goi resolve API de cong vi
+    // 3. CHI CONG VI CHO RETURN_CLIENT
+    // RETURN_SHIPPER da duoc cap virtual_credit khi TAO ticket roi
     const compensationAmount = parseFloat(ticket.money) || 0;
     const customerPhone = ticket.phone;
 
-    if (compensationAmount > 0 && customerPhone &&
-        (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER')) {
-
-      const compensationType = ticket.type === 'RETURN_SHIPPER'
-        ? 'virtual_credit'  // Cong no ao
-        : 'deposit';        // Tien that
-
+    if (compensationAmount > 0 && customerPhone && ticket.type === 'RETURN_CLIENT') {
+      // Chi RETURN_CLIENT moi cong deposit khi nhan hang
       await fetch(`${API_URL}/api/v2/tickets/${ticketId}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           compensation_amount: compensationAmount,
-          compensation_type: compensationType,
+          compensation_type: 'deposit',  // Tien that cho RETURN_CLIENT
           performed_by: window.authManager?.getUserInfo()?.username || 'warehouse_staff',
           note: `Hoan tien tu ticket ${ticket.ticketCode}`
         })
       });
     }
+    // RETURN_SHIPPER: Khong goi resolve vi da cap virtual_credit khi tao ticket
   }
 }
 ```
@@ -660,6 +665,10 @@ router.post('/:id/resolve', async (req, res) => {
 ```
 
 ### 2.3.3 Wallet Event Processor
+
+> **LUU Y QUAN TRONG (2026-01-20):** Function `issueVirtualCredit()` bypass bang `wallet_transactions`
+> vi constraint `wallet_transactions_type_check` khong bao gom type 'VIRTUAL_CREDIT_ISSUED'.
+> Thay vao do, truc tiep insert vao `virtual_credits` va update `customer_wallets.virtual_balance`.
 
 **Backend: services/wallet-event-processor.js**
 
@@ -823,6 +832,156 @@ handleWalletUpdate(data) {
   this.showUpdateNotification(
     `So du cap nhat: ${data.wallet.balance.toLocaleString()}d`
   );
+}
+```
+
+### 2.3.5 Cap Virtual Credit khi tao ticket RETURN_SHIPPER (NEW 2026-01-20)
+
+**Frontend: issue-tracking/js/script.js (line 943-980)**
+
+Khi tao ticket RETURN_SHIPPER, he thong tu dong cap cong no ao NGAY LAP TUC:
+
+```javascript
+// Sau khi tao ticket thanh cong
+if (type === 'RETURN_SHIPPER' && money > 0 && customerPhone) {
+    try {
+        const resolveResult = await fetch(
+            `${ApiService.RENDER_API_URL}/api/v2/tickets/new/resolve-credit`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: customerPhone,
+                    amount: money,
+                    ticket_code: result.data?.ticket_code || ticketData.orderId,
+                    note: `Cong no ao - Thu ve don ${tposOrderId}`,
+                    expires_in_days: 15
+                })
+            }
+        );
+
+        if (resolveResult.ok) {
+            notificationManager.success(
+                `Da cap ${money.toLocaleString()}d cong no ao cho ${customerPhone}`,
+                3000,
+                'Cong no ao'
+            );
+        }
+    } catch (err) {
+        console.error('[APP] Failed to issue virtual credit:', err);
+        notificationManager.warning('Khong the cap cong no ao tu dong', 5000);
+    }
+}
+```
+
+**Backend: render.com/routes/v2/tickets.js (line 539-591)**
+
+```javascript
+router.post('/new/resolve-credit', async (req, res) => {
+    const { phone, amount, ticket_code, note, expires_in_days = 15 } = req.body;
+
+    if (!phone || !amount) {
+        return res.status(400).json({ error: 'Missing phone or amount' });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+
+    try {
+        // Tao customer neu chua co
+        const { customerId } = await getOrCreateCustomer(db, normalizedPhone);
+
+        // Cap virtual credit (bypass wallet_transactions)
+        const result = await issueVirtualCredit(
+            db,
+            normalizedPhone,
+            amount,
+            ticket_code,
+            note || `Virtual credit for ticket ${ticket_code}`,
+            expires_in_days
+        );
+
+        res.json({ success: true, data: result });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+```
+
+### 2.3.6 Wallet History - UNION Query (NEW 2026-01-20)
+
+De hien thi virtual credits trong lich su giao dich, su dung UNION query:
+
+**File:** render.com/routes/customer-360.js (line 478-507)
+
+```sql
+WITH combined AS (
+    -- Giao dich tien that tu wallet_transactions
+    SELECT id, phone, type, amount, balance_before, balance_after,
+           source, reference_type, reference_id, note, created_at,
+           NULL::timestamp as expires_at
+    FROM wallet_transactions
+    WHERE phone = $1
+
+    UNION ALL
+
+    -- Cong no ao tu virtual_credits
+    SELECT id, phone, 'VIRTUAL_CREDIT_ISSUED' as type,
+           original_amount as amount,
+           0 as balance_before, 0 as balance_after,
+           'TICKET_REFUND' as source,
+           'ticket' as reference_type, source_id as reference_id,
+           note, created_at, expires_at
+    FROM virtual_credits
+    WHERE phone = $1 AND status = 'ACTIVE'
+)
+SELECT *,
+    (expires_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as expires_at
+FROM combined
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+```
+
+### 2.3.7 UI - Hien thi han su dung cong no ao (NEW 2026-01-20)
+
+**File:** customer-hub/js/modules/wallet-panel.js (line 430-471)
+
+```javascript
+_renderTransactionItem(tx) {
+    const isCredit = tx.type === 'DEPOSIT' || tx.type === 'VIRTUAL_CREDIT' ||
+                     tx.type === 'VIRTUAL_CREDIT_ISSUED';
+
+    const typeLabels = {
+        'DEPOSIT': 'Nap tien',
+        'WITHDRAW': 'Rut tien',
+        'VIRTUAL_CREDIT': 'Cong cong no ao',
+        'VIRTUAL_CREDIT_ISSUED': 'Cong cong no ao (Thu ve)',
+        'VIRTUAL_DEBIT': 'Tru cong no ao',
+        'VIRTUAL_EXPIRE': 'Cong no het han'
+    };
+
+    // Hien thi han su dung cho VIRTUAL_CREDIT_ISSUED
+    let expiryText = '';
+    if (tx.type === 'VIRTUAL_CREDIT_ISSUED' && tx.expires_at) {
+        const expiryDate = new Date(tx.expires_at);
+        const expiryStr = expiryDate.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        expiryText = `<span class="text-orange-500 ml-1">• HSD: ${expiryStr}</span>`;
+    }
+
+    return `
+        <div class="flex items-center justify-between py-2">
+            <div>
+                <span class="font-medium">${typeLabels[tx.type] || tx.type}</span>
+                ${expiryText}
+            </div>
+            <span class="${isCredit ? 'text-green-600' : 'text-red-600'}">
+                ${isCredit ? '+' : '-'}${this._formatMoney(tx.amount)}
+            </span>
+        </div>
+    `;
 }
 ```
 
