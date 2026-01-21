@@ -937,47 +937,10 @@ async function handleSubmitTicket() {
         await ApiService.createTicket(ticketData);
 
         // =====================================================
-        // RETURN_SHIPPER: Cấp ngay virtual_credit khi tạo ticket
-        // (Khách sẽ dùng credit này để đặt đơn mới trước khi trả hàng cũ)
+        // RETURN_SHIPPER: KHÔNG tự động cấp virtual_credit khi tạo ticket
+        // User phải bấm nút "+ Công Nợ Ảo" để cấp (cần quyền issueVirtualCredit)
+        // Flow: Tạo ticket → Bấm "+ Công Nợ Ảo" → Nhận hàng
         // =====================================================
-        if (type === 'RETURN_SHIPPER' && money > 0 && customerPhone) {
-            try {
-                console.log('[APP] Issuing virtual credit for RETURN_SHIPPER:', customerPhone, money);
-
-                const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/new/resolve-credit`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        phone: customerPhone,
-                        amount: money,
-                        ticket_code: tposOrderId, // Dùng orderId làm reference
-                        note: `Công nợ ảo - Thu về đơn ${tposOrderId}`,
-                        expires_in_days: 15
-                    })
-                });
-
-                const resolveData = await resolveResult.json();
-
-                if (resolveData.success) {
-                    console.log('[APP] Virtual credit issued successfully:', resolveData);
-                    notificationManager.success(
-                        `Đã cấp ${money.toLocaleString()}đ công nợ ảo cho ${customerPhone}`,
-                        3000,
-                        'Công nợ ảo'
-                    );
-                } else {
-                    console.error('[APP] Failed to issue virtual credit:', resolveData.error);
-                    notificationManager.warning(
-                        'Không thể cấp công nợ ảo tự động, cần xử lý thủ công',
-                        5000,
-                        'Cảnh báo'
-                    );
-                }
-            } catch (creditError) {
-                console.error('[APP] Error issuing virtual credit:', creditError);
-                notificationManager.warning('Không thể cấp công nợ ảo tự động', 5000);
-            }
-        }
 
         closeModal(elements.modalCreate);
         resetCreateForm();
@@ -1003,6 +966,10 @@ window.promptAction = function (id, action) {
     if (action === 'RECEIVE') {
         document.getElementById('confirm-title').textContent = "Xác nhận Nhập Kho";
         document.getElementById('confirm-message').textContent = `Đã nhận đủ hàng từ đơn ${ticket.orderId}?`;
+    } else if (action === 'ISSUE_CREDIT') {
+        document.getElementById('confirm-title').textContent = "Cấp Công Nợ Ảo";
+        const money = parseFloat(ticket.money) || 0;
+        document.getElementById('confirm-message').textContent = `Cấp ${money.toLocaleString()}đ công nợ ảo cho ${ticket.phone}? (Hết hạn sau 15 ngày)`;
     } else {
         document.getElementById('confirm-title').textContent = "Xác nhận Thanh Toán";
         document.getElementById('confirm-message').textContent = `Đã chuyển khoản ${formatCurrency(ticket.money)} cho ĐVVC?`;
@@ -1155,6 +1122,55 @@ async function handleConfirmAction() {
             loadingId = null;
 
             notificationManager.success('Đã xác nhận thanh toán', 2000, 'Thành công');
+
+        } else if (pendingActionType === 'ISSUE_CREDIT') {
+            // =====================================================
+            // ISSUE_CREDIT action: Cấp công nợ ảo cho RETURN_SHIPPER
+            // =====================================================
+            const money = parseFloat(ticket.money) || 0;
+            const customerPhone = ticket.phone;
+            const ticketCode = ticket.ticketCode || ticket.orderId;
+
+            if (money <= 0 || !customerPhone) {
+                throw new Error('Thiếu thông tin số tiền hoặc SĐT khách hàng');
+            }
+
+            loadingId = notificationManager.loading('Đang cấp công nợ ảo...', 'Xử lý');
+
+            const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${pendingActionTicketId}/resolve-credit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: customerPhone,
+                    amount: money,
+                    ticket_code: ticketCode,
+                    note: `Công nợ ảo - Thu về đơn ${ticket.orderId}`,
+                    expires_in_days: 15
+                })
+            });
+
+            const resolveData = await resolveResult.json();
+
+            notificationManager.remove(loadingId);
+            loadingId = null;
+
+            if (resolveData.success) {
+                console.log('[APP] Virtual credit issued successfully:', resolveData);
+                notificationManager.success(
+                    `Đã cấp ${money.toLocaleString()}đ công nợ ảo cho ${customerPhone}`,
+                    3000,
+                    'Công nợ ảo'
+                );
+
+                // Update local ticket data để UI refresh đúng nút
+                ticket.virtual_credit_id = resolveData.data?.virtual_credit_id || true;
+                ticket.virtualCreditId = ticket.virtual_credit_id;
+
+                // Re-render tickets
+                renderTickets();
+            } else {
+                throw new Error(resolveData.error || resolveData.message || 'Không thể cấp công nợ ảo');
+            }
         }
     } catch (error) {
         console.error('[APP] handleConfirmAction error:', error);
@@ -1781,8 +1797,25 @@ function renderActionButtons(ticket) {
     let mainAction = '';
 
     if (ticket.status === 'PENDING_GOODS') {
-        // Màu xanh dương - chờ nhận hàng
-        mainAction = `<button class="btn btn-sm action-btn action-receive" onclick="promptAction('${id}', 'RECEIVE')" style="background:#3b82f6;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">📦 Nhận hàng</button>`;
+        // RETURN_SHIPPER: Kiểm tra đã cấp công nợ ảo chưa
+        if (ticket.type === 'RETURN_SHIPPER') {
+            if (!ticket.virtualCreditId && !ticket.virtual_credit_id) {
+                // Chưa cấp công nợ ảo → Hiển thị nút "+ Công Nợ Ảo" (cần quyền)
+                const canIssueCredit = window.authManager?.hasDetailedPermission('issue-tracking', 'issueVirtualCredit');
+                if (canIssueCredit) {
+                    mainAction = `<button class="btn btn-sm action-btn action-issue-credit" onclick="promptAction('${id}', 'ISSUE_CREDIT')" style="background:#10b981;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">+ Công Nợ Ảo</button>`;
+                } else {
+                    // Không có quyền → Hiển thị trạng thái chờ
+                    mainAction = `<span style="display:inline-block;padding:6px 12px;background:#fef3c7;color:#92400e;border-radius:6px;font-weight:500;">⏳ Chờ cấp công nợ</span>`;
+                }
+            } else {
+                // Đã cấp công nợ ảo → Hiển thị nút "Nhận hàng"
+                mainAction = `<button class="btn btn-sm action-btn action-receive" onclick="promptAction('${id}', 'RECEIVE')" style="background:#3b82f6;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">📦 Nhận hàng</button>`;
+            }
+        } else {
+            // Các loại khác (RETURN_CLIENT, BOOM, etc.) → Nút "Nhận hàng" bình thường
+            mainAction = `<button class="btn btn-sm action-btn action-receive" onclick="promptAction('${id}', 'RECEIVE')" style="background:#3b82f6;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">📦 Nhận hàng</button>`;
+        }
     } else if (ticket.status === 'PENDING_FINANCE') {
         // Màu vàng cam - chờ thanh toán
         mainAction = `<button class="btn btn-sm action-btn action-pay" onclick="promptAction('${id}', 'PAY')" style="background:#f59e0b;color:white;border:none;padding:6px 12px;border-radius:6px;font-weight:500;cursor:pointer;">💳 Thanh toán</button>`;
@@ -1956,6 +1989,7 @@ window.editTicket = function (firebaseId) {
 
 /**
  * Delete ticket (requires 'delete' permission)
+ * For RETURN_SHIPPER: Checks if virtual credit is unused before allowing delete
  */
 window.deleteTicket = async function (firebaseId) {
     // Check permission first
@@ -1974,8 +2008,45 @@ window.deleteTicket = async function (firebaseId) {
     const ticketIdentifier = ticket.ticketCode || firebaseId;
     const displayCode = ticket.ticketCode || `#${firebaseId.slice(-4)}`;
 
-    const confirmed = confirm(`Xác nhận xóa phiếu ${displayCode} - ${ticket.orderId}?`);
-    if (!confirmed) return;
+    // =====================================================
+    // RETURN_SHIPPER: Check if virtual credit can be cancelled
+    // =====================================================
+    if (ticket.type === 'RETURN_SHIPPER') {
+        try {
+            const checkResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${ticketIdentifier}/can-delete`);
+            const checkData = await checkResult.json();
+
+            if (!checkData.canDelete) {
+                notificationManager.error(
+                    checkData.reason || 'Không thể xóa: Công nợ ảo đã được sử dụng',
+                    6000,
+                    'Không thể xóa'
+                );
+                return;
+            }
+
+            // Show warning if virtual credit will be cancelled
+            if (checkData.virtualCreditId) {
+                const confirmWithCredit = confirm(
+                    `Xác nhận xóa phiếu ${displayCode} - ${ticket.orderId}?\n\n` +
+                    `⚠️ Lưu ý: Công nợ ảo ${(parseFloat(ticket.money) || 0).toLocaleString()}đ sẽ bị HỦY!`
+                );
+                if (!confirmWithCredit) return;
+            } else {
+                const confirmed = confirm(`Xác nhận xóa phiếu ${displayCode} - ${ticket.orderId}?`);
+                if (!confirmed) return;
+            }
+        } catch (checkError) {
+            console.error('[DELETE] Can-delete check failed:', checkError);
+            // Fallback to normal confirm
+            const confirmed = confirm(`Xác nhận xóa phiếu ${displayCode} - ${ticket.orderId}?`);
+            if (!confirmed) return;
+        }
+    } else {
+        // Non RETURN_SHIPPER tickets - normal confirm
+        const confirmed = confirm(`Xác nhận xóa phiếu ${displayCode} - ${ticket.orderId}?`);
+        if (!confirmed) return;
+    }
 
     showLoading(true);
     try {
@@ -1985,7 +2056,12 @@ window.deleteTicket = async function (firebaseId) {
         notificationManager.success('Đã xóa phiếu thành công!', 3000, 'Xóa phiếu');
     } catch (error) {
         console.error('Delete ticket failed:', error);
-        notificationManager.error('Lỗi khi xóa phiếu: ' + error.message, 5000, 'Lỗi');
+        // Handle CANNOT_DELETE_USED_CREDIT error
+        if (error.message?.includes('Công nợ ảo đã được sử dụng')) {
+            notificationManager.error(error.message, 6000, 'Không thể xóa');
+        } else {
+            notificationManager.error('Lỗi khi xóa phiếu: ' + error.message, 5000, 'Lỗi');
+        }
     } finally {
         showLoading(false);
     }

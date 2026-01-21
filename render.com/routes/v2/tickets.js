@@ -510,8 +510,78 @@ router.post('/:id/resolve', async (req, res) => {
 });
 
 /**
+ * GET /api/v2/tickets/:id/can-delete
+ * Check if ticket can be deleted (virtual credit not used)
+ */
+router.get('/:id/can-delete', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+
+    try {
+        // Find ticket
+        const findResult = await db.query(`
+            SELECT * FROM customer_tickets
+            WHERE ticket_code = $1 OR firebase_id = $1 OR id = $2
+        `, [id, parseInt(id) || 0]);
+
+        if (findResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Ticket not found' });
+        }
+
+        const ticket = findResult.rows[0];
+
+        // Check if ticket is RETURN_SHIPPER with virtual credit
+        if (ticket.type === 'RETURN_SHIPPER') {
+            // Check for linked virtual credit
+            const creditResult = await db.query(`
+                SELECT id, original_amount, remaining_amount, used_in_orders, status
+                FROM virtual_credits
+                WHERE source_id = $1 AND source_type = 'TICKET' AND status = 'ACTIVE'
+                LIMIT 1
+            `, [ticket.ticket_code]);
+
+            if (creditResult.rows.length > 0) {
+                const vc = creditResult.rows[0];
+                const usedOrders = vc.used_in_orders || [];
+                const originalAmount = parseFloat(vc.original_amount);
+                const remainingAmount = parseFloat(vc.remaining_amount);
+
+                // Check if virtual credit has been used
+                if (usedOrders.length > 0 || remainingAmount < originalAmount) {
+                    return res.json({
+                        success: true,
+                        canDelete: false,
+                        reason: `Công nợ ảo đã được sử dụng (đã dùng: ${(originalAmount - remainingAmount).toLocaleString()}đ, còn lại: ${remainingAmount.toLocaleString()}đ)`,
+                        virtualCredit: {
+                            id: vc.id,
+                            originalAmount: originalAmount,
+                            remainingAmount: remainingAmount,
+                            usedOrdersCount: usedOrders.length
+                        }
+                    });
+                }
+
+                // Virtual credit exists but not used - can delete
+                return res.json({
+                    success: true,
+                    canDelete: true,
+                    virtualCreditId: vc.id,
+                    message: 'Công nợ ảo chưa sử dụng sẽ được hủy khi xóa ticket'
+                });
+            }
+        }
+
+        // No virtual credit linked - can delete
+        res.json({ success: true, canDelete: true });
+    } catch (error) {
+        handleError(res, error, 'Failed to check delete permission');
+    }
+});
+
+/**
  * DELETE /api/v2/tickets/:id
  * Delete ticket (soft or hard delete)
+ * For RETURN_SHIPPER: Also cancels unused virtual credit
  */
 router.delete('/:id', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -531,6 +601,54 @@ router.delete('/:id', async (req, res) => {
 
         const ticket = findResult.rows[0];
 
+        // =====================================================
+        // RETURN_SHIPPER: Check and cancel unused virtual credit
+        // =====================================================
+        let virtualCreditCancelled = false;
+        if (ticket.type === 'RETURN_SHIPPER') {
+            // Check for linked virtual credit
+            const creditResult = await db.query(`
+                SELECT id, original_amount, remaining_amount, used_in_orders, wallet_id
+                FROM virtual_credits
+                WHERE source_id = $1 AND source_type = 'TICKET' AND status = 'ACTIVE'
+            `, [ticket.ticket_code]);
+
+            if (creditResult.rows.length > 0) {
+                const vc = creditResult.rows[0];
+                const usedOrders = vc.used_in_orders || [];
+                const originalAmount = parseFloat(vc.original_amount);
+                const remainingAmount = parseFloat(vc.remaining_amount);
+
+                // Check if virtual credit has been used - BLOCK DELETE
+                if (usedOrders.length > 0 || remainingAmount < originalAmount) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'CANNOT_DELETE_USED_CREDIT',
+                        message: `Không thể xóa: Công nợ ảo đã được sử dụng (đã dùng: ${(originalAmount - remainingAmount).toLocaleString()}đ)`
+                    });
+                }
+
+                // Cancel unused virtual credit
+                await db.query(`
+                    UPDATE virtual_credits
+                    SET status = 'CANCELLED', updated_at = NOW()
+                    WHERE id = $1
+                `, [vc.id]);
+
+                // Update wallet virtual_balance
+                if (vc.wallet_id) {
+                    await db.query(`
+                        UPDATE customer_wallets
+                        SET virtual_balance = virtual_balance - $1, updated_at = NOW()
+                        WHERE id = $2
+                    `, [originalAmount, vc.wallet_id]);
+                }
+
+                virtualCreditCancelled = true;
+                console.log(`[Tickets V2] Cancelled virtual credit ${vc.id} (${originalAmount}đ) for ticket ${ticket.ticket_code}`);
+            }
+        }
+
         if (hard === 'true') {
             // Hard delete
             await db.query('DELETE FROM customer_tickets WHERE id = $1', [ticket.id]);
@@ -544,10 +662,13 @@ router.delete('/:id', async (req, res) => {
         }
 
         // Log activity
+        const activityTitle = virtualCreditCancelled
+            ? `Xóa ticket ${ticket.ticket_code} + Hủy công nợ ảo`
+            : `Xóa ticket ${ticket.ticket_code}`;
         await db.query(`
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, reference_type, reference_id, icon, color)
             VALUES ($1, $2, 'TICKET_DELETED', $3, 'ticket', $4, 'trash', 'red')
-        `, [ticket.phone, ticket.customer_id, `Xóa ticket ${ticket.ticket_code}`, ticket.ticket_code]);
+        `, [ticket.phone, ticket.customer_id, activityTitle, ticket.ticket_code]);
 
         // Notify SSE clients
         sseRouter.notifyClients('tickets', { action: 'deleted', ticketCode: ticket.ticket_code }, 'deleted');
@@ -555,7 +676,8 @@ router.delete('/:id', async (req, res) => {
         res.json({
             success: true,
             message: hard === 'true' ? 'Ticket permanently deleted' : 'Ticket soft deleted',
-            ticketCode: ticket.ticket_code
+            ticketCode: ticket.ticket_code,
+            virtualCreditCancelled: virtualCreditCancelled
         });
     } catch (error) {
         handleError(res, error, 'Failed to delete ticket');
@@ -628,6 +750,16 @@ router.post('/:id/resolve-credit', async (req, res) => {
         );
 
         console.log(`[Tickets V2] Virtual credit issued successfully:`, result);
+
+        // Update ticket with virtual_credit_id for tracking
+        if (result.virtual_credit_id) {
+            await db.query(`
+                UPDATE customer_tickets
+                SET virtual_credit_id = $1, updated_at = NOW()
+                WHERE ticket_code = $2 OR firebase_id = $2 OR id = $3
+            `, [result.virtual_credit_id, ticketRef, parseInt(id) || 0]);
+            console.log(`[Tickets V2] Updated ticket ${ticketRef} with virtual_credit_id: ${result.virtual_credit_id}`);
+        }
 
         res.json({
             success: true,

@@ -423,7 +423,8 @@ const PAGES_REGISTRY = {
             receiveGoods: { name: "Nhận hàng hoàn", icon: "package-check", description: "Xác nhận nhận hàng hoàn" },
             updateStatus: { name: "Cập nhật trạng thái", icon: "refresh-cw", description: "Thay đổi trạng thái sự vụ" },
             viewFinance: { name: "Xem tài chính", icon: "wallet", description: "Xem thông tin tài chính sự vụ" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export danh sách sự vụ" }
+            export: { name: "Xuất báo cáo", icon: "download", description: "Export danh sách sự vụ" },
+            issueVirtualCredit: { name: "Cấp công nợ ảo", icon: "credit-card", description: "Bấm nút + Công Nợ Ảo để cấp công nợ cho khách" }
         }
     },
 

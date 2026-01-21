@@ -421,14 +421,16 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
 
         try {
             console.log(`[WALLET-PROCESSOR] Inserting virtual_credits record...`);
-            await db.query(`
+            const insertResult = await db.query(`
                 INSERT INTO virtual_credits (
                     phone, wallet_id, original_amount, remaining_amount,
                     expires_at, source_type, source_id, note, status
                 )
                 VALUES ($1, $2, $3, $3, $4, 'RETURN_SHIPPER', $5, $6, 'ACTIVE')
+                RETURNING id
             `, [phone, wallet.id, amount, expiresAt, ticketId, reason]);
-            console.log(`[WALLET-PROCESSOR] Virtual credit record inserted successfully`);
+            const virtualCreditId = insertResult.rows[0].id;
+            console.log(`[WALLET-PROCESSOR] Virtual credit record inserted successfully, id: ${virtualCreditId}`);
 
             // Update wallet virtual_balance directly (skip wallet_transactions due to type constraint)
             console.log(`[WALLET-PROCESSOR] Updating wallet virtual_balance...`);
@@ -462,8 +464,10 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
 
             return {
                 success: true,
+                virtual_credit_id: virtualCreditId,
                 wallet: updatedWallet,
                 virtualCredit: {
+                    id: virtualCreditId,
                     amount,
                     expiresAt,
                     ticketId,
