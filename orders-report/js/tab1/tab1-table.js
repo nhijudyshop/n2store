@@ -310,6 +310,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function renderTable() {
     if (displayedData.length === 0) {
+        // Remove any existing employee sections (important when filter results in 0 items)
+        const tableContainer = document.getElementById('tableContainer');
+        const existingSections = tableContainer.querySelectorAll('.employee-section');
+        existingSections.forEach(section => section.remove());
+
+        // Show the default table wrapper with "Không có dữ liệu" message
+        const defaultTableWrapper = tableContainer.querySelector('.table-wrapper');
+        if (defaultTableWrapper) {
+            defaultTableWrapper.style.display = 'block';
+        }
+
         const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
             '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
