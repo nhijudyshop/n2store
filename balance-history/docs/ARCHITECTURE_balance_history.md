@@ -737,6 +737,49 @@ Khi có nhiều khách hàng khớp với partial phone:
 const canEdit = tx.match_method === 'manual_entry' && tx.verification_status !== 'APPROVED';
 ```
 
+### 8.7 Manual Entry vs Manual Link (QUAN TRỌNG)
+
+Phân biệt giữa hai phương thức gán thủ công:
+
+| Field | `manual_entry` | `manual_link` |
+|-------|---------------|---------------|
+| **Người thực hiện** | Nhân viên (không có quyền `approveTransaction`) | Kế toán (có quyền `approveTransaction`) |
+| **Workflow** | Chờ kế toán duyệt trước khi cộng ví | Tự động duyệt và cộng ví ngay |
+| **verification_status** | `PENDING_VERIFICATION` | `APPROVED` |
+| **Badge hiển thị** | "Nhập tay" (xanh dương) | "Kế toán gán" (xanh lá) |
+| **wallet_processed** | `false` (chờ duyệt) | `true` (đã cộng) |
+
+**Logic phân biệt (server-side - sepay-webhook.js):**
+```javascript
+// API: PUT /api/sepay/transaction/{id}/phone
+// Request body: { phone, name, is_manual_entry, entered_by }
+
+if (is_manual_entry === true) {
+    // Nhân viên nhập tay → chờ kế toán duyệt
+    match_method = 'manual_entry';
+    verification_status = 'PENDING_VERIFICATION';
+    // KHÔNG cộng ví - chờ kế toán approve
+} else {
+    // Kế toán gán → duyệt ngay
+    match_method = 'manual_link';
+    verification_status = 'APPROVED';
+    // Cộng ví ngay lập tức
+}
+```
+
+**QUAN TRỌNG - Client phải gửi đúng flag `is_manual_entry`:**
+
+| Source | Gửi `is_manual_entry` | Logic |
+|--------|----------------------|-------|
+| **Live Mode** | `true` (luôn luôn) | Nhập từ kanban → chờ duyệt |
+| **Balance History** | `true` nếu user không có quyền `approveTransaction` | Kiểm tra permission trước khi gửi |
+| **Transfer Stats** | Dùng `window.saveTransactionCustomer()` từ main.js | Logic tập trung |
+
+**Flow sau khi gán:**
+1. Giao dịch được set `is_hidden = true` → hiển thị trong "ĐÃ XÁC NHẬN" ở Live Mode
+2. Nếu `manual_entry`: Chờ kế toán duyệt trong tab "Chờ Duyệt"
+3. Nếu `manual_link`: Ví được cộng ngay, giao dịch hoàn tất
+
 ---
 
 ## 9. UI FLOW & EVENT LISTENERS

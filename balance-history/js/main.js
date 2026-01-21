@@ -2763,6 +2763,18 @@ async function saveEditCustomerInfo(event) {
         const result = await saveTransactionCustomer(transactionId, phone, { isManualEntry: true, name: customerName });
 
         if (result.success) {
+            // Mark as hidden so it moves to "ĐÃ XÁC NHẬN" in Live Mode
+            try {
+                await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/hidden`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hidden: true })
+                });
+                console.log('[EDIT-TRANSACTION] Marked transaction as hidden for Live Mode');
+            } catch (e) {
+                console.warn('[EDIT-TRANSACTION] Failed to set hidden:', e);
+            }
+
             // Show appropriate message based on whether approval is required
             let message;
             if (result.requiresApproval) {
