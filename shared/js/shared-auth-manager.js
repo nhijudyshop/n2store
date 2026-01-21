@@ -2,15 +2,28 @@
  * SHARED AUTHENTICATION MANAGER
  * File: shared-auth-manager.js
  *
- * WRAPPER FILE - Backward compatibility layer
+ * ⚠️ DEPRECATED: This wrapper file is for backward compatibility only.
+ *
  * SOURCE OF TRUTH: /shared/browser/auth-manager.js
  *
- * This file is kept for backward compatibility with existing code using:
- *   <script src="../shared/js/shared-auth-manager.js"></script>
- *
- * For new ES Module code, import directly from:
+ * MIGRATION GUIDE:
+ * ================
+ * For ES Modules (recommended):
  *   import { AuthManager } from '/shared/browser/auth-manager.js';
+ *
+ * For script-tag (deprecated):
+ *   <script type="module" src="../shared/esm/compat.js"></script>
+ *   This auto-initializes window.authManager from the ES module source.
+ *
+ * This file contains duplicated logic and will be removed in future.
+ * Please migrate to ES modules when possible.
  */
+
+// Log deprecation warning once
+if (typeof window !== 'undefined' && !window._sharedAuthManagerWarned) {
+    console.warn('[AuthManager] ⚠️ DEPRECATED: shared-auth-manager.js sẽ bị xóa. Dùng ES module từ /shared/browser/auth-manager.js');
+    window._sharedAuthManagerWarned = true;
+}
 
 // Prevent redeclaration if already loaded
 if (typeof window !== 'undefined' && window.AuthManager) {
@@ -169,12 +182,17 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
     /**
      * Check permission level - LEGACY METHOD
-     * @deprecated Use hasDetailedPermission() instead
+     * @deprecated Use hasDetailedPermission() instead - will be removed in future
      * Kept for backward compatibility only
      * @param {number} requiredLevel
      * @returns {boolean}
      */
     hasPermissionLevel(requiredLevel) {
+        // Deprecation warning - log once per session
+        if (!this._permissionLevelWarned) {
+            console.warn('[AuthManager] DEPRECATED: hasPermissionLevel() sẽ bị xóa. Dùng hasDetailedPermission(pageId, action) thay thế.');
+            this._permissionLevelWarned = true;
+        }
         const authData = this.getAuthData();
         if (!authData) return false;
 

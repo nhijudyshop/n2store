@@ -242,11 +242,16 @@ export class AuthManager {
 
     /**
      * Check permission level (LEGACY)
-     * @deprecated Use hasDetailedPermission() instead
+     * @deprecated Use hasDetailedPermission() instead - will be removed in future version
      * @param {number} requiredLevel
      * @returns {boolean}
      */
     hasPermissionLevel(requiredLevel) {
+        // Deprecation warning - log once per session
+        if (!this._permissionLevelWarned) {
+            console.warn('[AuthManager] DEPRECATED: hasPermissionLevel() sẽ bị xóa. Dùng hasDetailedPermission(pageId, action) thay thế.');
+            this._permissionLevelWarned = true;
+        }
         const userLevel = this.getPermissionLevel();
         return userLevel <= requiredLevel;
     }

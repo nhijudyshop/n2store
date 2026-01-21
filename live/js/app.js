@@ -783,7 +783,11 @@ class ImageManagementApp {
     async handleFormSubmit(e) {
         e.preventDefault();
 
-        if (!authManager.hasPermissionLevel(3)) {
+        // Check upload permission using modern detailedPermissions
+        const hasUploadPermission = authManager.hasDetailedPermission?.('live', 'upload')
+            ?? authManager.hasPermissionLevel(3); // Fallback to legacy
+
+        if (!hasUploadPermission) {
             notificationManager.error(
                 "Không có quyền upload",
                 3000,
@@ -845,7 +849,11 @@ class ImageManagementApp {
     }
 
     async handleDelete() {
-        if (!authManager.hasPermissionLevel(0)) {
+        // Check delete permission using modern detailedPermissions
+        const hasDeletePermission = authManager.hasDetailedPermission?.('live', 'delete')
+            ?? authManager.hasPermissionLevel(0); // Fallback to legacy (admin only)
+
+        if (!hasDeletePermission) {
             notificationManager.error(
                 "Bạn không có quyền xóa dữ liệu",
                 3000,
