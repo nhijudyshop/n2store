@@ -959,7 +959,7 @@ router.get('/accountant/stats', async (req, res) => {
             db.query(`
                 SELECT COUNT(*) as count
                 FROM wallet_transactions
-                WHERE transaction_type = 'MANUAL_ADJUSTMENT'
+                WHERE type = 'MANUAL_ADJUSTMENT'
                   AND created_at >= $1
                   AND created_at < $2
             `, [today, tomorrow])
