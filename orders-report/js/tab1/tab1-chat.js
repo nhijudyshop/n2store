@@ -5018,13 +5018,24 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 .replace(/\n/g, '<br>')
                 .replace(/\r/g, '');
 
-            // Highlight phone numbers in regular messages
+            // Process URLs first, then highlight phone numbers only outside URLs
+            // This prevents phone numbers inside URLs from being wrapped with spans
+            const urlRegex = /(https?:\/\/[^\s<>]+)/g;
             const phoneRegex = /(0[0-9]{9,10})/g;
-            escapedMessage = escapedMessage.replace(phoneRegex, '<span style="background: #ecfdf5; color: #047857; font-weight: 600; padding: 1px 4px; border-radius: 4px;">$1</span>');
 
-            // Convert URLs to clickable links
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
-            escapedMessage = escapedMessage.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">$1</a>');
+            // Split by URLs, process each part separately
+            const urlMatches = escapedMessage.match(urlRegex) || [];
+            const parts = escapedMessage.split(urlRegex);
+
+            escapedMessage = parts.map((part, index) => {
+                if (urlMatches.includes(part)) {
+                    // This is a URL - convert to link without phone highlighting
+                    return `<a href="${part}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">${part}</a>`;
+                } else {
+                    // This is regular text - highlight phone numbers
+                    return part.replace(phoneRegex, '<span style="background: #ecfdf5; color: #047857; font-weight: 600; padding: 1px 4px; border-radius: 4px;">$1</span>');
+                }
+            }).join('');
 
             content = `<p class="chat-message-text" style="word-wrap: break-word; white-space: pre-wrap;">${escapedMessage}</p>`;
         }
