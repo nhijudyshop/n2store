@@ -748,8 +748,10 @@ Phân biệt giữa hai phương thức gán thủ công:
 | **verification_status** | `PENDING_VERIFICATION` | `APPROVED` |
 | **Badge hiển thị** | "Nhập tay" (xanh dương) | "Kế toán gán" (xanh lá) |
 | **wallet_processed** | `false` (chờ duyệt) | `true` (đã cộng) |
+| **is_hidden** | `true` (sau khi gán) | `true` (sau khi gán) |
 
-**Logic phân biệt (server-side - sepay-webhook.js):**
+#### 8.7.1 Logic phân biệt (server-side - sepay-webhook.js)
+
 ```javascript
 // API: PUT /api/sepay/transaction/{id}/phone
 // Request body: { phone, name, is_manual_entry, entered_by }
@@ -767,18 +769,168 @@ if (is_manual_entry === true) {
 }
 ```
 
+#### 8.7.2 Client-side Implementation
+
 **QUAN TRỌNG - Client phải gửi đúng flag `is_manual_entry`:**
 
 | Source | Gửi `is_manual_entry` | Logic |
 |--------|----------------------|-------|
 | **Live Mode** | `true` (luôn luôn) | Nhập từ kanban → chờ duyệt |
-| **Balance History** | `true` nếu user không có quyền `approveTransaction` | Kiểm tra permission trước khi gửi |
+| **Balance History** | Dựa trên permission check | `saveTransactionCustomer()` kiểm tra `approveTransaction` |
 | **Transfer Stats** | Dùng `window.saveTransactionCustomer()` từ main.js | Logic tập trung |
 
-**Flow sau khi gán:**
-1. Giao dịch được set `is_hidden = true` → hiển thị trong "ĐÃ XÁC NHẬN" ở Live Mode
-2. Nếu `manual_entry`: Chờ kế toán duyệt trong tab "Chờ Duyệt"
-3. Nếu `manual_link`: Ví được cộng ngay, giao dịch hoàn tất
+**Live Mode (live-mode.js) - assignManual():**
+```javascript
+// Line 569-578: Luôn gửi is_manual_entry: true
+const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/phone`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        phone: phone,
+        name: customerName,
+        is_manual_entry: true,  // Luôn true từ Live Mode
+        entered_by: window.authManager?.getUserInfo()?.username || 'staff'
+    })
+});
+
+// Sau đó set is_hidden = true để chuyển sang "ĐÃ XÁC NHẬN"
+await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hidden: true })
+});
+```
+
+**Balance History (main.js) - saveTransactionCustomer():**
+```javascript
+// Line 3044-3089: Kiểm tra permission trước khi quyết định is_manual_entry
+async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
+    const { isManualEntry = false, name = '' } = options;
+
+    // Check if user is accountant/admin
+    const hasApprovePermission = authManager?.hasDetailedPermission('balance-history', 'approveTransaction');
+    const isAccountant = hasApprovePermission === true;
+    const shouldRequireApproval = isManualEntry && !isAccountant;
+
+    const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
+        method: 'PUT',
+        body: JSON.stringify({
+            phone: newPhone,
+            name: name,
+            is_manual_entry: shouldRequireApproval,  // Dựa trên permission
+            entered_by: currentUsername
+        })
+    });
+
+    // Sau khi gán xong, set is_hidden = true
+    await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/hidden`, {
+        method: 'PUT',
+        body: JSON.stringify({ hidden: true })
+    });
+}
+```
+
+#### 8.7.3 Flow sau khi gán SĐT
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         FLOW GÁN SĐT THỦ CÔNG                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  User nhập SĐT (Live Mode / Balance History / Transfer Stats)               │
+│                              │                                               │
+│                              ▼                                               │
+│         ┌────────────────────────────────────────┐                          │
+│         │  API: PUT /api/sepay/transaction/{id}/phone                       │
+│         │  Body: { phone, name, is_manual_entry, entered_by }               │
+│         └────────────────────┬───────────────────┘                          │
+│                              │                                               │
+│              ┌───────────────┴───────────────┐                              │
+│              │                               │                              │
+│              ▼                               ▼                              │
+│    ┌─────────────────────┐       ┌─────────────────────┐                    │
+│    │ is_manual_entry=true│       │ is_manual_entry=false│                   │
+│    │ (Nhân viên nhập)    │       │ (Kế toán gán)       │                    │
+│    └──────────┬──────────┘       └──────────┬──────────┘                    │
+│               │                              │                              │
+│               ▼                              ▼                              │
+│    ┌─────────────────────┐       ┌─────────────────────┐                    │
+│    │ match_method =      │       │ match_method =      │                    │
+│    │   'manual_entry'    │       │   'manual_link'     │                    │
+│    │ status =            │       │ status = 'APPROVED' │                    │
+│    │   'PENDING_VERIF..' │       │ wallet_processed =  │                    │
+│    │ wallet_processed =  │       │   true              │                    │
+│    │   false             │       │ ► CỘNG VÍ NGAY     │                    │
+│    └──────────┬──────────┘       └──────────┬──────────┘                    │
+│               │                              │                              │
+│               └──────────────┬───────────────┘                              │
+│                              │                                               │
+│                              ▼                                               │
+│         ┌────────────────────────────────────────┐                          │
+│         │  API: PUT /api/sepay/transaction/{id}/hidden                      │
+│         │  Body: { hidden: true }                                           │
+│         └────────────────────┬───────────────────┘                          │
+│                              │                                               │
+│                              ▼                                               │
+│         ┌────────────────────────────────────────┐                          │
+│         │  is_hidden = true                                                 │
+│         │  → Giao dịch chuyển sang "ĐÃ XÁC NHẬN" trong Live Mode           │
+│         └────────────────────────────────────────┘                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 8.7.4 Phân loại giao dịch trong Live Mode
+
+**Live Mode classification (live-mode.js - classifyTransaction):**
+```javascript
+function classifyTransaction(tx) {
+    // ĐÃ XÁC NHẬN: is_hidden = true
+    if (tx.is_hidden === true) {
+        return 'confirmed';
+    }
+
+    // TỰ ĐỘNG GÁN: CHỈ các phương thức tự động
+    const autoMethods = ['qr_code', 'exact_phone', 'single_match'];
+    if (tx.customer_phone && !tx.has_pending_match && autoMethods.includes(tx.match_method)) {
+        return 'autoMatched';
+    }
+
+    // NHẬP TAY: Tất cả trường hợp còn lại
+    // - Chưa có khách hàng
+    // - Có pending match
+    // - match_method là manual_entry, manual_link, pending_match
+    return 'manual';
+}
+```
+
+**Kết quả phân loại:**
+
+| `is_hidden` | `match_method` | Column | Có nút "Sửa"? |
+|-------------|----------------|--------|---------------|
+| `true` | `manual_entry` | ĐÃ XÁC NHẬN | ✅ Có (nếu chưa APPROVED) |
+| `true` | `manual_link` | ĐÃ XÁC NHẬN | ❌ Không |
+| `true` | `qr_code`, `exact_phone` | ĐÃ XÁC NHẬN | ❌ Không |
+| `false` | `qr_code`, `exact_phone`, `single_match` | TỰ ĐỘNG GÁN | ❌ Không |
+| `false` | Khác hoặc không có | NHẬP TAY | ✅ Có (input phone) |
+
+#### 8.7.5 Edit Permission trong ĐÃ XÁC NHẬN
+
+```javascript
+// live-mode.js - renderConfirmedCards()
+// Chỉ cho phép sửa với giao dịch NHẬP TAY, chưa APPROVED, chưa cộng ví
+const canEdit = tx.match_method === 'manual_entry'
+    && tx.verification_status !== 'APPROVED'
+    && tx.wallet_processed !== true;
+
+// Hiển thị nút Sửa nếu canEdit = true
+${canEdit ? `<button class="btn-edit" data-id="${tx.id}">Sửa</button>` : ''}
+```
+
+**Lý do:**
+- Giao dịch `manual_entry` chưa được kế toán duyệt → cho phép sửa lại nếu nhập sai
+- Giao dịch đã `APPROVED` hoặc `wallet_processed = true` → KHÔNG cho sửa vì đã cộng ví
+- Giao dịch tự động (`qr_code`, `exact_phone`) → KHÔNG cho sửa vì độ tin cậy cao
 
 ---
 
