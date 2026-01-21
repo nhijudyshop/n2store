@@ -853,7 +853,6 @@ async function saveTSEdit(e) {
     const customer_phone = document.getElementById('editTSCustomerPhone').value.trim();
     const notes = document.getElementById('editTSNotes').value.trim();
 
-    // Get the current item to access transaction_id
     const item = tsData.find(d => d.id === parseInt(id));
     if (!item) {
         window.notificationManager?.show('Không tìm thấy giao dịch', 'error');
@@ -861,7 +860,8 @@ async function saveTSEdit(e) {
     }
 
     try {
-        // Step 1: Update transfer_stats record (name, phone, notes)
+        // Chỉ update transfer_stats record (name, phone, notes)
+        // KHÔNG gọi API gán phone/credit wallet - sẽ implement lại sau
         const tsResponse = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -875,45 +875,16 @@ async function saveTSEdit(e) {
             return;
         }
 
-        // Step 2: Update transaction for TPOS wallet credit
-        // ✅ GỌI HÀM CHUNG TỪ main.js - đã test hoạt động đúng
-        let tposResult = { success: true };
-        if (customer_phone?.length === 10 && item.transaction_id) {
-            console.log('[TS] Calling saveTransactionCustomer:', {
-                transaction_id: item.transaction_id,
-                phone: customer_phone,
-                name: customer_name
-            });
-
-            // Sử dụng hàm đã có trong main.js với isManualEntry: true
-            // Hàm này sẽ tự kiểm tra quyền và set is_manual_entry đúng cách
-            tposResult = await window.saveTransactionCustomer(
-                item.transaction_id,
-                customer_phone,
-                { isManualEntry: true, name: customer_name }
-            );
-        }
-
         // Update local data
         item.customer_name = customer_name || null;
         item.customer_phone = customer_phone || null;
         item.notes = notes || null;
 
-        // Re-render (keep current page position)
+        // Re-render
         filterTransferStats(true);
         closeEditTSModal();
 
-        // Show appropriate notification
-        let message = 'Đã cập nhật thông tin';
-        if (tposResult.success && customer_phone?.length === 10) {
-            message = tposResult.requiresApproval
-                ? '✅ Đã lưu - Chờ kế toán duyệt cộng ví!'
-                : '✅ Đã cập nhật & gửi yêu cầu cộng ví TPOS!';
-        }
-        window.notificationManager?.show(message, 'success');
-
-        // Sync Balance History tab - mark for reload when it becomes active
-        window._balanceHistoryNeedsReload = true;
+        window.notificationManager?.show('Đã cập nhật thông tin', 'success');
 
     } catch (error) {
         console.error('[TS] Error:', error);
