@@ -566,13 +566,15 @@ const LiveModeModule = (function() {
         setCardProcessing(txId, true);
 
         try {
-            // 1. Gán SĐT
+            // 1. Gán SĐT - LUÔN gửi is_manual_entry: true vì nhập từ Live Mode
             const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/phone`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phone: phone,
-                    match_method: 'manual_entry'
+                    name: customerName,
+                    is_manual_entry: true,  // Nhập tay từ Live Mode → chờ kế toán duyệt
+                    entered_by: window.authManager?.getUserInfo()?.username || 'staff'
                 })
             });
 
@@ -888,13 +890,15 @@ const LiveModeModule = (function() {
         }
 
         try {
-            // Update phone via API
+            // Update phone via API - nhập tay từ Live Mode
             const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/phone`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     phone: phone,
-                    match_method: 'manual_entry'
+                    name: name,
+                    is_manual_entry: true,  // Nhập tay từ Live Mode → chờ kế toán duyệt
+                    entered_by: window.authManager?.getUserInfo()?.username || 'staff'
                 })
             });
 
