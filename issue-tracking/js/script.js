@@ -1156,15 +1156,25 @@ async function handleConfirmAction() {
 
             if (resolveData.success) {
                 console.log('[APP] Virtual credit issued successfully:', resolveData);
+
+                const virtualCreditId = resolveData.data?.virtual_credit_id || true;
+
+                // Update ticket in Firebase/PostgreSQL to persist virtual_credit_id
+                // This will trigger Firebase subscription and update TICKETS array
+                await ApiService.updateTicket(pendingActionTicketId, {
+                    virtualCreditId: virtualCreditId
+                });
+                console.log('[APP] Ticket updated with virtual_credit_id:', virtualCreditId);
+
                 notificationManager.success(
                     `Đã cấp ${money.toLocaleString()}đ công nợ ảo cho ${customerPhone}`,
                     3000,
                     'Công nợ ảo'
                 );
 
-                // Update local ticket data để UI refresh đúng nút
-                ticket.virtual_credit_id = resolveData.data?.virtual_credit_id || true;
-                ticket.virtualCreditId = ticket.virtual_credit_id;
+                // Update local ticket data để UI refresh đúng nút (backup in case Firebase slow)
+                ticket.virtual_credit_id = virtualCreditId;
+                ticket.virtualCreditId = virtualCreditId;
 
                 // Re-render dashboard with current tab
                 const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';

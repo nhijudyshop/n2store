@@ -270,9 +270,10 @@ const ApiService = {
                 if (updates.completedAt !== undefined) apiUpdates.completed_at = new Date(updates.completedAt).toISOString();
                 if (updates.refundOrderId !== undefined) apiUpdates.refund_order_id = updates.refundOrderId;
                 if (updates.refundNumber !== undefined) apiUpdates.refund_number = updates.refundNumber;
+                if (updates.virtualCreditId !== undefined) apiUpdates.virtual_credit_id = updates.virtualCreditId;
 
-                const response = await fetch(`${this.RENDER_API_URL}/ticket/${firebaseId}`, {
-                    method: 'PUT',
+                const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${firebaseId}`, {
+                    method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json'
                     },
@@ -396,6 +397,8 @@ const ApiService = {
                             money: ticket.refund_amount,
                             fixReason: ticket.fix_cod_reason,
                             note: ticket.internal_note,
+                            virtualCreditId: ticket.virtual_credit_id,  // For UI to show correct button
+                            virtual_credit_id: ticket.virtual_credit_id,
                             virtualCredit: ticket.virtual_credit_amount ? {
                                 amount: ticket.virtual_credit_amount,
                                 status: 'ACTIVE'
