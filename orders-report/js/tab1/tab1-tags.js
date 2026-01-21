@@ -564,6 +564,20 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
 
         console.log('[QUICK-TAG] Tag assigned successfully:', tagName, 'to order:', orderCode);
 
+        // Re-apply filters to hide order if it no longer matches the current tag filter
+        const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
+        if (currentTagFilter !== 'all') {
+            // Check if order still matches the filter
+            const orderStillMatchesFilter = orderTags.some(tag => String(tag.Id) === String(currentTagFilter));
+            if (!orderStillMatchesFilter) {
+                // Order no longer matches filter - re-filter the table
+                if (typeof performTableSearch === 'function') {
+                    performTableSearch();
+                    console.log('[QUICK-TAG] Order hidden - no longer matches tag filter');
+                }
+            }
+        }
+
     } catch (error) {
         console.error('[QUICK-TAG] Error:', error);
 
@@ -688,6 +702,20 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
         }
 
         console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'from order:', orderCode);
+
+        // Re-apply filters to hide order if it no longer matches the current tag filter
+        const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
+        if (currentTagFilter !== 'all') {
+            // Check if order still matches the filter
+            const orderStillMatchesFilter = newOrderTags.some(tag => String(tag.Id) === String(currentTagFilter));
+            if (!orderStillMatchesFilter) {
+                // Order no longer matches filter - re-filter the table
+                if (typeof performTableSearch === 'function') {
+                    performTableSearch();
+                    console.log('[QUICK-TAG] Order hidden - no longer matches tag filter after removal');
+                }
+            }
+        }
 
     } catch (error) {
         console.error('[QUICK-TAG] Error removing tag:', error);
