@@ -602,7 +602,13 @@
                         window.templateManager.loadTemplates();
                     }
 
-                    lucide.createIcons();
+                    // Re-render icons after DOM is fully updated
+                    // Use setTimeout to ensure tab is visible before rendering icons
+                    setTimeout(() => {
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    }, 50);
                 });
             });
 

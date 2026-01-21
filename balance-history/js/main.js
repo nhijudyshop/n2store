@@ -2510,7 +2510,7 @@ function showQRModal(qrData, isNewQR = false) {
                 </button>
                 ${!isNewQR ? `
                     <button class="btn btn-info" onclick="editCustomerInfo('${qrData.uniqueCode}')">
-                        <i data-lucide="user-pen"></i> Sửa TT Khách
+                        <i data-lucide="pencil"></i> Sửa TT Khách
                     </button>
                 ` : ''}
             </div>

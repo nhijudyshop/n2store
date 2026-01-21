@@ -1246,7 +1246,7 @@ class UnifiedNavigationManager {
                 editBtn.className = 'edit-displayname-btn';
                 editBtn.id = 'editDisplayNameDesktop';
                 editBtn.title = 'Chỉnh sửa tên hiển thị';
-                editBtn.innerHTML = '<i data-lucide="user-pen"></i>';
+                editBtn.innerHTML = '<i data-lucide="pencil"></i>';
                 editBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.showEditDisplayNameModal();
