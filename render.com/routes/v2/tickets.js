@@ -205,6 +205,33 @@ router.post('/', async (req, res) => {
     }
 
     try {
+        // FRAUD PREVENTION: Check for duplicate RETURN tickets (1 order = 1 return ticket)
+        if ((type === 'RETURN_CLIENT' || type === 'RETURN_SHIPPER') && order_id) {
+            const existingReturn = await db.query(`
+                SELECT id, ticket_code, type
+                FROM customer_tickets
+                WHERE order_id = $1
+                  AND type IN ('RETURN_CLIENT', 'RETURN_SHIPPER')
+                  AND status != 'CANCELLED'
+                LIMIT 1
+            `, [order_id]);
+
+            if (existingReturn.rows.length > 0) {
+                const existing = existingReturn.rows[0];
+                const typeLabel = existing.type === 'RETURN_CLIENT' ? 'Khách gửi về' : 'Thu về';
+                return res.status(400).json({
+                    success: false,
+                    error: 'DUPLICATE_RETURN_TICKET',
+                    message: `Đơn hàng ${order_id} đã có ticket hoàn hàng: ${existing.ticket_code} (${typeLabel})`,
+                    existing_ticket: {
+                        id: existing.id,
+                        ticket_code: existing.ticket_code,
+                        type: existing.type
+                    }
+                });
+            }
+        }
+
         // Get or create customer
         const customerId = await getOrCreateCustomer(db, normalizedPhone, customer_name);
 
@@ -564,6 +591,30 @@ router.post('/:id/resolve-credit', async (req, res) => {
     }
 
     try {
+        // FRAUD PREVENTION: Check if virtual credit already issued for this ticket
+        const ticketRef = ticket_code || id;
+        const existingCredit = await db.query(`
+            SELECT id, original_amount, created_at
+            FROM virtual_credits
+            WHERE source_id = $1 AND source_type = 'TICKET' AND status = 'ACTIVE'
+            LIMIT 1
+        `, [ticketRef]);
+
+        if (existingCredit.rows.length > 0) {
+            const existing = existingCredit.rows[0];
+            console.log(`[Tickets V2] FRAUD BLOCKED: Virtual credit already exists for ${ticketRef}`);
+            return res.status(400).json({
+                success: false,
+                error: 'DUPLICATE_VIRTUAL_CREDIT',
+                message: `Ticket ${ticketRef} đã được cấp công nợ ảo: ${parseFloat(existing.original_amount).toLocaleString()}đ`,
+                existing_credit: {
+                    id: existing.id,
+                    amount: existing.original_amount,
+                    created_at: existing.created_at
+                }
+            });
+        }
+
         console.log(`[Tickets V2] Issuing virtual credit: ${phone} - ${amount}đ for ticket ${ticket_code || id}`);
 
         // Issue virtual credit using wallet-event-processor
