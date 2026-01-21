@@ -281,8 +281,8 @@ async function toggleTSChecked(id, checked) {
             const hideCheckbox = row.querySelector('.ts-hide-checkbox');
             if (hideCheckbox) hideCheckbox.checked = true;
         }
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Không thể bỏ "Ẩn/Hiện" khi đã "Kiểm Tra". Hãy bỏ check "Đã Kiểm Tra" trước.', 'warning');
+        if (window.notificationManager) {
+            window.notificationManager.show('Không thể bỏ "Ẩn/Hiện" khi đã "Kiểm Tra". Hãy bỏ check "Đã Kiểm Tra" trước.', 'warning');
         }
         return;
     }
@@ -326,8 +326,8 @@ async function toggleTSChecked(id, checked) {
             updateUncheckedBadge();
 
             // Show notification
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification(
+            if (window.notificationManager) {
+                window.notificationManager.show(
                     checked ? 'Đã hiện giao dịch' : 'Đã ẩn giao dịch',
                     'success'
                 );
@@ -367,8 +367,8 @@ async function toggleTSVerified(id, verified) {
             updateTSStats();
 
             // Show notification
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification(
+            if (window.notificationManager) {
+                window.notificationManager.show(
                     verified ? 'Đã đánh dấu kiểm tra' : 'Đã bỏ đánh dấu kiểm tra',
                     'success'
                 );
@@ -385,8 +385,8 @@ async function markAllChecked() {
     const uncheckedIds = tsFilteredData.filter(item => !item.is_checked).map(item => item.id);
 
     if (uncheckedIds.length === 0) {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Không có giao dịch nào cần đánh dấu', 'info');
+        if (window.notificationManager) {
+            window.notificationManager.show('Không có giao dịch nào cần đánh dấu', 'info');
         }
         return;
     }
@@ -414,8 +414,8 @@ async function markAllChecked() {
             filterTransferStats();
             updateUncheckedBadge();
 
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification(
+            if (window.notificationManager) {
+                window.notificationManager.show(
                     `Đã đánh dấu ${uncheckedIds.length} giao dịch`,
                     'success'
                 );
@@ -480,13 +480,13 @@ async function transferToStats(transactionId) {
 
             updateUncheckedBadge();
 
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Đã chuyển vào Thống Kê', 'success');
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã chuyển vào Thống Kê', 'success');
             }
         } else {
             if (result.error === 'Already exists') {
-                if (window.NotificationManager) {
-                    window.NotificationManager.showNotification('Giao dịch đã có trong Thống Kê', 'info');
+                if (window.notificationManager) {
+                    window.notificationManager.show('Giao dịch đã có trong Thống Kê', 'info');
                 }
             } else {
                 console.error('[TS] Error transferring:', result.error);
@@ -503,8 +503,8 @@ async function transferToStats(transactionId) {
 
 async function syncTransferStats() {
     try {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Đang đồng bộ...', 'info');
+        if (window.notificationManager) {
+            window.notificationManager.show('Đang đồng bộ...', 'info');
         }
 
         const response = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/sync`, {
@@ -515,8 +515,8 @@ async function syncTransferStats() {
         const result = await response.json();
 
         if (result.success) {
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification(
+            if (window.notificationManager) {
+                window.notificationManager.show(
                     `Đã đồng bộ ${result.synced} giao dịch`,
                     result.synced > 0 ? 'success' : 'info'
                 );
@@ -527,14 +527,14 @@ async function syncTransferStats() {
             }
         } else {
             console.error('[TS] Sync error:', result.error);
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Lỗi đồng bộ', 'error');
+            if (window.notificationManager) {
+                window.notificationManager.show('Lỗi đồng bộ', 'error');
             }
         }
     } catch (error) {
         console.error('[TS] Sync error:', error);
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Lỗi kết nối', 'error');
+        if (window.notificationManager) {
+            window.notificationManager.show('Lỗi kết nối', 'error');
         }
     }
 }
@@ -856,8 +856,8 @@ async function saveTSEdit(e) {
     // Get the current item to access transaction_id
     const item = tsData.find(d => d.id === parseInt(id));
     if (!item) {
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Không tìm thấy giao dịch', 'error');
+        if (window.notificationManager) {
+            window.notificationManager.show('Không tìm thấy giao dịch', 'error');
         }
         return;
     }
@@ -885,8 +885,8 @@ async function saveTSEdit(e) {
 
         if (!tsResult.success) {
             console.error('[TS] Error saving transfer stats:', tsResult.error);
-            if (window.NotificationManager) {
-                window.NotificationManager.showNotification('Lỗi cập nhật: ' + tsResult.error, 'error');
+            if (window.notificationManager) {
+                window.notificationManager.show('Lỗi cập nhật: ' + tsResult.error, 'error');
             }
             return;
         }
@@ -937,8 +937,8 @@ async function saveTSEdit(e) {
             }
         }
 
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification(message, 'success');
+        if (window.notificationManager) {
+            window.notificationManager.show(message, 'success');
         }
 
         // Sync Balance History tab - mark for reload when it becomes active
@@ -946,8 +946,8 @@ async function saveTSEdit(e) {
 
     } catch (error) {
         console.error('[TS] Error:', error);
-        if (window.NotificationManager) {
-            window.NotificationManager.showNotification('Lỗi kết nối', 'error');
+        if (window.notificationManager) {
+            window.notificationManager.show('Lỗi kết nối', 'error');
         }
     }
 }
