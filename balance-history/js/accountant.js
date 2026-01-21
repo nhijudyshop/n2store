@@ -415,8 +415,7 @@
         elements.pendingTableBody.innerHTML = state.pendingQueue.map(tx => {
             const amount = parseFloat(tx.amount || 0);
             const amountFormatted = amount.toLocaleString('vi-VN') + 'đ';
-            const txDate = tx.transaction_date ? new Date(tx.transaction_date) : null;
-            const timeStr = txDate ? txDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            const timeStr = formatDateTime(tx.transaction_date);
 
             // Calculate wait time
             const waitTime = calculateWaitTime(tx.verified_at || tx.created_at);
@@ -498,6 +497,24 @@
         }
 
         return { hours: diffHours, display };
+    }
+
+    /**
+     * Format date/time as "HH:MM DD/MM"
+     * @param {string|Date} dateInput
+     * @returns {string}
+     */
+    function formatDateTime(dateInput) {
+        if (!dateInput) return 'N/A';
+        const date = new Date(dateInput);
+        if (isNaN(date.getTime())) return 'N/A';
+
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+
+        return `${hours}:${minutes} ${day}/${month}`;
     }
 
     /**
@@ -931,8 +948,8 @@
 
         elements.approvedTableBody.innerHTML = state.approvedToday.map(tx => {
             const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN') + 'đ';
-            const verifiedAt = tx.verified_at ? new Date(tx.verified_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
-            const txDate = tx.transaction_date ? new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            const verifiedAt = formatDateTime(tx.verified_at);
+            const txDate = formatDateTime(tx.transaction_date);
 
             return `
                 <tr>
@@ -1136,7 +1153,7 @@
         }
 
         elements.adjustmentHistoryBody.innerHTML = state.adjustmentsToday.map(adj => {
-            const time = new Date(adj.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            const time = formatDateTime(adj.created_at);
             const amount = parseFloat(adj.amount || 0).toLocaleString('vi-VN') + 'đ';
             const typeClass = adj.type === 'add' ? 'type-add' : 'type-subtract';
             const typeIcon = adj.type === 'add' ? '+' : '-';

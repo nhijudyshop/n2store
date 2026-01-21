@@ -1166,8 +1166,9 @@ async function handleConfirmAction() {
                 ticket.virtual_credit_id = resolveData.data?.virtual_credit_id || true;
                 ticket.virtualCreditId = ticket.virtual_credit_id;
 
-                // Re-render tickets
-                renderTickets();
+                // Re-render dashboard with current tab
+                const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
+                renderDashboard(activeTab);
             } else {
                 throw new Error(resolveData.error || resolveData.message || 'Không thể cấp công nợ ảo');
             }
