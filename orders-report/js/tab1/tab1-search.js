@@ -185,6 +185,9 @@ function mergeOrdersByPhone(orders) {
     return mergedOrders;
 }
 
+// Expose to window for access from other modules (e.g., tab1-tags.js)
+window.performTableSearch = performTableSearch;
+
 function performTableSearch() {
     // Apply search filter
     let tempData = searchQuery

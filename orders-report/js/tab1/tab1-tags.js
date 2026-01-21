@@ -571,8 +571,8 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
             const orderStillMatchesFilter = orderTags.some(tag => String(tag.Id) === String(currentTagFilter));
             if (!orderStillMatchesFilter) {
                 // Order no longer matches filter - re-filter the table
-                if (typeof performTableSearch === 'function') {
-                    performTableSearch();
+                if (typeof window.performTableSearch === 'function') {
+                    window.performTableSearch();
                     console.log('[QUICK-TAG] Order hidden - no longer matches tag filter');
                 }
             }
@@ -710,8 +710,8 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
             const orderStillMatchesFilter = newOrderTags.some(tag => String(tag.Id) === String(currentTagFilter));
             if (!orderStillMatchesFilter) {
                 // Order no longer matches filter - re-filter the table
-                if (typeof performTableSearch === 'function') {
-                    performTableSearch();
+                if (typeof window.performTableSearch === 'function') {
+                    window.performTableSearch();
                     console.log('[QUICK-TAG] Order hidden - no longer matches tag filter after removal');
                 }
             }
