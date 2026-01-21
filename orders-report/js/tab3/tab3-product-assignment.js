@@ -5500,7 +5500,7 @@
                     return;
                 }
             } else {
-                orderId = order.Id;
+                orderId = order.orderId;
             }
 
             // Fetch full order details with products
