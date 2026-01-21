@@ -140,17 +140,19 @@ const LiveModeModule = (function() {
             return 'confirmed';
         }
 
-        // NHẬP TAY: Chưa có khách hàng hoặc cần xử lý
+        // NHẬP TAY: Chưa có khách hàng, có pending match, hoặc đã nhập tay
         // Use customer_phone (from backend JOIN) as the primary field
         if (
             !tx.customer_phone ||
             tx.has_pending_match === true ||
-            (tx.pending_match_skipped && tx.pending_match_options?.length > 0)
+            (tx.pending_match_skipped && tx.pending_match_options?.length > 0) ||
+            tx.match_method === 'manual_entry'  // Giao dịch nhập tay chưa xác nhận
         ) {
             return 'manual';
         }
 
-        // TỰ ĐỘNG GÁN: Có KH nhưng chưa xác nhận
+        // TỰ ĐỘNG GÁN: Có KH (tự động match) nhưng chưa xác nhận
+        // Chỉ bao gồm: qr_code, exact_phone, single_match
         return 'autoMatched';
     }
 
