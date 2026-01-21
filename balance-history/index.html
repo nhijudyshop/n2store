@@ -1223,14 +1223,14 @@
         window.hasDetailedPermission = (pageId, action) => window.authManager?.hasDetailedPermission?.(pageId, action) ?? false;
     </script>
 
-    <!-- Page Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/qr-generator.js"></script>
-    <script src="js/customer-info.js"></script>
-    <script src="js/main.js"></script>
-    <script src="js/transfer-stats.js"></script>
-    <script src="js/accountant.js"></script>
-    <script src="js/live-mode.js"></script>
+    <!-- Page Scripts - v=20260121 for cache busting -->
+    <script src="js/config.js?v=20260121"></script>
+    <script src="js/qr-generator.js?v=20260121"></script>
+    <script src="js/customer-info.js?v=20260121"></script>
+    <script src="js/main.js?v=20260121"></script>
+    <script src="js/transfer-stats.js?v=20260121"></script>
+    <script src="js/accountant.js?v=20260121"></script>
+    <script src="js/live-mode.js?v=20260121"></script>
 
     <!-- Initialize Lucide Icons, View Mode, and Main Tabs -->
     <script>

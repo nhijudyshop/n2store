@@ -862,14 +862,16 @@ async function saveTSEdit(e) {
         return;
     }
 
-    // Get current user email for audit trail
-    const currentUserEmail = window.authManager?.getUserEmail?.() ||
-        localStorage.getItem('user_email') ||
-        'staff';
+    // Get current user for audit trail
+    const currentUser = window.authManager?.getUserInfo?.();
+    const currentUsername = currentUser?.username || currentUser?.displayName || 'staff';
 
     // Check if user is accountant/admin - MUST use === true to prevent undefined becoming truthy
     const hasApprovePermission = window.authManager?.hasDetailedPermission?.('balance-history', 'approveTransaction');
     const isAccountant = hasApprovePermission === true;
+
+    // Debug log for permission tracking
+    console.log('[TS-PERMISSION]', { user: currentUsername, hasApprovePermission, isAccountant, willRequireApproval: !isAccountant });
 
     try {
         // Step 1: Update transfer_stats record
@@ -902,7 +904,7 @@ async function saveTSEdit(e) {
                     phone: customer_phone,
                     name: customer_name,
                     is_manual_entry: !isAccountant, // Requires approval if not accountant
-                    entered_by: currentUserEmail
+                    entered_by: currentUsername
                 })
             });
 

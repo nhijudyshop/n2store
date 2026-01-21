@@ -3050,10 +3050,9 @@ async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
     const isAccountant = hasApprovePermission === true;
     const shouldRequireApproval = isManualEntry && !isAccountant;
 
-    // Get current user email for audit trail
-    const currentUserEmail = authManager?.getUserEmail?.() ||
-        localStorage.getItem('user_email') ||
-        'staff';
+    // Get current user for audit trail
+    const currentUser = authManager?.getUserInfo?.();
+    const currentUsername = currentUser?.username || currentUser?.displayName || 'staff';
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
@@ -3065,7 +3064,7 @@ async function saveTransactionCustomer(transactionId, newPhone, options = {}) {
                 phone: newPhone,
                 name: name, // Send customer name too
                 is_manual_entry: shouldRequireApproval,
-                entered_by: currentUserEmail
+                entered_by: currentUsername
             })
         });
 
