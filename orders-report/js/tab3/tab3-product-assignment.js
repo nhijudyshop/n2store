@@ -5161,21 +5161,12 @@
     function saveRemovals(immediate = false) {
         const saveAction = () => {
             try {
-                // Save to localStorage
                 localStorage.setItem('orders_productRemovals', JSON.stringify({
                     removals: removals,
                     _timestamp: Date.now(),
                     _version: 1
                 }));
-
-                // Save to Firebase
-                const user = firebase.auth().currentUser;
-                if (user) {
-                    database.ref(`productRemovals/${user.uid}`).set({
-                        removals: removals,
-                        _timestamp: Date.now()
-                    });
-                }
+                console.log('[REMOVAL-SAVE] ✅ Saved', removals.length, 'removals to localStorage');
             } catch (error) {
                 console.error('[REMOVAL-SAVE] Error:', error);
             }
