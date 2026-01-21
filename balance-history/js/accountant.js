@@ -450,7 +450,7 @@
                             </div>
                         ` : `<span class="acc-text-muted">Chưa gán KH</span>`}
                     </td>
-                    <td class="col-staff">${tx.entered_by || 'N/A'}</td>
+                    <td class="col-staff">${getMatchMethodBadge(tx.match_method)}</td>
                     <td class="col-wait">
                         <span class="acc-wait-time ${waitClass}">${waitTime.display}</span>
                     </td>
@@ -498,6 +498,21 @@
         }
 
         return { hours: diffHours, display };
+    }
+
+    /**
+     * Get badge for match_method
+     */
+    function getMatchMethodBadge(method) {
+        const badges = {
+            'qr_code': '<span class="badge badge-success">QR Code</span>',
+            'exact_phone': '<span class="badge badge-success">SĐT chính xác</span>',
+            'single_match': '<span class="badge badge-info">TPOS</span>',
+            'pending_match': '<span class="badge badge-warning">Chọn KH</span>',
+            'manual_entry': '<span class="badge badge-primary">Nhập tay</span>',
+            'manual_link': '<span class="badge badge-secondary">Kế toán gán</span>'
+        };
+        return badges[method] || '<span class="badge badge-light">N/A</span>';
     }
 
     // =====================================================
@@ -930,7 +945,7 @@
                             <span class="customer-phone">${tx.linked_customer_phone || ''}</span>
                         </div>
                     </td>
-                    <td>${tx.entered_by || 'N/A'}</td>
+                    <td>${getMatchMethodBadge(tx.match_method)}</td>
                     <td>${tx.verified_by || 'N/A'}</td>
                     <td class="acc-text-muted">${tx.verification_note || ''}</td>
                 </tr>

@@ -1024,7 +1024,7 @@ router.get('/approved-today', async (req, res) => {
                 bh.verified_at,
                 bh.verified_by,
                 bh.verification_note,
-                bh.entered_by,
+                bh.match_method,
                 c.name as customer_name
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
