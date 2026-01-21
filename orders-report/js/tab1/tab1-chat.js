@@ -4904,7 +4904,20 @@ function renderChatMessages(messages, scrollToBottom = false) {
                 <i class="fas fa-comments"></i>
                 <p>Chưa có tin nhắn</p>
             </div>`;
+        // Hide ad click badge when no messages
+        const adClickBadge = document.getElementById('chatAdClickBadge');
+        if (adClickBadge) adClickBadge.style.display = 'none';
         return;
+    }
+
+    // Check if any message has ad_click attachment and show badge
+    const hasAdClick = messages.some(msg => {
+        const attachments = msg.Attachments || msg.attachments || [];
+        return attachments.some(att => att.type === 'ad_click' || att.Type === 'ad_click');
+    });
+    const adClickBadge = document.getElementById('chatAdClickBadge');
+    if (adClickBadge) {
+        adClickBadge.style.display = hasAdClick ? 'inline-flex' : 'none';
     }
 
     // Format time helper - use global formatTimeVN
