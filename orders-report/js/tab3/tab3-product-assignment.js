@@ -5474,7 +5474,7 @@
             }
 
             // Find order by STT (try ordersData first, then fetch directly)
-            let order = ordersData.find(o => String(o.STT) === String(stt));
+            let order = ordersData.find(o => o.stt && o.stt.toString() === stt);
             let orderId = null;
 
             if (!order) {
