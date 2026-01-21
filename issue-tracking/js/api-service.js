@@ -388,6 +388,7 @@ const ApiService = {
                         const tickets = result.data.map(ticket => ({
                             ...ticket,
                             firebaseId: ticket.ticket_code,  // For backwards compatibility
+                            ticketCode: ticket.ticket_code,  // Used by ISSUE_CREDIT action
                             orderId: ticket.order_id,
                 tposId: ticket.tpos_order_id,  // TPOS internal ID for refund processing
                             trackingCode: ticket.tracking_code,
@@ -1170,6 +1171,7 @@ const ApiService = {
             return {
                 ...ticket,
                 firebaseId: ticket.ticket_code,
+                ticketCode: ticket.ticket_code,  // Used by ISSUE_CREDIT action
                 orderId: ticket.order_id,
                 tposId: ticket.tpos_order_id,  // TPOS internal ID for refund processing
                 trackingCode: ticket.tracking_code,

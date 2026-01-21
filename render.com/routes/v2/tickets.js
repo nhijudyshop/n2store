@@ -536,9 +536,9 @@ router.get('/:id/can-delete', async (req, res) => {
             const creditResult = await db.query(`
                 SELECT id, original_amount, remaining_amount, used_in_orders, status
                 FROM virtual_credits
-                WHERE source_id = $1 AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
+                WHERE source_id IN ($1, $2) AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
                 LIMIT 1
-            `, [ticket.ticket_code]);
+            `, [ticket.ticket_code, ticket.order_id]);
 
             if (creditResult.rows.length > 0) {
                 const vc = creditResult.rows[0];
@@ -610,8 +610,8 @@ router.delete('/:id', async (req, res) => {
             const creditResult = await db.query(`
                 SELECT id, original_amount, remaining_amount, used_in_orders, wallet_id
                 FROM virtual_credits
-                WHERE source_id = $1 AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
-            `, [ticket.ticket_code]);
+                WHERE source_id IN ($1, $2) AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
+            `, [ticket.ticket_code, ticket.order_id]);
 
             if (creditResult.rows.length > 0) {
                 const vc = creditResult.rows[0];

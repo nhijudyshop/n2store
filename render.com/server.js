@@ -24,7 +24,7 @@ app.use(cors({
         'http://localhost:5500',         // Local development for frontend
         'http://localhost:3000'          // Local development for this server itself
     ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id'],
     credentials: false // credentials cannot be true when origin is *
 }));
