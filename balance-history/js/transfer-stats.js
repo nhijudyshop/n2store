@@ -856,25 +856,12 @@ async function saveTSEdit(e) {
     // Get the current item to access transaction_id
     const item = tsData.find(d => d.id === parseInt(id));
     if (!item) {
-        if (window.notificationManager) {
-            window.notificationManager.show('Không tìm thấy giao dịch', 'error');
-        }
+        window.notificationManager?.show('Không tìm thấy giao dịch', 'error');
         return;
     }
 
-    // Get current user for audit trail
-    const currentUser = window.authManager?.getUserInfo?.();
-    const currentUsername = currentUser?.username || currentUser?.displayName || 'staff';
-
-    // Check if user is accountant/admin - MUST use === true to prevent undefined becoming truthy
-    const hasApprovePermission = window.authManager?.hasDetailedPermission?.('balance-history', 'approveTransaction');
-    const isAccountant = hasApprovePermission === true;
-
-    // Debug log for permission tracking
-    console.log('[TS-PERMISSION]', { user: currentUsername, hasApprovePermission, isAccountant, willRequireApproval: !isAccountant });
-
     try {
-        // Step 1: Update transfer_stats record
+        // Step 1: Update transfer_stats record (name, phone, notes)
         const tsResponse = await fetch(`${TS_API_BASE_URL}/api/sepay/transfer-stats/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -882,46 +869,35 @@ async function saveTSEdit(e) {
         });
 
         const tsResult = await tsResponse.json();
-
         if (!tsResult.success) {
-            console.error('[TS] Error saving transfer stats:', tsResult.error);
-            if (window.notificationManager) {
-                window.notificationManager.show('Lỗi cập nhật: ' + tsResult.error, 'error');
-            }
+            console.error('[TS] Error:', tsResult.error);
+            window.notificationManager?.show('Lỗi cập nhật: ' + tsResult.error, 'error');
             return;
         }
 
-        // Step 2: Also update transaction to trigger TPOS wallet credit
-        // Only if phone is valid (10 digits) and we have a transaction_id
+        // Step 2: Update transaction for TPOS wallet credit
+        // ✅ GỌI HÀM CHUNG TỪ main.js - đã test hoạt động đúng
         let tposResult = { success: true };
-        if (customer_phone && customer_phone.length === 10 && item.transaction_id) {
-            console.log('[TS] Updating transaction for TPOS:', { transaction_id: item.transaction_id, phone: customer_phone, name: customer_name });
-
-            const tposResponse = await fetch(`${TS_API_BASE_URL}/api/sepay/transaction/${item.transaction_id}/phone`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: customer_phone,
-                    name: customer_name,
-                    is_manual_entry: !isAccountant, // Requires approval if not accountant
-                    entered_by: currentUsername
-                })
+        if (customer_phone?.length === 10 && item.transaction_id) {
+            console.log('[TS] Calling saveTransactionCustomer:', {
+                transaction_id: item.transaction_id,
+                phone: customer_phone,
+                name: customer_name
             });
 
-            tposResult = await tposResponse.json();
-
-            if (!tposResult.success) {
-                console.warn('[TS] TPOS update warning:', tposResult.error);
-                // Don't fail the whole operation, just warn
-            }
+            // Sử dụng hàm đã có trong main.js với isManualEntry: true
+            // Hàm này sẽ tự kiểm tra quyền và set is_manual_entry đúng cách
+            tposResult = await window.saveTransactionCustomer(
+                item.transaction_id,
+                customer_phone,
+                { isManualEntry: true, name: customer_name }
+            );
         }
 
         // Update local data
-        if (item) {
-            item.customer_name = customer_name || null;
-            item.customer_phone = customer_phone || null;
-            item.notes = notes || null;
-        }
+        item.customer_name = customer_name || null;
+        item.customer_phone = customer_phone || null;
+        item.notes = notes || null;
 
         // Re-render (keep current page position)
         filterTransferStats(true);
@@ -929,26 +905,19 @@ async function saveTSEdit(e) {
 
         // Show appropriate notification
         let message = 'Đã cập nhật thông tin';
-        if (tposResult.success && customer_phone && customer_phone.length === 10) {
-            if (tposResult.requires_approval) {
-                message = '✅ Đã lưu - Chờ kế toán duyệt cộng ví!';
-            } else {
-                message = '✅ Đã cập nhật & gửi yêu cầu cộng ví TPOS!';
-            }
+        if (tposResult.success && customer_phone?.length === 10) {
+            message = tposResult.requiresApproval
+                ? '✅ Đã lưu - Chờ kế toán duyệt cộng ví!'
+                : '✅ Đã cập nhật & gửi yêu cầu cộng ví TPOS!';
         }
-
-        if (window.notificationManager) {
-            window.notificationManager.show(message, 'success');
-        }
+        window.notificationManager?.show(message, 'success');
 
         // Sync Balance History tab - mark for reload when it becomes active
         window._balanceHistoryNeedsReload = true;
 
     } catch (error) {
         console.error('[TS] Error:', error);
-        if (window.notificationManager) {
-            window.notificationManager.show('Lỗi kết nối', 'error');
-        }
+        window.notificationManager?.show('Lỗi kết nối', 'error');
     }
 }
 
