@@ -635,13 +635,40 @@ router.delete('/:id', async (req, res) => {
                     WHERE id = $1
                 `, [vc.id]);
 
-                // Update wallet virtual_balance
+                // Update wallet virtual_balance and log transaction for audit trail
                 if (vc.wallet_id) {
+                    // Get current balance before update
+                    const walletBefore = await db.query(
+                        'SELECT virtual_balance FROM customer_wallets WHERE id = $1',
+                        [vc.wallet_id]
+                    );
+                    const virtualBalanceBefore = parseFloat(walletBefore.rows[0]?.virtual_balance || 0);
+                    const virtualBalanceAfter = virtualBalanceBefore - originalAmount;
+
                     await db.query(`
                         UPDATE customer_wallets
                         SET virtual_balance = virtual_balance - $1, updated_at = NOW()
                         WHERE id = $2
                     `, [originalAmount, vc.wallet_id]);
+
+                    // LOG TRANSACTION FOR AUDIT TRAIL
+                    await db.query(`
+                        INSERT INTO wallet_transactions (
+                            phone, wallet_id, type, amount,
+                            virtual_balance_before, virtual_balance_after,
+                            source, reference_type, reference_id, note
+                        ) VALUES ($1, $2, 'VIRTUAL_CANCEL', $3, $4, $5,
+                            'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7)
+                    `, [
+                        ticket.phone,
+                        vc.wallet_id,
+                        -originalAmount,  // Negative amount for cancellation
+                        virtualBalanceBefore,
+                        virtualBalanceAfter,
+                        ticket.ticket_code,
+                        `Thu hồi công nợ ảo - Xóa phiếu ${ticket.ticket_code}`
+                    ]);
+                    console.log(`[Tickets V2] Logged wallet transaction for virtual credit cancellation`);
                 }
 
                 virtualCreditCancelled = true;

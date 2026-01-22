@@ -488,14 +488,35 @@ router.get('/customer/:phone/transactions', async (req, res) => {
 
                     UNION ALL
 
-                    -- Virtual credits (issued but not in wallet_transactions due to constraint)
-                    SELECT id, phone, wallet_id, 'VIRTUAL_CREDIT_ISSUED' as type,
-                        original_amount as amount, 0 as balance_before, 0 as balance_after,
-                        0 as virtual_balance_before, original_amount as virtual_balance_after,
+                    -- Virtual credits (issued - include CANCELLED for backwards compatibility audit trail)
+                    SELECT id, phone, wallet_id,
+                        CASE
+                            WHEN status = 'CANCELLED' THEN 'VIRTUAL_CREDIT_CANCELLED'
+                            ELSE 'VIRTUAL_CREDIT_ISSUED'
+                        END as type,
+                        CASE
+                            WHEN status = 'CANCELLED' THEN -original_amount
+                            ELSE original_amount
+                        END as amount,
+                        0 as balance_before, 0 as balance_after,
+                        0 as virtual_balance_before,
+                        CASE
+                            WHEN status = 'CANCELLED' THEN 0
+                            ELSE original_amount
+                        END as virtual_balance_after,
                         source_type as source, 'ticket' as reference_type, source_id as reference_id,
-                        note, NULL as created_by, created_at, expires_at
+                        CASE
+                            WHEN status = 'CANCELLED' THEN 'Thu hồi: ' || COALESCE(note, '')
+                            ELSE note
+                        END as note,
+                        NULL as created_by,
+                        CASE
+                            WHEN status = 'CANCELLED' THEN updated_at
+                            ELSE created_at
+                        END as created_at,
+                        expires_at
                     FROM virtual_credits
-                    WHERE phone = $1 AND status = 'ACTIVE'
+                    WHERE phone = $1 AND status IN ('ACTIVE', 'CANCELLED')
                 )
                 SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
                     virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
@@ -509,7 +530,7 @@ router.get('/customer/:phone/transactions', async (req, res) => {
             countQuery = `
                 SELECT (
                     (SELECT COUNT(*) FROM wallet_transactions WHERE phone = $1) +
-                    (SELECT COUNT(*) FROM virtual_credits WHERE phone = $1 AND status = 'ACTIVE')
+                    (SELECT COUNT(*) FROM virtual_credits WHERE phone = $1 AND status IN ('ACTIVE', 'CANCELLED'))
                 ) as count
             `;
         }
