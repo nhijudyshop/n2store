@@ -212,29 +212,33 @@ function populateEmployeeCampaignSelector() {
     const select = document.getElementById('employeeCampaignSelector');
     if (!select) return;
 
-    // Get campaigns from the main campaign filter
-    const mainCampaignSelect = document.getElementById('campaignFilter');
-    if (!mainCampaignSelect) {
-        console.log('[EMPLOYEE] Main campaign filter not found');
+    // Clear and add default option
+    select.innerHTML = '\u003coption value=""\u003eCấu hình chung (tất cả chiến dịch)\u003c/option\u003e';
+
+    // Get campaigns from window.campaignManager
+    if (!window.campaignManager || !window.campaignManager.allCampaigns) {
+        console.warn('[EMPLOYEE] window.campaignManager.allCampaigns not available');
         return;
     }
 
-    // Clear and add default option
-    select.innerHTML = '<option value="">Cấu hình chung (tất cả chiến dịch)</option>';
+    const campaigns = window.campaignManager.allCampaigns;
+    let count = 0;
 
-    // Copy campaigns from main filter
-    const options = mainCampaignSelect.querySelectorAll('option');
-    options.forEach(option => {
-        if (option.value !== '') {
-            const newOption = document.createElement('option');
-            newOption.value = option.value;
-            newOption.textContent = option.textContent;
-            newOption.dataset.campaign = option.dataset.campaign;
-            select.appendChild(newOption);
-        }
+    // Populate dropdown with campaigns
+    Object.entries(campaigns).forEach(([campaignId, campaign]) => {
+        const option = document.createElement('option');
+        option.value = campaignId;
+        option.textContent = campaign.name || campaign.displayName || campaignId;
+        // Store campaign data for later use
+        option.dataset.campaign = JSON.stringify({
+            id: campaignId,
+            displayName: campaign.name || campaign.displayName || campaignId
+        });
+        select.appendChild(option);
+        count++;
     });
 
-    console.log(`[EMPLOYEE] Populated campaign selector with ${select.options.length - 1} campaigns`);
+    console.log(`[EMPLOYEE] Populated campaign selector with ${count} campaigns`);
 }
 
 function toggleEmployeeDrawer() {
