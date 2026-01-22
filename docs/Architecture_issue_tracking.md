@@ -1,7 +1,7 @@
 # TÀI LIỆU TỔNG HỢP: HỆ THỐNG QUẢN LÝ SỰ VỤ SAU BÁN HÀNG
 
-> **Phiên bản:** 5.2 - Bản Thiết Kế Thực Thi Tuyệt Đối
-> **Ngày cập nhật:** 2026-01-06
+> **Phiên bản:** 5.6 - Bản Thiết Kế Thực Thi Tuyệt Đối
+> **Ngày cập nhật:** 2026-01-22 14:30
 > **Mục đích:** Tài liệu duy nhất - AI Agent có thể code chính xác 100% không cần hỏi lại
 
 ---
@@ -1575,10 +1575,10 @@ interface VirtualCredit {
 interface WalletTransaction {
   id: string;
   phone: string;
-  type: 'DEPOSIT' | 'WITHDRAW' | 'VIRTUAL_CREDIT' | 'VIRTUAL_DEBIT' | 'VIRTUAL_EXPIRE';
+  type: 'DEPOSIT' | 'WITHDRAW' | 'VIRTUAL_CREDIT' | 'VIRTUAL_DEBIT' | 'VIRTUAL_EXPIRE' | 'VIRTUAL_CANCEL' | 'ADJUSTMENT';
   amount: number;
   balanceAfter: number;
-  source: 'BANK_TRANSFER' | 'RETURN_GOODS' | 'ORDER_PAYMENT' | 'VIRTUAL_CREDIT_ISSUE' | 'VIRTUAL_CREDIT_USE' | 'VIRTUAL_CREDIT_EXPIRE';
+  source: 'BANK_TRANSFER' | 'RETURN_GOODS' | 'ORDER_PAYMENT' | 'VIRTUAL_CREDIT_ISSUE' | 'VIRTUAL_CREDIT_USE' | 'VIRTUAL_CREDIT_EXPIRE' | 'VIRTUAL_CREDIT_CANCEL' | 'MANUAL_ADJUSTMENT';
   reference?: string;           // ticketId, orderId, bankTxId
   note?: string;
   createdAt: number;
@@ -1728,6 +1728,23 @@ POST /api/odata/SaleOnline_Order/ODataService.CreateReturnInvoice
 2. Tìm wallet theo phone
 3. Nếu tìm thấy → Deposit vào wallet
 4. Log webhook vào `sepay_webhooks/`
+
+### B3.3 Ticket APIs (PostgreSQL Backend - /api/v2/tickets)
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| POST | `/` | Tạo ticket mới |
+| GET | `/` | Lấy danh sách tickets |
+| GET | `/:id` | Lấy chi tiết ticket |
+| PATCH | `/:id` | Cập nhật ticket |
+| POST | `/:id/resolve` | Hoàn tất ticket + cộng ví (RETURN_CLIENT) |
+| POST | `/new/resolve-credit` | Cấp virtual_credit cho RETURN_SHIPPER ngay khi tạo |
+| GET | `/:id/can-delete` | Kiểm tra ticket có thể xóa không (check virtual credit) |
+| DELETE | `/:id` | Xóa ticket (soft/hard), tự động hủy unused virtual credit |
+
+**Lưu ý về xóa ticket RETURN_SHIPPER:**
+- Nếu virtual credit đã được sử dụng → KHÔNG CHO XÓA
+- Nếu virtual credit chưa sử dụng → Cho xóa + tự động CANCEL virtual credit
 
 ---
 
@@ -2322,6 +2339,12 @@ Acceptance Criteria:
 | | | - Thêm UNION query để hiển thị virtual credits trong wallet history | |
 | | | - Thêm UI hiển thị hạn sử dụng (HSD) công nợ ảo | |
 | | | - issueVirtualCredit bypass wallet_transactions (do constraint) | |
+| 2026-01-22 | 5.6 | **Thêm VIRTUAL_CANCEL type và cải thiện xóa ticket:** | AI |
+| | | - Migration 023: Thêm VIRTUAL_CANCEL, VIRTUAL_CREDIT_CANCEL vào constraints | |
+| | | - API endpoint mới: `GET /:id/can-delete` kiểm tra ticket có thể xóa | |
+| | | - Logic kiểm tra virtual credit đã sử dụng trước khi cho phép xóa RETURN_SHIPPER ticket | |
+| | | - UI wallet-panel.js: Thêm labels cho VIRTUAL_CANCEL, VIRTUAL_CREDIT_CANCELLED | |
+| | | - Khi xóa ticket RETURN_SHIPPER: tự động cancel unused virtual credit | |
 
 ---
 

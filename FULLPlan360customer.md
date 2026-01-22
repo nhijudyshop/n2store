@@ -1,6 +1,6 @@
 # IMPLEMENTATION PLAN: Customer 360 Complete System
 
-> **Cập nhật:** 2026-01-14
+> **Cập nhật:** 2026-01-22 14:30
 > **Mục tiêu:** Hoàn thiện toàn bộ hệ thống Customer 360 với đầy đủ tính năng
 > **Ưu tiên:** Quality - Code maintainable lâu dài
 
@@ -1489,3 +1489,94 @@ POST /api/v2/tickets/new/resolve-credit
 2. **UNION query cho wallet history**: Để hiển thị virtual credits trong lịch sử giao dịch, phải dùng UNION query kết hợp `wallet_transactions` và `virtual_credits`
 
 3. **UI expiry display**: Virtual credits hiển thị với badge "HSD: dd/mm/yyyy" màu cam để phân biệt với tiền thật
+
+---
+
+# NEW: XÓA TICKET VÀ THU HỒI VIRTUAL CREDIT (2026-01-22)
+
+## Vấn đề
+
+Khi xóa ticket RETURN_SHIPPER (đã cấp virtual credit), cần xử lý đúng tình huống:
+- Nếu virtual credit đã sử dụng → KHÔNG CHO XÓA
+- Nếu virtual credit chưa sử dụng → Cho xóa + CANCEL virtual credit
+
+## Migration mới
+
+**File:** `render.com/migrations/023_add_virtual_cancel_type.sql`
+
+```sql
+-- Thêm VIRTUAL_CANCEL vào wallet_transactions_type_check constraint
+ALTER TABLE wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check;
+ALTER TABLE wallet_transactions ADD CONSTRAINT wallet_transactions_type_check
+    CHECK (type IN (
+        'DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT',
+        'VIRTUAL_EXPIRE', 'VIRTUAL_CANCEL', 'ADJUSTMENT'
+    ));
+
+-- Thêm 'CANCELLED' vào virtual_credits status
+ALTER TABLE virtual_credits DROP CONSTRAINT IF EXISTS virtual_credits_status_check;
+ALTER TABLE virtual_credits ADD CONSTRAINT virtual_credits_status_check
+    CHECK (status IN ('ACTIVE', 'USED', 'EXPIRED', 'CANCELLED'));
+```
+
+## API mới
+
+### `GET /api/v2/tickets/:id/can-delete`
+
+Kiểm tra ticket có thể xóa không:
+
+```javascript
+// Response khi cho phép xóa
+{
+    "canDelete": true,
+    "reason": "Virtual credit chưa sử dụng, có thể xóa",
+    "creditStatus": "ACTIVE",
+    "remainingAmount": 300000
+}
+
+// Response khi KHÔNG cho phép xóa
+{
+    "canDelete": false,
+    "reason": "Virtual credit đã sử dụng một phần (250,000đ/300,000đ), không thể xóa ticket",
+    "creditStatus": "PARTIAL_USED",
+    "remainingAmount": 250000,
+    "originalAmount": 300000
+}
+```
+
+## UI Updates
+
+### wallet-panel.js - Transaction Labels mới
+
+```javascript
+const typeLabels = {
+    'DEPOSIT': 'Nạp tiền',
+    'WITHDRAW': 'Rút tiền',
+    'VIRTUAL_CREDIT': 'Cộng công nợ ảo',
+    'VIRTUAL_CREDIT_ISSUED': 'Cộng công nợ ảo (Thu về)',
+    'VIRTUAL_CREDIT_CANCELLED': 'Cộng công nợ ảo (đã hủy)',
+    'VIRTUAL_DEBIT': 'Trừ công nợ ảo',
+    'VIRTUAL_EXPIRE': 'Công nợ hết hạn',
+    'VIRTUAL_CANCEL': 'Thu hồi công nợ ảo',
+    'ADJUSTMENT': 'Điều chỉnh số dư'
+};
+```
+
+## Test Cases
+
+### Test Case: Xóa ticket RETURN_SHIPPER với virtual credit chưa sử dụng
+1. Tạo ticket RETURN_SHIPPER với 300,000đ
+2. Virtual credit được cấp ngay
+3. Thử xóa ticket
+4. [x] Hệ thống gọi `/can-delete` → canDelete: true
+5. [x] Virtual credit status → CANCELLED
+6. [x] Tạo transaction VIRTUAL_CANCEL
+7. [x] virtual_balance -= 300,000
+
+### Test Case: Xóa ticket RETURN_SHIPPER với virtual credit đã sử dụng
+1. Tạo ticket RETURN_SHIPPER với 300,000đ
+2. Khách đặt đơn mới, sử dụng 50,000đ virtual credit
+3. Thử xóa ticket
+4. [x] Hệ thống gọi `/can-delete` → canDelete: false
+5. [x] Thông báo lỗi cho user
+6. [x] Ticket vẫn còn

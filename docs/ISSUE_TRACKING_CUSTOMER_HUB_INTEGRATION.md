@@ -1,7 +1,7 @@
 # BUSINESS FLOW DOCUMENTATION: Issue-Tracking & Customer Hub Integration
 
-> **Version:** 1.0
-> **Last Updated:** 2026-01-20
+> **Version:** 1.1
+> **Last Updated:** 2026-01-22 14:30
 > **Purpose:** Tai lieu nghiep vu van hanh day du giua Issue-Tracking va Customer Hub
 
 ---
@@ -1068,6 +1068,62 @@ CREATE TABLE customer_tickets (
 | `render.com/routes/realtime-sse.js` | SSE broadcast |
 | `cloudflare-worker/modules/config/routes.js` | Proxy routing |
 | `cloudflare-worker/worker.js` | Worker main entry |
+| `render.com/migrations/023_add_virtual_cancel_type.sql` | **NEW:** Migration them VIRTUAL_CANCEL type |
+
+---
+
+## 2.5.1 XOA TICKET VÀ THU HỒI VIRTUAL CREDIT (NEW 2026-01-22)
+
+### Logic xoa ticket RETURN_SHIPPER
+
+Khi xoa ticket RETURN_SHIPPER (co virtual credit da cap):
+
+```
++-----------------------------------------------------------------------------+
+|                   XOA TICKET RETURN_SHIPPER                                  |
++-----------------------------------------------------------------------------+
+|                                                                             |
+|  BUOC 1: KIEM TRA TRANG THAI VIRTUAL CREDIT                                 |
+|  +-----------------------------------------------------------------------+  |
+|  | GET /api/v2/tickets/:id/can-delete                                    |  |
+|  | Response: { canDelete: true/false, reason: string, creditStatus }     |  |
+|  +-----------------------------------------------------------------------+  |
+|                                    |                                        |
+|              +---------------------+---------------------+                  |
+|              |                                           |                  |
+|              v                                           v                  |
+|  +-----------------------+                   +--------------------------+   |
+|  | Virtual Credit        |                   | Virtual Credit           |   |
+|  | DA SU DUNG            |                   | CHUA SU DUNG (remaining  |   |
+|  | (remaining < original)|                   | = original)              |   |
+|  +-----------------------+                   +--------------------------+   |
+|              |                                           |                  |
+|              v                                           v                  |
+|  +-----------------------+                   +--------------------------+   |
+|  | KHONG CHO XOA         |                   | CHO PHEP XOA             |   |
+|  | Thong bao loi:        |                   | + Tu dong HUY virtual    |   |
+|  | "Virtual credit da    |                   |   credit (CANCELLED)     |   |
+|  |  su dung, khong the   |                   | + Tao VIRTUAL_CANCEL     |   |
+|  |  xoa ticket"          |                   |   transaction            |   |
+|  +-----------------------+                   | + Giam virtual_balance   |   |
+|                                              +--------------------------+   |
+|                                                                             |
++-----------------------------------------------------------------------------+
+```
+
+### Transaction types moi
+
+| Type | Mo ta | Anh huong vi |
+|------|-------|--------------|
+| `VIRTUAL_CANCEL` | Thu hoi cong no ao khi xoa ticket | virtual_balance -= amount |
+| `VIRTUAL_CREDIT_CANCELLED` | Cong no ao bi huy (dung de hien thi lich su) | Khong anh huong |
+
+### API endpoints lien quan
+
+| Method | Endpoint | Mo ta |
+|--------|----------|-------|
+| GET | `/api/v2/tickets/:id/can-delete` | Kiem tra ticket co the xoa khong |
+| DELETE | `/api/v2/tickets/:id` | Xoa ticket + cancel virtual credit (neu chua su dung) |
 
 ---
 
