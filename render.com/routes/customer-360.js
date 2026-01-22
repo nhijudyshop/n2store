@@ -488,32 +488,25 @@ router.get('/customer/:phone/transactions', async (req, res) => {
 
                     UNION ALL
 
-                    -- Virtual credits (issued - include CANCELLED for backwards compatibility audit trail)
+                    -- Virtual credits: Hiển thị giao dịch CẤP công nợ (cả ACTIVE và CANCELLED)
+                    -- CANCELLED vẫn là +amount vì đó là giao dịch CẤP, chỉ đánh dấu đã bị hủy
+                    -- Giao dịch TRỪ tiền đã được ghi riêng trong wallet_transactions với type='VIRTUAL_CANCEL'
                     SELECT id, phone, wallet_id,
                         CASE
                             WHEN status = 'CANCELLED' THEN 'VIRTUAL_CREDIT_CANCELLED'
                             ELSE 'VIRTUAL_CREDIT_ISSUED'
                         END as type,
-                        CASE
-                            WHEN status = 'CANCELLED' THEN -original_amount
-                            ELSE original_amount
-                        END as amount,
+                        original_amount as amount,  -- Luôn là số dương vì đây là giao dịch CẤP
                         0 as balance_before, 0 as balance_after,
                         0 as virtual_balance_before,
-                        CASE
-                            WHEN status = 'CANCELLED' THEN 0
-                            ELSE original_amount
-                        END as virtual_balance_after,
+                        original_amount as virtual_balance_after,
                         source_type as source, 'ticket' as reference_type, source_id as reference_id,
                         CASE
-                            WHEN status = 'CANCELLED' THEN 'Thu hồi: ' || COALESCE(note, '')
+                            WHEN status = 'CANCELLED' THEN 'Cấp công nợ ảo (đã hủy) - ' || COALESCE(note, '')
                             ELSE note
                         END as note,
                         NULL as created_by,
-                        CASE
-                            WHEN status = 'CANCELLED' THEN updated_at
-                            ELSE created_at
-                        END as created_at,
+                        created_at,  -- Luôn dùng created_at (thời điểm cấp)
                         expires_at
                     FROM virtual_credits
                     WHERE phone = $1 AND status IN ('ACTIVE', 'CANCELLED')
