@@ -286,15 +286,9 @@ function toggleControlBar() {
 function checkAdminPermission() {
     const btn = document.getElementById('employeeSettingsBtn');
     if (btn) {
-        // Check if user has admin permissions via detailedPermissions
-        const auth = window.authManager ? window.authManager.getAuthState() : null;
-        const hasAdminAccess = auth?.detailedPermissions?.['baocaosaleonline']?.['viewRevenue'] === true ||
-            auth?.roleTemplate === 'admin';
-        if (!hasAdminAccess) {
-            btn.style.display = 'none';
-        } else {
-            btn.style.display = 'inline-flex';
-        }
+        // ✅ REMOVED PERMISSION CHECK - All users can now access employee settings
+        // Previously: Only admin or users with 'viewRevenue' permission could access
+        btn.style.display = 'inline-flex';
     }
 }
 
@@ -364,27 +358,33 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
     if (campaignName) {
         // Load from campaign-specific config (object with campaign names as keys)
         const sanitizedName = sanitizeCampaignName(campaignName);
-        console.log(`[EMPLOYEE] Loading ranges for campaign: ${campaignName} (key: ${sanitizedName})`);
+        console.log(`[EMPLOYEE] 🔍 DEBUG Loading ranges for campaign:`);
+        console.log(`  - Original name: "${campaignName}"`);
+        console.log(`  - Sanitized name: "${sanitizedName}"`);
 
         return db.collection('settings').doc('employee_ranges_by_campaign').get()
             .then((doc) => {
                 const allCampaignRanges = doc.exists ? doc.data() : {};
+                console.log(`[EMPLOYEE] 🔍 All campaigns in Firebase:`, Object.keys(allCampaignRanges));
+
                 const data = allCampaignRanges[sanitizedName];
+                console.log(`[EMPLOYEE] 🔍 Data for "${sanitizedName}":`, data);
+
                 const normalized = normalizeEmployeeRanges(data);
 
                 if (normalized.length > 0) {
                     employeeRanges = normalized;
                     window.employeeRanges = employeeRanges; // Sync to window
-                    console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`);
+                    console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`, employeeRanges);
                 } else {
                     // If no campaign-specific ranges found, fall back to general config
-                    console.log('[EMPLOYEE] No campaign-specific ranges found, falling back to general config');
+                    console.log('[EMPLOYEE] ⚠️ No campaign-specific ranges found, falling back to general config');
                     return db.collection('settings').doc('employee_ranges').get()
                         .then((doc) => {
                             const data = doc.exists ? doc.data() : null;
                             employeeRanges = normalizeEmployeeRanges(data?.ranges || data);
                             window.employeeRanges = employeeRanges; // Sync to window
-                            console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`);
+                            console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges from general config (fallback)`, employeeRanges);
                         });
                 }
 
@@ -395,7 +395,7 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
                 }
             })
             .catch((error) => {
-                console.error('[EMPLOYEE] Error loading ranges:', error);
+                console.error('[EMPLOYEE] ❌ Error loading ranges:', error);
             });
     } else {
         // Load general config
