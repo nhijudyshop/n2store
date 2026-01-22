@@ -428,7 +428,8 @@ export class WalletPanelModule {
     }
 
     _renderTransactionItem(tx) {
-        const isCredit = tx.type === 'DEPOSIT' || tx.type === 'VIRTUAL_CREDIT' || tx.type === 'VIRTUAL_CREDIT_ISSUED';
+        // VIRTUAL_CREDIT_CANCELLED vẫn là giao dịch CẤP (số dương), chỉ đánh dấu đã bị hủy sau đó
+        const isCredit = tx.type === 'DEPOSIT' || tx.type === 'VIRTUAL_CREDIT' || tx.type === 'VIRTUAL_CREDIT_ISSUED' || tx.type === 'VIRTUAL_CREDIT_CANCELLED';
         const colorClass = isCredit ? 'text-green-600' : 'text-red-600';
         const bgClass = isCredit ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
         const sign = isCredit ? '+' : '-';
@@ -438,8 +439,10 @@ export class WalletPanelModule {
             'WITHDRAW': 'Rút tiền',
             'VIRTUAL_CREDIT': 'Cộng công nợ ảo',
             'VIRTUAL_CREDIT_ISSUED': 'Cộng công nợ ảo (Thu về)',
+            'VIRTUAL_CREDIT_CANCELLED': 'Cộng công nợ ảo (đã hủy)',
             'VIRTUAL_DEBIT': 'Trừ công nợ ảo',
-            'VIRTUAL_EXPIRE': 'Công nợ hết hạn'
+            'VIRTUAL_EXPIRE': 'Công nợ hết hạn',
+            'VIRTUAL_CANCEL': 'Thu hồi công nợ ảo'
         };
 
         // Format datetime same as _getTimeAgo in customer-profile.js
