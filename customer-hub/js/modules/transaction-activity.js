@@ -223,10 +223,10 @@ export class TransactionActivityModule {
             // Check if it's a server error or endpoint not implemented
             const errorMsg = error.message.toLowerCase();
             const isServerError = errorMsg.includes('500') ||
-                                  errorMsg.includes('internal server') ||
-                                  errorMsg.includes('consolidated') ||
-                                  errorMsg.includes('not found') ||
-                                  errorMsg.includes('404');
+                errorMsg.includes('internal server') ||
+                errorMsg.includes('consolidated') ||
+                errorMsg.includes('not found') ||
+                errorMsg.includes('404');
 
             this.tableBody.innerHTML = `
                 <tr>
@@ -320,34 +320,35 @@ export class TransactionActivityModule {
 
     getEventTypeInfo(type) {
         const typeMap = {
-            'DEPOSIT': { text: 'Wire Transfer', icon: 'account_balance' },
-            'WITHDRAW': { text: 'Card Payment', icon: 'payments' },
-            'VIRTUAL_CREDIT': { text: 'Internal Transfer', icon: 'swap_horiz' },
-            'VIRTUAL_DEBIT': { text: 'Withdrawal', icon: 'credit_card_off' },
-            'RETURN_CLIENT': { text: 'Deposit', icon: 'savings' },
-            'RETURN_SHIPPER': { text: 'Refund', icon: 'local_shipping' },
-            'COD_ADJUSTMENT': { text: 'Adjustment', icon: 'tune' },
-            'OTHER': { text: 'System Event', icon: 'dns' },
+            'DEPOSIT': { text: 'Nạp tiền CK', icon: 'account_balance' },
+            'WITHDRAW': { text: 'Rút tiền', icon: 'payments' },
+            'VIRTUAL_CREDIT': { text: 'Cộng công nợ ảo', icon: 'swap_horiz' },
+            'VIRTUAL_DEBIT': { text: 'Trừ công nợ ảo', icon: 'credit_card_off' },
+            'VIRTUAL_CANCEL': { text: 'Thu hồi công nợ ảo', icon: 'cancel' },
+            'RETURN_CLIENT': { text: 'Hoàn khách', icon: 'savings' },
+            'RETURN_SHIPPER': { text: 'Hoàn shipper', icon: 'local_shipping' },
+            'COD_ADJUSTMENT': { text: 'Điều chỉnh COD', icon: 'tune' },
+            'OTHER': { text: 'Khác', icon: 'dns' },
             'BOOM': { text: 'BOOM', icon: 'help_outline' },
-            'TICKET_CREATED': { text: 'Ticket Created', icon: 'confirmation_number' },
-            'TICKET_UPDATED': { text: 'Ticket Updated', icon: 'edit_note' },
-            'TICKET_DELETED': { text: 'Ticket Deleted', icon: 'delete' },
-            'NOTE_ADDED': { text: 'Note Added', icon: 'sticky_note_2' },
-            'CUSTOMER_CREATED': { text: 'Customer Created', icon: 'person_add' },
-            'WALLET_DEPOSIT': { text: 'Wire Transfer', icon: 'account_balance' },
-            'WALLET_VIRTUAL_CREDIT': { text: 'Virtual Credit', icon: 'card_giftcard' },
-            'customer_ticket': { text: 'Subscription', icon: 'credit_card' },
+            'TICKET_CREATED': { text: 'Tạo phiếu', icon: 'confirmation_number' },
+            'TICKET_UPDATED': { text: 'Cập nhật phiếu', icon: 'edit_note' },
+            'TICKET_DELETED': { text: 'Xóa phiếu', icon: 'delete' },
+            'NOTE_ADDED': { text: 'Thêm ghi chú', icon: 'sticky_note_2' },
+            'CUSTOMER_CREATED': { text: 'Tạo khách hàng', icon: 'person_add' },
+            'WALLET_DEPOSIT': { text: 'Nạp tiền CK', icon: 'account_balance' },
+            'WALLET_VIRTUAL_CREDIT': { text: 'Cộng công nợ ảo', icon: 'card_giftcard' },
+            'customer_ticket': { text: 'Sự vụ khách hàng', icon: 'credit_card' },
         };
 
-        return typeMap[type] || { text: type || 'N/A', icon: 'help' };
+        return typeMap[type] || { text: type || 'Không xác định', icon: 'help' };
     }
 
     getStatusBadge(color) {
         const colorMap = {
-            'green': { text: 'Completed', bg: 'bg-success-light', textColor: 'text-success' },
-            'yellow': { text: 'Pending', bg: 'bg-warning-light', textColor: 'text-warning' },
-            'red': { text: 'Failed', bg: 'bg-danger-light', textColor: 'text-danger' },
-            'blue': { text: 'Processing', bg: 'bg-info-light', textColor: 'text-info' },
+            'green': { text: 'Hoàn thành', bg: 'bg-success-light', textColor: 'text-success' },
+            'yellow': { text: 'Chờ xử lý', bg: 'bg-warning-light', textColor: 'text-warning' },
+            'red': { text: 'Thất bại', bg: 'bg-danger-light', textColor: 'text-danger' },
+            'blue': { text: 'Đang xử lý', bg: 'bg-info-light', textColor: 'text-info' },
         };
 
         const config = colorMap[color] || colorMap['green'];
@@ -359,7 +360,11 @@ export class TransactionActivityModule {
             return { text: '-', colorClass: 'text-slate-400' };
         }
 
-        const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Math.abs(amount));
+        // Định dạng tiền Việt: 900.000 (dùng dấu chấm phân cách nghìn, không có dấu thập phân)
+        const formatted = new Intl.NumberFormat('vi-VN', {
+            style: 'decimal',
+            maximumFractionDigits: 0
+        }).format(Math.abs(amount));
 
         if (amount > 0) {
             return { text: `+${formatted}`, colorClass: 'text-success' };
