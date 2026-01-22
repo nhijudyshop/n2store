@@ -39,6 +39,10 @@
             approved: { page: 1, totalPages: 1, total: 0 },
             adjustments: { page: 1, totalPages: 1, total: 0 }
         },
+        filters: {
+            pending: { startDate: '', endDate: '', search: '' },
+            approved: { startDate: '', endDate: '', search: '' }
+        },
         stats: {
             pending: 0,
             pendingOverdue: 0,
@@ -163,9 +167,18 @@
         elements.bulkCount = document.getElementById('accBulkCount');
         elements.selectAllCheckbox = document.getElementById('accSelectAll');
 
-        // Approved today
+        // Filters - Pending
+        elements.pendingStartDate = document.getElementById('accPendingStartDate');
+        elements.pendingEndDate = document.getElementById('accPendingEndDate');
+        elements.pendingSearch = document.getElementById('accPendingSearch');
+
+        // Filters - Approved
+        elements.approvedStartDate = document.getElementById('accApprovedStartDate');
+        elements.approvedEndDate = document.getElementById('accApprovedEndDate');
+        elements.approvedSearch = document.getElementById('accApprovedSearch');
+
+        // Approved table
         elements.approvedTableBody = document.getElementById('accApprovedTableBody');
-        elements.approvedDateFilter = document.getElementById('accApprovedDate');
 
         // Adjustment form
         elements.adjustmentForm = document.getElementById('accAdjustmentForm');
@@ -232,6 +245,67 @@
                 if (e.target === overlay) closeAllModals();
             });
         });
+
+        // Filter Event Listeners
+        // Presets
+        document.querySelectorAll('.acc-preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => setFilterPreset(e.target));
+        });
+
+        // Inputs
+        ['pending', 'approved'].forEach(tab => {
+            const start = elements[`${tab}StartDate`];
+            const end = elements[`${tab}EndDate`];
+            const search = elements[`${tab}Search`];
+
+            if (start) start.addEventListener('change', () => handleFilterChange(tab));
+            if (end) end.addEventListener('change', () => handleFilterChange(tab));
+            if (search) search.addEventListener('input', debounce(() => handleFilterChange(tab), 500));
+        });
+    }
+
+    // =====================================================
+    // FILTER LOGIC
+    // =====================================================
+
+    function setFilterPreset(btn) {
+        const days = parseInt(btn.dataset.days);
+        const tab = btn.dataset.tab; // 'pending' or 'approved'
+
+        // Remove active class from all presets in this group
+        btn.parentElement.querySelectorAll('.acc-preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Calculate dates
+        const end = new Date();
+        const start = new Date();
+        start.setDate(end.getDate() - days);
+
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+
+        // Update inputs
+        if (elements[`${tab}StartDate`]) elements[`${tab}StartDate`].value = startStr;
+        if (elements[`${tab}EndDate`]) elements[`${tab}EndDate`].value = endStr;
+
+        // Trigger change
+        handleFilterChange(tab);
+    }
+
+    function handleFilterChange(tab) {
+        const start = elements[`${tab}StartDate`]?.value;
+        const end = elements[`${tab}EndDate`]?.value;
+        const search = elements[`${tab}Search`]?.value?.trim();
+
+        // Update state
+        state.filters[tab] = { startDate: start, endDate: end, search: search };
+
+        // Reload data
+        if (tab === 'pending') {
+            loadPendingQueue(1);
+        } else if (tab === 'approved') {
+            loadApprovedToday(1);
+        }
     }
 
     function startAutoRefresh() {
@@ -365,9 +439,18 @@
 
         showLoading(elements.pendingTableBody);
 
+        const { startDate, endDate, search } = state.filters.pending;
+        const query = new URLSearchParams({
+            page: page,
+            limit: CONFIG.PAGE_SIZE,
+            startDate: startDate || '',
+            endDate: endDate || '',
+            search: search || ''
+        });
+
         try {
             const response = await fetch(
-                `${API_BASE_URL}/api/v2/balance-history/verification-queue?page=${page}&limit=${CONFIG.PAGE_SIZE}`
+                `${API_BASE_URL}/api/v2/balance-history/verification-queue?${query.toString()}`
             );
             const result = await response.json();
 
@@ -905,11 +988,18 @@
 
         showLoading(elements.approvedTableBody);
 
-        const dateFilter = elements.approvedDateFilter?.value || new Date().toISOString().split('T')[0];
+        const { startDate, endDate, search } = state.filters.approved;
+        const query = new URLSearchParams({
+            page: page,
+            limit: CONFIG.PAGE_SIZE,
+            startDate: startDate || '',
+            endDate: endDate || '',
+            search: search || ''
+        });
 
         try {
             const response = await fetch(
-                `${API_BASE_URL}/api/v2/balance-history/approved-today?date=${dateFilter}&page=${page}&limit=${CONFIG.PAGE_SIZE}`
+                `${API_BASE_URL}/api/v2/balance-history/approved-today?${query.toString()}`
             );
             const result = await response.json();
 
@@ -1298,7 +1388,9 @@
         confirmChange,
         toggleSelect,
         changePage,
-        stopAutoRefresh
+        stopAutoRefresh,
+        setFilterPreset,
+        handleFilterChange
     };
 
     // Auto-initialize when DOM is ready

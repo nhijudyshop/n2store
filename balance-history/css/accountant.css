@@ -184,9 +184,12 @@
 }
 
 @keyframes alertPulse {
-    0%, 100% {
+
+    0%,
+    100% {
         opacity: 1;
     }
+
     50% {
         opacity: 0.85;
     }
@@ -478,8 +481,15 @@
 }
 
 @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 /* Action buttons */
@@ -997,22 +1007,155 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =====================================================
+   FILTER BAR (COMPACT)
+   ===================================================== */
+
+.acc-filters-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 16px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+.acc-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.acc-filter-group label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.acc-date-presets {
+    display: flex;
+    gap: 4px;
+}
+
+.acc-date-presets .acc-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    height: 28px;
+}
+
+.acc-date-presets .acc-btn.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.acc-date-range {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #f9fafb;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    height: 32px;
+}
+
+.acc-date-range span {
+    color: #9ca3af;
+}
+
+.acc-input-date {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    width: 100px;
+    padding: 0;
+    font-family: inherit;
+    color: #374151;
+}
+
+.acc-input-date:focus {
+    outline: none;
+}
+
+.acc-input-search {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 200px;
+    height: 32px;
+}
+
+.acc-filters-bar .acc-btn-primary {
+    height: 32px;
+    padding: 0 16px;
+    white-space: nowrap;
+}
+
+/* Responsive adjustment for filters */
+@media (max-width: 1024px) {
+    .acc-filters-bar {
+        flex-wrap: wrap;
+    }
+
+    .acc-input-search {
+        width: 100%;
+    }
 }
 
 /* =====================================================
    UTILITY CLASSES
    ===================================================== */
 
-.acc-text-success { color: #059669; }
-.acc-text-danger { color: #dc2626; }
-.acc-text-warning { color: #d97706; }
-.acc-text-muted { color: #6b7280; }
-.acc-text-bold { font-weight: 600; }
-.acc-text-sm { font-size: 12px; }
+.acc-text-success {
+    color: #059669;
+}
 
-.acc-hidden { display: none !important; }
-.acc-visible { display: block !important; }
+.acc-text-danger {
+    color: #dc2626;
+}
 
-.acc-mt-4 { margin-top: 16px; }
-.acc-mb-4 { margin-bottom: 16px; }
+.acc-text-warning {
+    color: #d97706;
+}
+
+.acc-text-muted {
+    color: #6b7280;
+}
+
+.acc-text-bold {
+    font-weight: 600;
+}
+
+.acc-text-sm {
+    font-size: 12px;
+}
+
+.acc-hidden {
+    display: none !important;
+}
+
+.acc-visible {
+    display: block !important;
+}
+
+.acc-mt-4 {
+    margin-top: 16px;
+}
+
+.acc-mb-4 {
+    margin-bottom: 16px;
+}

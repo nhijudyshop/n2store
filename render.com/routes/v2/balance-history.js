@@ -509,32 +509,62 @@ router.get('/stats', async (req, res) => {
  * GET /api/v2/balance-history/verification-queue
  * Get transactions pending accountant verification
  * Only for Admin/Accountant roles
+ * Supports filters: startDate, endDate, search (content/amount), status
  */
 router.get('/verification-queue', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { page = 1, limit = 20, status = 'PENDING_VERIFICATION' } = req.query;
+    const { page = 1, limit = 20, status = 'PENDING_VERIFICATION', startDate, endDate, search } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     try {
-        // Build status filter
-        let statusFilter = "verification_status = 'PENDING_VERIFICATION'";
+        const queryParams = [];
+        let paramCount = 1;
+
+        // Base status filter
+        let whereConditions = [];
         if (status === 'all') {
-            statusFilter = "verification_status IN ('PENDING', 'PENDING_VERIFICATION')";
+            whereConditions.push("verification_status IN ('PENDING', 'PENDING_VERIFICATION')");
         } else if (status === 'PENDING') {
-            statusFilter = "verification_status = 'PENDING'";
+            whereConditions.push("verification_status = 'PENDING'");
+        } else {
+            whereConditions.push("verification_status = 'PENDING_VERIFICATION'");
         }
 
+        whereConditions.push("transfer_type = 'in'");
+
+        // Date filter
+        if (startDate && endDate) {
+            whereConditions.push(`bh.transaction_date >= $${paramCount++}`);
+            queryParams.push(startDate);
+            whereConditions.push(`bh.transaction_date <= $${paramCount++}`);
+            queryParams.push(`${endDate} 23:59:59`);
+        }
+
+        // Search filter
+        if (search) {
+            whereConditions.push(`(bh.content ILIKE $${paramCount} OR bh.transfer_amount::text ILIKE $${paramCount} OR c.name ILIKE $${paramCount} OR bh.linked_customer_phone ILIKE $${paramCount})`);
+            queryParams.push(`%${search}%`);
+            paramCount++;
+        }
+
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
         // Get total count
-        const countResult = await db.query(`
+        const countQuery = `
             SELECT COUNT(*) as total
-            FROM balance_history
-            WHERE ${statusFilter}
-              AND transfer_type = 'in'
-        `);
+            FROM balance_history bh
+            LEFT JOIN customers c ON bh.customer_id = c.id
+            ${whereClause}
+        `;
+        const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].total);
 
-        // Get transactions pending verification
-        const result = await db.query(`
+        // Get transactions
+        // Add limit and offset to params
+        queryParams.push(parseInt(limit));
+        queryParams.push(offset);
+
+        const dataQuery = `
             SELECT
                 bh.id,
                 bh.sepay_id,
@@ -557,11 +587,12 @@ router.get('/verification-queue', async (req, res) => {
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             LEFT JOIN pending_customer_matches pcm ON pcm.transaction_id = bh.id
-            WHERE ${statusFilter}
-              AND bh.transfer_type = 'in'
+            ${whereClause}
             ORDER BY bh.transaction_date DESC
-            LIMIT $1 OFFSET $2
-        `, [parseInt(limit), offset]);
+            LIMIT $${paramCount++} OFFSET $${paramCount++}
+        `;
+
+        const result = await db.query(dataQuery, queryParams);
 
         res.json({
             success: true,
@@ -983,38 +1014,77 @@ router.get('/accountant/stats', async (req, res) => {
 
 /**
  * GET /api/v2/balance-history/approved-today
- * Get transactions approved today (or specific date)
+ * Get transactions approved within a date range (default: today)
+ * Supports filters: startDate, endDate, search, date (legacy)
  */
 router.get('/approved-today', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { date, page = 1, limit = 50 } = req.query;
+    const { date, startDate, endDate, search, page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     try {
-        // Parse date or use today
-        let targetDate;
-        if (date) {
-            targetDate = new Date(date);
+        const queryParams = [];
+        let paramCount = 1;
+
+        let whereConditions = [];
+        whereConditions.push("bh.verification_status = 'APPROVED'");
+        whereConditions.push("bh.transfer_type = 'in'");
+
+        // Date range
+        let targetStart, targetEnd;
+
+        if (startDate && endDate) {
+            // Custom range
+            targetStart = new Date(startDate);
+            targetStart.setHours(0, 0, 0, 0);
+            targetEnd = new Date(endDate);
+            targetEnd.setHours(23, 59, 59, 999);
+        } else if (date) {
+            // Single date (legacy support)
+            targetStart = new Date(date);
+            targetStart.setHours(0, 0, 0, 0);
+            targetEnd = new Date(targetStart);
+            targetEnd.setDate(targetEnd.getDate() + 1);
         } else {
-            targetDate = new Date();
+            // Default: Both unset -> Default to today? 
+            // Or if explicit filtering is not requested, maybe last 30 days is safer?
+            // Existing logic defaulted to today. Let's keep today default if no date param is present.
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            targetStart = today;
+            targetEnd = new Date(today);
+            targetEnd.setDate(targetEnd.getDate() + 1);
         }
-        targetDate.setHours(0, 0, 0, 0);
-        const nextDate = new Date(targetDate);
-        nextDate.setDate(nextDate.getDate() + 1);
+
+        whereConditions.push(`bh.verified_at >= $${paramCount++}`);
+        queryParams.push(targetStart);
+        whereConditions.push(`bh.verified_at < $${paramCount++}`);
+        queryParams.push(targetEnd);
+
+        // Search filter
+        if (search) {
+            whereConditions.push(`(bh.content ILIKE $${paramCount} OR bh.transfer_amount::text ILIKE $${paramCount} OR c.name ILIKE $${paramCount} OR bh.linked_customer_phone ILIKE $${paramCount} OR bh.verified_by ILIKE $${paramCount})`);
+            queryParams.push(`%${search}%`);
+            paramCount++;
+        }
+
+        const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
         // Get total count
-        const countResult = await db.query(`
+        const countQuery = `
             SELECT COUNT(*) as total
-            FROM balance_history
-            WHERE verification_status = 'APPROVED'
-              AND transfer_type = 'in'
-              AND verified_at >= $1
-              AND verified_at < $2
-        `, [targetDate, nextDate]);
+            FROM balance_history bh
+            LEFT JOIN customers c ON bh.customer_id = c.id
+            ${whereClause}
+        `;
+        const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].total);
 
         // Get transactions
-        const result = await db.query(`
+        queryParams.push(parseInt(limit));
+        queryParams.push(offset);
+
+        const dataQuery = `
             SELECT
                 bh.id,
                 bh.content,
@@ -1028,13 +1098,12 @@ router.get('/approved-today', async (req, res) => {
                 c.name as customer_name
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
-            WHERE bh.verification_status = 'APPROVED'
-              AND bh.transfer_type = 'in'
-              AND bh.verified_at >= $1
-              AND bh.verified_at < $2
+            ${whereClause}
             ORDER BY bh.verified_at DESC
-            LIMIT $3 OFFSET $4
-        `, [targetDate, nextDate, parseInt(limit), offset]);
+            LIMIT $${paramCount++} OFFSET $${paramCount++}
+        `;
+
+        const result = await db.query(dataQuery, queryParams);
 
         res.json({
             success: true,
