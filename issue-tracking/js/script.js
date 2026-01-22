@@ -283,7 +283,8 @@ async function handleSearchOrder() {
 
     showLoading(true);
     try {
-        const orders = await ApiService.searchOrders(query);
+        const result = await ApiService.searchOrders(query);
+        const orders = result.orders || result; // Support both new {orders, allCancelled} and legacy array format
 
         if (orders && orders.length > 0) {
             if (orders.length === 1) {
@@ -293,9 +294,13 @@ async function handleSearchOrder() {
                 // Multiple results - show selection list
                 showOrderSelectionList(orders);
             }
+        } else if (result.allCancelled) {
+            // All orders found were cancelled/draft
+            hideOrderSelectionList();
+            showSearchMessage('⚠️ Toàn bộ đơn hàng của SĐT này đã bị hủy hoặc đang ở trạng thái nháp. Không thể tạo phiếu.', 'warning');
         } else {
             // No orders found, try to search for customer
-            hideOrderSelectionList(); // Hide any previous order selection list
+            hideOrderSelectionList();
             await searchCustomerByPhone(query);
             // If customer found, we'll display their info. If not, the "new customer" warning will show.
         }
@@ -334,68 +339,15 @@ async function searchCustomerByPhone(phone) {
             document.getElementById('issue-details-form').classList.remove('hidden');
 
         } else {
-            // Customer not found, show warning for new customer creation
-            currentCustomer = { // Minimal object for new customer
-                name: 'Khách hàng mới',
-                phone: normalizedPhone,
-                tier: 'New',
-                wallet_balance: 0
-            };
-            elements.customerInfoSection.classList.remove('hidden');
-            elements.customerInfoName.textContent = 'Khách hàng mới';
-            elements.customerInfoPhone.textContent = normalizedPhone;
-            elements.customerInfoTier.textContent = 'New';
-            elements.customerInfoWalletBalance.textContent = formatCurrency(0);
-            elements.customerInfoNewCustomerWarning.classList.remove('hidden');
-
-            document.getElementById('order-result').classList.add('hidden');
-            document.getElementById('issue-details-form').classList.remove('hidden');
+            // Customer not found on TPOS - show clear message
+            showSearchMessage('❌ Khách hàng không tồn tại trên TPOS. Vui lòng kiểm tra lại số điện thoại.', 'error');
+            currentCustomer = null;
+            selectedOrder = null;
         }
-
-        // Set selectedOrder to a minimal object for new customer creation if no order was found
-        if (!selectedOrder || !selectedOrder.tposCode) { // Only if no order is currently selected
-            selectedOrder = {
-                customer: currentCustomer.name,
-                phone: currentCustomer.phone,
-                address: 'N/A', // Default for new customer
-                tposCode: null, // No TPOS order for new customer
-                id: null,
-                cod: 0,
-                products: [],
-                status: 'open',
-                stateCode: 'None',
-                carrier: 'N/A',
-                channel: 'TPOS',
-                createdAt: Date.now()
-            };
-             // Also update the order-info-header placeholders for consistency
-            document.getElementById('res-customer').textContent = currentCustomer.name;
-            document.getElementById('res-phone').textContent = currentCustomer.phone;
-            document.getElementById('res-order-code').textContent = 'N/A';
-            document.getElementById('res-address').textContent = 'N/A';
-            document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#64748b;">Không có sản phẩm</td></tr>';
-            document.getElementById('product-checklist').innerHTML = '<p style="color:#64748b;font-size:12px">Không có sản phẩm</p>';
-            document.getElementById('res-total-qty').textContent = '0';
-            document.getElementById('res-amount-total').textContent = '0đ';
-            document.getElementById('res-decrease-amount').textContent = '0đ';
-            document.getElementById('res-delivery-price').textContent = '0đ';
-            document.getElementById('res-final-total').textContent = '0đ';
-            document.getElementById('res-payment-amount').textContent = '0đ';
-            document.getElementById('res-cod').textContent = '0đ';
-        }
-
     } catch (error) {
         console.error('Error searching customer:', error);
-        // Fallback to showing warning if API fails
-        elements.customerInfoSection.classList.remove('hidden');
-        elements.customerInfoName.textContent = 'Lỗi tải thông tin';
-        elements.customerInfoPhone.textContent = normalizedPhone;
-        elements.customerInfoTier.textContent = 'N/A';
-        elements.customerInfoWalletBalance.textContent = '0đ';
-        elements.customerInfoNewCustomerWarning.classList.remove('hidden');
-
-        document.getElementById('order-result').classList.add('hidden');
-        document.getElementById('issue-details-form').classList.remove('hidden');
+        // Show error message
+        showSearchMessage('❌ Lỗi khi tìm kiếm khách hàng: ' + error.message, 'error');
     } finally {
         showLoading(false);
     }
@@ -616,6 +568,59 @@ function hideOrderSelectionList() {
     const listEl = document.getElementById('order-selection-list');
     if (listEl) {
         listEl.classList.add('hidden');
+    }
+    // Also hide any search message
+    hideSearchMessage();
+}
+
+/**
+ * Show a message in the search section (for errors, warnings, info)
+ * @param {string} message - Message to display
+ * @param {string} type - 'warning', 'error', or 'info'
+ */
+function showSearchMessage(message, type = 'info') {
+    // Hide order selection list (without recursion)
+    const listEl = document.getElementById('order-selection-list');
+    if (listEl) {
+        listEl.classList.add('hidden');
+    }
+
+    // Create or get message element
+    let msgEl = document.getElementById('search-message');
+    if (!msgEl) {
+        msgEl = document.createElement('div');
+        msgEl.id = 'search-message';
+        document.querySelector('.search-section').appendChild(msgEl);
+    }
+
+    // Style based on type
+    const colors = {
+        warning: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+        error: { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' },
+        info: { bg: '#e0f2fe', border: '#0ea5e9', text: '#0c4a6e' }
+    };
+    const style = colors[type] || colors.info;
+
+    msgEl.innerHTML = `
+        <div style="padding:12px;background:${style.bg};border:1px solid ${style.border};border-radius:6px;margin-top:10px;color:${style.text};">
+            ${message}
+        </div>
+    `;
+    msgEl.classList.remove('hidden');
+
+    // Hide other sections
+    document.getElementById('order-result').classList.add('hidden');
+    document.getElementById('issue-details-form').classList.add('hidden');
+    elements.customerInfoSection.classList.add('hidden');
+}
+
+/**
+ * Hide search message
+ */
+function hideSearchMessage() {
+    const msgEl = document.getElementById('search-message');
+    if (msgEl) {
+        msgEl.classList.add('hidden');
     }
 }
 

@@ -66,7 +66,7 @@ const ApiService = {
             console.log('[API] TPOS response count:', data['@odata.count'], 'orders');
 
             if (!data.value || data.value.length === 0) {
-                return [];
+                return { orders: [], totalFound: 0, allCancelled: false };
             }
 
             // Filter: only open and paid orders (exclude draft and cancel)
@@ -75,8 +75,11 @@ const ApiService = {
 
             console.log('[API] Filtered orders (open/paid):', filteredOrders.length, 'of', data.value.length);
 
+            // Check if all orders were cancelled/draft
+            const allCancelled = data.value.length > 0 && filteredOrders.length === 0;
+
             // Map TPOS fields to internal format
-            return filteredOrders.map(order => ({
+            const mappedOrders = filteredOrders.map(order => ({
                 id: order.Id,
                 tposCode: order.Number,
                 reference: order.Reference,
@@ -94,6 +97,12 @@ const ApiService = {
                 products: [], // Will fetch separately via getOrderDetails()
                 createdAt: new Date(order.DateInvoice).getTime()
             }));
+
+            return {
+                orders: mappedOrders,
+                totalFound: data.value.length,
+                allCancelled: allCancelled
+            };
 
         } catch (error) {
             console.error('[API] Search orders failed:', error);
