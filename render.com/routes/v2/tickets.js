@@ -661,13 +661,13 @@ router.delete('/:id', async (req, res) => {
             `, [ticket.id]);
         }
 
-        // Log activity
+        // Log activity (use TICKET_UPDATED since TICKET_DELETED not in constraint)
         const activityTitle = virtualCreditCancelled
             ? `Xóa ticket ${ticket.ticket_code} + Hủy công nợ ảo`
             : `Xóa ticket ${ticket.ticket_code}`;
         await db.query(`
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, reference_type, reference_id, icon, color)
-            VALUES ($1, $2, 'TICKET_DELETED', $3, 'ticket', $4, 'trash', 'red')
+            VALUES ($1, $2, 'TICKET_UPDATED', $3, 'ticket', $4, 'trash', 'red')
         `, [ticket.phone, ticket.customer_id, activityTitle, ticket.ticket_code]);
 
         // Notify SSE clients
