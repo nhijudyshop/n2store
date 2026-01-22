@@ -442,7 +442,8 @@ export class WalletPanelModule {
             'VIRTUAL_CREDIT_CANCELLED': 'Cộng công nợ ảo (đã hủy)',
             'VIRTUAL_DEBIT': 'Trừ công nợ ảo',
             'VIRTUAL_EXPIRE': 'Công nợ hết hạn',
-            'VIRTUAL_CANCEL': 'Thu hồi công nợ ảo'
+            'VIRTUAL_CANCEL': 'Thu hồi công nợ ảo',
+            'ADJUSTMENT': 'Điều chỉnh số dư'
         };
 
         // Format datetime same as _getTimeAgo in customer-profile.js
@@ -459,10 +460,13 @@ export class WalletPanelModule {
         // Escape HTML to prevent XSS and broken image rendering
         const noteText = this._escapeHtml(tx.note || tx.source || '');
 
+        // Get label, fallback to Vietnamese description if type unknown
+        const typeLabel = typeLabels[tx.type] || 'Giao dịch ví';
+
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bgClass}">
                 <div class="flex-1">
-                    <p class="font-medium text-slate-800 dark:text-slate-200">${typeLabels[tx.type] || tx.type}</p>
+                    <p class="font-medium text-slate-800 dark:text-slate-200">${typeLabel}</p>
                     <p class="text-xs text-slate-500">${noteText}</p>
                     <p class="text-xs text-slate-400">${dateTimeStr}${expiryText}</p>
                 </div>
