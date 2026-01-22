@@ -269,6 +269,7 @@
     // =====================================================
 
     function setFilterPreset(btn) {
+        const preset = btn.dataset.preset;
         const days = parseInt(btn.dataset.days);
         const tab = btn.dataset.tab; // 'pending' or 'approved'
 
@@ -277,9 +278,17 @@
         btn.classList.add('active');
 
         // Calculate dates
-        const end = new Date();
-        const start = new Date();
-        start.setDate(end.getDate() - days);
+        let start = new Date();
+        let end = new Date();
+
+        if (preset === 'today') {
+            // Start and end are today
+        } else if (preset === 'yesterday') {
+            start.setDate(start.getDate() - 1);
+            end.setDate(end.getDate() - 1);
+        } else if (!isNaN(days)) {
+            start.setDate(end.getDate() - days);
+        }
 
         const startStr = start.toISOString().split('T')[0];
         const endStr = end.toISOString().split('T')[0];
