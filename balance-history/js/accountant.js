@@ -7,7 +7,7 @@
  * =====================================================
  */
 
-(function() {
+(function () {
     'use strict';
 
     // =====================================================
@@ -414,7 +414,7 @@
 
         elements.pendingTableBody.innerHTML = state.pendingQueue.map(tx => {
             const amount = parseFloat(tx.amount || 0);
-            const amountFormatted = amount.toLocaleString('vi-VN') + 'đ';
+            const amountFormatted = amount.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
             const timeStr = formatDateTime(tx.transaction_date);
 
             // Calculate wait time
@@ -627,7 +627,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     verified_by: performedBy,
-                    note: 'Approved by accountant'
+                    note: 'Duyệt bởi kế toán'
                 })
             });
 
@@ -947,9 +947,21 @@
         }
 
         elements.approvedTableBody.innerHTML = state.approvedToday.map(tx => {
-            const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN') + 'đ';
+            const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
             const verifiedAt = formatDateTime(tx.verified_at);
             const txDate = formatDateTime(tx.transaction_date);
+
+            // Dịch ghi chú
+            let note = tx.verification_note || '';
+            if (note.includes('Auto-approved by accountant')) {
+                // Format: Auto-approved by accountant [user] at [time]
+                // Rút gọn vì đã có cột Duyệt bởi
+                note = 'Tự động duyệt';
+            } else if (note === 'Approved by accountant') {
+                note = 'Duyệt thủ công';
+            } else if (note === 'Bulk approved') {
+                note = 'Duyệt hàng loạt';
+            }
 
             return `
                 <tr>
@@ -963,8 +975,8 @@
                         </div>
                     </td>
                     <td>${getMatchMethodBadge(tx.match_method)}</td>
-                    <td>${tx.verified_by || 'N/A'}</td>
-                    <td class="acc-text-muted">${tx.verification_note || ''}</td>
+                    <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
+                    <td class="acc-text-muted">${note}</td>
                 </tr>
             `;
         }).join('');
@@ -1256,7 +1268,7 @@
 
     function debounce(fn, delay) {
         let timeoutId;
-        return function(...args) {
+        return function (...args) {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => fn.apply(this, args), delay);
         };
