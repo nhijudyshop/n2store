@@ -203,6 +203,13 @@ function performTableSearch() {
     const currentDisplayName = auth && auth.displayName ? auth.displayName : null;
     const currentUserId = auth && auth.id ? auth.id : null;
 
+    console.log('[FILTER] 🔍 DEBUG Employee Filter:');
+    console.log(`  - isAdmin: ${isAdmin}`);
+    console.log(`  - employeeRanges.length: ${employeeRanges.length}`);
+    console.log(`  - currentDisplayName: "${currentDisplayName}"`);
+    console.log(`  - currentUserType: "${currentUserType}"`);
+    console.log(`  - currentUserId: "${currentUserId}"`);
+
     if (!isAdmin && employeeRanges.length > 0) {
         console.log('[FILTER] Current user:', currentDisplayName || currentUserType, 'ID:', currentUserId);
 
@@ -259,12 +266,15 @@ function performTableSearch() {
                 if (isNaN(stt)) return false;
                 return stt >= userRange.start && stt <= userRange.end;
             });
-            console.log(`[FILTER] Applied STT range ${userRange.start}-${userRange.end} for ${currentDisplayName || currentUserType}`);
+            console.log(`[FILTER] ✅ Applied STT range ${userRange.start}-${userRange.end}, filtered from ${allData.length} to ${tempData.length} orders`);
         } else {
-            console.log('[FILTER] No range found for user:', currentDisplayName || currentUserType);
+            console.log('[FILTER] ⚠️ No range found for user:', currentDisplayName || currentUserType);
+            console.log('[FILTER] 🔍 Available ranges:', employeeRanges.map(r => r.name));
         }
     } else if (isAdmin) {
-        console.log('[FILTER] User is Admin - NO FILTER APPLIED');
+        console.log('[FILTER] ⚠️ User is Admin - NO FILTER APPLIED');
+    } else {
+        console.log('[FILTER] ⚠️ No employee ranges configured - NO FILTER APPLIED');
     }
 
     // Apply conversation status filter (Merged Messages & Comments)

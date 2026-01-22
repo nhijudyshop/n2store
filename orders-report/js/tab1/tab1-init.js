@@ -279,7 +279,7 @@ window.addEventListener("DOMContentLoaded", async function () {
     });
 
     // ⚡ NEW: Listen for token requests from Overview tab (via main.html)
-    window.addEventListener('message', async function(event) {
+    window.addEventListener('message', async function (event) {
         if (event.data.type === 'REQUEST_TOKEN') {
             console.log('[TAB1] 🔑 Token requested, responding...');
             try {
@@ -602,6 +602,15 @@ async function continueAfterCampaignSelect(campaignId) {
                 `Đang tải đơn hàng: ${startDisplay} - ${endDisplay}`,
                 2000
             );
+        }
+
+        // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE fetching orders
+        // This ensures the filter works correctly from the start
+        console.log('[APP] 📊 Loading employee ranges for campaign:', campaign.name);
+        if (typeof loadEmployeeRangesForCampaign === 'function') {
+            await loadEmployeeRangesForCampaign(campaign.name);
+        } else {
+            console.warn('[APP] loadEmployeeRangesForCampaign function not available');
         }
 
         // ⭐ FETCH ORDERS (1 lần duy nhất)
