@@ -319,6 +319,7 @@ const ApiService = {
 
     /**
      * Delete a ticket
+     * Uses V2 endpoint which handles virtual credit cancellation
      * @param {string} ticketCode - Ticket code to delete
      * @param {boolean} hard - If true, permanently delete; otherwise soft delete
      * @returns {Promise<Object>} Delete result
@@ -326,7 +327,8 @@ const ApiService = {
     async deleteTicket(ticketCode, hard = false) {
         if (this.mode === 'POSTGRESQL') {
             try {
-                const url = `${this.RENDER_API_URL}/ticket/${ticketCode}${hard ? '?hard=true' : ''}`;
+                // Use V2 endpoint which includes virtual credit cancellation logic
+                const url = `${this.RENDER_API_URL}/v2/tickets/${ticketCode}${hard ? '?hard=true' : ''}`;
                 const response = await fetch(url, {
                     method: 'DELETE',
                     headers: {
