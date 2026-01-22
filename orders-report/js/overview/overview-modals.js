@@ -247,11 +247,10 @@ async function renderDiscountStatistics(orders) {
 
 /**
  * View orders for specific empty cart reason
- * ⚡ FIX: Use allOrders as single source of truth (matching statistics calculation)
  */
 function viewEmptyCartReasonOrders(tagNameLower) {
-    // ⚡ FIX: Use allOrders instead of cachedOrderDetails
-    const orders = allOrders || [];
+    const cached = cachedOrderDetails[currentTableName];
+    const orders = cached?.orders || [];
 
     // Filter orders that have both "giỏ trống" and the specific tag
     const filteredOrders = orders.filter(order => {
@@ -289,12 +288,10 @@ function viewEmptyCartReasonOrders(tagNameLower) {
 
 /**
  * View orders by tag
- * ⚡ FIX: Use allOrders as single source of truth (matching statistics calculation)
  */
 function viewTagOrders(pattern, type) {
-    // ⚡ FIX: Use allOrders instead of cachedOrderDetails to match statistics count
-    // Statistics are calculated from allOrders, so detail view must use the same source
-    const orders = allOrders || [];
+    const cached = cachedOrderDetails[currentTableName];
+    const orders = cached?.orders || [];
 
     let filteredOrders = [];
     let displayName = '';
@@ -426,11 +423,10 @@ function viewTagOrders(pattern, type) {
 
 /**
  * View all orders for an employee
- * ⚡ FIX: Use allOrders as single source of truth (matching statistics calculation)
  */
 function viewEmployeeOrders(name, start, end) {
-    // ⚡ FIX: Use allOrders instead of cachedOrderDetails
-    const orders = allOrders || [];
+    const cached = cachedOrderDetails[currentTableName];
+    const orders = cached?.orders || [];
 
     const filteredOrders = orders.filter(order => {
         const stt = parseInt(order.SessionIndex || 0);
@@ -442,11 +438,10 @@ function viewEmployeeOrders(name, start, end) {
 
 /**
  * View orders for employee by tag (using LIVE_STAT_TAGS key)
- * ⚡ FIX: Use allOrders as single source of truth (matching statistics calculation)
  */
 function viewEmployeeTagOrders(empName, start, end, tagKey) {
-    // ⚡ FIX: Use allOrders instead of cachedOrderDetails
-    const orders = allOrders || [];
+    const cached = cachedOrderDetails[currentTableName];
+    const orders = cached?.orders || [];
 
     let filteredOrders = [];
     let displayName = tagKey;
@@ -686,11 +681,11 @@ function showGioTrongValidationModal(normalOrders, invalidOrders, prefix = '') {
 
 /**
  * View mismatch orders for an employee (called from mismatch badge button)
- * ⚡ FIX: Use allOrders as single source of truth (matching statistics calculation)
  */
 function viewMismatchOrders(empName, start, end) {
-    // ⚡ FIX: Use allOrders instead of cachedOrderDetails
-    const orders = allOrders || [];
+    // Find employee stats
+    const cached = cachedOrderDetails[currentTableName];
+    const orders = cached?.orders || [];
 
     // Calculate employee stats to get mismatch info
     const empStats = calculateEmployeeTagStats(orders);
