@@ -315,11 +315,17 @@ function viewTagOrders(pattern, type) {
         }
     } else if (type === 'duplicate') {
         // Find orders with multiple tags from LIVE_STAT_TAGS
+        // NOTE: Include "Đơn hàng" status as 'ordered' tag for duplicate checking (matching statistics logic)
         displayName = 'TAG TRÙNG';
         filteredOrders = orders.filter(order => {
             const orderTags = parseOrderTags(order.Tags);
-            let matchedCount = 0;
+            const statusText = order.StatusText || order.Status || '';
             const matchedKeys = new Set();
+
+            // Check if order has "Đơn hàng" status (counts as ĐÃ RA ĐƠN tag)
+            if (statusText === 'Đơn hàng') {
+                matchedKeys.add('ordered');
+            }
 
             orderTags.forEach(orderTag => {
                 const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
