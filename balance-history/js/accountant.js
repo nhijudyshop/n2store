@@ -439,7 +439,7 @@
                     </td>
                     <td class="col-time">${timeStr}</td>
                     <td class="col-amount amount-in">${amountFormatted}</td>
-                    <td class="col-content content-cell" title="${tx.content || ''}">${truncate(tx.content || '', 40)}</td>
+                    <td class="col-content content-cell" data-tooltip="${(tx.content || '').replace(/"/g, '&quot;')}">${truncate(tx.content || '', 30)}</td>
                     <td class="col-customer">
                         ${hasCustomer ? `
                             <div class="acc-customer-info">
@@ -813,26 +813,28 @@
         lookupResult.innerHTML = '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/tpos/customer/search?phone=${normalized}`);
+            const response = await fetch(`${API_BASE_URL}/api/customers/search?q=${normalized}`);
             const result = await response.json();
 
-            if (!result.success || !result.customers?.length) {
-                lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH trong TPOS</div>';
+            // API returns { success, data: [...] }
+            const customers = result.data || [];
+            if (!result.success || !customers.length) {
+                lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH</div>';
                 return;
             }
 
-            if (result.customers.length === 1) {
-                const customer = result.customers[0];
+            if (customers.length === 1) {
+                const customer = customers[0];
                 document.getElementById('accChangeName').value = customer.name || '';
                 lookupResult.innerHTML = `<div class="tpos-result">✅ ${customer.name}</div>`;
             } else {
                 // Multiple customers
-                const options = result.customers.map(c =>
-                    `<option value="${c.name}">${c.name} - ${c.code || ''}</option>`
+                const options = customers.map(c =>
+                    `<option value="${c.name}">${c.name} - ${c.phone || ''}</option>`
                 ).join('');
                 lookupResult.innerHTML = `
                     <div class="tpos-multiple">
-                        <span>⚠️ Tìm thấy ${result.customers.length} KH</span>
+                        <span>⚠️ Tìm thấy ${customers.length} KH</span>
                         <select id="accChangeCustomerSelect" onchange="document.getElementById('accChangeName').value = this.value">
                             <option value="">-- Chọn KH --</option>
                             ${options}
@@ -841,8 +843,8 @@
                 `;
             }
         } catch (error) {
-            console.error('[ACCOUNTANT] TPOS lookup error:', error);
-            lookupResult.innerHTML = '<div class="tpos-result error">Lỗi kết nối TPOS</div>';
+            console.error('[ACCOUNTANT] Customer lookup error:', error);
+            lookupResult.innerHTML = '<div class="tpos-result error">Lỗi kết nối</div>';
         }
     }
 
@@ -999,10 +1001,12 @@
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/tpos/customer/search?phone=${phone}`);
+            const response = await fetch(`${API_BASE_URL}/api/customers/search?q=${phone}`);
             const result = await response.json();
 
-            if (!result.success || !result.customers?.length) {
+            // API returns { success, data: [...] }
+            const customers = result.data || [];
+            if (!result.success || !customers.length) {
                 if (elements.customerLookup) {
                     elements.customerLookup.classList.add('visible');
                     elements.customerLookup.innerHTML = '<span class="acc-text-danger">Không tìm thấy KH</span>';
@@ -1010,7 +1014,7 @@
                 return;
             }
 
-            const customer = result.customers[0];
+            const customer = customers[0];
 
             if (elements.adjustmentName) {
                 elements.adjustmentName.value = customer.name || '';

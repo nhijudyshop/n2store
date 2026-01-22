@@ -404,11 +404,29 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    position: relative;
+    cursor: pointer;
 }
 
-.acc-queue-table .content-cell:hover {
-    white-space: normal;
+/* Tooltip for content cell */
+.acc-queue-table .content-cell[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 0;
+    top: 100%;
+    z-index: 100;
+    background: #1f2937;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: pre-wrap;
     word-break: break-word;
+    max-width: 350px;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-top: 4px;
+    line-height: 1.4;
 }
 
 /* Customer info */
