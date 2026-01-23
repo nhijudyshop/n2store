@@ -624,7 +624,6 @@
     padding: 12px 10px;
     border-bottom: 1px solid #e5e7eb;
     vertical-align: middle;
-    height: 60px;
 }
 
 .acc-approved-table tbody tr:hover {
@@ -1333,12 +1332,10 @@
    APPROVED TABLE - IMAGE THUMBNAIL WITH HOVER-TO-ZOOM
    ===================================================== */
 
-.acc-note-cell {
+.acc-note-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
-    position: relative;
-    min-height: 36px;
 }
 
 .acc-approve-image-thumb {
@@ -1378,15 +1375,17 @@
     opacity: 1;
 }
 
-/* Cloned enlarged image using ::after with background-image set via JS */
+/* Cloned enlarged image - 600x600px (3x larger than before) */
 .acc-approve-image-thumb .acc-zoom-overlay {
     display: none;
     position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 300px;
-    height: 300px;
+    width: 600px;
+    height: 600px;
+    max-width: 90vw;
+    max-height: 90vh;
     z-index: 9999;
     border-radius: 8px;
     box-shadow: 0 16px 64px rgba(0, 0, 0, 0.4);

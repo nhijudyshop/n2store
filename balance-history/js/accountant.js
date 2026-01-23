@@ -1441,7 +1441,7 @@
             }
 
             // Build note cell with optional image thumbnail
-            let noteHtml = '';
+            let noteHtml = '<div class="acc-note-wrapper">';
             if (tx.verification_image_url) {
                 noteHtml += `
                     <div class="acc-approve-image-thumb">
@@ -1450,7 +1450,7 @@
                     </div>
                 `;
             }
-            noteHtml += `<span class="acc-approve-note">${note}</span>`;
+            noteHtml += `<span class="acc-approve-note">${note}</span></div>`;
 
             return `
                 <tr>
@@ -1465,7 +1465,7 @@
                     </td>
                     <td>${getMatchMethodBadge(tx.match_method)}</td>
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
-                    <td class="acc-note-cell">${noteHtml}</td>
+                    <td>${noteHtml}</td>
                 </tr>
             `;
         }).join('');
