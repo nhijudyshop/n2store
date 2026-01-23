@@ -55,6 +55,69 @@
     };
 
     // =====================================================
+    // TOOLTIP SYSTEM
+    // =====================================================
+
+    let tooltipEl = null;
+
+    function initTooltip() {
+        // Create tooltip element if not exists
+        if (!tooltipEl) {
+            tooltipEl = document.createElement('div');
+            tooltipEl.className = 'acc-global-tooltip';
+            document.body.appendChild(tooltipEl);
+        }
+
+        // Use event delegation on the pending table body
+        const tableBody = document.getElementById('accPendingTableBody');
+        if (tableBody) {
+            tableBody.addEventListener('mouseenter', handleTooltipEnter, true);
+            tableBody.addEventListener('mouseleave', handleTooltipLeave, true);
+        }
+    }
+
+    function handleTooltipEnter(e) {
+        const target = e.target.closest('.content-tooltip');
+        if (!target) return;
+
+        const text = target.getAttribute('data-tooltip');
+        if (!text) return;
+
+        tooltipEl.textContent = text;
+        tooltipEl.classList.add('visible');
+
+        // Position tooltip below the element
+        const rect = target.getBoundingClientRect();
+        const tooltipRect = tooltipEl.getBoundingClientRect();
+
+        let left = rect.left;
+        let top = rect.bottom + 8;
+
+        // Prevent overflow right
+        if (left + tooltipRect.width > window.innerWidth - 10) {
+            left = window.innerWidth - tooltipRect.width - 10;
+        }
+
+        // Prevent overflow bottom - show above if needed
+        if (top + tooltipRect.height > window.innerHeight - 10) {
+            top = rect.top - tooltipRect.height - 8;
+            // Move arrow to bottom
+            tooltipEl.style.setProperty('--arrow-top', 'auto');
+            tooltipEl.style.setProperty('--arrow-bottom', '-6px');
+        }
+
+        tooltipEl.style.left = left + 'px';
+        tooltipEl.style.top = top + 'px';
+    }
+
+    function handleTooltipLeave(e) {
+        const target = e.target.closest('.content-tooltip');
+        if (!target) return;
+
+        tooltipEl.classList.remove('visible');
+    }
+
+    // =====================================================
     // DOM ELEMENTS
     // =====================================================
 
@@ -125,6 +188,9 @@
 
         // Setup event listeners
         setupEventListeners();
+
+        // Initialize tooltip system
+        initTooltip();
 
         // Set default date for approved filter
         if (elements.approvedDateFilter) {
@@ -323,9 +389,9 @@
         state.refreshTimer = setInterval(() => {
             // Only refresh if on pending tab and visible
             if (state.currentSubTab === 'pending' && document.visibilityState === 'visible') {
-                console.log('[ACCOUNTANT] Auto-refreshing...');
+                console.log('[ACCOUNTANT] Auto-refreshing (silent)...');
                 loadDashboardStats();
-                loadPendingQueue(state.pagination.pending.page);
+                loadPendingQueue(state.pagination.pending.page, true); // silent = true to avoid flickering
             }
         }, CONFIG.REFRESH_INTERVAL);
     }
@@ -442,11 +508,14 @@
     // PENDING QUEUE
     // =====================================================
 
-    async function loadPendingQueue(page = 1) {
+    async function loadPendingQueue(page = 1, silent = false) {
         if (state.isLoading) return;
         state.isLoading = true;
 
-        showLoading(elements.pendingTableBody);
+        // Only show loading if not silent refresh (auto-refresh)
+        if (!silent) {
+            showLoading(elements.pendingTableBody);
+        }
 
         const { startDate, endDate, search } = state.filters.pending;
         const query = new URLSearchParams({
@@ -563,9 +632,9 @@
             `;
         }).join('');
 
-        // Re-render Lucide icons
-        if (window.lucide) {
-            lucide.createIcons();
+        // Re-render Lucide icons only in this container
+        if (window.lucide && elements.pendingTableBody) {
+            lucide.createIcons({ root: elements.pendingTableBody });
         }
     }
 
