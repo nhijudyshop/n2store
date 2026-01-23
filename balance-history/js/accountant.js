@@ -531,7 +531,7 @@
                     </td>
                     <td class="col-time">${timeStr}</td>
                     <td class="col-amount amount-in">${amountFormatted}</td>
-                    <td class="col-content content-cell" data-tooltip="${(tx.content || '').replace(/"/g, '&quot;')}">${truncate(tx.content || '', 30)}</td>
+                    <td class="col-content"><span class="content-tooltip" data-tooltip="${(tx.content || '').replace(/"/g, '&quot;')}">${truncate(tx.content || '', 30)}</span></td>
                     <td class="col-customer">
                         ${hasCustomer ? `
                             <div class="acc-customer-info">

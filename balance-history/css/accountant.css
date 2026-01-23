@@ -402,60 +402,68 @@
 }
 
 /* Content truncate */
-.acc-queue-table .content-cell {
+.acc-queue-table .col-content {
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    position: relative;
-    cursor: pointer;
 }
 
-/* Tooltip for content cell - instant display */
-.acc-queue-table .content-cell[data-tooltip]::before,
-.acc-queue-table .content-cell[data-tooltip]::after {
+/* Content tooltip wrapper */
+.acc-queue-table .content-tooltip {
+    display: inline-block;
+    position: relative;
+    cursor: pointer;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Tooltip for content - hidden by default */
+.acc-queue-table .content-tooltip::before,
+.acc-queue-table .content-tooltip::after {
     visibility: hidden;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.1s ease-in-out;
 }
 
 /* Tooltip arrow */
-.acc-queue-table .content-cell[data-tooltip]::before {
+.acc-queue-table .content-tooltip::before {
     content: '';
     position: absolute;
     left: 20px;
     top: 100%;
-    z-index: 101;
+    z-index: 1001;
     border: 6px solid transparent;
     border-bottom-color: #1f2937;
-    margin-top: -2px;
+    margin-top: 2px;
 }
 
 /* Tooltip content */
-.acc-queue-table .content-cell[data-tooltip]::after {
+.acc-queue-table .content-tooltip::after {
     content: attr(data-tooltip);
     position: absolute;
     left: 0;
     top: 100%;
-    z-index: 100;
+    z-index: 1000;
     background: #1f2937;
     color: white;
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-radius: 6px;
     font-size: 13px;
     white-space: pre-wrap;
     word-break: break-word;
     max-width: 400px;
     min-width: 200px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    margin-top: 8px;
-    line-height: 1.4;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    margin-top: 14px;
+    line-height: 1.5;
 }
 
 /* Show tooltip immediately on hover */
-.acc-queue-table .content-cell[data-tooltip]:hover::before,
-.acc-queue-table .content-cell[data-tooltip]:hover::after {
+.acc-queue-table .content-tooltip:hover::before,
+.acc-queue-table .content-tooltip:hover::after {
     visibility: visible;
     opacity: 1;
 }
