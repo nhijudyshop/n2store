@@ -671,7 +671,27 @@ function initVerificationModule() {
  */
 async function renderAutoApproveToggle() {
     // Check if user has toggleAutoApprove permission
-    const hasPermission = window.authManager?.hasDetailedPermission?.('balance-history', 'toggleAutoApprove');
+    // Support multiple ways to check permission
+    let hasPermission = false;
+
+    // Method 1: authManager.hasDetailedPermission
+    if (window.authManager?.hasDetailedPermission) {
+        hasPermission = window.authManager.hasDetailedPermission('balance-history', 'toggleAutoApprove');
+    }
+
+    // Method 2: Check if user is Admin role (fallback)
+    if (!hasPermission && window.authManager?.getUserRole) {
+        const role = window.authManager.getUserRole();
+        hasPermission = role === 'Admin';
+    }
+
+    // Method 3: Check user data directly
+    if (!hasPermission && window.authManager?.user) {
+        const user = window.authManager.user;
+        hasPermission = user.role === 'Admin';
+    }
+
+    console.log('[VERIFICATION] toggleAutoApprove permission check:', hasPermission);
 
     if (!hasPermission) {
         console.log('[VERIFICATION] User does not have toggleAutoApprove permission');
@@ -703,10 +723,10 @@ async function renderAutoApproveToggle() {
         </div>
     `;
 
-    // Insert at the beginning of the panel
-    const firstChild = container.querySelector('.verification-stats, .verification-table, h2');
-    if (firstChild) {
-        container.insertBefore(toggleContainer, firstChild);
+    // Insert before the dashboard cards
+    const dashboard = container.querySelector('.acc-dashboard, #accDashboard');
+    if (dashboard) {
+        container.insertBefore(toggleContainer, dashboard);
     } else {
         container.insertAdjacentElement('afterbegin', toggleContainer);
     }
