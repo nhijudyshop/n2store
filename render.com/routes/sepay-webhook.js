@@ -1240,7 +1240,7 @@ async function processDebtUpdate(db, transactionId) {
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
                      wallet_processed = $4,
-                     verification_status = $5,
+                     verification_status = $5::text,
                      match_method = 'qr_code',
                      verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
@@ -1394,7 +1394,7 @@ async function processDebtUpdate(db, transactionId) {
                  linked_customer_phone = $2,
                  customer_id = COALESCE($3, customer_id),
                  wallet_processed = $4,
-                 verification_status = $5,
+                 verification_status = $5::text,
                  match_method = 'exact_phone',
                  verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
@@ -1544,7 +1544,7 @@ async function processDebtUpdate(db, transactionId) {
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
                      wallet_processed = $4,
-                     verification_status = $5,
+                     verification_status = $5::text,
                      match_method = 'single_match',
                      verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
@@ -1560,7 +1560,7 @@ async function processDebtUpdate(db, transactionId) {
                          linked_customer_phone = $2,
                          customer_id = COALESCE($3, customer_id),
                          wallet_processed = $4,
-                         verification_status = $5,
+                         verification_status = $5::text,
                          match_method = 'single_match',
                          verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                      WHERE id = $1`,
