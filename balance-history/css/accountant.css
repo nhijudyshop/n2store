@@ -623,6 +623,8 @@
 .acc-approved-table td {
     padding: 12px 10px;
     border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+    height: 60px;
 }
 
 .acc-approved-table tbody tr:hover {
@@ -1336,6 +1338,7 @@
     align-items: center;
     gap: 8px;
     position: relative;
+    min-height: 36px;
 }
 
 .acc-approve-image-thumb {
