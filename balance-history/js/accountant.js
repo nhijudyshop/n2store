@@ -51,7 +51,14 @@
             adjustmentsToday: 0
         },
         refreshTimer: null,
-        isLoading: false
+        isLoading: false,
+        // Approve modal state
+        approveModal: {
+            transactionId: null,
+            imageUrl: null,
+            imageFile: null,
+            isUploading: false
+        }
     };
 
     // =====================================================
@@ -263,6 +270,18 @@
         elements.rejectModal = document.getElementById('accRejectModal');
         elements.changeModal = document.getElementById('accChangeModal');
 
+        // Approve Modal
+        elements.approveModal = document.getElementById('accApproveModal');
+        elements.approveNote = document.getElementById('accApproveNote');
+        elements.approveDropzone = document.getElementById('accApproveDropzone');
+        elements.approveImageInput = document.getElementById('accApproveImageInput');
+        elements.approveImagePreview = document.getElementById('accApproveImagePreview');
+        elements.approvePreviewImg = document.getElementById('accApprovePreviewImg');
+        elements.approveUploadOverlay = document.getElementById('accApproveUploadOverlay');
+        elements.approveUploadStatus = document.getElementById('accApproveUploadStatus');
+        elements.approveConfirmBtn = document.getElementById('accApproveConfirmBtn');
+        elements.approveSummary = document.getElementById('accApproveSummary');
+
         // Pagination
         elements.paginationPending = document.getElementById('accPaginationPending');
         elements.paginationApproved = document.getElementById('accPaginationApproved');
@@ -328,6 +347,62 @@
             if (end) end.addEventListener('change', () => handleFilterChange(tab));
             if (search) search.addEventListener('input', debounce(() => handleFilterChange(tab), 500));
         });
+
+        // =====================================================
+        // APPROVE MODAL EVENT LISTENERS
+        // =====================================================
+
+        // Dropzone click to open file picker
+        if (elements.approveDropzone) {
+            elements.approveDropzone.addEventListener('click', () => {
+                elements.approveImageInput?.click();
+            });
+
+            // Drag and drop
+            elements.approveDropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                elements.approveDropzone.classList.add('dragover');
+            });
+
+            elements.approveDropzone.addEventListener('dragleave', () => {
+                elements.approveDropzone.classList.remove('dragover');
+            });
+
+            elements.approveDropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                elements.approveDropzone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type.startsWith('image/')) {
+                    handleApproveImageSelect(files[0]);
+                }
+            });
+        }
+
+        // File input change
+        if (elements.approveImageInput) {
+            elements.approveImageInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleApproveImageSelect(e.target.files[0]);
+                }
+            });
+        }
+
+        // Paste handler for approve modal (Ctrl+V)
+        if (elements.approveModal) {
+            elements.approveModal.addEventListener('paste', (e) => {
+                const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+                if (!items) return;
+
+                for (let item of items) {
+                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        e.preventDefault();
+                        const blob = item.getAsFile();
+                        handleApproveImageSelect(blob);
+                        break;
+                    }
+                }
+            });
+        }
     }
 
     // =====================================================
@@ -758,29 +833,248 @@
     // APPROVE / REJECT ACTIONS
     // =====================================================
 
+    /**
+     * Show approve modal instead of direct approval
+     */
     async function approve(transactionId) {
+        showApproveModal(transactionId);
+    }
+
+    /**
+     * Show the approve modal for a transaction
+     */
+    function showApproveModal(transactionId) {
         // Permission check
         if (!window.authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
             showNotification('Bạn không có quyền duyệt giao dịch', 'error');
             return;
         }
 
-        // Security check
+        // Find transaction
         const tx = state.pendingQueue.find(t => t.id === transactionId);
-        if (tx?.wallet_processed === true) {
+        if (!tx) {
+            showNotification('Không tìm thấy giao dịch', 'error');
+            return;
+        }
+
+        // Security check
+        if (tx.wallet_processed === true) {
             showNotification('Giao dịch đã được cộng vào ví, không thể duyệt lại', 'error');
             return;
         }
 
-        // Disable button
-        const btn = document.querySelector(`button[onclick*="approve(${transactionId})"]`);
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i data-lucide="loader" class="spin"></i>';
+        if (!elements.approveModal) return;
+
+        // Reset state
+        state.approveModal = {
+            transactionId: transactionId,
+            imageUrl: null,
+            imageFile: null,
+            isUploading: false
+        };
+
+        // Reset form
+        if (elements.approveNote) elements.approveNote.value = '';
+        clearApproveImage();
+
+        // Show transaction summary
+        const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
+        if (elements.approveSummary) {
+            elements.approveSummary.innerHTML = `
+                <div class="summary-row">
+                    <span class="summary-label">Số tiền:</span>
+                    <span class="summary-value amount-in">${amount}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Khách hàng:</span>
+                    <span class="summary-value">${tx.customer_name || tx.linked_customer_phone || 'N/A'}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Nội dung:</span>
+                    <span class="summary-value">${truncate(tx.content || '', 50)}</span>
+                </div>
+            `;
         }
+
+        elements.approveModal.classList.add('visible');
+
+        // Reinitialize icons
+        if (window.lucide) lucide.createIcons();
+    }
+
+    /**
+     * Handle image file selection (from file picker, drag-drop, or paste)
+     */
+    async function handleApproveImageSelect(file) {
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            showNotification('Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)', 'error');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            showNotification('File quá lớn (tối đa 5MB)', 'error');
+            return;
+        }
+
+        state.approveModal.imageFile = file;
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            if (elements.approvePreviewImg) {
+                elements.approvePreviewImg.src = e.target.result;
+            }
+            if (elements.approveImagePreview) {
+                elements.approveImagePreview.style.display = 'block';
+            }
+            if (elements.approveDropzone) {
+                elements.approveDropzone.style.display = 'none';
+            }
+
+            // Reinitialize icons for remove button
+            if (window.lucide) lucide.createIcons();
+
+            // Start upload immediately
+            await uploadApproveImage(file, e.target.result);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /**
+     * Upload image to Firebase via server endpoint
+     */
+    async function uploadApproveImage(file, base64Data) {
+        if (state.approveModal.isUploading) return;
+
+        state.approveModal.isUploading = true;
+
+        // Show loading state
+        if (elements.approveUploadOverlay) {
+            elements.approveUploadOverlay.style.display = 'flex';
+        }
+        if (elements.approveUploadStatus) {
+            elements.approveUploadStatus.textContent = 'Đang tải lên...';
+            elements.approveUploadStatus.className = 'acc-upload-status uploading';
+        }
+        if (elements.approveConfirmBtn) {
+            elements.approveConfirmBtn.disabled = true;
+        }
+
+        try {
+            // Generate filename
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(2, 8);
+            const extension = file.name?.split('.').pop() || 'jpg';
+            const filename = `approval_${timestamp}_${random}.${extension}`;
+
+            // Upload to Firebase via server endpoint
+            const response = await fetch(`${API_BASE_URL}/api/upload/image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: base64Data,
+                    fileName: filename,
+                    folderPath: 'accountant-approvals',
+                    mimeType: file.type
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Upload failed');
+            }
+
+            state.approveModal.imageUrl = result.url;
+
+            // Update UI - success
+            if (elements.approveUploadOverlay) {
+                elements.approveUploadOverlay.style.display = 'none';
+            }
+            if (elements.approveUploadStatus) {
+                elements.approveUploadStatus.textContent = 'Đã tải lên thành công';
+                elements.approveUploadStatus.className = 'acc-upload-status success';
+            }
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Image upload error:', error);
+
+            // Show error state
+            if (elements.approveUploadOverlay) {
+                elements.approveUploadOverlay.style.display = 'none';
+            }
+            if (elements.approveUploadStatus) {
+                elements.approveUploadStatus.textContent = 'Lỗi tải lên - bỏ qua ảnh';
+                elements.approveUploadStatus.className = 'acc-upload-status error';
+            }
+
+            showNotification(`Lỗi tải ảnh: ${error.message}`, 'error');
+            state.approveModal.imageUrl = null;
+
+        } finally {
+            state.approveModal.isUploading = false;
+            if (elements.approveConfirmBtn) {
+                elements.approveConfirmBtn.disabled = false;
+            }
+        }
+    }
+
+    /**
+     * Clear the image preview and reset state
+     */
+    function clearApproveImage() {
+        state.approveModal.imageFile = null;
+        state.approveModal.imageUrl = null;
+
+        if (elements.approvePreviewImg) {
+            elements.approvePreviewImg.src = '';
+        }
+        if (elements.approveImagePreview) {
+            elements.approveImagePreview.style.display = 'none';
+        }
+        if (elements.approveDropzone) {
+            elements.approveDropzone.style.display = 'flex';
+        }
+        if (elements.approveImageInput) {
+            elements.approveImageInput.value = '';
+        }
+        if (elements.approveUploadStatus) {
+            elements.approveUploadStatus.textContent = '';
+            elements.approveUploadStatus.className = 'acc-upload-status';
+        }
+        if (elements.approveUploadOverlay) {
+            elements.approveUploadOverlay.style.display = 'none';
+        }
+    }
+
+    /**
+     * Confirm approval with note and optional image
+     */
+    async function confirmApprove() {
+        const transactionId = state.approveModal.transactionId;
+        if (!transactionId) return;
+
+        // Don't allow confirmation while uploading
+        if (state.approveModal.isUploading) {
+            showNotification('Vui lòng đợi tải ảnh xong', 'warning');
+            return;
+        }
+
+        const note = elements.approveNote?.value?.trim() || 'Duyệt bởi kế toán';
+        const imageUrl = state.approveModal.imageUrl;
 
         const userInfo = window.authManager?.getUserInfo() || {};
         const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        // Disable button
+        if (elements.approveConfirmBtn) {
+            elements.approveConfirmBtn.disabled = true;
+            elements.approveConfirmBtn.innerHTML = '<div class="acc-loading-spinner" style="width:14px;height:14px"></div> Đang xử lý...';
+        }
 
         try {
             const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
@@ -788,7 +1082,8 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     verified_by: performedBy,
-                    note: 'Duyệt bởi kế toán'
+                    note: note,
+                    verification_image_url: imageUrl || null
                 })
             });
 
@@ -799,8 +1094,9 @@
             }
 
             showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
+            closeAllModals();
 
-            // Refresh
+            // Refresh data
             loadDashboardStats();
             loadPendingQueue(state.pagination.pending.page);
 
@@ -808,10 +1104,11 @@
             console.error('[ACCOUNTANT] Approve error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
 
+        } finally {
             // Re-enable button
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i>';
+            if (elements.approveConfirmBtn) {
+                elements.approveConfirmBtn.disabled = false;
+                elements.approveConfirmBtn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i> Xác nhận duyệt';
                 if (window.lucide) lucide.createIcons();
             }
         }
@@ -1136,6 +1433,17 @@
                 note = 'Duyệt hàng loạt';
             }
 
+            // Build note cell with optional image thumbnail
+            let noteHtml = '';
+            if (tx.verification_image_url) {
+                noteHtml += `
+                    <div class="acc-approve-image-thumb">
+                        <img src="${tx.verification_image_url}" alt="Xác nhận CK" loading="lazy">
+                    </div>
+                `;
+            }
+            noteHtml += `<span class="acc-approve-note">${note}</span>`;
+
             return `
                 <tr>
                     <td>${verifiedAt}</td>
@@ -1149,7 +1457,7 @@
                     </td>
                     <td>${getMatchMethodBadge(tx.match_method)}</td>
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
-                    <td class="acc-text-muted">${note}</td>
+                    <td class="acc-note-cell">${noteHtml}</td>
                 </tr>
             `;
         }).join('');
@@ -1474,7 +1782,11 @@
         changePage,
         stopAutoRefresh,
         setFilterPreset,
-        handleFilterChange
+        handleFilterChange,
+        // Approve modal functions
+        showApproveModal,
+        confirmApprove,
+        clearApproveImage
     };
 
     // Auto-initialize when DOM is ready

@@ -617,7 +617,7 @@ router.get('/verification-queue', async (req, res) => {
 router.post('/:id/approve', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { verified_by, note } = req.body;
+    const { verified_by, note, verification_image_url } = req.body;
 
     if (!verified_by) {
         return res.status(400).json({ success: false, error: 'verified_by is required' });
@@ -657,15 +657,16 @@ router.post('/:id/approve', async (req, res) => {
             });
         }
 
-        // 2. Update verification status to APPROVED
+        // 2. Update verification status to APPROVED (with optional image URL)
         await db.query(`
             UPDATE balance_history
             SET verification_status = 'APPROVED',
                 verified_by = $2,
                 verified_at = CURRENT_TIMESTAMP,
-                verification_note = COALESCE($3, verification_note)
+                verification_note = COALESCE($3, verification_note),
+                verification_image_url = COALESCE($4, verification_image_url)
             WHERE id = $1
-        `, [id, verified_by, note]);
+        `, [id, verified_by, note, verification_image_url || null]);
 
         // 3. Process wallet deposit if not already processed
         let walletResult = null;
@@ -1094,6 +1095,7 @@ router.get('/approved-today', async (req, res) => {
                 bh.verified_at,
                 bh.verified_by,
                 bh.verification_note,
+                bh.verification_image_url,
                 bh.match_method,
                 c.name as customer_name
             FROM balance_history bh
