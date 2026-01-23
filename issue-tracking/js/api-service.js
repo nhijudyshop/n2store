@@ -408,6 +408,7 @@ const ApiService = {
                             newCod: ticket.new_cod,
                             money: ticket.refund_amount,
                             fixReason: ticket.fix_cod_reason,
+                            fixCodReason: ticket.fix_cod_reason,  // For renderProductsList and renderTypeBadge
                             note: ticket.internal_note,
                             virtualCreditId: ticket.virtual_credit_id,  // For UI to show correct button
                             virtual_credit_id: ticket.virtual_credit_id,
