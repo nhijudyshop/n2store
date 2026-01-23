@@ -1439,6 +1439,7 @@
                 noteHtml += `
                     <div class="acc-approve-image-thumb">
                         <img src="${tx.verification_image_url}" alt="Xác nhận CK" loading="lazy">
+                        <div class="acc-zoom-overlay" style="background-image: url('${tx.verification_image_url}')"></div>
                     </div>
                 `;
             }

@@ -1354,21 +1354,49 @@
     height: 100%;
     object-fit: cover;
     border-radius: 4px;
-    transition: all 0.2s ease;
 }
 
-/* Hover-to-zoom effect */
-.acc-approve-image-thumb:hover img {
-    position: absolute;
+/* Enlarged image on hover - fixed position to break out of table */
+.acc-approve-image-thumb::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.acc-approve-image-thumb:hover::before {
+    opacity: 1;
+}
+
+/* Cloned enlarged image using ::after with background-image set via JS */
+.acc-approve-image-thumb .acc-zoom-overlay {
+    display: none;
+    position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) scale(8);
-    z-index: 1000;
-    width: 36px;
-    height: 36px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    border: 2px solid white;
-    border-radius: 4px;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 300px;
+    z-index: 9999;
+    border-radius: 8px;
+    box-shadow: 0 16px 64px rgba(0, 0, 0, 0.4);
+    border: 3px solid white;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: white;
+    pointer-events: none;
+}
+
+.acc-approve-image-thumb:hover .acc-zoom-overlay {
+    display: block;
 }
 
 /* Zoom icon indicator */
@@ -1385,6 +1413,7 @@
     background-size: 10px;
     background-repeat: no-repeat;
     background-position: center;
+    z-index: 1;
 }
 
 .acc-approve-note {
