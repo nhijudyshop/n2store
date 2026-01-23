@@ -956,16 +956,22 @@ async function handleCampaignChange() {
 
     // ⭐ QUAN TRỌNG: Load employee ranges TRƯỚC KHI load dữ liệu
     // để đảm bảo bảng được phân chia đúng ngay từ đầu
+    console.log('[CAMPAIGN-SWITCH] 🔄 Starting campaign switch...');
+    console.log('[CAMPAIGN-SWITCH] selectedCampaign:', selectedCampaign);
+
     if (selectedCampaign?.displayName) {
-        console.log(`[EMPLOYEE] Loading employee ranges for campaign: ${selectedCampaign.displayName}`);
+        console.log(`[CAMPAIGN-SWITCH] 📊 Loading employee ranges for campaign: "${selectedCampaign.displayName}"`);
         await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
+        console.log(`[CAMPAIGN-SWITCH] ✅ Employee ranges loaded. Count: ${window.employeeRanges?.length || 0}`);
+        console.log(`[CAMPAIGN-SWITCH] 📋 Ranges:`, window.employeeRanges);
     } else {
-        console.log('[EMPLOYEE] Loading general employee ranges (no campaign selected)');
+        console.log('[CAMPAIGN-SWITCH] Loading general employee ranges (no campaign selected)');
         await loadEmployeeRangesForCampaign(null);
     }
 
     // Tự động load dữ liệu khi chọn chiến dịch
     if (selectedCampaign?.campaignId || selectedCampaign?.campaignIds) {
+        console.log('[CAMPAIGN-SWITCH] ⭐ Fetching orders with employee ranges applied...');
         await handleSearch();
 
         // 🎯 AUTO-CONNECT REALTIME SERVER
