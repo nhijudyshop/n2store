@@ -905,11 +905,14 @@
         lookupResult.innerHTML = '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/customers/search?q=${normalized}`);
+            // Use TPOS search API (same as main.js) for accurate customer names
+            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${normalized}`);
             const result = await response.json();
 
-            // API returns { success, data: [...] }
-            const customers = result.data || [];
+            // API returns { success, data: [{ phone, count, customers: [...] }] }
+            const phoneGroups = result.data || [];
+            const customers = phoneGroups.flatMap(group => group.customers || []);
+
             if (!result.success || !customers.length) {
                 lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH</div>';
                 return;
@@ -936,7 +939,7 @@
             }
         } catch (error) {
             console.error('[ACCOUNTANT] Customer lookup error:', error);
-            lookupResult.innerHTML = '<div class="tpos-result error">Lỗi kết nối</div>';
+            lookupResult.innerHTML = '<div class="tpos-result error">Lỗi kết nối TPOS</div>';
         }
     }
 
@@ -1100,11 +1103,14 @@
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/customers/search?q=${phone}`);
+            // Use TPOS search API for accurate customer names
+            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${phone}`);
             const result = await response.json();
 
-            // API returns { success, data: [...] }
-            const customers = result.data || [];
+            // API returns { success, data: [{ phone, count, customers: [...] }] }
+            const phoneGroups = result.data || [];
+            const customers = phoneGroups.flatMap(group => group.customers || []);
+
             if (!result.success || !customers.length) {
                 if (elements.customerLookup) {
                     elements.customerLookup.classList.add('visible');
