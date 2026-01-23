@@ -1242,7 +1242,7 @@ async function processDebtUpdate(db, transactionId) {
                      wallet_processed = $4,
                      verification_status = $5,
                      match_method = 'qr_code',
-                     verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus]
             );
@@ -1396,7 +1396,7 @@ async function processDebtUpdate(db, transactionId) {
                  wallet_processed = $4,
                  verification_status = $5,
                  match_method = 'exact_phone',
-                 verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                 verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
             [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact]
         );
@@ -1546,7 +1546,7 @@ async function processDebtUpdate(db, transactionId) {
                      wallet_processed = $4,
                      verification_status = $5,
                      match_method = 'single_match',
-                     verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
             );
@@ -1562,7 +1562,7 @@ async function processDebtUpdate(db, transactionId) {
                          wallet_processed = $4,
                          verification_status = $5,
                          match_method = 'single_match',
-                         verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                         verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                      WHERE id = $1`,
                     [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
                 );
