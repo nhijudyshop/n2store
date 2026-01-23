@@ -1234,6 +1234,7 @@ async function processDebtUpdate(db, transactionId) {
             // QR code match: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
             // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
             const autoApproveEnabledForStatus = await isAutoApproveEnabled(db);
+            const verificationStatus = autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
@@ -1244,7 +1245,7 @@ async function processDebtUpdate(db, transactionId) {
                      match_method = 'qr_code',
                      verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone, customerId, walletProcessedSuccess, autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION']
+                [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
@@ -1407,6 +1408,7 @@ async function processDebtUpdate(db, transactionId) {
         // Exact 10-digit phone: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
         // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
         const autoApproveEnabledForStatus = await isAutoApproveEnabled(db);
+        const verificationStatus = autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
         await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
@@ -1417,7 +1419,7 @@ async function processDebtUpdate(db, transactionId) {
                  match_method = 'exact_phone',
                  verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone, customerId, walletProcessedSuccess, autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION']
+            [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatus]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
@@ -1581,6 +1583,7 @@ async function processDebtUpdate(db, transactionId) {
             // Single match from partial phone: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
             // CRITICAL: wallet_processed = walletProcessedSuccess (only TRUE if processDeposit succeeded)
             const autoApproveEnabledForStatus = await isAutoApproveEnabled(db);
+            const verificationStatus = autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
             const updateResult = await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
@@ -1591,7 +1594,7 @@ async function processDebtUpdate(db, transactionId) {
                      match_method = 'single_match',
                      verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone, customerId, walletProcessedSuccess, autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION']
+                [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatus]
             );
 
             if (updateResult.rowCount === 0) {
@@ -1607,7 +1610,7 @@ async function processDebtUpdate(db, transactionId) {
                          match_method = 'single_match',
                          verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                      WHERE id = $1`,
-                    [transactionId, fullPhone, customerId, walletProcessedSuccess, autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION']
+                    [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatus]
                 );
                 console.log('[DEBT-UPDATE] ✅ Force updated balance_history');
             } else {
