@@ -21,6 +21,7 @@ const { normalizePhone } = require('../../utils/customer-helpers');
 const { searchCustomerByPhone } = require('../../services/tpos-customer-service');
 const { getOrCreateCustomerFromTPOS } = require('../../services/customer-creation-service');
 const { processDeposit } = require('../../services/wallet-event-processor');
+const { isAutoApproveEnabled, setSetting, getAllSettings } = require('../../services/admin-settings-service');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -1507,6 +1508,88 @@ router.get('/wallet/balance', async (req, res) => {
 
     } catch (error) {
         handleError(res, error, 'Failed to fetch balance');
+    }
+});
+
+// =====================================================
+// ADMIN SETTINGS ROUTES
+// =====================================================
+
+/**
+ * GET /api/v2/balance-history/settings/auto-approve
+ * Lấy trạng thái auto-approve setting
+ */
+router.get('/settings/auto-approve', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        const enabled = await isAutoApproveEnabled(db);
+        res.json({
+            success: true,
+            enabled,
+            description: enabled
+                ? 'Giao dịch auto-match sẽ tự động cộng ví (không cần kế toán duyệt)'
+                : 'Tất cả giao dịch cần kế toán duyệt trước khi cộng ví'
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to get auto-approve setting');
+    }
+});
+
+/**
+ * PUT /api/v2/balance-history/settings/auto-approve
+ * Toggle auto-approve setting (Admin only)
+ */
+router.put('/settings/auto-approve', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { enabled, updated_by = 'admin' } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+        return res.status(400).json({
+            success: false,
+            error: 'enabled must be a boolean value'
+        });
+    }
+
+    try {
+        const result = await setSetting(db, 'auto_approve_enabled', enabled, updated_by);
+
+        if (result) {
+            console.log(`[ADMIN-SETTINGS] Auto-approve toggled to ${enabled} by ${updated_by}`);
+
+            res.json({
+                success: true,
+                enabled,
+                message: enabled
+                    ? 'Đã BẬT tự động duyệt cho giao dịch auto-match'
+                    : 'Đã TẮT - Tất cả giao dịch cần kế toán duyệt'
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to update setting'
+            });
+        }
+    } catch (error) {
+        handleError(res, error, 'Failed to update auto-approve setting');
+    }
+});
+
+/**
+ * GET /api/v2/balance-history/settings
+ * Lấy tất cả admin settings (Admin only)
+ */
+router.get('/settings', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        const settings = await getAllSettings(db);
+        res.json({
+            success: true,
+            settings
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to get settings');
     }
 });
 

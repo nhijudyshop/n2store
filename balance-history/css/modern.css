@@ -1396,3 +1396,137 @@ tr[data-tpos-id]:hover::after {
     pointer-events: none;
     animation: fadeIn 0.2s ease-in;
 }
+
+
+/* =====================================================
+   AUTO-APPROVE TOGGLE SETTING
+   ===================================================== */
+
+.auto-approve-setting {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-lg);
+    border-left: 4px solid var(--warning);
+    box-shadow: var(--shadow-sm);
+}
+
+.toggle-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    cursor: pointer;
+}
+
+.toggle-text {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--gray-800);
+}
+
+.toggle-switch {
+    position: relative;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--gray-300);
+    transition: all 0.3s ease;
+    border-radius: 26px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: all 0.3s ease;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: var(--success);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.toggle-hint {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+    margin-top: var(--spacing-xs);
+}
+
+.toggle-hint.error {
+    color: var(--danger);
+}
+
+.toggle-hint .status-on {
+    display: inline-block;
+    background: var(--success);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.toggle-hint .status-off {
+    display: inline-block;
+    background: var(--warning);
+    color: var(--gray-800);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+/* Dark mode support */
+[data-theme="dark"] .auto-approve-setting {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+    border-left-color: #fbbf24;
+}
+
+[data-theme="dark"] .toggle-text {
+    color: var(--gray-100);
+}
+
+[data-theme="dark"] .toggle-hint {
+    color: var(--gray-300);
+}
+
+[data-theme="dark"] .toggle-hint .status-off {
+    color: var(--gray-900);
+}

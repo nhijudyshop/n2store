@@ -655,7 +655,179 @@ function initVerificationModule() {
         rejectConfirmBtn.addEventListener('click', rejectTransaction);
     }
 
+    // Render auto-approve toggle for Admin users
+    renderAutoApproveToggle();
+
     console.log('[VERIFICATION] Module initialized');
+}
+
+// =====================================================
+// AUTO-APPROVE TOGGLE FUNCTIONS
+// =====================================================
+
+/**
+ * Render Auto-Approve Toggle
+ * Chỉ hiển thị cho Admin
+ */
+async function renderAutoApproveToggle() {
+    // Check if user has toggleAutoApprove permission
+    const hasPermission = window.authManager?.hasDetailedPermission?.('balance-history', 'toggleAutoApprove');
+
+    if (!hasPermission) {
+        console.log('[VERIFICATION] User does not have toggleAutoApprove permission');
+        return;
+    }
+
+    const container = document.getElementById('verificationPanel');
+    if (!container) return;
+
+    // Check if toggle already exists
+    if (document.getElementById('autoApproveToggleContainer')) return;
+
+    // Create toggle container
+    const toggleContainer = document.createElement('div');
+    toggleContainer.id = 'autoApproveToggleContainer';
+    toggleContainer.className = 'auto-approve-setting';
+    toggleContainer.innerHTML = `
+        <div class="toggle-wrapper">
+            <label class="toggle-label">
+                <span class="toggle-text">Tự động duyệt giao dịch auto-match</span>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="autoApproveToggle" />
+                    <span class="toggle-slider"></span>
+                </div>
+            </label>
+            <small class="toggle-hint" id="toggleHint">
+                Đang tải...
+            </small>
+        </div>
+    `;
+
+    // Insert at the beginning of the panel
+    const firstChild = container.querySelector('.verification-stats, .verification-table, h2');
+    if (firstChild) {
+        container.insertBefore(toggleContainer, firstChild);
+    } else {
+        container.insertAdjacentElement('afterbegin', toggleContainer);
+    }
+
+    // Load current setting
+    await loadAutoApproveSetting();
+
+    // Add event listener
+    const toggle = document.getElementById('autoApproveToggle');
+    if (toggle) {
+        toggle.addEventListener('change', async (e) => {
+            await toggleAutoApprove(e.target.checked);
+        });
+    }
+}
+
+/**
+ * Load current auto-approve setting from server
+ */
+async function loadAutoApproveSetting() {
+    const toggle = document.getElementById('autoApproveToggle');
+    const hint = document.getElementById('toggleHint');
+
+    if (!toggle) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`);
+        const data = await response.json();
+
+        if (data.success) {
+            toggle.checked = data.enabled;
+            updateToggleHint(data.enabled);
+        }
+    } catch (error) {
+        console.error('[VERIFICATION] Failed to load auto-approve setting:', error);
+        if (hint) {
+            hint.textContent = 'Lỗi tải cài đặt';
+            hint.classList.add('error');
+        }
+    }
+}
+
+/**
+ * Toggle auto-approve setting
+ * @param {boolean} enabled
+ */
+async function toggleAutoApprove(enabled) {
+    const toggle = document.getElementById('autoApproveToggle');
+    const hint = document.getElementById('toggleHint');
+
+    // Disable toggle while saving
+    if (toggle) toggle.disabled = true;
+    if (hint) {
+        hint.textContent = 'Đang lưu...';
+        hint.classList.remove('error');
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                enabled,
+                updated_by: window.authManager?.getUserInfo?.()?.email || 'admin'
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            updateToggleHint(enabled);
+
+            // Show notification
+            if (typeof showNotification === 'function') {
+                showNotification(
+                    enabled
+                        ? 'Đã BẬT tự động duyệt cho giao dịch auto-match'
+                        : 'Đã TẮT - Tất cả giao dịch cần kế toán duyệt',
+                    'success'
+                );
+            }
+        } else {
+            throw new Error(data.error || 'Failed to update');
+        }
+    } catch (error) {
+        console.error('[VERIFICATION] Failed to toggle auto-approve:', error);
+
+        // Revert toggle
+        if (toggle) toggle.checked = !enabled;
+        if (hint) {
+            hint.textContent = 'Lỗi: ' + error.message;
+            hint.classList.add('error');
+        }
+
+        if (typeof showNotification === 'function') {
+            showNotification('Lỗi khi cập nhật cài đặt: ' + error.message, 'error');
+        }
+    } finally {
+        if (toggle) toggle.disabled = false;
+    }
+}
+
+/**
+ * Update toggle hint text based on state
+ * @param {boolean} enabled
+ */
+function updateToggleHint(enabled) {
+    const hint = document.getElementById('toggleHint');
+    if (!hint) return;
+
+    hint.classList.remove('error');
+
+    if (enabled) {
+        hint.innerHTML = `
+            <span class="status-on">BẬT</span> - Giao dịch auto-match tự động cộng ví
+        `;
+    } else {
+        hint.innerHTML = `
+            <span class="status-off">TẮT</span> - Tất cả giao dịch cần kế toán duyệt trước khi cộng ví
+        `;
+    }
 }
 
 // Export for global access
@@ -666,7 +838,9 @@ window.VerificationModule = {
     showRejectModal,
     showChangeModal,
     changeAndApproveTransaction,
-    initVerificationModule
+    initVerificationModule,
+    loadAutoApproveSetting,
+    toggleAutoApprove
 };
 
 // Auto-initialize when DOM is ready
