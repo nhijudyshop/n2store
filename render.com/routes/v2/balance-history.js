@@ -658,15 +658,33 @@ router.post('/:id/approve', async (req, res) => {
         }
 
         // 2. Update verification status to APPROVED (with optional image URL)
-        await db.query(`
+        // Build update query dynamically to handle optional image URL
+        let updateQuery = `
             UPDATE balance_history
             SET verification_status = 'APPROVED',
                 verified_by = $2,
                 verified_at = CURRENT_TIMESTAMP,
-                verification_note = COALESCE($3, verification_note),
-                verification_image_url = COALESCE($4, verification_image_url)
-            WHERE id = $1
-        `, [id, verified_by, note, verification_image_url || null]);
+                verification_note = COALESCE($3, verification_note)
+        `;
+        let updateParams = [id, verified_by, note];
+
+        // Only add image URL column if provided (requires DB column to exist)
+        if (verification_image_url) {
+            updateQuery = `
+                UPDATE balance_history
+                SET verification_status = 'APPROVED',
+                    verified_by = $2,
+                    verified_at = CURRENT_TIMESTAMP,
+                    verification_note = COALESCE($3, verification_note),
+                    verification_image_url = $4
+                WHERE id = $1
+            `;
+            updateParams = [id, verified_by, note, verification_image_url];
+        } else {
+            updateQuery += ` WHERE id = $1`;
+        }
+
+        await db.query(updateQuery, updateParams);
 
         // 3. Process wallet deposit if not already processed
         let walletResult = null;
@@ -1082,10 +1100,11 @@ router.get('/approved-today', async (req, res) => {
         const total = parseInt(countResult.rows[0].total);
 
         // Get transactions
+        // Try with verification_image_url column first, fall back if column doesn't exist
         queryParams.push(parseInt(limit));
         queryParams.push(offset);
 
-        const dataQuery = `
+        let dataQuery = `
             SELECT
                 bh.id,
                 bh.content,
@@ -1105,7 +1124,37 @@ router.get('/approved-today', async (req, res) => {
             LIMIT $${paramCount++} OFFSET $${paramCount++}
         `;
 
-        const result = await db.query(dataQuery, queryParams);
+        let result;
+        try {
+            result = await db.query(dataQuery, queryParams);
+        } catch (queryError) {
+            // If verification_image_url column doesn't exist, retry without it
+            if (queryError.message.includes('verification_image_url')) {
+                console.log('[BalanceHistory V2] Column verification_image_url not found, retrying without it');
+                paramCount = paramCount - 2; // Reset paramCount
+                dataQuery = `
+                    SELECT
+                        bh.id,
+                        bh.content,
+                        bh.transfer_amount as amount,
+                        bh.transaction_date,
+                        bh.linked_customer_phone,
+                        bh.verified_at,
+                        bh.verified_by,
+                        bh.verification_note,
+                        bh.match_method,
+                        c.name as customer_name
+                    FROM balance_history bh
+                    LEFT JOIN customers c ON bh.customer_id = c.id
+                    ${whereClause}
+                    ORDER BY bh.verified_at DESC
+                    LIMIT $${paramCount++} OFFSET $${paramCount++}
+                `;
+                result = await db.query(dataQuery, queryParams);
+            } else {
+                throw queryError;
+            }
+        }
 
         res.json({
             success: true,

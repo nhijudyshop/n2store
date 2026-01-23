@@ -127,6 +127,58 @@ export async function handleSepayProxy(request, url, pathname) {
 }
 
 /**
+ * Handle /api/upload/*
+ * Upload proxy to render.com
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handleUploadProxy(request, url, pathname) {
+    const uploadPath = pathname.replace(/^\/api\/upload\//, '');
+    const targetUrl = `https://n2store-fallback.onrender.com/api/upload/${uploadPath}${url.search}`;
+
+    console.log('[UPLOAD-PROXY] ========================================');
+    console.log('[UPLOAD-PROXY] Forwarding to:', targetUrl);
+    console.log('[UPLOAD-PROXY] Method:', request.method);
+
+    // Build headers
+    const uploadHeaders = new Headers();
+    uploadHeaders.set('Content-Type', request.headers.get('Content-Type') || 'application/json');
+    uploadHeaders.set('Accept', 'application/json');
+    uploadHeaders.set('User-Agent', 'Cloudflare-Worker-Upload-Proxy/1.0');
+
+    // Forward Authorization header
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader) {
+        uploadHeaders.set('Authorization', authHeader);
+    }
+
+    try {
+        let requestBody = null;
+        if (request.method !== 'GET' && request.method !== 'HEAD') {
+            requestBody = await request.arrayBuffer();
+            console.log('[UPLOAD-PROXY] Request body size:', requestBody.byteLength, 'bytes');
+        }
+
+        const uploadResponse = await fetchWithRetry(targetUrl, {
+            method: request.method,
+            headers: uploadHeaders,
+            body: requestBody,
+        }, 3, 1000, 30000); // 30s timeout for uploads
+
+        console.log('[UPLOAD-PROXY] Response status:', uploadResponse.status);
+        console.log('[UPLOAD-PROXY] ========================================');
+
+        return proxyResponseWithCors(uploadResponse);
+
+    } catch (error) {
+        console.error('[UPLOAD-PROXY] Error:', error.message);
+        return errorResponse('Upload proxy failed: ' + error.message, 502, { target: targetUrl });
+    }
+}
+
+/**
  * Handle /api/realtime/*
  * Realtime server proxy
  * @param {Request} request

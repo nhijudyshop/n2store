@@ -28,6 +28,7 @@ import {
 import {
     handleGenericProxy,
     handleSepayProxy,
+    handleUploadProxy,
     handleRealtimeProxy,
     handleChatProxy,
     handleCustomersProxy,
@@ -104,6 +105,8 @@ export default {
                 // Proxy
                 case 'GENERIC_PROXY':
                     return handleGenericProxy(request, url);
+                case 'UPLOAD':
+                    return handleUploadProxy(request, url, pathname);
                 case 'SEPAY':
                     return handleSepayProxy(request, url, pathname);
                 case 'REALTIME':

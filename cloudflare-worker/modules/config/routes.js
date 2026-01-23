@@ -19,6 +19,9 @@ export const ROUTES = {
     PANCAKE_AVATAR: { pattern: '/api/pancake-avatar', method: 'GET' },
     IMGBB_UPLOAD: { pattern: '/api/imgbb-upload', method: 'POST' },
 
+    // Upload (proxy to render.com)
+    UPLOAD: { pattern: '/api/upload/*' },
+
     // Facebook
     FACEBOOK_SEND: { pattern: '/api/facebook-send', method: 'POST' },
     FACEBOOK_LIVE: { pattern: '/api/facebook-graph/livevideo', method: 'GET' },
@@ -84,6 +87,7 @@ export function matchRoute(pathname) {
     if (pathname === '/api/proxy') return 'GENERIC_PROXY';
 
     // Pattern matches
+    if (pathname.startsWith('/api/upload/')) return 'UPLOAD';
     if (pathname.startsWith('/api/pancake-direct/')) return 'PANCAKE_DIRECT';
     if (pathname.startsWith('/api/pancake-official/')) return 'PANCAKE_OFFICIAL';
     if (pathname.startsWith('/api/pancake/')) return 'PANCAKE';
