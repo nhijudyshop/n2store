@@ -1024,26 +1024,12 @@ async function handleConfirmAction() {
             loadingId = notificationManager.loading('Đang cập nhật hệ thống...', 'Hoàn tất');
 
             // Update ticket in Firebase with refund info
-            // BOOM và FIX_COD cần qua PENDING_FINANCE để đối soát ĐVVC
-            // RETURN_CLIENT, RETURN_SHIPPER → COMPLETED (không cần trả ĐVVC)
-            const needFinanceSettlement = (ticket.type === 'BOOM' || ticket.type === 'FIX_COD');
-            const nextStatus = needFinanceSettlement ? 'PENDING_FINANCE' : 'COMPLETED';
-
             await ApiService.updateTicket(pendingActionTicketId, {
-                status: nextStatus,
-                ...(nextStatus === 'COMPLETED' ? { completedAt: Date.now() } : { receivedAt: Date.now() }),
+                status: 'COMPLETED',
+                completedAt: Date.now(),
                 refundOrderId: result.refundOrderId,
                 refundNumber: result.confirmResult?.value?.[0]?.Number || null
             });
-
-            // Thông báo chờ đối soát nếu cần
-            if (needFinanceSettlement) {
-                notificationManager.info(
-                    `Ticket chuyển sang "Chờ Đối Soát" - Cần Kế toán thanh toán ${formatCurrency(ticket.money)} cho ĐVVC`,
-                    5000,
-                    'Chờ đối soát'
-                );
-            }
 
             // =====================================================
             // Credit wallet for RETURN_CLIENT only - ONLY if TPOS amount matches

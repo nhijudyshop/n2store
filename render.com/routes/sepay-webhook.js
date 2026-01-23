@@ -14,8 +14,6 @@ const AbortController = globalThis.AbortController || require('abort-controller'
 const { searchCustomerByPhone } = require('../services/tpos-customer-service');
 const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
-// Admin settings for auto-approve toggle
-const { isAutoApproveEnabled } = require('../services/admin-settings-service');
 
 // =====================================================
 // BLACKLIST: Các số cần bỏ qua khi extract phone
@@ -1202,11 +1200,8 @@ async function processDebtUpdate(db, transactionId) {
                 customerId = customerResult.customerId;
                 console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
 
-                // Check if auto-approve is enabled before processing wallet
-                const autoApproveEnabled = await isAutoApproveEnabled(db);
-
-                // Process wallet deposit only if auto-approve is enabled
-                if (autoApproveEnabled && amount > 0) {
+                // Process wallet deposit immediately
+                if (amount > 0) {
                     try {
                         const walletResult = await processDeposit(
                             db,
@@ -1222,8 +1217,6 @@ async function processDebtUpdate(db, transactionId) {
                         console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
                         walletProcessedSuccess = false; // Ensure false on failure
                     }
-                } else if (!autoApproveEnabled) {
-                    console.log('[DEBT-UPDATE] Auto-approve disabled, wallet will be processed after accountant approval');
                 }
             } catch (err) {
                 console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
@@ -1231,21 +1224,19 @@ async function processDebtUpdate(db, transactionId) {
             }
 
             // 7. Mark transaction as processed AND link to customer phone + customer_id
-            // QR code match: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
+            // QR code match = AUTO_APPROVED (no manual verification needed)
             // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
-            const autoApproveEnabledForStatus = await isAutoApproveEnabled(db);
-            const verificationStatus = autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
                      wallet_processed = $4,
-                     verification_status = $5,
+                     verification_status = 'AUTO_APPROVED',
                      match_method = 'qr_code',
-                     verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                     verified_at = CURRENT_TIMESTAMP
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus]
+                [transactionId, phone, customerId, walletProcessedSuccess]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
@@ -1255,8 +1246,7 @@ async function processDebtUpdate(db, transactionId) {
                 linkedPhone: phone,
                 customerId,
                 customerName,
-                amount,
-                autoApproved: autoApproveEnabledForStatus
+                amount
             });
 
             return {
@@ -1317,36 +1307,21 @@ async function processDebtUpdate(db, transactionId) {
             dataSource = 'LOCAL_DB';
             console.log('[DEBT-UPDATE] ✅ Found customer in LOCAL DB (skipping TPOS):', customerName);
         } else {
-            // Step 1.5: Search customers table (synced from TPOS)
-            console.log('[DEBT-UPDATE] Not found in balance_customer_info, checking customers table...');
-            const customersResult = await db.query(
-                `SELECT name, phone FROM customers
-                 WHERE phone = $1 AND name IS NOT NULL AND name != ''
-                 LIMIT 1`,
-                [exactPhone]
-            );
+            // Step 2: Not in local DB - try TPOS
+            console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
+            try {
+                const tposResult = await searchTPOSByPartialPhone(exactPhone);
 
-            if (customersResult.rows.length > 0) {
-                customerName = customersResult.rows[0].name;
-                dataSource = 'CUSTOMERS_TABLE';
-                console.log('[DEBT-UPDATE] ✅ Found customer in customers table:', customerName);
-            } else {
-                // Step 2: Not in local DB - try TPOS
-                console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
-                try {
-                    const tposResult = await searchTPOSByPartialPhone(exactPhone);
-
-                    if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                        const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
-                        if (phoneData && phoneData.customers.length > 0) {
-                            customerName = phoneData.customers[0].name;
-                            dataSource = 'TPOS';
-                            console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
-                        }
+                if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                    const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
+                    if (phoneData && phoneData.customers.length > 0) {
+                        customerName = phoneData.customers[0].name;
+                        dataSource = 'TPOS';
+                        console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
                     }
-                } catch (error) {
-                    console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
                 }
+            } catch (error) {
+                console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
             }
         }
 
@@ -1376,11 +1351,8 @@ async function processDebtUpdate(db, transactionId) {
             customerId = customerResult.customerId;
             console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
 
-            // Check if auto-approve is enabled before processing wallet
-            const autoApproveEnabled = await isAutoApproveEnabled(db);
-
-            // Process wallet deposit only if auto-approve is enabled
-            if (autoApproveEnabled && amount > 0) {
+            // Process wallet deposit immediately
+            if (amount > 0) {
                 try {
                     const walletResult = await processDeposit(
                         db,
@@ -1396,8 +1368,6 @@ async function processDebtUpdate(db, transactionId) {
                     console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
                     walletProcessedSuccess = false; // Ensure false on failure
                 }
-            } else if (!autoApproveEnabled) {
-                console.log('[DEBT-UPDATE] Auto-approve disabled, wallet will be processed after accountant approval');
             }
         } catch (err) {
             console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
@@ -1405,21 +1375,19 @@ async function processDebtUpdate(db, transactionId) {
         }
 
         // Mark transaction as processed AND link to customer phone + customer_id
-        // Exact 10-digit phone: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
+        // Exact 10-digit phone = AUTO_APPROVED (no manual verification needed)
         // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
-        const autoApproveEnabledForStatus = await isAutoApproveEnabled(db);
-        const verificationStatus = autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
         await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
                  linked_customer_phone = $2,
                  customer_id = COALESCE($3, customer_id),
                  wallet_processed = $4,
-                 verification_status = $5,
+                 verification_status = 'AUTO_APPROVED',
                  match_method = 'exact_phone',
-                 verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                 verified_at = CURRENT_TIMESTAMP
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatus]
+            [transactionId, exactPhone, customerId, walletProcessedSuccess]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
@@ -1429,8 +1397,7 @@ async function processDebtUpdate(db, transactionId) {
             customerId,
             customerName,
             dataSource,
-            amount,
-            autoApproved: autoApproveEnabledForStatus
+            amount
         });
 
         return {
@@ -1452,7 +1419,7 @@ async function processDebtUpdate(db, transactionId) {
         const partialPhone = extractResult.value;
         console.log('[DEBT-UPDATE] Partial phone found:', partialPhone);
 
-        // OPTIMIZATION: Step 1 - Search LOCAL DB first (balance_customer_info)
+        // OPTIMIZATION: Step 1 - Search LOCAL DB first
         const localResult = await db.query(
             `SELECT DISTINCT customer_phone, customer_name FROM balance_customer_info
              WHERE customer_phone LIKE $1
@@ -1473,35 +1440,15 @@ async function processDebtUpdate(db, transactionId) {
                 count: 1
             }));
         } else {
-            // Step 1.5: Search customers table (synced from TPOS)
-            console.log('[DEBT-UPDATE] Not found in balance_customer_info, checking customers table...');
-            const customersResult = await db.query(
-                `SELECT DISTINCT phone, name FROM customers
-                 WHERE phone LIKE $1
-                 AND name IS NOT NULL AND name != ''
-                 ORDER BY phone`,
-                [`%${partialPhone}`]
-            );
+            // Step 2: Not in local DB - try TPOS
+            console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
+            dataSource = 'TPOS';
 
-            if (customersResult.rows.length > 0) {
-                console.log(`[DEBT-UPDATE] ✅ Found ${customersResult.rows.length} matches in customers table`);
-                dataSource = 'CUSTOMERS_TABLE';
-                matchedPhones = customersResult.rows.map((row) => ({
-                    phone: row.phone,
-                    customers: [{ name: row.name, id: `DB_${row.phone}`, phone: row.phone }],
-                    count: 1
-                }));
-            } else {
-                // Step 2: Not in local DB - try TPOS API
-                console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
-                dataSource = 'TPOS';
+            const tposResult = await searchTPOSByPartialPhone(partialPhone);
 
-                const tposResult = await searchTPOSByPartialPhone(partialPhone);
-
-                if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                    matchedPhones = tposResult.uniquePhones;
-                    console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} matches from TPOS`);
-                }
+            if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                matchedPhones = tposResult.uniquePhones;
+                console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} matches from TPOS`);
             }
         }
 
@@ -1552,11 +1499,8 @@ async function processDebtUpdate(db, transactionId) {
                 customerId = customerResult.customerId;
                 console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
 
-                // Check if auto-approve is enabled before processing wallet
-                const autoApproveEnabled = await isAutoApproveEnabled(db);
-
-                // Process wallet deposit only if auto-approve is enabled
-                if (autoApproveEnabled && amount > 0) {
+                // Process wallet deposit immediately
+                if (amount > 0) {
                     try {
                         const walletResult = await processDeposit(
                             db,
@@ -1572,29 +1516,25 @@ async function processDebtUpdate(db, transactionId) {
                         console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
                         walletProcessedSuccess = false; // Ensure FALSE on failure
                     }
-                } else if (!autoApproveEnabled) {
-                    console.log('[DEBT-UPDATE] Auto-approve disabled, wallet will be processed after accountant approval');
                 }
             } catch (err) {
                 console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
             }
 
             // Update balance_history with customer_id
-            // Single match from partial phone: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
+            // Single match from partial phone = AUTO_APPROVED
             // CRITICAL: wallet_processed = walletProcessedSuccess (only TRUE if processDeposit succeeded)
-            const autoApproveEnabledForStatus = await isAutoApproveEnabled(db);
-            const verificationStatus = autoApproveEnabledForStatus ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
             const updateResult = await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
                      wallet_processed = $4,
-                     verification_status = $5,
+                     verification_status = 'AUTO_APPROVED',
                      match_method = 'single_match',
-                     verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                     verified_at = CURRENT_TIMESTAMP
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatus]
+                [transactionId, fullPhone, customerId, walletProcessedSuccess]
             );
 
             if (updateResult.rowCount === 0) {
@@ -1606,11 +1546,11 @@ async function processDebtUpdate(db, transactionId) {
                          linked_customer_phone = $2,
                          customer_id = COALESCE($3, customer_id),
                          wallet_processed = $4,
-                         verification_status = $5,
+                         verification_status = 'AUTO_APPROVED',
                          match_method = 'single_match',
-                         verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                         verified_at = CURRENT_TIMESTAMP
                      WHERE id = $1`,
-                    [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatus]
+                    [transactionId, fullPhone, customerId, walletProcessedSuccess]
                 );
                 console.log('[DEBT-UPDATE] ✅ Force updated balance_history');
             } else {
@@ -1625,8 +1565,7 @@ async function processDebtUpdate(db, transactionId) {
                 customerId,
                 customerName,
                 dataSource,
-                amount,
-                autoApproved: autoApproveEnabledForStatus
+                amount
             });
 
             return {

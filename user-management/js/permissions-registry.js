@@ -378,8 +378,7 @@ const PAGES_REGISTRY = {
             approveTransaction: { name: "Duyệt giao dịch", icon: "check-circle", description: "Duyệt giao dịch và cộng tiền vào ví" },
             rejectTransaction: { name: "Từ chối giao dịch", icon: "x-circle", description: "Từ chối giao dịch không hợp lệ" },
             createWalletAdjustment: { name: "Điều chỉnh ví", icon: "edit-3", description: "Tạo điều chỉnh ví khi sai mapping" },
-            manualTransactionEntry: { name: "Nhập giao dịch tay", icon: "edit", description: "Nhập giao dịch thủ công" },
-            toggleAutoApprove: { name: "Bật/tắt tự động duyệt", icon: "toggle-left", description: "Bật/tắt tự động duyệt giao dịch auto-match (chỉ Admin)" }
+            manualTransactionEntry: { name: "Nhập giao dịch tay", icon: "edit", description: "Nhập giao dịch thủ công" }
         }
     },
 
