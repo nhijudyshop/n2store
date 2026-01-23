@@ -14,6 +14,7 @@ const AbortController = globalThis.AbortController || require('abort-controller'
 const { searchCustomerByPhone } = require('../services/tpos-customer-service');
 const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
+const adminSettingsService = require('../services/admin-settings-service');
 
 // =====================================================
 // BLACKLIST: Các số cần bỏ qua khi extract phone
@@ -1127,6 +1128,10 @@ async function processDebtUpdate(db, transactionId) {
 
     const content = tx.content || '';
 
+    // 3.5. Check auto-approve setting (cached, 1-minute TTL)
+    const autoApproveEnabled = await adminSettingsService.isAutoApproveEnabled(db);
+    console.log('[DEBT-UPDATE] Auto-approve setting:', autoApproveEnabled ? 'ENABLED' : 'DISABLED');
+
     // 4. FIRST: Try to extract QR code (N2 + 16 alphanumeric)
     const qrMatch = content.toUpperCase().match(/N2[A-Z0-9]{16}/);
 
@@ -1200,8 +1205,8 @@ async function processDebtUpdate(db, transactionId) {
                 customerId = customerResult.customerId;
                 console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
 
-                // Process wallet deposit immediately
-                if (amount > 0) {
+                // Process wallet deposit immediately ONLY if auto-approve is enabled
+                if (autoApproveEnabled && amount > 0) {
                     try {
                         const walletResult = await processDeposit(
                             db,
@@ -1217,6 +1222,8 @@ async function processDebtUpdate(db, transactionId) {
                         console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
                         walletProcessedSuccess = false; // Ensure false on failure
                     }
+                } else if (!autoApproveEnabled) {
+                    console.log('[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval');
                 }
             } catch (err) {
                 console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
@@ -1224,19 +1231,20 @@ async function processDebtUpdate(db, transactionId) {
             }
 
             // 7. Mark transaction as processed AND link to customer phone + customer_id
-            // QR code match = AUTO_APPROVED (no manual verification needed)
+            // QR code match: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
             // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
+            const verificationStatus = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
             await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
                      wallet_processed = $4,
-                     verification_status = 'AUTO_APPROVED',
+                     verification_status = $5,
                      match_method = 'qr_code',
-                     verified_at = CURRENT_TIMESTAMP
+                     verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone, customerId, walletProcessedSuccess]
+                [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
@@ -1351,8 +1359,8 @@ async function processDebtUpdate(db, transactionId) {
             customerId = customerResult.customerId;
             console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
 
-            // Process wallet deposit immediately
-            if (amount > 0) {
+            // Process wallet deposit immediately ONLY if auto-approve is enabled
+            if (autoApproveEnabled && amount > 0) {
                 try {
                     const walletResult = await processDeposit(
                         db,
@@ -1368,6 +1376,8 @@ async function processDebtUpdate(db, transactionId) {
                     console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
                     walletProcessedSuccess = false; // Ensure false on failure
                 }
+            } else if (!autoApproveEnabled) {
+                console.log('[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval');
             }
         } catch (err) {
             console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
@@ -1375,19 +1385,20 @@ async function processDebtUpdate(db, transactionId) {
         }
 
         // Mark transaction as processed AND link to customer phone + customer_id
-        // Exact 10-digit phone = AUTO_APPROVED (no manual verification needed)
+        // Exact 10-digit phone: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
         // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
+        const verificationStatusExact = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
         await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
                  linked_customer_phone = $2,
                  customer_id = COALESCE($3, customer_id),
                  wallet_processed = $4,
-                 verification_status = 'AUTO_APPROVED',
+                 verification_status = $5,
                  match_method = 'exact_phone',
-                 verified_at = CURRENT_TIMESTAMP
+                 verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone, customerId, walletProcessedSuccess]
+            [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
@@ -1499,8 +1510,8 @@ async function processDebtUpdate(db, transactionId) {
                 customerId = customerResult.customerId;
                 console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
 
-                // Process wallet deposit immediately
-                if (amount > 0) {
+                // Process wallet deposit immediately ONLY if auto-approve is enabled
+                if (autoApproveEnabled && amount > 0) {
                     try {
                         const walletResult = await processDeposit(
                             db,
@@ -1516,25 +1527,28 @@ async function processDebtUpdate(db, transactionId) {
                         console.error('[DEBT-UPDATE] Wallet update failed (will retry via cron):', walletErr.message);
                         walletProcessedSuccess = false; // Ensure FALSE on failure
                     }
+                } else if (!autoApproveEnabled) {
+                    console.log('[DEBT-UPDATE] Auto-approve DISABLED - wallet deposit pending accountant approval');
                 }
             } catch (err) {
                 console.error('[DEBT-UPDATE] Customer/Wallet creation failed:', err.message);
             }
 
             // Update balance_history with customer_id
-            // Single match from partial phone = AUTO_APPROVED
+            // Single match: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
             // CRITICAL: wallet_processed = walletProcessedSuccess (only TRUE if processDeposit succeeded)
+            const verificationStatusSingle = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
             const updateResult = await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
                      customer_id = COALESCE($3, customer_id),
                      wallet_processed = $4,
-                     verification_status = 'AUTO_APPROVED',
+                     verification_status = $5,
                      match_method = 'single_match',
-                     verified_at = CURRENT_TIMESTAMP
+                     verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone, customerId, walletProcessedSuccess]
+                [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
             );
 
             if (updateResult.rowCount === 0) {
@@ -1546,11 +1560,11 @@ async function processDebtUpdate(db, transactionId) {
                          linked_customer_phone = $2,
                          customer_id = COALESCE($3, customer_id),
                          wallet_processed = $4,
-                         verification_status = 'AUTO_APPROVED',
+                         verification_status = $5,
                          match_method = 'single_match',
-                         verified_at = CURRENT_TIMESTAMP
+                         verified_at = CASE WHEN $5 = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
                      WHERE id = $1`,
-                    [transactionId, fullPhone, customerId, walletProcessedSuccess]
+                    [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
                 );
                 console.log('[DEBT-UPDATE] ✅ Force updated balance_history');
             } else {

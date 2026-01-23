@@ -21,6 +21,7 @@ const { normalizePhone } = require('../../utils/customer-helpers');
 const { searchCustomerByPhone } = require('../../services/tpos-customer-service');
 const { getOrCreateCustomerFromTPOS } = require('../../services/customer-creation-service');
 const { processDeposit } = require('../../services/wallet-event-processor');
+const adminSettingsService = require('../../services/admin-settings-service');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -1507,6 +1508,79 @@ router.get('/wallet/balance', async (req, res) => {
 
     } catch (error) {
         handleError(res, error, 'Failed to fetch balance');
+    }
+});
+
+// =====================================================
+// AUTO-APPROVE SETTINGS ENDPOINTS
+// =====================================================
+
+/**
+ * GET /api/v2/balance-history/settings/auto-approve
+ * Get current auto-approve setting
+ * When enabled: QR/exact phone/single match transactions are auto-approved with wallet credit
+ * When disabled: All matches require accountant approval before wallet credit
+ */
+router.get('/settings/auto-approve', async (req, res) => {
+    const db = req.app.locals.chatDb;
+
+    try {
+        const enabled = await adminSettingsService.isAutoApproveEnabled(db);
+        res.json({
+            success: true,
+            enabled,
+            description: enabled
+                ? 'Đang BẬT - GD QR/SĐT chính xác/1 KH khớp tự động cộng ví'
+                : 'Đang TẮT - Tất cả GD cần kế toán duyệt trước khi cộng ví'
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to get auto-approve setting');
+    }
+});
+
+/**
+ * PUT /api/v2/balance-history/settings/auto-approve
+ * Update auto-approve setting
+ * Requires: toggleAutoApprove permission (checked on frontend)
+ */
+router.put('/settings/auto-approve', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { enabled, updated_by } = req.body;
+
+    // Validate input
+    if (typeof enabled !== 'boolean') {
+        return res.status(400).json({
+            success: false,
+            error: 'enabled must be boolean'
+        });
+    }
+
+    if (!updated_by) {
+        return res.status(400).json({
+            success: false,
+            error: 'updated_by is required'
+        });
+    }
+
+    try {
+        await adminSettingsService.setSetting(
+            db,
+            'auto_approve_enabled',
+            String(enabled),
+            updated_by
+        );
+
+        console.log(`[SETTINGS] auto_approve_enabled set to ${enabled} by ${updated_by}`);
+
+        res.json({
+            success: true,
+            enabled,
+            message: enabled
+                ? 'Đã BẬT tự động duyệt - GD QR/SĐT chính xác sẽ tự cộng ví'
+                : 'Đã TẮT tự động duyệt - Tất cả GD cần kế toán duyệt'
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to update auto-approve setting');
     }
 });
 

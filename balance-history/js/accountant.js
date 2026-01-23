@@ -207,6 +207,7 @@
         // Load initial data
         loadDashboardStats();
         loadPendingQueue();
+        loadAutoApproveSetting();
 
         // Start auto-refresh
         startAutoRefresh();
@@ -401,6 +402,14 @@
                         break;
                     }
                 }
+            });
+        }
+
+        // Auto-approve toggle
+        const autoApproveCheckbox = document.getElementById('accAutoApproveCheckbox');
+        if (autoApproveCheckbox) {
+            autoApproveCheckbox.addEventListener('change', (e) => {
+                toggleAutoApprove(e.target.checked);
             });
         }
     }
@@ -1769,6 +1778,109 @@
     }
 
     // =====================================================
+    // AUTO-APPROVE TOGGLE
+    // =====================================================
+
+    /**
+     * Load auto-approve setting from server
+     * Only shows toggle if user has permission
+     */
+    async function loadAutoApproveSetting() {
+        // Permission check
+        if (!window.authManager?.hasDetailedPermission('balance-history', 'toggleAutoApprove')) {
+            const toggle = document.getElementById('accAutoApproveToggle');
+            if (toggle) toggle.classList.add('hidden');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`);
+            const result = await response.json();
+
+            if (result.success) {
+                const checkbox = document.getElementById('accAutoApproveCheckbox');
+                const status = document.getElementById('accAutoApproveStatus');
+                const toggle = document.getElementById('accAutoApproveToggle');
+
+                if (checkbox) checkbox.checked = result.enabled;
+                if (status) {
+                    status.textContent = result.enabled ? 'Đang bật' : 'Đã tắt';
+                    status.className = 'toggle-status ' + (result.enabled ? 'status-on' : 'status-off');
+                }
+                if (toggle) toggle.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error('[ACCOUNTANT] Load auto-approve setting error:', error);
+        }
+    }
+
+    /**
+     * Toggle auto-approve setting
+     * @param {boolean} enabled - New setting value
+     */
+    async function toggleAutoApprove(enabled) {
+        // Permission check
+        if (!window.authManager?.hasDetailedPermission('balance-history', 'toggleAutoApprove')) {
+            showNotification('Bạn không có quyền thay đổi cài đặt này', 'error');
+            // Revert checkbox
+            const checkbox = document.getElementById('accAutoApproveCheckbox');
+            if (checkbox) checkbox.checked = !enabled;
+            return;
+        }
+
+        const action = enabled ? 'BẬT' : 'TẮT';
+        const warning = enabled
+            ? 'GD QR/SĐT chính xác sẽ TỰ ĐỘNG cộng ví ngay khi nhận được.'
+            : 'TẤT CẢ giao dịch (kể cả QR/SĐT chính xác) sẽ cần kế toán duyệt trước khi cộng ví.';
+
+        if (!confirm(`Xác nhận ${action} tự động duyệt?\n\n${warning}`)) {
+            // Revert checkbox
+            const checkbox = document.getElementById('accAutoApproveCheckbox');
+            if (checkbox) checkbox.checked = !enabled;
+            return;
+        }
+
+        const userInfo = window.authManager?.getUserInfo() || {};
+        const updatedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        // Disable checkbox during update
+        const checkbox = document.getElementById('accAutoApproveCheckbox');
+        if (checkbox) checkbox.disabled = true;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/settings/auto-approve`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled, updated_by: updatedBy })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to update');
+            }
+
+            const status = document.getElementById('accAutoApproveStatus');
+            if (status) {
+                status.textContent = enabled ? 'Đang bật' : 'Đã tắt';
+                status.className = 'toggle-status ' + (enabled ? 'status-on' : 'status-off');
+            }
+
+            showNotification(result.message, 'success');
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Toggle auto-approve error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+
+            // Revert checkbox on error
+            if (checkbox) checkbox.checked = !enabled;
+        } finally {
+            // Re-enable checkbox
+            if (checkbox) checkbox.disabled = false;
+        }
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -1794,7 +1906,10 @@
         // Approve modal functions
         showApproveModal,
         confirmApprove,
-        clearApproveImage
+        clearApproveImage,
+        // Auto-approve toggle
+        loadAutoApproveSetting,
+        toggleAutoApprove
     };
 
     // Auto-initialize when DOM is ready
