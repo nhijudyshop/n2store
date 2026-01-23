@@ -736,7 +736,7 @@
     }
 
     /**
-     * Format date/time as "HH:MM DD/MM"
+     * Format date/time as "HH:MM DD/MM" in Vietnam timezone
      * @param {string|Date} dateInput
      * @returns {string}
      */
@@ -745,12 +745,19 @@
         const date = new Date(dateInput);
         if (isNaN(date.getTime())) return 'N/A';
 
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
+        // Use Vietnam timezone explicitly
+        const options = {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit'
+        };
 
-        return `${hours}:${minutes} ${day}/${month}`;
+        const parts = new Intl.DateTimeFormat('vi-VN', options).formatToParts(date);
+        const get = (type) => parts.find(p => p.type === type)?.value || '';
+
+        return `${get('hour')}:${get('minute')} ${get('day')}/${get('month')}`;
     }
 
     /**
