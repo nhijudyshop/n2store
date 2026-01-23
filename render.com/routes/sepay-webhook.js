@@ -1316,21 +1316,36 @@ async function processDebtUpdate(db, transactionId) {
             dataSource = 'LOCAL_DB';
             console.log('[DEBT-UPDATE] ✅ Found customer in LOCAL DB (skipping TPOS):', customerName);
         } else {
-            // Step 2: Not in local DB - try TPOS
-            console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
-            try {
-                const tposResult = await searchTPOSByPartialPhone(exactPhone);
+            // Step 1.5: Search customers table (synced from TPOS)
+            console.log('[DEBT-UPDATE] Not found in balance_customer_info, checking customers table...');
+            const customersResult = await db.query(
+                `SELECT name, phone FROM customers
+                 WHERE phone = $1 AND name IS NOT NULL AND name != ''
+                 LIMIT 1`,
+                [exactPhone]
+            );
 
-                if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                    const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
-                    if (phoneData && phoneData.customers.length > 0) {
-                        customerName = phoneData.customers[0].name;
-                        dataSource = 'TPOS';
-                        console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
+            if (customersResult.rows.length > 0) {
+                customerName = customersResult.rows[0].name;
+                dataSource = 'CUSTOMERS_TABLE';
+                console.log('[DEBT-UPDATE] ✅ Found customer in customers table:', customerName);
+            } else {
+                // Step 2: Not in local DB - try TPOS
+                console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
+                try {
+                    const tposResult = await searchTPOSByPartialPhone(exactPhone);
+
+                    if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                        const phoneData = tposResult.uniquePhones.find(p => p.phone === exactPhone);
+                        if (phoneData && phoneData.customers.length > 0) {
+                            customerName = phoneData.customers[0].name;
+                            dataSource = 'TPOS';
+                            console.log('[DEBT-UPDATE] Found customer name from TPOS:', customerName);
+                        }
                     }
+                } catch (error) {
+                    console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
                 }
-            } catch (error) {
-                console.error('[DEBT-UPDATE] Error fetching from TPOS:', error.message);
             }
         }
 
@@ -1435,7 +1450,7 @@ async function processDebtUpdate(db, transactionId) {
         const partialPhone = extractResult.value;
         console.log('[DEBT-UPDATE] Partial phone found:', partialPhone);
 
-        // OPTIMIZATION: Step 1 - Search LOCAL DB first
+        // OPTIMIZATION: Step 1 - Search LOCAL DB first (balance_customer_info)
         const localResult = await db.query(
             `SELECT DISTINCT customer_phone, customer_name FROM balance_customer_info
              WHERE customer_phone LIKE $1
@@ -1456,15 +1471,35 @@ async function processDebtUpdate(db, transactionId) {
                 count: 1
             }));
         } else {
-            // Step 2: Not in local DB - try TPOS
-            console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
-            dataSource = 'TPOS';
+            // Step 1.5: Search customers table (synced from TPOS)
+            console.log('[DEBT-UPDATE] Not found in balance_customer_info, checking customers table...');
+            const customersResult = await db.query(
+                `SELECT DISTINCT phone, name FROM customers
+                 WHERE phone LIKE $1
+                 AND name IS NOT NULL AND name != ''
+                 ORDER BY phone`,
+                [`%${partialPhone}`]
+            );
 
-            const tposResult = await searchTPOSByPartialPhone(partialPhone);
+            if (customersResult.rows.length > 0) {
+                console.log(`[DEBT-UPDATE] ✅ Found ${customersResult.rows.length} matches in customers table`);
+                dataSource = 'CUSTOMERS_TABLE';
+                matchedPhones = customersResult.rows.map((row) => ({
+                    phone: row.phone,
+                    customers: [{ name: row.name, id: `DB_${row.phone}`, phone: row.phone }],
+                    count: 1
+                }));
+            } else {
+                // Step 2: Not in local DB - try TPOS API
+                console.log('[DEBT-UPDATE] Not found in local DB, searching TPOS...');
+                dataSource = 'TPOS';
 
-            if (tposResult.success && tposResult.uniquePhones.length > 0) {
-                matchedPhones = tposResult.uniquePhones;
-                console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} matches from TPOS`);
+                const tposResult = await searchTPOSByPartialPhone(partialPhone);
+
+                if (tposResult.success && tposResult.uniquePhones.length > 0) {
+                    matchedPhones = tposResult.uniquePhones;
+                    console.log(`[DEBT-UPDATE] Found ${matchedPhones.length} matches from TPOS`);
+                }
             }
         }
 
