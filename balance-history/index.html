@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/transfer-stats.css">
     <link rel="stylesheet" href="css/live-mode.css">
-    <link rel="stylesheet" href="css/accountant.css?v=20260123b">
+    <link rel="stylesheet" href="css/accountant.css?v=20260123c">
 </head>
 
 <body>
@@ -892,6 +892,67 @@
                             onclick="document.getElementById('accChangeModal').classList.remove('visible')">Hủy</button>
                         <button class="acc-btn acc-btn-approve" onclick="AccountantModule.confirmChange()">Thay đổi &
                             Duyệt</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approve Modal -->
+            <div class="acc-modal-overlay acc-approve-modal" id="accApproveModal">
+                <div class="acc-modal">
+                    <div class="acc-modal-header">
+                        <h3>✅ Duyệt giao dịch</h3>
+                        <button class="acc-modal-close">&times;</button>
+                    </div>
+                    <div class="acc-modal-body">
+                        <!-- Transaction Info Summary -->
+                        <div class="acc-approve-summary" id="accApproveSummary">
+                            <!-- Dynamically filled: amount, customer, content -->
+                        </div>
+
+                        <!-- Note Input -->
+                        <div class="acc-form-group">
+                            <label for="accApproveNote">Ghi chú (tùy chọn)</label>
+                            <textarea id="accApproveNote"
+                                placeholder="Nhập ghi chú cho giao dịch này..."></textarea>
+                        </div>
+
+                        <!-- Image Upload Area -->
+                        <div class="acc-form-group">
+                            <label>Hình ảnh xác nhận chuyển khoản (tùy chọn)</label>
+                            <div class="acc-image-upload-area" id="accApproveImageArea">
+                                <div class="acc-image-dropzone" id="accApproveDropzone">
+                                    <i data-lucide="image-plus" style="width:32px;height:32px"></i>
+                                    <span>Paste (Ctrl+V) hoặc kéo thả hình vào đây</span>
+                                    <span class="acc-text-muted acc-text-sm">Hoặc click để chọn file</span>
+                                    <input type="file" id="accApproveImageInput"
+                                        accept="image/jpeg,image/png,image/gif,image/webp"
+                                        style="display:none">
+                                </div>
+
+                                <!-- Image Preview -->
+                                <div class="acc-image-preview" id="accApproveImagePreview" style="display:none">
+                                    <img id="accApprovePreviewImg" src="" alt="Preview">
+                                    <div class="acc-image-overlay" id="accApproveUploadOverlay">
+                                        <div class="acc-loading-spinner"></div>
+                                        <span>Đang tải lên...</span>
+                                    </div>
+                                    <button type="button" class="acc-btn-remove-image"
+                                        onclick="AccountantModule.clearApproveImage()">
+                                        <i data-lucide="x" style="width:14px;height:14px"></i>
+                                    </button>
+                                    <span class="acc-upload-status" id="accApproveUploadStatus"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="acc-modal-footer">
+                        <button class="acc-btn acc-btn-secondary"
+                            onclick="document.getElementById('accApproveModal').classList.remove('visible')">Hủy</button>
+                        <button class="acc-btn acc-btn-approve" id="accApproveConfirmBtn"
+                            onclick="AccountantModule.confirmApprove()">
+                            <i data-lucide="check" style="width:14px;height:14px"></i>
+                            Xác nhận duyệt
+                        </button>
                     </div>
                 </div>
             </div>
