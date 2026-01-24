@@ -128,6 +128,11 @@ class PancakeDataManager {
 
         // Session storage key for conversations cache
         this.CONVERSATIONS_CACHE_KEY = 'pancake_conversations_cache';
+
+        // Singleton promises - prevent multiple concurrent calls to same method
+        this._initializePromise = null;
+        this._fetchPagesPromise = null;
+        this._fetchConversationsPromise = null;
     }
 
     /**
@@ -360,86 +365,95 @@ class PancakeDataManager {
                 }
             }
 
-            if (this.isLoadingPages) {
-                console.log('[PANCAKE] Already loading pages...');
-                return this.pages;
+            // Singleton pattern: if already fetching, return existing promise
+            if (this._fetchPagesPromise) {
+                console.log('[PANCAKE] ♻️ Reusing existing fetchPages promise');
+                return this._fetchPagesPromise;
             }
 
             this.isLoadingPages = true;
             console.log('[PANCAKE] Fetching pages from API via Cloudflare...');
 
-            const token = await this.getToken();
+            // Store promise for singleton pattern
+            this._fetchPagesPromise = (async () => {
+                try {
+                    const token = await this.getToken();
 
-            // Use Cloudflare Worker proxy
-            const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
+                    // Use Cloudflare Worker proxy
+                    const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
 
-            // Retry logic with exponential backoff for rate limiting
-            const maxRetries = 3;
-            let lastError = null;
+                    // Retry logic with exponential backoff for rate limiting
+                    const maxRetries = 3;
+                    let lastError = null;
 
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                if (attempt > 0) {
-                    const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-                    console.log(`[PANCAKE] ⏳ Retry ${attempt}/${maxRetries} after ${delay}ms...`);
-                    await new Promise(r => setTimeout(r, delay));
-                }
+                    for (let attempt = 0; attempt < maxRetries; attempt++) {
+                        if (attempt > 0) {
+                            const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+                            console.log(`[PANCAKE] ⏳ Retry ${attempt}/${maxRetries} after ${delay}ms...`);
+                            await new Promise(r => setTimeout(r, delay));
+                        }
 
-                // Use queuedFetch with deduplication key
-                const response = await this.queuedFetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
+                        // Use queuedFetch with deduplication key
+                        const response = await this.queuedFetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        }, 'fetchPages');
+
+                        console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
+
+                        if (response.status === 429) {
+                            console.warn('[PANCAKE] ⚠️ Rate limited (429), will retry...');
+                            lastError = new Error('HTTP 429: Too Many Requests');
+                            continue; // Retry
+                        }
+
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            console.error('[PANCAKE] Error response:', errorText);
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+
+                        const data = await response.json();
+                        console.log('[PANCAKE] Pages response data:', data);
+
+                        if (data.success && data.categorized && data.categorized.activated) {
+                            this.pages = data.categorized.activated;
+                            this.pageIds = data.categorized.activated_page_ids || [];
+                            this.lastPageFetchTime = Date.now();
+                            console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
+                            console.log('[PANCAKE] Page IDs:', this.pageIds);
+
+                            // Save to localStorage for faster access on next page load
+                            this.savePagesToLocalStorage();
+
+                            // Extract and cache page_access_tokens from settings
+                            this.extractAndCachePageAccessTokens(data.categorized.activated);
+
+                            return this.pages;
+                        } else {
+                            console.warn('[PANCAKE] Unexpected response format:', data);
+                            return [];
+                        }
                     }
-                }, 'fetchPages');
 
-                console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
-
-                if (response.status === 429) {
-                    console.warn('[PANCAKE] ⚠️ Rate limited (429), will retry...');
-                    lastError = new Error('HTTP 429: Too Many Requests');
-                    continue; // Retry
-                }
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('[PANCAKE] Error response:', errorText);
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                console.log('[PANCAKE] Pages response data:', data);
-
-                if (data.success && data.categorized && data.categorized.activated) {
-                    this.pages = data.categorized.activated;
-                    this.pageIds = data.categorized.activated_page_ids || [];
-                    this.lastPageFetchTime = Date.now();
-                    console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
-                    console.log('[PANCAKE] Page IDs:', this.pageIds);
-
-                    // Save to localStorage for faster access on next page load
-                    this.savePagesToLocalStorage();
-
-                    // Extract and cache page_access_tokens from settings
-                    this.extractAndCachePageAccessTokens(data.categorized.activated);
-
-                    return this.pages;
-                } else {
-                    console.warn('[PANCAKE] Unexpected response format:', data);
+                    // All retries failed
+                    if (lastError) {
+                        console.error('[PANCAKE] ❌ All retries failed:', lastError.message);
+                    }
                     return [];
+                } finally {
+                    this.isLoadingPages = false;
+                    this._fetchPagesPromise = null; // Clear singleton promise
                 }
-            }
+            })();
 
-            // All retries failed
-            if (lastError) {
-                console.error('[PANCAKE] ❌ All retries failed:', lastError.message);
-            }
-            return [];
+            return this._fetchPagesPromise;
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching pages:', error);
             return [];
-        } finally {
-            this.isLoadingPages = false;
         }
     }
 
@@ -847,9 +861,10 @@ class PancakeDataManager {
                 return this.conversations;
             }
 
-            if (this.isLoading) {
-                console.log('[PANCAKE] Already loading conversations...');
-                return this.conversations;
+            // Singleton pattern: if already fetching, return existing promise
+            if (this._fetchConversationsPromise) {
+                console.log('[PANCAKE] ♻️ Reusing existing fetchConversations promise');
+                return this._fetchConversationsPromise;
             }
 
             // Fetch pages first if needed
@@ -865,82 +880,90 @@ class PancakeDataManager {
             this.isLoading = true;
             console.log('[PANCAKE] Fetching conversations from API via Cloudflare...');
 
-            const token = await this.getToken();
-
-            // Build query params - format: pages[pageId]=offset
-            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
-            const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
-
-            // Use Cloudflare Worker proxy
-            const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
-
-            console.log('[PANCAKE] Conversations URL:', url);
-
-            // Retry with exponential backoff for 429 errors
-            const maxRetries = 3;
-            let lastError = null;
-
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            // Store promise for singleton pattern
+            this._fetchConversationsPromise = (async () => {
                 try {
-                    // Use queuedFetch with deduplication key
-                    const response = await this.queuedFetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
+                    const token = await this.getToken();
+
+                    // Build query params - format: pages[pageId]=offset
+                    const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
+                    const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
+
+                    // Use Cloudflare Worker proxy
+                    const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
+
+                    console.log('[PANCAKE] Conversations URL:', url);
+
+                    // Retry with exponential backoff for 429 errors
+                    const maxRetries = 3;
+                    let lastError = null;
+
+                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                        try {
+                            // Use queuedFetch with deduplication key
+                            const response = await this.queuedFetch(url, {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            }, 'fetchConversations');
+
+                            console.log('[PANCAKE] Conversations response status:', response.status);
+
+                            if (response.status === 429) {
+                                // Rate limited - wait and retry with exponential backoff
+                                const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 10000); // 2s, 4s, 8s (max 10s)
+                                console.warn(`[PANCAKE] Rate limited (429), attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`);
+                                await new Promise(r => setTimeout(r, backoffMs));
+                                continue;
+                            }
+
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('[PANCAKE] Error response:', errorText);
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+
+                            const data = await response.json();
+                            console.log('[PANCAKE] Conversations response data:', data);
+
+                            this.conversations = data.conversations || [];
+                            this.lastFetchTime = Date.now();
+
+                            // Build conversation map
+                            this.buildConversationMap();
+
+                            // Save to sessionStorage for page refresh
+                            this.saveConversationsToSessionStorage();
+
+                            console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations`);
+
+                            return this.conversations;
+
+                        } catch (fetchError) {
+                            lastError = fetchError;
+                            if (attempt < maxRetries) {
+                                const backoffMs = 2000 * Math.pow(2, attempt - 1);
+                                console.warn(`[PANCAKE] Fetch error, attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`, fetchError.message);
+                                await new Promise(r => setTimeout(r, backoffMs));
+                            }
                         }
-                    }, 'fetchConversations');
-
-                    console.log('[PANCAKE] Conversations response status:', response.status);
-
-                    if (response.status === 429) {
-                        // Rate limited - wait and retry with exponential backoff
-                        const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 10000); // 2s, 4s, 8s (max 10s)
-                        console.warn(`[PANCAKE] Rate limited (429), attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`);
-                        await new Promise(r => setTimeout(r, backoffMs));
-                        continue;
                     }
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('[PANCAKE] Error response:', errorText);
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    const data = await response.json();
-                    console.log('[PANCAKE] Conversations response data:', data);
-
-                    this.conversations = data.conversations || [];
-                    this.lastFetchTime = Date.now();
-
-                    // Build conversation map
-                    this.buildConversationMap();
-
-                    // Save to sessionStorage for page refresh
-                    this.saveConversationsToSessionStorage();
-
-                    console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations`);
-
-                    return this.conversations;
-
-                } catch (fetchError) {
-                    lastError = fetchError;
-                    if (attempt < maxRetries) {
-                        const backoffMs = 2000 * Math.pow(2, attempt - 1);
-                        console.warn(`[PANCAKE] Fetch error, attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`, fetchError.message);
-                        await new Promise(r => setTimeout(r, backoffMs));
-                    }
+                    // All retries failed
+                    throw lastError || new Error('Failed after all retries');
+                } finally {
+                    this.isLoading = false;
+                    this._fetchConversationsPromise = null; // Clear singleton promise
                 }
-            }
+            })();
 
-            // All retries failed
-            throw lastError || new Error('Failed after all retries');
+            return this._fetchConversationsPromise;
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error fetching conversations:', error);
             console.error('[PANCAKE] Error stack:', error.stack);
             return [];
-        } finally {
-            this.isLoading = false;
         }
     }
 
@@ -2273,26 +2296,38 @@ class PancakeDataManager {
      * @returns {Promise<boolean>}
      */
     async initialize() {
-        try {
-            console.log('[PANCAKE] Initializing...');
-
-            // Try to get token
-            if (!this.getToken()) {
-                console.error('[PANCAKE] Cannot initialize - no JWT token');
-                return false;
-            }
-
-            // Fetch pages and conversations
-            await this.fetchPages();
-            await this.fetchConversations();
-
-            console.log('[PANCAKE] ✅ Initialized successfully');
-            return true;
-
-        } catch (error) {
-            console.error('[PANCAKE] ❌ Error initializing:', error);
-            return false;
+        // Singleton pattern: if already initializing, return existing promise
+        if (this._initializePromise) {
+            console.log('[PANCAKE] ♻️ Reusing existing initialize promise');
+            return this._initializePromise;
         }
+
+        this._initializePromise = (async () => {
+            try {
+                console.log('[PANCAKE] Initializing...');
+
+                // Try to get token
+                if (!this.getToken()) {
+                    console.error('[PANCAKE] Cannot initialize - no JWT token');
+                    return false;
+                }
+
+                // Fetch pages and conversations (sequentially to avoid rate limit)
+                await this.fetchPages();
+                await this.fetchConversations();
+
+                console.log('[PANCAKE] ✅ Initialized successfully');
+                return true;
+
+            } catch (error) {
+                console.error('[PANCAKE] ❌ Error initializing:', error);
+                return false;
+            } finally {
+                this._initializePromise = null; // Clear singleton promise
+            }
+        })();
+
+        return this._initializePromise;
     }
     /**
      * Calculate SHA-1 hash of a file
