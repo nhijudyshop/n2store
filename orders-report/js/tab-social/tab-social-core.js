@@ -233,11 +233,11 @@ async function initSocialTab() {
             initializeColumnVisibility();
         }
 
-        // Update stats
-        updateStats();
-
         // Populate tag filter
         populateTagFilter();
+
+        // Update search result count
+        updateSearchResultCount();
 
         console.log('[Tab Social] Initialized with', SocialOrderState.orders.length, 'orders');
     } catch (error) {
@@ -256,14 +256,6 @@ function loadOrders() {
     showNotification('Đã tải lại dữ liệu', 'success');
 }
 
-// ===== CONTROL BAR =====
-function toggleControlBar() {
-    const controlBar = document.getElementById('controlBar');
-    if (controlBar) {
-        controlBar.style.display = controlBar.style.display === 'none' ? 'flex' : 'none';
-    }
-}
-
 // ===== EXPORT FOR OTHER MODULES =====
 window.SocialOrderState = SocialOrderState;
 window.SOURCE_CONFIG = SOURCE_CONFIG;
@@ -275,4 +267,3 @@ window.showLoading = showLoading;
 window.showNotification = showNotification;
 window.debounce = debounce;
 window.loadOrders = loadOrders;
-window.toggleControlBar = toggleControlBar;

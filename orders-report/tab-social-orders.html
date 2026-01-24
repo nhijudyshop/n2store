@@ -59,15 +59,6 @@
                         Gán Tag Hàng Loạt
                     </button>
                     <button
-                        class="btn-primary"
-                        id="toggleControlBarBtn"
-                        onclick="toggleControlBar()"
-                        style="background: #6b7280"
-                    >
-                        <i class="fas fa-sliders-h"></i>
-                        Bộ lọc
-                    </button>
-                    <button
                         class="btn-primary btn-column-settings"
                         onclick="openColumnSettingsModal()"
                         style="background: #8b5cf6"
@@ -78,80 +69,12 @@
                 </div>
             </div>
 
-            <!-- Stats Bar -->
-            <div class="stats-bar" id="statsBar">
-                <div class="stats-item">
-                    <div class="stats-value" id="totalOrdersCount">0</div>
-                    <div class="stats-label">Tổng đơn hàng</div>
-                </div>
-                <div class="stats-item">
-                    <div class="stats-value" id="displayedOrdersCount">0</div>
-                    <div class="stats-label">Đang hiển thị</div>
-                </div>
-                <div class="stats-item">
-                    <div class="stats-value" id="totalProductsCount">0</div>
-                    <div class="stats-label">Tổng sản phẩm</div>
-                </div>
-                <div class="stats-item">
-                    <div class="stats-value" id="totalAmountSum">0đ</div>
-                    <div class="stats-label">Tổng giá trị</div>
-                </div>
-            </div>
-
-            <!-- Filter Section -->
-            <div class="filter-section" id="controlBar" style="display: none">
-                <!-- Status Filter -->
-                <div style="display: flex; align-items: center; gap: 6px">
-                    <label style="font-size: 12px; font-weight: 500; color: #6b7280"
-                        >Trạng thái:</label
-                    >
-                    <select
-                        id="statusFilter"
-                        onchange="performTableSearch()"
-                        class="search-filter-select"
-                    >
-                        <option value="all" selected>Tất cả</option>
-                        <option value="draft">Nháp</option>
-                        <option value="processing">Đang xử lý</option>
-                        <option value="completed">Hoàn thành</option>
-                        <option value="cancelled">Đã hủy</option>
-                    </select>
-                </div>
-
-                <!-- Source Filter -->
-                <div style="display: flex; align-items: center; gap: 6px">
-                    <label style="font-size: 12px; font-weight: 500; color: #6b7280">Nguồn:</label>
-                    <select
-                        id="sourceFilter"
-                        onchange="performTableSearch()"
-                        class="search-filter-select"
-                    >
-                        <option value="all" selected>Tất cả</option>
-                        <option value="manual">Thủ công</option>
-                        <option value="facebook_post">Facebook Post</option>
-                        <option value="instagram">Instagram</option>
-                        <option value="tiktok">TikTok</option>
-                    </select>
-                </div>
-
-                <!-- TAG Filter -->
-                <div style="display: flex; align-items: center; gap: 6px">
-                    <label style="font-size: 12px; font-weight: 500; color: #6b7280">TAG:</label>
-                    <select
-                        id="tagFilter"
-                        onchange="performTableSearch()"
-                        class="search-filter-select"
-                    >
-                        <option value="all" selected>Tất cả</option>
-                        <!-- Options populated by JS -->
-                    </select>
-                </div>
-            </div>
-
-            <!-- Search Section -->
-            <div class="search-section" id="searchSection">
-                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
-                    <div class="search-wrapper" style="flex: 1; max-width: 350px">
+            <!-- Unified Filter & Search Section -->
+            <div class="unified-filter-section" id="unifiedFilterSection">
+                <!-- Row 1: Search + Date Filters -->
+                <div class="filter-row">
+                    <!-- Search -->
+                    <div class="search-wrapper">
                         <i class="fas fa-search search-icon"></i>
                         <input
                             type="text"
@@ -165,20 +88,124 @@
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                </div>
-                <div class="search-info">
-                    <div>
-                        <span class="search-result-count" id="searchResultCount">0</span>
-                        <span> kết quả</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 12px">
+
+                    <!-- Date Quick Filters -->
+                    <div class="date-filter-group">
                         <button
-                            class="btn-primary"
-                            id="reloadTableBtn"
-                            onclick="loadOrders()"
-                            style="background: #10b981; padding: 6px 12px; font-size: 13px"
+                            class="date-filter-btn active"
+                            data-range="all"
+                            onclick="setDateFilter('all')"
                         >
-                            <i class="fas fa-sync"></i> Tải lại
+                            Tất cả
+                        </button>
+                        <button
+                            class="date-filter-btn"
+                            data-range="today"
+                            onclick="setDateFilter('today')"
+                        >
+                            Hôm nay
+                        </button>
+                        <button
+                            class="date-filter-btn"
+                            data-range="yesterday"
+                            onclick="setDateFilter('yesterday')"
+                        >
+                            Hôm qua
+                        </button>
+                        <button
+                            class="date-filter-btn"
+                            data-range="3days"
+                            onclick="setDateFilter('3days')"
+                        >
+                            3N
+                        </button>
+                        <button
+                            class="date-filter-btn"
+                            data-range="7days"
+                            onclick="setDateFilter('7days')"
+                        >
+                            7N
+                        </button>
+                        <button
+                            class="date-filter-btn"
+                            data-range="15days"
+                            onclick="setDateFilter('15days')"
+                        >
+                            15N
+                        </button>
+                        <button
+                            class="date-filter-btn"
+                            data-range="custom"
+                            onclick="toggleCustomDateRange()"
+                        >
+                            <i class="fas fa-calendar-alt"></i>
+                        </button>
+                    </div>
+
+                    <!-- Custom Date Range (hidden by default) -->
+                    <div class="custom-date-range" id="customDateRange" style="display: none">
+                        <input type="date" id="dateFrom" onchange="applyCustomDateRange()" />
+                        <span>→</span>
+                        <input type="date" id="dateTo" onchange="applyCustomDateRange()" />
+                    </div>
+                </div>
+
+                <!-- Row 2: Status, Source, Tag Filters + Result Count -->
+                <div class="filter-row">
+                    <!-- Status Filter -->
+                    <div class="filter-item">
+                        <label>Trạng thái:</label>
+                        <select
+                            id="statusFilter"
+                            onchange="performTableSearch()"
+                            class="search-filter-select"
+                        >
+                            <option value="all" selected>Tất cả</option>
+                            <option value="draft">Nháp</option>
+                            <option value="processing">Đang xử lý</option>
+                            <option value="completed">Hoàn thành</option>
+                            <option value="cancelled">Đã hủy</option>
+                        </select>
+                    </div>
+
+                    <!-- Source Filter -->
+                    <div class="filter-item">
+                        <label>Nguồn:</label>
+                        <select
+                            id="sourceFilter"
+                            onchange="performTableSearch()"
+                            class="search-filter-select"
+                        >
+                            <option value="all" selected>Tất cả</option>
+                            <option value="manual">Thủ công</option>
+                            <option value="facebook_post">Facebook Post</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="tiktok">TikTok</option>
+                        </select>
+                    </div>
+
+                    <!-- TAG Filter -->
+                    <div class="filter-item">
+                        <label>TAG:</label>
+                        <select
+                            id="tagFilter"
+                            onchange="performTableSearch()"
+                            class="search-filter-select"
+                        >
+                            <option value="all" selected>Tất cả</option>
+                            <!-- Options populated by JS -->
+                        </select>
+                    </div>
+
+                    <!-- Spacer -->
+                    <div style="flex: 1"></div>
+
+                    <!-- Result Count & Reload -->
+                    <div class="filter-result">
+                        <span class="search-result-count" id="searchResultCount">0</span>
+                        <span>kết quả</span>
+                        <button class="btn-reload" onclick="loadOrders()" title="Tải lại">
+                            <i class="fas fa-sync"></i>
                         </button>
                     </div>
                 </div>

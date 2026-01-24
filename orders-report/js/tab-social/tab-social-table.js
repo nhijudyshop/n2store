@@ -174,6 +174,96 @@ function renderTableRow(order, index) {
 }
 
 // ===== FILTERING & SEARCH =====
+
+// Date filter state
+let currentDateFilter = 'all';
+let customDateFrom = null;
+let customDateTo = null;
+
+/**
+ * Set date filter and update UI
+ */
+function setDateFilter(range) {
+    currentDateFilter = range;
+
+    // Update button states
+    document.querySelectorAll('.date-filter-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.range === range);
+    });
+
+    // Hide custom date range if not custom
+    if (range !== 'custom') {
+        document.getElementById('customDateRange').style.display = 'none';
+        customDateFrom = null;
+        customDateTo = null;
+    }
+
+    performTableSearch();
+}
+
+/**
+ * Toggle custom date range visibility
+ */
+function toggleCustomDateRange() {
+    const container = document.getElementById('customDateRange');
+    const isVisible = container.style.display !== 'none';
+
+    if (isVisible) {
+        container.style.display = 'none';
+        setDateFilter('all');
+    } else {
+        container.style.display = 'flex';
+        currentDateFilter = 'custom';
+
+        // Update button states
+        document.querySelectorAll('.date-filter-btn').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.range === 'custom');
+        });
+    }
+}
+
+/**
+ * Apply custom date range filter
+ */
+function applyCustomDateRange() {
+    const fromInput = document.getElementById('dateFrom');
+    const toInput = document.getElementById('dateTo');
+
+    customDateFrom = fromInput.value ? new Date(fromInput.value) : null;
+    customDateTo = toInput.value ? new Date(toInput.value + 'T23:59:59') : null;
+
+    if (customDateFrom || customDateTo) {
+        currentDateFilter = 'custom';
+        performTableSearch();
+    }
+}
+
+/**
+ * Get date range based on filter selection
+ */
+function getDateRange(filter) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (filter) {
+        case 'today':
+            return { from: today, to: new Date(today.getTime() + 86400000 - 1) };
+        case 'yesterday':
+            const yesterday = new Date(today.getTime() - 86400000);
+            return { from: yesterday, to: new Date(today.getTime() - 1) };
+        case '3days':
+            return { from: new Date(today.getTime() - 3 * 86400000), to: now };
+        case '7days':
+            return { from: new Date(today.getTime() - 7 * 86400000), to: now };
+        case '15days':
+            return { from: new Date(today.getTime() - 15 * 86400000), to: now };
+        case 'custom':
+            return { from: customDateFrom, to: customDateTo };
+        default:
+            return { from: null, to: null };
+    }
+}
+
 function performTableSearch() {
     const searchInput = document.getElementById('tableSearchInput');
     const statusFilter = document.getElementById('statusFilter');
@@ -185,16 +275,33 @@ function performTableSearch() {
     const sourceValue = sourceFilter?.value || 'all';
     const tagValue = tagFilter?.value || 'all';
 
+    // Get date range
+    const dateRange = getDateRange(currentDateFilter);
+
     // Update state
     SocialOrderState.filters = {
         search: searchTerm,
         status: statusValue,
         source: sourceValue,
         tag: tagValue,
+        dateFilter: currentDateFilter,
+        dateFrom: dateRange.from,
+        dateTo: dateRange.to,
     };
 
     // Filter orders
     SocialOrderState.filteredOrders = SocialOrderState.orders.filter((order) => {
+        // Date filter
+        if (dateRange.from || dateRange.to) {
+            const orderDate = new Date(order.createdAt);
+            if (dateRange.from && orderDate < dateRange.from) {
+                return false;
+            }
+            if (dateRange.to && orderDate > dateRange.to) {
+                return false;
+            }
+        }
+
         // Status filter
         if (statusValue !== 'all' && order.status !== statusValue) {
             return false;
@@ -234,7 +341,6 @@ function performTableSearch() {
 
     // Update UI
     renderTable();
-    updateStats();
     updateSearchResultCount();
     updateSearchClearButton();
 }
@@ -259,37 +365,6 @@ function updateSearchClearButton() {
     const searchInput = document.getElementById('tableSearchInput');
     if (clearBtn && searchInput) {
         clearBtn.classList.toggle('active', searchInput.value.length > 0);
-    }
-}
-
-// ===== STATS =====
-function updateStats() {
-    const orders = SocialOrderState.filteredOrders;
-
-    // Total orders
-    const totalOrdersEl = document.getElementById('totalOrdersCount');
-    if (totalOrdersEl) {
-        totalOrdersEl.textContent = SocialOrderState.orders.length;
-    }
-
-    // Displayed orders
-    const displayedEl = document.getElementById('displayedOrdersCount');
-    if (displayedEl) {
-        displayedEl.textContent = orders.length;
-    }
-
-    // Total products
-    const totalProducts = orders.reduce((sum, o) => sum + (o.totalQuantity || 0), 0);
-    const totalProductsEl = document.getElementById('totalProductsCount');
-    if (totalProductsEl) {
-        totalProductsEl.textContent = totalProducts;
-    }
-
-    // Total amount
-    const totalAmount = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const totalAmountEl = document.getElementById('totalAmountSum');
-    if (totalAmountEl) {
-        totalAmountEl.textContent = formatCurrency(totalAmount);
     }
 }
 
@@ -436,7 +511,9 @@ function deleteSelectedOrders() {
 window.renderTable = renderTable;
 window.performTableSearch = performTableSearch;
 window.clearSearch = clearSearch;
-window.updateStats = updateStats;
+window.setDateFilter = setDateFilter;
+window.toggleCustomDateRange = toggleCustomDateRange;
+window.applyCustomDateRange = applyCustomDateRange;
 window.populateTagFilter = populateTagFilter;
 window.toggleOrderSelection = toggleOrderSelection;
 window.toggleSelectAll = toggleSelectAll;
@@ -445,3 +522,4 @@ window.confirmDeleteOrder = confirmDeleteOrder;
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;
 window.confirmDelete = confirmDelete;
 window.deleteSelectedOrders = deleteSelectedOrders;
+window.updateSearchResultCount = updateSearchResultCount;
