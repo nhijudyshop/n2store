@@ -67,6 +67,14 @@
                         <i class="fas fa-sliders-h"></i>
                         Bộ lọc
                     </button>
+                    <button
+                        class="btn-primary btn-column-settings"
+                        onclick="openColumnSettingsModal()"
+                        style="background: #8b5cf6"
+                    >
+                        <i class="fas fa-columns"></i>
+                        Cài đặt cột
+                    </button>
                 </div>
             </div>
 
@@ -220,11 +228,13 @@
                                 <th data-column="post">Bài Post</th>
                                 <th data-column="address">Địa chỉ</th>
                                 <th data-column="total">Tổng</th>
+                                <th data-column="created-date">Ngày tạo</th>
+                                <th data-column="status">Trạng thái</th>
                             </tr>
                         </thead>
                         <tbody id="tableBody">
                             <tr>
-                                <td colspan="11" style="text-align: center; padding: 40px">
+                                <td colspan="13" style="text-align: center; padding: 40px">
                                     <i class="fas fa-spinner fa-spin"></i> Đang tải...
                                 </td>
                             </tr>
@@ -428,6 +438,92 @@
             </div>
         </div>
 
+        <!-- Column Settings Modal -->
+        <div class="column-settings-modal" id="columnSettingsModal">
+            <div class="column-settings-modal-content">
+                <div class="column-settings-modal-header">
+                    <h3><i class="fas fa-columns"></i> Cài đặt hiển thị cột</h3>
+                    <button
+                        class="column-settings-modal-close"
+                        onclick="closeColumnSettingsModal()"
+                    >
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="column-settings-modal-body">
+                    <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px">
+                        Chọn các cột bạn muốn hiển thị trong bảng:
+                    </p>
+                    <div class="column-settings-list" id="columnSettingsList">
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="actions" checked />
+                            <span>Thao tác</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="stt" checked />
+                            <span>STT</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="tag" checked />
+                            <span>TAG</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="customer" checked />
+                            <span>Khách hàng</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="phone" checked />
+                            <span>Số điện thoại</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="chat" checked />
+                            <span>Chat</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="products" checked />
+                            <span>Sản phẩm</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="post" checked />
+                            <span>Bài Post</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="address" />
+                            <span>Địa chỉ</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="total" checked />
+                            <span>Tổng tiền</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="created-date" checked />
+                            <span>Ngày tạo</span>
+                        </label>
+                        <label class="column-setting-item">
+                            <input type="checkbox" data-column="status" checked />
+                            <span>Trạng thái</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="column-settings-modal-footer">
+                    <button class="column-settings-btn-reset" onclick="resetColumnSettings()">
+                        <i class="fas fa-undo"></i> Đặt lại mặc định
+                    </button>
+                    <div style="display: flex; gap: 8px">
+                        <button
+                            class="column-settings-btn-cancel"
+                            onclick="closeColumnSettingsModal()"
+                        >
+                            Hủy
+                        </button>
+                        <button class="column-settings-btn-save" onclick="saveColumnSettings()">
+                            <i class="fas fa-save"></i> Lưu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Shared Scripts -->
         <script src="../shared/js/firebase-config.js"></script>
         <script src="../shared/js/shared-auth-manager.js"></script>
@@ -435,6 +531,7 @@
 
         <!-- Tab Social Scripts -->
         <script src="js/tab-social/tab-social-core.js"></script>
+        <script src="js/tab-social/tab-social-column-visibility.js"></script>
         <script src="js/tab-social/tab-social-table.js"></script>
         <script src="js/tab-social/tab-social-modal.js"></script>
         <script src="js/tab-social/tab-social-firebase.js"></script>

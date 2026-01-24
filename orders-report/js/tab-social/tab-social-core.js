@@ -228,6 +228,11 @@ async function initSocialTab() {
         // Render table
         renderTable();
 
+        // Initialize column visibility
+        if (typeof initializeColumnVisibility === 'function') {
+            initializeColumnVisibility();
+        }
+
         // Update stats
         updateStats();
 

@@ -13,7 +13,7 @@ function renderTable() {
     if (orders.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="11" style="text-align: center; padding: 60px 20px;">
+                <td colspan="13" style="text-align: center; padding: 60px 20px;">
                     <div style="color: #9ca3af;">
                         <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
                         <p style="margin: 0; font-size: 14px;">Không có đơn hàng nào</p>
@@ -31,6 +31,12 @@ function renderTable() {
     });
 
     tbody.innerHTML = html;
+
+    // Apply column visibility after rendering
+    if (window.socialColumnVisibility) {
+        const settings = window.socialColumnVisibility.load();
+        window.socialColumnVisibility.apply(settings);
+    }
 
     // Update page info
     const pageInfo = document.getElementById('pageInfo');
@@ -154,6 +160,14 @@ function renderTableRow(order, index) {
             </td>
             <td data-column="total" style="text-align: right; font-weight: 600; color: #8b5cf6;">
                 ${formatCurrency(order.totalAmount)}
+            </td>
+            <td data-column="created-date" style="font-size: 12px; color: #6b7280;">
+                ${formatDate(order.createdAt)}
+            </td>
+            <td data-column="status" style="text-align: center;">
+                <span class="status-badge-social ${order.status}" style="background: ${statusConfig.bgColor}; color: ${statusConfig.textColor};">
+                    ${statusConfig.label}
+                </span>
             </td>
         </tr>
     `;
