@@ -18,16 +18,18 @@ const PORT = process.env.PORT || 3000;
 
 // CORS - Allow requests from GitHub Pages
 // CORS - Allow specific origins
-app.use(cors({
-    origin: [
-        'https://nhijudyshop.github.io', // Primary frontend
-        'http://localhost:5500',         // Local development for frontend
-        'http://localhost:3000'          // Local development for this server itself
-    ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id'],
-    credentials: false // credentials cannot be true when origin is *
-}));
+app.use(
+    cors({
+        origin: [
+            'https://nhijudyshop.github.io', // Primary frontend
+            'http://localhost:5500', // Local development for frontend
+            'http://localhost:3000', // Local development for this server itself
+        ],
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Auth-Data', 'X-User-Id'],
+        credentials: false, // credentials cannot be true when origin is *
+    })
+);
 
 // Body parsing - increased limit for large customer imports (80k+ records)
 app.use(express.json({ limit: '100mb' }));
@@ -50,18 +52,19 @@ app.use((req, res, next) => {
 const chatDbPool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    max: 20,                      // Maximum 20 connections
-    idleTimeoutMillis: 30000,     // Close idle connections after 30s
-    connectionTimeoutMillis: 10000 // Timeout waiting for connection
+    max: 20, // Maximum 20 connections
+    idleTimeoutMillis: 30000, // Close idle connections after 30s
+    connectionTimeoutMillis: 10000, // Timeout waiting for connection
 });
 
 // Make pool available to routes via app.locals
 app.locals.chatDb = chatDbPool;
 
 // Test database connection on startup
-chatDbPool.query('SELECT NOW()')
+chatDbPool
+    .query('SELECT NOW()')
     .then(() => console.log('[DATABASE] PostgreSQL connected successfully'))
-    .catch(err => console.error('[DATABASE] PostgreSQL connection error:', err.message));
+    .catch((err) => console.error('[DATABASE] PostgreSQL connection error:', err.message));
 
 // =====================================================
 // REALTIME CREDENTIALS MANAGEMENT
@@ -90,7 +93,7 @@ async function saveRealtimeCredentials(db, clientType, credentials) {
             credentials.userId || null,
             credentials.pageIds ? JSON.stringify(credentials.pageIds) : null,
             credentials.cookie || null,
-            credentials.room || null
+            credentials.room || null,
         ]);
         console.log(`[CREDENTIALS] Saved ${clientType} credentials for auto-reconnect`);
         return true;
@@ -122,16 +125,23 @@ async function autoConnectRealtimeClients(db) {
         for (const row of result.rows) {
             if (row.client_type === 'pancake' && row.token && row.user_id && row.page_ids) {
                 const pageIds = JSON.parse(row.page_ids);
-                console.log(`[AUTO-CONNECT] Starting Pancake client with ${pageIds.length} pages...`);
+                console.log(
+                    `[AUTO-CONNECT] Starting Pancake client with ${pageIds.length} pages...`
+                );
                 realtimeClient.start(row.token, row.user_id, pageIds, row.cookie);
             } else if (row.client_type === 'tpos' && row.token) {
-                console.log(`[AUTO-CONNECT] Starting TPOS client for room: ${row.room || 'tomato.tpos.vn'}...`);
+                console.log(
+                    `[AUTO-CONNECT] Starting TPOS client for room: ${row.room || 'tomato.tpos.vn'}...`
+                );
                 tposRealtimeClient.start(row.token, row.room || 'tomato.tpos.vn');
             }
         }
     } catch (error) {
         // Table might not exist yet
-        console.log('[AUTO-CONNECT] Could not load credentials (table may not exist yet):', error.message);
+        console.log(
+            '[AUTO-CONNECT] Could not load credentials (table may not exist yet):',
+            error.message
+        );
     }
 }
 
@@ -148,7 +158,7 @@ app.get('/health', async (req, res) => {
             message: 'N2Store API Fallback Server is running',
             database: 'connected',
             timestamp: new Date().toISOString(),
-            uptime: process.uptime()
+            uptime: process.uptime(),
         });
     } catch (dbError) {
         console.error('[HEALTH] Database check failed:', dbError.message);
@@ -158,7 +168,7 @@ app.get('/health', async (req, res) => {
             database: 'disconnected',
             error: dbError.message,
             timestamp: new Date().toISOString(),
-            uptime: process.uptime()
+            uptime: process.uptime(),
         });
     }
 });
@@ -173,8 +183,8 @@ app.get('/api/debug/time', (req, res) => {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         timezone_offset_minutes: now.getTimezoneOffset(),
         server_time_string: now.toString(),
-        vietnam_time: new Date(now.getTime() + (7 * 60 * 60 * 1000)).toISOString(), // UTC+7
-        note: 'Compare this with your local time to check for clock drift'
+        vietnam_time: new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString(), // UTC+7
+        note: 'Compare this with your local time to check for clock drift',
     });
 });
 
@@ -206,8 +216,9 @@ const attributeRoutes = require('./routes/attribute.routes');
 const facebookRoutes = require('./routes/facebook.routes');
 const dynamicHeadersRoutes = require('./routes/dynamic-headers.routes');
 const customer360Routes = require('./routes/customer-360');
-const v2Router = require('./routes/v2');  // Unified API v2
+const v2Router = require('./routes/v2'); // Unified API v2
 const tposSavedRoutes = require('./routes/tpos-saved');
+const socialOrdersRoutes = require('./routes/social-orders'); // Social orders (non-TPOS)
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -217,9 +228,10 @@ app.use('/api/image-proxy', imageProxyRoutes);
 app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/tpos-saved', tposSavedRoutes);
-app.use('/api', customer360Routes);  // Customer 360° routes: /api/customer, /api/wallet, /api/ticket
-app.use('/api/v2', v2Router);  // Unified API v2: /api/v2/customers, /api/v2/wallets, /api/v2/tickets, /api/v2/analytics
+app.use('/api', customer360Routes); // Customer 360° routes: /api/customer, /api/wallet, /api/ticket
+app.use('/api/v2', v2Router); // Unified API v2: /api/v2/customers, /api/v2/wallets, /api/v2/tickets, /api/v2/analytics
 app.use('/api/return-orders', returnOrdersRoutes);
+app.use('/api/social-orders', socialOrdersRoutes); // Social orders API
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/deepseek', deepseekRoutes);
@@ -236,19 +248,16 @@ app.use('/api/admin', adminMigrationRoutes);
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
-initializeNotifiers(
-    realtimeSseRoutes.notifyClients,
-    realtimeSseRoutes.notifyClientsWildcard
-);
+initializeNotifiers(realtimeSseRoutes.notifyClients, realtimeSseRoutes.notifyClientsWildcard);
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
 
 // === ROUTES MERGED FROM /api ===
-app.use(uploadRoutes);       // /upload, /upload-batch
-app.use(productsRoutes);     // /products
-app.use(attributeRoutes);    // /attributes
-app.use(facebookRoutes);     // /facebook/*
+app.use(uploadRoutes); // /upload, /upload-batch
+app.use(productsRoutes); // /products
+app.use(attributeRoutes); // /attributes
+app.use(facebookRoutes); // /facebook/*
 app.use(dynamicHeadersRoutes); // /dynamic-headers/*
 // =====================================================
 // WEBSOCKET SERVER & CLIENT (REALTIME)
@@ -257,7 +266,7 @@ app.use(dynamicHeadersRoutes); // /dynamic-headers/*
 class RealtimeClient {
     constructor(db = null) {
         this.ws = null;
-        this.url = "wss://pancake.vn/socket/websocket?vsn=2.0.0";
+        this.url = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
         this.isConnected = false;
         this.refCounter = 1;
         this.heartbeatInterval = null;
@@ -294,7 +303,7 @@ class RealtimeClient {
         this.token = token;
         this.userId = userId;
         // Ensure pageIds are strings
-        this.pageIds = pageIds.map(id => String(id));
+        this.pageIds = pageIds.map((id) => String(id));
         this.cookie = cookie;
         this.connect();
     }
@@ -302,13 +311,18 @@ class RealtimeClient {
     connect() {
         if (this.isConnected || !this.token) return;
 
-        console.log('[SERVER-WS] Connecting to Pancake... (attempt', this.reconnectAttempts + 1, ')');
+        console.log(
+            '[SERVER-WS] Connecting to Pancake... (attempt',
+            this.reconnectAttempts + 1,
+            ')'
+        );
         const headers = {
-            'Origin': 'https://pancake.vn',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Origin: 'https://pancake.vn',
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            Pragma: 'no-cache',
         };
 
         // Add cookie if available (critical for Cloudflare/Auth)
@@ -317,7 +331,7 @@ class RealtimeClient {
         }
 
         this.ws = new WebSocket(this.url, {
-            headers: headers
+            headers: headers,
         });
 
         this.ws.on('open', () => {
@@ -337,11 +351,15 @@ class RealtimeClient {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000); // 2s, 4s, 8s, ... max 60s
                 this.reconnectAttempts++;
-                console.log(`[SERVER-WS] Reconnecting in ${delay/1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                console.log(
+                    `[SERVER-WS] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+                );
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
-                console.error('[SERVER-WS] ❌ Max reconnect attempts reached. Stopping reconnection.');
+                console.error(
+                    '[SERVER-WS] ❌ Max reconnect attempts reached. Stopping reconnection.'
+                );
             }
         });
 
@@ -364,7 +382,7 @@ class RealtimeClient {
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 const ref = this.makeRef();
-                this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
+                this.ws.send(JSON.stringify([null, ref, 'phoenix', 'heartbeat', {}]));
             }
         }, 30000);
     }
@@ -382,22 +400,28 @@ class RealtimeClient {
         // 1. Join User Channel
         const userRef = this.makeRef();
         const userJoinMsg = [
-            userRef, userRef, `users:${this.userId}`, "phx_join",
-            { accessToken: this.token, userId: this.userId, platform: "web" }
+            userRef,
+            userRef,
+            `users:${this.userId}`,
+            'phx_join',
+            { accessToken: this.token, userId: this.userId, platform: 'web' },
         ];
         this.ws.send(JSON.stringify(userJoinMsg));
 
         // 2. Join Multiple Pages Channel
         const pagesRef = this.makeRef();
         const pagesJoinMsg = [
-            pagesRef, pagesRef, `multiple_pages:${this.userId}`, "phx_join",
+            pagesRef,
+            pagesRef,
+            `multiple_pages:${this.userId}`,
+            'phx_join',
             {
                 accessToken: this.token,
                 userId: this.userId,
                 clientSession: this.generateClientSession(),
                 pageIds: this.pageIds,
-                platform: "web"
-            }
+                platform: 'web',
+            },
         ];
         this.ws.send(JSON.stringify(pagesJoinMsg));
 
@@ -406,7 +430,11 @@ class RealtimeClient {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
             const statusMsg = [
-                pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
+                pagesRef,
+                statusRef,
+                `multiple_pages:${this.userId}`,
+                'get_online_status',
+                {},
             ];
             this.ws.send(JSON.stringify(statusMsg));
         }, 1000);
@@ -422,7 +450,7 @@ class RealtimeClient {
             // Broadcast to connected frontend clients
             broadcastToClients({
                 type: 'pages:update_conversation',
-                payload: payload
+                payload: payload,
             });
 
             // Save to PostgreSQL for later retrieval
@@ -432,18 +460,23 @@ class RealtimeClient {
                     type: conversation.type || 'INBOX',
                     snippet: conversation.snippet || conversation.last_message?.message,
                     unreadCount: conversation.unread_count || 0,
-                    pageId: conversation.page_id || (conversation.id ? conversation.id.split('_')[0] : null),
+                    pageId:
+                        conversation.page_id ||
+                        (conversation.id ? conversation.id.split('_')[0] : null),
                     psid: conversation.from_psid || conversation.customers?.[0]?.fb_id,
-                    customerName: conversation.from?.name || conversation.customers?.[0]?.name
+                    customerName: conversation.from?.name || conversation.customers?.[0]?.name,
                 };
 
                 saveRealtimeUpdate(this.db, updateData)
                     .then(() => console.log('[SERVER-WS] Update saved to DB'))
-                    .catch(err => console.error('[SERVER-WS] Failed to save update:', err.message));
+                    .catch((err) =>
+                        console.error('[SERVER-WS] Failed to save update:', err.message)
+                    );
 
                 // Also upsert to pending_customers for tracking unread
-                upsertPendingCustomer(this.db, updateData)
-                    .catch(err => console.error('[SERVER-WS] Failed to upsert pending:', err.message));
+                upsertPendingCustomer(this.db, updateData).catch((err) =>
+                    console.error('[SERVER-WS] Failed to upsert pending:', err.message)
+                );
             }
         }
     }
@@ -457,7 +490,7 @@ class TposRealtimeClient {
     constructor() {
         this.ws = null;
         // Use rt-2.tpos.app with room parameter (from browser DevTools analysis)
-        this.baseUrl = "wss://rt-2.tpos.app/socket.io/";
+        this.baseUrl = 'wss://rt-2.tpos.app/socket.io/';
         this.isConnected = false;
         this.heartbeatInterval = null;
         this.reconnectTimer = null;
@@ -465,8 +498,8 @@ class TposRealtimeClient {
         this.maxReconnectAttempts = 10;
 
         // Server-provided timing (will be updated from transport info)
-        this.pingInterval = 25000;  // Default 25s
-        this.pingTimeout = 20000;   // Default 20s
+        this.pingInterval = 25000; // Default 25s
+        this.pingTimeout = 20000; // Default 20s
 
         // Last activity tracking
         this.lastPingTime = null;
@@ -499,16 +532,17 @@ class TposRealtimeClient {
         console.log('[TPOS-WS] Connection URL:', wsUrl.replace(/token=[^&]+/, 'token=***'));
 
         const headers = {
-            'Origin': 'https://tomato.tpos.vn',
-            'Authorization': `Bearer ${this.token}`,
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+            Origin: 'https://tomato.tpos.vn',
+            Authorization: `Bearer ${this.token}`,
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
             'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
+            Pragma: 'no-cache',
         };
 
         this.ws = new WebSocket(wsUrl, {
-            headers: headers
+            headers: headers,
         });
 
         this.ws.on('open', () => {
@@ -538,7 +572,7 @@ class TposRealtimeClient {
                 1009: 'Message Too Big',
                 1010: 'Mandatory Extension Missing',
                 1011: 'Internal Server Error',
-                1015: 'TLS Handshake Failed'
+                1015: 'TLS Handshake Failed',
             };
             console.log(`[TPOS-WS] Close reason: ${closeReasons[code] || 'Unknown'}`);
 
@@ -549,11 +583,15 @@ class TposRealtimeClient {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
                 this.reconnectAttempts++;
-                console.log(`[TPOS-WS] Reconnecting in ${delay/1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                console.log(
+                    `[TPOS-WS] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+                );
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
-                console.error('[TPOS-WS] ❌ Max reconnect attempts reached. Stopping reconnection.');
+                console.error(
+                    '[TPOS-WS] ❌ Max reconnect attempts reached. Stopping reconnection.'
+                );
             }
         });
 
@@ -603,7 +641,9 @@ class TposRealtimeClient {
                 if (info.pingTimeout) {
                     this.pingTimeout = info.pingTimeout;
                 }
-                console.log(`[TPOS-WS] Server timing: pingInterval=${this.pingInterval}ms, pingTimeout=${this.pingTimeout}ms`);
+                console.log(
+                    `[TPOS-WS] Server timing: pingInterval=${this.pingInterval}ms, pingTimeout=${this.pingTimeout}ms`
+                );
             } catch (e) {
                 console.log('[TPOS-WS] Received transport info (parse failed)');
             }
@@ -649,7 +689,7 @@ class TposRealtimeClient {
         broadcastToClients({
             type: 'tpos:event',
             event: eventName,
-            payload: payload
+            payload: payload,
         });
 
         // Handle 'on-events' - main TPOS realtime events
@@ -666,7 +706,7 @@ class TposRealtimeClient {
                 console.log('[TPOS-WS] 📦 TPOS Event:', {
                     context: context,
                     type: eventType,
-                    message: data.Message ? data.Message.substring(0, 50) + '...' : null
+                    message: data.Message ? data.Message.substring(0, 50) + '...' : null,
                 });
 
                 // Broadcast parsed event data with structured format
@@ -674,7 +714,7 @@ class TposRealtimeClient {
                     type: 'tpos:parsed-event',
                     context: context,
                     eventType: eventType,
-                    data: data
+                    data: data,
                 });
 
                 // Handle specific event types
@@ -682,16 +722,15 @@ class TposRealtimeClient {
                     console.log('[TPOS-WS] 🔥 NEW ORDER:', data.Message);
                     broadcastToClients({
                         type: 'tpos:new-order',
-                        data: data
+                        data: data,
                     });
                 } else if (eventType === 'SaleOnline_Update') {
                     console.log('[TPOS-WS] 📝 ORDER UPDATE:', data.Id);
                     broadcastToClients({
                         type: 'tpos:order-update',
-                        data: data
+                        data: data,
                     });
                 }
-
             } catch (e) {
                 console.error('[TPOS-WS] Error parsing on-events payload:', e.message);
             }
@@ -724,7 +763,9 @@ class TposRealtimeClient {
                 // Check if we received pong recently
                 const timeSinceLastPong = Date.now() - (this.lastPongTime || 0);
                 if (this.lastPongTime && timeSinceLastPong > this.pingTimeout) {
-                    console.error(`[TPOS-WS] ⚠️ No pong received for ${timeSinceLastPong}ms (timeout: ${this.pingTimeout}ms)`);
+                    console.error(
+                        `[TPOS-WS] ⚠️ No pong received for ${timeSinceLastPong}ms (timeout: ${this.pingTimeout}ms)`
+                    );
                     console.log('[TPOS-WS] Connection appears dead, forcing reconnect...');
                     this.ws.close();
                     return;
@@ -765,7 +806,7 @@ class TposRealtimeClient {
             pingInterval: this.pingInterval,
             pingTimeout: this.pingTimeout,
             lastPingTime: this.lastPingTime,
-            lastPongTime: this.lastPongTime
+            lastPongTime: this.lastPongTime,
         };
     }
 }
@@ -789,7 +830,10 @@ app.post('/api/realtime/start', async (req, res) => {
     // Save credentials for auto-reconnect on server restart
     await saveRealtimeCredentials(chatDbPool, 'pancake', { token, userId, pageIds, cookie });
 
-    res.json({ success: true, message: 'Realtime client started on server (credentials saved for auto-reconnect)' });
+    res.json({
+        success: true,
+        message: 'Realtime client started on server (credentials saved for auto-reconnect)',
+    });
 });
 
 // API to start the TPOS client from the browser
@@ -804,7 +848,10 @@ app.post('/api/realtime/tpos/start', async (req, res) => {
     // Save credentials for auto-reconnect on server restart
     await saveRealtimeCredentials(chatDbPool, 'tpos', { token, room: room || 'tomato.tpos.vn' });
 
-    res.json({ success: true, message: 'TPOS Realtime client started on server (credentials saved for auto-reconnect)' });
+    res.json({
+        success: true,
+        message: 'TPOS Realtime client started on server (credentials saved for auto-reconnect)',
+    });
 });
 
 // API to get Pancake client status
@@ -813,7 +860,7 @@ app.get('/api/realtime/status', (req, res) => {
         connected: realtimeClient.isConnected,
         hasToken: !!realtimeClient.token,
         userId: realtimeClient.userId,
-        pageCount: realtimeClient.pageIds?.length || 0
+        pageCount: realtimeClient.pageIds?.length || 0,
     });
 });
 
@@ -821,8 +868,12 @@ app.get('/api/realtime/status', (req, res) => {
 app.post('/api/realtime/stop', async (req, res) => {
     // Disable auto-connect in database
     try {
-        await chatDbPool.query(`UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'pancake'`);
-    } catch (e) { /* ignore */ }
+        await chatDbPool.query(
+            `UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'pancake'`
+        );
+    } catch (e) {
+        /* ignore */
+    }
 
     // Close WebSocket if connected
     if (realtimeClient.ws) {
@@ -839,8 +890,12 @@ app.post('/api/realtime/stop', async (req, res) => {
 app.post('/api/realtime/tpos/stop', async (req, res) => {
     // Disable auto-connect in database
     try {
-        await chatDbPool.query(`UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'tpos'`);
-    } catch (e) { /* ignore */ }
+        await chatDbPool.query(
+            `UPDATE realtime_credentials SET is_active = FALSE WHERE client_type = 'tpos'`
+        );
+    } catch (e) {
+        /* ignore */
+    }
 
     tposRealtimeClient.stop();
     res.json({ success: true, message: 'TPOS Realtime client stopped (auto-connect disabled)' });
@@ -861,25 +916,23 @@ app.get('/', (req, res) => {
             core: [
                 'POST /api/token - TPOS Token with caching',
                 'GET /api/odata/* - TPOS OData proxy',
-                'GET /api/rest/* - TPOS REST API v2.0'
+                'GET /api/rest/* - TPOS REST API v2.0',
             ],
             pancake: [
                 'GET /api/pancake/* - Pancake API proxy',
                 'ALL /api/pancake-direct/* - Pancake 24h bypass',
-                'ALL /api/pancake-official/* - pages.fm Public API'
+                'ALL /api/pancake-official/* - pages.fm Public API',
             ],
             facebook: [
                 'POST /api/facebook-send - Send message with tag',
                 'GET /api/fb-avatar - Facebook/Pancake avatar',
-                'GET /api/pancake-avatar - Pancake content avatar'
+                'GET /api/pancake-avatar - Pancake content avatar',
             ],
-            media: [
-                'GET /api/image-proxy - Image proxy bypass CORS'
-            ],
+            media: ['GET /api/image-proxy - Image proxy bypass CORS'],
             utility: [
                 'GET /api/proxy - Generic proxy',
                 'GET /api/customers/* - Customers API (PostgreSQL)',
-                'POST /api/sepay/* - SePay webhook & balance'
+                'POST /api/sepay/* - SePay webhook & balance',
             ],
             realtime: [
                 'POST /api/realtime/start - Start Pancake WebSocket (saves credentials for auto-reconnect)',
@@ -891,25 +944,25 @@ app.get('/', (req, res) => {
                 'DELETE /api/realtime/cleanup?days={n} - Cleanup old records',
                 'POST /api/realtime/tpos/start - Start TPOS WebSocket (saves credentials for auto-reconnect)',
                 'POST /api/realtime/tpos/stop - Stop TPOS WebSocket (disables auto-reconnect)',
-                'GET /api/realtime/tpos/status - Get TPOS client status'
+                'GET /api/realtime/tpos/status - Get TPOS client status',
             ],
             telegram: [
                 'GET /api/telegram - Telegram bot status',
                 'POST /api/telegram/webhook - Telegram webhook (Gemini AI)',
                 'POST /api/telegram/setWebhook - Set webhook URL',
                 'GET /api/telegram/webhookInfo - Get webhook info',
-                'POST /api/telegram/deleteWebhook - Delete webhook'
+                'POST /api/telegram/deleteWebhook - Delete webhook',
             ],
             upload: [
                 'POST /api/upload/image - Upload image to Firebase Storage',
                 'DELETE /api/upload/image - Delete image from Firebase Storage',
-                'GET /api/upload/health - Upload service health check'
+                'GET /api/upload/health - Upload service health check',
             ],
             health: [
                 'GET /health - Server health check',
-                'GET /api/debug/time - Server time diagnostic'
-            ]
-        }
+                'GET /api/debug/time - Server time diagnostic',
+            ],
+        },
     });
 });
 
@@ -917,7 +970,7 @@ app.get('/', (req, res) => {
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not Found',
-        path: req.url
+        path: req.url,
     });
 });
 
@@ -931,7 +984,7 @@ app.use((err, req, res, next) => {
         success: false,
         error: err.name || 'ServerError',
         message: message,
-        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     });
 });
 
@@ -969,8 +1022,6 @@ const interval = setInterval(function ping() {
 wss.on('close', function close() {
     clearInterval(interval);
 });
-
-
 
 // =====================================================
 // START SERVER

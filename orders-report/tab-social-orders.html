@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Đơn Social - N2Store</title>
+
+        <!-- Bootstrap & FontAwesome -->
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="css/tab-social-orders.css" />
+    </head>
+
+    <body>
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none">
+            <div class="social-loading">
+                <div class="social-spinner"></div>
+            </div>
+        </div>
+
+        <!-- Main Container -->
+        <div class="social-container">
+            <!-- Header -->
+            <div class="social-header">
+                <h1>
+                    <i class="fas fa-share-nodes"></i>
+                    Đơn Social
+                </h1>
+                <div class="social-actions">
+                    <button class="social-btn social-btn-secondary" id="toggleFiltersBtn">
+                        <i class="fas fa-filter"></i> Bộ lọc
+                    </button>
+                    <button class="social-btn social-btn-success" onclick="openImportModal()">
+                        <i class="fas fa-file-import"></i> Import từ Pancake
+                    </button>
+                    <button class="social-btn social-btn-primary" onclick="openCreateModal()">
+                        <i class="fas fa-plus"></i> Tạo đơn mới
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="social-stats">
+                <div class="social-stat-card primary">
+                    <div class="social-stat-value" id="statTotalOrders">0</div>
+                    <div class="social-stat-label">Tổng đơn hàng</div>
+                </div>
+                <div class="social-stat-card">
+                    <div class="social-stat-value" id="statTotalProducts">0</div>
+                    <div class="social-stat-label">Tổng sản phẩm</div>
+                </div>
+                <div class="social-stat-card success">
+                    <div class="social-stat-value" id="statTotalAmount">0đ</div>
+                    <div class="social-stat-label">Tổng giá trị</div>
+                </div>
+                <div class="social-stat-card warning">
+                    <div class="social-stat-value" id="statUniqueCustomers">0</div>
+                    <div class="social-stat-label">Khách hàng</div>
+                </div>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="social-filters" id="filtersSection">
+                <div class="social-filters-row">
+                    <div class="social-filter-group">
+                        <label>Tìm kiếm</label>
+                        <input
+                            type="text"
+                            id="filterSearch"
+                            class="social-search-input"
+                            placeholder="Tên, SĐT, mã đơn..."
+                        />
+                    </div>
+                    <div class="social-filter-group">
+                        <label>Trạng thái</label>
+                        <select id="filterStatus">
+                            <option value="">Tất cả</option>
+                            <option value="draft">Nháp</option>
+                            <option value="processing">Đang xử lý</option>
+                            <option value="completed">Hoàn thành</option>
+                            <option value="cancelled">Đã hủy</option>
+                        </select>
+                    </div>
+                    <div class="social-filter-group">
+                        <label>Nguồn</label>
+                        <select id="filterSource">
+                            <option value="">Tất cả</option>
+                            <option value="manual">Thủ công</option>
+                            <option value="facebook_post">Facebook Post</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="tiktok">TikTok</option>
+                            <option value="pancake_import">Pancake Import</option>
+                        </select>
+                    </div>
+                    <div class="social-filter-group">
+                        <label>&nbsp;</label>
+                        <button
+                            class="social-btn social-btn-primary"
+                            onclick="loadOrders({ page: 1 })"
+                        >
+                            <i class="fas fa-search"></i> Tìm kiếm
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Table -->
+            <div class="social-table-container">
+                <table class="social-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable" onclick="sortBy('stt')">
+                                STT <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" onclick="sortBy('order_code')">
+                                Mã đơn <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th>Khách hàng</th>
+                            <th>Sản phẩm</th>
+                            <th class="sortable" onclick="sortBy('total_amount')">
+                                Tổng tiền <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th>Trạng thái</th>
+                            <th>Nguồn</th>
+                            <th>Tags</th>
+                            <th>Nhân viên</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTableBody">
+                        <tr>
+                            <td colspan="10">
+                                <div class="social-loading">
+                                    <div class="social-spinner"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div id="paginationContainer"></div>
+        </div>
+
+        <!-- Create/Edit Order Modal -->
+        <div class="social-modal-overlay" id="orderModalOverlay">
+            <div class="social-modal large">
+                <div class="social-modal-header">
+                    <h3 id="modalTitle">Tạo đơn hàng mới</h3>
+                    <button class="social-modal-close" onclick="closeCreateModal()">×</button>
+                </div>
+                <div class="social-modal-body">
+                    <form id="orderForm">
+                        <!-- Customer Info -->
+                        <h5 style="margin-bottom: 16px; color: #374151">
+                            <i class="fas fa-user"></i> Thông tin khách hàng
+                        </h5>
+                        <div class="social-form-row">
+                            <div class="social-form-group">
+                                <label>Tên khách hàng</label>
+                                <input
+                                    type="text"
+                                    id="customerName"
+                                    placeholder="Nhập tên khách hàng"
+                                />
+                            </div>
+                            <div class="social-form-group">
+                                <label>Số điện thoại</label>
+                                <input
+                                    type="tel"
+                                    id="customerPhone"
+                                    placeholder="Nhập số điện thoại"
+                                />
+                            </div>
+                        </div>
+                        <div class="social-form-group">
+                            <label>Địa chỉ</label>
+                            <input
+                                type="text"
+                                id="customerAddress"
+                                placeholder="Số nhà, đường, phường/xã"
+                            />
+                        </div>
+                        <div class="social-form-group">
+                            <label>Địa chỉ bổ sung</label>
+                            <input
+                                type="text"
+                                id="extraAddress"
+                                placeholder="Quận/huyện, Tỉnh/thành phố"
+                            />
+                        </div>
+
+                        <!-- Order Info -->
+                        <h5 style="margin: 24px 0 16px; color: #374151">
+                            <i class="fas fa-info-circle"></i> Thông tin đơn hàng
+                        </h5>
+                        <div class="social-form-row">
+                            <div class="social-form-group">
+                                <label>Trạng thái</label>
+                                <select id="orderStatus">
+                                    <option value="draft">Nháp</option>
+                                    <option value="processing">Đang xử lý</option>
+                                    <option value="completed">Hoàn thành</option>
+                                    <option value="cancelled">Đã hủy</option>
+                                </select>
+                            </div>
+                            <div class="social-form-group">
+                                <label>Nguồn</label>
+                                <select id="orderSource">
+                                    <option value="manual">Thủ công</option>
+                                    <option value="facebook_post">Facebook Post</option>
+                                    <option value="instagram">Instagram</option>
+                                    <option value="tiktok">TikTok</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="social-form-group">
+                            <label>Ghi chú</label>
+                            <textarea
+                                id="orderNote"
+                                rows="2"
+                                placeholder="Ghi chú cho đơn hàng..."
+                            ></textarea>
+                        </div>
+
+                        <!-- Products -->
+                        <h5 style="margin: 24px 0 16px; color: #374151">
+                            <i class="fas fa-box"></i> Sản phẩm
+                        </h5>
+                        <div class="social-product-search">
+                            <i class="fas fa-search"></i>
+                            <input
+                                type="text"
+                                id="productSearch"
+                                placeholder="Tìm kiếm sản phẩm để thêm..."
+                            />
+                            <div class="social-product-results" id="productSearchResults"></div>
+                        </div>
+                        <div id="productsList">
+                            <p style="text-align: center; color: #9ca3af; padding: 20px">
+                                Chưa có sản phẩm. Tìm kiếm để thêm.
+                            </p>
+                        </div>
+
+                        <!-- Totals -->
+                        <div style="margin-top: 16px">
+                            <div class="social-form-row">
+                                <div class="social-form-group">
+                                    <label>Phí ship</label>
+                                    <input type="number" id="shippingFee" value="0" min="0" />
+                                </div>
+                                <div class="social-form-group">
+                                    <label>Giảm giá</label>
+                                    <input type="number" id="discount" value="0" min="0" />
+                                </div>
+                            </div>
+                            <div id="productTotals" style="margin-top: 16px"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="social-modal-footer">
+                    <button class="social-btn social-btn-secondary" onclick="closeCreateModal()">
+                        Hủy
+                    </button>
+                    <button class="social-btn social-btn-primary" onclick="saveOrder()">
+                        <i class="fas fa-save"></i> Lưu đơn hàng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import from Pancake Modal -->
+        <div class="social-modal-overlay" id="importModalOverlay">
+            <div class="social-modal">
+                <div class="social-modal-header">
+                    <h3>Import từ Pancake</h3>
+                    <button class="social-modal-close" onclick="closeImportModal()">×</button>
+                </div>
+                <div class="social-modal-body">
+                    <p style="color: #6b7280; margin-bottom: 16px">
+                        Tính năng này cho phép bạn import conversations từ Pancake thành đơn hàng
+                        nháp.
+                    </p>
+                    <div class="social-form-group">
+                        <label>Chiến dịch (tùy chọn)</label>
+                        <input type="text" id="importCampaign" placeholder="Tên chiến dịch..." />
+                    </div>
+                    <div class="social-form-group">
+                        <label>Chọn Page</label>
+                        <select id="importPage">
+                            <option value="">-- Chọn page --</option>
+                        </select>
+                    </div>
+                    <div id="importConversationsList" style="max-height: 300px; overflow-y: auto">
+                        <p style="text-align: center; color: #9ca3af">
+                            Chọn page để xem conversations
+                        </p>
+                    </div>
+                </div>
+                <div class="social-modal-footer">
+                    <button class="social-btn social-btn-secondary" onclick="closeImportModal()">
+                        Hủy
+                    </button>
+                    <button class="social-btn social-btn-success" onclick="executeImport()">
+                        <i class="fas fa-file-import"></i> Import đã chọn
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tag Modal -->
+        <div class="social-modal-overlay" id="tagModalOverlay">
+            <div class="social-modal" style="max-width: 400px">
+                <div class="social-modal-header">
+                    <h3>Gán Tag</h3>
+                    <button class="social-modal-close" onclick="closeTagModal()">×</button>
+                </div>
+                <div class="social-modal-body">
+                    <div class="social-form-group">
+                        <input type="text" id="tagSearch" placeholder="Tìm tag..." />
+                    </div>
+                    <div id="tagsList" style="max-height: 300px; overflow-y: auto">
+                        <!-- Tags will be rendered here -->
+                    </div>
+                </div>
+                <div class="social-modal-footer">
+                    <button class="social-btn social-btn-secondary" onclick="closeTagModal()">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shared Scripts -->
+        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/shared-auth-manager.js"></script>
+        <script src="../shared/js/notification-system.js"></script>
+
+        <!-- Tab Scripts -->
+        <script src="js/tab-social/tab-social-orders.js"></script>
+
+        <script>
+            // Global functions for onclick handlers
+            function sortBy(column) {
+                if (window.sortBy === column) {
+                    window.sortOrder = window.sortOrder === 'ASC' ? 'DESC' : 'ASC';
+                } else {
+                    window.sortBy = column;
+                    window.sortOrder = 'DESC';
+                }
+                loadOrders({ page: 1 });
+            }
+
+            function openImportModal() {
+                document.getElementById('importModalOverlay').classList.add('show');
+                // TODO: Load pages from Pancake
+            }
+
+            function closeImportModal() {
+                document.getElementById('importModalOverlay').classList.remove('show');
+            }
+
+            function executeImport() {
+                // TODO: Implement import
+                showNotification('Tính năng đang phát triển', 'warning');
+            }
+
+            function closeTagModal() {
+                document.getElementById('tagModalOverlay').classList.remove('show');
+            }
+
+            function showNotification(msg, type) {
+                if (window.notificationManager) {
+                    window.notificationManager[type]?.(msg);
+                } else {
+                    alert(msg);
+                }
+            }
+        </script>
+    </body>
+</html>
