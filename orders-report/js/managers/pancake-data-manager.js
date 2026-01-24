@@ -2,6 +2,103 @@
 // PANCAKE DATA MANAGER - Quản lý tin nhắn Pancake.vn
 // =====================================================
 
+/**
+ * Global Request Queue with Semaphore
+ * Ensures only 1 request at a time with minimum interval between requests
+ * Prevents 429 rate limiting from Pancake API
+ */
+class PancakeRequestQueue {
+    constructor(maxConcurrent = 1, minInterval = 1500) {
+        this.queue = [];
+        this.running = 0;
+        this.maxConcurrent = maxConcurrent;
+        this.minInterval = minInterval; // 1.5 seconds between requests
+        this.lastRequestTime = 0;
+        this.pendingRequests = new Map(); // For request deduplication
+    }
+
+    /**
+     * Add a request to the queue
+     * @param {Function} fn - Async function to execute
+     * @param {string} dedupeKey - Optional key for deduplication (same key = reuse pending promise)
+     * @returns {Promise}
+     */
+    async add(fn, dedupeKey = null) {
+        // Request deduplication - if same request is pending, return that promise
+        if (dedupeKey && this.pendingRequests.has(dedupeKey)) {
+            console.log(`[PANCAKE-QUEUE] ♻️ Reusing pending request: ${dedupeKey}`);
+            return this.pendingRequests.get(dedupeKey);
+        }
+
+        const promise = new Promise((resolve, reject) => {
+            this.queue.push({ fn, resolve, reject, dedupeKey });
+            this.process();
+        });
+
+        // Store for deduplication
+        if (dedupeKey) {
+            this.pendingRequests.set(dedupeKey, promise);
+            promise.finally(() => {
+                this.pendingRequests.delete(dedupeKey);
+            });
+        }
+
+        return promise;
+    }
+
+    /**
+     * Process the queue
+     */
+    async process() {
+        if (this.running >= this.maxConcurrent || this.queue.length === 0) {
+            return;
+        }
+
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.lastRequestTime;
+        const waitTime = Math.max(0, this.minInterval - timeSinceLastRequest);
+
+        if (waitTime > 0) {
+            console.log(`[PANCAKE-QUEUE] ⏳ Waiting ${waitTime}ms before next request (queue: ${this.queue.length})`);
+            setTimeout(() => this.process(), waitTime);
+            return;
+        }
+
+        this.running++;
+        const { fn, resolve, reject, dedupeKey } = this.queue.shift();
+        this.lastRequestTime = Date.now();
+
+        console.log(`[PANCAKE-QUEUE] 🚀 Executing request${dedupeKey ? ` (${dedupeKey})` : ''} - queue remaining: ${this.queue.length}`);
+
+        try {
+            const result = await fn();
+            resolve(result);
+        } catch (error) {
+            reject(error);
+        } finally {
+            this.running--;
+            // Process next item in queue
+            if (this.queue.length > 0) {
+                this.process();
+            }
+        }
+    }
+
+    /**
+     * Get queue status
+     */
+    getStatus() {
+        return {
+            queueLength: this.queue.length,
+            running: this.running,
+            pendingRequests: this.pendingRequests.size
+        };
+    }
+}
+
+// Global request queue instance (shared across all PancakeDataManager instances)
+const pancakeRequestQueue = new PancakeRequestQueue(1, 1500);
+
 class PancakeDataManager {
     constructor() {
         this.conversations = [];
@@ -129,6 +226,7 @@ class PancakeDataManager {
     /**
      * Throttle requests to prevent 429 rate limiting
      * Ensures minimum interval between API calls
+     * @deprecated Use queuedFetch instead for better rate limiting
      */
     async throttleRequest() {
         const now = Date.now();
@@ -139,6 +237,22 @@ class PancakeDataManager {
             await new Promise(r => setTimeout(r, delay));
         }
         this.lastRequestTime = Date.now();
+    }
+
+    /**
+     * Queue a fetch request through the global request queue
+     * Ensures only 1 request at a time with minimum interval
+     * @param {string} url - URL to fetch
+     * @param {Object} options - Fetch options
+     * @param {string} dedupeKey - Optional key for request deduplication
+     * @param {number} retries - Number of retries (passed to smartFetch)
+     * @param {boolean} skipFallback - Skip fallback (passed to smartFetch)
+     * @returns {Promise<Response>}
+     */
+    async queuedFetch(url, options = {}, dedupeKey = null, retries = 3, skipFallback = false) {
+        return pancakeRequestQueue.add(async () => {
+            return API_CONFIG.smartFetch(url, options, retries, skipFallback);
+        }, dedupeKey);
     }
 
     /**
@@ -254,9 +368,6 @@ class PancakeDataManager {
             this.isLoadingPages = true;
             console.log('[PANCAKE] Fetching pages from API via Cloudflare...');
 
-            // Throttle to prevent 429
-            await this.throttleRequest();
-
             const token = await this.getToken();
 
             // Use Cloudflare Worker proxy
@@ -273,12 +384,13 @@ class PancakeDataManager {
                     await new Promise(r => setTimeout(r, delay));
                 }
 
-                const response = await API_CONFIG.smartFetch(url, {
+                // Use queuedFetch with deduplication key
+                const response = await this.queuedFetch(url, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json'
                     }
-                });
+                }, 'fetchPages');
 
                 console.log('[PANCAKE] Pages response status:', response.status, response.statusText);
 
@@ -409,13 +521,14 @@ class PancakeDataManager {
             // Use Cloudflare Worker proxy to bypass CORS
             const url = window.API_CONFIG.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
 
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use queuedFetch with deduplication key
+            const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 }
-            });
+            }, 'fetchPagesWithUnreadCount');
 
             console.log('[PANCAKE] Unread pages response status:', response.status);
 
@@ -512,10 +625,11 @@ class PancakeDataManager {
             const formData = new FormData();
             formData.append('page_ids', pageIdsParam);
 
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use queuedFetch with query-specific deduplication key
+            const response = await this.queuedFetch(url, {
                 method: 'POST',
                 body: formData
-            }, 3, true); // skipFallback = true for conversation search
+            }, `searchConversations:${query}`, 3, true);
 
             console.log('[PANCAKE] Search response status:', response.status);
 
@@ -578,12 +692,13 @@ class PancakeDataManager {
 
             console.log('[PANCAKE] Fetch conversations URL:', url);
 
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use queuedFetch with fbId-specific deduplication key
+            const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
                 }
-            }, 3, true); // skipFallback = true
+            }, `fetchConvByFbId:${pageId}:${fbId}`, 3, true);
 
             console.log('[PANCAKE] Conversations response status:', response.status);
 
@@ -766,16 +881,14 @@ class PancakeDataManager {
             let lastError = null;
 
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                // Throttle to prevent 429
-                await this.throttleRequest();
-
                 try {
-                    const response = await API_CONFIG.smartFetch(url, {
+                    // Use queuedFetch with deduplication key
+                    const response = await this.queuedFetch(url, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json'
                         }
-                    });
+                    }, 'fetchConversations');
 
                     console.log('[PANCAKE] Conversations response status:', response.status);
 
@@ -1093,12 +1206,13 @@ class PancakeDataManager {
                 pageAccessToken
             ) + extraParams;
 
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use queuedFetch with conversation-specific deduplication key
+            const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
                 }
-            }, 3, true); // skipFallback = true for messages
+            }, `fetchMessages:${pageId}:${conversationId}`, 3, true);
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1152,12 +1266,13 @@ class PancakeDataManager {
                 queryString
             );
 
-            const response = await API_CONFIG.smartFetch(url, {
+            // Use queuedFetch with customer-specific deduplication key
+            const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json'
                 }
-            }, 3, true); // skipFallback = true for inbox_preview
+            }, `inboxPreview:${pageId}:${customerId}`, 3, true);
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1809,7 +1924,8 @@ class PancakeDataManager {
                         `pages/${pageId}/conversations/${convId}`,
                         `access_token=${token}`
                     );
-                    const convResponse = await API_CONFIG.smartFetch(convInfoUrl, { method: 'GET' }, 2, true);
+                    // Use queuedFetch with conversation-specific deduplication key
+                    const convResponse = await this.queuedFetch(convInfoUrl, { method: 'GET' }, `convInfo:${pageId}:${convId}`, 2, true);
                     if (convResponse.ok) {
                         const convData = await convResponse.json();
                         custId = convData.customers?.[0]?.id || convData.conversation?.customers?.[0]?.id || null;
