@@ -664,7 +664,7 @@ router.post('/:id/approve', async (req, res) => {
             UPDATE balance_history
             SET verification_status = 'APPROVED',
                 verified_by = $2,
-                verified_at = CURRENT_TIMESTAMP,
+                verified_at = NOW(),
                 verification_note = COALESCE($3, verification_note)
         `;
         let updateParams = [id, verified_by, note];
@@ -675,7 +675,7 @@ router.post('/:id/approve', async (req, res) => {
                 UPDATE balance_history
                 SET verification_status = 'APPROVED',
                     verified_by = $2,
-                    verified_at = CURRENT_TIMESTAMP,
+                    verified_at = NOW(),
                     verification_note = COALESCE($3, verification_note),
                     verification_image_url = $4
                 WHERE id = $1
@@ -796,7 +796,7 @@ router.post('/:id/reject', async (req, res) => {
             UPDATE balance_history
             SET verification_status = 'REJECTED',
                 verified_by = $2,
-                verified_at = CURRENT_TIMESTAMP,
+                verified_at = NOW(),
                 verification_note = $3
             WHERE id = $1
         `, [id, verified_by, `REJECTED: ${reason}`]);
@@ -1248,7 +1248,7 @@ router.post('/bulk-approve', async (req, res) => {
                     UPDATE balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
-                        verified_at = CURRENT_TIMESTAMP,
+                        verified_at = NOW(),
                         wallet_processed = TRUE,
                         verification_note = 'Bulk approved'
                     WHERE id = $1

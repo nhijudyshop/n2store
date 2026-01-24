@@ -771,32 +771,21 @@
 
     /**
      * Format verified_at date/time as "HH:MM DD/MM"
-     * Backend stores verified_at already in Vietnam timezone (without TZ info)
-     * So we parse it as local time without applying timezone conversion again
+     * Uses same approach as main.js formatDateTime - toLocaleString without explicit timezone
+     * This ensures consistent display with balance-history page
      * @param {string|Date} dateInput
      * @returns {string}
      */
     function formatVerifiedAt(dateInput) {
         if (!dateInput) return 'N/A';
-
-        // Parse the date string
-        let date;
-        if (typeof dateInput === 'string') {
-            // Remove trailing 'Z' or timezone info if present, treat as local time
-            // Backend stores as Vietnam time without TZ indicator
-            const cleanStr = dateInput.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
-            date = new Date(cleanStr);
-        } else {
-            date = new Date(dateInput);
-        }
-
+        const date = new Date(dateInput);
         if (isNaN(date.getTime())) return 'N/A';
 
-        // Format directly without timezone conversion (already in Vietnam time)
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
+        // Use same approach as main.js - toLocaleString without timezone
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
 
         return `${hours}:${minutes} ${day}/${month}`;
     }

@@ -1242,7 +1242,7 @@ async function processDebtUpdate(db, transactionId) {
                      wallet_processed = $4,
                      verification_status = $5::text,
                      match_method = 'qr_code',
-                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus]
             );
@@ -1396,7 +1396,7 @@ async function processDebtUpdate(db, transactionId) {
                  wallet_processed = $4,
                  verification_status = $5::text,
                  match_method = 'exact_phone',
-                 verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                 verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
             [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact]
         );
@@ -1546,7 +1546,7 @@ async function processDebtUpdate(db, transactionId) {
                      wallet_processed = $4,
                      verification_status = $5::text,
                      match_method = 'single_match',
-                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
             );
@@ -1562,7 +1562,7 @@ async function processDebtUpdate(db, transactionId) {
                          wallet_processed = $4,
                          verification_status = $5::text,
                          match_method = 'single_match',
-                         verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN CURRENT_TIMESTAMP ELSE NULL END
+                         verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
                      WHERE id = $1`,
                     [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
                 );
@@ -3451,7 +3451,7 @@ router.put('/transaction/:id/phone', async (req, res) => {
                     match_method = 'manual_link',
                     verification_status = 'APPROVED',
                     verified_by = $3,
-                    verified_at = CURRENT_TIMESTAMP,
+                    verified_at = NOW(),
                     verification_note = $4
                 WHERE id = $2
                 RETURNING *`;
