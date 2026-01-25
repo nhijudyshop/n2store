@@ -846,6 +846,7 @@ function renderByEmployee() {
                                 <th data-column="total">Tổng tiền</th>
                                 <th data-column="quantity">SL</th>
                                 <th data-column="created-date">Ngày tạo</th>
+                                <th data-column="invoice-status" style="min-width: 140px;">Phiếu bán hàng</th>
                                 <th data-column="status">Trạng thái</th>
                             </tr>
                         </thead>
