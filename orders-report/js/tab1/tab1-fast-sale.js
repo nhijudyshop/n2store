@@ -1092,6 +1092,9 @@ function showFastSaleResultsModal(results) {
         success: results.OrdersSucessed || []
     };
 
+    // Export to window for other modules (tab1-fast-sale-invoice-status.js)
+    window.fastSaleResultsData = fastSaleResultsData;
+
     // Update counts
     document.getElementById('forcedCount').textContent = fastSaleResultsData.forced.length;
     document.getElementById('failedCount').textContent = fastSaleResultsData.failed.length;
