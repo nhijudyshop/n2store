@@ -109,11 +109,17 @@ async function executeExcelFetch() {
         console.log(`[REPORT] 📊 fetchAllCampaignsExcel returned ${allExcelOrders.length} orders`);
         const parsedOrders = parseExcelOrderData(allExcelOrders);
 
-        // Save to sessionStorage for quick access on refresh
-        sessionStorage.setItem('reportOrdersExcelCache', JSON.stringify({
-            orders: parsedOrders,
-            timestamp: Date.now()
-        }));
+        // Save to sessionStorage for quick access on refresh (with quota handling)
+        try {
+            sessionStorage.setItem('reportOrdersExcelCache', JSON.stringify({
+                orders: parsedOrders,
+                timestamp: Date.now()
+            }));
+        } catch (storageError) {
+            console.warn('[REPORT] ⚠️ Could not cache to sessionStorage (quota exceeded):', storageError.message);
+            // Clear old cache and continue - this is not critical
+            try { sessionStorage.removeItem('reportOrdersExcelCache'); } catch (e) { }
+        }
 
         console.log(`[REPORT] ✅ Fetched ${parsedOrders.length} orders from Excel`);
 
