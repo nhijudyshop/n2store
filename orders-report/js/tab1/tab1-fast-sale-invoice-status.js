@@ -742,8 +742,32 @@
                     cell.innerHTML = renderInvoiceStatusCell(orderData);
                     console.log(`[INVOICE-STATUS] Updated cell for order ${saleOnlineId}`);
                 }
+
+                // Uncheck the checkbox in this row
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = false;
+                    // Also remove from selectedOrderIds if exists
+                    if (window.selectedOrderIds) {
+                        window.selectedOrderIds.delete(saleOnlineId);
+                        window.selectedOrderIds.delete(String(saleOnlineId));
+                    }
+                }
             });
         });
+
+        // Update header checkbox and action buttons
+        const headerCheckbox = document.querySelector('#ordersTable thead input[type="checkbox"], .employee-section thead input[type="checkbox"]');
+        if (headerCheckbox) {
+            headerCheckbox.checked = false;
+        }
+
+        // Update action buttons visibility
+        if (typeof window.updateActionButtons === 'function') {
+            window.updateActionButtons();
+        }
+
+        console.log('[INVOICE-STATUS] Cleared checkboxes for processed orders');
     }
 
     // =====================================================
