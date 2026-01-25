@@ -70,6 +70,15 @@
          */
         set(saleOnlineId, invoiceData) {
             if (!saleOnlineId) return;
+
+            // Simplify OrderLines to reduce storage size
+            const orderLines = (invoiceData.OrderLines || []).map(line => ({
+                ProductName: line.ProductName || line.ProductNameGet || '',
+                ProductUOMQty: line.ProductUOMQty || 1,
+                PriceUnit: line.PriceUnit || 0,
+                PriceTotal: line.PriceTotal || (line.ProductUOMQty || 1) * (line.PriceUnit || 0)
+            }));
+
             this._data.set(String(saleOnlineId), {
                 Id: invoiceData.Id,
                 Number: invoiceData.Number,
@@ -81,12 +90,17 @@
                 PartnerId: invoiceData.PartnerId,
                 PartnerDisplayName: invoiceData.PartnerDisplayName,
                 AmountTotal: invoiceData.AmountTotal,
+                AmountUntaxed: invoiceData.AmountUntaxed, // Tổng tiền hàng (chưa ship)
                 DeliveryPrice: invoiceData.DeliveryPrice,
                 CashOnDelivery: invoiceData.CashOnDelivery,
                 TrackingRef: invoiceData.TrackingRef,
                 CarrierName: invoiceData.CarrierName,
                 UserName: invoiceData.UserName,  // Tên account tạo bill
                 SessionIndex: invoiceData.SessionIndex, // STT
+                OrderLines: orderLines, // Danh sách sản phẩm (simplified)
+                ReceiverName: invoiceData.ReceiverName,
+                ReceiverPhone: invoiceData.ReceiverPhone,
+                ReceiverAddress: invoiceData.ReceiverAddress,
                 Error: invoiceData.Error,
                 timestamp: Date.now()
             });
@@ -719,28 +733,35 @@
         }
 
         // Build enriched order for bill generation
-        const enrichedOrder = {
-            Id: invoiceData.Id,
-            Number: invoiceData.Number,
-            Reference: invoiceData.Reference || order.Code,
-            PartnerDisplayName: invoiceData.PartnerDisplayName || order.Name,
-            DeliveryPrice: invoiceData.DeliveryPrice || 0,
-            CashOnDelivery: invoiceData.CashOnDelivery || 0,
-            AmountTotal: invoiceData.AmountTotal || order.TotalAmount,
-            CarrierName: invoiceData.CarrierName || '',
-            UserName: invoiceData.UserName || '',  // Account tạo bill
-            SessionIndex: order.SessionIndex || invoiceData.SessionIndex || '', // STT
-            OrderLines: order.Details ? order.Details.map(d => ({
+        // Prefer OrderLines from invoiceData (stored from API response), fallback to order.Details
+        let orderLines = invoiceData.OrderLines || [];
+        if (orderLines.length === 0 && order.Details) {
+            orderLines = order.Details.map(d => ({
                 ProductName: d.ProductName || d.ProductNameGet || '',
                 ProductNameGet: d.ProductNameGet || d.ProductName || '',
                 ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
                 PriceUnit: d.Price || d.PriceUnit || 0,
                 Note: d.Note || ''
-            })) : [],
+            }));
+        }
+
+        const enrichedOrder = {
+            Id: invoiceData.Id,
+            Number: invoiceData.Number,
+            Reference: invoiceData.Reference || order.Code,
+            PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName || order.Name,
+            DeliveryPrice: invoiceData.DeliveryPrice || 0,
+            CashOnDelivery: invoiceData.CashOnDelivery || 0,
+            AmountTotal: invoiceData.AmountTotal || order.TotalAmount,
+            AmountUntaxed: invoiceData.AmountUntaxed || 0, // Tổng tiền hàng
+            CarrierName: invoiceData.CarrierName || '',
+            UserName: invoiceData.UserName || '',  // Account tạo bill
+            SessionIndex: order.SessionIndex || invoiceData.SessionIndex || '', // STT
+            OrderLines: orderLines,
             Partner: {
-                Name: order.Name,
-                Phone: order.Telephone,
-                Street: order.Address
+                Name: invoiceData.ReceiverName || order.Name,
+                Phone: invoiceData.ReceiverPhone || order.Telephone,
+                Street: invoiceData.ReceiverAddress || order.Address
             }
         };
 
