@@ -85,6 +85,7 @@
                 CashOnDelivery: invoiceData.CashOnDelivery,
                 TrackingRef: invoiceData.TrackingRef,
                 CarrierName: invoiceData.CarrierName,
+                UserName: invoiceData.UserName,  // Tên account tạo bill
                 Error: invoiceData.Error,
                 timestamp: Date.now()
             });
@@ -291,6 +292,11 @@
 
         // Build HTML
         let html = `<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">`;
+
+        // UserName badge (if exists)
+        if (invoiceData.UserName) {
+            html += `<span style="background: #e0e7ff; color: #4338ca; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500;" title="Người tạo bill">${invoiceData.UserName}</span>`;
+        }
 
         // StateCode badge
         html += `<span class="state-code-badge ${config.cssClass}" style="color: ${config.color}; font-weight: 500; font-size: 11px; ${style}" title="Số phiếu: ${invoiceData.Number || ''}">${config.label}</span>`;
