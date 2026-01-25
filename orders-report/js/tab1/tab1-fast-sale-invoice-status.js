@@ -426,7 +426,37 @@
             // Generate bill HTML
             if (typeof window.generateCustomBillHTML === 'function') {
                 const billHTML = window.generateCustomBillHTML(enrichedOrder, {});
-                container.innerHTML = `<div style="padding: 10px;">${billHTML}</div>`;
+                // Extract body content only (remove doctype, html, head, script tags)
+                let bodyContent = billHTML;
+                const bodyMatch = billHTML.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+                if (bodyMatch) {
+                    bodyContent = bodyMatch[1];
+                    // Remove script tags from body content
+                    bodyContent = bodyContent.replace(/<script[\s\S]*?<\/script>/gi, '');
+                }
+                container.innerHTML = `<div style="padding: 10px;">${bodyContent}</div>`;
+
+                // Generate barcode after HTML is inserted
+                setTimeout(() => {
+                    const barcodeEl = container.querySelector('#barcode');
+                    if (barcodeEl && typeof JsBarcode === 'function') {
+                        const orderNumber = enrichedOrder.Number || '';
+                        if (orderNumber) {
+                            try {
+                                JsBarcode(barcodeEl, orderNumber, {
+                                    format: "CODE128",
+                                    width: 1.5,
+                                    height: 40,
+                                    displayValue: false,
+                                    margin: 5
+                                });
+                                console.log('[INVOICE-STATUS] Barcode generated for:', orderNumber);
+                            } catch (barcodeError) {
+                                console.error('[INVOICE-STATUS] Barcode generation failed:', barcodeError);
+                            }
+                        }
+                    }
+                }, 50);
             } else {
                 container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Không thể tạo bill preview</p>';
             }
