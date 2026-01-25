@@ -770,27 +770,6 @@
     }
 
     /**
-     * Format verified_at date/time as "HH:MM DD/MM"
-     * Uses same approach as main.js formatDateTime - toLocaleString without explicit timezone
-     * This ensures consistent display with balance-history page
-     * @param {string|Date} dateInput
-     * @returns {string}
-     */
-    function formatVerifiedAt(dateInput) {
-        if (!dateInput) return 'N/A';
-        const date = new Date(dateInput);
-        if (isNaN(date.getTime())) return 'N/A';
-
-        // Use same approach as main.js - toLocaleString without timezone
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-
-        return `${hours}:${minutes} ${day}/${month}`;
-    }
-
-    /**
      * Get badge for match_method
      */
     function getMatchMethodBadge(method) {
@@ -1455,7 +1434,7 @@
 
         elements.approvedTableBody.innerHTML = state.approvedToday.map(tx => {
             const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
-            const verifiedAt = formatVerifiedAt(tx.verified_at);
+            const verifiedAt = formatDateTime(tx.verified_at);
             const txDate = formatDateTime(tx.transaction_date);
 
             // Dịch ghi chú
