@@ -427,6 +427,14 @@
             // Generate bill HTML
             if (typeof window.generateCustomBillHTML === 'function') {
                 const billHTML = window.generateCustomBillHTML(enrichedOrder, {});
+
+                // Extract styles from head
+                let styles = '';
+                const styleMatch = billHTML.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+                if (styleMatch) {
+                    styles = styleMatch[1];
+                }
+
                 // Extract body content only (remove doctype, html, head, script tags)
                 let bodyContent = billHTML;
                 const bodyMatch = billHTML.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
@@ -435,7 +443,12 @@
                     // Remove script tags from body content
                     bodyContent = bodyContent.replace(/<script[\s\S]*?<\/script>/gi, '');
                 }
-                container.innerHTML = `<div style="padding: 10px;">${bodyContent}</div>`;
+
+                // Include styles with scoped class to avoid conflicts
+                container.innerHTML = `
+                    <style>.bill-preview-wrapper { all: initial; font-family: Arial, sans-serif; } .bill-preview-wrapper * { box-sizing: border-box; } ${styles}</style>
+                    <div class="bill-preview-wrapper" style="padding: 10px; background: white;">${bodyContent}</div>
+                `;
 
                 // Generate barcode after HTML is inserted
                 setTimeout(() => {
