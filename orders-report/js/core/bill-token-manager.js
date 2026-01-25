@@ -577,13 +577,17 @@ class BillTokenManager {
      * Schedule retry loading from Firestore after auth is ready
      */
     _scheduleAuthRetry() {
-        // Try again after a delay (auth might be ready by then)
-        setTimeout(async () => {
-            if (!this.hasCredentials() && this.getWebUserId()) {
-                console.log('[BILL-TOKEN] Auth now ready, retrying Firestore load...');
-                await this.loadFromFirestore();
-            }
-        }, 2000);
+        // Try multiple times with increasing delays
+        const retryDelays = [1000, 2000, 4000, 8000];
+
+        retryDelays.forEach((delay, index) => {
+            setTimeout(async () => {
+                if (!this.hasCredentials() && this.getWebUserId()) {
+                    console.log(`[BILL-TOKEN] Retry #${index + 1}: Auth ready, loading from Firestore...`);
+                    await this.loadFromFirestore();
+                }
+            }, delay);
+        });
 
         // Also listen for auth state changes if authManager supports it
         if (window.authManager?.onAuthStateChange) {
@@ -594,6 +598,28 @@ class BillTokenManager {
                 }
             });
         }
+    }
+
+    /**
+     * Ensure credentials are loaded before API calls
+     * Call this before making API requests
+     */
+    async ensureCredentialsLoaded() {
+        if (this.hasCredentials()) {
+            return true;
+        }
+
+        // Try loading from Firestore
+        console.log('[BILL-TOKEN] Ensuring credentials are loaded...');
+        const loaded = await this.loadFromFirestore();
+
+        if (loaded) {
+            console.log('[BILL-TOKEN] ✅ Credentials loaded successfully');
+            return true;
+        }
+
+        console.warn('[BILL-TOKEN] ⚠️ Could not load credentials');
+        return false;
     }
 }
 

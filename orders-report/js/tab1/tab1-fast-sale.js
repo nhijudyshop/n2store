@@ -172,6 +172,11 @@ function closeFastSaleModal() {
  */
 async function fetchFastSaleOrdersData(orderIds) {
     try {
+        // Ensure billTokenManager credentials are loaded (important for incognito mode)
+        if (window.billTokenManager) {
+            await window.billTokenManager.ensureCredentialsLoaded();
+        }
+
         // Use billTokenManager if configured, else default tokenManager
         let headers;
         if (window.billTokenManager?.hasCredentials()) {
@@ -2018,10 +2023,17 @@ window.getBillTemplateSettings = getBillTemplateSettings;
 /**
  * Open TPOS Account Modal
  */
-function openTposAccountModal() {
+async function openTposAccountModal() {
     const modal = document.getElementById('tposAccountModal');
     if (modal) {
         modal.classList.add('show');
+
+        // Try to reload from Firestore if no local credentials (for incognito mode)
+        if (window.billTokenManager && !window.billTokenManager.hasCredentials()) {
+            console.log('[TPOS-ACCOUNT] No local credentials, trying to reload from Firestore...');
+            await window.billTokenManager.loadFromFirestore();
+        }
+
         updateTposAccountStatus();
     }
 }
