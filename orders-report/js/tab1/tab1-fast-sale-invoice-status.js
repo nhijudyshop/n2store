@@ -140,9 +140,25 @@
         storeFromApiResult(apiResult) {
             if (!apiResult) return;
 
+            const displayedData = window.displayedData || [];
+
+            // Helper: enrich order with SessionIndex from SaleOnlineOrder
+            const enrichWithSessionIndex = (order) => {
+                if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+                    const soId = order.SaleOnlineIds[0];
+                    const saleOnlineOrder = window.OrderStore?.get(soId) ||
+                        displayedData.find(o => o.Id === soId || String(o.Id) === String(soId));
+                    if (saleOnlineOrder && saleOnlineOrder.SessionIndex) {
+                        order.SessionIndex = saleOnlineOrder.SessionIndex;
+                    }
+                }
+                return order;
+            };
+
             // Store successful orders
             if (apiResult.OrdersSucessed && Array.isArray(apiResult.OrdersSucessed)) {
                 apiResult.OrdersSucessed.forEach(order => {
+                    enrichWithSessionIndex(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             this.set(soId, order);
@@ -154,6 +170,7 @@
             // Store failed orders (they still have invoice created, just not confirmed)
             if (apiResult.OrdersError && Array.isArray(apiResult.OrdersError)) {
                 apiResult.OrdersError.forEach(order => {
+                    enrichWithSessionIndex(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             this.set(soId, order);

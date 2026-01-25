@@ -179,7 +179,23 @@ async function fetchFastSaleOrdersData(orderIds) {
 
         if (data.value && data.value.length > 0) {
             console.log(`[FAST-SALE] Successfully fetched ${data.value.length} FastSaleOrders`);
-            return data.value;
+
+            // Enrich with SessionIndex from SaleOnlineOrder (displayedData)
+            const enrichedOrders = data.value.map(order => {
+                // Find matching SaleOnlineOrder by SaleOnlineIds
+                const saleOnlineId = order.SaleOnlineIds?.[0];
+                if (saleOnlineId) {
+                    const saleOnlineOrder = window.OrderStore?.get(saleOnlineId) ||
+                        displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
+                    if (saleOnlineOrder) {
+                        order.SessionIndex = saleOnlineOrder.SessionIndex || '';
+                        order.SaleOnlineOrder = saleOnlineOrder; // Store reference for later use
+                    }
+                }
+                return order;
+            });
+
+            return enrichedOrders;
         } else {
             console.warn(`[FAST-SALE] No FastSaleOrder found for ${orderIds.length} orders`);
             return [];
