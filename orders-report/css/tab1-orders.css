@@ -6496,3 +6496,48 @@ td[data-column].hidden {
     font-size: 13px;
     line-height: 1.5;
 }
+
+/* Invoice Status Column Styles */
+.invoice-status-cell {
+    min-width: 180px;
+}
+
+.state-code-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.state-code-badge.badge-empty {
+    background: #e0f2fe;
+}
+
+.btn-send-bill-messenger {
+    transition: all 0.2s ease;
+}
+
+.btn-send-bill-messenger:hover {
+    background: #006acc !important;
+    transform: scale(1.05);
+}
+
+.btn-send-bill-messenger:disabled {
+    background: #9ca3af !important;
+    cursor: not-allowed;
+}
+
+.bill-sent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+
+/* StateCode color classes */
+.text-info-lt { color: #17a2b8; }
+.text-warning-dk { color: #e67e22; }
+.text-danger { color: #dc3545; }
+.text-danger-dker { color: #c0392b; }
+.text-success-dk { color: #27ae60; }
+.text-secondary { color: #6c757d; }
