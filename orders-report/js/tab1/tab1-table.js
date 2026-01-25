@@ -989,6 +989,7 @@ function createRowHTML(order) {
             ${renderMergedTotalColumn(order)}
             ${renderMergedQuantityColumn(order)}
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
+            <td data-column="invoice-status">${window.renderInvoiceStatusCell ? window.renderInvoiceStatusCell(order) : '<span style="color: #9ca3af;">−</span>'}</td>
             <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}" style="cursor: pointer;" onclick="openOrderStatusModal('${order.Id}', '${order.Status}')" data-order-id="${order.Id}" title="Click để thay đổi trạng thái">${highlight(order.StatusText || order.Status)}</span></td>
         </tr>`;
 }
