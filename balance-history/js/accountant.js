@@ -885,8 +885,20 @@
             isUploading: false
         };
 
-        // Reset form
-        if (elements.approveNote) elements.approveNote.value = '';
+        // Generate default note: "ĐÃ NHẬN [amount]K [bank] [DD/MM]"
+        const amountNum = parseFloat(tx.amount || 0);
+        const amountK = Math.round(amountNum / 1000);
+        const amountStr = amountK >= 1000
+            ? (amountK / 1000).toFixed(1).replace('.0', '') + 'TR'
+            : amountK + 'K';
+        const bank = (tx.gateway || 'ACB').toUpperCase();
+        const txDate = new Date(tx.transaction_date);
+        const day = String(txDate.getDate()).padStart(2, '0');
+        const month = String(txDate.getMonth() + 1).padStart(2, '0');
+        const defaultNote = `ĐÃ NHẬN ${amountStr} ${bank} ${day}/${month}`;
+
+        // Set default note
+        if (elements.approveNote) elements.approveNote.value = defaultNote;
         clearApproveImage();
 
         // Show transaction summary

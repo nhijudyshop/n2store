@@ -574,6 +574,7 @@ router.get('/verification-queue', async (req, res) => {
                 bh.transfer_amount as amount,
                 bh.transaction_date,
                 bh.account_number as bank_account,
+                bh.gateway,
                 bh.reference_code,
                 bh.linked_customer_phone,
                 bh.customer_id,
