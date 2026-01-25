@@ -72,6 +72,24 @@ document.addEventListener('keydown', function (event) {
 let fastSaleOrdersData = [];
 
 /**
+ * Get TPOS account display for modal subtitle
+ * Shows which account will be used for bill creation
+ */
+function getTposAccountDisplay() {
+    if (!window.billTokenManager) {
+        return '<span style="background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">⚠️ BillTokenManager không sẵn sàng</span>';
+    }
+
+    if (window.billTokenManager.hasCredentials()) {
+        const info = window.billTokenManager.getCredentialsInfo();
+        const accountName = info.type === 'password' ? info.username : 'Bearer Token';
+        return `<span style="background: #d1fae5; color: #047857; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">🔑 TK: ${accountName}</span>`;
+    } else {
+        return '<span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 8px;">🔐 Token mặc định</span>';
+    }
+}
+
+/**
  * Show Fast Sale Modal and fetch data for selected orders
  */
 async function showFastSaleModal() {
@@ -105,7 +123,9 @@ async function showFastSaleModal() {
             return;
         }
 
-        subtitle.textContent = `Đã chọn ${selectedIds.length} đơn hàng`;
+        // Update subtitle with TPOS account info
+        const tposAccountInfo = getTposAccountDisplay();
+        subtitle.innerHTML = `Đã chọn ${selectedIds.length} đơn hàng ${tposAccountInfo}`;
 
         // Fetch FastSaleOrder data using batch API
         fastSaleOrdersData = await fetchFastSaleOrdersData(selectedIds);
@@ -829,12 +849,18 @@ async function saveFastSaleOrders(isApprove = false) {
 
         // Call API - Use billTokenManager if configured, else default tokenManager
         let headers;
+        let authSource = 'default';
         if (window.billTokenManager?.hasCredentials()) {
-            console.log('[FAST-SALE] Using billTokenManager for authentication');
+            const credInfo = window.billTokenManager.getCredentialsInfo();
+            const accountInfo = credInfo.type === 'password' ? credInfo.username : 'Bearer Token';
+            console.log(`[FAST-SALE] ✓ Using billTokenManager (${accountInfo})`);
+            authSource = `billTokenManager: ${accountInfo}`;
             headers = await window.billTokenManager.getAuthHeader();
         } else {
+            console.log('[FAST-SALE] Using default tokenManager (no billTokenManager credentials configured)');
             headers = await window.tokenManager.getAuthHeader();
         }
+        console.log(`[FAST-SALE] Auth source: ${authSource}`);
 
         // Use different endpoint based on isApprove
         // "Lưu xác nhận" uses isForce=true endpoint with is_approve: true
