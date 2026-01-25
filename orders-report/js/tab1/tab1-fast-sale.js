@@ -2123,7 +2123,7 @@ function updateTposAccountStatus() {
  */
 async function saveTposAccount() {
     if (!window.billTokenManager) {
-        window.notificationManager?.error('BillTokenManager chưa sẵn sàng', 'Lỗi');
+        window.notificationManager?.error('BillTokenManager chưa sẵn sàng', 5000);
         return;
     }
 
@@ -2137,7 +2137,7 @@ async function saveTposAccount() {
         const password = document.getElementById('tposPassword')?.value?.trim();
 
         if (!username || !password) {
-            window.notificationManager?.warning('Vui lòng nhập username và password', 'Thiếu thông tin');
+            window.notificationManager?.warning('Vui lòng nhập username và password', 4000);
             return;
         }
 
@@ -2146,7 +2146,7 @@ async function saveTposAccount() {
         const bearerToken = document.getElementById('tposBearerToken')?.value?.trim();
 
         if (!bearerToken) {
-            window.notificationManager?.warning('Vui lòng nhập Bearer Token', 'Thiếu thông tin');
+            window.notificationManager?.warning('Vui lòng nhập Bearer Token', 4000);
             return;
         }
 
@@ -2157,11 +2157,11 @@ async function saveTposAccount() {
 
     try {
         await window.billTokenManager.setCredentials(credentials);
-        window.notificationManager?.success('Đã lưu tài khoản TPOS', 'Thành công');
+        window.notificationManager?.success('Đã lưu tài khoản TPOS', 3000);
         updateTposAccountStatus();
     } catch (error) {
         console.error('[TPOS-ACCOUNT] Error saving:', error);
-        window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+        window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
     }
 }
 
@@ -2170,7 +2170,7 @@ async function saveTposAccount() {
  */
 async function testTposAccount() {
     if (!window.billTokenManager) {
-        window.notificationManager?.error('BillTokenManager chưa sẵn sàng', 'Lỗi');
+        window.notificationManager?.error('BillTokenManager chưa sẵn sàng', 5000);
         return;
     }
 
@@ -2275,10 +2275,10 @@ async function clearTposAccount() {
         // Update status
         updateTposAccountStatus();
 
-        window.notificationManager?.success('Đã xóa tài khoản TPOS', 'Thành công');
+        window.notificationManager?.success('Đã xóa tài khoản TPOS', 3000);
     } catch (error) {
         console.error('[TPOS-ACCOUNT] Error clearing:', error);
-        window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+        window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
     }
 }
 
