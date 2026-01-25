@@ -553,34 +553,51 @@ class BillTokenManager {
     // =====================================================
 
     /**
-     * Initialize - just log status, actual loading happens on-demand
+     * Initialize - load from Firestore if no local credentials
      */
     async init() {
-        console.log('[BILL-TOKEN] Initialized.',
-            this.hasCredentials() ? `Has credentials: ${this.credentials.username || 'bearer'}` : 'No local credentials (will load from Firestore when needed)');
+        // Already have credentials from localStorage
+        if (this.hasCredentials()) {
+            console.log('[BILL-TOKEN] ✅ Initialized with local credentials:', this.credentials.username || 'bearer');
+            return;
+        }
+
+        // Try loading from Firestore if auth is ready
+        if (this.getWebUserId()) {
+            console.log('[BILL-TOKEN] Loading from Firestore...');
+            await this.loadFromFirestore();
+        } else {
+            // Auth not ready yet, retry after 2 seconds (by then table should be loaded)
+            console.log('[BILL-TOKEN] Auth not ready, will retry in 2s...');
+            setTimeout(() => this._retryLoadFromFirestore(), 2000);
+        }
     }
 
     /**
-     * Ensure credentials are loaded before API calls
-     * This is the ONLY place that loads from Firestore - called on-demand
+     * Retry loading from Firestore (called after delay)
+     */
+    async _retryLoadFromFirestore() {
+        if (this.hasCredentials()) return; // Already loaded
+
+        if (this.getWebUserId()) {
+            console.log('[BILL-TOKEN] Retrying load from Firestore...');
+            await this.loadFromFirestore();
+        }
+    }
+
+    /**
+     * Ensure credentials are loaded (fallback if init() didn't load)
      */
     async ensureCredentialsLoaded() {
-        // Already have credentials in memory
         if (this.hasCredentials()) {
             return true;
         }
 
-        // Try loading from Firestore (only if auth is ready)
+        // Try loading from Firestore
         if (this.getWebUserId()) {
-            console.log('[BILL-TOKEN] Loading credentials from Firestore...');
-            const loaded = await this.loadFromFirestore();
-            if (loaded) {
-                console.log('[BILL-TOKEN] ✅ Credentials loaded:', this.credentials.username || 'bearer');
-                return true;
-            }
+            return await this.loadFromFirestore();
         }
 
-        console.log('[BILL-TOKEN] No credentials configured');
         return false;
     }
 }
