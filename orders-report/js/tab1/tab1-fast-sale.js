@@ -827,8 +827,14 @@ async function saveFastSaleOrders(isApprove = false) {
 
         console.log('[FAST-SALE] Request body:', requestBody);
 
-        // Call API
-        const headers = await window.tokenManager.getAuthHeader();
+        // Call API - Use billTokenManager if configured, else default tokenManager
+        let headers;
+        if (window.billTokenManager?.hasCredentials()) {
+            console.log('[FAST-SALE] Using billTokenManager for authentication');
+            headers = await window.billTokenManager.getAuthHeader();
+        } else {
+            headers = await window.tokenManager.getAuthHeader();
+        }
 
         // Use different endpoint based on isApprove
         // "Lưu xác nhận" uses isForce=true endpoint with is_approve: true
@@ -1276,7 +1282,13 @@ async function createForcedOrders() {
     const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.forced[i]);
 
     try {
-        const headers = await window.tokenManager.getAuthHeader();
+        // Use billTokenManager if configured, else default tokenManager
+        let headers;
+        if (window.billTokenManager?.hasCredentials()) {
+            headers = await window.billTokenManager.getAuthHeader();
+        } else {
+            headers = await window.tokenManager.getAuthHeader();
+        }
         // Use isForce=true query parameter for forced creation
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
 
@@ -1958,3 +1970,285 @@ window.previewBillTemplate = previewBillTemplate;
 window.getBillTemplateSettings = getBillTemplateSettings;
 
 // #endregion BILL TEMPLATE SETTINGS
+
+// #region TPOS ACCOUNT SETTINGS
+// =====================================================
+// TPOS ACCOUNT MODAL - Manage bill-specific TPOS credentials
+// =====================================================
+
+/**
+ * Open TPOS Account Modal
+ */
+function openTposAccountModal() {
+    const modal = document.getElementById('tposAccountModal');
+    if (modal) {
+        modal.classList.add('show');
+        updateTposAccountStatus();
+    }
+}
+
+/**
+ * Close TPOS Account Modal
+ */
+function closeTposAccountModal() {
+    const modal = document.getElementById('tposAccountModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    // Clear test result
+    const testResult = document.getElementById('tposTestResult');
+    if (testResult) {
+        testResult.style.display = 'none';
+    }
+}
+
+/**
+ * Switch between password and bearer auth tabs
+ */
+function switchTposAuthTab(tab) {
+    const passwordTab = document.getElementById('tposAuthTabPassword');
+    const bearerTab = document.getElementById('tposAuthTabBearer');
+    const passwordForm = document.getElementById('tposAuthPasswordForm');
+    const bearerForm = document.getElementById('tposAuthBearerForm');
+
+    if (tab === 'password') {
+        passwordTab.classList.add('active');
+        bearerTab.classList.remove('active');
+        passwordForm.style.display = 'block';
+        bearerForm.style.display = 'none';
+    } else {
+        passwordTab.classList.remove('active');
+        bearerTab.classList.add('active');
+        passwordForm.style.display = 'none';
+        bearerForm.style.display = 'block';
+    }
+}
+
+/**
+ * Update status display in modal
+ */
+function updateTposAccountStatus() {
+    const statusDiv = document.getElementById('tposAccountStatus');
+    if (!statusDiv || !window.billTokenManager) return;
+
+    const info = window.billTokenManager.getCredentialsInfo();
+
+    if (!info.configured) {
+        statusDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-exclamation-triangle" style="color: #f59e0b;"></i>
+                <span style="color: #92400e;">Chưa cấu hình tài khoản TPOS cho bill. Đang dùng token mặc định.</span>
+            </div>
+        `;
+    } else if (info.type === 'bearer') {
+        statusDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                <div>
+                    <div style="color: #047857; font-weight: 600;">Đã cấu hình Bearer Token</div>
+                    <div style="font-size: 12px; color: #6b7280; font-family: monospace;">${info.preview}</div>
+                </div>
+            </div>
+        `;
+        // Show bearer form with token
+        switchTposAuthTab('bearer');
+        const bearerInput = document.getElementById('tposBearerToken');
+        if (bearerInput && window.billTokenManager.credentials?.bearerToken) {
+            bearerInput.value = window.billTokenManager.credentials.bearerToken;
+        }
+    } else if (info.type === 'password') {
+        statusDiv.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                <div>
+                    <div style="color: #047857; font-weight: 600;">Đã cấu hình Username/Password</div>
+                    <div style="font-size: 12px; color: #6b7280;">Username: <strong>${info.username}</strong></div>
+                </div>
+            </div>
+        `;
+        // Show password form with username
+        switchTposAuthTab('password');
+        const usernameInput = document.getElementById('tposUsername');
+        const passwordInput = document.getElementById('tposPassword');
+        if (usernameInput && window.billTokenManager.credentials?.username) {
+            usernameInput.value = window.billTokenManager.credentials.username;
+        }
+        if (passwordInput && window.billTokenManager.credentials?.password) {
+            passwordInput.value = window.billTokenManager.credentials.password;
+        }
+    }
+}
+
+/**
+ * Save TPOS account credentials
+ */
+async function saveTposAccount() {
+    if (!window.billTokenManager) {
+        window.notificationManager?.error('BillTokenManager chưa sẵn sàng', 'Lỗi');
+        return;
+    }
+
+    const passwordTab = document.getElementById('tposAuthTabPassword');
+    const isPasswordAuth = passwordTab.classList.contains('active');
+
+    let credentials;
+
+    if (isPasswordAuth) {
+        const username = document.getElementById('tposUsername')?.value?.trim();
+        const password = document.getElementById('tposPassword')?.value?.trim();
+
+        if (!username || !password) {
+            window.notificationManager?.warning('Vui lòng nhập username và password', 'Thiếu thông tin');
+            return;
+        }
+
+        credentials = { username, password };
+    } else {
+        const bearerToken = document.getElementById('tposBearerToken')?.value?.trim();
+
+        if (!bearerToken) {
+            window.notificationManager?.warning('Vui lòng nhập Bearer Token', 'Thiếu thông tin');
+            return;
+        }
+
+        // Clean bearer token (remove "Bearer " prefix if present)
+        const cleanToken = bearerToken.replace(/^Bearer\s+/i, '');
+        credentials = { bearerToken: cleanToken };
+    }
+
+    try {
+        await window.billTokenManager.setCredentials(credentials);
+        window.notificationManager?.success('Đã lưu tài khoản TPOS', 'Thành công');
+        updateTposAccountStatus();
+    } catch (error) {
+        console.error('[TPOS-ACCOUNT] Error saving:', error);
+        window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+    }
+}
+
+/**
+ * Test TPOS account credentials
+ */
+async function testTposAccount() {
+    if (!window.billTokenManager) {
+        window.notificationManager?.error('BillTokenManager chưa sẵn sàng', 'Lỗi');
+        return;
+    }
+
+    const testResult = document.getElementById('tposTestResult');
+    if (!testResult) return;
+
+    // Save first (temporary)
+    const passwordTab = document.getElementById('tposAuthTabPassword');
+    const isPasswordAuth = passwordTab.classList.contains('active');
+
+    let credentials;
+
+    if (isPasswordAuth) {
+        const username = document.getElementById('tposUsername')?.value?.trim();
+        const password = document.getElementById('tposPassword')?.value?.trim();
+
+        if (!username || !password) {
+            testResult.style.display = 'block';
+            testResult.style.background = '#fef2f2';
+            testResult.style.color = '#dc2626';
+            testResult.innerHTML = '<i class="fas fa-times-circle"></i> Vui lòng nhập username và password';
+            return;
+        }
+
+        credentials = { username, password };
+    } else {
+        const bearerToken = document.getElementById('tposBearerToken')?.value?.trim();
+
+        if (!bearerToken) {
+            testResult.style.display = 'block';
+            testResult.style.background = '#fef2f2';
+            testResult.style.color = '#dc2626';
+            testResult.innerHTML = '<i class="fas fa-times-circle"></i> Vui lòng nhập Bearer Token';
+            return;
+        }
+
+        const cleanToken = bearerToken.replace(/^Bearer\s+/i, '');
+        credentials = { bearerToken: cleanToken };
+    }
+
+    // Show testing state
+    testResult.style.display = 'block';
+    testResult.style.background = '#f0f9ff';
+    testResult.style.color = '#0369a1';
+    testResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang kiểm tra...';
+
+    try {
+        // Temporarily set credentials
+        window.billTokenManager.credentials = credentials;
+
+        const result = await window.billTokenManager.testCredentials();
+
+        if (result.success) {
+            testResult.style.background = '#d1fae5';
+            testResult.style.color = '#047857';
+            testResult.innerHTML = '<i class="fas fa-check-circle"></i> ' + result.message;
+        } else {
+            testResult.style.background = '#fef2f2';
+            testResult.style.color = '#dc2626';
+            testResult.innerHTML = '<i class="fas fa-times-circle"></i> ' + result.message;
+        }
+    } catch (error) {
+        testResult.style.background = '#fef2f2';
+        testResult.style.color = '#dc2626';
+        testResult.innerHTML = '<i class="fas fa-times-circle"></i> Lỗi: ' + error.message;
+    }
+}
+
+/**
+ * Clear TPOS account credentials
+ */
+async function clearTposAccount() {
+    if (!window.billTokenManager) return;
+
+    if (!confirm('Xác nhận xóa tài khoản TPOS? Sẽ sử dụng token mặc định để tạo bill.')) {
+        return;
+    }
+
+    try {
+        // Clear local storage
+        window.billTokenManager.clearStorage();
+
+        // Clear from Firestore
+        const ref = window.billTokenManager.getFirestoreRef();
+        if (ref) {
+            await ref.update({
+                billCredentials: firebase.firestore.FieldValue.delete()
+            });
+        }
+
+        // Clear form inputs
+        document.getElementById('tposUsername').value = '';
+        document.getElementById('tposPassword').value = '';
+        document.getElementById('tposBearerToken').value = '';
+
+        // Hide test result
+        const testResult = document.getElementById('tposTestResult');
+        if (testResult) {
+            testResult.style.display = 'none';
+        }
+
+        // Update status
+        updateTposAccountStatus();
+
+        window.notificationManager?.success('Đã xóa tài khoản TPOS', 'Thành công');
+    } catch (error) {
+        console.error('[TPOS-ACCOUNT] Error clearing:', error);
+        window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+    }
+}
+
+// Expose functions globally
+window.openTposAccountModal = openTposAccountModal;
+window.closeTposAccountModal = closeTposAccountModal;
+window.switchTposAuthTab = switchTposAuthTab;
+window.saveTposAccount = saveTposAccount;
+window.testTposAccount = testTposAccount;
+window.clearTposAccount = clearTposAccount;
+
+// #endregion TPOS ACCOUNT SETTINGS

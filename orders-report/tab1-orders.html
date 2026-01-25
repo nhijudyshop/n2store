@@ -159,6 +159,12 @@
                 <i class="fas fa-file-invoice"></i>
                 Cài Đặt Bill
             </button>
+            <button class="btn-primary" id="tposAccountBtn" onclick="openTposAccountModal()"
+                style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
+                title="Cài đặt tài khoản TPOS cho tạo bill">
+                <i class="fas fa-user-cog"></i>
+                Tài khoản TPOS
+            </button>
 
             <!-- Hidden elements - moved to Campaign Settings Modal -->
             <div style="display: none;">
@@ -1314,6 +1320,7 @@
     <script src="js/core/user-employee-loader.js"></script>
 
     <script src="js/core/token-manager.js"></script>
+    <script src="js/core/bill-token-manager.js"></script>
     <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
     <script src="js/core/indexeddb-storage.js"></script>
     <script src="js/core/cache.js"></script>
@@ -3043,6 +3050,86 @@
                 <button class="merge-btn-cancel" onclick="closeFastSaleResultsModal()">
                     <i class="fas fa-times"></i> Đóng
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TPOS Account Settings Modal -->
+    <div class="merge-modal" id="tposAccountModal">
+        <div class="merge-modal-content" style="max-width: 500px;">
+            <div class="merge-modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                <div class="merge-header-info">
+                    <h3><i class="fas fa-user-cog"></i> Tài khoản TPOS</h3>
+                    <p style="font-size: 13px; opacity: 0.9;">Cài đặt tài khoản TPOS cho tạo bill</p>
+                </div>
+                <button class="merge-close-btn" onclick="closeTposAccountModal()">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <!-- Current Status -->
+                <div id="tposAccountStatus" style="padding: 15px; background: #f3f4f6; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-info-circle" style="color: #6b7280;"></i>
+                        <span>Đang tải...</span>
+                    </div>
+                </div>
+
+                <!-- Auth Type Tabs -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="bill-settings-tab active" id="tposAuthTabPassword" onclick="switchTposAuthTab('password')">
+                        <i class="fas fa-key"></i> Username/Password
+                    </button>
+                    <button class="bill-settings-tab" id="tposAuthTabBearer" onclick="switchTposAuthTab('bearer')">
+                        <i class="fas fa-ticket-alt"></i> Bearer Token
+                    </button>
+                </div>
+
+                <!-- Password Auth Form -->
+                <div id="tposAuthPasswordForm">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">
+                            <i class="fas fa-user"></i> Username
+                        </label>
+                        <input type="text" id="tposUsername" class="form-control" placeholder="Nhập username TPOS"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">
+                            <i class="fas fa-lock"></i> Password
+                        </label>
+                        <input type="password" id="tposPassword" class="form-control" placeholder="Nhập password TPOS"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    </div>
+                </div>
+
+                <!-- Bearer Token Form -->
+                <div id="tposAuthBearerForm" style="display: none;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">
+                            <i class="fas fa-ticket-alt"></i> Bearer Token
+                        </label>
+                        <textarea id="tposBearerToken" class="form-control" placeholder="Dán Bearer Token vào đây..."
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; min-height: 100px; resize: vertical;"></textarea>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+                            Lấy từ DevTools > Application > Local Storage > bearer_token_data hoặc từ API /token
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Test Result -->
+                <div id="tposTestResult" style="display: none; padding: 10px; border-radius: 6px; margin-bottom: 15px;"></div>
+            </div>
+            <div class="merge-modal-footer" style="display: flex; justify-content: space-between; gap: 10px;">
+                <button class="merge-btn-cancel" onclick="clearTposAccount()" style="background: #ef4444; color: white;">
+                    <i class="fas fa-trash"></i> Xóa
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="merge-btn-cancel" onclick="testTposAccount()">
+                        <i class="fas fa-vial"></i> Test
+                    </button>
+                    <button class="merge-btn-confirm" onclick="saveTposAccount()" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                        <i class="fas fa-save"></i> Lưu
+                    </button>
+                </div>
             </div>
         </div>
     </div>
