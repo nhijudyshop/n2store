@@ -86,6 +86,7 @@
                 TrackingRef: invoiceData.TrackingRef,
                 CarrierName: invoiceData.CarrierName,
                 UserName: invoiceData.UserName,  // Tên account tạo bill
+                SessionIndex: invoiceData.SessionIndex, // STT
                 Error: invoiceData.Error,
                 timestamp: Date.now()
             });
@@ -634,6 +635,8 @@
             CashOnDelivery: invoiceData.CashOnDelivery || 0,
             AmountTotal: invoiceData.AmountTotal || order.TotalAmount,
             CarrierName: invoiceData.CarrierName || '',
+            UserName: invoiceData.UserName || '',  // Account tạo bill
+            SessionIndex: order.SessionIndex || invoiceData.SessionIndex || '', // STT
             OrderLines: order.Details ? order.Details.map(d => ({
                 ProductName: d.ProductName || d.ProductNameGet || '',
                 ProductNameGet: d.ProductNameGet || d.ProductName || '',
@@ -823,6 +826,8 @@
                 CarrierName: carrierName,
                 DeliveryPrice: shippingFee,
                 PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+                UserName: order.UserName || originalOrder?.UserName || '',  // Account tạo bill
+                SessionIndex: saleOnlineOrder?.SessionIndex || originalOrder?.SessionIndex || '', // STT
             };
 
             // Check if preview is enabled
