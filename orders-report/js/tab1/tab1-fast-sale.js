@@ -172,7 +172,17 @@ function closeFastSaleModal() {
  */
 async function fetchFastSaleOrdersData(orderIds) {
     try {
-        const headers = await window.tokenManager.getAuthHeader();
+        // Use billTokenManager if configured, else default tokenManager
+        let headers;
+        if (window.billTokenManager?.hasCredentials()) {
+            const credInfo = window.billTokenManager.getCredentialsInfo();
+            const accountInfo = credInfo.type === 'password' ? credInfo.username : 'Bearer Token';
+            console.log(`[FAST-SALE] Fetch using billTokenManager (${accountInfo})`);
+            headers = await window.billTokenManager.getAuthHeader();
+        } else {
+            console.log('[FAST-SALE] Fetch using default tokenManager');
+            headers = await window.tokenManager.getAuthHeader();
+        }
 
         // Fetch FastSaleOrder using POST with order IDs
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines,Partner,Carrier`;
