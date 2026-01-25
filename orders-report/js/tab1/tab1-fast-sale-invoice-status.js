@@ -703,6 +703,50 @@
     }
 
     // =====================================================
+    // UPDATE MAIN TABLE CELLS
+    // =====================================================
+
+    /**
+     * Update invoice status cells in main table for specific orders
+     * @param {Object} apiResult - API response with OrdersSucessed/OrdersError
+     */
+    function updateMainTableInvoiceCells(apiResult) {
+        if (!apiResult) return;
+
+        const allOrders = [
+            ...(apiResult.OrdersSucessed || []),
+            ...(apiResult.OrdersError || [])
+        ];
+
+        console.log(`[INVOICE-STATUS] Updating ${allOrders.length} cells in main table`);
+
+        allOrders.forEach(order => {
+            if (!order.SaleOnlineIds || order.SaleOnlineIds.length === 0) return;
+
+            order.SaleOnlineIds.forEach(saleOnlineId => {
+                // Find the row in main table
+                const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+                if (!row) return;
+
+                // Find the invoice-status cell
+                const cell = row.querySelector('td[data-column="invoice-status"]');
+                if (!cell) return;
+
+                // Get order data from displayedData for full info
+                const displayedData = window.displayedData || [];
+                const orderData = window.OrderStore?.get(saleOnlineId) ||
+                    displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
+
+                if (orderData) {
+                    // Re-render the cell content
+                    cell.innerHTML = renderInvoiceStatusCell(orderData);
+                    console.log(`[INVOICE-STATUS] Updated cell for order ${saleOnlineId}`);
+                }
+            });
+        });
+    }
+
+    // =====================================================
     // HOOK INTO SAVE FUNCTION
     // =====================================================
 
@@ -727,6 +771,11 @@
             setTimeout(() => {
                 renderSuccessOrdersTableWithInvoiceStatus();
             }, 50);
+
+            // Update main table cells (realtime update)
+            setTimeout(() => {
+                updateMainTableInvoiceCells(result);
+            }, 100);
         };
 
         console.log('[INVOICE-STATUS] Hooked showFastSaleResultsModal');
@@ -757,6 +806,7 @@
         window.renderInvoiceStatusCell = renderInvoiceStatusCell;
         window.sendBillFromMainTable = sendBillFromMainTable;
         window.sendBillManually = sendBillManually;
+        window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
         window.getStateCodeConfig = getStateCodeConfig;
 
