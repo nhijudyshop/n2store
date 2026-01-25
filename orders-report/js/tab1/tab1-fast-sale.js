@@ -880,9 +880,9 @@ async function saveFastSaleOrders(isApprove = false) {
         // "Lưu" uses normal endpoint with is_approve: false
         let url;
         if (isApprove) {
-            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner,OrderLines),OrdersSucessed($expand=Partner,OrderLines)`;
         } else {
-            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+            url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.InsertListOrderModel?$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner,OrderLines),OrdersSucessed($expand=Partner,OrderLines)`;
         }
 
         const response = await API_CONFIG.smartFetch(url, {
@@ -1327,7 +1327,7 @@ async function createForcedOrders() {
         // MUST use billTokenManager - no fallback to default tokenManager
         const headers = await getBillAuthHeader();
         // Use isForce=true query parameter for forced creation
-        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner,OrderLines),OrdersSucessed($expand=Partner,OrderLines)`;
 
         // Use is_approve: false with isForce=true for forced creation
         const requestBody = {
