@@ -1739,7 +1739,9 @@ const defaultBillSettings = {
     billWidth: '80mm',
     billPadding: 20,
     codBackground: '#fef3c7',
-    codBorder: '#f59e0b'
+    codBorder: '#f59e0b',
+    // Send behavior
+    previewBeforeSend: true  // Xem trước bill trước khi gửi (mặc định: bật)
 };
 
 /**
@@ -1827,6 +1829,11 @@ function loadBillSettingsToForm() {
     document.getElementById('billShowCOD').checked = settings.showCOD !== false;
     document.getElementById('billShowDeliveryNote').checked = settings.showDeliveryNote !== false;
     document.getElementById('billShowFooter').checked = settings.showFooter !== false;
+    // Send behavior
+    const previewCheckbox = document.getElementById('billPreviewBeforeSend');
+    if (previewCheckbox) {
+        previewCheckbox.checked = settings.previewBeforeSend !== false;
+    }
     // Style
     document.getElementById('billFontShopName').value = settings.fontShopName || 18;
     document.getElementById('billFontTitle').value = settings.fontTitle || 16;
@@ -1842,6 +1849,7 @@ function loadBillSettingsToForm() {
  * Save bill template settings
  */
 function saveBillTemplateSettings() {
+    const previewCheckbox = document.getElementById('billPreviewBeforeSend');
     const settings = {
         // General
         shopName: document.getElementById('billShopName').value.trim(),
@@ -1863,6 +1871,8 @@ function saveBillTemplateSettings() {
         showCOD: document.getElementById('billShowCOD').checked,
         showDeliveryNote: document.getElementById('billShowDeliveryNote').checked,
         showFooter: document.getElementById('billShowFooter').checked,
+        // Send behavior
+        previewBeforeSend: previewCheckbox ? previewCheckbox.checked : true,
         // Style
         fontShopName: parseInt(document.getElementById('billFontShopName').value) || 18,
         fontTitle: parseInt(document.getElementById('billFontTitle').value) || 16,

@@ -3045,6 +3045,30 @@
         </div>
     </div>
 
+    <!-- Bill Preview Modal (before sending) -->
+    <div class="merge-modal" id="billPreviewSendModal">
+        <div class="merge-modal-content" style="max-width: 450px; max-height: 90vh; overflow-y: auto;">
+            <div class="merge-modal-header" style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+                <div class="merge-header-info">
+                    <h3><i class="fab fa-facebook-messenger"></i> Xem trước bill</h3>
+                    <p style="font-size: 13px; opacity: 0.9;">Kiểm tra trước khi gửi cho khách</p>
+                </div>
+                <button class="merge-close-btn" onclick="closeBillPreviewSendModal()">&times;</button>
+            </div>
+            <div style="padding: 15px; background: #f9fafb;">
+                <div id="billPreviewSendContainer" style="border: 1px solid #e5e7eb; border-radius: 8px; background: white; min-height: 200px; max-height: 60vh; overflow: auto;">
+                    <p style="color: #9ca3af; padding: 40px; text-align: center;">Đang tạo bill...</p>
+                </div>
+            </div>
+            <div class="merge-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="merge-btn-cancel" onclick="closeBillPreviewSendModal()"><i class="fas fa-times"></i> Hủy</button>
+                <button class="merge-btn-confirm" id="billPreviewSendBtn" onclick="confirmSendBillFromPreview()" style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+                    <i class="fab fa-facebook-messenger"></i> Gửi bill
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Bill Template Settings Modal -->
     <div class="merge-modal" id="billTemplateSettingsModal">
         <div class="merge-modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
@@ -3103,6 +3127,18 @@
                 </div>
                 <!-- Sections Tab -->
                 <div class="bill-settings-content" id="billSettingsSections" style="display: none;">
+                    <!-- Send Behavior Setting -->
+                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 10px; color: #0369a1;"><i class="fab fa-facebook-messenger"></i> Gửi bill qua Messenger</h4>
+                        <label class="bill-toggle-item" style="background: white; border: 1px solid #e0f2fe;">
+                            <input type="checkbox" id="billPreviewBeforeSend" checked>
+                            <span><i class="fas fa-eye"></i> Xem trước bill trước khi gửi (mặc định: bật)</span>
+                        </label>
+                        <p style="font-size: 12px; color: #64748b; margin-top: 8px; margin-bottom: 0;">
+                            <i class="fas fa-info-circle"></i> Khi bật: Bấm nút Messenger sẽ hiện preview bill để xem trước, sau đó mới gửi.<br>
+                            <i class="fas fa-info-circle"></i> Khi tắt: Gửi bill ngay khi bấm nút Messenger.
+                        </p>
+                    </div>
                     <h4 style="margin-bottom: 15px; color: #374151;"><i class="fas fa-eye"></i> Chọn các phần hiển thị</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <label class="bill-toggle-item"><input type="checkbox" id="billShowHeader" checked><span><i class="fas fa-store"></i> Header (Shop, Hotline)</span></label>

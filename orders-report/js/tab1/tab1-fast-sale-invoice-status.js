@@ -323,6 +323,178 @@
         return html;
     }
 
+    // =====================================================
+    // BILL PREVIEW MODAL FUNCTIONS
+    // =====================================================
+
+    /**
+     * Pending send data for preview modal
+     */
+    let pendingSendData = null;
+
+    /**
+     * Check if preview before send is enabled
+     */
+    function isPreviewBeforeSendEnabled() {
+        try {
+            const settings = window.getBillTemplateSettings ? window.getBillTemplateSettings() : {};
+            return settings.previewBeforeSend !== false; // Default true
+        } catch (e) {
+            return true; // Default true on error
+        }
+    }
+
+    /**
+     * Show bill preview modal before sending
+     * @param {Object} enrichedOrder - Order data for bill
+     * @param {string} channelId - Pancake channel ID
+     * @param {string} psid - Customer PSID
+     * @param {string} orderId - SaleOnlineOrder ID
+     * @param {string} orderCode - Order code for display
+     * @param {string} source - 'main' or 'results' (where the send was triggered)
+     * @param {number} resultIndex - Index in results modal (for results source)
+     */
+    async function showBillPreviewModal(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex) {
+        const modal = document.getElementById('billPreviewSendModal');
+        const container = document.getElementById('billPreviewSendContainer');
+        const sendBtn = document.getElementById('billPreviewSendBtn');
+
+        if (!modal || !container) {
+            console.error('[INVOICE-STATUS] Preview modal elements not found');
+            // Fallback to direct send
+            return performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex);
+        }
+
+        // Store pending data
+        pendingSendData = {
+            enrichedOrder,
+            channelId,
+            psid,
+            orderId,
+            orderCode,
+            source,
+            resultIndex
+        };
+
+        // Show loading in container
+        container.innerHTML = '<p style="color: #9ca3af; padding: 40px; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Đang tạo bill...</p>';
+
+        // Show modal
+        modal.style.display = 'flex';
+
+        try {
+            // Generate bill HTML
+            if (typeof window.generateCustomBillHTML === 'function') {
+                const billHTML = window.generateCustomBillHTML(enrichedOrder, {});
+                container.innerHTML = `<div style="padding: 10px;">${billHTML}</div>`;
+            } else {
+                container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Không thể tạo bill preview</p>';
+            }
+        } catch (error) {
+            console.error('[INVOICE-STATUS] Error generating bill preview:', error);
+            container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Lỗi khi tạo bill preview</p>';
+        }
+
+        // Enable send button
+        if (sendBtn) {
+            sendBtn.disabled = false;
+        }
+    }
+
+    /**
+     * Close bill preview modal
+     */
+    function closeBillPreviewSendModal() {
+        const modal = document.getElementById('billPreviewSendModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        pendingSendData = null;
+    }
+
+    /**
+     * Confirm and send bill from preview modal
+     */
+    async function confirmSendBillFromPreview() {
+        if (!pendingSendData) {
+            window.notificationManager?.error('Không có dữ liệu để gửi', 'Lỗi');
+            closeBillPreviewSendModal();
+            return;
+        }
+
+        const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } = pendingSendData;
+
+        // Disable button and show loading
+        const sendBtn = document.getElementById('billPreviewSendBtn');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        }
+
+        try {
+            await performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex);
+            closeBillPreviewSendModal();
+        } catch (error) {
+            console.error('[INVOICE-STATUS] Error sending from preview:', error);
+            window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+
+            // Restore button
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi bill';
+            }
+        }
+    }
+
+    /**
+     * Perform actual bill send
+     */
+    async function performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex) {
+        console.log('[INVOICE-STATUS] Sending bill for:', orderCode);
+
+        // Check for pre-generated bill data
+        const cachedData = window.preGeneratedBillData?.get(enrichedOrder.Id) ||
+            window.preGeneratedBillData?.get(enrichedOrder.Number);
+        const sendOptions = {};
+        if (cachedData && cachedData.contentUrl && cachedData.contentId) {
+            sendOptions.preGeneratedContentUrl = cachedData.contentUrl;
+            sendOptions.preGeneratedContentId = cachedData.contentId;
+        }
+
+        if (typeof window.sendBillToCustomer !== 'function') {
+            throw new Error('sendBillToCustomer function not available');
+        }
+
+        const result = await window.sendBillToCustomer(enrichedOrder, channelId, psid, sendOptions);
+
+        if (result.success) {
+            console.log(`[INVOICE-STATUS] ✅ Bill sent for ${orderCode}`);
+
+            // Mark as sent
+            InvoiceStatusStore.markBillSent(orderId);
+
+            // Update UI based on source
+            if (source === 'main') {
+                const cell = document.querySelector(`td[data-column="invoice-status"] .btn-send-bill-main[data-order-id="${orderId}"]`);
+                if (cell) {
+                    cell.outerHTML = `<span class="bill-sent-badge" style="color: #27ae60; font-size: 11px;" title="Đã gửi bill">✓</span>`;
+                }
+            } else if (source === 'results') {
+                const cell = document.querySelector(`.invoice-status-cell[data-order-id="${enrichedOrder.Id}"]`);
+                if (cell) {
+                    const btn = cell.querySelector('.btn-send-bill-messenger');
+                    if (btn) {
+                        btn.outerHTML = `<span class="bill-sent-badge" style="color: #27ae60; font-size: 14px;" title="Đã gửi bill">✓ Đã gửi</span>`;
+                    }
+                }
+            }
+
+            window.notificationManager?.success(`Đã gửi bill cho ${orderCode}`, 'Thành công');
+        } else {
+            throw new Error(result.error || 'Gửi bill thất bại');
+        }
+    }
+
     /**
      * Send bill from main table
      * @param {string} orderId - SaleOnlineOrder ID
@@ -343,85 +515,67 @@
             return;
         }
 
-        // Confirm
-        const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${order.Code || order.Name}?`);
-        if (!confirmed) return;
+        // Get customer info for Messenger
+        const psid = order.Facebook_ASUserId;
+        const postId = order.Facebook_PostId;
+        const channelId = postId ? postId.split('_')[0] : null;
 
-        // Find button and show loading
-        const button = document.querySelector(`.btn-send-bill-main[data-order-id="${orderId}"]`);
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = '...';
+        if (!psid || !channelId) {
+            window.notificationManager?.error('Không có thông tin Messenger của khách hàng', 'Lỗi');
+            return;
         }
 
-        try {
-            // Get customer info for Messenger
-            const psid = order.Facebook_ASUserId;
-            const postId = order.Facebook_PostId;
-            const channelId = postId ? postId.split('_')[0] : null;
-
-            if (!psid || !channelId) {
-                throw new Error('Không có thông tin Messenger của khách hàng');
+        // Build enriched order for bill generation
+        const enrichedOrder = {
+            Id: invoiceData.Id,
+            Number: invoiceData.Number,
+            Reference: invoiceData.Reference || order.Code,
+            PartnerDisplayName: invoiceData.PartnerDisplayName || order.Name,
+            DeliveryPrice: invoiceData.DeliveryPrice || 0,
+            CashOnDelivery: invoiceData.CashOnDelivery || 0,
+            AmountTotal: invoiceData.AmountTotal || order.TotalAmount,
+            CarrierName: invoiceData.CarrierName || '',
+            OrderLines: order.Details ? order.Details.map(d => ({
+                ProductName: d.ProductName || d.ProductNameGet || '',
+                ProductNameGet: d.ProductNameGet || d.ProductName || '',
+                ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
+                PriceUnit: d.Price || d.PriceUnit || 0,
+                Note: d.Note || ''
+            })) : [],
+            Partner: {
+                Name: order.Name,
+                Phone: order.Telephone,
+                Street: order.Address
             }
+        };
 
-            // Build enriched order for bill generation
-            const enrichedOrder = {
-                Id: invoiceData.Id,
-                Number: invoiceData.Number,
-                Reference: invoiceData.Reference || order.Code,
-                PartnerDisplayName: invoiceData.PartnerDisplayName || order.Name,
-                DeliveryPrice: invoiceData.DeliveryPrice || 0,
-                CashOnDelivery: invoiceData.CashOnDelivery || 0,
-                AmountTotal: invoiceData.AmountTotal || order.TotalAmount,
-                CarrierName: invoiceData.CarrierName || '',
-                OrderLines: order.Details ? order.Details.map(d => ({
-                    ProductName: d.ProductName || d.ProductNameGet || '',
-                    ProductNameGet: d.ProductNameGet || d.ProductName || '',
-                    ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
-                    PriceUnit: d.Price || d.PriceUnit || 0,
-                    Note: d.Note || ''
-                })) : [],
-                Partner: {
-                    Name: order.Name,
-                    Phone: order.Telephone,
-                    Street: order.Address
-                }
-            };
+        // Check if preview is enabled
+        if (isPreviewBeforeSendEnabled()) {
+            // Show preview modal
+            await showBillPreviewModal(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null);
+        } else {
+            // Direct send with confirm
+            const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${order.Code || order.Name}?`);
+            if (!confirmed) return;
 
-            console.log('[INVOICE-STATUS] Sending bill from main table for:', order.Code);
-
-            // Send bill
-            if (typeof window.sendBillToCustomer === 'function') {
-                const result = await window.sendBillToCustomer(enrichedOrder, channelId, psid, {});
-
-                if (result.success) {
-                    console.log(`[INVOICE-STATUS] ✅ Bill sent for ${order.Code}`);
-
-                    // Mark as sent
-                    InvoiceStatusStore.markBillSent(orderId);
-
-                    // Update UI
-                    const cell = document.querySelector(`td[data-column="invoice-status"] .btn-send-bill-main[data-order-id="${orderId}"]`);
-                    if (cell) {
-                        cell.outerHTML = `<span class="bill-sent-badge" style="color: #27ae60; font-size: 11px;" title="Đã gửi bill">✓</span>`;
-                    }
-
-                    window.notificationManager?.success(`Đã gửi bill cho ${order.Code}`, 'Thành công');
-                } else {
-                    throw new Error(result.error || 'Gửi bill thất bại');
-                }
-            } else {
-                throw new Error('sendBillToCustomer function not available');
-            }
-
-        } catch (error) {
-            console.error('[INVOICE-STATUS] Error sending bill:', error);
-            window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
-
-            // Restore button
+            // Find button and show loading
+            const button = document.querySelector(`.btn-send-bill-main[data-order-id="${orderId}"]`);
             if (button) {
-                button.disabled = false;
-                button.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>`;
+                button.disabled = true;
+                button.innerHTML = '...';
+            }
+
+            try {
+                await performActualSend(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null);
+            } catch (error) {
+                console.error('[INVOICE-STATUS] Error sending bill:', error);
+                window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+
+                // Restore button
+                if (button) {
+                    button.disabled = false;
+                    button.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>`;
+                }
             }
         }
     }
@@ -510,15 +664,6 @@
         const orderNumber = order.Number || order.Reference;
         const saleOnlineId = order.SaleOnlineIds?.[0];
 
-        const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${orderNumber}?`);
-        if (!confirmed) return;
-
-        const button = document.querySelector(`button.btn-send-bill-messenger[data-index="${index}"]`);
-        if (button) {
-            button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
-        }
-
         try {
             const fastSaleOrdersData = window.fastSaleOrdersData || [];
             const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
@@ -581,45 +726,37 @@
                 PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
             };
 
-            console.log('[INVOICE-STATUS] Sending bill manually for:', orderNumber);
+            // Check if preview is enabled
+            if (isPreviewBeforeSendEnabled()) {
+                // Show preview modal
+                await showBillPreviewModal(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index);
+            } else {
+                // Direct send with confirm
+                const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${orderNumber}?`);
+                if (!confirmed) return;
 
-            const cachedData = window.preGeneratedBillData?.get(order.Id) || window.preGeneratedBillData?.get(orderNumber);
-            const sendOptions = {};
-            if (cachedData && cachedData.contentUrl && cachedData.contentId) {
-                sendOptions.preGeneratedContentUrl = cachedData.contentUrl;
-                sendOptions.preGeneratedContentId = cachedData.contentId;
-            }
-
-            const result = await window.sendBillToCustomer(enrichedOrder, channelId, psid, sendOptions);
-
-            if (result.success) {
-                console.log(`[INVOICE-STATUS] ✅ Bill sent for ${orderNumber}`);
-
-                if (saleOnlineId) {
-                    InvoiceStatusStore.markBillSent(saleOnlineId);
+                const button = document.querySelector(`button.btn-send-bill-messenger[data-index="${index}"]`);
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
                 }
 
-                const cell = document.querySelector(`.invoice-status-cell[data-order-id="${order.Id}"]`);
-                if (cell) {
-                    const btn = cell.querySelector('.btn-send-bill-messenger');
-                    if (btn) {
-                        btn.outerHTML = `<span class="bill-sent-badge" style="color: #27ae60; font-size: 14px;" title="Đã gửi bill">✓ Đã gửi</span>`;
+                try {
+                    await performActualSend(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index);
+                } catch (sendError) {
+                    console.error('[INVOICE-STATUS] Error:', sendError);
+                    window.notificationManager?.error(`Lỗi: ${sendError.message}`, 'Lỗi');
+
+                    if (button) {
+                        button.disabled = false;
+                        button.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>`;
                     }
                 }
-
-                window.notificationManager?.success(`Đã gửi bill cho ${orderNumber}`, 'Thành công');
-            } else {
-                throw new Error(result.error || 'Gửi bill thất bại');
             }
 
         } catch (error) {
-            console.error('[INVOICE-STATUS] Error:', error);
+            console.error('[INVOICE-STATUS] Error preparing bill:', error);
             window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
-
-            if (button) {
-                button.disabled = false;
-                button.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>`;
-            }
         }
     }
 
@@ -839,6 +976,10 @@
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
         window.getStateCodeConfig = getStateCodeConfig;
+        // Preview modal functions
+        window.showBillPreviewModal = showBillPreviewModal;
+        window.closeBillPreviewSendModal = closeBillPreviewSendModal;
+        window.confirmSendBillFromPreview = confirmSendBillFromPreview;
 
         // Hook showFastSaleResultsModal
         if (!hookShowFastSaleResultsModal()) {
