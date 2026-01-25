@@ -126,23 +126,77 @@ class BillTokenManager {
 
     /**
      * Save credentials to Firestore
+     * @param {boolean} retry - Whether to retry if auth not ready
      */
-    async saveToFirestore() {
+    async saveToFirestore(retry = true) {
+        if (!this.credentials) {
+            console.warn('[BILL-TOKEN] No credentials to save');
+            return false;
+        }
+
         const ref = this.getFirestoreRef();
-        if (!ref || !this.credentials) return false;
+        if (!ref) {
+            console.warn('[BILL-TOKEN] Cannot get Firestore ref (auth not ready?)');
+            // Schedule retry if auth not ready
+            if (retry && !this._pendingSave) {
+                this._pendingSave = true;
+                console.log('[BILL-TOKEN] Will retry save when auth is ready...');
+                setTimeout(() => {
+                    this._pendingSave = false;
+                    this.saveToFirestore(false); // Don't retry again
+                }, 3000);
+            }
+            return false;
+        }
+
+        try {
+            // Include refresh_token if available
+            const cachedToken = this.getCachedTokenData();
+            const dataToSave = {
+                ...this.credentials,
+                updatedAt: Date.now()
+            };
+
+            // Save refresh_token to Firestore for persistence across sessions
+            if (cachedToken?.refresh_token) {
+                dataToSave.refresh_token = cachedToken.refresh_token;
+            }
+
+            await ref.set({
+                billCredentials: dataToSave
+            }, { merge: true });
+
+            console.log('[BILL-TOKEN] ✅ Credentials saved to Firestore:',
+                this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
+                cachedToken?.refresh_token ? '(with refresh_token)' : '');
+            return true;
+        } catch (error) {
+            console.error('[BILL-TOKEN] Error saving to Firestore:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Save refresh_token to Firestore (called after successful token fetch)
+     */
+    async saveRefreshTokenToFirestore(refreshToken) {
+        if (!refreshToken) return false;
+
+        const ref = this.getFirestoreRef();
+        if (!ref) return false;
 
         try {
             await ref.set({
                 billCredentials: {
-                    ...this.credentials,
+                    refresh_token: refreshToken,
                     updatedAt: Date.now()
                 }
             }, { merge: true });
 
-            console.log('[BILL-TOKEN] Credentials saved to Firestore');
+            console.log('[BILL-TOKEN] ✅ Refresh token saved to Firestore');
             return true;
         } catch (error) {
-            console.error('[BILL-TOKEN] Error saving to Firestore:', error);
+            console.error('[BILL-TOKEN] Error saving refresh token to Firestore:', error);
             return false;
         }
     }
@@ -152,7 +206,10 @@ class BillTokenManager {
      */
     async loadFromFirestore() {
         const ref = this.getFirestoreRef();
-        if (!ref) return false;
+        if (!ref) {
+            console.warn('[BILL-TOKEN] Cannot load from Firestore (auth not ready?)');
+            return false;
+        }
 
         try {
             const doc = await ref.get();
@@ -163,9 +220,31 @@ class BillTokenManager {
 
             const data = doc.data();
             if (data.billCredentials) {
-                this.credentials = data.billCredentials;
-                this.saveToStorage(); // Cache locally
-                console.log('[BILL-TOKEN] Credentials loaded from Firestore');
+                // Extract refresh_token before setting credentials
+                const refreshToken = data.billCredentials.refresh_token;
+
+                // Set credentials (without refresh_token in credentials object)
+                this.credentials = {
+                    ...data.billCredentials,
+                    refresh_token: undefined // Don't store in credentials
+                };
+                delete this.credentials.refresh_token;
+
+                this.saveToStorage(); // Cache credentials locally
+
+                // If we have a refresh_token from Firestore, save it to token storage
+                if (refreshToken) {
+                    const tokenData = {
+                        refresh_token: refreshToken,
+                        expires_at: 0 // Mark as expired so it will try to refresh
+                    };
+                    this.saveTokenToStorage(tokenData);
+                    console.log('[BILL-TOKEN] ✅ Refresh token loaded from Firestore');
+                }
+
+                console.log('[BILL-TOKEN] ✅ Credentials loaded from Firestore:',
+                    this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
+                    refreshToken ? '(with refresh_token)' : '');
                 return true;
             }
 
@@ -303,6 +382,11 @@ class BillTokenManager {
         };
         this.saveTokenToStorage(tokenData);
 
+        // Also save refresh_token to Firestore for persistence
+        if (data.refresh_token) {
+            this.saveRefreshTokenToFirestore(data.refresh_token);
+        }
+
         console.log('[BILL-TOKEN] Token fetched and cached');
         return this.token;
     }
@@ -359,13 +443,19 @@ class BillTokenManager {
         this.tokenExpiry = Date.now() + (expiresIn * 1000);
 
         // Save new token data (keep new refresh_token if provided)
+        const newRefreshToken = data.refresh_token || refreshToken;
         const tokenData = {
             access_token: this.token,
-            refresh_token: data.refresh_token || refreshToken, // Keep old if not provided
+            refresh_token: newRefreshToken,
             expires_at: this.tokenExpiry,
             expires_in: expiresIn
         };
         this.saveTokenToStorage(tokenData);
+
+        // Save new refresh_token to Firestore if it changed
+        if (data.refresh_token) {
+            this.saveRefreshTokenToFirestore(data.refresh_token);
+        }
 
         return true;
     }
@@ -458,12 +548,44 @@ class BillTokenManager {
      * Initialize - load from Firestore if localStorage is empty
      */
     async init() {
+        console.log('[BILL-TOKEN] Initializing...');
+
+        // Try to load from Firestore if no local credentials
         if (!this.hasCredentials()) {
             console.log('[BILL-TOKEN] No local credentials, trying Firestore...');
-            await this.loadFromFirestore();
+            const loaded = await this.loadFromFirestore();
+
+            // If still no credentials and auth might not be ready, schedule retry
+            if (!loaded && !this.getWebUserId()) {
+                console.log('[BILL-TOKEN] Auth not ready, will retry after auth...');
+                this._scheduleAuthRetry();
+            }
         }
 
         console.log('[BILL-TOKEN] Initialized. Has credentials:', this.hasCredentials());
+    }
+
+    /**
+     * Schedule retry loading from Firestore after auth is ready
+     */
+    _scheduleAuthRetry() {
+        // Try again after a delay (auth might be ready by then)
+        setTimeout(async () => {
+            if (!this.hasCredentials() && this.getWebUserId()) {
+                console.log('[BILL-TOKEN] Auth now ready, retrying Firestore load...');
+                await this.loadFromFirestore();
+            }
+        }, 2000);
+
+        // Also listen for auth state changes if authManager supports it
+        if (window.authManager?.onAuthStateChange) {
+            window.authManager.onAuthStateChange((authData) => {
+                if (authData && !this.hasCredentials()) {
+                    console.log('[BILL-TOKEN] Auth state changed, loading from Firestore...');
+                    this.loadFromFirestore();
+                }
+            });
+        }
     }
 }
 
