@@ -230,7 +230,7 @@ class BillTokenManager {
             throw new Error('No credentials configured');
         }
 
-        // If using direct bearer token
+        // If using direct bearer token (no refresh capability)
         if (this.credentials.bearerToken) {
             this.token = this.credentials.bearerToken;
             // Set expiry to 30 days from now (bearer tokens usually have long validity)
@@ -243,6 +243,20 @@ class BillTokenManager {
             this.saveTokenToStorage(tokenData);
 
             return this.token;
+        }
+
+        // Try refresh token first if available
+        const cachedToken = this.getCachedTokenData();
+        if (cachedToken?.refresh_token) {
+            try {
+                const refreshed = await this.refreshWithToken(cachedToken.refresh_token);
+                if (refreshed) {
+                    console.log('[BILL-TOKEN] Token refreshed successfully');
+                    return this.token;
+                }
+            } catch (error) {
+                console.warn('[BILL-TOKEN] Refresh token failed, will use password:', error.message);
+            }
         }
 
         // Fetch using username/password
@@ -280,7 +294,7 @@ class BillTokenManager {
         this.token = data.access_token;
         this.tokenExpiry = Date.now() + (expiresIn * 1000);
 
-        // Save token data
+        // Save token data including refresh_token
         const tokenData = {
             access_token: this.token,
             refresh_token: data.refresh_token,
@@ -291,6 +305,69 @@ class BillTokenManager {
 
         console.log('[BILL-TOKEN] Token fetched and cached');
         return this.token;
+    }
+
+    /**
+     * Get cached token data from localStorage
+     */
+    getCachedTokenData() {
+        try {
+            const tokenStr = localStorage.getItem(this.tokenStorageKey);
+            if (tokenStr) {
+                return JSON.parse(tokenStr);
+            }
+        } catch (error) {
+            console.error('[BILL-TOKEN] Error reading cached token:', error);
+        }
+        return null;
+    }
+
+    /**
+     * Refresh token using refresh_token grant
+     * @param {string} refreshToken - The refresh token
+     * @returns {boolean} - Whether refresh was successful
+     */
+    async refreshWithToken(refreshToken) {
+        const formData = new URLSearchParams();
+        formData.append('grant_type', 'refresh_token');
+        formData.append('refresh_token', refreshToken);
+        formData.append('client_id', 'tmtWebApp');
+
+        console.log('[BILL-TOKEN] Attempting to refresh token...');
+
+        const response = await fetch(this.API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData.toString()
+        });
+
+        if (!response.ok) {
+            throw new Error(`Refresh failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.access_token) {
+            throw new Error('Invalid refresh response');
+        }
+
+        // Calculate expiry
+        const expiresIn = data.expires_in || 3600;
+        this.token = data.access_token;
+        this.tokenExpiry = Date.now() + (expiresIn * 1000);
+
+        // Save new token data (keep new refresh_token if provided)
+        const tokenData = {
+            access_token: this.token,
+            refresh_token: data.refresh_token || refreshToken, // Keep old if not provided
+            expires_at: this.tokenExpiry,
+            expires_in: expiresIn
+        };
+        this.saveTokenToStorage(tokenData);
+
+        return true;
     }
 
     /**
