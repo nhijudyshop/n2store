@@ -74,9 +74,9 @@
                 Id: invoiceData.Id,
                 Number: invoiceData.Number,
                 Reference: invoiceData.Reference,
-                StateCode: invoiceData.StateCode,
-                State: invoiceData.State,
-                ShowState: invoiceData.ShowState,
+                State: invoiceData.State,           // "draft", "open", "cancel", etc.
+                ShowState: invoiceData.ShowState,   // "Nháp", "Đã xác nhận", "Huỷ bỏ", "Đã thanh toán", etc.
+                StateCode: invoiceData.StateCode,   // "None", "NotEnoughInventory", "CrossCheckComplete", etc.
                 IsMergeCancel: invoiceData.IsMergeCancel,
                 PartnerId: invoiceData.PartnerId,
                 PartnerDisplayName: invoiceData.PartnerDisplayName,
@@ -190,6 +190,22 @@
     // STATE CODE CONFIGURATION
     // =====================================================
 
+    /**
+     * ShowState config - order status (State)
+     * Values: Nháp, Đã xác nhận, Huỷ bỏ, Đã thanh toán, etc.
+     */
+    const SHOW_STATE_CONFIG = {
+        'Nháp': { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' },
+        'Đã xác nhận': { color: '#2563eb', bgColor: '#dbeafe', borderColor: '#93c5fd' },
+        'Huỷ bỏ': { color: '#dc2626', bgColor: '#fee2e2', borderColor: '#fca5a5', style: 'text-decoration: line-through;' },
+        'Đã thanh toán': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' },
+        'Hoàn thành': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' }
+    };
+
+    /**
+     * StateCode config - cross-checking status
+     * Values: None, NotEnoughInventory, CrossCheckComplete, CrossCheckSuccess, etc.
+     */
     const STATE_CODE_CONFIG = {
         'draft': {
             label: 'Nháp',
@@ -219,7 +235,7 @@
             color: '#c0392b'
         },
         'CrossCheckComplete': {
-            label: 'Đã đối soát',
+            label: 'Hoàn thành đối soát',
             cssClass: 'text-success-dk',
             color: '#27ae60'
         },
@@ -266,6 +282,18 @@
     // =====================================================
 
     /**
+     * Get ShowState display configuration
+     */
+    function getShowStateConfig(showState) {
+        const config = SHOW_STATE_CONFIG[showState];
+        if (config) {
+            return config;
+        }
+        // Default config
+        return { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' };
+    }
+
+    /**
      * Render invoice status cell for main orders table
      * @param {Object} order - SaleOnlineOrder object
      * @returns {string} HTML string
@@ -282,24 +310,32 @@
             return '<span style="color: #9ca3af;">−</span>';
         }
 
+        const showState = invoiceData.ShowState || '';
         const stateCode = invoiceData.StateCode || 'None';
         const isMergeCancel = invoiceData.IsMergeCancel === true;
-        const config = getStateCodeConfig(stateCode, isMergeCancel);
-        const style = config.style || '';
+        const showStateConfig = getShowStateConfig(showState);
+        const stateCodeConfig = getStateCodeConfig(stateCode, isMergeCancel);
+        const stateCodeStyle = stateCodeConfig.style || '';
 
         // Check if bill was sent
         const billSent = InvoiceStatusStore.isBillSent(order.Id);
 
-        // Build HTML
-        let html = `<div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">`;
+        // Build HTML - vertical layout like the image
+        let html = `<div class="invoice-status-cell" style="display: flex; flex-direction: column; gap: 2px;">`;
+
+        // Row 1: ShowState badge + UserName + Messenger button
+        html += `<div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">`;
+
+        // ShowState badge (main status like Huỷ bỏ, Đã thanh toán)
+        if (showState) {
+            const showStateStyle = showStateConfig.style || '';
+            html += `<span style="background: ${showStateConfig.bgColor}; color: ${showStateConfig.color}; border: 1px solid ${showStateConfig.borderColor}; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 500; ${showStateStyle}" title="Số phiếu: ${invoiceData.Number || ''}">${showState}</span>`;
+        }
 
         // UserName badge (if exists)
         if (invoiceData.UserName) {
             html += `<span style="background: #e0e7ff; color: #4338ca; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500;" title="Người tạo bill">${invoiceData.UserName}</span>`;
         }
-
-        // StateCode badge
-        html += `<span class="state-code-badge ${config.cssClass}" style="color: ${config.color}; font-weight: 500; font-size: 11px; ${style}" title="Số phiếu: ${invoiceData.Number || ''}">${config.label}</span>`;
 
         // Messenger button or sent badge
         if (billSent) {
@@ -318,6 +354,10 @@
                 </button>
             `;
         }
+        html += `</div>`;
+
+        // Row 2: StateCode text (cross-check status like Chưa đối soát, Hoàn thành đối soát)
+        html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}</div>`;
 
         html += `</div>`;
         return html;
@@ -976,6 +1016,7 @@
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
         window.getStateCodeConfig = getStateCodeConfig;
+        window.getShowStateConfig = getShowStateConfig;
         // Preview modal functions
         window.showBillPreviewModal = showBillPreviewModal;
         window.closeBillPreviewSendModal = closeBillPreviewSendModal;
