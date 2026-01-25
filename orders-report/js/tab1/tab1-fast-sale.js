@@ -90,6 +90,30 @@ function getTposAccountDisplay() {
 }
 
 /**
+ * Get auth header for bill operations - MUST use billTokenManager
+ * Throws error if not configured
+ */
+async function getBillAuthHeader() {
+    // Ensure credentials are loaded (important for incognito mode)
+    if (window.billTokenManager) {
+        await window.billTokenManager.ensureCredentialsLoaded();
+    }
+
+    // Check if billTokenManager has credentials
+    if (!window.billTokenManager?.hasCredentials()) {
+        const errorMsg = 'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.';
+        window.notificationManager?.error(errorMsg, 5000);
+        throw new Error(errorMsg);
+    }
+
+    const credInfo = window.billTokenManager.getCredentialsInfo();
+    const accountInfo = credInfo.type === 'password' ? credInfo.username : 'Bearer Token';
+    console.log(`[FAST-SALE] ✓ Using billTokenManager (${accountInfo})`);
+
+    return await window.billTokenManager.getAuthHeader();
+}
+
+/**
  * Show Fast Sale Modal and fetch data for selected orders
  */
 async function showFastSaleModal() {
@@ -172,22 +196,8 @@ function closeFastSaleModal() {
  */
 async function fetchFastSaleOrdersData(orderIds) {
     try {
-        // Ensure billTokenManager credentials are loaded (important for incognito mode)
-        if (window.billTokenManager) {
-            await window.billTokenManager.ensureCredentialsLoaded();
-        }
-
-        // Use billTokenManager if configured, else default tokenManager
-        let headers;
-        if (window.billTokenManager?.hasCredentials()) {
-            const credInfo = window.billTokenManager.getCredentialsInfo();
-            const accountInfo = credInfo.type === 'password' ? credInfo.username : 'Bearer Token';
-            console.log(`[FAST-SALE] Fetch using billTokenManager (${accountInfo})`);
-            headers = await window.billTokenManager.getAuthHeader();
-        } else {
-            console.log('[FAST-SALE] Fetch using default tokenManager');
-            headers = await window.tokenManager.getAuthHeader();
-        }
+        // MUST use billTokenManager - no fallback to default tokenManager
+        const headers = await getBillAuthHeader();
 
         // Fetch FastSaleOrder using POST with order IDs
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines,Partner,Carrier`;
@@ -862,20 +872,8 @@ async function saveFastSaleOrders(isApprove = false) {
 
         console.log('[FAST-SALE] Request body:', requestBody);
 
-        // Call API - Use billTokenManager if configured, else default tokenManager
-        let headers;
-        let authSource = 'default';
-        if (window.billTokenManager?.hasCredentials()) {
-            const credInfo = window.billTokenManager.getCredentialsInfo();
-            const accountInfo = credInfo.type === 'password' ? credInfo.username : 'Bearer Token';
-            console.log(`[FAST-SALE] ✓ Using billTokenManager (${accountInfo})`);
-            authSource = `billTokenManager: ${accountInfo}`;
-            headers = await window.billTokenManager.getAuthHeader();
-        } else {
-            console.log('[FAST-SALE] Using default tokenManager (no billTokenManager credentials configured)');
-            headers = await window.tokenManager.getAuthHeader();
-        }
-        console.log(`[FAST-SALE] Auth source: ${authSource}`);
+        // MUST use billTokenManager - no fallback to default tokenManager
+        const headers = await getBillAuthHeader();
 
         // Use different endpoint based on isApprove
         // "Lưu xác nhận" uses isForce=true endpoint with is_approve: true
@@ -1326,13 +1324,8 @@ async function createForcedOrders() {
     const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.forced[i]);
 
     try {
-        // Use billTokenManager if configured, else default tokenManager
-        let headers;
-        if (window.billTokenManager?.hasCredentials()) {
-            headers = await window.billTokenManager.getAuthHeader();
-        } else {
-            headers = await window.tokenManager.getAuthHeader();
-        }
+        // MUST use billTokenManager - no fallback to default tokenManager
+        const headers = await getBillAuthHeader();
         // Use isForce=true query parameter for forced creation
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner),OrdersError($expand=Partner),OrdersSucessed($expand=Partner)`;
 
