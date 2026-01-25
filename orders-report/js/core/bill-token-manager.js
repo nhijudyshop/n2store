@@ -127,8 +127,9 @@ class BillTokenManager {
     /**
      * Save credentials to Firestore
      * @param {boolean} retry - Whether to retry if auth not ready
+     * @param {string} refreshToken - Optional refresh_token to save
      */
-    async saveToFirestore(retry = true) {
+    async saveToFirestore(retry = true, refreshToken = null) {
         if (!this.credentials) {
             console.warn('[BILL-TOKEN] No credentials to save');
             return false;
@@ -140,26 +141,29 @@ class BillTokenManager {
             // Schedule retry if auth not ready
             if (retry && !this._pendingSave) {
                 this._pendingSave = true;
+                this._pendingRefreshToken = refreshToken; // Store for retry
                 console.log('[BILL-TOKEN] Will retry save when auth is ready...');
                 setTimeout(() => {
                     this._pendingSave = false;
-                    this.saveToFirestore(false); // Don't retry again
+                    this.saveToFirestore(false, this._pendingRefreshToken);
                 }, 3000);
             }
             return false;
         }
 
         try {
-            // Include refresh_token if available
+            // Include refresh_token if available (from param or localStorage)
             const cachedToken = this.getCachedTokenData();
+            const tokenToSave = refreshToken || cachedToken?.refresh_token;
+
             const dataToSave = {
                 ...this.credentials,
                 updatedAt: Date.now()
             };
 
             // Save refresh_token to Firestore for persistence across sessions
-            if (cachedToken?.refresh_token) {
-                dataToSave.refresh_token = cachedToken.refresh_token;
+            if (tokenToSave) {
+                dataToSave.refresh_token = tokenToSave;
             }
 
             await ref.set({
@@ -168,7 +172,7 @@ class BillTokenManager {
 
             console.log('[BILL-TOKEN] ✅ Credentials saved to Firestore:',
                 this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
-                cachedToken?.refresh_token ? '(with refresh_token)' : '');
+                tokenToSave ? '(with refresh_token)' : '(no refresh_token)');
             return true;
         } catch (error) {
             console.error('[BILL-TOKEN] Error saving to Firestore:', error);
@@ -287,6 +291,10 @@ class BillTokenManager {
             updatedAt: Date.now()
         };
 
+        // Get cached token data BEFORE clearing (to preserve refresh_token)
+        const cachedToken = this.getCachedTokenData();
+        const refreshToken = cachedToken?.refresh_token;
+
         // Clear old token
         this.token = null;
         this.tokenExpiry = null;
@@ -295,8 +303,8 @@ class BillTokenManager {
         // Save to localStorage
         this.saveToStorage();
 
-        // Save to Firestore
-        await this.saveToFirestore();
+        // Save to Firestore (pass refresh_token explicitly)
+        await this.saveToFirestore(true, refreshToken);
 
         console.log('[BILL-TOKEN] Credentials updated');
     }
