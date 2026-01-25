@@ -534,7 +534,7 @@
      */
     async function confirmSendBillFromPreview() {
         if (!pendingSendData) {
-            window.notificationManager?.error('Không có dữ liệu để gửi', 'Lỗi');
+            window.notificationManager?.error('Không có dữ liệu để gửi', 5000);
             closeBillPreviewSendModal();
             return;
         }
@@ -553,12 +553,88 @@
             closeBillPreviewSendModal();
         } catch (error) {
             console.error('[INVOICE-STATUS] Error sending from preview:', error);
-            window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+            window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
 
             // Restore button
             if (sendBtn) {
                 sendBtn.disabled = false;
                 sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi bill';
+            }
+        }
+    }
+
+    /**
+     * Print bill from preview modal (only print, no send)
+     */
+    function printBillFromPreview() {
+        if (!pendingSendData) {
+            window.notificationManager?.error('Không có dữ liệu để in', 5000);
+            return;
+        }
+
+        const { enrichedOrder } = pendingSendData;
+
+        // Open print popup with current bill
+        if (typeof window.openCombinedPrintPopup === 'function') {
+            window.openCombinedPrintPopup([enrichedOrder]);
+            console.log('[INVOICE-STATUS] Opened print popup for bill');
+        } else {
+            window.notificationManager?.error('Không thể mở cửa sổ in', 5000);
+        }
+    }
+
+    /**
+     * Print and send bill from preview modal
+     */
+    async function printAndSendBillFromPreview() {
+        if (!pendingSendData) {
+            window.notificationManager?.error('Không có dữ liệu để in và gửi', 5000);
+            closeBillPreviewSendModal();
+            return;
+        }
+
+        const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } = pendingSendData;
+
+        // Disable buttons and show loading
+        const printSendBtn = document.getElementById('billPreviewPrintSendBtn');
+        const sendBtn = document.getElementById('billPreviewSendBtn');
+        const printBtn = document.getElementById('billPreviewPrintBtn');
+
+        if (printSendBtn) {
+            printSendBtn.disabled = true;
+            printSendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+        }
+        if (sendBtn) sendBtn.disabled = true;
+        if (printBtn) printBtn.disabled = true;
+
+        try {
+            // 1. Open print popup first
+            if (typeof window.openCombinedPrintPopup === 'function') {
+                window.openCombinedPrintPopup([enrichedOrder]);
+                console.log('[INVOICE-STATUS] Opened print popup for bill');
+            }
+
+            // 2. Send bill
+            await performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex);
+            closeBillPreviewSendModal();
+
+            window.notificationManager?.success('Đã in và gửi bill thành công', 3000);
+        } catch (error) {
+            console.error('[INVOICE-STATUS] Error printing and sending:', error);
+            window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
+
+            // Restore buttons
+            if (printSendBtn) {
+                printSendBtn.disabled = false;
+                printSendBtn.innerHTML = '<i class="fas fa-print"></i> In & Gửi';
+            }
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi bill';
+            }
+            if (printBtn) {
+                printBtn.disabled = false;
+                printBtn.innerHTML = '<i class="fas fa-print"></i> In bill';
             }
         }
     }
@@ -1102,6 +1178,8 @@
         window.showBillPreviewModal = showBillPreviewModal;
         window.closeBillPreviewSendModal = closeBillPreviewSendModal;
         window.confirmSendBillFromPreview = confirmSendBillFromPreview;
+        window.printBillFromPreview = printBillFromPreview;
+        window.printAndSendBillFromPreview = printAndSendBillFromPreview;
 
         // Hook showFastSaleResultsModal
         if (!hookShowFastSaleResultsModal()) {

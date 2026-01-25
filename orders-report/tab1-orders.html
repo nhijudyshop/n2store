@@ -3151,6 +3151,12 @@
             </div>
             <div class="merge-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
                 <button class="merge-btn-cancel" onclick="closeBillPreviewSendModal()"><i class="fas fa-times"></i> Hủy</button>
+                <button class="merge-btn-confirm" id="billPreviewPrintBtn" onclick="printBillFromPreview()" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                    <i class="fas fa-print"></i> In bill
+                </button>
+                <button class="merge-btn-confirm" id="billPreviewPrintSendBtn" onclick="printAndSendBillFromPreview()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    <i class="fas fa-print"></i> In & Gửi
+                </button>
                 <button class="merge-btn-confirm" id="billPreviewSendBtn" onclick="confirmSendBillFromPreview()" style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
                     <i class="fab fa-facebook-messenger"></i> Gửi bill
                 </button>
