@@ -411,9 +411,10 @@ class BillTokenManager {
      */
     async testCredentials() {
         try {
-            // Clear existing token to force fetch
+            // Clear existing token to force fetch (MUST clear localStorage too!)
             this.token = null;
             this.tokenExpiry = null;
+            localStorage.removeItem(this.tokenStorageKey); // Clear cached token including refresh_token
 
             await this.fetchToken();
             return { success: true, message: 'Xác thực thành công!' };
