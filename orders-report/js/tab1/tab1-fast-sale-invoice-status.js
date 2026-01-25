@@ -419,8 +419,9 @@
         // Show loading in container
         container.innerHTML = '<p style="color: #9ca3af; padding: 40px; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Đang tạo bill...</p>';
 
-        // Show modal
+        // Show modal (use both style and class for compatibility)
         modal.style.display = 'flex';
+        modal.classList.add('show');
 
         try {
             // Generate bill HTML
@@ -478,7 +479,22 @@
         const modal = document.getElementById('billPreviewSendModal');
         if (modal) {
             modal.style.display = 'none';
+            modal.classList.remove('show');
+            // Reset the container
+            const container = document.getElementById('billPreviewSendContainer');
+            if (container) {
+                container.innerHTML = '<p style="color: #9ca3af; padding: 40px; text-align: center;">Đang tạo bill...</p>';
+            }
         }
+        // Reset send button
+        const sendBtn = document.getElementById('billPreviewSendBtn');
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi bill';
+        }
+        // Remove any body scroll lock (in case it was added)
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
         pendingSendData = null;
     }
 
