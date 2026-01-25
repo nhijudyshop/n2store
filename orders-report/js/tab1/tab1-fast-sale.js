@@ -1918,6 +1918,7 @@ function previewBillTemplate() {
         Discount: 10000,
         Ship_Note: 'Gọi trước khi giao. Ship COD.',
         SessionIndex: '123',
+        UserName: 'nvkt', // Account tạo bill
         OrderLines: [
             { ProductName: 'Áo thun nam size L', Quantity: 2, PriceUnit: 150000 },
             { ProductName: 'Quần jean nữ size M', Quantity: 1, PriceUnit: 250000, Note: 'Màu xanh đậm' }
