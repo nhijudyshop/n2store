@@ -42,8 +42,13 @@
                 const saved = localStorage.getItem(STORAGE_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed.data)) {
-                        this._data = new Map(parsed.data);
+                    // Support both old array format and new object format
+                    if (parsed.data) {
+                        if (Array.isArray(parsed.data)) {
+                            this._data = new Map(parsed.data);
+                        } else {
+                            this._data = new Map(Object.entries(parsed.data));
+                        }
                     }
                     if (Array.isArray(parsed.sentBills)) {
                         this._sentBills = new Set(parsed.sentBills);
@@ -85,9 +90,11 @@
                 const firestoreData = doc.data();
 
                 // Merge data (newer timestamp wins)
-                if (firestoreData.data && Array.isArray(firestoreData.data)) {
-                    const firestoreMap = new Map(firestoreData.data);
-                    firestoreMap.forEach((value, key) => {
+                if (firestoreData.data) {
+                    const entries = Array.isArray(firestoreData.data)
+                        ? firestoreData.data
+                        : Object.entries(firestoreData.data);
+                    entries.forEach(([key, value]) => {
                         const localValue = this._data.get(key);
                         if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
                             this._data.set(key, value);
@@ -113,7 +120,7 @@
         _saveToLocalStorage() {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    data: Array.from(this._data.entries()),
+                    data: Object.fromEntries(this._data),
                     sentBills: Array.from(this._sentBills),
                     lastUpdated: Date.now()
                 }));
@@ -130,7 +137,7 @@
             this._syncTimeout = setTimeout(async () => {
                 try {
                     await this._getDocRef().set({
-                        data: Array.from(this._data.entries()),
+                        data: Object.fromEntries(this._data),
                         sentBills: Array.from(this._sentBills),
                         lastUpdated: Date.now()
                     }, { merge: true });
