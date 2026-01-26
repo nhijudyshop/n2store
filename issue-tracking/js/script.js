@@ -1131,6 +1131,10 @@ async function handleConfirmAction() {
                 showPrintDialog(result.printHtml);
             }
 
+            // Refresh UI to reflect status change (backup in case SSE is slow)
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
+            renderDashboard(activeTab);
+
         } else if (pendingActionType === 'PAY') {
             // PAY action: Just mark as completed (payment done externally)
             loadingId = notificationManager.loading('Đang cập nhật...', 'Xác nhận thanh toán');

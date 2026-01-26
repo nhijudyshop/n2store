@@ -291,7 +291,8 @@ router.patch('/:id', async (req, res) => {
             'status', 'priority', 'subject', 'description', 'products',
             'original_cod', 'new_cod', 'refund_amount', 'fix_cod_reason',
             'assigned_to', 'internal_note', 'received_at', 'settled_at',
-            'completed_at', 'carrier_deadline', 'virtual_credit_id'
+            'completed_at', 'carrier_deadline', 'virtual_credit_id',
+            'refund_order_id', 'refund_number'
         ];
 
         const setClauses = [];
