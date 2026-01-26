@@ -211,6 +211,11 @@ class PancakeTokenManager {
             // Load accounts and active account from Firestore (may update localStorage)
             await this.loadAccounts();
 
+            // Migrate from Realtime Database if Firestore is empty
+            if (Object.keys(this.accounts).length === 0) {
+                await this.migrateFromRealtimeDB();
+            }
+
             // Load page access tokens from Firestore (merge with localStorage)
             await this.loadPageAccessTokens();
 
@@ -280,6 +285,70 @@ class PancakeTokenManager {
             return true;
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error loading accounts:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Migrate data from Realtime Database to Firestore (one-time migration)
+     * Old path: pancake_jwt_tokens/accounts/{accountId}
+     * New path: Firestore pancake_tokens/accounts
+     */
+    async migrateFromRealtimeDB() {
+        try {
+            if (!window.firebase?.database) {
+                console.log('[PANCAKE-TOKEN] Realtime Database not available, skipping migration');
+                return false;
+            }
+
+            console.log('[PANCAKE-TOKEN] 🔄 Checking Realtime Database for migration...');
+
+            // Check old path: pancake_jwt_tokens/accounts
+            const rtdb = window.firebase.database();
+            const oldAccountsRef = rtdb.ref('pancake_jwt_tokens/accounts');
+            const snapshot = await oldAccountsRef.once('value');
+            const oldAccounts = snapshot.val();
+
+            if (!oldAccounts || Object.keys(oldAccounts).length === 0) {
+                console.log('[PANCAKE-TOKEN] No data in Realtime Database to migrate');
+                return false;
+            }
+
+            console.log('[PANCAKE-TOKEN] 📦 Found', Object.keys(oldAccounts).length, 'accounts in Realtime Database');
+
+            // Migrate to Firestore
+            this.accounts = oldAccounts;
+            if (this.accountsRef) {
+                await this.accountsRef.set({ data: oldAccounts }, { merge: true });
+                console.log('[PANCAKE-TOKEN] ✅ Migrated accounts to Firestore');
+            }
+
+            // Auto-select first account if no active account
+            if (!this.activeAccountId && Object.keys(oldAccounts).length > 0) {
+                const firstAccountId = Object.keys(oldAccounts)[0];
+                await this.setActiveAccount(firstAccountId);
+            }
+
+            // Migrate page_access_tokens if exists
+            const oldPageTokensRef = rtdb.ref('pancake_jwt_tokens/page_access_tokens');
+            const pageTokensSnapshot = await oldPageTokensRef.once('value');
+            const oldPageTokens = pageTokensSnapshot.val();
+
+            if (oldPageTokens && Object.keys(oldPageTokens).length > 0) {
+                console.log('[PANCAKE-TOKEN] 📦 Found', Object.keys(oldPageTokens).length, 'page tokens in Realtime Database');
+                this.pageAccessTokens = { ...this.pageAccessTokens, ...oldPageTokens };
+                if (this.pageTokensRef) {
+                    await this.pageTokensRef.set({ data: oldPageTokens }, { merge: true });
+                    console.log('[PANCAKE-TOKEN] ✅ Migrated page tokens to Firestore');
+                }
+                this.savePageAccessTokensToLocalStorage();
+            }
+
+            console.log('[PANCAKE-TOKEN] ✅ Migration from Realtime Database completed!');
+            return true;
+
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] ❌ Error migrating from Realtime Database:', error);
             return false;
         }
     }
