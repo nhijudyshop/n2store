@@ -1251,12 +1251,13 @@
                 if (statusResponse.ok) {
                     console.log(`[INVOICE-STATUS] ✅ Status updated to "Đơn hàng" for order ${saleOnlineId}`);
 
-                    // Update local data
+                    // Update local data using OrderStore.update()
+                    if (window.OrderStore) {
+                        window.OrderStore.update(saleOnlineId, { Status: 'order', StatusText: 'Đơn hàng' });
+                    }
+                    // Also update the order reference
                     order.Status = 'order';
                     order.StatusText = 'Đơn hàng';
-                    if (window.OrderStore) {
-                        window.OrderStore.set(saleOnlineId, order);
-                    }
 
                     // Update UI
                     const statusBadge = document.querySelector(`.status-badge[data-order-id="${saleOnlineId}"]`);
@@ -1314,7 +1315,7 @@
                     const newTagsJson = JSON.stringify(newOrderTags);
                     order.Tags = newTagsJson;
                     if (window.OrderStore) {
-                        window.OrderStore.set(saleOnlineId, order);
+                        window.OrderStore.update(saleOnlineId, { Tags: newTagsJson });
                     }
 
                     // Update UI - find the TAG cell and update it
