@@ -70,6 +70,55 @@ document.addEventListener('keydown', function (event) {
 // =====================================================
 
 let fastSaleOrdersData = [];
+let fastSaleWalletBalances = {}; // Store wallet balances by phone: { "0909999999": { balance: 200000, virtual_balance: 0 } }
+
+/**
+ * Fetch wallet balances for multiple phones (batch)
+ * @param {Array<string>} phones - Array of phone numbers
+ * @returns {Promise<Object>} Map of phone -> wallet data
+ */
+async function fetchWalletBalancesForFastSale(phones) {
+    if (!phones || phones.length === 0) return {};
+
+    // Normalize and dedupe phones
+    const uniquePhones = [...new Set(phones.filter(p => p).map(p => {
+        // Use same normalization as normalizePhoneForQR
+        let cleaned = String(p).replace(/\D/g, '');
+        if (cleaned.startsWith('84') && cleaned.length > 9) {
+            cleaned = '0' + cleaned.substring(2);
+        }
+        return cleaned;
+    }).filter(p => p.length >= 9))];
+
+    if (uniquePhones.length === 0) return {};
+
+    console.log(`[FAST-SALE] Fetching wallet balances for ${uniquePhones.length} phones...`);
+
+    try {
+        const response = await fetch(`${QR_API_URL}/api/wallet/batch-summary`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phones: uniquePhones })
+        });
+
+        if (!response.ok) {
+            console.error(`[FAST-SALE] Wallet batch API error: ${response.status}`);
+            return {};
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            console.log(`[FAST-SALE] ✅ Fetched wallet balances for ${Object.keys(result.data).length} phones`);
+            return result.data;
+        }
+
+        return {};
+    } catch (error) {
+        console.error('[FAST-SALE] Error fetching wallet balances:', error);
+        return {};
+    }
+}
 
 /**
  * Get TPOS account display for modal subtitle
@@ -123,6 +172,7 @@ async function showFastSaleModal() {
 
     // Reset state
     fastSaleOrdersData = [];
+    fastSaleWalletBalances = {};
 
     // Show modal with loading state
     modal.classList.add('show');
@@ -163,6 +213,19 @@ async function showFastSaleModal() {
             `;
             return;
         }
+
+        // Fetch wallet balances for all customer phones
+        const phones = fastSaleOrdersData.map(order => {
+            // Get phone from SaleOnlineOrder first
+            if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+                const saleOnlineId = order.SaleOnlineIds[0];
+                const saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
+                if (saleOnlineOrder?.Telephone) return saleOnlineOrder.Telephone;
+            }
+            return order.PartnerPhone || order.Partner?.PartnerPhone;
+        }).filter(Boolean);
+
+        fastSaleWalletBalances = await fetchWalletBalancesForFastSale(phones);
 
         // Render modal body
         renderFastSaleModalBody();
@@ -390,6 +453,21 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
     // Get phone from SaleOnlineOrder first, then fallback to FastSaleOrder
     const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || 'N/A';
 
+    // Get wallet balance for this customer
+    let walletBalance = 0;
+    let walletData = null;
+    if (customerPhone && customerPhone !== 'N/A') {
+        // Normalize phone for lookup
+        let normalizedPhone = String(customerPhone).replace(/\D/g, '');
+        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+            normalizedPhone = '0' + normalizedPhone.substring(2);
+        }
+        walletData = fastSaleWalletBalances[normalizedPhone];
+        if (walletData) {
+            walletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
+        }
+    }
+
     // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder
     const customerAddress = saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
 
@@ -424,6 +502,12 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                             <div style="display: flex; align-items: center; gap: 4px;">
                                 <i class="fas fa-phone" style="font-size: 10px; color: #9ca3af;"></i>
                                 <span style="font-size: 12px;">${customerPhone}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 4px;" title="Số dư ví khách hàng">
+                                <i class="fas fa-wallet" style="font-size: 10px; color: ${walletBalance > 0 ? '#10b981' : '#9ca3af'};"></i>
+                                <span style="font-size: 12px; color: ${walletBalance > 0 ? '#10b981' : '#6b7280'}; font-weight: ${walletBalance > 0 ? '600' : '400'};">
+                                    ${walletBalance > 0 ? walletBalance.toLocaleString('vi-VN') + 'đ' : '0đ'}
+                                </span>
                             </div>
                             ${order.ShowShipStatus ? `<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">Bom hàng</span>` : ''}
                             <div style="font-size: 12px; color: #6b7280;">
@@ -1094,6 +1178,93 @@ async function preGenerateBillImages() {
 }
 
 /**
+ * Process wallet withdrawals for successful orders
+ * Withdraws wallet balance for orders with COD payment
+ */
+async function processWalletWithdrawalsForSuccessOrders() {
+    const successOrders = fastSaleResultsData.success;
+    if (!successOrders || successOrders.length === 0) return;
+
+    console.log(`[FAST-SALE] Processing wallet withdrawals for ${successOrders.length} successful orders...`);
+
+    const performedBy = window.authManager?.getAuthState()?.username || 'system';
+    let withdrawCount = 0;
+    let withdrawTotal = 0;
+
+    for (const order of successOrders) {
+        try {
+            // Get phone number
+            const phone = order.Partner?.Phone || order.PartnerPhone;
+            if (!phone) continue;
+
+            // Normalize phone
+            let normalizedPhone = String(phone).replace(/\D/g, '');
+            if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+                normalizedPhone = '0' + normalizedPhone.substring(2);
+            }
+
+            // Check if customer has wallet balance
+            const walletData = fastSaleWalletBalances[normalizedPhone];
+            if (!walletData) continue;
+
+            const totalWalletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
+            if (totalWalletBalance <= 0) continue;
+
+            // Get COD amount (CashOnDelivery or AmountTotal)
+            const codAmount = parseFloat(order.CashOnDelivery) || parseFloat(order.AmountTotal) || 0;
+            if (codAmount <= 0) continue;
+
+            // Calculate how much to withdraw (min of wallet balance and COD amount)
+            const withdrawAmount = Math.min(totalWalletBalance, codAmount);
+            if (withdrawAmount <= 0) continue;
+
+            const orderNumber = order.Number || order.Code || order.Reference || 'N/A';
+
+            console.log(`[FAST-SALE] Withdrawing ${withdrawAmount} from wallet for order ${orderNumber}, phone: ${normalizedPhone}`);
+
+            // Call withdraw API
+            const response = await fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/withdraw`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: withdrawAmount,
+                    note: `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`,
+                    reference_id: orderNumber
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                console.log(`[FAST-SALE] ✅ Wallet withdraw successful for ${normalizedPhone}: ${withdrawAmount}`);
+                withdrawCount++;
+                withdrawTotal += withdrawAmount;
+
+                // Update local wallet balance cache
+                if (walletData) {
+                    const newBalance = (parseFloat(result.newBalance) || 0);
+                    const newVirtualBalance = (parseFloat(result.newVirtualBalance) || 0);
+                    fastSaleWalletBalances[normalizedPhone] = {
+                        balance: newBalance,
+                        virtualBalance: newVirtualBalance,
+                        total: newBalance + newVirtualBalance
+                    };
+                }
+            } else {
+                console.warn(`[FAST-SALE] Wallet withdraw failed for ${normalizedPhone}:`, result.error);
+            }
+        } catch (error) {
+            console.error('[FAST-SALE] Error withdrawing from wallet:', error);
+        }
+    }
+
+    if (withdrawCount > 0) {
+        console.log(`[FAST-SALE] ✅ Completed ${withdrawCount} wallet withdrawals, total: ${withdrawTotal.toLocaleString('vi-VN')}đ`);
+        window.notificationManager?.success(`Đã trừ công nợ ${withdrawCount} đơn, tổng: ${withdrawTotal.toLocaleString('vi-VN')}đ`);
+    }
+}
+
+/**
  * Show Fast Sale Results Modal
  * @param {Object} results - API response with OrdersSucessed, OrdersError, DataErrorFast
  */
@@ -1136,6 +1307,8 @@ function showFastSaleResultsModal(results) {
     // Pre-generate bill images in background (don't await - run async)
     if (fastSaleResultsData.success.length > 0) {
         setTimeout(() => preGenerateBillImages(), 100);
+        // Process wallet withdrawals for successful orders (async)
+        setTimeout(() => processWalletWithdrawalsForSuccessOrders(), 200);
     }
 }
 
