@@ -155,6 +155,7 @@
             if (!apiResult) return;
 
             const displayedData = window.displayedData || [];
+            const requestModels = window.lastFastSaleModels || [];
 
             // Helper: enrich order with SessionIndex from SaleOnlineOrder
             const enrichWithSessionIndex = (order) => {
@@ -169,10 +170,25 @@
                 return order;
             };
 
+            // Helper: get OrderLines from request model when response is empty
+            // TPOS API doesn't return OrderLines for successful orders, so we use the original request data
+            const enrichWithOrderLines = (order) => {
+                if (!order.OrderLines || order.OrderLines.length === 0) {
+                    // Find matching model from request by Reference
+                    const matchedModel = requestModels.find(m => m.Reference === order.Reference);
+                    if (matchedModel && matchedModel.OrderLines && matchedModel.OrderLines.length > 0) {
+                        order.OrderLines = matchedModel.OrderLines;
+                        console.log(`[INVOICE-STATUS] Enriched OrderLines for ${order.Reference} from request model`);
+                    }
+                }
+                return order;
+            };
+
             // Store successful orders
             if (apiResult.OrdersSucessed && Array.isArray(apiResult.OrdersSucessed)) {
                 apiResult.OrdersSucessed.forEach(order => {
                     enrichWithSessionIndex(order);
+                    enrichWithOrderLines(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             this.set(soId, order);
@@ -185,6 +201,7 @@
             if (apiResult.OrdersError && Array.isArray(apiResult.OrdersError)) {
                 apiResult.OrdersError.forEach(order => {
                     enrichWithSessionIndex(order);
+                    enrichWithOrderLines(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             this.set(soId, order);

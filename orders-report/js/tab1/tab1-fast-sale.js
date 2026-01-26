@@ -872,6 +872,9 @@ async function saveFastSaleOrders(isApprove = false) {
 
         console.log('[FAST-SALE] Request body:', requestBody);
 
+        // Store models for later use (to get OrderLines when API response is empty)
+        window.lastFastSaleModels = models;
+
         // MUST use billTokenManager - no fallback to default tokenManager
         const headers = await getBillAuthHeader();
 
@@ -1322,6 +1325,9 @@ async function createForcedOrders() {
     }
 
     const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.forced[i]);
+
+    // Store models for later use (to get OrderLines when API response is empty)
+    window.lastFastSaleModels = selectedOrders;
 
     try {
         // MUST use billTokenManager - no fallback to default tokenManager
