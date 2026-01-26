@@ -2445,6 +2445,50 @@ class PancakeDataManager {
             const data = await response.json();
             console.log('[PANCAKE] Upload response:', JSON.stringify(data, null, 2));
 
+            // Handle session expired error (error_code 103) - retry with fresh token
+            if (data.error_code === 103 || data.message?.includes('session expired')) {
+                console.warn('[PANCAKE] ⚠️ Session expired, clearing token and retrying...');
+                // Clear cached token
+                if (window.pancakeTokenManager) {
+                    window.pancakeTokenManager.clearTokenFromLocalStorage();
+                    window.pancakeTokenManager._jwtToken = null;
+                    window.pancakeTokenManager._jwtExpiry = null;
+                }
+                // Retry once with fresh token
+                const newAccessToken = await this.getToken();
+                if (newAccessToken) {
+                    const retryUrl = window.API_CONFIG.buildUrl.pancake(
+                        `pages/${pageId}/contents`,
+                        `access_token=${newAccessToken}`
+                    );
+                    const retryFormData = new FormData();
+                    retryFormData.append('file', file, file.name || 'image.jpg');
+                    console.log('[PANCAKE] 🔄 Retrying upload with fresh token...');
+                    const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
+                        method: 'POST',
+                        body: retryFormData
+                    }, 3, true);
+                    if (retryResponse.ok) {
+                        const retryData = await retryResponse.json();
+                        console.log('[PANCAKE] Retry response:', JSON.stringify(retryData, null, 2));
+                        if (retryData.data?.[0]?.id) {
+                            const retryContentData = retryData.data[0];
+                            return {
+                                content_url: retryContentData.content_url || null,
+                                content_id: retryContentData.id,
+                                id: retryContentData.id,
+                                content_preview_url: retryContentData.content_preview_url || null,
+                                fb_id: retryContentData.fb_id || null,
+                                width: retryContentData.image_data?.width || null,
+                                height: retryContentData.image_data?.height || null
+                            };
+                        }
+                    }
+                }
+                pancakeError = new Error('Session expired and retry failed');
+                throw pancakeError;
+            }
+
             // Pancake API response format (wrapped in data array):
             // {
             //   "data": [{
