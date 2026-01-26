@@ -984,14 +984,13 @@ async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
     try {
         console.log('[SALE-CONFIRM] Fetching HTML bill for order:', orderId);
 
-        // Fetch HTML bill from TPOS API
-        const printUrl = `https://tomato.tpos.vn/fastsaleorder/print1?ids=${orderId}`;
-        const response = await fetch(printUrl, {
+        // Fetch HTML bill from TPOS API via proxy (to avoid CORS and auto-print)
+        const printUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/print1?ids=${orderId}`;
+        const response = await API_CONFIG.smartFetch(printUrl, {
             method: 'GET',
             headers: {
                 ...headers,
-                'accept': 'application/json, text/javascript, */*; q=0.01',
-                'x-requested-with': 'XMLHttpRequest'
+                'accept': 'application/json, text/javascript, */*; q=0.01'
             }
         });
 
