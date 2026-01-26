@@ -2026,6 +2026,38 @@ window.resetBillTemplateSettings = resetBillTemplateSettings;
 window.previewBillTemplate = previewBillTemplate;
 window.getBillTemplateSettings = getBillTemplateSettings;
 
+/**
+ * Open bill settings from preview modal
+ * Opens settings modal on top of preview, refreshes preview after save
+ */
+window.openBillSettingsFromPreview = function() {
+    // Mark that settings was opened from preview
+    window._billSettingsOpenedFromPreview = true;
+    openBillTemplateSettings();
+};
+
+// Override saveBillTemplateSettings to refresh preview if opened from preview
+const originalSaveBillTemplateSettings = saveBillTemplateSettings;
+window.saveBillTemplateSettings = async function() {
+    await originalSaveBillTemplateSettings();
+
+    // If settings was opened from preview, refresh the preview
+    if (window._billSettingsOpenedFromPreview) {
+        window._billSettingsOpenedFromPreview = false;
+        // Refresh preview if modal is still open
+        const previewModal = document.getElementById('billPreviewSendModal');
+        if (previewModal && previewModal.style.display === 'flex') {
+            // Re-render bill with new settings
+            if (window._currentBillPreviewOrder) {
+                const container = document.getElementById('billPreviewSendContainer');
+                if (container && window.billService) {
+                    container.innerHTML = await window.billService.generateBillHTML(window._currentBillPreviewOrder);
+                }
+            }
+        }
+    }
+};
+
 // #endregion BILL TEMPLATE SETTINGS
 
 // #region TPOS ACCOUNT SETTINGS
