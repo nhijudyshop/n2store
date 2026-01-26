@@ -753,6 +753,21 @@ const BillService = (function () {
                 }
             }
 
+            // If still not found, try to search for conversation by PSID (auto-fetch on demand)
+            if (!convId && window.pancakeDataManager) {
+                console.log('[BILL-SERVICE] Conversation not in cache, searching by PSID:', psid);
+                try {
+                    const searchResult = await window.pancakeDataManager.searchConversations(psid, [pageId]);
+                    if (searchResult?.conversations?.length > 0) {
+                        const foundConv = searchResult.conversations[0];
+                        convId = foundConv.id;
+                        console.log('[BILL-SERVICE] Found conversation via search:', convId);
+                    }
+                } catch (searchError) {
+                    console.warn('[BILL-SERVICE] Search failed:', searchError.message);
+                }
+            }
+
             // No fallback - must have real conversation ID from Pancake
             if (!convId) {
                 console.warn('[BILL-SERVICE] No conversation ID found for PSID:', psid);
