@@ -132,16 +132,17 @@ async function fetchDebtForPhone(phone) {
     if (!normalizedPhone) return 0;
 
     try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        // Use wallet balance API instead of debt-summary
+        const response = await fetch(`${QR_API_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
-        if (result.success && result.data) {
-            const totalDebt = result.data.total_debt || 0;
-            saveDebtToCache(normalizedPhone, totalDebt);
-            return totalDebt;
+        if (result.success) {
+            const totalBalance = result.balance || 0;
+            saveDebtToCache(normalizedPhone, totalBalance);
+            return totalBalance;
         }
     } catch (error) {
-        console.error('[DEBT] Error fetching:', error);
+        console.error('[WALLET] Error fetching balance:', error);
     }
 
     return 0;

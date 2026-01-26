@@ -4363,25 +4363,24 @@ async function showDebtForPhone(phone) {
             window.NotificationManager.showNotification(`Đang tải công nợ cho ${phone}...`, 'info');
         }
 
-        // Fetch debt from API using existing debt-summary endpoint
-        const response = await fetch(`${API_BASE_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(phone)}`);
+        // Fetch balance from wallet API
+        const response = await fetch(`${API_BASE_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(phone)}`);
         const result = await response.json();
 
         if (!result.success) {
-            throw new Error(result.error || 'Không thể tải công nợ');
+            throw new Error(result.error || 'Không thể tải số dư ví');
         }
 
-        const debt = result.total_debt || 0;
-        const transactionCount = result.transactions?.length || 0;
+        const balance = result.balance || 0;
 
         // Format currency
-        const debtFormatted = new Intl.NumberFormat('vi-VN', {
+        const balanceFormatted = new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND'
-        }).format(debt);
+        }).format(balance);
 
         // Show result
-        const message = `📱 SĐT: ${phone}\n💰 Công nợ: ${debtFormatted}\n📊 Số giao dịch: ${transactionCount}`;
+        const message = `📱 SĐT: ${phone}\n💰 Số dư ví: ${balanceFormatted}`;
 
         if (window.NotificationManager) {
             window.NotificationManager.showNotification(message, 'success');
