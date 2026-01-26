@@ -725,7 +725,9 @@ function buildSaleOrderModelForInsertList() {
 
     const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
     const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
-    const cashOnDelivery = prepaidAmount < codValue ? (codValue - prepaidAmount) : 0;
+    // Get remaining balance from span (not input) - parse number from text like "280.000" or "280,000"
+    const remainingText = document.getElementById('saleRemainingBalance')?.textContent || '0';
+    const cashOnDelivery = parseFloat(remainingText.replace(/[.,]/g, '')) || 0;
 
     // Get carrier
     const carrierSelect = document.getElementById('saleDeliveryPartner');
@@ -830,7 +832,7 @@ function buildSaleOrderModelForInsertList() {
         AmountTotalSigned: null,
         ResidualSigned: null,
         Origin: null,
-        AmountDeposit: 0,
+        AmountDeposit: prepaidAmount,
         CompanyName: null,
         PreviousBalance: null,
         ToPay: null,
