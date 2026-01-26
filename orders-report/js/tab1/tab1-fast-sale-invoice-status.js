@@ -71,12 +71,14 @@
         },
 
         /**
-         * Get Firestore doc reference (same pattern as other tab1 modules)
+         * Get Firestore doc reference - uses username for cross-device sync
          */
         _getDocRef() {
             const db = firebase.firestore();
-            const userId = window.campaignManager?.currentUserId || 'default';
-            return db.collection(FIRESTORE_COLLECTION).doc(userId);
+            // Use actual username (not random user_xxx) for cross-device sync
+            const authState = window.authManager?.getAuthState();
+            const username = authState?.username || authState?.userType?.split('-')[0] || 'default';
+            return db.collection(FIRESTORE_COLLECTION).doc(username);
         },
 
         /**
