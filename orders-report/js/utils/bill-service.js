@@ -776,27 +776,38 @@ const BillService = (function () {
                 };
             }
 
-            // Send via Pancake API (use same method as chat modal)
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
-            if (!pageAccessToken) {
-                throw new Error('No page_access_token available. Vui lòng vào Pancake Settings → Tools để tạo token.');
+            // Send via Internal API (pancake.vn) with FormData - same as chat modal for images
+            // Ref: tab1-chat.js line 4148-4176
+            const accessToken = await window.pancakeDataManager?.getToken();
+            if (!accessToken) {
+                throw new Error('No Pancake access_token available. Vui lòng đăng nhập Pancake.');
             }
 
-            const sendResponse = await fetch(
-                `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${convId}/messages?page_access_token=${pageAccessToken}`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: 'reply_inbox',
-                        message: `📋 Phiếu bán hàng #${orderResult?.Number || ''}`,
-                        ...(contentId ? { content_ids: [contentId], attachment_type: 'PHOTO' } : {})
-                    })
-                }
-            );
+            // Build URL using Internal API (pancake.vn)
+            const sendUrl = window.API_CONFIG?.buildUrl?.pancake
+                ? window.API_CONFIG.buildUrl.pancake(
+                    `pages/${pageId}/conversations/${convId}/messages`,
+                    `access_token=${accessToken}`
+                )
+                : `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
+
+            // Build FormData - same format as chat modal
+            const formData = new FormData();
+            formData.append('action', 'reply_inbox');
+            formData.append('message', `📋 Phiếu bán hàng #${orderResult?.Number || ''}`);
+            formData.append('content_id', contentId || '');
+            formData.append('content_url', contentUrl || '');
+            formData.append('send_by_platform', 'web');
+
+            console.log('[BILL-SERVICE] Sending via Internal API (pancake.vn)');
+            console.log('[BILL-SERVICE] URL:', sendUrl.replace(/access_token=[^&]+/, 'access_token=***'));
+            console.log('[BILL-SERVICE] content_id:', contentId);
+
+            const sendResponse = await fetch(sendUrl, {
+                method: 'POST',
+                body: formData
+                // Don't set Content-Type header - browser will set it with boundary
+            });
 
             if (!sendResponse.ok) {
                 const errorText = await sendResponse.text();
