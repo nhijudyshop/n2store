@@ -737,34 +737,33 @@ const BillService = (function () {
             // Step 3: Send message with image via Pancake API
             console.log('[BILL-SERVICE] Step 3: Sending message with image...');
 
-            // Get conversation ID - try multiple sources
-            const currentSaleOrderData = options.currentSaleOrderData || null;
-            let convId = currentSaleOrderData?.Facebook_ConversationId ||
-                currentSaleOrderData?.Conversation_Id ||
-                currentSaleOrderData?.ConversationId;
+            // Get conversation ID - same logic as chat modal (openChatModal)
+            // Uses fetchConversationsByCustomerFbId to ensure we get real conversation data
+            let convId = null;
 
-            // Try to get conversation from Pancake conversations map by PSID
-            // Same logic as "Tin nhắn" column uses
-            if (!convId && window.pancakeDataManager) {
-                const pancakeConv = window.pancakeDataManager.getConversationByUserId(psid);
-                if (pancakeConv && pancakeConv.id) {
-                    convId = pancakeConv.id;
-                    console.log('[BILL-SERVICE] Got conversation ID from Pancake map:', convId);
-                }
-            }
-
-            // If still not found, try to search for conversation by PSID (auto-fetch on demand)
-            if (!convId && window.pancakeDataManager) {
-                console.log('[BILL-SERVICE] Conversation not in cache, searching by PSID:', psid);
+            if (window.pancakeDataManager) {
+                console.log('[BILL-SERVICE] Fetching conversation by customer fb_id:', psid, 'pageId:', pageId);
                 try {
-                    const searchResult = await window.pancakeDataManager.searchConversations(psid, [pageId]);
-                    if (searchResult?.conversations?.length > 0) {
-                        const foundConv = searchResult.conversations[0];
-                        convId = foundConv.id;
-                        console.log('[BILL-SERVICE] Found conversation via search:', convId);
+                    // Same method as chat modal uses in tab1-chat.js line 1888
+                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(pageId, psid);
+
+                    if (result.success && result.conversations?.length > 0) {
+                        // Filter INBOX conversations (same as chat modal)
+                        const inboxConversations = result.conversations.filter(conv => conv.type === 'INBOX');
+
+                        if (inboxConversations.length > 0) {
+                            convId = inboxConversations[0].id;
+                            console.log('[BILL-SERVICE] ✅ Got INBOX conversation ID:', convId);
+                        } else {
+                            // Fallback to first conversation if no INBOX found
+                            convId = result.conversations[0].id;
+                            console.log('[BILL-SERVICE] ✅ Got conversation ID (fallback):', convId);
+                        }
+                    } else {
+                        console.warn('[BILL-SERVICE] No conversations found for customer');
                     }
-                } catch (searchError) {
-                    console.warn('[BILL-SERVICE] Search failed:', searchError.message);
+                } catch (fetchError) {
+                    console.error('[BILL-SERVICE] Error fetching conversation:', fetchError.message);
                 }
             }
 
@@ -773,7 +772,7 @@ const BillService = (function () {
                 console.warn('[BILL-SERVICE] No conversation ID found for PSID:', psid);
                 return {
                     success: false,
-                    error: 'Không tìm thấy conversation. Vui lòng mở cột Tin nhắn hoặc tải lại Pancake data.'
+                    error: 'Không tìm thấy conversation. Khách hàng chưa có tin nhắn với page này.'
                 };
             }
 
