@@ -641,23 +641,22 @@ async function confirmAndPrintSale() {
                     updateSaleCOD();
                 }
 
-                // Record payment via wallet deposit API
-                // When customer pays debt via COD, we add to their wallet balance (reduces debt)
+                // Record payment via wallet withdraw API
+                // When customer pays debt via COD, withdraw from their wallet to reduce debt
                 const performedBy = window.authManager?.getAuthState()?.username || 'system';
                 const normalizedPhone = normalizePhoneForQR(customerPhone);
 
-                fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/deposit`, {
+                fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/withdraw`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         amount: actualPayment,
-                        source: 'ORDER_PAYMENT',
                         note: `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`,
-                        created_by: performedBy
+                        reference_id: orderNumber
                     })
                 }).then(res => res.json()).then(debtResult => {
                     if (debtResult.success) {
-                        console.log('[SALE-CONFIRM] ✅ Wallet deposit recorded:', actualPayment);
+                        console.log('[SALE-CONFIRM] ✅ Debt payment recorded (withdraw):', actualPayment, 'newBalance:', debtResult.newBalance);
                         if (normalizedPhone) {
                             const cache = getDebtCache();
                             delete cache[normalizedPhone];
@@ -665,9 +664,9 @@ async function confirmAndPrintSale() {
                             updateDebtCellsInTable(normalizedPhone, remainingDebt);
                         }
                     } else {
-                        console.warn('[SALE-CONFIRM] Wallet deposit failed:', debtResult.error);
+                        console.warn('[SALE-CONFIRM] Debt payment (withdraw) failed:', debtResult.error);
                     }
-                }).catch(err => console.error('[SALE-CONFIRM] Error depositing to wallet:', err));
+                }).catch(err => console.error('[SALE-CONFIRM] Error withdrawing from wallet:', err));
             }
         }
 
