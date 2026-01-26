@@ -536,13 +536,14 @@ class PancakeDataManager {
             const url = window.API_CONFIG.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
 
             // Use queuedFetch with deduplication key
+            // Don't use dedupeKey - Response objects can only be read once
             const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 }
-            }, 'fetchPagesWithUnreadCount');
+            }, null);
 
             console.log('[PANCAKE] Unread pages response status:', response.status);
 
