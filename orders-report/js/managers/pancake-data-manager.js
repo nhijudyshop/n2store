@@ -2443,7 +2443,7 @@ class PancakeDataManager {
             }
 
             const data = await response.json();
-            console.log('[PANCAKE] Upload response:', data);
+            console.log('[PANCAKE] Upload response:', JSON.stringify(data, null, 2));
 
             // Pancake API response format (wrapped in data array):
             // {
@@ -2470,7 +2470,8 @@ class PancakeDataManager {
 
             // Validate response
             if (!result.content_id) {
-                console.error('[PANCAKE] ❌ Upload response missing content_id:', data);
+                console.error('[PANCAKE] ❌ Upload response missing content_id. Full response:', JSON.stringify(data, null, 2));
+                console.error('[PANCAKE] contentData parsed:', JSON.stringify(contentData, null, 2));
                 pancakeError = new Error('Upload response missing content_id');
                 throw pancakeError;
             }
