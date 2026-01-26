@@ -102,6 +102,7 @@ export function matchRoute(pathname) {
     // Customer 360 v2 routes (match FIRST before v1)
     if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';
     if (pathname.startsWith('/api/v2/wallets/') || pathname === '/api/v2/wallets') return 'WALLETS_V2';
+    if (pathname.startsWith('/api/v2/wallet/')) return 'WALLETS_V2'; // Singular alias
     if (pathname.startsWith('/api/v2/tickets/') || pathname === '/api/v2/tickets') return 'TICKETS_V2';
     if (pathname.startsWith('/api/v2/balance-history/')) return 'BALANCE_HISTORY_V2';
     if (pathname.startsWith('/api/v2/analytics/') || pathname === '/api/v2/analytics') return 'ANALYTICS_V2';
