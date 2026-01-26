@@ -2335,6 +2335,88 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Page Access Tokens Section -->
+                <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                            <i class="fas fa-key"></i> Page Access Tokens
+                        </h4>
+                        <button onclick="showAddPageTokenForm()"
+                            style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                            <i class="fas fa-plus"></i> Thêm Page Token
+                        </button>
+                    </div>
+
+                    <!-- Page Tokens List -->
+                    <div id="pageAccessTokensList"
+                        style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
+                        <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                            <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
+                            <div>Chưa có page token nào</div>
+                            <div style="font-size: 11px; margin-top: 4px;">Page token giúp gửi tin nhắn không bị giới hạn rate limit</div>
+                        </div>
+                    </div>
+
+                    <!-- Add Page Token Form (Hidden by default) -->
+                    <div id="addPageTokenForm"
+                        style="display: none; padding: 16px; background: #faf5ff; border-radius: 8px; border: 2px solid #8b5cf6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 14px; color: #374151;">
+                                <i class="fas fa-plus-circle"></i> Thêm Page Access Token
+                            </h4>
+                            <button onclick="hideAddPageTokenForm()"
+                                style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <!-- Page Selector -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                Chọn Page:
+                            </label>
+                            <select id="pageTokenPageSelector"
+                                style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                                <option value="">-- Đang tải pages... --</option>
+                            </select>
+                        </div>
+
+                        <!-- Token Input -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                Page Access Token:
+                            </label>
+                            <textarea id="newPageAccessTokenInput" placeholder="Paste page_access_token vào đây..."
+                                style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                            <div id="pageTokenValidationMessage" style="margin-top: 6px; font-size: 11px; display: none;"></div>
+                        </div>
+
+                        <!-- Instructions -->
+                        <div style="padding: 10px; background: #f3e8ff; border-left: 3px solid #8b5cf6; border-radius: 4px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #6b21a8; font-weight: 500; margin-bottom: 6px;">
+                                📋 Cách lấy Page Access Token:
+                            </div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #6b21a8;">
+                                <li>Vào <a href="https://pancake.vn" target="_blank" style="color: #7c3aed;">Pancake</a> → Chọn Page</li>
+                                <li>Vào Settings → Tools → API</li>
+                                <li>Copy "Page Access Token"</li>
+                            </ol>
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="generatePageTokenFromAPI()"
+                                style="flex: 1; padding: 8px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-magic"></i> Tự động tạo
+                            </button>
+                            <button onclick="addPageAccessTokenManual()"
+                                style="flex: 1; padding: 8px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-save"></i> Lưu Token
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="tag-modal-footer">
                 <button class="tag-btn-cancel" onclick="closePancakeSettingsModal()">

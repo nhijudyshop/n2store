@@ -1202,7 +1202,8 @@ class PancakeTokenManager {
         return Object.entries(this.pageAccessTokens).map(([pageId, data]) => ({
             pageId,
             pageName: data.pageName || pageId,
-            savedAt: data.savedAt ? new Date(data.savedAt).toLocaleString() : 'N/A',
+            token: data.token || null,
+            savedAt: data.savedAt || null,
             hasToken: !!data.token
         }));
     }

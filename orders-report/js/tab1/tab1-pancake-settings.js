@@ -907,4 +907,267 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+// ====== PAGE ACCESS TOKEN MANAGEMENT ======
+
+// Show Add Page Token Form
+window.showAddPageTokenForm = async function() {
+    document.getElementById('addPageTokenForm').style.display = 'block';
+    document.getElementById('newPageAccessTokenInput').value = '';
+    document.getElementById('pageTokenValidationMessage').style.display = 'none';
+
+    // Load pages to selector
+    await loadPagesToSelector();
+};
+
+// Hide Add Page Token Form
+window.hideAddPageTokenForm = function() {
+    document.getElementById('addPageTokenForm').style.display = 'none';
+    document.getElementById('newPageAccessTokenInput').value = '';
+    document.getElementById('pageTokenValidationMessage').style.display = 'none';
+};
+
+// Load pages to selector dropdown
+async function loadPagesToSelector() {
+    const selector = document.getElementById('pageTokenPageSelector');
+    if (!selector) return;
+
+    selector.innerHTML = '<option value="">-- Đang tải pages... --</option>';
+
+    try {
+        if (!window.pancakeDataManager) {
+            throw new Error('PancakeDataManager not available');
+        }
+
+        // Fetch pages from Pancake
+        const pages = await window.pancakeDataManager.fetchPages(true);
+
+        if (!pages || pages.length === 0) {
+            selector.innerHTML = '<option value="">-- Không có page nào --</option>';
+            return;
+        }
+
+        let options = '<option value="">-- Chọn page --</option>';
+        pages.forEach(page => {
+            options += `<option value="${page.id}" data-name="${page.name}">${page.name} (${page.id})</option>`;
+        });
+        selector.innerHTML = options;
+
+        console.log('[PAGE-TOKEN] Loaded', pages.length, 'pages to selector');
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error loading pages:', error);
+        selector.innerHTML = '<option value="">-- Lỗi tải pages --</option>';
+    }
+}
+
+// Generate page token from API
+window.generatePageTokenFromAPI = async function() {
+    try {
+        const selector = document.getElementById('pageTokenPageSelector');
+        const pageId = selector.value;
+
+        if (!pageId) {
+            throw new Error('Vui lòng chọn page trước');
+        }
+
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const pageName = selector.options[selector.selectedIndex].dataset.name || '';
+
+        // Show loading
+        const messageDiv = document.getElementById('pageTokenValidationMessage');
+        messageDiv.innerHTML = '<span style="color: #3b82f6;"><i class="fas fa-spinner fa-spin"></i> Đang tạo token...</span>';
+        messageDiv.style.display = 'block';
+
+        // Generate token via API
+        const newToken = await window.pancakeTokenManager.generatePageAccessToken(pageId);
+
+        if (newToken) {
+            // Show in textarea
+            document.getElementById('newPageAccessTokenInput').value = newToken;
+            messageDiv.innerHTML = '<span style="color: #10b981;">✅ Token đã được tạo và lưu tự động!</span>';
+
+            // Refresh list
+            await refreshPageTokensList();
+
+            if (window.notificationManager) {
+                window.notificationManager.show('✅ Đã tạo Page Access Token!', 'success');
+            }
+        } else {
+            throw new Error('Không thể tạo token. Kiểm tra quyền admin của account.');
+        }
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error generating token:', error);
+        const messageDiv = document.getElementById('pageTokenValidationMessage');
+        messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Lỗi: ${error.message}</span>`;
+        messageDiv.style.display = 'block';
+
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ ' + error.message, 'error');
+        }
+    }
+};
+
+// Add page access token manually
+window.addPageAccessTokenManual = async function() {
+    try {
+        const selector = document.getElementById('pageTokenPageSelector');
+        const pageId = selector.value;
+        const token = document.getElementById('newPageAccessTokenInput').value.trim();
+
+        if (!pageId) {
+            throw new Error('Vui lòng chọn page');
+        }
+
+        if (!token) {
+            throw new Error('Vui lòng nhập Page Access Token');
+        }
+
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const pageName = selector.options[selector.selectedIndex].dataset.name || '';
+
+        // Save token
+        const success = await window.pancakeTokenManager.savePageAccessToken(pageId, token, pageName);
+
+        if (success) {
+            const messageDiv = document.getElementById('pageTokenValidationMessage');
+            messageDiv.innerHTML = '<span style="color: #10b981;">✅ Token đã được lưu!</span>';
+            messageDiv.style.display = 'block';
+
+            // Refresh list and hide form
+            await refreshPageTokensList();
+            setTimeout(() => window.hideAddPageTokenForm(), 1500);
+
+            if (window.notificationManager) {
+                window.notificationManager.show('✅ Đã lưu Page Access Token!', 'success');
+            }
+        } else {
+            throw new Error('Không thể lưu token');
+        }
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error saving token:', error);
+        const messageDiv = document.getElementById('pageTokenValidationMessage');
+        messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Lỗi: ${error.message}</span>`;
+        messageDiv.style.display = 'block';
+
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ ' + error.message, 'error');
+        }
+    }
+};
+
+// Refresh page tokens list
+window.refreshPageTokensList = async function() {
+    const listDiv = document.getElementById('pageAccessTokensList');
+    if (!listDiv) return;
+
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const tokens = window.pancakeTokenManager.getAllPageAccessTokens();
+
+        if (!tokens || tokens.length === 0) {
+            listDiv.innerHTML = `
+                <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                    <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
+                    <div>Chưa có page token nào</div>
+                    <div style="font-size: 11px; margin-top: 4px;">Page token giúp gửi tin nhắn không bị giới hạn rate limit</div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        tokens.forEach(item => {
+            const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleDateString('vi-VN') : 'N/A';
+            const tokenPreview = item.token ? (item.token.substring(0, 20) + '...') : 'N/A';
+
+            html += `
+                <div style="padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 4px;">
+                                <i class="fas fa-file-alt" style="color: #8b5cf6;"></i>
+                                ${item.pageName || 'Page ' + item.pageId}
+                            </div>
+                            <div style="font-size: 11px; color: #6b7280; font-family: monospace;">
+                                ID: ${item.pageId}
+                            </div>
+                            <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">
+                                Token: ${tokenPreview} | Lưu: ${savedDate}
+                            </div>
+                        </div>
+                        <button onclick="deletePageAccessToken('${item.pageId}')"
+                            style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        listDiv.innerHTML = html;
+        console.log('[PAGE-TOKEN] Displayed', tokens.length, 'page tokens');
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error refreshing page tokens list:', error);
+        listDiv.innerHTML = `
+            <div style="text-align: center; color: #ef4444; padding: 20px;">
+                <i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 8px;"></i>
+                <div>Lỗi: ${error.message}</div>
+            </div>
+        `;
+    }
+};
+
+// Delete page access token
+window.deletePageAccessToken = async function(pageId) {
+    if (!confirm('Bạn có chắc muốn xóa Page Access Token này?')) {
+        return;
+    }
+
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        // Remove from pageAccessTokens
+        delete window.pancakeTokenManager.pageAccessTokens[pageId];
+
+        // Save to storage
+        await window.pancakeTokenManager.savePageAccessTokensToStorage();
+
+        // Sync to Firebase if available
+        if (window.pancakeTokenManager.pageTokensRef) {
+            await window.pancakeTokenManager.pageTokensRef.set({
+                data: window.pancakeTokenManager.pageAccessTokens
+            }, { merge: true });
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã xóa Page Access Token!', 'success');
+        }
+
+        // Refresh list
+        await refreshPageTokensList();
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error deleting token:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+        }
+    }
+};
+
+// Update openPancakeSettingsModal to also refresh page tokens list
+const originalOpenPancakeSettingsModal = window.openPancakeSettingsModal;
+window.openPancakeSettingsModal = async function() {
+    await originalOpenPancakeSettingsModal();
+    await window.refreshPageTokensList();
+};
+
 console.log('[TAB1-PANCAKE-SETTINGS] Module loaded');
