@@ -641,26 +641,23 @@ async function confirmAndPrintSale() {
                     updateSaleCOD();
                 }
 
-                // Record payment via wallet manual-adjustment API (subtract = reduce debt)
-                // When customer pays debt via COD, we subtract from their debt (add to their balance)
-                const customerName = document.getElementById('saleReceiverName')?.value || currentSaleOrderData?.PartnerName || '';
+                // Record payment via wallet deposit API
+                // When customer pays debt via COD, we add to their wallet balance (reduces debt)
                 const performedBy = window.authManager?.getAuthState()?.username || 'system';
+                const normalizedPhone = normalizePhoneForQR(customerPhone);
 
-                fetch(`${QR_API_URL}/api/v2/wallet/manual-adjustment`, {
+                fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/deposit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        phone: customerPhone,
-                        customer_name: customerName,
-                        type: 'add', // Add to balance = reduce debt
                         amount: actualPayment,
-                        reason: `Thanh toán công nợ qua đơn hàng #${orderNumber}`,
-                        performed_by: performedBy
+                        source: 'COD_PAYMENT',
+                        note: `Thanh toán công nợ qua đơn hàng #${orderNumber}`,
+                        created_by: performedBy
                     })
                 }).then(res => res.json()).then(debtResult => {
                     if (debtResult.success) {
-                        console.log('[SALE-CONFIRM] ✅ Wallet adjusted, payment recorded:', actualPayment);
-                        const normalizedPhone = normalizePhoneForQR(customerPhone);
+                        console.log('[SALE-CONFIRM] ✅ Wallet deposit recorded:', actualPayment);
                         if (normalizedPhone) {
                             const cache = getDebtCache();
                             delete cache[normalizedPhone];
@@ -668,9 +665,9 @@ async function confirmAndPrintSale() {
                             updateDebtCellsInTable(normalizedPhone, remainingDebt);
                         }
                     } else {
-                        console.warn('[SALE-CONFIRM] Wallet adjustment failed:', debtResult.error);
+                        console.warn('[SALE-CONFIRM] Wallet deposit failed:', debtResult.error);
                     }
-                }).catch(err => console.error('[SALE-CONFIRM] Error adjusting wallet:', err));
+                }).catch(err => console.error('[SALE-CONFIRM] Error depositing to wallet:', err));
             }
         }
 
