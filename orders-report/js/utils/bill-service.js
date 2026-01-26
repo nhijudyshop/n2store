@@ -1116,6 +1116,7 @@ const BillService = (function () {
      */
     async function openCombinedTPOSPrintPopup(orders, headers) {
         console.log('[BILL-SERVICE] Opening combined TPOS print popup for', orders.length, 'orders...');
+        console.log('[BILL-SERVICE] Orders data:', orders.map(o => ({ orderId: o.orderId, hasOrderData: !!o.orderData })));
 
         if (!orders || orders.length === 0) {
             console.warn('[BILL-SERVICE] No orders to print');
@@ -1123,16 +1124,19 @@ const BillService = (function () {
         }
 
         // Fetch all TPOS bills in parallel
-        const billPromises = orders.map(({ orderId, orderData }) =>
-            fetchTPOSBillHTML(orderId, headers, orderData)
-        );
+        console.log('[BILL-SERVICE] Fetching TPOS bills...');
+        const billPromises = orders.map(({ orderId, orderData }) => {
+            console.log('[BILL-SERVICE] Fetching bill for orderId:', orderId);
+            return fetchTPOSBillHTML(orderId, headers, orderData);
+        });
 
         const bills = await Promise.all(billPromises);
+        console.log('[BILL-SERVICE] Fetched bills count:', bills.length, 'Valid:', bills.filter(h => h !== null).length);
         const validBills = bills.filter(html => html !== null);
 
         if (validBills.length === 0) {
-            console.error('[BILL-SERVICE] No valid TPOS bills fetched');
-            window.notificationManager?.error('Không thể tải bill từ TPOS');
+            console.error('[BILL-SERVICE] No valid TPOS bills fetched - all returned null');
+            window.notificationManager?.error('Không thể tải bill từ TPOS. Kiểm tra Console để biết chi tiết.');
             return;
         }
 
