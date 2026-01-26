@@ -744,6 +744,7 @@ const BillService = (function () {
                 currentSaleOrderData?.ConversationId;
 
             // Try to get conversation from Pancake conversations map by PSID
+            // Same logic as "Tin nhắn" column uses
             if (!convId && window.pancakeDataManager) {
                 const pancakeConv = window.pancakeDataManager.getConversationByUserId(psid);
                 if (pancakeConv && pancakeConv.id) {
@@ -752,15 +753,13 @@ const BillService = (function () {
                 }
             }
 
-            // Fallback: construct conversationId from pageId_psid (standard Pancake format)
-            if (!convId && pageId && psid) {
-                convId = `${pageId}_${psid}`;
-                console.log('[BILL-SERVICE] Using fallback conversation ID:', convId);
-            }
-
+            // No fallback - must have real conversation ID from Pancake
             if (!convId) {
-                console.warn('[BILL-SERVICE] No conversation ID found');
-                return { success: false, error: 'No conversation ID available' };
+                console.warn('[BILL-SERVICE] No conversation ID found for PSID:', psid);
+                return {
+                    success: false,
+                    error: 'Không tìm thấy conversation. Vui lòng mở cột Tin nhắn hoặc tải lại Pancake data.'
+                };
             }
 
             // Send via Pancake API (use same method as chat modal)
