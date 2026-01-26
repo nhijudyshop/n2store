@@ -707,26 +707,19 @@
 
         const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } = pendingSendData;
 
-        // Disable button and show loading
-        const sendBtn = document.getElementById('billPreviewSendBtn');
-        if (sendBtn) {
-            sendBtn.disabled = true;
-            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
-        }
+        // Close modal immediately and show sending notification
+        closeBillPreviewSendModal();
+        window.notificationManager?.info(`📤 Đang gửi bill #${orderCode}...`, 10000);
 
-        try {
-            await performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex);
-            closeBillPreviewSendModal();
-        } catch (error) {
-            console.error('[INVOICE-STATUS] Error sending from preview:', error);
-            window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
-
-            // Restore button
-            if (sendBtn) {
-                sendBtn.disabled = false;
-                sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi bill';
-            }
-        }
+        // Run send in background
+        performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex)
+            .then(() => {
+                // Success handled in performActualSend
+            })
+            .catch(error => {
+                console.error('[INVOICE-STATUS] Error sending from preview:', error);
+                window.notificationManager?.error(`❌ Gửi bill #${orderCode} thất bại: ${error.message}`, 5000);
+            });
     }
 
     /**
@@ -761,48 +754,25 @@
 
         const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } = pendingSendData;
 
-        // Disable buttons and show loading
-        const printSendBtn = document.getElementById('billPreviewPrintSendBtn');
-        const sendBtn = document.getElementById('billPreviewSendBtn');
-        const printBtn = document.getElementById('billPreviewPrintBtn');
-
-        if (printSendBtn) {
-            printSendBtn.disabled = true;
-            printSendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+        // 1. Open print popup first
+        if (typeof window.openCombinedPrintPopup === 'function') {
+            window.openCombinedPrintPopup([enrichedOrder]);
+            console.log('[INVOICE-STATUS] Opened print popup for bill');
         }
-        if (sendBtn) sendBtn.disabled = true;
-        if (printBtn) printBtn.disabled = true;
 
-        try {
-            // 1. Open print popup first
-            if (typeof window.openCombinedPrintPopup === 'function') {
-                window.openCombinedPrintPopup([enrichedOrder]);
-                console.log('[INVOICE-STATUS] Opened print popup for bill');
-            }
+        // 2. Close modal immediately and show sending notification
+        closeBillPreviewSendModal();
+        window.notificationManager?.info(`🖨️ Đang in và gửi bill #${orderCode}...`, 10000);
 
-            // 2. Send bill
-            await performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex);
-            closeBillPreviewSendModal();
-
-            window.notificationManager?.success('Đã in và gửi bill thành công', 3000);
-        } catch (error) {
-            console.error('[INVOICE-STATUS] Error printing and sending:', error);
-            window.notificationManager?.error(`Lỗi: ${error.message}`, 5000);
-
-            // Restore buttons
-            if (printSendBtn) {
-                printSendBtn.disabled = false;
-                printSendBtn.innerHTML = '<i class="fas fa-print"></i> In & Gửi';
-            }
-            if (sendBtn) {
-                sendBtn.disabled = false;
-                sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi bill';
-            }
-            if (printBtn) {
-                printBtn.disabled = false;
-                printBtn.innerHTML = '<i class="fas fa-print"></i> In bill';
-            }
-        }
+        // 3. Run send in background
+        performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex)
+            .then(() => {
+                // Success handled in performActualSend
+            })
+            .catch(error => {
+                console.error('[INVOICE-STATUS] Error printing and sending:', error);
+                window.notificationManager?.error(`❌ Gửi bill #${orderCode} thất bại: ${error.message}`, 5000);
+            });
     }
 
     /**
