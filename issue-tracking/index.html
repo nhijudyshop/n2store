@@ -290,6 +290,7 @@
                                     <option value="CUSTOMER_DEBT">Trừ công nợ khách</option>
                                     <option value="DISCOUNT">Giảm giá/Lẻ tiền</option>
                                     <option value="REJECT_PARTIAL">Khách nhận 1 phần</option>
+                                    <option value="RETURN_OLD_ORDER">Trả hàng đơn cũ</option>
                                 </select>
                             </div>
                         </div>
@@ -316,6 +317,34 @@
                         <div class="form-group hidden" id="shipper-input-group">
                             <label>Shipper / Đội giao hàng</label>
                             <input type="text" id="return-shipper-name" placeholder="Tên shipper mang về">
+                        </div>
+                    </div>
+
+                    <!-- RETURN_OLD_ORDER Fields -->
+                    <div class="field-group hidden" data-type="RETURN_OLD_ORDER">
+                        <div class="form-group">
+                            <label style="font-weight:600;color:#2563eb;margin-bottom:10px;display:block;">
+                                📦 Hàng trả từ đơn cũ
+                            </label>
+
+                            <!-- Tìm đơn cũ -->
+                            <div class="input-group" style="margin-bottom:12px;">
+                                <input type="text" id="old-order-search-input" placeholder="SĐT đã tự điền, bấm Tìm để xem đơn cũ" readonly style="flex:1;">
+                                <button id="btn-search-old-order" type="button" class="btn btn-secondary">Tìm đơn cũ</button>
+                            </div>
+
+                            <!-- Danh sách đơn cũ -->
+                            <div id="old-orders-list" class="hidden" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px;">
+                                <!-- Radio buttons cho đơn cũ sẽ render ở đây -->
+                            </div>
+
+                            <!-- Sản phẩm của đơn cũ được chọn -->
+                            <div id="old-order-products-section" class="hidden">
+                                <label style="font-weight:500;margin-bottom:8px;display:block;">Chọn sản phẩm trả:</label>
+                                <div id="old-order-product-checklist" class="product-checklist">
+                                    <!-- Checkboxes sản phẩm sẽ render ở đây -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

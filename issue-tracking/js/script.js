@@ -8,6 +8,7 @@ let TICKETS = [];
 let selectedOrder = null;
 let currentTicketSubscription = null;
 let currentCustomer = null; // NEW: Store current customer info
+let selectedOldOrder = null; // NEW: Store selected old order for RETURN_OLD_ORDER
 
 // Settings Management
 const SETTINGS_KEY = 'issue_tracking_settings';
@@ -704,6 +705,11 @@ window.onFixCodReasonChange = function() {
     const codReduceInput = document.getElementById('cod-reduce-amount');
     const editBtn = document.getElementById('btn-edit-cod-reduce');
     const returnGroup = document.querySelector('[data-type="RETURN"]');
+    const returnOldOrderGroup = document.querySelector('[data-type="RETURN_OLD_ORDER"]');
+
+    // Ẩn tất cả các section phụ thuộc trước
+    if (returnGroup) returnGroup.classList.add('hidden');
+    if (returnOldOrderGroup) returnOldOrderGroup.classList.add('hidden');
 
     if (reason === 'REJECT_PARTIAL') {
         // Tự động tính COD giảm = tổng giá SP được chọn trả
@@ -721,14 +727,33 @@ window.onFixCodReasonChange = function() {
         // Reset COD giảm về 0
         codReduceInput.value = 0;
         calculateCodRemaining();
+
+    } else if (reason === 'RETURN_OLD_ORDER') {
+        // === Logic mới cho RETURN_OLD_ORDER ===
+        codReduceInput.readOnly = true;
+        codReduceInput.style.backgroundColor = '#f1f5f9';
+        if (editBtn) editBtn.style.display = 'block';
+        if (returnOldOrderGroup) returnOldOrderGroup.classList.remove('hidden');
+
+        // Tự điền SĐT từ đơn hiện tại
+        const oldOrderSearchInput = document.getElementById('old-order-search-input');
+        if (oldOrderSearchInput && selectedOrder) {
+            oldOrderSearchInput.value = selectedOrder.phone || '';
+        }
+
+        // Reset COD giảm về 0
+        codReduceInput.value = 0;
+        calculateCodRemaining();
+
+        // Reset selectedOldOrder
+        selectedOldOrder = null;
+
     } else {
         // Cho phép nhập tay
         codReduceInput.readOnly = false;
         codReduceInput.style.backgroundColor = '';
         // Hide edit button
         if (editBtn) editBtn.style.display = 'none';
-        // Hide product checklist
-        if (returnGroup) returnGroup.classList.add('hidden');
 
         // Check lại tất cả sản phẩm (cho các loại khác như THU VỀ, BOOM)
         const checkboxes = document.querySelectorAll('#product-checklist input[type="checkbox"]');
@@ -862,6 +887,33 @@ async function handleSubmitTicket() {
             if (selectedOrder && totalReturnQty >= totalOrderQty) {
                 return alert("Khách trả toàn bộ món hàng. Vui lòng chọn 'Boom Hàng' thay vì 'Nhận 1 phần'.");
             }
+
+        } else if (fixCodReason === 'RETURN_OLD_ORDER') {
+            // === LOGIC MỚI: Trả hàng đơn cũ ===
+
+            // Validation: phải chọn đơn cũ
+            if (!selectedOldOrder) {
+                return alert('Vui lòng chọn đơn hàng cũ cần trả');
+            }
+
+            // Validation: phải chọn ít nhất 1 sản phẩm
+            const checkedOldOrderInputs = document.querySelectorAll('#old-order-product-checklist input[type="checkbox"]:checked');
+            if (checkedOldOrderInputs.length === 0) {
+                return alert('Vui lòng chọn ít nhất 1 sản phẩm từ đơn cũ để trả');
+            }
+
+            // Status: PENDING_GOODS (chờ hàng cũ về kho)
+            status = 'PENDING_GOODS';
+
+            // Lấy sản phẩm được chọn từ đơn cũ
+            selectedProducts = Array.from(checkedOldOrderInputs).map(input => ({
+                id: input.value,
+                name: input.dataset.name,
+                price: parseInt(input.dataset.price) || 0,
+                quantity: parseInt(input.dataset.quantity) || 1,
+                returnQuantity: parseInt(input.dataset.quantity) || 1
+            }));
+
         } else {
             // Các lý do khác - không có hàng trả, chỉ đối soát tiền
             status = 'PENDING_FINANCE';
@@ -923,6 +975,10 @@ async function handleSubmitTicket() {
     }
 
 
+    // Lấy thông tin đơn cũ cho RETURN_OLD_ORDER
+    const fixCodReason = type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null;
+    const isReturnOldOrder = type === 'FIX_COD' && fixCodReason === 'RETURN_OLD_ORDER';
+
     const ticketData = {
         orderId: tposOrderId,
         tposId: tposInternalId,
@@ -930,14 +986,17 @@ async function handleSubmitTicket() {
         phone: customerPhone,
         address: orderAddress,
         type: type,
-        fixCodReason: type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null,
+        fixCodReason: fixCodReason,
         channel: channel,
         status: status,
         orderState: orderStatus || 'open', // Trạng thái đơn TPOS: open, paid
         stateCode: orderStateCode || 'None', // Trạng thái đối soát SP: CrossCheckComplete, None
         products: selectedProducts,
         money: money,
-        note: note
+        note: note,
+        // RETURN_OLD_ORDER: Reference đến đơn cũ
+        returnFromOrderId: isReturnOldOrder ? selectedOldOrder?.tposCode : null,
+        returnFromTposId: isReturnOldOrder ? selectedOldOrder?.id : null
     };
 
     showLoading(true);
@@ -1003,9 +1062,14 @@ async function handleConfirmAction() {
     try {
         if (pendingActionType === 'RECEIVE') {
             // RECEIVE action: Process full TPOS refund flow (5 API calls)
-            console.log('[APP] Processing RECEIVE action for tposId:', ticket.tposId);
+            // RETURN_OLD_ORDER: Phiếu trả hàng tạo cho đơn CŨ (returnFromTposId)
+            const tposIdForRefund = (ticket.fixCodReason === 'RETURN_OLD_ORDER' && ticket.returnFromTposId)
+                ? ticket.returnFromTposId
+                : ticket.tposId;
 
-            if (!ticket.tposId) {
+            console.log('[APP] Processing RECEIVE action for tposId:', tposIdForRefund, '(original:', ticket.tposId, ')');
+
+            if (!tposIdForRefund) {
                 throw new Error('Thiếu TPOS Order ID để xử lý nhận hàng');
             }
 
@@ -1014,7 +1078,7 @@ async function handleConfirmAction() {
 
             // Call the refund process with progress callback
             // Pass ticket.products to filter OrderLines for partial refund
-            const result = await ApiService.processRefund(ticket.tposId, ticket.products, (step, message) => {
+            const result = await ApiService.processRefund(tposIdForRefund, ticket.products, (step, message) => {
                 // Update loading notification with step progress
                 notificationManager.remove(loadingId);
                 loadingId = notificationManager.loading(message, `Bước ${step}/5`);
@@ -1715,8 +1779,13 @@ function renderProductsList(ticket) {
         ? `<div style="color:#f59e0b;margin-bottom:4px;">${ticket.note}</div>`
         : '';
 
-    // Nếu là FIX_COD và không phải REJECT_PARTIAL thì chỉ hiển thị ghi chú (không có sản phẩm)
-    if (ticket.type === 'FIX_COD' && ticket.fixCodReason !== 'REJECT_PARTIAL') {
+    // Nếu là RETURN_OLD_ORDER, hiển thị reference đến đơn cũ
+    const oldOrderRef = (ticket.type === 'FIX_COD' && ticket.fixCodReason === 'RETURN_OLD_ORDER' && ticket.returnFromOrderId)
+        ? `<div style="font-size:11px;color:#8b5cf6;margin-bottom:4px;">📦 Từ đơn: ${ticket.returnFromOrderId}</div>`
+        : '';
+
+    // Nếu là FIX_COD và không phải REJECT_PARTIAL hoặc RETURN_OLD_ORDER thì chỉ hiển thị ghi chú (không có sản phẩm)
+    if (ticket.type === 'FIX_COD' && ticket.fixCodReason !== 'REJECT_PARTIAL' && ticket.fixCodReason !== 'RETURN_OLD_ORDER') {
         return noteDisplay || '<span style="color:#94a3b8;font-size:12px;">—</span>';
     }
 
@@ -1729,7 +1798,7 @@ function renderProductsList(ticket) {
         return `<li style="font-size:12px;">• ${qty}x ${p.code ? `${p.code} ` : ''}${p.name}</li>`;
     }).join('');
 
-    return `${noteDisplay}<ul style="list-style:none;padding:0;margin:0;">${productItems}</ul>`;
+    return `${noteDisplay}${oldOrderRef}<ul style="list-style:none;padding:0;margin:0;">${productItems}</ul>`;
 }
 
 function renderTypeBadge(type, fixCodReason) {
@@ -1749,7 +1818,8 @@ function renderTypeBadge(type, fixCodReason) {
             'WRONG_SHIP': 'Sai ship',
             'CUSTOMER_DEBT': 'Trừ nợ',
             'DISCOUNT': 'Giảm giá',
-            'REJECT_PARTIAL': 'Nhận 1 phần'
+            'REJECT_PARTIAL': 'Nhận 1 phần',
+            'RETURN_OLD_ORDER': 'Trả đơn cũ'
         };
         reasonText = `<div style="font-size:10px;color:#64748b;margin-top:2px;">${reasonMap[fixCodReason] || fixCodReason}</div>`;
     }
@@ -1981,6 +2051,7 @@ function closeModal(el) { el.classList.remove('show'); }
 function resetCreateForm() {
     selectedOrder = null;
     currentCustomer = null; // NEW: Reset current customer
+    selectedOldOrder = null; // Reset đơn cũ cho RETURN_OLD_ORDER
     elements.inpSearchOrder.value = '';
     document.getElementById('order-result').classList.add('hidden');
     document.getElementById('issue-details-form').classList.add('hidden');
@@ -1998,6 +2069,17 @@ function resetCreateForm() {
     elements.customerInfoTier.textContent = 'N/A';
     elements.customerInfoWalletBalance.textContent = '0đ';
     elements.customerInfoNewCustomerWarning.classList.add('hidden');
+
+    // Reset RETURN_OLD_ORDER UI section
+    const oldOrdersList = document.getElementById('old-orders-list');
+    const oldOrderProductsSection = document.getElementById('old-order-products-section');
+    if (oldOrdersList) {
+        oldOrdersList.innerHTML = '';
+        oldOrdersList.classList.add('hidden');
+    }
+    if (oldOrderProductsSection) {
+        oldOrderProductsSection.classList.add('hidden');
+    }
 }
 
 function translateStatus(s) {
@@ -2103,3 +2185,146 @@ window.deleteTicket = async function (firebaseId) {
         showLoading(false);
     }
 };
+
+// =====================================================
+// RETURN_OLD_ORDER: Tìm và chọn đơn cũ của khách
+// =====================================================
+
+/**
+ * Tìm các đơn hàng cũ của khách (loại trừ đơn hiện tại)
+ */
+async function searchOldOrders() {
+    if (!selectedOrder) {
+        alert('Vui lòng chọn đơn hàng mới trước');
+        return;
+    }
+
+    const phone = selectedOrder.phone;
+    const currentOrderId = selectedOrder.tposCode || selectedOrder.orderId;
+
+    showLoading(true);
+    try {
+        // Gọi API tìm đơn theo SĐT
+        const orders = await ApiService.searchOrders(phone);
+
+        // Lọc bỏ đơn hiện tại và chỉ lấy đơn đã giao thành công
+        const oldOrders = orders.filter(order =>
+            order.tposCode !== currentOrderId &&
+            (order.status === 'paid' || order.status === 'open') &&
+            order.stateCode === 'CrossCheckComplete' // Đã giao thành công
+        );
+
+        if (oldOrders.length === 0) {
+            alert('Không tìm thấy đơn hàng cũ nào của khách này đã giao thành công');
+            return;
+        }
+
+        renderOldOrdersList(oldOrders);
+
+    } catch (error) {
+        console.error('[RETURN_OLD_ORDER] Search failed:', error);
+        alert('Lỗi khi tìm đơn hàng cũ: ' + error.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+/**
+ * Render danh sách đơn cũ dưới dạng radio buttons
+ */
+function renderOldOrdersList(orders) {
+    const container = document.getElementById('old-orders-list');
+    if (!container) return;
+
+    container.innerHTML = orders.map((order, index) => `
+        <div class="old-order-item" style="padding:10px;border-bottom:1px solid #e2e8f0;">
+            <label style="display:flex;align-items:center;cursor:pointer;">
+                <input type="radio" name="old-order-select" value="${order.tposCode}"
+                       data-order-index="${index}" onchange="onOldOrderSelected(${index})"
+                       style="margin-right:10px;">
+                <div style="flex:1;">
+                    <div style="font-weight:500;">${order.tposCode}</div>
+                    <div style="font-size:12px;color:#64748b;">
+                        ${formatDate(order.createdAt)} - ${formatCurrency(order.cod)}
+                    </div>
+                </div>
+            </label>
+        </div>
+    `).join('');
+
+    // Lưu orders để dùng sau
+    container.dataset.orders = JSON.stringify(orders);
+    container.classList.remove('hidden');
+}
+
+/**
+ * Xử lý khi chọn một đơn cũ
+ */
+window.onOldOrderSelected = function(orderIndex) {
+    const container = document.getElementById('old-orders-list');
+    const orders = JSON.parse(container.dataset.orders || '[]');
+
+    if (orderIndex < 0 || orderIndex >= orders.length) return;
+
+    selectedOldOrder = orders[orderIndex];
+
+    // Render danh sách sản phẩm của đơn cũ
+    renderOldOrderProducts(selectedOldOrder);
+}
+
+/**
+ * Render sản phẩm của đơn cũ dưới dạng checkboxes
+ */
+function renderOldOrderProducts(order) {
+    const container = document.getElementById('old-order-product-checklist');
+    const section = document.getElementById('old-order-products-section');
+
+    if (!container || !section || !order.products) return;
+
+    container.innerHTML = order.products.map((product, idx) => `
+        <div class="product-check-item" style="padding:8px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;">
+            <label style="display:flex;align-items:center;cursor:pointer;">
+                <input type="checkbox" name="old-order-product"
+                       value="${product.id || idx}"
+                       data-price="${product.price}"
+                       data-name="${product.name}"
+                       data-quantity="${product.quantity}"
+                       onchange="updateCodReduceFromOldOrderProducts()"
+                       style="margin-right:10px;">
+                <div style="flex:1;">
+                    <div style="font-weight:500;">${product.name}</div>
+                    <div style="font-size:12px;color:#64748b;">
+                        x${product.quantity} - ${formatCurrency(product.price)}
+                    </div>
+                </div>
+            </label>
+        </div>
+    `).join('');
+
+    section.classList.remove('hidden');
+}
+
+/**
+ * Tính COD giảm từ sản phẩm đơn cũ được chọn
+ */
+window.updateCodReduceFromOldOrderProducts = function() {
+    const checkedInputs = document.querySelectorAll('#old-order-product-checklist input[type="checkbox"]:checked');
+    let totalReduce = 0;
+
+    checkedInputs.forEach(input => {
+        const price = parseInt(input.dataset.price) || 0;
+        totalReduce += price;
+    });
+
+    // Cập nhật COD giảm
+    document.getElementById('cod-reduce-amount').value = totalReduce;
+    calculateCodRemaining();
+}
+
+// Event listener cho nút tìm đơn cũ (khởi tạo sau khi DOM sẵn sàng)
+document.addEventListener('DOMContentLoaded', function() {
+    const btnSearchOldOrder = document.getElementById('btn-search-old-order');
+    if (btnSearchOldOrder) {
+        btnSearchOldOrder.addEventListener('click', searchOldOrders);
+    }
+});
