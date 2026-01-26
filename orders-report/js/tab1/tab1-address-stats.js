@@ -1242,8 +1242,8 @@ window.showQRFromChat = showQRFromChat;
 // =====================================================
 
 /**
- * Load and display debt in chat modal header
- * NOTE: Always fetches fresh data from API (same source as salePrepaidAmount)
+ * Load and display wallet balance in chat modal header
+ * NOTE: Always fetches fresh data from wallet API (same source as salePrepaidAmount)
  * @param {string} phone - Phone number
  */
 async function loadChatDebt(phone) {
@@ -1262,26 +1262,27 @@ async function loadChatDebt(phone) {
     debtValueEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     debtValueEl.style.color = 'rgba(255, 255, 255, 0.8)';
 
-    // Always fetch fresh from API (same source as salePrepaidAmount in fetchDebtForSaleModal)
+    // Always fetch fresh from wallet API (same source as salePrepaidAmount in fetchDebtForSaleModal)
     try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        const response = await fetch(`${QR_API_URL}/api/wallet/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
-        if (result.success && result.data) {
-            const totalDebt = result.data.total_debt || 0;
-            console.log('[CHAT-DEBT] Realtime debt for phone:', normalizedPhone, '=', totalDebt);
+        if (result.success && result.wallet) {
+            // Total balance = real balance + virtual balance
+            const totalBalance = (result.wallet.balance || 0) + (result.wallet.virtualBalance || 0);
+            console.log('[CHAT-DEBT] Wallet balance for phone:', normalizedPhone, '=', totalBalance);
 
             // Update cache for consistency with debt column
-            saveDebtToCache(normalizedPhone, totalDebt);
-            updateChatDebtDisplay(totalDebt);
+            saveDebtToCache(normalizedPhone, totalBalance);
+            updateChatDebtDisplay(totalBalance);
 
             // Also update debt column in orders table to keep them in sync
-            updateDebtCellsInTable(normalizedPhone, totalDebt);
+            updateDebtCellsInTable(normalizedPhone, totalBalance);
         } else {
             updateChatDebtDisplay(0);
         }
     } catch (error) {
-        console.error('[CHAT-DEBT] Error loading debt:', error);
+        console.error('[CHAT-DEBT] Error loading wallet balance:', error);
         debtValueEl.textContent = '-';
         debtValueEl.style.color = 'rgba(255, 255, 255, 0.6)';
     }
