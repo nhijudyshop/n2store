@@ -27,8 +27,7 @@
      */
     const InvoiceStatusStore = {
         _data: new Map(),
-        _sentBills: new Set(), // Track orders that have sent bills
-        _firestoreRef: null,
+        _sentBills: new Set(),
         _initialized: false,
         _syncTimeout: null,
 
@@ -52,169 +51,98 @@
                 }
                 console.log(`[INVOICE-STATUS] Loaded ${this._data.size} entries from localStorage`);
 
-                // 2. Initialize Firestore reference
-                await this._initFirestore();
-
-                // 3. Load from Firestore and merge
+                // 2. Load from Firestore and merge
                 await this._loadFromFirestore();
 
-                // 4. Cleanup old entries
+                // 3. Cleanup old entries
                 await this.cleanup();
 
                 this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing store:', e);
-                this._initialized = true; // Continue with localStorage only
+                this._initialized = true;
             }
         },
 
         /**
-         * Get user identifier consistently across all storage types.
-         * Uses authManager (checks sessionStorage + localStorage) for incognito support.
-         * @returns {string} User identifier for Firestore document key
+         * Get Firestore doc reference (same pattern as other tab1 modules)
          */
-        _getUserIdentifier() {
-            // Priority 1: authManager (checks sessionStorage then localStorage)
-            const authState = window.authManager?.getAuthState();
-            if (authState?.userType) {
-                return authState.userType;
-            }
-
-            // Priority 2: userStorageManager
-            if (window.userStorageManager?.userIdentifier && window.userStorageManager.userIdentifier !== 'guest') {
-                return window.userStorageManager.userIdentifier;
-            }
-
-            // Priority 3: Direct localStorage (legacy fallback)
-            const localUserType = localStorage.getItem('userType');
-            if (localUserType) {
-                return localUserType;
-            }
-
-            return 'default';
-        },
-
-        /**
-         * Initialize Firestore reference
-         * Waits for Firebase auth to be ready before creating reference
-         */
-        async _initFirestore() {
-            try {
-                if (!window.firebase?.firestore) {
-                    console.log('[INVOICE-STATUS] Firestore not available');
-                    return;
-                }
-
-                // Wait for Firebase auth to be ready (needed for Firestore access)
-                if (window.firebase.auth && !window.firebase.auth().currentUser) {
-                    await new Promise((resolve) => {
-                        const unsubscribe = window.firebase.auth().onAuthStateChanged((user) => {
-                            unsubscribe();
-                            resolve(user);
-                        });
-                        // Timeout after 5 seconds
-                        setTimeout(() => resolve(null), 5000);
-                    });
-                }
-
-                const db = window.firebase.firestore();
-                const userId = this._getUserIdentifier();
-                this._firestoreRef = db.collection(FIRESTORE_COLLECTION).doc(userId);
-                console.log(`[INVOICE-STATUS] Firestore initialized for user: ${userId}`);
-            } catch (e) {
-                console.error('[INVOICE-STATUS] Error initializing Firestore:', e);
-            }
+        _getDocRef() {
+            const db = firebase.firestore();
+            const userId = window.campaignManager?.currentUserId || 'default';
+            return db.collection(FIRESTORE_COLLECTION).doc(userId);
         },
 
         /**
          * Load from Firestore and merge with localStorage
          */
         async _loadFromFirestore() {
-            if (!this._firestoreRef) {
-                console.warn('[INVOICE-STATUS] No Firestore ref, skipping load');
-                return;
-            }
-
             try {
-                console.log(`[INVOICE-STATUS] Loading from Firestore: ${this._firestoreRef.path}`);
-                const doc = await this._firestoreRef.get();
-                if (doc.exists) {
-                    const firestoreData = doc.data();
-                    let mergedCount = 0;
+                const doc = await this._getDocRef().get();
+                if (!doc.exists) return;
 
-                    // Merge data (Firestore takes precedence for newer entries)
-                    if (firestoreData.data && Array.isArray(firestoreData.data)) {
-                        const firestoreMap = new Map(firestoreData.data);
-                        firestoreMap.forEach((value, key) => {
-                            const localValue = this._data.get(key);
-                            // Use Firestore value if newer or local doesn't exist
-                            if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
-                                this._data.set(key, value);
-                                mergedCount++;
-                            }
-                        });
-                    }
+                const firestoreData = doc.data();
 
-                    // Merge sent bills
-                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                        firestoreData.sentBills.forEach(id => this._sentBills.add(id));
-                    }
-
-                    console.log(`[INVOICE-STATUS] Merged ${mergedCount} entries from Firestore, total ${this._data.size}`);
-                    this._saveToLocalStorage(); // Update localStorage with merged data
-                } else {
-                    console.log(`[INVOICE-STATUS] No data in Firestore at: ${this._firestoreRef.path}`);
+                // Merge data (newer timestamp wins)
+                if (firestoreData.data && Array.isArray(firestoreData.data)) {
+                    const firestoreMap = new Map(firestoreData.data);
+                    firestoreMap.forEach((value, key) => {
+                        const localValue = this._data.get(key);
+                        if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
+                            this._data.set(key, value);
+                        }
+                    });
                 }
+
+                // Merge sent bills
+                if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                    firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                }
+
+                console.log(`[INVOICE-STATUS] Merged from Firestore, total ${this._data.size} entries`);
+                this._saveToLocalStorage();
             } catch (e) {
-                console.error('[INVOICE-STATUS] Error loading from Firestore:', e);
+                console.error('[INVOICE-STATUS] Firestore load error:', e);
             }
         },
 
         /**
-         * Save to localStorage only
+         * Save to localStorage
          */
         _saveToLocalStorage() {
             try {
-                const data = {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
                     data: Array.from(this._data.entries()),
                     sentBills: Array.from(this._sentBills),
                     lastUpdated: Date.now()
-                };
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                }));
             } catch (e) {
-                console.error('[INVOICE-STATUS] Error saving to localStorage:', e);
+                console.error('[INVOICE-STATUS] localStorage save error:', e);
             }
         },
 
         /**
-         * Save to Firestore (debounced)
+         * Save to Firestore (debounced 2s)
          */
         _saveToFirestore() {
-            if (!this._firestoreRef) return;
-
-            // Debounce Firestore saves
-            if (this._syncTimeout) {
-                clearTimeout(this._syncTimeout);
-            }
-
+            clearTimeout(this._syncTimeout);
             this._syncTimeout = setTimeout(async () => {
                 try {
-                    const data = {
+                    await this._getDocRef().set({
                         data: Array.from(this._data.entries()),
                         sentBills: Array.from(this._sentBills),
                         lastUpdated: Date.now()
-                    };
-                    await this._firestoreRef.set(data, { merge: true });
-                    console.log('[INVOICE-STATUS] ✅ Synced to Firestore');
+                    }, { merge: true });
+                    console.log('[INVOICE-STATUS] Synced to Firestore');
                 } catch (e) {
-                    console.error('[INVOICE-STATUS] Error saving to Firestore:', e);
+                    console.error('[INVOICE-STATUS] Firestore save error:', e);
                 }
-            }, 2000); // Debounce 2 seconds
+            }, 2000);
         },
 
         /**
-         * Save store to localStorage + Firestore
+         * Save to localStorage + Firestore
          */
         save() {
             this._saveToLocalStorage();
@@ -425,16 +353,11 @@
             this._sentBills.clear();
             localStorage.removeItem(STORAGE_KEY);
 
-            if (this._firestoreRef) {
-                try {
-                    await this._firestoreRef.delete();
-                    console.log('[INVOICE-STATUS] Cleared all data from Firestore');
-                } catch (e) {
-                    console.error('[INVOICE-STATUS] Error clearing Firestore:', e);
-                }
+            try {
+                await this._getDocRef().delete();
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Firestore clear error:', e);
             }
-
-            console.log('[INVOICE-STATUS] All data cleared');
         }
     };
 
