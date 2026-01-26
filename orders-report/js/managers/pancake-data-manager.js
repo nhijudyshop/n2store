@@ -1030,18 +1030,21 @@ class PancakeDataManager {
     getConversationByUserId(userId) {
         if (!userId) return null;
 
+        // Convert to string to handle type mismatch (Map keys may be stored as string)
+        const userIdStr = String(userId);
+
         // Try INBOX maps first (most common)
-        let conversation = this.inboxMapByPSID.get(userId);
+        let conversation = this.inboxMapByPSID.get(userIdStr) || this.inboxMapByPSID.get(userId);
         if (!conversation) {
-            conversation = this.inboxMapByFBID.get(userId);
+            conversation = this.inboxMapByFBID.get(userIdStr) || this.inboxMapByFBID.get(userId);
         }
 
         // Fallback to COMMENT maps
         if (!conversation) {
-            conversation = this.commentMapByFBID.get(userId);
+            conversation = this.commentMapByFBID.get(userIdStr) || this.commentMapByFBID.get(userId);
         }
         if (!conversation) {
-            conversation = this.commentMapByPSID.get(userId);
+            conversation = this.commentMapByPSID.get(userIdStr) || this.commentMapByPSID.get(userId);
         }
 
         // Last resort: Search by customers[].fb_id
@@ -1050,7 +1053,7 @@ class PancakeDataManager {
         // - order.Facebook_ASUserId doesn't match conversation.from.id
         // - The correct match is in customers[].fb_id
         if (!conversation) {
-            conversation = this.conversationsByCustomerFbId.get(userId);
+            conversation = this.conversationsByCustomerFbId.get(userIdStr) || this.conversationsByCustomerFbId.get(userId);
             if (conversation) {
                 console.log('[PANCAKE] ✅ Found conversation via customers[].fb_id:', {
                     userId,
@@ -1780,9 +1783,10 @@ class PancakeDataManager {
 
         // Find conversation in INBOX map
         const userId = order.Facebook_ASUserId;
-        let conversation = this.inboxMapByPSID.get(userId);
+        const userIdStr = String(userId);
+        let conversation = this.inboxMapByPSID.get(userIdStr) || this.inboxMapByPSID.get(userId);
         if (!conversation) {
-            conversation = this.inboxMapByFBID.get(userId);
+            conversation = this.inboxMapByFBID.get(userIdStr) || this.inboxMapByFBID.get(userId);
         }
 
         if (!conversation) {
