@@ -521,10 +521,11 @@
             html += `<span style="background: #e0e7ff; color: #4338ca; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500;" title="Người tạo bill">${invoiceData.UserName}</span>`;
         }
 
-        // Messenger button or sent badge
+        // Messenger button or sent badge - only show for "Đã xác nhận" status
         if (billSent) {
             html += `<span class="bill-sent-badge" style="color: #27ae60; font-size: 11px;" title="Đã gửi bill">✓</span>`;
-        } else {
+        } else if (showState === 'Đã xác nhận') {
+            // Only allow sending bill for confirmed invoices
             html += `
                 <button type="button"
                     class="btn-send-bill-main"
@@ -538,6 +539,7 @@
                 </button>
             `;
         }
+        // Note: For non-confirmed statuses (Nháp, Huỷ bỏ, etc.), no button is shown
         html += `</div>`;
 
         // Row 2: StateCode text (cross-check status like Chưa đối soát, Hoàn thành đối soát)
@@ -958,6 +960,19 @@
             const style = config.style || '';
             const saleOnlineId = order.SaleOnlineIds?.[0];
             const billSent = saleOnlineId ? InvoiceStatusStore.isBillSent(saleOnlineId) : false;
+            const showState = order.ShowState || '';
+            const isConfirmed = showState === 'Đã xác nhận';
+
+            // Only show send button for confirmed orders
+            let sendButtonHtml = '';
+            if (billSent) {
+                sendButtonHtml = `<span class="bill-sent-badge" style="color: #27ae60; font-size: 14px;" title="Đã gửi bill">✓</span>`;
+            } else if (isConfirmed) {
+                sendButtonHtml = `<button type="button" class="btn-send-bill-messenger" data-index="${index}" data-order-id="${order.Id}" onclick="window.sendBillManually(${index})" title="Gửi bill qua Messenger" style="background: #0084ff; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>
+                </button>`;
+            }
+            // Note: Non-confirmed orders (Nháp, Huỷ bỏ, etc.) don't get a send button
 
             return `
                         <tr data-order-id="${order.Id}" data-order-index="${index}">
@@ -965,16 +980,11 @@
                             <td><input type="checkbox" class="success-order-checkbox" value="${index}" data-order-id="${order.Id}"></td>
                             <td>${order.Reference || 'N/A'}</td>
                             <td>${order.Number || ''}</td>
-                            <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Nhập'}</span></td>
+                            <td><span style="color: ${isConfirmed ? '#10b981' : '#f59e0b'}; font-weight: 600;">${isConfirmed ? '✓' : '⚠'} ${showState || 'Nhập'}</span></td>
                             <td class="invoice-status-cell" data-order-id="${order.Id}">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span class="state-code-badge ${config.cssClass}" style="color: ${config.color}; font-weight: 500; ${style}">${config.label}</span>
-                                    ${billSent
-                    ? `<span class="bill-sent-badge" style="color: #27ae60; font-size: 14px;" title="Đã gửi bill">✓</span>`
-                    : `<button type="button" class="btn-send-bill-messenger" data-index="${index}" data-order-id="${order.Id}" onclick="window.sendBillManually(${index})" title="Gửi bill qua Messenger" style="background: #0084ff; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>
-                                        </button>`
-                }
+                                    ${sendButtonHtml}
                                 </div>
                             </td>
                             <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
