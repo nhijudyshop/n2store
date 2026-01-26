@@ -628,49 +628,19 @@
             }
 
             if (billHTML) {
-                // Extract styles from head
-                let styles = '';
-                const styleMatch = billHTML.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
-                if (styleMatch) {
-                    styles = styleMatch[1];
-                }
+                // Use iframe to display TPOS bill exactly as-is (no CSS conflicts)
+                const iframe = document.createElement('iframe');
+                iframe.style.cssText = 'width: 100%; height: 600px; border: none; background: white;';
+                container.innerHTML = '';
+                container.appendChild(iframe);
 
-                // Extract body content only (remove doctype, html, head, script tags)
-                let bodyContent = billHTML;
-                const bodyMatch = billHTML.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-                if (bodyMatch) {
-                    bodyContent = bodyMatch[1];
-                    // Remove script tags from body content
-                    bodyContent = bodyContent.replace(/<script[\s\S]*?<\/script>/gi, '');
-                }
+                // Write the full TPOS HTML to iframe
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                iframeDoc.open();
+                iframeDoc.write(billHTML);
+                iframeDoc.close();
 
-                // Include styles with scoped class to avoid conflicts
-                container.innerHTML = `
-                    <style>.bill-preview-wrapper { all: initial; font-family: Arial, sans-serif; } .bill-preview-wrapper * { box-sizing: border-box; } ${styles}</style>
-                    <div class="bill-preview-wrapper" style="padding: 10px; background: white;">${bodyContent}</div>
-                `;
-
-                // Generate barcode after HTML is inserted (for custom bills)
-                setTimeout(() => {
-                    const barcodeEl = container.querySelector('#barcode');
-                    if (barcodeEl && typeof JsBarcode === 'function') {
-                        const orderNumber = enrichedOrder.Number || '';
-                        if (orderNumber) {
-                            try {
-                                JsBarcode(barcodeEl, orderNumber, {
-                                    format: "CODE128",
-                                    width: 1.5,
-                                    height: 40,
-                                    displayValue: false,
-                                    margin: 5
-                                });
-                                console.log('[INVOICE-STATUS] Barcode generated for:', orderNumber);
-                            } catch (barcodeError) {
-                                console.error('[INVOICE-STATUS] Barcode generation failed:', barcodeError);
-                            }
-                        }
-                    }
-                }, 50);
+                console.log('[INVOICE-STATUS] TPOS bill loaded in iframe');
             } else {
                 container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Không thể tạo bill preview</p>';
             }
