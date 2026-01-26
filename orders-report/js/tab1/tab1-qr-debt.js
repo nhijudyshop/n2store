@@ -1491,10 +1491,13 @@ async function fetchDebtForSaleModal(phone) {
         const response = await fetch(`${QR_API_URL}/api/wallet/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
-        if (result.success && result.wallet) {
+        if (result.success && result.data) {
             // Total balance = real balance + virtual balance
-            const totalBalance = (result.wallet.balance || 0) + (result.wallet.virtualBalance || 0);
-            console.log('[SALE-MODAL] Wallet balance for phone:', normalizedPhone, '=', totalBalance, '(real:', result.wallet.balance, '+ virtual:', result.wallet.virtualBalance, ')');
+            // API returns snake_case: balance, virtual_balance
+            const realBalance = parseFloat(result.data.balance) || 0;
+            const virtualBalance = parseFloat(result.data.virtual_balance) || 0;
+            const totalBalance = realBalance + virtualBalance;
+            console.log('[SALE-MODAL] Wallet balance for phone:', normalizedPhone, '=', totalBalance, '(real:', realBalance, '+ virtual:', virtualBalance, ')');
 
             // Update prepaid amount field with total available balance
             if (prepaidAmountField) {
@@ -1516,6 +1519,7 @@ async function fetchDebtForSaleModal(phone) {
             updateSaleRemainingBalance();
         } else {
             // No wallet found, set to 0
+            console.log('[SALE-MODAL] No wallet data for phone:', normalizedPhone);
             if (prepaidAmountField) {
                 prepaidAmountField.value = 0;
             }

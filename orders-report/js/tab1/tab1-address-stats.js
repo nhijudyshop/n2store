@@ -1267,9 +1267,12 @@ async function loadChatDebt(phone) {
         const response = await fetch(`${QR_API_URL}/api/wallet/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
-        if (result.success && result.wallet) {
+        if (result.success && result.data) {
             // Total balance = real balance + virtual balance
-            const totalBalance = (result.wallet.balance || 0) + (result.wallet.virtualBalance || 0);
+            // API returns snake_case: balance, virtual_balance
+            const realBalance = parseFloat(result.data.balance) || 0;
+            const virtualBalance = parseFloat(result.data.virtual_balance) || 0;
+            const totalBalance = realBalance + virtualBalance;
             console.log('[CHAT-DEBT] Wallet balance for phone:', normalizedPhone, '=', totalBalance);
 
             // Update cache for consistency with debt column
