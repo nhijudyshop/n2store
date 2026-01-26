@@ -495,7 +495,7 @@ async function updateSaleOrderWithAPI() {
  * Flow: FastSaleOrder POST -> print1 GET -> ODataService.DefaultGet POST -> Open print popup
  */
 async function confirmAndPrintSale() {
-    console.log('[SALE-CONFIRM] Starting confirm and print...');
+    console.log('[SALE-CONFIRM] Starting confirm and print via InsertListOrderModel...');
 
     // Validate we have order data
     if (!currentSaleOrderData) {
@@ -514,95 +514,123 @@ async function confirmAndPrintSale() {
     }
 
     try {
-        // Get auth token
-        let token;
-        if (window.tokenManager) {
-            token = await window.tokenManager.getToken();
+        // Get auth header from billTokenManager (same as fastSaleModal)
+        let headers;
+        if (window.billTokenManager) {
+            await window.billTokenManager.ensureCredentialsLoaded();
+            if (!window.billTokenManager.hasCredentials()) {
+                throw new Error('Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.');
+            }
+            headers = await window.billTokenManager.getAuthHeader();
+            console.log('[SALE-CONFIRM] Using billTokenManager for auth');
         } else {
-            const storedData = localStorage.getItem('bearer_token_data');
-            if (storedData) {
-                const data = JSON.parse(storedData);
-                token = data.access_token;
+            // Fallback to regular token
+            let token;
+            if (window.tokenManager) {
+                token = await window.tokenManager.getToken();
+            } else {
+                const storedData = localStorage.getItem('bearer_token_data');
+                if (storedData) {
+                    const data = JSON.parse(storedData);
+                    token = data.access_token;
+                }
             }
-        }
-
-        if (!token) {
-            throw new Error('Không tìm thấy token xác thực');
-        }
-
-        // Step 0: Fetch default data if not already loaded (to get User, Company, etc.)
-        if (!window.lastDefaultSaleData) {
-            console.log('[SALE-CONFIRM] Step 0: Fetching default data first...');
-            const defaultResponse = await fetch('https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.DefaultGet?$expand=Warehouse,User,PriceList,Company,Journal,PaymentJournal,Partner,Carrier,Tax,SaleOrder,DestConvertCurrencyUnit', {
-                method: 'POST',
-                headers: {
-                    'accept': 'application/json, text/plain, */*',
-                    'authorization': `Bearer ${token}`,
-                    'content-type': 'application/json;charset=UTF-8',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
-                    'x-tpos-lang': 'vi'
-                },
-                body: JSON.stringify({ model: { Type: 'invoice' } })
-            });
-            if (defaultResponse.ok) {
-                window.lastDefaultSaleData = await defaultResponse.json();
-                console.log('[SALE-CONFIRM] Default data loaded:', window.lastDefaultSaleData);
+            if (!token) {
+                throw new Error('Không tìm thấy token xác thực');
             }
+            headers = { 'Authorization': `Bearer ${token}` };
         }
 
-        // Step 1: Build and POST FastSaleOrder
-        console.log('[SALE-CONFIRM] Step 1: Creating FastSaleOrder...');
-        const payload = buildFastSaleOrderPayload();
+        // Build model for InsertListOrderModel API (same format as fastSaleModal)
+        console.log('[SALE-CONFIRM] Building model for InsertListOrderModel...');
+        const model = buildSaleOrderModelForInsertList();
 
-        const createResponse = await fetch('https://tomato.tpos.vn/odata/FastSaleOrder', {
+        // Store model for later use
+        window.lastFastSaleModels = [model];
+
+        // Validate required fields
+        if (!model.CarrierId || model.CarrierId === 0) {
+            throw new Error('Vui lòng chọn đối tác vận chuyển');
+        }
+        if (!model.Partner?.Phone) {
+            throw new Error('Vui lòng nhập số điện thoại người nhận');
+        }
+        if (!model.Partner?.Street) {
+            throw new Error('Vui lòng nhập địa chỉ người nhận');
+        }
+
+        // Build request body (same as fastSaleModal's "Lưu xác nhận")
+        const requestBody = {
+            is_approve: true,
+            model: [model]
+        };
+
+        console.log('[SALE-CONFIRM] Request body:', requestBody);
+
+        // Call InsertListOrderModel API with isForce=true (same as fastSaleModal)
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner,OrderLines),OrdersSucessed($expand=Partner,OrderLines)`;
+
+        const response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
             headers: {
-                'accept': 'application/json, text/plain, */*',
-                'authorization': `Bearer ${token}`,
-                'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
-                'x-tpos-lang': 'vi'
+                ...headers,
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(requestBody)
         });
 
-        if (!createResponse.ok) {
-            const errorText = await createResponse.text();
-            throw new Error(`Lỗi tạo đơn: ${createResponse.status} - ${errorText}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
-        const createResult = await createResponse.json();
-        console.log('[SALE-CONFIRM] FastSaleOrder created:', createResult);
+        const result = await response.json();
+        console.log('[SALE-CONFIRM] InsertListOrderModel result:', result);
 
+        // Handle response - check for errors
+        const successOrders = result.OrdersSucessed || [];
+        const errorOrders = result.OrdersError || [];
+        const dataErrorFast = result.DataErrorFast || [];
+
+        if (errorOrders.length > 0 || dataErrorFast.length > 0) {
+            const errorMessages = [];
+            errorOrders.forEach(o => {
+                if (o.Error) errorMessages.push(o.Error);
+            });
+            dataErrorFast.forEach(o => {
+                if (o.Error) errorMessages.push(o.Error);
+            });
+            throw new Error(errorMessages.join('; ') || 'Có lỗi khi tạo đơn hàng');
+        }
+
+        if (successOrders.length === 0) {
+            throw new Error('Không có đơn hàng nào được tạo thành công');
+        }
+
+        const createResult = successOrders[0];
         const orderId = createResult.Id;
         const orderNumber = createResult.Number || orderId;
-        if (!orderId) {
-            throw new Error('Không nhận được ID đơn hàng');
-        }
 
-        // Step 1.5: Update debt after order creation
-        // Logic: actualPayment = min(debt, COD), remainingDebt = debt - actualPayment
+        console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
+
+        // Update debt after order creation (same logic as before)
         const currentDebt = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
         const codAmount = parseFloat(document.getElementById('saleCOD')?.value) || 0;
         if (currentDebt > 0) {
             const customerPhone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
             if (customerPhone) {
-                // Calculate actual payment and remaining debt based on COD
                 const actualPayment = Math.min(currentDebt, codAmount);
                 const remainingDebt = Math.max(0, currentDebt - codAmount);
 
-                console.log('[SALE-CONFIRM] Step 1.5: Debt calculation - current:', currentDebt, 'COD:', codAmount, 'paid:', actualPayment, 'remaining:', remainingDebt);
+                console.log('[SALE-CONFIRM] Debt calculation - current:', currentDebt, 'COD:', codAmount, 'paid:', actualPayment, 'remaining:', remainingDebt);
 
-                // Update UI: update prepaidAmount to remaining debt
                 const prepaidInput = document.getElementById('salePrepaidAmount');
                 if (prepaidInput) {
                     prepaidInput.value = remainingDebt;
-                    console.log('[SALE-CONFIRM] ✅ Updated prepaidAmount UI to:', remainingDebt);
-                    // Trigger updates for COD and remaining balance
                     updateSaleCOD();
                 }
 
-                // Call API to update debt and save history (async, don't block)
+                // Update debt API (async)
                 fetch(`${QR_API_URL}/api/sepay/update-debt`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -612,117 +640,338 @@ async function confirmAndPrintSale() {
                         old_debt: currentDebt,
                         reason: `Thanh toán công nợ ${actualPayment.toLocaleString('vi-VN')}đ qua đơn hàng #${orderNumber}${remainingDebt > 0 ? ` (còn nợ ${remainingDebt.toLocaleString('vi-VN')}đ)` : ''}`
                     })
-                }).then(res => res.json()).then(result => {
-                    if (result.success) {
-                        console.log('[SALE-CONFIRM] ✅ Debt updated to', remainingDebt, ', history saved');
-                        // Update UI: update debt cells in table
+                }).then(res => res.json()).then(debtResult => {
+                    if (debtResult.success) {
+                        console.log('[SALE-CONFIRM] ✅ Debt updated to', remainingDebt);
                         const normalizedPhone = normalizePhoneForQR(customerPhone);
                         if (normalizedPhone) {
-                            // Invalidate cache
                             const cache = getDebtCache();
                             delete cache[normalizedPhone];
                             saveDebtCache(cache);
-                            // Update table cells with remaining debt
                             updateDebtCellsInTable(normalizedPhone, remainingDebt);
                         }
-                    } else {
-                        console.error('[SALE-CONFIRM] Failed to update debt:', result.error);
                     }
-                }).catch(err => {
-                    console.error('[SALE-CONFIRM] Error updating debt:', err);
-                });
+                }).catch(err => console.error('[SALE-CONFIRM] Error updating debt:', err));
             }
         }
 
-        // Step 2: Fetch default data for next order (async, don't block)
-        console.log('[SALE-CONFIRM] Step 2: Fetching default data for new order...');
-        fetch('https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.DefaultGet?$expand=Warehouse,User,PriceList,Company,Journal,PaymentJournal,Partner,Carrier,Tax,SaleOrder,DestConvertCurrencyUnit', {
-            method: 'POST',
-            headers: {
-                'accept': 'application/json, text/plain, */*',
-                'authorization': `Bearer ${token}`,
-                'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
-                'x-tpos-lang': 'vi'
-            },
-            body: JSON.stringify({ model: { Type: 'invoice' } })
-        }).then(res => res.json()).then(data => {
-            console.log('[SALE-CONFIRM] Default data received for next order');
-            // Store for next order if needed
-            window.lastDefaultSaleData = data;
-        }).catch(err => {
-            console.warn('[SALE-CONFIRM] Failed to fetch default data:', err);
-        });
-
-        // Step 3: Open print popup with custom bill (no longer fetches from TPOS API)
-        console.log('[SALE-CONFIRM] Step 3: Opening custom bill popup...');
+        // Open print popup with custom bill
+        console.log('[SALE-CONFIRM] Opening custom bill popup...');
         openPrintPopup(createResult, { currentSaleOrderData });
 
-        // Step 4: Send bill image to customer via Messenger (async, don't block)
-        console.log('[SALE-CONFIRM] Step 4: Sending bill to customer...');
-        console.log('[SALE-CONFIRM] Order data for chat:', {
-            Facebook_ASUserId: currentSaleOrderData?.Facebook_ASUserId,
-            Facebook_PostId: currentSaleOrderData?.Facebook_PostId,
-            Facebook_ConversationId: currentSaleOrderData?.Facebook_ConversationId,
-            chatDataManager: !!window.chatDataManager
-        });
-
+        // Send bill to customer via Messenger (async)
+        console.log('[SALE-CONFIRM] Sending bill to customer...');
         let chatInfo = window.chatDataManager?.getChatInfoForOrder(currentSaleOrderData);
 
-        // Fallback: get chat info directly from order if chatDataManager not available
         if (!chatInfo || !chatInfo.hasChat) {
             const psid = currentSaleOrderData?.Facebook_ASUserId;
             const postId = currentSaleOrderData?.Facebook_PostId;
             const channelId = postId ? postId.split('_')[0] : null;
             if (psid && channelId) {
                 chatInfo = { channelId, psid, hasChat: true };
-                console.log('[SALE-CONFIRM] Using fallback chat info:', chatInfo);
             }
         }
-        console.log('[SALE-CONFIRM] Final chat info:', chatInfo);
 
         if (chatInfo?.hasChat) {
             sendBillToCustomer(createResult, chatInfo.channelId, chatInfo.psid, { currentSaleOrderData })
-                .then(result => {
-                    if (result.success) {
+                .then(billResult => {
+                    if (billResult.success) {
                         console.log('[SALE-CONFIRM] ✅ Bill sent to customer successfully');
-                        if (window.notificationManager) {
-                            window.notificationManager.success('Đã gửi phiếu bán hàng qua Messenger', 3000);
-                        }
+                        window.notificationManager?.success('Đã gửi phiếu bán hàng qua Messenger', 3000);
                     } else {
-                        console.warn('[SALE-CONFIRM] ⚠️ Failed to send bill:', result.error);
+                        console.warn('[SALE-CONFIRM] ⚠️ Failed to send bill:', billResult.error);
                     }
                 })
-                .catch(err => {
-                    console.error('[SALE-CONFIRM] ❌ Error sending bill:', err);
-                });
-        } else {
-            console.log('[SALE-CONFIRM] ⏭️ Skipping bill send - no chat info available');
-            console.log('[SALE-CONFIRM] Reason: chatDataManager=', !!window.chatDataManager, 'hasChat=', chatInfo?.hasChat);
+                .catch(err => console.error('[SALE-CONFIRM] ❌ Error sending bill:', err));
         }
 
         // Success notification
-        if (window.notificationManager) {
-            window.notificationManager.success(`Đã tạo đơn hàng ${createResult.Number || orderId}`);
-        }
+        window.notificationManager?.success(`Đã tạo đơn hàng ${orderNumber}`);
 
-        // Close modal after successful creation and clear selection
+        // Close modal after successful creation
         setTimeout(() => {
-            closeSaleButtonModal(true); // true = clear checkbox selection
+            closeSaleButtonModal(true);
         }, 500);
 
     } catch (error) {
         console.error('[SALE-CONFIRM] Error:', error);
-        if (window.notificationManager) {
-            window.notificationManager.error(error.message || 'Lỗi xác nhận đơn hàng');
-        }
+        window.notificationManager?.error(error.message || 'Lỗi xác nhận đơn hàng');
     } finally {
-        // Restore button state
         if (confirmBtn) {
             confirmBtn.disabled = false;
             confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';
         }
     }
+}
+
+/**
+ * Build order model for InsertListOrderModel API (same format as fastSaleModal)
+ */
+function buildSaleOrderModelForInsertList() {
+    const order = currentSaleOrderData;
+    const partner = currentSalePartnerData;
+
+    // Get form values
+    const receiverName = document.getElementById('saleReceiverName')?.value || order.PartnerName || '';
+    const receiverPhone = document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
+    const receiverAddress = document.getElementById('saleReceiverAddress')?.value || null;
+    const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
+    const comment = document.getElementById('saleReceiverNote')?.value || '';
+
+    const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseFloat(shippingFeeValue)
+        : 35000;
+
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    // Get remaining balance from span (not input) - parse number from text like "280.000" or "280,000"
+    const remainingText = document.getElementById('saleRemainingBalance')?.textContent || '0';
+    const cashOnDelivery = parseFloat(remainingText.replace(/[.,]/g, '')) || 0;
+
+    // Get carrier
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 0;
+    const selectedOption = carrierSelect?.selectedOptions[0];
+    const carrierName = selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || '';
+
+    // Get current user ID
+    const currentUserId = window.tokenManager?.userId || window.currentUser?.Id || null;
+
+    // Build order lines
+    const orderLines = buildOrderLines();
+    const amountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+
+    // Build model matching InsertListOrderModel format
+    return {
+        Id: 0,
+        Name: null,
+        PrintShipCount: 0,
+        PrintDeliveryCount: 0,
+        PaymentMessageCount: 0,
+        MessageCount: 0,
+        PartnerId: partner?.Id || order.PartnerId || 0,
+        PartnerDisplayName: partner?.DisplayName || partner?.Name || receiverName || '',
+        PartnerEmail: null,
+        PartnerFacebookId: partner?.FacebookId || order.Facebook_ASUserId || null,
+        PartnerFacebook: null,
+        PartnerPhone: receiverPhone || null,
+        Reference: order.Code || '',
+        PriceListId: 0,
+        AmountTotal: amountTotal,
+        TotalQuantity: 0,
+        Discount: 0,
+        DiscountAmount: 0,
+        DecreaseAmount: 0,
+        DiscountLoyaltyTotal: null,
+        WeightTotal: 0,
+        AmountTax: null,
+        AmountUntaxed: null,
+        TaxId: null,
+        MoveId: null,
+        UserId: currentUserId,
+        UserName: null,
+        DateInvoice: new Date().toISOString(),
+        DateCreated: new Date().toISOString(),
+        CreatedById: null,
+        State: "draft",
+        ShowState: "Nháp",
+        CompanyId: 0,
+        Comment: comment,
+        WarehouseId: 0,
+        SaleOnlineIds: order.Id ? [order.Id] : [],
+        SaleOnlineNames: order.Code ? [order.Code] : [],
+        Residual: null,
+        Type: null,
+        RefundOrderId: null,
+        ReferenceNumber: null,
+        AccountId: 0,
+        JournalId: 0,
+        Number: null,
+        MoveName: null,
+        PartnerNameNoSign: null,
+        DeliveryPrice: shippingFee,
+        CustomerDeliveryPrice: null,
+        CarrierId: carrierId,
+        CarrierName: carrierName,
+        CarrierDeliveryType: null,
+        DeliveryNote: deliveryNote,
+        ReceiverName: receiverName,
+        ReceiverPhone: receiverPhone,
+        ReceiverAddress: receiverAddress,
+        ReceiverDate: null,
+        ReceiverNote: null,
+        CashOnDelivery: cashOnDelivery,
+        TrackingRef: null,
+        TrackingArea: null,
+        TrackingTransport: null,
+        TrackingSortLine: null,
+        TrackingUrl: "",
+        IsProductDefault: false,
+        TrackingRefSort: null,
+        ShipStatus: "none",
+        ShowShipStatus: "Chưa tiếp nhận",
+        SaleOnlineName: order.Code || '',
+        PartnerShippingId: null,
+        PaymentJournalId: null,
+        PaymentAmount: 0,
+        SaleOrderId: null,
+        SaleOrderIds: [],
+        FacebookName: receiverName,
+        FacebookNameNosign: null,
+        FacebookId: partner?.FacebookId || order.Facebook_ASUserId || null,
+        DisplayFacebookName: null,
+        Deliver: null,
+        ShipWeight: 100,
+        ShipPaymentStatus: null,
+        ShipPaymentStatusCode: null,
+        OldCredit: 0,
+        NewCredit: 0,
+        Phone: receiverPhone || null,
+        Address: receiverAddress || null,
+        AmountTotalSigned: null,
+        ResidualSigned: null,
+        Origin: null,
+        AmountDeposit: prepaidAmount,
+        CompanyName: null,
+        PreviousBalance: null,
+        ToPay: null,
+        NotModifyPriceFromSO: false,
+        Ship_ServiceId: null,
+        Ship_ServiceName: null,
+        Ship_ServiceExtrasText: null,
+        Ship_ExtrasText: null,
+        Ship_InsuranceFee: null,
+        CurrencyName: null,
+        TeamId: null,
+        TeamOrderCode: null,
+        TeamOrderId: null,
+        TeamType: null,
+        Revenue: null,
+        SaleOrderDeposit: null,
+        Seri: null,
+        NumberOrder: null,
+        DateOrderRed: null,
+        ApplyPromotion: null,
+        TimeLock: null,
+        PageName: null,
+        Tags: null,
+        IRAttachmentUrl: null,
+        IRAttachmentUrls: [],
+        SaleOnlinesOfPartner: null,
+        IsDeposited: null,
+        LiveCampaignName: order.LiveCampaignName || '',
+        LiveCampaignId: order.LiveCampaignId || null,
+        Source: null,
+        CartNote: null,
+        ExtraPaymentAmount: null,
+        QuantityUpdateDeposit: null,
+        IsMergeCancel: null,
+        IsPickUpAtShop: null,
+        DateDeposit: null,
+        IsRefund: null,
+        StateCode: "None",
+        ActualPaymentAmount: null,
+        RowVersion: null,
+        ExchangeRate: null,
+        DestConvertCurrencyUnitId: null,
+        WiPointQRCode: null,
+        WiInvoiceId: null,
+        WiInvoiceChannelId: null,
+        WiInvoiceStatus: null,
+        WiInvoiceTrackingUrl: "",
+        WiInvoiceIsReplate: false,
+        FormAction: null,
+        Ship_Receiver: null,
+        Ship_Extras: null,
+        PaymentInfo: [],
+        Search: null,
+        ShipmentDetailsAship: {
+            PackageInfo: {
+                PackageLength: 0,
+                PackageWidth: 0,
+                PackageHeight: 0
+            }
+        },
+        OrderMergeds: [],
+        OrderAfterMerged: null,
+        TPayment: null,
+        ExtraUpdateCODCarriers: [],
+        AppliedPromotionLoyalty: null,
+        FastSaleOrderOmniExtras: null,
+        Billing: null,
+        PackageInfo: {
+            PackageLength: 0,
+            PackageWidth: 0,
+            PackageHeight: 0
+        },
+        Error: null,
+        OrderLines: orderLines.map(line => ({
+            Id: 0,
+            OrderId: 0,
+            ProductId: line.ProductId,
+            ProductUOMId: line.ProductUOMId || 1,
+            PriceUnit: line.PriceUnit || 0,
+            ProductUOMQty: line.ProductUOMQty || 0,
+            ProductUOMQtyAvailable: 0,
+            UserId: null,
+            Discount: line.Discount || 0,
+            Discount_Fixed: line.Discount_Fixed || 0,
+            DiscountTotalLoyalty: null,
+            PriceTotal: line.PriceTotal || 0,
+            PriceSubTotal: line.PriceSubTotal || 0,
+            Weight: 0,
+            WeightTotal: null,
+            AccountId: 0,
+            PriceRecent: null,
+            Name: null,
+            IsName: false,
+            ProductName: line.ProductName || '',
+            ProductUOMName: line.ProductUOMName || 'Cái',
+            SaleLineIds: [],
+            ProductNameGet: null,
+            SaleLineId: null,
+            Type: "fixed",
+            PromotionProgramId: null,
+            Note: line.Note || null,
+            FacebookPostId: null,
+            ChannelType: null,
+            ProductBarcode: null,
+            CompanyId: null,
+            PartnerId: null,
+            PriceSubTotalSigned: null,
+            PromotionProgramComboId: null,
+            LiveCampaign_DetailId: null,
+            LiveCampaignQtyChange: 0,
+            ProductImageUrl: "",
+            SaleOnlineDetailId: line.SaleOnlineDetailId || null,
+            PriceCheck: null,
+            IsNotEnoughInventory: null,
+            Tags: [],
+            CreatedById: null,
+            TrackingRef: null,
+            ReturnTotal: 0,
+            ConversionPrice: null
+        })),
+        Partner: {
+            Id: partner?.Id || order.PartnerId || 0,
+            Name: receiverName,
+            DisplayName: receiverName,
+            Street: receiverAddress,
+            Phone: receiverPhone,
+            Customer: true,
+            Type: "contact",
+            CompanyType: "person",
+            DateCreated: new Date().toISOString(),
+            ExtraAddress: partner?.ExtraAddress || null
+        },
+        Carrier: {
+            Id: carrierId,
+            Name: carrierName,
+            DeliveryType: "fixed",
+            Config_DefaultFee: shippingFee
+        }
+    };
 }
 
 /**

@@ -399,7 +399,7 @@ const BillService = (function () {
 
     ${showCOD ? `
     <div class="cod-amount">
-        THU HỘ (COD): ${codAmount.toLocaleString('vi-VN')} đ
+        THU HỘ (COD): ${(prepaidAmount > 0 ? remainingBalance : finalTotal).toLocaleString('vi-VN')} đ
     </div>
     ` : ''}
 
