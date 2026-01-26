@@ -651,8 +651,8 @@ async function confirmAndPrintSale() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         amount: actualPayment,
-                        source: 'COD_PAYMENT',
-                        note: `Thanh toán công nợ qua đơn hàng #${orderNumber}`,
+                        source: 'ORDER_PAYMENT',
+                        note: `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`,
                         created_by: performedBy
                     })
                 }).then(res => res.json()).then(debtResult => {
