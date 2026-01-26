@@ -1436,16 +1436,15 @@ async function printSuccessOrders(type) {
 
     console.log(`[FAST-SALE] Printing ${type} for ${orderIds.length} orders:`, orderIds);
 
-    // For invoice type, use custom bill and send to Messenger
+    // For invoice type, use TPOS bill (fetched from TPOS API with STT)
     if (type === 'invoice') {
-        console.log('[FAST-SALE] Using custom bill for invoice printing...');
+        console.log('[FAST-SALE] Using TPOS bill for invoice printing...');
 
         // Clear currentSaleOrderData to prevent old data interference
         currentSaleOrderData = null;
 
-        // Collect all enriched orders, TPOS orders for printing, and send tasks
+        // Collect enriched orders and send tasks (for Messenger sending)
         const enrichedOrders = [];
-        const tposOrdersForPrint = []; // For TPOS bill printing: { orderId, orderData }
         const sendTasks = [];
 
         for (let i = 0; i < selectedOrders.length; i++) {
@@ -1504,20 +1503,10 @@ async function printSuccessOrders(type) {
 
             enrichedOrders.push(enrichedOrder);
 
-            // Collect TPOS order info for printing (orderId from API result, orderData from saleOnline for SessionIndex)
-            if (order.Id) {
-                tposOrdersForPrint.push({
-                    orderId: order.Id,
-                    orderData: saleOnlineOrderForData || originalOrder || order
-                });
-            }
-
-            console.log('[FAST-SALE] Enriched order for bill:', {
+            console.log('[FAST-SALE] Enriched order for Messenger:', {
                 number: enrichedOrder.Number,
                 carrierName: enrichedOrder.CarrierName,
-                orderLinesCount: enrichedOrder.OrderLines?.length,
-                tposOrderId: order.Id,
-                sessionIndex: saleOnlineOrderForData?.SessionIndex || originalOrder?.SessionIndex
+                orderLinesCount: enrichedOrder.OrderLines?.length
             });
 
             // Find saleOnline order for chat info
@@ -1581,22 +1570,39 @@ async function printSuccessOrders(type) {
         // DEBUG: Summary of collected data
         console.log('[FAST-SALE] DEBUG - Collection summary:', {
             selectedOrdersCount: selectedOrders.length,
+            orderIds: orderIds,
             enrichedOrdersCount: enrichedOrders.length,
-            sendTasksCount: sendTasks.length,
-            sendTasksDetails: sendTasks.map(t => ({ orderNumber: t.orderNumber, customer: t.customerName, psid: t.psid }))
+            sendTasksCount: sendTasks.length
         });
 
-        // 1. Open ONE combined print popup with TPOS bills (fetched from TPOS API with STT)
-        if (tposOrdersForPrint.length > 0) {
-            console.log('[FAST-SALE] Opening combined TPOS print popup for', tposOrdersForPrint.length, 'bills...');
-            // Get auth headers for TPOS API
+        // 1. Open TPOS bills print popup (directly using orderIds - no fallback to custom bill)
+        if (orderIds.length > 0) {
+            console.log('[FAST-SALE] Opening TPOS print popup for', orderIds.length, 'bills, IDs:', orderIds);
             const headers = await getBillAuthHeader();
+
+            // Build TPOS orders array for printing
+            const tposOrders = selectedOrders.map((order, idx) => {
+                // Find saleOnline order for SessionIndex
+                const saleOnlineId = order.SaleOnlineIds?.[0];
+                const saleOnlineOrder = saleOnlineId
+                    ? (window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId))
+                    : null;
+
+                return {
+                    orderId: order.Id,
+                    orderData: saleOnlineOrder || order
+                };
+            });
+
+            console.log('[FAST-SALE] TPOS orders for print:', tposOrders.map(o => ({
+                orderId: o.orderId,
+                sessionIndex: o.orderData?.SessionIndex
+            })));
+
             // Use TPOS bill style with STT
-            window.openCombinedTPOSPrintPopup(tposOrdersForPrint, headers);
-        } else if (enrichedOrders.length > 0) {
-            // Fallback to custom bills if no TPOS order IDs
-            console.log('[FAST-SALE] Fallback: Opening combined custom print popup for', enrichedOrders.length, 'bills...');
-            openCombinedPrintPopup(enrichedOrders);
+            await window.openCombinedTPOSPrintPopup(tposOrders, headers);
+        } else {
+            window.notificationManager?.error('Không có đơn hàng TPOS để in');
         }
 
         // 3. Clear main table checkboxes after printing
