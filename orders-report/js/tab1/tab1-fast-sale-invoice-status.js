@@ -70,7 +70,34 @@
         },
 
         /**
+         * Get user identifier consistently across all storage types.
+         * Uses authManager (checks sessionStorage + localStorage) for incognito support.
+         * @returns {string} User identifier for Firestore document key
+         */
+        _getUserIdentifier() {
+            // Priority 1: authManager (checks sessionStorage then localStorage)
+            const authState = window.authManager?.getAuthState();
+            if (authState?.userType) {
+                return authState.userType;
+            }
+
+            // Priority 2: userStorageManager
+            if (window.userStorageManager?.userIdentifier && window.userStorageManager.userIdentifier !== 'guest') {
+                return window.userStorageManager.userIdentifier;
+            }
+
+            // Priority 3: Direct localStorage (legacy fallback)
+            const localUserType = localStorage.getItem('userType');
+            if (localUserType) {
+                return localUserType;
+            }
+
+            return 'default';
+        },
+
+        /**
          * Initialize Firestore reference
+         * Waits for Firebase auth to be ready before creating reference
          */
         async _initFirestore() {
             try {
@@ -78,11 +105,23 @@
                     console.log('[INVOICE-STATUS] Firestore not available');
                     return;
                 }
+
+                // Wait for Firebase auth to be ready (needed for Firestore access)
+                if (window.firebase.auth && !window.firebase.auth().currentUser) {
+                    await new Promise((resolve) => {
+                        const unsubscribe = window.firebase.auth().onAuthStateChanged((user) => {
+                            unsubscribe();
+                            resolve(user);
+                        });
+                        // Timeout after 5 seconds
+                        setTimeout(() => resolve(null), 5000);
+                    });
+                }
+
                 const db = window.firebase.firestore();
-                // Use user-specific document
-                const userId = localStorage.getItem('userType') || 'default';
+                const userId = this._getUserIdentifier();
                 this._firestoreRef = db.collection(FIRESTORE_COLLECTION).doc(userId);
-                console.log('[INVOICE-STATUS] Firestore reference initialized');
+                console.log(`[INVOICE-STATUS] Firestore initialized for user: ${userId}`);
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing Firestore:', e);
             }
@@ -92,12 +131,17 @@
          * Load from Firestore and merge with localStorage
          */
         async _loadFromFirestore() {
-            if (!this._firestoreRef) return;
+            if (!this._firestoreRef) {
+                console.warn('[INVOICE-STATUS] No Firestore ref, skipping load');
+                return;
+            }
 
             try {
+                console.log(`[INVOICE-STATUS] Loading from Firestore: ${this._firestoreRef.path}`);
                 const doc = await this._firestoreRef.get();
                 if (doc.exists) {
                     const firestoreData = doc.data();
+                    let mergedCount = 0;
 
                     // Merge data (Firestore takes precedence for newer entries)
                     if (firestoreData.data && Array.isArray(firestoreData.data)) {
@@ -107,6 +151,7 @@
                             // Use Firestore value if newer or local doesn't exist
                             if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
                                 this._data.set(key, value);
+                                mergedCount++;
                             }
                         });
                     }
@@ -116,8 +161,10 @@
                         firestoreData.sentBills.forEach(id => this._sentBills.add(id));
                     }
 
-                    console.log(`[INVOICE-STATUS] Merged data from Firestore, now ${this._data.size} entries`);
+                    console.log(`[INVOICE-STATUS] Merged ${mergedCount} entries from Firestore, total ${this._data.size}`);
                     this._saveToLocalStorage(); // Update localStorage with merged data
+                } else {
+                    console.log(`[INVOICE-STATUS] No data in Firestore at: ${this._firestoreRef.path}`);
                 }
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error loading from Firestore:', e);
