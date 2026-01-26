@@ -18,23 +18,31 @@
     // =====================================================
 
     const STORAGE_KEY = 'invoiceStatusStore';
+    const FIRESTORE_COLLECTION = 'invoice_status';
+    const MAX_AGE_DAYS = 7;
 
     /**
      * InvoiceStatusStore - Manages invoice status data
+     * Syncs to Firestore for persistence across devices
      */
     const InvoiceStatusStore = {
         _data: new Map(),
         _sentBills: new Set(), // Track orders that have sent bills
+        _firestoreRef: null,
+        _initialized: false,
+        _syncTimeout: null,
 
         /**
-         * Initialize store from localStorage
+         * Initialize store from localStorage + Firestore
          */
-        init() {
+        async init() {
+            if (this._initialized) return;
+
             try {
+                // 1. Load from localStorage first (fast)
                 const saved = localStorage.getItem(STORAGE_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    // Convert array back to Map
                     if (Array.isArray(parsed.data)) {
                         this._data = new Map(parsed.data);
                     }
@@ -42,25 +50,128 @@
                         this._sentBills = new Set(parsed.sentBills);
                     }
                 }
+                console.log(`[INVOICE-STATUS] Loaded ${this._data.size} entries from localStorage`);
+
+                // 2. Initialize Firestore reference
+                await this._initFirestore();
+
+                // 3. Load from Firestore and merge
+                await this._loadFromFirestore();
+
+                // 4. Cleanup old entries
+                await this.cleanup();
+
+                this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
             } catch (e) {
-                console.error('[INVOICE-STATUS] Error loading store:', e);
+                console.error('[INVOICE-STATUS] Error initializing store:', e);
+                this._initialized = true; // Continue with localStorage only
             }
         },
 
         /**
-         * Save store to localStorage
+         * Initialize Firestore reference
          */
-        save() {
+        async _initFirestore() {
+            try {
+                if (!window.firebase?.firestore) {
+                    console.log('[INVOICE-STATUS] Firestore not available');
+                    return;
+                }
+                const db = window.firebase.firestore();
+                // Use user-specific document
+                const userId = localStorage.getItem('userType') || 'default';
+                this._firestoreRef = db.collection(FIRESTORE_COLLECTION).doc(userId);
+                console.log('[INVOICE-STATUS] Firestore reference initialized');
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Error initializing Firestore:', e);
+            }
+        },
+
+        /**
+         * Load from Firestore and merge with localStorage
+         */
+        async _loadFromFirestore() {
+            if (!this._firestoreRef) return;
+
+            try {
+                const doc = await this._firestoreRef.get();
+                if (doc.exists) {
+                    const firestoreData = doc.data();
+
+                    // Merge data (Firestore takes precedence for newer entries)
+                    if (firestoreData.data && Array.isArray(firestoreData.data)) {
+                        const firestoreMap = new Map(firestoreData.data);
+                        firestoreMap.forEach((value, key) => {
+                            const localValue = this._data.get(key);
+                            // Use Firestore value if newer or local doesn't exist
+                            if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
+                                this._data.set(key, value);
+                            }
+                        });
+                    }
+
+                    // Merge sent bills
+                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                        firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                    }
+
+                    console.log(`[INVOICE-STATUS] Merged data from Firestore, now ${this._data.size} entries`);
+                    this._saveToLocalStorage(); // Update localStorage with merged data
+                }
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Error loading from Firestore:', e);
+            }
+        },
+
+        /**
+         * Save to localStorage only
+         */
+        _saveToLocalStorage() {
             try {
                 const data = {
                     data: Array.from(this._data.entries()),
-                    sentBills: Array.from(this._sentBills)
+                    sentBills: Array.from(this._sentBills),
+                    lastUpdated: Date.now()
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             } catch (e) {
-                console.error('[INVOICE-STATUS] Error saving store:', e);
+                console.error('[INVOICE-STATUS] Error saving to localStorage:', e);
             }
+        },
+
+        /**
+         * Save to Firestore (debounced)
+         */
+        _saveToFirestore() {
+            if (!this._firestoreRef) return;
+
+            // Debounce Firestore saves
+            if (this._syncTimeout) {
+                clearTimeout(this._syncTimeout);
+            }
+
+            this._syncTimeout = setTimeout(async () => {
+                try {
+                    const data = {
+                        data: Array.from(this._data.entries()),
+                        sentBills: Array.from(this._sentBills),
+                        lastUpdated: Date.now()
+                    };
+                    await this._firestoreRef.set(data, { merge: true });
+                    console.log('[INVOICE-STATUS] ✅ Synced to Firestore');
+                } catch (e) {
+                    console.error('[INVOICE-STATUS] Error saving to Firestore:', e);
+                }
+            }, 2000); // Debounce 2 seconds
+        },
+
+        /**
+         * Save store to localStorage + Firestore
+         */
+        save() {
+            this._saveToLocalStorage();
+            this._saveToFirestore();
         },
 
         /**
@@ -210,23 +321,73 @@
 
         /**
          * Clear old entries (older than 7 days)
+         * Also cleans sentBills for deleted entries
          */
-        cleanup() {
+        async cleanup() {
             const now = Date.now();
-            const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+            const maxAge = MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 
             let removed = 0;
+            const keysToRemove = [];
+
             this._data.forEach((value, key) => {
                 if (value.timestamp && (now - value.timestamp) > maxAge) {
-                    this._data.delete(key);
+                    keysToRemove.push(key);
                     removed++;
                 }
             });
 
+            // Remove old entries
+            keysToRemove.forEach(key => {
+                this._data.delete(key);
+                this._sentBills.delete(key); // Also remove from sentBills
+            });
+
             if (removed > 0) {
-                console.log(`[INVOICE-STATUS] Cleaned up ${removed} old entries`);
-                this.save();
+                console.log(`[INVOICE-STATUS] Cleaned up ${removed} old entries (>${MAX_AGE_DAYS} days)`);
+                this.save(); // Save to both localStorage and Firestore
             }
+        },
+
+        /**
+         * Get data filtered by date range
+         * @param {Date} startDate - Start date
+         * @param {Date} endDate - End date
+         * @returns {Map} Filtered data
+         */
+        getByDateRange(startDate, endDate) {
+            const filtered = new Map();
+            const startTs = startDate?.getTime() || 0;
+            const endTs = endDate?.getTime() || Date.now();
+
+            this._data.forEach((value, key) => {
+                const ts = value.timestamp || 0;
+                if (ts >= startTs && ts <= endTs) {
+                    filtered.set(key, value);
+                }
+            });
+
+            return filtered;
+        },
+
+        /**
+         * Clear all data (for testing/reset)
+         */
+        async clearAll() {
+            this._data.clear();
+            this._sentBills.clear();
+            localStorage.removeItem(STORAGE_KEY);
+
+            if (this._firestoreRef) {
+                try {
+                    await this._firestoreRef.delete();
+                    console.log('[INVOICE-STATUS] Cleared all data from Firestore');
+                } catch (e) {
+                    console.error('[INVOICE-STATUS] Error clearing Firestore:', e);
+                }
+            }
+
+            console.log('[INVOICE-STATUS] All data cleared');
         }
     };
 
@@ -1183,12 +1344,16 @@
     // INITIALIZATION
     // =====================================================
 
-    function init() {
-        console.log('[INVOICE-STATUS] Initializing module v2.0...');
+    let _initStarted = false;
 
-        // Initialize store
-        InvoiceStatusStore.init();
-        InvoiceStatusStore.cleanup();
+    async function init() {
+        if (_initStarted) return;
+        _initStarted = true;
+
+        console.log('[INVOICE-STATUS] Initializing module v2.1 (with Firestore sync)...');
+
+        // Initialize store (async - loads from localStorage + Firestore)
+        await InvoiceStatusStore.init();
 
         // Save original function
         if (typeof window.printSuccessOrders === 'function' && !window._originalPrintSuccessOrders) {
@@ -1225,12 +1390,9 @@
 
     // Initialize
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', () => init());
     } else {
         init();
     }
-
-    // Retry init after short delay to ensure dependencies are loaded
-    setTimeout(init, 200);
 
 })();
