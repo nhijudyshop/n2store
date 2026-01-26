@@ -831,8 +831,9 @@ async function handleSubmitTicket() {
         money = codReduce; // COD Giảm chính là số tiền phải trả ĐVVC
 
         if (fixCodReason === 'REJECT_PARTIAL') {
-            // Validation: Đơn phải có >= 2 món (only if an order is selected)
-            if (selectedOrder && selectedOrder.products && selectedOrder.products.length < 2) {
+            // Validation: Đơn phải có >= 2 món (tính theo tổng số lượng, không phải số mã)
+            const totalQty = selectedOrder?.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
+            if (selectedOrder && totalQty < 2) {
                 return alert("Đơn hàng chỉ có 1 món. Nếu khách không nhận, vui lòng chọn 'Boom Hàng'.");
             }
 
@@ -856,7 +857,9 @@ async function handleSubmitTicket() {
                 return alert("Vui lòng chọn ít nhất 1 món hàng khách trả lại.");
             }
             // Validation: Không được trả toàn bộ (đó là BOOM)
-            if (selectedOrder && selectedProducts.length === selectedOrder.products.length) {
+            const totalReturnQty = selectedProducts.reduce((sum, p) => sum + (p.returnQuantity || 1), 0);
+            const totalOrderQty = selectedOrder?.products?.reduce((sum, p) => sum + p.quantity, 0) || 0;
+            if (selectedOrder && totalReturnQty >= totalOrderQty) {
                 return alert("Khách trả toàn bộ món hàng. Vui lòng chọn 'Boom Hàng' thay vì 'Nhận 1 phần'.");
             }
         } else {
