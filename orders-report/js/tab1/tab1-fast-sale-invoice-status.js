@@ -608,10 +608,26 @@
         modal.classList.add('show');
 
         try {
-            // Generate bill HTML
-            if (typeof window.generateCustomBillHTML === 'function') {
-                const billHTML = window.generateCustomBillHTML(enrichedOrder, {});
+            // Try to fetch TPOS bill (with STT) if order has TPOS ID
+            let billHTML = null;
+            const tposOrderId = enrichedOrder.Id || orderId;
 
+            if (tposOrderId && typeof window.fetchTPOSBillHTML === 'function') {
+                console.log('[INVOICE-STATUS] Fetching TPOS bill for preview, orderId:', tposOrderId);
+                const headers = await getBillAuthHeader();
+                // Get orderData with SessionIndex (from saleOnline order or enrichedOrder)
+                const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
+                    (window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder);
+                billHTML = await window.fetchTPOSBillHTML(tposOrderId, headers, orderData);
+            }
+
+            // Fallback to custom bill if TPOS fetch failed
+            if (!billHTML && typeof window.generateCustomBillHTML === 'function') {
+                console.log('[INVOICE-STATUS] Using custom bill for preview');
+                billHTML = window.generateCustomBillHTML(enrichedOrder, {});
+            }
+
+            if (billHTML) {
                 // Extract styles from head
                 let styles = '';
                 const styleMatch = billHTML.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
@@ -634,7 +650,7 @@
                     <div class="bill-preview-wrapper" style="padding: 10px; background: white;">${bodyContent}</div>
                 `;
 
-                // Generate barcode after HTML is inserted
+                // Generate barcode after HTML is inserted (for custom bills)
                 setTimeout(() => {
                     const barcodeEl = container.querySelector('#barcode');
                     if (barcodeEl && typeof JsBarcode === 'function') {
@@ -725,18 +741,26 @@
     /**
      * Print bill from preview modal (only print, no send)
      */
-    function printBillFromPreview() {
+    async function printBillFromPreview() {
         if (!pendingSendData) {
             window.notificationManager?.error('Không có dữ liệu để in', 5000);
             return;
         }
 
-        const { enrichedOrder } = pendingSendData;
+        const { enrichedOrder, orderId } = pendingSendData;
+        const tposOrderId = enrichedOrder.Id || orderId;
 
-        // Open print popup with current bill
-        if (typeof window.openCombinedPrintPopup === 'function') {
+        // Use TPOS bill if order has TPOS ID
+        if (tposOrderId && typeof window.fetchAndPrintTPOSBill === 'function') {
+            console.log('[INVOICE-STATUS] Printing TPOS bill for order:', tposOrderId);
+            const headers = await getBillAuthHeader();
+            const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
+                (window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder);
+            window.fetchAndPrintTPOSBill(tposOrderId, headers, orderData);
+        } else if (typeof window.openCombinedPrintPopup === 'function') {
+            // Fallback to custom bill
             window.openCombinedPrintPopup([enrichedOrder]);
-            console.log('[INVOICE-STATUS] Opened print popup for bill');
+            console.log('[INVOICE-STATUS] Opened custom print popup for bill');
         } else {
             window.notificationManager?.error('Không thể mở cửa sổ in', 5000);
         }
@@ -753,11 +777,18 @@
         }
 
         const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } = pendingSendData;
+        const tposOrderId = enrichedOrder.Id || orderId;
 
-        // 1. Open print popup first
-        if (typeof window.openCombinedPrintPopup === 'function') {
+        // 1. Open print popup first (TPOS bill if available)
+        if (tposOrderId && typeof window.fetchAndPrintTPOSBill === 'function') {
+            console.log('[INVOICE-STATUS] Printing TPOS bill for order:', tposOrderId);
+            const headers = await getBillAuthHeader();
+            const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
+                (window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder);
+            window.fetchAndPrintTPOSBill(tposOrderId, headers, orderData);
+        } else if (typeof window.openCombinedPrintPopup === 'function') {
             window.openCombinedPrintPopup([enrichedOrder]);
-            console.log('[INVOICE-STATUS] Opened print popup for bill');
+            console.log('[INVOICE-STATUS] Opened custom print popup for bill');
         }
 
         // 2. Close modal immediately and show sending notification

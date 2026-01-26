@@ -1443,8 +1443,9 @@ async function printSuccessOrders(type) {
         // Clear currentSaleOrderData to prevent old data interference
         currentSaleOrderData = null;
 
-        // Collect all enriched orders and send tasks
+        // Collect all enriched orders, TPOS orders for printing, and send tasks
         const enrichedOrders = [];
+        const tposOrdersForPrint = []; // For TPOS bill printing: { orderId, orderData }
         const sendTasks = [];
 
         for (let i = 0; i < selectedOrders.length; i++) {
@@ -1503,10 +1504,20 @@ async function printSuccessOrders(type) {
 
             enrichedOrders.push(enrichedOrder);
 
+            // Collect TPOS order info for printing (orderId from API result, orderData from saleOnline for SessionIndex)
+            if (order.Id) {
+                tposOrdersForPrint.push({
+                    orderId: order.Id,
+                    orderData: saleOnlineOrderForData || originalOrder || order
+                });
+            }
+
             console.log('[FAST-SALE] Enriched order for bill:', {
                 number: enrichedOrder.Number,
                 carrierName: enrichedOrder.CarrierName,
-                orderLinesCount: enrichedOrder.OrderLines?.length
+                orderLinesCount: enrichedOrder.OrderLines?.length,
+                tposOrderId: order.Id,
+                sessionIndex: saleOnlineOrderForData?.SessionIndex || originalOrder?.SessionIndex
             });
 
             // Find saleOnline order for chat info
@@ -1575,9 +1586,16 @@ async function printSuccessOrders(type) {
             sendTasksDetails: sendTasks.map(t => ({ orderNumber: t.orderNumber, customer: t.customerName, psid: t.psid }))
         });
 
-        // 1. Open ONE combined print popup with all bills
-        if (enrichedOrders.length > 0) {
-            console.log('[FAST-SALE] Opening combined print popup for', enrichedOrders.length, 'bills...');
+        // 1. Open ONE combined print popup with TPOS bills (fetched from TPOS API with STT)
+        if (tposOrdersForPrint.length > 0) {
+            console.log('[FAST-SALE] Opening combined TPOS print popup for', tposOrdersForPrint.length, 'bills...');
+            // Get auth headers for TPOS API
+            const headers = await getBillAuthHeader();
+            // Use TPOS bill style with STT
+            window.openCombinedTPOSPrintPopup(tposOrdersForPrint, headers);
+        } else if (enrichedOrders.length > 0) {
+            // Fallback to custom bills if no TPOS order IDs
+            console.log('[FAST-SALE] Fallback: Opening combined custom print popup for', enrichedOrders.length, 'bills...');
             openCombinedPrintPopup(enrichedOrders);
         }
 

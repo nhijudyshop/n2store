@@ -655,9 +655,9 @@ async function confirmAndPrintSale() {
             }
         }
 
-        // Fetch HTML bill from TPOS API and open print popup
+        // Fetch HTML bill from TPOS API and open print popup (using shared BillService)
         console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
-        fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData);
+        window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData);
 
         // Send bill to customer via Messenger (async)
         console.log('[SALE-CONFIRM] Sending bill to customer...');
@@ -974,11 +974,16 @@ function buildSaleOrderModelForInsertList() {
     };
 }
 
+// NOTE: TPOS bill functions (fetchAndPrintTPOSBill, openPrintPopupWithHtml)
+// have been moved to bill-service.js. Use window.fetchAndPrintTPOSBill() instead.
+// Keeping local versions as backup in case bill-service.js is not loaded.
+
 /**
  * Fetch HTML bill from TPOS API and open print popup with STT added
  * @param {number} orderId - Order ID from TPOS
  * @param {object} headers - Auth headers for TPOS API
  * @param {object} orderData - Original order data (for getting STT)
+ * @deprecated Use window.fetchAndPrintTPOSBill from bill-service.js
  */
 async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
     try {

@@ -1003,13 +1003,213 @@ const BillService = (function () {
         }
     }
 
+    // ========== TPOS BILL FUNCTIONS ==========
+
+    /**
+     * Fetch TPOS bill HTML and add STT
+     * @param {number} orderId - FastSaleOrder ID from TPOS
+     * @param {object} headers - Auth headers for TPOS API
+     * @param {object} orderData - Original order data (for getting STT)
+     * @returns {Promise<string|null>} Modified HTML with STT, or null if failed
+     */
+    async function fetchTPOSBillHTML(orderId, headers, orderData) {
+        try {
+            console.log('[BILL-SERVICE] Fetching TPOS bill HTML for order:', orderId);
+
+            const printUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/print1?ids=${orderId}`;
+            const response = await API_CONFIG.smartFetch(printUrl, {
+                method: 'GET',
+                headers: {
+                    ...headers,
+                    'accept': 'application/json, text/javascript, */*; q=0.01'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (!result.html) {
+                throw new Error('No HTML returned from TPOS API');
+            }
+
+            console.log('[BILL-SERVICE] TPOS bill HTML fetched successfully');
+
+            // Get STT from order data
+            let sttDisplay = '';
+            if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
+                const allSTTs = orderData.OriginalOrders
+                    .map(o => o.SessionIndex)
+                    .filter(stt => stt)
+                    .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
+                sttDisplay = allSTTs.join(', ');
+            } else {
+                sttDisplay = orderData?.SessionIndex || '';
+            }
+            console.log('[BILL-SERVICE] STT display value:', sttDisplay);
+
+            // Modify HTML to add STT below "Người bán" if STT exists
+            let modifiedHtml = result.html;
+            if (sttDisplay) {
+                // HTML may have "á" as either literal or HTML entity (&#225;)
+                const nguoiBanRegex = /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>[^<]*<\/div>)/i;
+
+                if (nguoiBanRegex.test(modifiedHtml)) {
+                    modifiedHtml = modifiedHtml.replace(
+                        nguoiBanRegex,
+                        `$1\n                            <div><strong>STT:</strong> ${sttDisplay}</div>`
+                    );
+                    console.log('[BILL-SERVICE] Added STT to TPOS bill:', sttDisplay);
+                }
+            }
+
+            return modifiedHtml;
+
+        } catch (error) {
+            console.error('[BILL-SERVICE] Error fetching TPOS bill:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Open print popup with raw HTML content (for TPOS bills)
+     * @param {string} html - HTML content to print
+     */
+    function openPrintPopupWithHtml(html) {
+        console.log('[BILL-SERVICE] Opening print popup with TPOS HTML...');
+
+        const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
+
+        if (!printWindow) {
+            console.error('[BILL-SERVICE] Failed to open print window - popup blocked?');
+            window.notificationManager?.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+            return;
+        }
+
+        // Write the HTML content
+        printWindow.document.write(html);
+        printWindow.document.close();
+
+        // Use flag to prevent double print
+        let printed = false;
+        const triggerPrint = () => {
+            if (printed || !printWindow || printWindow.closed) return;
+            printed = true;
+            printWindow.focus();
+            printWindow.print();
+        };
+
+        // Wait for content to load, then trigger print
+        printWindow.onload = function() {
+            setTimeout(triggerPrint, 500);
+        };
+
+        // Fallback if onload doesn't fire
+        setTimeout(triggerPrint, 1500);
+    }
+
+    /**
+     * Open combined print popup with TPOS bills for multiple orders
+     * @param {Array<{orderId: number, orderData: object}>} orders - Array of order info
+     * @param {object} headers - Auth headers for TPOS API
+     */
+    async function openCombinedTPOSPrintPopup(orders, headers) {
+        console.log('[BILL-SERVICE] Opening combined TPOS print popup for', orders.length, 'orders...');
+
+        if (!orders || orders.length === 0) {
+            console.warn('[BILL-SERVICE] No orders to print');
+            return;
+        }
+
+        // Fetch all TPOS bills in parallel
+        const billPromises = orders.map(({ orderId, orderData }) =>
+            fetchTPOSBillHTML(orderId, headers, orderData)
+        );
+
+        const bills = await Promise.all(billPromises);
+        const validBills = bills.filter(html => html !== null);
+
+        if (validBills.length === 0) {
+            console.error('[BILL-SERVICE] No valid TPOS bills fetched');
+            window.notificationManager?.error('Không thể tải bill từ TPOS');
+            return;
+        }
+
+        // Extract body content from each bill and combine
+        const billBodies = validBills.map((html, index) => {
+            // Extract content between <body> and </body>
+            const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+            const bodyContent = bodyMatch ? bodyMatch[1] : html;
+
+            // Add page break after each bill except the last one
+            const pageBreak = index < validBills.length - 1
+                ? '<div style="page-break-after: always; border-top: 2px dashed #999; margin: 20px 0;"></div>'
+                : '';
+
+            return `<div class="bill-container">${bodyContent}</div>${pageBreak}`;
+        });
+
+        // Extract styles from first bill
+        const styleMatch = validBills[0].match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+        const styles = styleMatch ? styleMatch[1] : '';
+
+        // Combine all bills
+        const combinedHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>In ${validBills.length} phiếu bán hàng</title>
+    <style>
+        ${styles}
+        .bill-container {
+            margin-bottom: 20px;
+        }
+        @media print {
+            .bill-container {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    ${billBodies.join('\n')}
+</body>
+</html>`;
+
+        openPrintPopupWithHtml(combinedHtml);
+    }
+
+    /**
+     * Fetch and print TPOS bill for a single order
+     * @param {number} orderId - FastSaleOrder ID
+     * @param {object} headers - Auth headers
+     * @param {object} orderData - Order data with SessionIndex
+     */
+    async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
+        const html = await fetchTPOSBillHTML(orderId, headers, orderData);
+        if (html) {
+            openPrintPopupWithHtml(html);
+        } else {
+            // Fallback to custom bill
+            console.log('[BILL-SERVICE] Falling back to custom bill...');
+            openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData });
+        }
+    }
+
     // Public API
     return {
         generateCustomBillHTML,
         openPrintPopup,
         openCombinedPrintPopup,
         generateBillImage,
-        sendBillToCustomer
+        sendBillToCustomer,
+        // TPOS bill functions
+        fetchTPOSBillHTML,
+        openPrintPopupWithHtml,
+        openCombinedTPOSPrintPopup,
+        fetchAndPrintTPOSBill
     };
 
 })();
@@ -1023,5 +1223,10 @@ window.openPrintPopup = BillService.openPrintPopup;
 window.openCombinedPrintPopup = BillService.openCombinedPrintPopup;
 window.generateBillImage = BillService.generateBillImage;
 window.sendBillToCustomer = BillService.sendBillToCustomer;
+// TPOS bill functions
+window.fetchTPOSBillHTML = BillService.fetchTPOSBillHTML;
+window.openPrintPopupWithHtml = BillService.openPrintPopupWithHtml;
+window.openCombinedTPOSPrintPopup = BillService.openCombinedTPOSPrintPopup;
+window.fetchAndPrintTPOSBill = BillService.fetchAndPrintTPOSBill;
 
 console.log('[BILL-SERVICE] Bill Service loaded successfully');
