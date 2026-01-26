@@ -655,9 +655,9 @@ async function confirmAndPrintSale() {
             }
         }
 
-        // Open print popup with custom bill
-        console.log('[SALE-CONFIRM] Opening custom bill popup...');
-        openPrintPopup(createResult, { currentSaleOrderData });
+        // Fetch HTML bill from TPOS API and open print popup
+        console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
+        fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData);
 
         // Send bill to customer via Messenger (async)
         console.log('[SALE-CONFIRM] Sending bill to customer...');
@@ -972,6 +972,111 @@ function buildSaleOrderModelForInsertList() {
             Config_DefaultFee: shippingFee
         }
     };
+}
+
+/**
+ * Fetch HTML bill from TPOS API and open print popup with STT added
+ * @param {number} orderId - Order ID from TPOS
+ * @param {object} headers - Auth headers for TPOS API
+ * @param {object} orderData - Original order data (for getting STT)
+ */
+async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
+    try {
+        console.log('[SALE-CONFIRM] Fetching HTML bill for order:', orderId);
+
+        // Fetch HTML bill from TPOS API
+        const printUrl = `https://tomato.tpos.vn/fastsaleorder/print1?ids=${orderId}`;
+        const response = await fetch(printUrl, {
+            method: 'GET',
+            headers: {
+                ...headers,
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'x-requested-with': 'XMLHttpRequest'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (!result.html) {
+            throw new Error('No HTML returned from TPOS API');
+        }
+
+        console.log('[SALE-CONFIRM] HTML bill fetched successfully');
+
+        // Get STT from order data
+        let sttDisplay = '';
+        if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
+            const allSTTs = orderData.OriginalOrders
+                .map(o => o.SessionIndex)
+                .filter(stt => stt)
+                .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
+            sttDisplay = allSTTs.join(', ');
+        } else {
+            sttDisplay = orderData?.SessionIndex || '';
+        }
+
+        // Modify HTML to add STT below "Người bán" if STT exists
+        let modifiedHtml = result.html;
+        if (sttDisplay) {
+            // Find "Người bán:" div and add STT after it
+            const nguoiBanRegex = /(<div>\s*<strong>Người b[áa]n:<\/strong>[^<]*<\/div>)/i;
+            if (nguoiBanRegex.test(modifiedHtml)) {
+                modifiedHtml = modifiedHtml.replace(
+                    nguoiBanRegex,
+                    `$1\n                            <div><strong>STT:</strong> ${sttDisplay}</div>`
+                );
+                console.log('[SALE-CONFIRM] Added STT to bill:', sttDisplay);
+            }
+        }
+
+        // Open print popup with modified HTML
+        openPrintPopupWithHtml(modifiedHtml);
+
+    } catch (error) {
+        console.error('[SALE-CONFIRM] Error fetching HTML bill:', error);
+        // Fallback to custom bill if TPOS API fails
+        console.log('[SALE-CONFIRM] Falling back to custom bill...');
+        openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData });
+    }
+}
+
+/**
+ * Open print popup with raw HTML content
+ * @param {string} html - HTML content to print
+ */
+function openPrintPopupWithHtml(html) {
+    console.log('[SALE-CONFIRM] Opening print popup with TPOS HTML...');
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
+
+    if (!printWindow) {
+        console.error('[SALE-CONFIRM] Failed to open print window - popup blocked?');
+        window.notificationManager?.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+        return;
+    }
+
+    // Write the HTML content
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    // Wait for content to load, then trigger print
+    printWindow.onload = function() {
+        setTimeout(() => {
+            printWindow.focus();
+            printWindow.print();
+        }, 500);
+    };
+
+    // Fallback if onload doesn't fire
+    setTimeout(() => {
+        if (printWindow && !printWindow.closed) {
+            printWindow.focus();
+            printWindow.print();
+        }
+    }, 1500);
 }
 
 /**
