@@ -213,7 +213,8 @@ function selectiveLogoutStorage() {
         'tpos_token',
         'auth',
         'n2shop_current_user',
-        'currentUser'
+        'currentUser',
+        'n2shop_auth_cache'  // CacheManager storage from login.js - must stay in sync
     ];
 
     authKeys.forEach(function(key) {
