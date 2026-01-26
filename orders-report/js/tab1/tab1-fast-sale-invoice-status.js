@@ -1197,6 +1197,146 @@
     }
 
     // =====================================================
+    // UPDATE ORDER ON INVOICE CONFIRM
+    // =====================================================
+
+    /**
+     * When invoice is confirmed ("Đã xác nhận"):
+     * 1. Update order status from "Nháp" to "Đơn hàng"
+     * 2. Remove any "OK ..." tags
+     * @param {string|number} saleOnlineId - The SaleOnline order ID
+     * @param {string} invoiceShowState - The invoice ShowState (e.g., "Đã xác nhận")
+     */
+    async function updateOrderOnInvoiceConfirm(saleOnlineId, invoiceShowState) {
+        // Only process for confirmed invoices
+        if (invoiceShowState !== 'Đã xác nhận') {
+            return;
+        }
+
+        console.log(`[INVOICE-STATUS] Invoice confirmed for order ${saleOnlineId}, updating status and tags...`);
+
+        try {
+            const headers = await window.tokenManager?.getAuthHeader();
+            if (!headers) {
+                console.warn('[INVOICE-STATUS] No auth headers available');
+                return;
+            }
+
+            // Get order data
+            const displayedData = window.displayedData || [];
+            const allData = window.allData || [];
+            const order = window.OrderStore?.get(saleOnlineId) ||
+                displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)) ||
+                allData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
+
+            if (!order) {
+                console.warn(`[INVOICE-STATUS] Order ${saleOnlineId} not found`);
+                return;
+            }
+
+            // 1. Update status to "Đơn hàng" if currently "Nháp"
+            if (order.Status === 'Draft' || order.StatusText === 'Nháp') {
+                const statusUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order/OdataService.UpdateStatusSaleOnline?Id=${saleOnlineId}&Status=${encodeURIComponent('Đơn hàng')}`;
+
+                const statusResponse = await fetch(statusUrl, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'content-type': 'application/json;charset=utf-8',
+                        'accept': '*/*'
+                    },
+                    body: null
+                });
+
+                if (statusResponse.ok) {
+                    console.log(`[INVOICE-STATUS] ✅ Status updated to "Đơn hàng" for order ${saleOnlineId}`);
+
+                    // Update local data
+                    order.Status = 'order';
+                    order.StatusText = 'Đơn hàng';
+                    if (window.OrderStore) {
+                        window.OrderStore.set(saleOnlineId, order);
+                    }
+
+                    // Update UI
+                    const statusBadge = document.querySelector(`.status-badge[data-order-id="${saleOnlineId}"]`);
+                    if (statusBadge) {
+                        statusBadge.className = 'status-badge status-order';
+                        statusBadge.style.backgroundColor = '#5cb85c';
+                        statusBadge.innerText = 'Đơn hàng';
+                    }
+                } else {
+                    console.warn(`[INVOICE-STATUS] Failed to update status: ${statusResponse.status}`);
+                }
+            }
+
+            // 2. Remove "OK ..." tags
+            let orderTags = [];
+            try {
+                if (order.Tags) {
+                    orderTags = JSON.parse(order.Tags);
+                    if (!Array.isArray(orderTags)) orderTags = [];
+                }
+            } catch (e) {
+                orderTags = [];
+            }
+
+            // Find tags that start with "OK " (case insensitive)
+            const okTags = orderTags.filter(t => t.Name && t.Name.toUpperCase().startsWith('OK '));
+
+            if (okTags.length > 0) {
+                console.log(`[INVOICE-STATUS] Found ${okTags.length} OK tags to remove:`, okTags.map(t => t.Name));
+
+                // Filter out OK tags
+                const newOrderTags = orderTags.filter(t => !t.Name || !t.Name.toUpperCase().startsWith('OK '));
+
+                // Call AssignTag API with remaining tags
+                const tagResponse = await fetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
+                    {
+                        method: 'POST',
+                        headers: {
+                            ...headers,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            Tags: newOrderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                            OrderId: saleOnlineId
+                        })
+                    }
+                );
+
+                if (tagResponse.ok) {
+                    console.log(`[INVOICE-STATUS] ✅ Removed OK tags from order ${saleOnlineId}`);
+
+                    // Update local data
+                    const newTagsJson = JSON.stringify(newOrderTags);
+                    order.Tags = newTagsJson;
+                    if (window.OrderStore) {
+                        window.OrderStore.set(saleOnlineId, order);
+                    }
+
+                    // Update UI - find the TAG cell and update it
+                    if (typeof window.updateOrderInTable === 'function') {
+                        window.updateOrderInTable(saleOnlineId, { Tags: newTagsJson });
+                    }
+
+                    // Emit to Firebase for real-time sync
+                    if (typeof window.emitTagUpdateToFirebase === 'function') {
+                        window.emitTagUpdateToFirebase(saleOnlineId, newOrderTags);
+                    }
+                } else {
+                    console.warn(`[INVOICE-STATUS] Failed to remove tags: ${tagResponse.status}`);
+                }
+            }
+
+        } catch (error) {
+            console.error(`[INVOICE-STATUS] Error updating order on invoice confirm:`, error);
+        }
+    }
+
+    // =====================================================
     // UPDATE MAIN TABLE CELLS
     // =====================================================
 
@@ -1235,6 +1375,11 @@
                     // Re-render the cell content
                     cell.innerHTML = renderInvoiceStatusCell(orderData);
                     console.log(`[INVOICE-STATUS] Updated cell for order ${saleOnlineId}`);
+                }
+
+                // When invoice is confirmed, update status to "Đơn hàng" and remove "OK" tags
+                if (order.ShowState === 'Đã xác nhận') {
+                    updateOrderOnInvoiceConfirm(saleOnlineId, order.ShowState);
                 }
 
                 // Uncheck the checkbox in this row
