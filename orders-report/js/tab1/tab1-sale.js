@@ -613,6 +613,17 @@ async function confirmAndPrintSale() {
 
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
+        // Store invoice status to localStorage + Firebase and update "Phiếu bán hàng" column
+        if (window.InvoiceStatusStore) {
+            console.log('[SALE-CONFIRM] Storing invoice status...');
+            window.InvoiceStatusStore.storeFromApiResult(result);
+        }
+        if (window.updateMainTableInvoiceCells) {
+            setTimeout(() => {
+                window.updateMainTableInvoiceCells(result);
+            }, 100);
+        }
+
         // Update debt after order creation (same logic as before)
         const currentDebt = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
         const codAmount = parseFloat(document.getElementById('saleCOD')?.value) || 0;
