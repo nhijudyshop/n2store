@@ -1007,6 +1007,12 @@ async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
 
         // Get STT from order data
         let sttDisplay = '';
+        console.log('[SALE-CONFIRM] Order data for STT:', {
+            SessionIndex: orderData?.SessionIndex,
+            IsMerged: orderData?.IsMerged,
+            OriginalOrders: orderData?.OriginalOrders?.length
+        });
+
         if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
             const allSTTs = orderData.OriginalOrders
                 .map(o => o.SessionIndex)
@@ -1016,19 +1022,27 @@ async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
         } else {
             sttDisplay = orderData?.SessionIndex || '';
         }
+        console.log('[SALE-CONFIRM] STT display value:', sttDisplay);
 
         // Modify HTML to add STT below "Người bán" if STT exists
         let modifiedHtml = result.html;
         if (sttDisplay) {
             // Find "Người bán:" div and add STT after it
-            const nguoiBanRegex = /(<div>\s*<strong>Người b[áa]n:<\/strong>[^<]*<\/div>)/i;
+            // HTML may have "á" as either literal or HTML entity (&#225;)
+            // Pattern: <div>...<strong>Người bán:</strong> text</div>
+            const nguoiBanRegex = /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>[^<]*<\/div>)/i;
+
             if (nguoiBanRegex.test(modifiedHtml)) {
                 modifiedHtml = modifiedHtml.replace(
                     nguoiBanRegex,
                     `$1\n                            <div><strong>STT:</strong> ${sttDisplay}</div>`
                 );
                 console.log('[SALE-CONFIRM] Added STT to bill:', sttDisplay);
+            } else {
+                console.log('[SALE-CONFIRM] Could not find "Người bán" in HTML. HTML contains nguoi ban?', modifiedHtml.includes('Người') || modifiedHtml.includes('nguoi'));
             }
+        } else {
+            console.log('[SALE-CONFIRM] No STT to display');
         }
 
         // Open print popup with modified HTML
@@ -1061,21 +1075,22 @@ function openPrintPopupWithHtml(html) {
     printWindow.document.write(html);
     printWindow.document.close();
 
+    // Use flag to prevent double print
+    let printed = false;
+    const triggerPrint = () => {
+        if (printed || !printWindow || printWindow.closed) return;
+        printed = true;
+        printWindow.focus();
+        printWindow.print();
+    };
+
     // Wait for content to load, then trigger print
     printWindow.onload = function() {
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-        }, 500);
+        setTimeout(triggerPrint, 500);
     };
 
     // Fallback if onload doesn't fire
-    setTimeout(() => {
-        if (printWindow && !printWindow.closed) {
-            printWindow.focus();
-            printWindow.print();
-        }
-    }, 1500);
+    setTimeout(triggerPrint, 1500);
 }
 
 /**
