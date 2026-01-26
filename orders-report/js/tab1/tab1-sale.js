@@ -659,32 +659,6 @@ async function confirmAndPrintSale() {
         console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
         window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData);
 
-        // Send bill to customer via Messenger (async)
-        console.log('[SALE-CONFIRM] Sending bill to customer...');
-        let chatInfo = window.chatDataManager?.getChatInfoForOrder(currentSaleOrderData);
-
-        if (!chatInfo || !chatInfo.hasChat) {
-            const psid = currentSaleOrderData?.Facebook_ASUserId;
-            const postId = currentSaleOrderData?.Facebook_PostId;
-            const channelId = postId ? postId.split('_')[0] : null;
-            if (psid && channelId) {
-                chatInfo = { channelId, psid, hasChat: true };
-            }
-        }
-
-        if (chatInfo?.hasChat) {
-            sendBillToCustomer(createResult, chatInfo.channelId, chatInfo.psid, { currentSaleOrderData })
-                .then(billResult => {
-                    if (billResult.success) {
-                        console.log('[SALE-CONFIRM] ✅ Bill sent to customer successfully');
-                        window.notificationManager?.success('Đã gửi phiếu bán hàng qua Messenger', 3000);
-                    } else {
-                        console.warn('[SALE-CONFIRM] ⚠️ Failed to send bill:', billResult.error);
-                    }
-                })
-                .catch(err => console.error('[SALE-CONFIRM] ❌ Error sending bill:', err));
-        }
-
         // Success notification
         window.notificationManager?.success(`Đã tạo đơn hàng ${orderNumber}`);
 
