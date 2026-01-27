@@ -641,50 +641,32 @@ async function confirmAndPrintSale() {
                     updateSaleCOD();
                 }
 
-                // Record payment via WalletIntegration.withdrawWallet()
+                // Record payment via wallet withdraw API
                 // When customer pays debt via COD, withdraw from their wallet to reduce debt
-                if (typeof WalletIntegration !== 'undefined' && WalletIntegration.withdrawWallet) {
-                    WalletIntegration.withdrawWallet(
-                        customerPhone,
-                        actualPayment,
-                        orderNumber,
-                        `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`
-                    ).then(result => {
-                        console.log('[SALE-CONFIRM] ✅ Wallet withdrawn via WalletIntegration:', actualPayment);
-                        // Invalidate local debt cache
-                        const normalizedPhone = WalletIntegration.normalizePhone(customerPhone);
+                const performedBy = window.authManager?.getAuthState()?.username || 'system';
+                const normalizedPhone = normalizePhoneForQR(customerPhone);
+
+                fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/withdraw`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: actualPayment,
+                        note: `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`,
+                        reference_id: orderNumber
+                    })
+                }).then(res => res.json()).then(debtResult => {
+                    if (debtResult.success) {
+                        console.log('[SALE-CONFIRM] ✅ Debt payment recorded (withdraw):', actualPayment, 'newBalance:', debtResult.newBalance);
                         if (normalizedPhone) {
                             const cache = getDebtCache();
                             delete cache[normalizedPhone];
                             saveDebtCache(cache);
                             updateDebtCellsInTable(normalizedPhone, remainingDebt);
                         }
-                    }).catch(err => {
-                        console.error('[SALE-CONFIRM] ❌ Wallet withdraw failed:', err);
-                    });
-                } else {
-                    // Fallback: direct API call
-                    const normalizedPhone = normalizePhoneForQR(customerPhone);
-                    fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/withdraw`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            amount: actualPayment,
-                            note: `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`,
-                            reference_id: orderNumber
-                        })
-                    }).then(res => res.json()).then(debtResult => {
-                        if (debtResult.success) {
-                            console.log('[SALE-CONFIRM] ✅ Debt payment recorded (fallback):', actualPayment);
-                            if (normalizedPhone) {
-                                const cache = getDebtCache();
-                                delete cache[normalizedPhone];
-                                saveDebtCache(cache);
-                                updateDebtCellsInTable(normalizedPhone, remainingDebt);
-                            }
-                        }
-                    }).catch(err => console.error('[SALE-CONFIRM] Error withdrawing from wallet:', err));
-                }
+                    } else {
+                        console.warn('[SALE-CONFIRM] Debt payment (withdraw) failed:', debtResult.error);
+                    }
+                }).catch(err => console.error('[SALE-CONFIRM] Error withdrawing from wallet:', err));
             }
         }
 

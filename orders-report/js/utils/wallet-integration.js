@@ -1,20 +1,20 @@
 /**
  * =====================================================
- * WALLET INTEGRATION MODULE (Refactored)
+ * WALLET INTEGRATION MODULE
  * =====================================================
  *
  * Integrate Customer 360° Wallet with Orders Report
  *
  * Features:
- * - Get wallet balance for a phone number
+ * - Display wallet balance in orders table (replaces old debt column)
+ * - Show wallet summary when clicking phone
+ * - Allow wallet deduction when processing orders
  * - Batch fetch wallet data for multiple phones
- * - Withdraw from wallet when processing orders
- * - Show wallet detail modal
  *
  * API: Uses Customer 360° API (PostgreSQL)
  *
  * Created: 2026-01-07
- * Refactored: 2026-01-27 (removed unused functions)
+ * Phase 5 of Customer 360° implementation
  * =====================================================
  */
 
@@ -26,10 +26,17 @@ const WalletIntegration = (function() {
     const CONFIG = {
         API_URL: 'https://n2store.onrender.com/api',
         CACHE_TTL: 60000, // 1 minute cache
+        POLLING_INTERVAL: 30000, // 30 seconds polling
     };
 
     // Cache for wallet data
     const walletCache = new Map();
+
+    // Polling interval reference
+    let pollingInterval = null;
+
+    // Phones being watched for updates
+    const watchedPhones = new Set();
 
     // =====================================================
     // UTILITY FUNCTIONS
@@ -198,6 +205,9 @@ const WalletIntegration = (function() {
         // Invalidate cache
         walletCache.delete(normalizedPhone);
 
+        // Refresh wallet display
+        await refreshWalletDisplay(normalizedPhone);
+
         return result.data;
     }
 
@@ -222,6 +232,104 @@ const WalletIntegration = (function() {
             console.error('[WALLET] Get customer 360 failed:', error.message);
             return null;
         }
+    }
+
+    // =====================================================
+    // UI RENDERING
+    // =====================================================
+
+    /**
+     * Render wallet balance cell for orders table
+     * @param {string} phone
+     * @returns {string} HTML string
+     */
+    function renderWalletCell(phone) {
+        const normalizedPhone = normalizePhone(phone);
+        if (!normalizedPhone) return '<span style="color: #999;">-</span>';
+
+        const cached = walletCache.get(normalizedPhone);
+
+        if (cached && cached.data) {
+            const wallet = cached.data;
+            const total = (wallet.balance || 0) + (wallet.virtual_balance || 0);
+
+            if (total <= 0) {
+                return '<span style="color: #999;">0</span>';
+            }
+
+            // Color based on amount
+            let color = '#10b981'; // green
+            if (total > 500000) color = '#059669'; // darker green
+            if (wallet.virtual_balance > 0) color = '#8b5cf6'; // purple for virtual
+
+            const tooltip = `Thực: ${formatCurrency(wallet.balance)}\nẢo: ${formatCurrency(wallet.virtual_balance)}`;
+
+            return `<span class="wallet-balance"
+                style="color: ${color}; font-weight: 600; cursor: pointer;"
+                data-phone="${normalizedPhone}"
+                title="${tooltip}"
+                onclick="WalletIntegration.showWalletModal('${normalizedPhone}')">
+                ${formatCurrencyShort(total)}
+            </span>`;
+        }
+
+        // Not yet loaded - show loading spinner
+        return `<span class="wallet-loading" data-phone="${normalizedPhone}">
+            <i class="fas fa-spinner fa-spin" style="color: #999;"></i>
+        </span>`;
+    }
+
+    /**
+     * Update wallet display for a specific phone in the table
+     * @param {string} phone
+     */
+    async function refreshWalletDisplay(phone) {
+        const normalizedPhone = normalizePhone(phone);
+        if (!normalizedPhone) return;
+
+        // Invalidate cache
+        walletCache.delete(normalizedPhone);
+
+        // Fetch fresh data
+        await getWallet(normalizedPhone);
+
+        // Update all cells with this phone
+        const cells = document.querySelectorAll(`[data-column="wallet"] [data-phone="${normalizedPhone}"],
+            .wallet-balance[data-phone="${normalizedPhone}"],
+            .wallet-loading[data-phone="${normalizedPhone}"]`);
+
+        cells.forEach(cell => {
+            const parent = cell.closest('td');
+            if (parent) {
+                parent.innerHTML = renderWalletCell(normalizedPhone);
+            }
+        });
+    }
+
+    /**
+     * Refresh wallet display for all phones in current view
+     * @param {Array<string>} phones
+     */
+    async function refreshWalletBatch(phones) {
+        // Batch fetch
+        await getWalletBatch(phones);
+
+        // Update UI
+        phones.forEach(phone => {
+            const normalizedPhone = normalizePhone(phone);
+            if (!normalizedPhone) return;
+
+            const cells = document.querySelectorAll(`[data-column="wallet"] [data-phone="${normalizedPhone}"],
+                .wallet-balance[data-phone="${normalizedPhone}"],
+                .wallet-loading[data-phone="${normalizedPhone}"]`);
+
+            cells.forEach(cell => {
+                const parent = cell.closest('td');
+                if (parent) {
+                    parent.innerHTML = renderWalletCell(normalizedPhone);
+                }
+            });
+        });
     }
 
     // =====================================================
@@ -434,15 +542,95 @@ const WalletIntegration = (function() {
         `;
     }
 
+    // =====================================================
+    // POLLING & REAL-TIME
+    // =====================================================
+
     /**
-     * Invalidate cache for a phone number
-     * @param {string} phone
+     * Start polling for wallet updates
      */
-    function invalidateCache(phone) {
-        const normalizedPhone = normalizePhone(phone);
-        if (normalizedPhone) {
-            walletCache.delete(normalizedPhone);
+    function startPolling() {
+        if (pollingInterval) return;
+
+        pollingInterval = setInterval(async () => {
+            if (watchedPhones.size === 0) return;
+
+            const phones = Array.from(watchedPhones);
+
+            // Invalidate cache for watched phones
+            phones.forEach(phone => walletCache.delete(phone));
+
+            // Batch refresh
+            await refreshWalletBatch(phones);
+        }, CONFIG.POLLING_INTERVAL);
+
+        console.log('[WALLET] Polling started');
+    }
+
+    /**
+     * Stop polling
+     */
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+            console.log('[WALLET] Polling stopped');
         }
+    }
+
+    /**
+     * Add phones to watch list for real-time updates
+     * @param {Array<string>} phones
+     */
+    function watchPhones(phones) {
+        phones.forEach(phone => {
+            const normalized = normalizePhone(phone);
+            if (normalized) watchedPhones.add(normalized);
+        });
+    }
+
+    /**
+     * Clear watch list
+     */
+    function clearWatchList() {
+        watchedPhones.clear();
+    }
+
+    // =====================================================
+    // COD INTEGRATION
+    // =====================================================
+
+    /**
+     * Calculate COD after wallet deduction
+     * @param {number} originalCOD - Original COD amount
+     * @param {number} walletBalance - Available wallet balance
+     * @returns {Object} { newCOD, walletUsed, remaining }
+     */
+    function calculateWalletDeduction(originalCOD, walletBalance) {
+        if (!originalCOD || originalCOD <= 0) {
+            return { newCOD: 0, walletUsed: 0, remaining: walletBalance };
+        }
+
+        if (!walletBalance || walletBalance <= 0) {
+            return { newCOD: originalCOD, walletUsed: 0, remaining: 0 };
+        }
+
+        const walletUsed = Math.min(walletBalance, originalCOD);
+        const newCOD = originalCOD - walletUsed;
+        const remaining = walletBalance - walletUsed;
+
+        return { newCOD, walletUsed, remaining };
+    }
+
+    /**
+     * Get wallet balance for COD calculation
+     * @param {string} phone
+     * @returns {Promise<number>} Total available balance
+     */
+    async function getBalanceForCOD(phone) {
+        const wallet = await getWallet(phone);
+        if (!wallet) return 0;
+        return (wallet.balance || 0) + (wallet.virtual_balance || 0);
     }
 
     // =====================================================
@@ -460,13 +648,25 @@ const WalletIntegration = (function() {
         getCustomer360,
 
         // UI functions
+        renderWalletCell,
+        refreshWalletDisplay,
+        refreshWalletBatch,
         showWalletModal,
+
+        // Polling
+        startPolling,
+        stopPolling,
+        watchPhones,
+        clearWatchList,
+
+        // COD integration
+        calculateWalletDeduction,
+        getBalanceForCOD,
 
         // Utility
         normalizePhone,
         formatCurrency,
         formatCurrencyShort,
-        invalidateCache,
 
         // Cache access (for debugging)
         getCache: () => walletCache
@@ -476,4 +676,4 @@ const WalletIntegration = (function() {
 // Export for global access
 window.WalletIntegration = WalletIntegration;
 
-console.log('[WALLET] WalletIntegration module loaded (refactored)');
+console.log('[WALLET] WalletIntegration module loaded');
