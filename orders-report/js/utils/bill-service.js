@@ -617,8 +617,8 @@ const BillService = (function () {
     async function generateBillImage(orderResult, options = {}) {
         console.log('[BILL-SERVICE] Generating bill image...');
 
-        // Use the same HTML as the print bill
-        const html = generateCustomBillHTML(orderResult, options);
+        // Use pre-generated HTML if provided (e.g., TPOS bill), otherwise fall back to custom bill
+        const html = options.billHtml || generateCustomBillHTML(orderResult, options);
 
         // Create hidden iframe to render full HTML document with styles
         const iframe = document.createElement('iframe');
@@ -708,9 +708,29 @@ const BillService = (function () {
             if (contentUrl && contentId) {
                 console.log('[BILL-SERVICE] ⚡ Using pre-generated bill image:', contentUrl);
             } else {
-                // Step 1: Generate bill image
-                console.log('[BILL-SERVICE] Step 1: Generating bill image...');
-                const imageBlob = await generateBillImage(orderResult, options);
+                // Step 1: Fetch TPOS bill HTML first (preferred) for accurate bill image
+                let billHtml = null;
+                const tposOrderId = orderResult?.Id;
+
+                if (tposOrderId && typeof window.getBillAuthHeader === 'function') {
+                    try {
+                        console.log('[BILL-SERVICE] Step 1a: Fetching TPOS bill HTML for order:', tposOrderId);
+                        const headers = await window.getBillAuthHeader();
+                        // Get orderData with SessionIndex
+                        const orderData = orderResult.SessionIndex ? orderResult :
+                            (window.OrderStore?.get(orderResult.SaleOnlineIds?.[0]) || orderResult);
+                        billHtml = await fetchTPOSBillHTML(tposOrderId, headers, orderData);
+                        if (billHtml) {
+                            console.log('[BILL-SERVICE] ✅ Got TPOS bill HTML');
+                        }
+                    } catch (tposError) {
+                        console.warn('[BILL-SERVICE] Failed to fetch TPOS bill, will use custom bill:', tposError.message);
+                    }
+                }
+
+                // Step 1b: Generate bill image (using TPOS HTML if available)
+                console.log('[BILL-SERVICE] Step 1b: Generating bill image...');
+                const imageBlob = await generateBillImage(orderResult, { ...options, billHtml });
 
                 // Convert blob to File for upload
                 const imageFile = new File([imageBlob], `bill_${orderResult?.Number || Date.now()}.png`, {
@@ -792,9 +812,10 @@ const BillService = (function () {
                 : `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
 
             // Build FormData - same format as chat modal
+            // Note: Only send image, no text message (user preference)
             const formData = new FormData();
             formData.append('action', 'reply_inbox');
-            formData.append('message', `📋 Phiếu bán hàng #${orderResult?.Number || ''}`);
+            formData.append('message', '');  // Empty message - send image only
             formData.append('content_id', contentId || '');
             formData.append('content_url', contentUrl || '');
             formData.append('send_by_platform', 'web');
@@ -832,10 +853,11 @@ const BillService = (function () {
                 if (is24HourError) {
                     console.log('[BILL-SERVICE] 🔄 24h policy error detected - trying Facebook API fallback...');
 
+                    // Send image only via Facebook API fallback (no text message)
                     const fbFallbackResult = await sendViaFacebookAPI(
                         pageId,
                         psid,
-                        `📋 Phiếu bán hàng #${orderResult?.Number || ''}\n\n🖼️ Xem hình: ${contentUrl}`,
+                        null,  // No text message, send image only
                         contentUrl
                     );
 
@@ -958,14 +980,18 @@ const BillService = (function () {
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/facebook-send';
             console.log('[BILL-SERVICE] [FB-FALLBACK] Calling:', facebookSendUrl);
 
+            // Build request body - only include message if provided (for image-only sends)
             const requestBody = {
                 pageId: pageId,
                 psid: psid,
-                message: message,
                 pageToken: facebookPageToken,
                 useTag: true, // Use POST_PURCHASE_UPDATE tag to bypass 24h policy
                 imageUrls: imageUrl ? [imageUrl] : [] // Include image URL if provided
             };
+            // Only add message field if provided (for image-only sends, message is null)
+            if (message) {
+                requestBody.message = message;
+            }
 
             const response = await fetch(facebookSendUrl, {
                 method: 'POST',
