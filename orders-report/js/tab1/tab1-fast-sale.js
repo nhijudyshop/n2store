@@ -838,6 +838,36 @@ function collectFastSaleData() {
             }
         }
 
+        // 🔥 WALLET BALANCE / CÔNG NỢ CALCULATION
+        // Get customer phone and check wallet balance
+        const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || '';
+        let walletBalance = 0;
+        let paymentAmount = 0;
+        let cashOnDelivery = finalAmountTotal;
+
+        if (customerPhone) {
+            // Normalize phone for lookup
+            let normalizedPhone = String(customerPhone).replace(/\D/g, '');
+            if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+                normalizedPhone = '0' + normalizedPhone.substring(2);
+            }
+
+            // Get wallet balance from pre-fetched data
+            const walletData = fastSaleWalletBalances[normalizedPhone];
+            if (walletData) {
+                walletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
+
+                if (walletBalance > 0) {
+                    // Calculate payment from wallet (min of wallet balance and order total)
+                    paymentAmount = Math.min(walletBalance, finalAmountTotal);
+                    // COD = Total - Wallet payment (remaining amount customer needs to pay)
+                    cashOnDelivery = finalAmountTotal - paymentAmount;
+
+                    console.log(`[FAST-SALE] Order ${order.Reference}: Wallet balance ${walletBalance.toLocaleString('vi-VN')}đ, Payment ${paymentAmount.toLocaleString('vi-VN')}đ, COD ${cashOnDelivery.toLocaleString('vi-VN')}đ`);
+                }
+            }
+        }
+
         // Build order model matching exact API structure
         const model = {
             Id: 0,
@@ -897,7 +927,7 @@ function collectFastSaleData() {
             ReceiverAddress: null,
             ReceiverDate: null,
             ReceiverNote: null,
-            CashOnDelivery: 0,
+            CashOnDelivery: cashOnDelivery,
             TrackingRef: null,
             TrackingArea: null,
             TrackingTransport: null,
@@ -909,8 +939,8 @@ function collectFastSaleData() {
             ShowShipStatus: order.ShowShipStatus || "Chưa tiếp nhận",
             SaleOnlineName: order.Reference || '',
             PartnerShippingId: null,
-            PaymentJournalId: null,
-            PaymentAmount: 0,
+            PaymentJournalId: paymentAmount > 0 ? 1 : null,
+            PaymentAmount: paymentAmount,
             SaleOrderId: null,
             SaleOrderIds: [],
             FacebookName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
@@ -928,9 +958,9 @@ function collectFastSaleData() {
             AmountTotalSigned: null,
             ResidualSigned: null,
             Origin: null,
-            AmountDeposit: 0,
+            AmountDeposit: paymentAmount,
             CompanyName: null,
-            PreviousBalance: null,
+            PreviousBalance: finalAmountTotal,
             ToPay: null,
             NotModifyPriceFromSO: false,
             Ship_ServiceId: null,
@@ -964,7 +994,7 @@ function collectFastSaleData() {
             QuantityUpdateDeposit: null,
             IsMergeCancel: null,
             IsPickUpAtShop: null,
-            DateDeposit: null,
+            DateDeposit: paymentAmount > 0 ? new Date().toISOString() : null,
             IsRefund: null,
             StateCode: "None",
             ActualPaymentAmount: null,
