@@ -185,9 +185,9 @@ async function showFastSaleModal() {
 
     try {
         // Get selected order IDs
-        const selectedIds = Array.from(selectedOrderIds);
+        const allSelectedIds = Array.from(selectedOrderIds);
 
-        if (selectedIds.length === 0) {
+        if (allSelectedIds.length === 0) {
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
@@ -197,9 +197,44 @@ async function showFastSaleModal() {
             return;
         }
 
+        // Filter out orders with no products (TotalQuantity === 0)
+        // These orders will cause API error "chưa có chi tiết"
+        const emptyCartIds = [];
+        const selectedIds = allSelectedIds.filter(orderId => {
+            const order = window.OrderStore?.get(orderId) || displayedData.find(o => o.Id === orderId);
+            if (!order) return true; // Keep if can't find order data
+            if (order.TotalQuantity === 0) {
+                emptyCartIds.push(order.Code || orderId);
+                return false; // Exclude empty cart orders
+            }
+            return true;
+        });
+
+        // Show warning if some orders were filtered out
+        if (emptyCartIds.length > 0) {
+            console.warn(`[FAST-SALE] Filtered out ${emptyCartIds.length} empty cart orders:`, emptyCartIds);
+            if (window.notificationManager) {
+                window.notificationManager.warning(
+                    `Đã bỏ qua ${emptyCartIds.length} đơn giỏ trống (không có sản phẩm)`,
+                    4000
+                );
+            }
+        }
+
+        if (selectedIds.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-duplicates">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Tất cả đơn hàng đã chọn đều là giỏ trống (không có sản phẩm).</p>
+                </div>
+            `;
+            return;
+        }
+
         // Update subtitle with TPOS account info
         const tposAccountInfo = getTposAccountDisplay();
-        subtitle.innerHTML = `Đã chọn ${selectedIds.length} đơn hàng ${tposAccountInfo}`;
+        const filteredInfo = emptyCartIds.length > 0 ? ` (đã bỏ ${emptyCartIds.length} giỏ trống)` : '';
+        subtitle.innerHTML = `Đã chọn ${selectedIds.length} đơn hàng${filteredInfo} ${tposAccountInfo}`;
 
         // Fetch FastSaleOrder data using batch API
         fastSaleOrdersData = await fetchFastSaleOrdersData(selectedIds);
