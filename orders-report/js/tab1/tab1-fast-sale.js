@@ -254,42 +254,66 @@ function closeFastSaleModal() {
 
 /**
  * Fetch FastSaleOrder data for multiple orders (batch)
+ * API has a limit of 200 orders per request, so we batch requests
  * @param {Array<string>} orderIds - Array of Order IDs
  * @returns {Promise<Array<Object>>} Array of FastSaleOrder data
  */
 async function fetchFastSaleOrdersData(orderIds) {
+    const BATCH_SIZE = 200; // API limit is 200 orders per request
+
     try {
         // MUST use billTokenManager - no fallback to default tokenManager
         const headers = await getBillAuthHeader();
 
-        // Fetch FastSaleOrder using POST with order IDs
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetListOrderIds?$expand=OrderLines,Partner,Carrier`;
 
         console.log(`[FAST-SALE] Fetching ${orderIds.length} orders from API...`);
 
-        const response = await API_CONFIG.smartFetch(url, {
-            method: 'POST',
-            headers: {
-                ...headers,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                ids: orderIds
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        // Split orderIds into batches of BATCH_SIZE
+        const batches = [];
+        for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+            batches.push(orderIds.slice(i, i + BATCH_SIZE));
         }
 
-        const data = await response.json();
+        console.log(`[FAST-SALE] Split into ${batches.length} batches (max ${BATCH_SIZE} per batch)`);
 
-        if (data.value && data.value.length > 0) {
-            console.log(`[FAST-SALE] Successfully fetched ${data.value.length} FastSaleOrders`);
+        // Fetch all batches in parallel
+        const batchPromises = batches.map(async (batchIds, batchIndex) => {
+            console.log(`[FAST-SALE] Fetching batch ${batchIndex + 1}/${batches.length} (${batchIds.length} orders)...`);
+
+            const response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ids: batchIds
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`[FAST-SALE] Batch ${batchIndex + 1} failed: HTTP ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[FAST-SALE] Batch ${batchIndex + 1} returned ${data.value?.length || 0} orders`);
+            return data.value || [];
+        });
+
+        // Wait for all batches
+        const batchResults = await Promise.all(batchPromises);
+
+        // Combine all results
+        const allOrders = batchResults.flat();
+
+        if (allOrders.length > 0) {
+            console.log(`[FAST-SALE] Successfully fetched ${allOrders.length} FastSaleOrders total`);
 
             // Enrich with SessionIndex from SaleOnlineOrder (displayedData)
-            const enrichedOrders = data.value.map(order => {
+            const enrichedOrders = allOrders.map(order => {
                 // Find matching SaleOnlineOrder by SaleOnlineIds
                 const saleOnlineId = order.SaleOnlineIds?.[0];
                 if (saleOnlineId) {
