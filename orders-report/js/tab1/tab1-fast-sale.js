@@ -1223,9 +1223,10 @@ async function processWalletWithdrawalsForSuccessOrders() {
 
             console.log(`[FAST-SALE] Creating pending withdrawal for order ${orderNumber}, phone: ${normalizedPhone}, amount: ${withdrawAmount}`);
 
-            // Use pending-withdrawals API (Outbox pattern)
+            // Use pending-withdrawals API on Render server directly (not via CF Worker)
             // This ensures 100% no lost transactions even on network failures
-            const response = await fetch(`${QR_API_URL}/api/v2/pending-withdrawals`, {
+            const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+            const response = await fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

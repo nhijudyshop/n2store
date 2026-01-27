@@ -646,9 +646,10 @@ async function confirmAndPrintSale() {
                 const performedBy = window.authManager?.getAuthState()?.username || 'system';
                 const normalizedPhone = normalizePhoneForQR(customerPhone);
 
-                // Use pending-withdrawals API instead of direct withdraw
+                // Use pending-withdrawals API on Render server directly (not via CF Worker)
                 // The API will: 1) Record pending, 2) Try withdraw, 3) Cron will retry if failed
-                fetch(`${QR_API_URL}/api/v2/pending-withdrawals`, {
+                const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
