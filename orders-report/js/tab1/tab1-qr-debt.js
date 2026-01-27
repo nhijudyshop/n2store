@@ -124,20 +124,34 @@ function saveDebtToCache(phone, totalDebt) {
 
 /**
  * Fetch debt from API for a phone number
+ * Uses WalletIntegration module for centralized API calls
  * @param {string} phone - Phone number
  * @returns {Promise<number>} Total debt
  */
 async function fetchDebtForPhone(phone) {
+    // Use WalletIntegration if available (preferred)
+    if (typeof WalletIntegration !== 'undefined') {
+        const wallet = await WalletIntegration.getWallet(phone);
+        if (!wallet) return 0;
+
+        const totalBalance = (wallet.balance || 0) + (wallet.virtual_balance || 0);
+        const normalizedPhone = WalletIntegration.normalizePhone(phone);
+        if (normalizedPhone) {
+            saveDebtToCache(normalizedPhone, totalBalance);
+        }
+        return totalBalance;
+    }
+
+    // Fallback: direct API call (should not reach here normally)
     const normalizedPhone = normalizePhoneForQR(phone);
     if (!normalizedPhone) return 0;
 
     try {
-        // Use wallet balance API instead of debt-summary
-        const response = await fetch(`${QR_API_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(normalizedPhone)}`);
+        const response = await fetch(`${QR_API_URL}/api/wallet/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
-        if (result.success) {
-            const totalBalance = result.balance || 0;
+        if (result.success && result.data) {
+            const totalBalance = (result.data.balance || 0) + (result.data.virtual_balance || 0);
             saveDebtToCache(normalizedPhone, totalBalance);
             return totalBalance;
         }
@@ -210,7 +224,8 @@ function updateDebtCells(phone, debt) {
 }
 
 /**
- * Batch fetch wallet balances for multiple phones using wallet batch API
+ * Batch fetch wallet balances for multiple phones using WalletIntegration
+ * Uses WalletIntegration.getWalletBatch() for centralized API calls with caching
  * Reduces 80 API calls → 1 API call!
  * @param {Array<string>} phones - Array of phone numbers
  */
@@ -221,33 +236,74 @@ async function batchFetchDebts(phones) {
         return;
     }
 
+    // Use WalletIntegration if available (preferred)
+    if (typeof WalletIntegration !== 'undefined') {
+        const uniquePhones = [...new Set(phones.filter(p => p))];
+        const uncachedPhones = uniquePhones.filter(p => {
+            const normalizedPhone = WalletIntegration.normalizePhone(p);
+            return normalizedPhone && getCachedDebt(normalizedPhone) === null;
+        });
+
+        if (uncachedPhones.length === 0) {
+            console.log('[WALLET-BATCH] No uncached phones to fetch, skipping API call');
+            return;
+        }
+
+        console.log(`[WALLET-BATCH] Fetching ${uncachedPhones.length} phones via WalletIntegration...`);
+
+        try {
+            const walletMap = await WalletIntegration.getWalletBatch(uncachedPhones);
+
+            console.log(`[WALLET-BATCH] ✅ Received ${walletMap.size} results`);
+
+            // Update cache and UI for all phones
+            for (const [phone, walletData] of walletMap) {
+                const totalBalance = (walletData.balance || 0) + (walletData.virtual_balance || 0);
+                saveDebtToCache(phone, totalBalance);
+                updateDebtCells(phone, totalBalance);
+            }
+
+            // Handle phones that weren't in the response (set to 0)
+            for (const phone of uncachedPhones) {
+                const normalizedPhone = WalletIntegration.normalizePhone(phone);
+                if (normalizedPhone && !walletMap.has(normalizedPhone)) {
+                    saveDebtToCache(normalizedPhone, 0);
+                    updateDebtCells(normalizedPhone, 0);
+                }
+            }
+        } catch (error) {
+            console.error('[WALLET-BATCH] ❌ Error:', error);
+            // Fallback: set all to 0
+            for (const phone of uncachedPhones) {
+                const normalizedPhone = WalletIntegration.normalizePhone(phone);
+                if (normalizedPhone) {
+                    updateDebtCells(normalizedPhone, 0);
+                }
+            }
+        }
+        return;
+    }
+
+    // Fallback: direct API call (should not reach here normally)
     const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(p => p))];
     const uncachedPhones = uniquePhones.filter(p => getCachedDebt(p) === null);
 
-    // Double-check before API call to prevent 400 errors
-    if (!Array.isArray(uncachedPhones) || uncachedPhones.length === 0) {
+    if (uncachedPhones.length === 0) {
         console.log('[WALLET-BATCH] No uncached phones to fetch, skipping API call');
         return;
     }
 
-    console.log(`[WALLET-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
+    console.log(`[WALLET-BATCH] Fetching ${uncachedPhones.length} phones (fallback)...`);
 
     try {
-        // Call wallet batch API - ONE request for ALL phones!
-        const requestBody = JSON.stringify({ phones: uncachedPhones });
-        console.log('[WALLET-BATCH] Request body:', requestBody);
-
         const response = await fetch(`${QR_API_URL}/api/wallet/batch-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: requestBody
+            body: JSON.stringify({ phones: uncachedPhones })
         });
 
-        // Check response status first
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`[WALLET-BATCH] ❌ HTTP ${response.status}: ${errorText}`);
-            // Fallback: set all to 0
+            console.error(`[WALLET-BATCH] ❌ HTTP ${response.status}`);
             for (const phone of uncachedPhones) {
                 updateDebtCells(phone, 0);
             }
@@ -257,33 +313,20 @@ async function batchFetchDebts(phones) {
         const result = await response.json();
 
         if (result.success && result.data) {
-            console.log(`[WALLET-BATCH] ✅ Received ${Object.keys(result.data).length} results`);
-
-            // Update cache and UI for all phones
             for (const [phone, walletData] of Object.entries(result.data)) {
-                // Total = balance + virtualBalance
-                const totalBalance = walletData.total || 0;
+                const totalBalance = (walletData.balance || 0) + (walletData.virtual_balance || 0);
                 saveDebtToCache(phone, totalBalance);
                 updateDebtCells(phone, totalBalance);
             }
-
-            // Handle phones that weren't in the response (set to 0)
             for (const phone of uncachedPhones) {
                 if (!result.data[phone]) {
                     saveDebtToCache(phone, 0);
                     updateDebtCells(phone, 0);
                 }
             }
-        } else {
-            console.error('[WALLET-BATCH] ❌ API error:', result.error);
-            // Fallback: set all to 0
-            for (const phone of uncachedPhones) {
-                updateDebtCells(phone, 0);
-            }
         }
     } catch (error) {
         console.error('[WALLET-BATCH] ❌ Network error:', error);
-        // Fallback: set all to 0
         for (const phone of uncachedPhones) {
             updateDebtCells(phone, 0);
         }
@@ -1471,13 +1514,10 @@ function populatePartnerData(partner) {
 
 /**
  * Fetch realtime wallet balance for sale modal
- * Uses wallet API to get customer's available balance (prepaid + virtual credit)
+ * Uses WalletIntegration to get customer's available balance (prepaid + virtual credit)
  * @param {string} phone - Phone number
  */
 async function fetchDebtForSaleModal(phone) {
-    const normalizedPhone = normalizePhoneForQR(phone);
-    if (!normalizedPhone) return;
-
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
     const oldDebtField = document.getElementById('saleOldDebt');
 
@@ -1486,39 +1526,62 @@ async function fetchDebtForSaleModal(phone) {
         prepaidAmountField.value = '...';
     }
 
+    // Use WalletIntegration if available (preferred)
+    if (typeof WalletIntegration !== 'undefined') {
+        const wallet = await WalletIntegration.getWallet(phone);
+        const normalizedPhone = WalletIntegration.normalizePhone(phone);
+
+        if (wallet) {
+            const realBalance = parseFloat(wallet.balance) || 0;
+            const virtualBalance = parseFloat(wallet.virtual_balance) || 0;
+            const totalBalance = realBalance + virtualBalance;
+            console.log('[SALE-MODAL] Wallet balance via WalletIntegration:', normalizedPhone, '=', totalBalance);
+
+            if (prepaidAmountField) {
+                prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
+            }
+            if (oldDebtField) {
+                oldDebtField.textContent = formatCurrencyVND(totalBalance);
+            }
+            if (normalizedPhone) {
+                saveDebtToCache(normalizedPhone, totalBalance);
+                updateDebtCellsInTable(normalizedPhone, totalBalance);
+            }
+            updateSaleRemainingBalance();
+        } else {
+            console.log('[SALE-MODAL] No wallet data for phone:', normalizedPhone);
+            if (prepaidAmountField) {
+                prepaidAmountField.value = 0;
+            }
+            updateSaleRemainingBalance();
+        }
+        return;
+    }
+
+    // Fallback: direct API call
+    const normalizedPhone = normalizePhoneForQR(phone);
+    if (!normalizedPhone) return;
+
     try {
-        // Use wallet API to get customer's available balance
         const response = await fetch(`${QR_API_URL}/api/wallet/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
         if (result.success && result.data) {
-            // Total balance = real balance + virtual balance
-            // API returns snake_case: balance, virtual_balance
             const realBalance = parseFloat(result.data.balance) || 0;
             const virtualBalance = parseFloat(result.data.virtual_balance) || 0;
             const totalBalance = realBalance + virtualBalance;
-            console.log('[SALE-MODAL] Wallet balance for phone:', normalizedPhone, '=', totalBalance, '(real:', realBalance, '+ virtual:', virtualBalance, ')');
+            console.log('[SALE-MODAL] Wallet balance (fallback):', normalizedPhone, '=', totalBalance);
 
-            // Update prepaid amount field with total available balance
             if (prepaidAmountField) {
                 prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
             }
-
-            // Also update the "Nợ cũ" display to show wallet balance
             if (oldDebtField) {
                 oldDebtField.textContent = formatCurrencyVND(totalBalance);
             }
-
-            // Cache it for later use
             saveDebtToCache(normalizedPhone, totalBalance);
-
-            // Also update debt column in orders table to keep them in sync
             updateDebtCellsInTable(normalizedPhone, totalBalance);
-
-            // Update remaining balance after prepaid amount changes
             updateSaleRemainingBalance();
         } else {
-            // No wallet found, set to 0
             console.log('[SALE-MODAL] No wallet data for phone:', normalizedPhone);
             if (prepaidAmountField) {
                 prepaidAmountField.value = 0;
@@ -1527,11 +1590,9 @@ async function fetchDebtForSaleModal(phone) {
         }
     } catch (error) {
         console.error('[SALE-MODAL] Error fetching wallet balance:', error);
-        // Fallback to 0 on error
         if (prepaidAmountField) {
             prepaidAmountField.value = 0;
         }
-        // Update remaining balance even on error
         updateSaleRemainingBalance();
     }
 }

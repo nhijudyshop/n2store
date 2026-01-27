@@ -1222,36 +1222,64 @@ async function processWalletWithdrawalsForSuccessOrders() {
 
             console.log(`[FAST-SALE] Withdrawing ${withdrawAmount} from wallet for order ${orderNumber}, phone: ${normalizedPhone}`);
 
-            // Call withdraw API
-            const response = await fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/withdraw`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    amount: withdrawAmount,
-                    note: `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`,
-                    reference_id: orderNumber
-                })
-            });
+            // Use WalletIntegration.withdrawWallet() if available
+            if (typeof WalletIntegration !== 'undefined' && WalletIntegration.withdrawWallet) {
+                try {
+                    const result = await WalletIntegration.withdrawWallet(
+                        normalizedPhone,
+                        withdrawAmount,
+                        orderNumber,
+                        `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`
+                    );
 
-            const result = await response.json();
+                    console.log(`[FAST-SALE] ✅ Wallet withdraw via WalletIntegration for ${normalizedPhone}: ${withdrawAmount}`);
+                    withdrawCount++;
+                    withdrawTotal += withdrawAmount;
 
-            if (result.success) {
-                console.log(`[FAST-SALE] ✅ Wallet withdraw successful for ${normalizedPhone}: ${withdrawAmount}`);
-                withdrawCount++;
-                withdrawTotal += withdrawAmount;
-
-                // Update local wallet balance cache
-                if (walletData) {
-                    const newBalance = (parseFloat(result.newBalance) || 0);
-                    const newVirtualBalance = (parseFloat(result.newVirtualBalance) || 0);
-                    fastSaleWalletBalances[normalizedPhone] = {
-                        balance: newBalance,
-                        virtualBalance: newVirtualBalance,
-                        total: newBalance + newVirtualBalance
-                    };
+                    // Update local wallet balance cache from result
+                    if (result) {
+                        const newBalance = parseFloat(result.balance) || 0;
+                        const newVirtualBalance = parseFloat(result.virtual_balance) || 0;
+                        fastSaleWalletBalances[normalizedPhone] = {
+                            balance: newBalance,
+                            virtualBalance: newVirtualBalance,
+                            total: newBalance + newVirtualBalance
+                        };
+                    }
+                } catch (err) {
+                    console.warn(`[FAST-SALE] Wallet withdraw failed for ${normalizedPhone}:`, err.message);
                 }
             } else {
-                console.warn(`[FAST-SALE] Wallet withdraw failed for ${normalizedPhone}:`, result.error);
+                // Fallback: direct API call
+                const response = await fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/withdraw`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: withdrawAmount,
+                        note: `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`,
+                        reference_id: orderNumber
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    console.log(`[FAST-SALE] ✅ Wallet withdraw (fallback) for ${normalizedPhone}: ${withdrawAmount}`);
+                    withdrawCount++;
+                    withdrawTotal += withdrawAmount;
+
+                    if (walletData) {
+                        const newBalance = parseFloat(result.newBalance) || 0;
+                        const newVirtualBalance = parseFloat(result.newVirtualBalance) || 0;
+                        fastSaleWalletBalances[normalizedPhone] = {
+                            balance: newBalance,
+                            virtualBalance: newVirtualBalance,
+                            total: newBalance + newVirtualBalance
+                        };
+                    }
+                } else {
+                    console.warn(`[FAST-SALE] Wallet withdraw failed for ${normalizedPhone}:`, result.error);
+                }
             }
         } catch (error) {
             console.error('[FAST-SALE] Error withdrawing from wallet:', error);
