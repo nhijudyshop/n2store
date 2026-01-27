@@ -2752,26 +2752,26 @@ class MessageTemplateManager {
             throw new Error(`Không có page_access_token cho page ${channelId}`);
         }
 
-        // 4. Get latest customer comment
-        // Try fetching comments to find the most recent one
-        let latestCommentId = facebookCommentId; // Default: use purchase comment
-        try {
-            const postId = facebookPostId.split('_').slice(1).join('_'); // postId part
-            const commentsResult = await window.pancakeDataManager?.fetchComments(
-                channelId, psid, null, postId
-            );
-            if (commentsResult?.comments?.length > 0) {
-                // Find the latest comment from customer (not page owner)
-                const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
-                if (customerComments.length > 0) {
-                    const latest = customerComments[customerComments.length - 1];
-                    latestCommentId = latest.FacebookId || latest.Id || facebookCommentId;
-                    console.log('[COMMENT-SEND] Using latest customer comment:', latestCommentId);
-                }
-            }
-        } catch (e) {
-            console.warn('[COMMENT-SEND] Could not fetch comments, using purchase comment:', e.message);
+        // 4. Get latest customer comment from Pancake API
+        // IMPORTANT: Must use Pancake internal comment ID, NOT TPOS Facebook_CommentId
+        const postId = facebookPostId.split('_').slice(1).join('_'); // postId part
+        const commentsResult = await window.pancakeDataManager?.fetchComments(
+            channelId, psid, null, postId
+        );
+
+        if (!commentsResult?.comments?.length) {
+            throw new Error('Không tìm thấy cuộc hội thoại comment trên Pancake');
         }
+
+        // Find the latest comment from customer (not page owner)
+        const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+        if (customerComments.length === 0) {
+            throw new Error('Không tìm thấy comment nào từ khách hàng');
+        }
+
+        const latestComment = customerComments[customerComments.length - 1];
+        const latestCommentId = latestComment.Id; // Pancake internal ID
+        console.log('[COMMENT-SEND] Using latest customer comment:', latestCommentId, 'Message:', latestComment.Message?.substring(0, 50));
 
         // 5. Replace placeholders in template
         let messageContent = this.replacePlaceholders(templateContent || '', fullOrderData.converted);

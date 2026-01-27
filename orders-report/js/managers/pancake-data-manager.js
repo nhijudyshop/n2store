@@ -2020,7 +2020,7 @@ class PancakeDataManager {
                 if (!convId && psid) {
                     console.log('[PANCAKE] Not found in memory, fetching conversations by fb_id:', psid);
                     try {
-                        const result = await this.fetchConversationsByFbId(pageId, psid);
+                        const result = await this.fetchConversationsByCustomerFbId(pageId, psid);
                         if (result.success && result.conversations && result.conversations.length > 0) {
                             console.log('[PANCAKE] Direct fetch returned', result.conversations.length, 'conversations');
 
