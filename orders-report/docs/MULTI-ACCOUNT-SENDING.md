@@ -290,6 +290,160 @@ try {
 
 Lỗi của 1 account không ảnh hưởng các account khác.
 
+## Campaign History (Lịch sử gửi tin)
+
+### Tính năng
+
+Sau mỗi lần gửi tin nhắn, hệ thống tự động lưu lịch sử vào Firestore để:
+- Xem lại kết quả gửi (thành công/thất bại)
+- Biết rõ STT, mã đơn, tên khách hàng của từng đơn
+- Gửi lại các đơn thất bại
+
+### UI
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  [Lịch sử]  [Hủy]  [Gửi tin nhắn]                          │
+└─────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────┐
+│            Lịch sử gửi tin nhắn                              │
+├─────────────────────────────────────────────────────────────┤
+│  Template: Chốt đơn                                          │
+│  Ngày: 27/01/2026, 10:30:00                                 │
+│  ┌────────────────┐  ┌────────────────┐                     │
+│  │ ✅ 95 thành công│  │ ❌ 5 thất bại  │                     │
+│  └────────────────┘  └────────────────┘                     │
+│                                                              │
+│  ▶ Xem 5 đơn thất bại (click để mở)                        │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ STT  │ Mã đơn    │ Khách hàng  │ Lỗi                 │  │
+│  │ 1074 │ SO-12345  │ Nguyễn A    │ Đã quá 24h          │  │
+│  │ 1075 │ SO-12346  │ Trần B      │ Người dùng không... │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ▶ Xem 95 đơn thành công (click để mở)                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Firestore Structure
+
+```
+Collection: message_campaigns
+└── Document (auto-generated ID)
+    {
+        // Thông tin cơ bản
+        templateName: "Chốt đơn",
+        templateId: 123,
+        totalOrders: 100,
+        successCount: 95,
+        errorCount: 5,
+
+        // Chi tiết đơn thành công
+        successOrders: [
+            {
+                stt: "1074",
+                code: "SO-12345",
+                customerName: "Nguyễn Văn A",
+                account: "Huyền Nhi"
+            },
+            ...
+        ],
+
+        // Chi tiết đơn thất bại
+        errorOrders: [
+            {
+                stt: "1075",
+                code: "SO-12346",
+                customerName: "Trần Văn B",
+                account: "Thu Huyền",
+                error: "Đã quá 24h - Vui lòng dùng COMMENT",
+                is24HourError: true
+            },
+            ...
+        ],
+
+        // Metadata
+        accountsUsed: ["Huyền Nhi", "Thu Huyền", "Thu Lai"],
+        delay: 1,
+        createdAt: Timestamp,
+        localCreatedAt: "2026-01-27T10:30:00.000Z",
+
+        // TTL - Auto delete after 7 days
+        expireAt: Date (7 ngày sau createdAt)
+    }
+```
+
+### TTL Auto-Delete (Tự động xóa sau 7 ngày)
+
+```javascript
+// Khi lưu campaign
+const now = new Date();
+const expireAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // +7 days
+
+const campaign = {
+    ...campaignData,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    expireAt: expireAt  // TTL field
+};
+
+// Khi mở history modal, tự động cleanup
+async cleanupOldCampaigns() {
+    const now = new Date();
+    const snapshot = await campaignsRef
+        .where('expireAt', '<', now)
+        .limit(100)
+        .get();
+
+    // Batch delete expired campaigns
+    const batch = db.batch();
+    snapshot.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+}
+```
+
+### Flow lưu lịch sử
+
+```
+1. Gửi tin nhắn hoàn tất
+   ↓
+2. Thu thập kết quả:
+   - successOrders: [{stt, code, customerName, account}, ...]
+   - errorOrders: [{stt, code, customerName, account, error}, ...]
+   ↓
+3. Lưu vào Firestore với expireAt = now + 7 days
+   ↓
+4. User click "Lịch sử"
+   ↓
+5. Cleanup campaigns đã hết hạn (expireAt < now)
+   ↓
+6. Load và hiển thị campaigns còn hạn
+```
+
+### Tracking chi tiết trong Worker
+
+```javascript
+// Khi gửi thành công
+this.sendingState.successOrders.push({
+    stt: order.stt || order.STT || '',
+    code: order.code || order.Id || '',
+    customerName: order.customerName || '',
+    account: account.name
+});
+
+// Khi gửi thất bại
+this.sendingState.errorOrders.push({
+    stt: order.stt || order.STT || '',
+    code: order.code || order.Id || '',
+    customerName: order.customerName || '',
+    account: account.name,
+    error: errorMessage,
+    is24HourError: err.is24HourError || false,
+    isUserUnavailable: err.isUserUnavailable || false
+});
+```
+
 ## Tóm tắt
 
 | Feature | Mô tả |
@@ -300,3 +454,5 @@ Lỗi của 1 account không ảnh hưởng các account khác.
 | **Trùng lặp** | 0% - Mỗi đơn chỉ 1 account xử lý |
 | **Tốc độ** | Nhanh hơn N lần (N = số accounts) |
 | **Error isolation** | Lỗi 1 account không ảnh hưởng accounts khác |
+| **Lịch sử** | Lưu Firestore, tự động xóa sau 7 ngày |
+| **Chi tiết** | Tracking STT, mã đơn, khách hàng, account, lỗi |
