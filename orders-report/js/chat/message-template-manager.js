@@ -708,9 +708,7 @@ class MessageTemplateManager {
             const ordersCount = this.selectedOrders.length;
             this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API (Multi-Account Mode)');
 
-            // Get employee signature (ONE TIME)
-            const auth = window.authManager ? window.authManager.getAuthState() : null;
-            const displayName = auth && auth.displayName ? auth.displayName : null;
+            // NOTE: No employee signature for multi-account sending
 
             // Get template content (ONE TIME)
             const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
@@ -754,7 +752,7 @@ class MessageTemplateManager {
             const createWorker = (account, queue) => {
                 const context = {
                     token: account.token,
-                    displayName,
+                    displayName: null, // No signature for multi-account sending
                     templateContent,
                     sendMode
                 };
