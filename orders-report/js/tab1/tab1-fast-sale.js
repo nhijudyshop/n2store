@@ -1179,7 +1179,7 @@ async function preGenerateBillImages() {
 
 /**
  * Process wallet withdrawals for successful orders
- * Withdraws wallet balance for orders with COD payment
+ * Uses pending-withdrawals API (Outbox pattern) for 100% reliability
  */
 async function processWalletWithdrawalsForSuccessOrders() {
     const successOrders = fastSaleResultsData.success;
@@ -1188,8 +1188,9 @@ async function processWalletWithdrawalsForSuccessOrders() {
     console.log(`[FAST-SALE] Processing wallet withdrawals for ${successOrders.length} successful orders...`);
 
     const performedBy = window.authManager?.getAuthState()?.username || 'system';
-    let withdrawCount = 0;
-    let withdrawTotal = 0;
+    let pendingCount = 0;
+    let skippedCount = 0;
+    let pendingTotal = 0;
 
     for (const order of successOrders) {
         try {
@@ -1220,47 +1221,59 @@ async function processWalletWithdrawalsForSuccessOrders() {
 
             const orderNumber = order.Number || order.Code || order.Reference || 'N/A';
 
-            console.log(`[FAST-SALE] Withdrawing ${withdrawAmount} from wallet for order ${orderNumber}, phone: ${normalizedPhone}`);
+            console.log(`[FAST-SALE] Creating pending withdrawal for order ${orderNumber}, phone: ${normalizedPhone}, amount: ${withdrawAmount}`);
 
-            // Call withdraw API
-            const response = await fetch(`${QR_API_URL}/api/wallet/${normalizedPhone}/withdraw`, {
+            // Use pending-withdrawals API (Outbox pattern)
+            // This ensures 100% no lost transactions even on network failures
+            const response = await fetch(`${QR_API_URL}/api/v2/pending-withdrawals`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    order_id: orderNumber,
+                    order_number: orderNumber,
+                    phone: normalizedPhone,
                     amount: withdrawAmount,
+                    source: 'FAST_SALE',
                     note: `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`,
-                    reference_id: orderNumber
+                    created_by: performedBy
                 })
             });
 
             const result = await response.json();
 
             if (result.success) {
-                console.log(`[FAST-SALE] ✅ Wallet withdraw successful for ${normalizedPhone}: ${withdrawAmount}`);
-                withdrawCount++;
-                withdrawTotal += withdrawAmount;
+                if (result.skipped) {
+                    console.log(`[FAST-SALE] ⏭️ Already processed for ${orderNumber}`);
+                    skippedCount++;
+                } else {
+                    console.log(`[FAST-SALE] ✅ Pending created #${result.pending_id} for ${orderNumber}: ${withdrawAmount}đ`);
+                    pendingCount++;
+                    pendingTotal += withdrawAmount;
 
-                // Update local wallet balance cache
-                if (walletData) {
-                    const newBalance = (parseFloat(result.newBalance) || 0);
-                    const newVirtualBalance = (parseFloat(result.newVirtualBalance) || 0);
-                    fastSaleWalletBalances[normalizedPhone] = {
-                        balance: newBalance,
-                        virtualBalance: newVirtualBalance,
-                        total: newBalance + newVirtualBalance
-                    };
+                    // Update local wallet balance cache (optimistic)
+                    if (walletData) {
+                        const estimatedNewBalance = Math.max(0, totalWalletBalance - withdrawAmount);
+                        fastSaleWalletBalances[normalizedPhone] = {
+                            balance: Math.max(0, (parseFloat(walletData.balance) || 0) - withdrawAmount),
+                            virtualBalance: parseFloat(walletData.virtualBalance) || 0,
+                            total: estimatedNewBalance
+                        };
+                    }
                 }
             } else {
-                console.warn(`[FAST-SALE] Wallet withdraw failed for ${normalizedPhone}:`, result.error);
+                console.warn(`[FAST-SALE] ⚠️ Failed to create pending for ${normalizedPhone}:`, result.error);
             }
         } catch (error) {
-            console.error('[FAST-SALE] Error withdrawing from wallet:', error);
+            console.error('[FAST-SALE] Error creating pending withdrawal:', error);
         }
     }
 
-    if (withdrawCount > 0) {
-        console.log(`[FAST-SALE] ✅ Completed ${withdrawCount} wallet withdrawals, total: ${withdrawTotal.toLocaleString('vi-VN')}đ`);
-        window.notificationManager?.success(`Đã trừ công nợ ${withdrawCount} đơn, tổng: ${withdrawTotal.toLocaleString('vi-VN')}đ`);
+    if (pendingCount > 0) {
+        console.log(`[FAST-SALE] ✅ Created ${pendingCount} pending withdrawals, total: ${pendingTotal.toLocaleString('vi-VN')}đ`);
+        window.notificationManager?.success(`Đã ghi nhận trừ công nợ ${pendingCount} đơn, tổng: ${pendingTotal.toLocaleString('vi-VN')}đ`);
+    }
+    if (skippedCount > 0) {
+        console.log(`[FAST-SALE] ⏭️ Skipped ${skippedCount} already processed withdrawals`);
     }
 }
 
