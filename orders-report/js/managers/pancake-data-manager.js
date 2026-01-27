@@ -1996,6 +1996,14 @@ class PancakeDataManager {
             let convId = conversationId;
             let customerId = null;
 
+            // Helper: extract post_id from conversation (may be in c.post_id or embedded in c.id)
+            const getConvPostId = (c) => {
+                if (c.post_id) return c.post_id;
+                // Conversation ID format: postId_commentId (e.g., "33430825583230191_1643258936832569")
+                if (c.id && c.id.includes('_')) return c.id.split('_')[0];
+                return null;
+            };
+
             // CRITICAL: Khi có postId, PHẢI tìm conversation match cả fb_id VÀ post_id
             // Vì cùng 1 khách hàng có thể comment trên NHIỀU post khác nhau
             if (!convId && postId) {
@@ -2004,7 +2012,7 @@ class PancakeDataManager {
                 // Bước 1: Tìm trong conversations đã load (memory)
                 const matchingConvInMemory = this.conversations.find(conv =>
                     conv.type === 'COMMENT' &&
-                    conv.post_id === postId &&
+                    getConvPostId(conv) === postId &&
                     (conv.from?.id === psid ||
                      conv.from_psid === psid ||
                      conv.customers?.some(c => c.fb_id === psid))
@@ -2036,7 +2044,7 @@ class PancakeDataManager {
                             // Find conversation matching BOTH post_id AND fb_id/psid
                             const matchingConv = result.conversations.find(c =>
                                 c.type === 'COMMENT' &&
-                                c.post_id === postId &&
+                                getConvPostId(c) === postId &&
                                 (c.from?.id === psid ||
                                  c.from_psid === psid ||
                                  c.customers?.some(cust => cust.fb_id === psid))
@@ -2049,7 +2057,7 @@ class PancakeDataManager {
                             } else {
                                 // Fallback: chỉ match post_id nếu không tìm thấy exact match
                                 const postOnlyMatch = result.conversations.find(c =>
-                                    c.type === 'COMMENT' && c.post_id === postId
+                                    c.type === 'COMMENT' && getConvPostId(c) === postId
                                 );
                                 if (postOnlyMatch) {
                                     convId = postOnlyMatch.id;
