@@ -72,6 +72,107 @@ document.addEventListener('keydown', function (event) {
 let fastSaleOrdersData = [];
 let fastSaleWalletBalances = {}; // Store wallet balances by phone: { "0909999999": { balance: 200000, virtual_balance: 0 } }
 
+// =====================================================
+// DISCOUNT PARSING UTILITIES
+// =====================================================
+
+/**
+ * Parse discount amount from product note
+ * Supports formats: "100k", "100K", "100000", "100.000", "50k", etc.
+ * @param {string} note - Product note containing discount
+ * @returns {number} Discount amount in VND (0 if no valid discount found)
+ */
+function parseDiscountFromNote(note) {
+    if (!note || typeof note !== 'string') return 0;
+
+    // Trim and lowercase
+    const cleanNote = note.trim().toLowerCase();
+    if (!cleanNote) return 0;
+
+    // Match patterns: number followed by optional 'k' or standalone number
+    // Pattern 1: "100k" or "100K" -> 100000
+    // Pattern 2: "100000" or "100.000" -> 100000
+    const kMatch = cleanNote.match(/^(\d+(?:[.,]\d+)?)\s*k$/i);
+    if (kMatch) {
+        const num = parseFloat(kMatch[1].replace(',', '.'));
+        return Math.round(num * 1000);
+    }
+
+    // Try to parse as plain number (could be "100000" or "100.000")
+    const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
+    if (plainMatch) {
+        // Remove dots/commas used as thousand separators
+        const numStr = plainMatch[1].replace(/[.,]/g, '');
+        const num = parseInt(numStr, 10);
+        // Only accept if it looks like a reasonable discount (>= 1000)
+        if (num >= 1000) {
+            return num;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Check if an order has the "GIẢM GIÁ" tag
+ * @param {Object} order - FastSaleOrder or SaleOnlineOrder
+ * @returns {boolean} True if order has discount tag
+ */
+function orderHasDiscountTag(order) {
+    // Check from SaleOnlineOrder (via SaleOnlineIds)
+    let saleOnlineOrder = null;
+    if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+        const saleOnlineId = order.SaleOnlineIds[0];
+        saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
+    }
+
+    // Check Tags from saleOnlineOrder
+    if (saleOnlineOrder?.Tags) {
+        try {
+            const tags = typeof saleOnlineOrder.Tags === 'string'
+                ? JSON.parse(saleOnlineOrder.Tags)
+                : saleOnlineOrder.Tags;
+
+            if (Array.isArray(tags)) {
+                return tags.some(tag => {
+                    const tagName = (tag.Name || '').toUpperCase();
+                    return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
+                });
+            }
+        } catch (e) {
+            console.warn('[FAST-SALE] Error parsing tags:', e);
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Calculate total discount for an order by parsing all product notes
+ * @param {Object} order - FastSaleOrder with OrderLines
+ * @returns {{totalDiscount: number, discountedProducts: Array}} Total discount and list of discounted products
+ */
+function calculateOrderDiscount(order) {
+    const orderLines = order.OrderLines || [];
+    let totalDiscount = 0;
+    const discountedProducts = [];
+
+    orderLines.forEach(line => {
+        const note = line.Note || '';
+        const discount = parseDiscountFromNote(note);
+        if (discount > 0) {
+            totalDiscount += discount;
+            discountedProducts.push({
+                productName: line.ProductName || 'N/A',
+                discount: discount,
+                note: note
+            });
+        }
+    });
+
+    return { totalDiscount, discountedProducts };
+}
+
 /**
  * Fetch wallet balances for multiple phones (batch)
  * @param {Array<string>} phones - Array of phone numbers
@@ -543,6 +644,11 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
     // Get default shipping fee from order or use 35000
     const defaultShippingFee = order.DeliveryPrice || 35000;
 
+    // Check if order has discount tag and calculate discount
+    const hasDiscountTag = orderHasDiscountTag(order);
+    const { totalDiscount, discountedProducts } = calculateOrderDiscount(order);
+    const hasAnyDiscount = hasDiscountTag && totalDiscount > 0;
+
     // Build product rows
     const productRows = products.map((product, pIndex) => {
         const productName = product.ProductName || 'N/A';
@@ -551,10 +657,18 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         const total = product.PriceSubTotal || (quantity * price) || 0;
         const note = product.Note || '';
 
+        // Check if this product has a discount in its note
+        const productDiscount = parseDiscountFromNote(note);
+        const isDiscountedProduct = productDiscount > 0;
+        const rowHighlightStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : '';
+        const noteStyle = isDiscountedProduct
+            ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+            : '';
+
         return `
-            <tr>
+            <tr style="${rowHighlightStyle}">
                 ${pIndex === 0 ? `
-                    <td rowspan="${products.length}" style="vertical-align: top;">
+                    <td rowspan="${products.length}" style="vertical-align: top; ${hasAnyDiscount ? 'border-left: 4px solid #f59e0b;' : ''}">
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <div style="font-weight: 600;">${customerName}</div>
                             <div style="font-size: 12px; color: #6b7280;">${customerCode}</div>
@@ -568,6 +682,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                     ${walletBalance > 0 ? walletBalance.toLocaleString('vi-VN') + 'đ' : '0đ'}
                                 </span>
                             </div>
+                            ${hasAnyDiscount ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;"><i class="fas fa-tag"></i> Giảm ${totalDiscount.toLocaleString('vi-VN')}đ</span>` : ''}
                             ${order.ShowShipStatus ? `<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">Bom hàng</span>` : ''}
                             <div style="font-size: 12px; color: #6b7280;">
                                 <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i>
@@ -618,7 +733,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                 <td style="text-align: center;">${quantity}</td>
                 <td style="text-align: right;">${price.toLocaleString('vi-VN')}</td>
                 <td style="text-align: right; font-weight: 600;">${total.toLocaleString('vi-VN')}</td>
-                <td>${note}</td>
+                <td>${note ? (isDiscountedProduct ? `<span style="${noteStyle}">${note}</span>` : note) : ''}</td>
             </tr>
         `;
     }).join('');
@@ -709,6 +824,50 @@ function collectFastSaleData() {
         // Get current user ID from token or global context
         const currentUserId = window.tokenManager?.userId || window.currentUser?.Id || null;
 
+        // Calculate discount if order has "GIẢM GIÁ" tag
+        let decreaseAmount = 0;
+        const originalAmountTotal = order.AmountTotal || 0;
+        let finalAmountTotal = originalAmountTotal;
+
+        if (orderHasDiscountTag(order)) {
+            const { totalDiscount, discountedProducts } = calculateOrderDiscount(order);
+            if (totalDiscount > 0) {
+                decreaseAmount = totalDiscount;
+                finalAmountTotal = originalAmountTotal - decreaseAmount;
+                console.log(`[FAST-SALE] Order ${order.Reference}: Applied discount ${decreaseAmount.toLocaleString('vi-VN')}đ (${discountedProducts.length} products)`);
+            }
+        }
+
+        // 🔥 WALLET BALANCE / CÔNG NỢ CALCULATION
+        // Get customer phone and check wallet balance
+        const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || '';
+        let walletBalance = 0;
+        let paymentAmount = 0;
+        let cashOnDelivery = finalAmountTotal;
+
+        if (customerPhone) {
+            // Normalize phone for lookup
+            let normalizedPhone = String(customerPhone).replace(/\D/g, '');
+            if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+                normalizedPhone = '0' + normalizedPhone.substring(2);
+            }
+
+            // Get wallet balance from pre-fetched data
+            const walletData = fastSaleWalletBalances[normalizedPhone];
+            if (walletData) {
+                walletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
+
+                if (walletBalance > 0) {
+                    // Calculate payment from wallet (min of wallet balance and order total)
+                    paymentAmount = Math.min(walletBalance, finalAmountTotal);
+                    // COD = Total - Wallet payment (remaining amount customer needs to pay)
+                    cashOnDelivery = finalAmountTotal - paymentAmount;
+
+                    console.log(`[FAST-SALE] Order ${order.Reference}: Wallet balance ${walletBalance.toLocaleString('vi-VN')}đ, Payment ${paymentAmount.toLocaleString('vi-VN')}đ, COD ${cashOnDelivery.toLocaleString('vi-VN')}đ`);
+                }
+            }
+        }
+
         // Build order model matching exact API structure
         const model = {
             Id: 0,
@@ -725,15 +884,15 @@ function collectFastSaleData() {
             PartnerPhone: null,
             Reference: order.Reference || '',
             PriceListId: 0,
-            AmountTotal: order.AmountTotal || 0,
+            AmountTotal: finalAmountTotal,
             TotalQuantity: 0,
             Discount: 0,
             DiscountAmount: 0,
-            DecreaseAmount: 0,
+            DecreaseAmount: decreaseAmount,
             DiscountLoyaltyTotal: null,
             WeightTotal: 0,
-            AmountTax: null,
-            AmountUntaxed: null,
+            AmountTax: 0,
+            AmountUntaxed: finalAmountTotal,
             TaxId: null,
             MoveId: null,
             UserId: currentUserId,
@@ -768,7 +927,7 @@ function collectFastSaleData() {
             ReceiverAddress: null,
             ReceiverDate: null,
             ReceiverNote: null,
-            CashOnDelivery: 0,
+            CashOnDelivery: cashOnDelivery,
             TrackingRef: null,
             TrackingArea: null,
             TrackingTransport: null,
@@ -780,8 +939,8 @@ function collectFastSaleData() {
             ShowShipStatus: order.ShowShipStatus || "Chưa tiếp nhận",
             SaleOnlineName: order.Reference || '',
             PartnerShippingId: null,
-            PaymentJournalId: null,
-            PaymentAmount: 0,
+            PaymentJournalId: paymentAmount > 0 ? 1 : null,
+            PaymentAmount: paymentAmount,
             SaleOrderId: null,
             SaleOrderIds: [],
             FacebookName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
@@ -799,9 +958,9 @@ function collectFastSaleData() {
             AmountTotalSigned: null,
             ResidualSigned: null,
             Origin: null,
-            AmountDeposit: 0,
+            AmountDeposit: paymentAmount,
             CompanyName: null,
-            PreviousBalance: null,
+            PreviousBalance: finalAmountTotal,
             ToPay: null,
             NotModifyPriceFromSO: false,
             Ship_ServiceId: null,
@@ -835,7 +994,7 @@ function collectFastSaleData() {
             QuantityUpdateDeposit: null,
             IsMergeCancel: null,
             IsPickUpAtShop: null,
-            DateDeposit: null,
+            DateDeposit: paymentAmount > 0 ? new Date().toISOString() : null,
             IsRefund: null,
             StateCode: "None",
             ActualPaymentAmount: null,
