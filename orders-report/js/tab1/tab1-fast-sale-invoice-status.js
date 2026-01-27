@@ -882,6 +882,7 @@
             CarrierName: invoiceData.CarrierName || '',
             UserName: invoiceData.UserName || '',  // Account tạo bill
             SessionIndex: order.SessionIndex || invoiceData.SessionIndex || '', // STT
+            SaleOnlineIds: [orderId],  // Needed for TPOS bill HTML fetch with STT
             OrderLines: orderLines,
             Partner: {
                 Name: invoiceData.ReceiverName || order.Name,
