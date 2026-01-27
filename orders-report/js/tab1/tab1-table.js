@@ -651,6 +651,59 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Listen for failed orders updates to update comment column badges
+window.addEventListener('failedOrdersUpdated', (event) => {
+    const failedIds = new Set(event.detail?.failedOrderIds || []);
+    console.log('[TABLE] Failed orders updated, updating comment badges:', failedIds.size);
+
+    // Update comment column cells
+    document.querySelectorAll('td[data-column="comments"][data-order-id]').forEach(td => {
+        const orderId = td.getAttribute('data-order-id');
+        const isFailed = failedIds.has(orderId);
+        const currentlyShowingFailed = td.querySelector('.fa-exclamation-triangle') !== null;
+
+        // Only update if state changed
+        if (isFailed && !currentlyShowingFailed) {
+            // Mark as failed
+            td.innerHTML = `
+                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #dc2626; font-size: 11px; font-weight: 500;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 10px;"></i>
+                    Cần gửi lại
+                </span>`;
+            td.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
+        } else if (!isFailed && currentlyShowingFailed) {
+            // Clear failed state
+            td.innerHTML = '−';
+            td.style.color = '#9ca3af';
+            td.title = 'Click để xem bình luận';
+        }
+    });
+
+    // Update merged order comment badges
+    document.querySelectorAll('.merged-detail-row[data-order-id]').forEach(row => {
+        const orderId = row.getAttribute('data-order-id');
+        const isCommentsColumn = row.closest('td[data-column="comments"]') !== null;
+        if (!isCommentsColumn) return;
+
+        const isFailed = failedIds.has(orderId);
+        const badgeSpan = row.querySelector('.merged-badge-placeholder, span[style*="fef2f2"]');
+        if (!badgeSpan) return;
+
+        const currentlyShowingFailed = row.querySelector('.fa-exclamation-triangle') !== null;
+
+        if (isFailed && !currentlyShowingFailed) {
+            badgeSpan.outerHTML = `
+                <span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i> Cần gửi
+                </span>`;
+            row.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
+        } else if (!isFailed && currentlyShowingFailed) {
+            badgeSpan.outerHTML = '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+            row.title = '';
+        }
+    });
+});
+
 function handleTableScroll(e) {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
 
@@ -1170,6 +1223,7 @@ function renderMessagesColumn(order) {
 }
 
 // Render comments column - simple placeholder, badge added by notifier
+// Also shows warning badge for failed message orders
 function renderCommentsColumn(order) {
     // Extract channelId from Facebook_PostId (format: pageId_postId)
     const channelId = order.Facebook_PostId ? order.Facebook_PostId.split('_')[0] : '';
@@ -1180,11 +1234,26 @@ function renderCommentsColumn(order) {
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
+    // Check if this order failed message sending
+    const isFailed = window.messageTemplateManager?.isOrderFailed(order.Id);
+
     // Render clickable cell with placeholder "-"
     // Badge "X MỚI" will be set by new-messages-notifier.js based on pending_customers data
     const clickHandler = `openCommentModal('${order.Id}', '${channelId}', '${psid}')`;
 
-    return `<td data-column="comments" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem bình luận">−</td>`;
+    if (isFailed) {
+        // Show warning badge for failed orders
+        return `<td data-column="comments" data-order-id="${order.Id}" onclick="${clickHandler}"
+            style="cursor: pointer; text-align: center; position: relative;"
+            title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận">
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #dc2626; font-size: 11px; font-weight: 500;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 10px;"></i>
+                Cần gửi lại
+            </span>
+        </td>`;
+    }
+
+    return `<td data-column="comments" data-order-id="${order.Id}" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem bình luận">−</td>`;
 }
 
 // #region ═══════════════════════════════════════════════════════════════════════
@@ -1218,13 +1287,27 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const cursorStyle = clickHandler ? 'cursor: pointer;' : 'cursor: default;';
         const hoverStyle = clickHandler ? `onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"` : '';
 
+        // Check if this order failed message sending (only for comments column)
+        const isFailed = columnType === 'comments' && window.messageTemplateManager?.isOrderFailed(originalOrder.Id);
+
+        // Badge content - show warning for failed orders
+        const badgeContent = isFailed
+            ? `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i> Cần gửi
+               </span>`
+            : '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+
+        const titleAttr = isFailed
+            ? 'title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận"'
+            : '';
+
         return `
-            <div class="merged-detail-row" data-psid="${psid}" data-page-id="${channelId}" data-stt="${originalOrder.SessionIndex}"
+            <div class="merged-detail-row" data-psid="${psid}" data-page-id="${channelId}" data-stt="${originalOrder.SessionIndex}" data-order-id="${originalOrder.Id}"
                  ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''}
                  style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; ${cursorStyle} transition: background 0.2s;"
-                 ${hoverStyle}>
+                 ${hoverStyle} ${titleAttr}>
                 <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${originalOrder.SessionIndex}:</span>
-                <span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>
+                ${badgeContent}
             </div>
         `;
     }).join('');

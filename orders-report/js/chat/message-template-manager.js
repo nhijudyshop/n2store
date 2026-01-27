@@ -22,7 +22,77 @@ class MessageTemplateManager {
             error: 0,
             errors: []
         };
+        // Track failed orders for comment watermark in table
+        this.failedOrderIds = new Set();
+        this._loadFailedOrderIds();
         this.init();
+    }
+
+    // =====================================================
+    // FAILED ORDERS TRACKING (for comment watermark)
+    // =====================================================
+
+    _loadFailedOrderIds() {
+        try {
+            const stored = localStorage.getItem('failed_message_orders');
+            if (stored) {
+                const data = JSON.parse(stored);
+                // Only keep entries from last 24 hours
+                const now = Date.now();
+                const validEntries = data.filter(entry => (now - entry.timestamp) < 24 * 60 * 60 * 1000);
+                this.failedOrderIds = new Set(validEntries.map(e => e.orderId));
+                // Save cleaned data
+                if (validEntries.length !== data.length) {
+                    this._saveFailedOrderIds();
+                }
+                this.log(`📋 Loaded ${this.failedOrderIds.size} failed order IDs from storage`);
+            }
+        } catch (e) {
+            console.warn('[MESSAGE] Error loading failed order IDs:', e);
+        }
+    }
+
+    _saveFailedOrderIds() {
+        try {
+            const now = Date.now();
+            const data = Array.from(this.failedOrderIds).map(orderId => ({
+                orderId,
+                timestamp: now
+            }));
+            localStorage.setItem('failed_message_orders', JSON.stringify(data));
+        } catch (e) {
+            console.warn('[MESSAGE] Error saving failed order IDs:', e);
+        }
+    }
+
+    addFailedOrders(orderIds) {
+        orderIds.forEach(id => this.failedOrderIds.add(id));
+        this._saveFailedOrderIds();
+        this.log(`📋 Added ${orderIds.length} failed orders, total: ${this.failedOrderIds.size}`);
+        // Dispatch event to update table UI
+        window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
+            detail: { failedOrderIds: Array.from(this.failedOrderIds) }
+        }));
+    }
+
+    removeFailedOrder(orderId) {
+        if (this.failedOrderIds.has(orderId)) {
+            this.failedOrderIds.delete(orderId);
+            this._saveFailedOrderIds();
+            this.log(`✅ Removed order ${orderId} from failed list`);
+            // Dispatch event to update table UI
+            window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
+                detail: { failedOrderIds: Array.from(this.failedOrderIds) }
+            }));
+        }
+    }
+
+    isOrderFailed(orderId) {
+        return this.failedOrderIds.has(orderId);
+    }
+
+    getFailedOrderIds() {
+        return Array.from(this.failedOrderIds);
     }
 
     log(...args) {
@@ -990,6 +1060,14 @@ class MessageTemplateManager {
                 accountsUsed: validAccounts.map(a => a.name),
                 delay: delaySeconds
             });
+
+            // Track failed orders for comment watermark in table
+            if (this.sendingState.errorOrders.length > 0) {
+                const failedIds = this.sendingState.errorOrders
+                    .map(o => o.orderId)
+                    .filter(id => id); // Filter out empty IDs
+                this.addFailedOrders(failedIds);
+            }
 
             this.closeModal();
 
@@ -2809,6 +2887,11 @@ class MessageTemplateManager {
         }
 
         console.log('[COMMENT-SEND] Success for order:', errorOrder.code);
+
+        // Remove from failed orders list (clear watermark in table)
+        if (orderId) {
+            this.removeFailedOrder(orderId);
+        }
         return result;
     }
 }
