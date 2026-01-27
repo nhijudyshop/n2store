@@ -104,11 +104,11 @@ class MessageTemplateManager {
                             <strong>0</strong> template
                         </div>
                         <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                            <!-- Thread Input -->
-                            <div style="display: flex; align-items: center; gap: 6px;" title="Số nhân viên gửi đồng thời (Max 5)">
+                            <!-- Account Count Display (readonly) -->
+                            <div style="display: flex; align-items: center; gap: 6px;" title="Số tài khoản Pancake sẵn sàng gửi">
                                 <i class="fas fa-users" style="color: #6b7280;"></i>
-                                <input type="number" id="messageThreadCount" value="1" min="1" max="5" onkeydown="return false" style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
-                                <span style="font-size: 13px; color: #6b7280;">người</span>
+                                <input type="number" id="messageThreadCount" value="0" readonly style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background: #f3f4f6; cursor: not-allowed;">
+                                <span style="font-size: 13px; color: #6b7280;">accounts</span>
                             </div>
 
                             <!-- Delay Input -->
@@ -133,16 +133,16 @@ class MessageTemplateManager {
                             </div>
                         </div>
 
-                        <!-- API Mode Toggle (T-Page / Pancake) -->
+                        <!-- API Mode - Pancake Only (T-Page disabled) -->
                         <div style="display: flex; gap: 15px; align-items: center; padding: 8px 12px; background: #f3f4f6; border-radius: 8px;">
                             <span style="font-size: 13px; color: #6b7280; font-weight: 500;">API:</span>
-                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                <input type="radio" name="apiMode" value="tpage" checked id="apiModeTPage" style="cursor: pointer;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: not-allowed; font-size: 14px; opacity: 0.5;" title="T-Page đã bị vô hiệu hóa">
+                                <input type="radio" name="apiMode" value="tpage" id="apiModeTPage" style="cursor: not-allowed;" disabled>
                                 <i class="fas fa-rocket" style="color: #10b981;"></i>
                                 <span>T-Page</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                <input type="radio" name="apiMode" value="pancake" id="apiModePancake" style="cursor: pointer;">
+                                <input type="radio" name="apiMode" value="pancake" checked id="apiModePancake" style="cursor: pointer;">
                                 <i class="fab fa-facebook-messenger" style="color: #6366f1;"></i>
                                 <span>Pancake</span>
                             </label>
@@ -288,6 +288,35 @@ class MessageTemplateManager {
             }
             if (modalTitle) {
                 modalTitle.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi tin nhắn Facebook';
+            }
+        }
+
+        // Update account count display
+        this.updateAccountCountDisplay();
+    }
+
+    /**
+     * Update account count display from PancakeTokenManager
+     */
+    updateAccountCountDisplay() {
+        const threadCountInput = document.getElementById('messageThreadCount');
+        if (!threadCountInput) return;
+
+        let accountCount = 0;
+        if (window.pancakeTokenManager) {
+            const validAccounts = window.pancakeTokenManager.getValidAccountsForSending();
+            accountCount = validAccounts.length;
+        }
+
+        threadCountInput.value = accountCount;
+        this.log('📊 Valid Pancake accounts:', accountCount);
+
+        // Disable send button if no accounts
+        const sendBtn = document.getElementById('messageBtnSend');
+        if (sendBtn && this.mode === 'send') {
+            if (accountCount === 0) {
+                sendBtn.disabled = true;
+                sendBtn.title = 'Không có tài khoản Pancake nào sẵn sàng';
             }
         }
     }
@@ -662,24 +691,22 @@ class MessageTemplateManager {
         const delaySeconds = delayInput ? parseFloat(delayInput.value) || 1 : 1;
         const delay = delaySeconds * 1000;
 
-        // Get concurrency
-        const threadInput = document.getElementById('messageThreadCount');
-        let concurrency = threadInput ? parseInt(threadInput.value) || 1 : 1;
-        if (concurrency > 5) concurrency = 5;
-        if (concurrency < 1) concurrency = 1;
+        // Get ALL valid accounts for multi-account sending
+        const validAccounts = window.pancakeTokenManager?.getValidAccountsForSending() || [];
+        if (validAccounts.length === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Không có tài khoản Pancake nào sẵn sàng. Vui lòng thêm tài khoản trong Cài đặt.');
+            }
+            return;
+        }
 
-        this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Threads:', concurrency);
+        this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Accounts:', validAccounts.length);
+        this.log('📋 Valid accounts:', validAccounts.map(a => a.name).join(', '));
 
-        // SEND MODE - send via Pancake API
+        // SEND MODE - send via Pancake API with ALL accounts
         try {
             const ordersCount = this.selectedOrders.length;
-            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API (Parallel Mode)');
-
-            // Get Pancake token first (ONE TIME)
-            const token = await window.pancakeTokenManager.getToken();
-            if (!token) {
-                throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
-            }
+            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API (Multi-Account Mode)');
 
             // Get employee signature (ONE TIME)
             const auth = window.authManager ? window.authManager.getAuthState() : null;
@@ -706,58 +733,78 @@ class MessageTemplateManager {
                 sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang gửi...`;
             }
 
-            // Context object to pass to workers
-            const context = {
-                token,
-                displayName,
-                templateContent,
-                sendMode
-            };
+            // =====================================================
+            // MULTI-ACCOUNT ROUND-ROBIN DISTRIBUTION
+            // Distribute orders to accounts evenly
+            // =====================================================
+            const accountQueues = validAccounts.map(() => []);
 
-            // Concurrency Control
-            const CONCURRENCY_LIMIT = concurrency; // User defined limit
-            const queue = [...this.selectedOrders];
-            const total = queue.length;
-            // Worker Function
-            const worker = async () => {
-                while (queue.length > 0) {
-                    const order = queue.shift();
-                    try {
-                        // Delay before processing
-                        if (delay > 0) {
-                            await new Promise(r => setTimeout(r, delay));
+            // Round-robin distribution of orders to accounts
+            this.selectedOrders.forEach((order, index) => {
+                const accountIndex = index % validAccounts.length;
+                accountQueues[accountIndex].push(order);
+            });
+
+            this.log('📊 Order distribution:');
+            validAccounts.forEach((account, i) => {
+                this.log(`  - ${account.name}: ${accountQueues[i].length} orders`);
+            });
+
+            // Worker Function for each account
+            const createWorker = (account, queue) => {
+                const context = {
+                    token: account.token,
+                    displayName,
+                    templateContent,
+                    sendMode
+                };
+
+                return async () => {
+                    this.log(`🚀 Worker started for account: ${account.name} (${queue.length} orders)`);
+
+                    for (const order of queue) {
+                        try {
+                            // Delay before processing
+                            if (delay > 0) {
+                                await new Promise(r => setTimeout(r, delay));
+                            }
+
+                            await this._processSingleOrder(order, context);
+                            this.sendingState.success++;
+                            this.log(`✅ [${account.name}] Sent successfully to order ${order.code || order.Id}`);
+                        } catch (err) {
+                            this.sendingState.error++;
+
+                            // Track 24-hour policy errors and user unavailable errors specially
+                            const errorInfo = {
+                                order: order.code || order.Id,
+                                error: err.message,
+                                account: account.name
+                            };
+                            if (err.is24HourError) {
+                                errorInfo.is24HourError = true;
+                                errorInfo.error = 'Đã quá 24h - Vui lòng dùng COMMENT';
+                            } else if (err.isUserUnavailable) {
+                                errorInfo.isUserUnavailable = true;
+                                errorInfo.error = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
+                            }
+                            this.sendingState.errors.push(errorInfo);
+
+                            this.log(`❌ [${account.name}] Error sending to order ${order.code}:`, err);
+                        } finally {
+                            this.sendingState.completed++;
+                            this.updateProgressUI();
                         }
-
-                        await this._processSingleOrder(order, context);
-                        this.sendingState.success++;
-                        this.log(`✅ Sent successfully to order ${order.code || order.Id}`);
-                    } catch (err) {
-                        this.sendingState.error++;
-
-                        // Track 24-hour policy errors and user unavailable errors specially
-                        const errorInfo = { order: order.code || order.Id, error: err.message };
-                        if (err.is24HourError) {
-                            errorInfo.is24HourError = true;
-                            errorInfo.error = 'Đã quá 24h - Vui lòng dùng COMMENT';
-                        } else if (err.isUserUnavailable) {
-                            errorInfo.isUserUnavailable = true;
-                            errorInfo.error = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
-                        }
-                        this.sendingState.errors.push(errorInfo);
-
-                        this.log(`❌ Error sending to order ${order.code}:`, err);
-                    } finally {
-                        this.sendingState.completed++;
-                        this.updateProgressUI();
                     }
-                }
+
+                    this.log(`✅ Worker finished for account: ${account.name}`);
+                };
             };
 
-            // Start Workers
-            const workers = [];
-            for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, ordersCount); i++) {
-                workers.push(worker());
-            }
+            // Start ALL workers (one per account) in parallel
+            const workers = validAccounts.map((account, i) =>
+                createWorker(account, accountQueues[i])()
+            );
 
             // Wait for all workers to finish
             await Promise.all(workers);
@@ -781,11 +828,12 @@ class MessageTemplateManager {
             this.log('\n📊 Summary:');
             this.log(`  ✅ Success: ${this.sendingState.success}/${ordersCount}`);
             this.log(`  ❌ Errors: ${this.sendingState.error}/${ordersCount}`);
+            this.log(`  👥 Accounts used: ${validAccounts.length}`);
 
             if (window.notificationManager) {
                 if (this.sendingState.success > 0) {
                     window.notificationManager.success(
-                        `Đã gửi thành công ${this.sendingState.success}/${ordersCount} tin nhắn!`,
+                        `Đã gửi thành công ${this.sendingState.success}/${ordersCount} tin nhắn! (${validAccounts.length} accounts)`,
                         3000,
                         `Template: ${this.selectedTemplate.Name}`
                     );

@@ -30,7 +30,8 @@ class PancakeTokenManager {
             JWT_TOKEN: 'pancake_jwt_token',
             JWT_TOKEN_EXPIRY: 'pancake_jwt_token_expiry',
             JWT_ACCOUNT_ID: 'tpos_pancake_active_account_id',
-            PAGE_ACCESS_TOKENS: 'pancake_page_access_tokens'
+            PAGE_ACCESS_TOKENS: 'pancake_page_access_tokens',
+            ALL_ACCOUNTS: 'pancake_all_accounts' // NEW: Store all accounts for multi-account sending
         };
     }
 
@@ -92,6 +93,65 @@ class PancakeTokenManager {
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error clearing token from localStorage:', error);
         }
+    }
+
+    // =====================================================
+    // ALL ACCOUNTS LOCAL STORAGE - For multi-account sending
+    // =====================================================
+
+    /**
+     * Save all accounts to localStorage for fast access in multi-account sending
+     */
+    saveAllAccountsToLocalStorage() {
+        try {
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.ALL_ACCOUNTS, JSON.stringify(this.accounts));
+            console.log('[PANCAKE-TOKEN] ✅ All accounts saved to localStorage:', Object.keys(this.accounts).length);
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error saving all accounts to localStorage:', error);
+        }
+    }
+
+    /**
+     * Load all accounts from localStorage
+     * @returns {Object} - { accountId: { name, uid, exp, savedAt, token }, ... }
+     */
+    getAllAccountsFromLocalStorage() {
+        try {
+            const data = localStorage.getItem(this.LOCAL_STORAGE_KEYS.ALL_ACCOUNTS);
+            if (data) {
+                const accounts = JSON.parse(data);
+                console.log('[PANCAKE-TOKEN] ✅ All accounts loaded from localStorage:', Object.keys(accounts).length);
+                return accounts;
+            }
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] Error loading all accounts from localStorage:', error);
+        }
+        return {};
+    }
+
+    /**
+     * Get all VALID (non-expired) accounts for multi-account sending
+     * @returns {Array} - Array of { accountId, name, uid, token, exp }
+     */
+    getValidAccountsForSending() {
+        const validAccounts = [];
+        const now = Math.floor(Date.now() / 1000);
+
+        for (const [accountId, account] of Object.entries(this.accounts)) {
+            // Check if not expired (with 1 hour buffer)
+            if (account.exp && (now < account.exp - 3600)) {
+                validAccounts.push({
+                    accountId,
+                    name: account.name,
+                    uid: account.uid,
+                    token: account.token,
+                    exp: account.exp
+                });
+            }
+        }
+
+        console.log('[PANCAKE-TOKEN] Valid accounts for sending:', validAccounts.length, '/', Object.keys(this.accounts).length);
+        return validAccounts;
     }
 
     /**
@@ -279,6 +339,9 @@ class PancakeTokenManager {
                 const firstAccountId = Object.keys(this.accounts)[0];
                 await this.setActiveAccount(firstAccountId);
             }
+
+            // Save all accounts to localStorage for multi-account sending
+            this.saveAllAccountsToLocalStorage();
 
             console.log('[PANCAKE-TOKEN] Loaded accounts:', Object.keys(this.accounts).length);
             console.log('[PANCAKE-TOKEN] Active account (local):', this.activeAccountId);
