@@ -1534,7 +1534,121 @@ async function fetchDebtForSaleModal(phone) {
         // Update remaining balance even on error
         updateSaleRemainingBalance();
     }
+
+    // Fetch transactions and auto-fill notes
+    try {
+        await fetchAndAutoFillNotes(normalizedPhone);
+    } catch (txError) {
+        console.error('[SALE-MODAL] Error fetching transactions for auto-notes:', txError);
+    }
 }
+
+/**
+ * Generate auto-notes from wallet transactions
+ * Format:
+ * - Bank transfer: "CK [amount]K [bank] [DD/MM]" (e.g., "CK 1335K ACB 25/01")
+ * - Return/refund: "Trừ [amount]K Tiền Trả Hàng Đơn [Order Code]"
+ * @param {Array} transactions - Array of transaction objects
+ * @returns {string} Combined notes string
+ */
+function generateAutoNotesFromTransactions(transactions) {
+    if (!transactions || !Array.isArray(transactions)) return '';
+
+    const notes = [];
+
+    transactions.forEach(tx => {
+        // Chỉ xử lý giao dịch dương (công nợ dương)
+        if (tx.amount <= 0) return;
+
+        const amountK = Math.round(tx.amount / 1000);
+        const date = new Date(tx.created_at);
+        const dateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+
+        if (tx.source === 'BANK_TRANSFER' || tx.reference_type === 'balance_history') {
+            // Chuyển khoản: CK [amount]K [bank] [DD/MM]
+            const bank = tx.gateway || 'BANK';
+            notes.push(`CK ${amountK}K ${bank} ${dateStr}`);
+        } else if (tx.source === 'RETURN_GOODS' || tx.type === 'VIRTUAL_CREDIT_ISSUED' || tx.reference_type === 'ticket') {
+            // Trả hàng/Thu về: Trừ [amount]K Tiền Trả Hàng Đơn [Mã đơn]
+            const orderCode = tx.reference_id || tx.source_id || '';
+            if (orderCode) {
+                notes.push(`Trừ ${amountK}K Tiền Trả Hàng Đơn ${orderCode}`);
+            } else {
+                notes.push(`Trừ ${amountK}K Tiền Trả Hàng`);
+            }
+        }
+    });
+
+    return notes.join(' | ');
+}
+
+/**
+ * Fetch transactions and auto-fill notes in the sale modal
+ * @param {string} phone - Normalized phone number
+ */
+async function fetchAndAutoFillNotes(phone) {
+    const noteField = document.getElementById('saleReceiverNote');
+    if (!noteField) return;
+
+    try {
+        // Fetch transactions from API
+        const response = await fetch(`${QR_API_URL}/api/customer/${encodeURIComponent(phone)}/transactions?limit=50`);
+        const result = await response.json();
+
+        if (result.success && result.data && result.data.length > 0) {
+            // Filter only positive amount transactions (công nợ dương)
+            const positiveTransactions = result.data.filter(tx => tx.amount > 0);
+
+            if (positiveTransactions.length > 0) {
+                const autoNotes = generateAutoNotesFromTransactions(positiveTransactions);
+                if (autoNotes) {
+                    // Only auto-fill if the note field is empty
+                    if (!noteField.value.trim()) {
+                        noteField.value = autoNotes;
+                        console.log('[SALE-MODAL] Auto-filled notes:', autoNotes);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[SALE-MODAL] Error fetching transactions:', error);
+    }
+}
+
+/**
+ * Show customer wallet history modal
+ * Opens the wallet detail modal for the current customer
+ */
+function showCustomerWalletHistory() {
+    const phoneField = document.getElementById('saleReceiverPhone');
+    if (!phoneField || !phoneField.value) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Không có số điện thoại khách hàng');
+        }
+        return;
+    }
+
+    const phone = normalizePhoneForQR(phoneField.value);
+    if (!phone) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Số điện thoại không hợp lệ');
+        }
+        return;
+    }
+
+    // Use WalletIntegration to show wallet modal
+    if (typeof WalletIntegration !== 'undefined' && WalletIntegration.showWalletModal) {
+        WalletIntegration.showWalletModal(phone);
+    } else {
+        if (window.notificationManager) {
+            window.notificationManager.error('Chức năng xem ví chưa sẵn sàng');
+        }
+    }
+}
+
+// Export functions to window
+window.showCustomerWalletHistory = showCustomerWalletHistory;
+window.generateAutoNotesFromTransactions = generateAutoNotesFromTransactions;
 
 /**
  * Populate order items (products) into the modal

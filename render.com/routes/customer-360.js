@@ -464,27 +464,40 @@ router.get('/customer/:phone/transactions', async (req, res) => {
 
         if (type) {
             // Filter by type - only wallet_transactions have type field
+            // Join with balance_history to get gateway (bank name) for bank transfers
             query = `
-                SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
-                    virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
-                    note, created_by, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
-                FROM wallet_transactions
-                WHERE phone = $1 AND type = $2
-                ORDER BY created_at DESC
+                SELECT wt.id, wt.phone, wt.wallet_id, wt.type, wt.amount, wt.balance_before, wt.balance_after,
+                    wt.virtual_balance_before, wt.virtual_balance_after, wt.source, wt.reference_type, wt.reference_id,
+                    wt.note, wt.created_by, (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+                    bh.gateway
+                FROM wallet_transactions wt
+                LEFT JOIN balance_history bh ON wt.reference_type = 'balance_history'
+                    AND wt.reference_id IS NOT NULL
+                    AND wt.reference_id ~ '^[0-9]+$'
+                    AND bh.id = CAST(wt.reference_id AS INTEGER)
+                WHERE wt.phone = $1 AND wt.type = $2
+                ORDER BY wt.created_at DESC
                 LIMIT $3 OFFSET $4
             `;
             params.push(type, parseInt(limit), (parseInt(page) - 1) * parseInt(limit));
             countQuery = `SELECT COUNT(*) FROM wallet_transactions WHERE phone = $1 AND type = $2`;
         } else {
             // No type filter - combine wallet_transactions and virtual_credits
+            // Join with balance_history to get gateway (bank name) for bank transfers
             query = `
                 WITH combined AS (
                     -- Wallet transactions (deposits, withdrawals, etc)
-                    SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
-                        virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
-                        note, created_by, created_at, NULL::timestamp as expires_at
-                    FROM wallet_transactions
-                    WHERE phone = $1
+                    -- Join with balance_history to get gateway
+                    SELECT wt.id, wt.phone, wt.wallet_id, wt.type, wt.amount, wt.balance_before, wt.balance_after,
+                        wt.virtual_balance_before, wt.virtual_balance_after, wt.source, wt.reference_type, wt.reference_id,
+                        wt.note, wt.created_by, wt.created_at, NULL::timestamp as expires_at,
+                        bh.gateway
+                    FROM wallet_transactions wt
+                    LEFT JOIN balance_history bh ON wt.reference_type = 'balance_history'
+                        AND wt.reference_id IS NOT NULL
+                        AND wt.reference_id ~ '^[0-9]+$'
+                        AND bh.id = CAST(wt.reference_id AS INTEGER)
+                    WHERE wt.phone = $1
 
                     UNION ALL
 
@@ -507,14 +520,16 @@ router.get('/customer/:phone/transactions', async (req, res) => {
                         END as note,
                         NULL as created_by,
                         created_at,  -- Luôn dùng created_at (thời điểm cấp)
-                        expires_at
+                        expires_at,
+                        NULL::varchar as gateway  -- Virtual credits don't have gateway
                     FROM virtual_credits
                     WHERE phone = $1 AND status IN ('ACTIVE', 'CANCELLED')
                 )
                 SELECT id, phone, wallet_id, type, amount, balance_before, balance_after,
                     virtual_balance_before, virtual_balance_after, source, reference_type, reference_id,
                     note, created_by, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
-                    (expires_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as expires_at
+                    (expires_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as expires_at,
+                    gateway
                 FROM combined
                 ORDER BY created_at DESC
                 LIMIT $2 OFFSET $3
