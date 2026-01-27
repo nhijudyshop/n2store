@@ -118,15 +118,15 @@ class MessageTemplateManager {
                                 <span style="font-size: 13px; color: #6b7280;">s</span>
                             </div>
 
-                            <!-- Send Mode Toggle -->
+                            <!-- Send Mode Toggle (Image disabled) -->
                             <div style="display: flex; gap: 15px; align-items: center;">
                                 <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
                                     <input type="radio" name="sendMode" value="text" checked id="sendModeText" style="cursor: pointer;">
                                     <i class="fas fa-align-left" style="color: #6366f1;"></i>
                                     <span>Gửi text</span>
                                 </label>
-                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                    <input type="radio" name="sendMode" value="image" id="sendModeImage" style="cursor: pointer;">
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: not-allowed; font-size: 14px; opacity: 0.5;" title="Gửi ảnh đã bị vô hiệu hóa">
+                                    <input type="radio" name="sendMode" value="image" id="sendModeImage" style="cursor: not-allowed;" disabled>
                                     <i class="fas fa-image" style="color: #ec4899;"></i>
                                     <span>Gửi ảnh</span>
                                 </label>
