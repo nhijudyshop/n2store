@@ -444,6 +444,245 @@ this.sendingState.errorOrders.push({
 });
 ```
 
+## Gửi lại qua Comment (Failed Orders)
+
+### Tại sao cần tính năng này?
+
+Một số đơn không gửi được tin nhắn Messenger vì:
+- Đã quá 24h kể từ lần tương tác cuối
+- Khách hàng chưa có cuộc hội thoại Messenger với page
+- Facebook chặn gửi tin nhắn
+
+**Giải pháp:** Gửi qua bình luận công khai (reply_comment) trên bài post mà khách đã comment.
+
+### UI trong Lịch sử
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ❌ 5 đơn thất bại                                           │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │ [Gửi tất cả qua Comment]                               │ │
+│  └────────────────────────────────────────────────────────┘ │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ STT │ Mã đơn   │ Khách hàng │ Lỗi        │ Action    │   │
+│  │ 74  │ 260108032│ Nguyễn Trâm│ Đã quá 24h │ [Comment] │   │
+│  │ 75  │ 260108033│ Trần B     │ Không có...│ [Comment] │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Flow gửi qua Comment
+
+```
+1. User click "Gửi qua Comment" (single) hoặc "Gửi tất cả qua Comment"
+   ↓
+2. Lấy thông tin đơn từ TPOS API:
+   - Facebook_PostId (pageId_postId)
+   - Facebook_ASUserId (customer fb_id)
+   ↓
+3. Fetch comments từ Pancake API:
+   - Tìm conversation theo post_id và fb_id
+   - Lấy danh sách comments
+   - Tìm comment MỚI NHẤT của khách hàng
+   ↓
+4. Gửi reply_comment:
+   - URL: /pages/{pageId}/conversations/{commentId}/messages
+   - Payload: { action: "reply_comment", message_id: commentId, message: text }
+   ↓
+5. Cập nhật UI:
+   - Thành công: Row chuyển màu xanh ✓
+   - Thất bại: Row chuyển màu đỏ ✗
+```
+
+### Pancake Comment API
+
+```javascript
+// URL format
+POST /pages/{pageId}/conversations/{conversationId}/messages?page_access_token=xxx
+
+// Payload
+{
+    "action": "reply_comment",
+    "message_id": "pancake_comment_id",  // ID từ fetchComments, KHÔNG phải TPOS
+    "message": "Nội dung reply..."
+}
+```
+
+**QUAN TRỌNG:**
+- `conversationId` và `message_id` phải là **Pancake internal ID** (từ API fetchComments)
+- KHÔNG dùng TPOS `Facebook_CommentId` (format `postId_commentId` không tương thích)
+
+### Code implementation
+
+```javascript
+// message-template-manager.js
+
+async _sendOrderViaCommentReply(errorOrder, templateContent) {
+    // 1. Fetch order data from TPOS
+    const fullOrderData = await this.fetchFullOrderData(orderId);
+
+    // 2. Get page_access_token
+    const pageAccessToken = await window.pancakeTokenManager
+        ?.getOrGeneratePageAccessToken(channelId);
+
+    // 3. Fetch comments from Pancake (MUST use Pancake IDs)
+    const commentsResult = await window.pancakeDataManager
+        ?.fetchComments(channelId, psid, null, postId);
+
+    // 4. Find latest customer comment
+    const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+    const latestComment = customerComments[customerComments.length - 1];
+    const latestCommentId = latestComment.Id; // Pancake internal ID
+
+    // 5. Send reply_comment
+    const payload = {
+        action: 'reply_comment',
+        message_id: latestCommentId,
+        message: messageContent
+    };
+}
+```
+
+## Watermark Badge (Đánh dấu đơn thất bại)
+
+### Tính năng
+
+Sau khi gửi tin nhắn, các đơn thất bại sẽ được **đánh dấu** trên cột "Bình luận" ở bảng đơn hàng, giúp người dùng dễ dàng nhận biết và gửi lại.
+
+### UI
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ STT │ Mã đơn   │ Khách hàng │ ... │ Bình luận              │
+├─────┼──────────┼────────────┼─────┼────────────────────────┤
+│ 74  │ 260108032│ Nguyễn Trâm│ ... │ ⚠️ Cần gửi lại         │  ← Badge đỏ
+│ 75  │ 260108033│ Trần B     │ ... │ ⚠️ Cần gửi lại         │  ← Badge đỏ
+│ 76  │ 260108034│ Lê C       │ ... │ −                      │  ← Bình thường
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Storage
+
+```javascript
+// localStorage key: failed_message_orders
+[
+    { orderId: "d4430000-...", timestamp: 1706356800000 },
+    { orderId: "d4430000-...", timestamp: 1706356800000 }
+]
+
+// TTL: 24 giờ - tự động xóa entries cũ khi load
+```
+
+### Flow
+
+```
+1. Gửi tin nhắn hàng loạt
+   ↓
+2. Một số đơn thất bại
+   ↓
+3. Lưu danh sách orderId thất bại vào localStorage
+   ↓
+4. Dispatch event 'failedOrdersUpdated'
+   ↓
+5. Bảng đơn hàng hiển thị badge "⚠️ Cần gửi lại"
+   ↓
+6. User click → Mở modal bình luận → Gửi qua comment
+   ↓
+7. Gửi thành công → Xóa orderId khỏi danh sách
+   ↓
+8. Badge tự động biến mất (không cần refresh)
+```
+
+### Code implementation
+
+```javascript
+// message-template-manager.js
+
+// Track failed orders
+this.failedOrderIds = new Set();
+
+addFailedOrders(orderIds) {
+    orderIds.forEach(id => this.failedOrderIds.add(id));
+    this._saveFailedOrderIds();
+    window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
+        detail: { failedOrderIds: Array.from(this.failedOrderIds) }
+    }));
+}
+
+removeFailedOrder(orderId) {
+    this.failedOrderIds.delete(orderId);
+    this._saveFailedOrderIds();
+    window.dispatchEvent(new CustomEvent('failedOrdersUpdated', ...));
+}
+
+isOrderFailed(orderId) {
+    return this.failedOrderIds.has(orderId);
+}
+```
+
+```javascript
+// tab1-table.js
+
+function renderCommentsColumn(order) {
+    const isFailed = window.messageTemplateManager?.isOrderFailed(order.Id);
+
+    if (isFailed) {
+        return `<td style="...">
+            <span style="background: #fef2f2; color: #dc2626;">
+                ⚠️ Cần gửi lại
+            </span>
+        </td>`;
+    }
+    return `<td>−</td>`;
+}
+
+// Listen for updates
+window.addEventListener('failedOrdersUpdated', (event) => {
+    // Update badges in table without re-rendering
+});
+```
+
+## Page Access Token Pre-loading
+
+### Vấn đề
+
+Khi gửi tin nhắn multi-account, mỗi worker cần `page_access_token` cho page đích. Nếu không pre-load, có thể xảy ra:
+- Race condition khi nhiều workers cùng generate token
+- Token lookup failure do chưa load từ Firestore
+
+### Giải pháp
+
+Pre-load tất cả page tokens từ Firestore **TRƯỚC** khi bắt đầu gửi:
+
+```javascript
+// Trước khi gửi
+this.log('🔑 Pre-loading page access tokens...');
+await window.pancakeTokenManager.loadPageAccessTokens();
+
+// Trong worker, dùng token đã cache
+let pageAccessToken = window.pancakeTokenManager.getPageAccessToken(channelId);
+
+// Nếu chưa có, generate với worker's account token (thread-safe)
+if (!pageAccessToken) {
+    pageAccessToken = await window.pancakeTokenManager
+        .generatePageAccessTokenWithToken(channelId, accountToken);
+}
+```
+
+### Thread-safe Token Generation
+
+```javascript
+// KHÔNG DÙNG: this.currentToken có thể bị swap bởi worker khác
+async generatePageAccessToken(pageId) {
+    // Uses this.currentToken - NOT thread-safe!
+}
+
+// DÙNG: Truyền explicit token
+async generatePageAccessTokenWithToken(pageId, accountToken) {
+    // Uses provided token - Thread-safe for parallel workers
+}
+```
+
 ## Tóm tắt
 
 | Feature | Mô tả |
@@ -456,3 +695,6 @@ this.sendingState.errorOrders.push({
 | **Error isolation** | Lỗi 1 account không ảnh hưởng accounts khác |
 | **Lịch sử** | Lưu Firestore, tự động xóa sau 7 ngày |
 | **Chi tiết** | Tracking STT, mã đơn, khách hàng, account, lỗi |
+| **Gửi lại Comment** | Đơn thất bại có thể gửi qua reply_comment |
+| **Watermark Badge** | Đánh dấu đơn thất bại trên bảng, tự động clear |
+| **Token Pre-load** | Pre-load page tokens, thread-safe generation |
