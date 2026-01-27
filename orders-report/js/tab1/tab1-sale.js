@@ -84,14 +84,20 @@ function calculateSaleOrderDiscount(order) {
 
     orderLines.forEach(line => {
         const note = line.Note || '';
-        const discount = parseDiscountFromNoteSale(note);
-        if (discount > 0) {
-            totalDiscount += discount;
-            discountedProducts.push({
-                productName: line.Product?.Name || line.ProductName || 'N/A',
-                discount: discount,
-                note: note
-            });
+        const notePrice = parseDiscountFromNoteSale(note);  // "100k" = 100000 (giá bán thực tế)
+        if (notePrice > 0) {
+            const priceUnit = line.PriceUnit || line.Price || 0;
+            const qty = line.ProductUOMQty || line.Quantity || 1;
+            const discountPerUnit = priceUnit - notePrice;  // 180000 - 100000 = 80000
+            if (discountPerUnit > 0) {
+                const lineDiscount = discountPerUnit * qty;  // 80000 * 2 = 160000
+                totalDiscount += lineDiscount;
+                discountedProducts.push({
+                    productName: line.Product?.Name || line.ProductName || 'N/A',
+                    discount: lineDiscount,
+                    note: note
+                });
+            }
         }
     });
 
@@ -837,20 +843,11 @@ function buildSaleOrderModelForInsertList() {
     const orderLines = buildOrderLines();
     const originalAmountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
 
-    // 🔥 DISCOUNT LOGIC: Check for "GIẢM GIÁ" tag and apply discount from product notes
-    let decreaseAmount = 0;
-    let finalAmountTotal = originalAmountTotal;
-
-    if (saleOrderHasDiscountTag(order)) {
-        const { totalDiscount, discountedProducts } = calculateSaleOrderDiscount(order);
-        if (totalDiscount > 0) {
-            decreaseAmount = totalDiscount;
-            finalAmountTotal = originalAmountTotal - decreaseAmount;
-            console.log(`[SALE-DISCOUNT] Order has discount tag. Applied ${decreaseAmount.toLocaleString('vi-VN')}đ discount from ${discountedProducts.length} products`);
-            discountedProducts.forEach(p => {
-                console.log(`  - ${p.productName}: -${p.discount.toLocaleString('vi-VN')}đ (note: "${p.note}")`);
-            });
-        }
+    // 🔥 DISCOUNT LOGIC: Use saleDiscount field value (auto-filled or manually edited)
+    const decreaseAmount = parseInt(document.getElementById('saleDiscount')?.value) || 0;
+    const finalAmountTotal = originalAmountTotal - decreaseAmount;
+    if (decreaseAmount > 0) {
+        console.log(`[SALE-DISCOUNT] DecreaseAmount: ${decreaseAmount.toLocaleString('vi-VN')}đ, AmountTotal: ${finalAmountTotal.toLocaleString('vi-VN')}đ`);
     }
 
     // Build model matching InsertListOrderModel format

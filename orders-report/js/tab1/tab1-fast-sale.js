@@ -159,14 +159,20 @@ function calculateOrderDiscount(order) {
 
     orderLines.forEach(line => {
         const note = line.Note || '';
-        const discount = parseDiscountFromNote(note);
-        if (discount > 0) {
-            totalDiscount += discount;
-            discountedProducts.push({
-                productName: line.ProductName || 'N/A',
-                discount: discount,
-                note: note
-            });
+        const notePrice = parseDiscountFromNote(note);  // "100k" = 100000 (giá bán thực tế)
+        if (notePrice > 0) {
+            const priceUnit = line.PriceUnit || 0;
+            const qty = line.ProductUOMQty || 1;
+            const discountPerUnit = priceUnit - notePrice;  // 180000 - 100000 = 80000
+            if (discountPerUnit > 0) {
+                const lineDiscount = discountPerUnit * qty;  // 80000 * 2 = 160000
+                totalDiscount += lineDiscount;
+                discountedProducts.push({
+                    productName: line.ProductName || 'N/A',
+                    discount: lineDiscount,
+                    note: note
+                });
+            }
         }
     });
 
