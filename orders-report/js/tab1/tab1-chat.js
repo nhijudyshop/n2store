@@ -1502,7 +1502,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
     // Update modal title based on type
     const titleText = type === 'comment' ? 'Bình luận' : 'Tin nhắn';
     document.getElementById('chatModalTitle').textContent = `${titleText} với ${order.Name}`;
-    document.getElementById('chatModalSubtitleText').textContent = `SĐT: ${order.Telephone || 'N/A'} • Mã ĐH: ${order.Code}`;
+    const phone = order.Telephone || 'N/A';
+    const phoneHtml = phone !== 'N/A'
+        ? `<span style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" onclick="navigator.clipboard.writeText('${phone}'); this.querySelector('.copy-icon').classList.replace('fa-copy', 'fa-check'); setTimeout(() => this.querySelector('.copy-icon').classList.replace('fa-check', 'fa-copy'), 1500);" title="Click để copy SĐT">SĐT: ${phone} <i class="fas fa-copy copy-icon" style="font-size: 11px; opacity: 0.8;"></i></span>`
+        : `SĐT: ${phone}`;
+    document.getElementById('chatModalSubtitleText').innerHTML = `${phoneHtml} • Mã ĐH: ${order.Code}`;
 
     // Initialize conversation type toggle
     const initialConvType = type === 'comment' ? 'COMMENT' : 'INBOX';
