@@ -879,6 +879,7 @@ class MessageTemplateManager {
 
                             // Track error order with details
                             this.sendingState.errorOrders.push({
+                                orderId: order.Id || '',
                                 stt: order.stt || order.STT || '',
                                 code: order.code || order.Id || '',
                                 customerName: order.customerName || '',
@@ -980,6 +981,7 @@ class MessageTemplateManager {
             await this.saveCampaignToFirestore({
                 templateName: this.selectedTemplate?.Name || 'Unknown',
                 templateId: this.selectedTemplate?.Id || null,
+                templateContent: templateContent,
                 totalOrders: ordersCount,
                 successCount: this.sendingState.success,
                 errorCount: this.sendingState.error,
@@ -2459,6 +2461,9 @@ class MessageTemplateManager {
             return;
         }
 
+        // Store campaigns for comment sending
+        this._historyCampaigns = campaigns;
+
         // Render campaigns
         this.renderHistoryList(campaigns, body);
     }
@@ -2514,27 +2519,46 @@ class MessageTemplateManager {
                         <summary style="cursor: pointer; color: #dc2626; font-size: 13px; padding: 8px 0;">
                             <i class="fas fa-exclamation-triangle"></i> Xem ${errorCount} đơn thất bại (click để mở)
                         </summary>
-                        <div style="margin-top: 8px; max-height: 200px; overflow-y: auto;">
-                            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: #f9fafb;">
-                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">STT</th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Mã đơn</th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Khách hàng</th>
-                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Lỗi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${(campaign.errorOrders || []).map((order, i) => `
-                                        <tr style="border-bottom: 1px solid #f3f4f6;">
-                                            <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
-                                            <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
-                                            <td style="padding: 8px;">${order.customerName || 'N/A'}</td>
-                                            <td style="padding: 8px; color: #dc2626; font-size: 11px;">${order.error || 'Không xác định'}</td>
+                        <div style="margin-top: 8px;">
+                            <div style="margin-bottom: 8px; display: flex; justify-content: flex-end;">
+                                <button onclick="window.messageTemplateManager?.sendFailedOrdersViaComment(${index})"
+                                    id="btnCommentAll_${index}"
+                                    style="padding: 6px 14px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;"
+                                    title="Gửi tất cả đơn thất bại qua comment">
+                                    <i class="fas fa-comments"></i> Gửi tất cả qua Comment
+                                </button>
+                            </div>
+                            <div style="max-height: 200px; overflow-y: auto;">
+                                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb;">
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">STT</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Mã đơn</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Khách hàng</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Lỗi</th>
+                                            <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e5e7eb; width: 40px;"></th>
                                         </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        ${(campaign.errorOrders || []).map((order, i) => `
+                                            <tr style="border-bottom: 1px solid #f3f4f6;" id="errorRow_${index}_${i}">
+                                                <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
+                                                <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
+                                                <td style="padding: 8px;">${order.customerName || 'N/A'}</td>
+                                                <td style="padding: 8px; color: #dc2626; font-size: 11px;">${order.error || 'Không xác định'}</td>
+                                                <td style="padding: 8px; text-align: center;">
+                                                    <button onclick="window.messageTemplateManager?.sendSingleOrderViaComment(${index}, ${i})"
+                                                        id="btnComment_${index}_${i}"
+                                                        style="padding: 4px 8px; background: #f59e0b; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;"
+                                                        title="Gửi qua comment">
+                                                        <i class="fas fa-comment"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </details>
                     ` : ''}
@@ -2573,6 +2597,219 @@ class MessageTemplateManager {
         });
 
         container.innerHTML = html;
+    }
+
+    // =====================================================
+    // SEND FAILED ORDERS VIA COMMENT
+    // =====================================================
+
+    /**
+     * Send a single failed order via comment reply
+     * @param {number} campaignIndex - Index of campaign in _historyCampaigns
+     * @param {number} orderIndex - Index of error order in campaign.errorOrders
+     */
+    async sendSingleOrderViaComment(campaignIndex, orderIndex) {
+        const campaign = this._historyCampaigns?.[campaignIndex];
+        if (!campaign) {
+            window.notificationManager?.error('Không tìm thấy chiến dịch');
+            return;
+        }
+
+        const errorOrder = campaign.errorOrders?.[orderIndex];
+        if (!errorOrder) {
+            window.notificationManager?.error('Không tìm thấy đơn hàng');
+            return;
+        }
+
+        const btn = document.getElementById(`btnComment_${campaignIndex}_${orderIndex}`);
+        const row = document.getElementById(`errorRow_${campaignIndex}_${orderIndex}`);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+
+        try {
+            await this._sendOrderViaCommentReply(errorOrder, campaign.templateContent);
+
+            // Mark row as success
+            if (row) {
+                row.style.background = '#f0fdf4';
+                row.querySelector('td:last-child').innerHTML = '<i class="fas fa-check" style="color: #16a34a;"></i>';
+            }
+            window.notificationManager?.show(`Comment sent: ${errorOrder.code}`, 'success');
+        } catch (err) {
+            if (row) {
+                row.querySelector('td:last-child').innerHTML = `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
+            }
+            window.notificationManager?.error(`Lỗi ${errorOrder.code}: ${err.message}`);
+        }
+    }
+
+    /**
+     * Send ALL failed orders via comment reply
+     * @param {number} campaignIndex - Index of campaign in _historyCampaigns
+     */
+    async sendFailedOrdersViaComment(campaignIndex) {
+        const campaign = this._historyCampaigns?.[campaignIndex];
+        if (!campaign || !campaign.errorOrders?.length) {
+            window.notificationManager?.error('Không có đơn thất bại để gửi');
+            return;
+        }
+
+        const btn = document.getElementById(`btnCommentAll_${campaignIndex}`);
+        const originalHTML = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+        const templateContent = campaign.templateContent;
+
+        for (let i = 0; i < campaign.errorOrders.length; i++) {
+            const errorOrder = campaign.errorOrders[i];
+            const row = document.getElementById(`errorRow_${campaignIndex}_${i}`);
+            const rowBtn = document.getElementById(`btnComment_${campaignIndex}_${i}`);
+
+            if (rowBtn) {
+                rowBtn.disabled = true;
+                rowBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                await this._sendOrderViaCommentReply(errorOrder, templateContent);
+                successCount++;
+
+                if (row) {
+                    row.style.background = '#f0fdf4';
+                    row.querySelector('td:last-child').innerHTML = '<i class="fas fa-check" style="color: #16a34a;"></i>';
+                }
+            } catch (err) {
+                errorCount++;
+                console.error(`[COMMENT-SEND] Error for ${errorOrder.code}:`, err.message);
+
+                if (row) {
+                    row.querySelector('td:last-child').innerHTML = `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
+                }
+            }
+
+            // Small delay between sends
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Update button progress
+            if (btn) {
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${i + 1}/${campaign.errorOrders.length}`;
+            }
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+
+        window.notificationManager?.show(
+            `Comment: ${successCount} OK, ${errorCount} lỗi`,
+            errorCount === 0 ? 'success' : 'warning'
+        );
+    }
+
+    /**
+     * Core: Send one order via comment reply
+     * @param {Object} errorOrder - { orderId, code, customerName, ... }
+     * @param {string} templateContent - Template text with placeholders
+     */
+    async _sendOrderViaCommentReply(errorOrder, templateContent) {
+        const orderId = errorOrder.orderId;
+        if (!orderId) {
+            throw new Error('Không có orderId (đơn cũ chưa lưu orderId)');
+        }
+
+        // 1. Fetch full order data from TPOS
+        const fullOrderData = await this.fetchFullOrderData(orderId);
+        const raw = fullOrderData.raw;
+
+        const facebookPostId = raw.Facebook_PostId;
+        const facebookCommentId = raw.Facebook_CommentId;
+        const psid = raw.Facebook_ASUserId;
+
+        if (!facebookCommentId) {
+            throw new Error('Đơn không có Facebook_CommentId');
+        }
+        if (!facebookPostId) {
+            throw new Error('Đơn không có Facebook_PostId');
+        }
+
+        // 2. Parse channelId (pageId) from Facebook_PostId
+        const channelId = facebookPostId.split('_')[0];
+
+        // 3. Get page_access_token
+        let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+        if (!pageAccessToken) {
+            pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        }
+        if (!pageAccessToken) {
+            throw new Error(`Không có page_access_token cho page ${channelId}`);
+        }
+
+        // 4. Get latest customer comment
+        // Try fetching comments to find the most recent one
+        let latestCommentId = facebookCommentId; // Default: use purchase comment
+        try {
+            const postId = facebookPostId.split('_').slice(1).join('_'); // postId part
+            const commentsResult = await window.pancakeDataManager?.fetchComments(
+                channelId, psid, null, postId
+            );
+            if (commentsResult?.comments?.length > 0) {
+                // Find the latest comment from customer (not page owner)
+                const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+                if (customerComments.length > 0) {
+                    const latest = customerComments[customerComments.length - 1];
+                    latestCommentId = latest.FacebookId || latest.Id || facebookCommentId;
+                    console.log('[COMMENT-SEND] Using latest customer comment:', latestCommentId);
+                }
+            }
+        } catch (e) {
+            console.warn('[COMMENT-SEND] Could not fetch comments, using purchase comment:', e.message);
+        }
+
+        // 5. Replace placeholders in template
+        let messageContent = this.replacePlaceholders(templateContent || '', fullOrderData.converted);
+
+        // 6. Build reply_comment payload
+        const conversationId = latestCommentId;
+        const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+            `pages/${channelId}/conversations/${conversationId}/messages`,
+            pageAccessToken
+        );
+
+        const payload = {
+            action: 'reply_comment',
+            message_id: latestCommentId,
+            message: messageContent
+        };
+
+        console.log('[COMMENT-SEND] Sending reply_comment:', { channelId, conversationId, latestCommentId, message: messageContent.substring(0, 50) + '...' });
+
+        // 7. Send API request
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        }, 1, true);
+
+        const result = await response.json();
+
+        if (!response.ok || result.success === false || result.error) {
+            const errorMsg = result.message || result.error?.message || result.error || 'Lỗi gửi comment';
+            throw new Error(errorMsg);
+        }
+
+        console.log('[COMMENT-SEND] Success for order:', errorOrder.code);
+        return result;
     }
 }
 
