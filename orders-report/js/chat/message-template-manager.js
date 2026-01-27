@@ -98,72 +98,88 @@ class MessageTemplateManager {
                         </div>
                     </div>
 
-                    <!-- Footer -->
-                    <div class="message-modal-footer">
-                        <div class="message-result-count" id="messageResultCount">
-                            <strong>0</strong> template
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                            <!-- Account Count Display (readonly) -->
-                            <div style="display: flex; align-items: center; gap: 6px;" title="Số tài khoản Pancake sẵn sàng gửi">
-                                <i class="fas fa-users" style="color: #6b7280;"></i>
-                                <input type="number" id="messageThreadCount" value="0" readonly style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; background: #f3f4f6; cursor: not-allowed;">
-                                <span style="font-size: 13px; color: #6b7280;">accounts</span>
+                    <!-- Footer - Redesigned for better UX -->
+                    <div class="message-modal-footer" style="flex-direction: column; gap: 16px; padding: 20px 24px;">
+                        <!-- Hidden inputs for compatibility -->
+                        <input type="radio" name="sendMode" value="text" checked id="sendModeText" style="display: none;">
+                        <input type="radio" name="sendMode" value="image" id="sendModeImage" disabled style="display: none;">
+                        <input type="radio" name="apiMode" value="tpage" id="apiModeTPage" disabled style="display: none;">
+                        <input type="radio" name="apiMode" value="pancake" checked id="apiModePancake" style="display: none;">
+
+                        <!-- Row 1: Settings -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                            <!-- Left: Template count -->
+                            <div class="message-result-count" id="messageResultCount" style="font-size: 14px;">
+                                <strong>0</strong> template
                             </div>
 
-                            <!-- Delay Input -->
-                            <div style="display: flex; align-items: center; gap: 6px;" title="Thời gian nghỉ giữa các tin nhắn (giây)">
-                                <i class="fas fa-clock" style="color: #6b7280;"></i>
-                                <input type="number" id="messageSendDelay" value="1" min="0" step="0.5" onkeydown="return false" style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
-                                <span style="font-size: 13px; color: #6b7280;">s</span>
-                            </div>
-
-                            <!-- Send Mode Toggle (Image disabled) -->
-                            <div style="display: flex; gap: 15px; align-items: center;">
-                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                    <input type="radio" name="sendMode" value="text" checked id="sendModeText" style="cursor: pointer;">
-                                    <i class="fas fa-align-left" style="color: #6366f1;"></i>
-                                    <span>Gửi text</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 6px; cursor: not-allowed; font-size: 14px; opacity: 0.5;" title="Gửi ảnh đã bị vô hiệu hóa">
-                                    <input type="radio" name="sendMode" value="image" id="sendModeImage" style="cursor: not-allowed;" disabled>
-                                    <i class="fas fa-image" style="color: #ec4899;"></i>
-                                    <span>Gửi ảnh</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- API Mode - Pancake Only (T-Page disabled) -->
-                        <div style="display: flex; gap: 15px; align-items: center; padding: 8px 12px; background: #f3f4f6; border-radius: 8px;">
-                            <span style="font-size: 13px; color: #6b7280; font-weight: 500;">API:</span>
-                            <label style="display: flex; align-items: center; gap: 6px; cursor: not-allowed; font-size: 14px; opacity: 0.5;" title="T-Page đã bị vô hiệu hóa">
-                                <input type="radio" name="apiMode" value="tpage" id="apiModeTPage" style="cursor: not-allowed;" disabled>
-                                <i class="fas fa-rocket" style="color: #10b981;"></i>
-                                <span>T-Page</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                <input type="radio" name="apiMode" value="pancake" checked id="apiModePancake" style="cursor: pointer;">
-                                <i class="fab fa-facebook-messenger" style="color: #6366f1;"></i>
-                                <span>Pancake</span>
-                            </label>
-                        </div>
-
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <div id="messageProgressContainer" style="display: none; flex: 1; min-width: 200px; margin-right: 10px;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; color: #6b7280;">
-                                    <span id="messageProgressText">Đang gửi...</span>
-                                    <span id="messageProgressPercent">0%</span>
+                            <!-- Center: Settings group -->
+                            <div style="display: flex; align-items: center; gap: 24px; padding: 10px 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; border: 1px solid #e2e8f0;">
+                                <!-- Account Count -->
+                                <div style="display: flex; align-items: center; gap: 8px;" title="Số tài khoản Pancake sẵn sàng gửi">
+                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-users" style="color: white; font-size: 14px;"></i>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Accounts</span>
+                                        <input type="number" id="messageThreadCount" value="0" readonly style="width: 40px; padding: 2px 0; border: none; background: transparent; font-size: 16px; font-weight: 700; color: #1e293b; cursor: default;">
+                                    </div>
                                 </div>
-                                <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
-                                    <div id="messageProgressBar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
+
+                                <div style="width: 1px; height: 32px; background: #e2e8f0;"></div>
+
+                                <!-- Delay -->
+                                <div style="display: flex; align-items: center; gap: 8px;" title="Thời gian nghỉ giữa các tin nhắn">
+                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-clock" style="color: white; font-size: 14px;"></i>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Delay</span>
+                                        <div style="display: flex; align-items: baseline; gap: 2px;">
+                                            <input type="number" id="messageSendDelay" value="1" min="0" step="0.5" style="width: 35px; padding: 2px 0; border: none; background: transparent; font-size: 16px; font-weight: 700; color: #1e293b;">
+                                            <span style="font-size: 12px; color: #64748b;">giây</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="width: 1px; height: 32px; background: #e2e8f0;"></div>
+
+                                <!-- API Badge -->
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fab fa-facebook-messenger" style="color: white; font-size: 14px;"></i>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">API</span>
+                                        <span style="font-size: 14px; font-weight: 600; color: #6366f1;">Pancake</span>
+                                    </div>
                                 </div>
                             </div>
-                            <button class="message-btn-history" id="messageBtnHistory" style="padding: 8px 16px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 14px; color: #374151;" title="Xem lịch sử gửi tin">
-                                <i class="fas fa-history"></i>
+
+                            <!-- Right: History button -->
+                            <button class="message-btn-history" id="messageBtnHistory" style="padding: 10px 16px; background: white; border: 2px solid #e2e8f0; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: #475569; transition: all 0.2s;" title="Xem lịch sử gửi tin">
+                                <i class="fas fa-history" style="color: #6366f1;"></i>
                                 Lịch sử
                             </button>
-                            <button class="message-btn-cancel" id="messageBtnCancel">Hủy</button>
-                            <button class="message-btn-send" id="messageBtnSend">
+                        </div>
+
+                        <!-- Row 2: Progress bar (hidden by default) -->
+                        <div id="messageProgressContainer" style="display: none; background: white; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                            <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+                                <span id="messageProgressText" style="color: #475569; font-weight: 500;">Đang gửi...</span>
+                                <span id="messageProgressPercent" style="color: #6366f1; font-weight: 600;">0%</span>
+                            </div>
+                            <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                                <div id="messageProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; border-radius: 4px;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Action buttons -->
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button class="message-btn-cancel" id="messageBtnCancel" style="padding: 12px 24px; background: white; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-weight: 500; color: #64748b; cursor: pointer; transition: all 0.2s;">
+                                Hủy
+                            </button>
+                            <button class="message-btn-send" id="messageBtnSend" style="padding: 12px 28px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 10px; font-size: 14px; font-weight: 600; color: white; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">
                                 <i class="fas fa-paper-plane"></i>
                                 Gửi tin nhắn
                             </button>
