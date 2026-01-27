@@ -353,12 +353,8 @@
         // APPROVE MODAL EVENT LISTENERS
         // =====================================================
 
-        // Dropzone click to open file picker
+        // Dropzone for paste and drag-drop only (không click để chọn file)
         if (elements.approveDropzone) {
-            elements.approveDropzone.addEventListener('click', () => {
-                elements.approveImageInput?.click();
-            });
-
             // Drag and drop
             elements.approveDropzone.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -376,6 +372,14 @@
                 if (files.length > 0 && files[0].type.startsWith('image/')) {
                     handleApproveImageSelect(files[0]);
                 }
+            });
+        }
+
+        // Nút "Chọn ảnh từ máy tính" riêng biệt
+        const chooseImageBtn = document.getElementById('accChooseImageBtn');
+        if (chooseImageBtn) {
+            chooseImageBtn.addEventListener('click', () => {
+                elements.approveImageInput?.click();
             });
         }
 
@@ -956,6 +960,11 @@
             if (elements.approveDropzone) {
                 elements.approveDropzone.style.display = 'none';
             }
+            // Hide choose image button
+            const chooseImageBtn = document.getElementById('accChooseImageBtn');
+            if (chooseImageBtn) {
+                chooseImageBtn.style.display = 'none';
+            }
 
             // Reinitialize icons for remove button
             if (window.lucide) lucide.createIcons();
@@ -1060,6 +1069,11 @@
         }
         if (elements.approveDropzone) {
             elements.approveDropzone.style.display = 'flex';
+        }
+        // Show choose image button
+        const chooseImageBtn = document.getElementById('accChooseImageBtn');
+        if (chooseImageBtn) {
+            chooseImageBtn.style.display = 'flex';
         }
         if (elements.approveImageInput) {
             elements.approveImageInput.value = '';

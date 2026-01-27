@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/transfer-stats.css">
     <link rel="stylesheet" href="css/live-mode.css">
-    <link rel="stylesheet" href="css/accountant.css?v=20260123c">
+    <link rel="stylesheet" href="css/accountant.css?v=20260127a">
 </head>
 
 <body>
@@ -936,14 +936,20 @@
                         <div class="acc-form-group">
                             <label>Hình ảnh xác nhận chuyển khoản (tùy chọn)</label>
                             <div class="acc-image-upload-area" id="accApproveImageArea">
-                                <div class="acc-image-dropzone" id="accApproveDropzone">
+                                <!-- Paste/Drag Zone - Không click để chọn file -->
+                                <div class="acc-image-dropzone acc-paste-only" id="accApproveDropzone">
                                     <i data-lucide="image-plus" style="width:32px;height:32px"></i>
                                     <span>Paste (Ctrl+V) hoặc kéo thả hình vào đây</span>
-                                    <span class="acc-text-muted acc-text-sm">Hoặc click để chọn file</span>
-                                    <input type="file" id="accApproveImageInput"
-                                        accept="image/jpeg,image/png,image/gif,image/webp"
-                                        style="display:none">
                                 </div>
+
+                                <!-- Nút chọn file riêng biệt -->
+                                <button type="button" class="acc-btn acc-btn-secondary acc-btn-choose-image" id="accChooseImageBtn">
+                                    <i data-lucide="folder-open" style="width:16px;height:16px"></i>
+                                    Chọn ảnh từ máy tính
+                                </button>
+                                <input type="file" id="accApproveImageInput"
+                                    accept="image/jpeg,image/png,image/gif,image/webp"
+                                    style="display:none">
 
                                 <!-- Image Preview -->
                                 <div class="acc-image-preview" id="accApproveImagePreview" style="display:none">
