@@ -865,9 +865,26 @@ function renderByEmployee() {
     const employeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
     employeeSelectAlls.forEach(checkbox => {
         checkbox.addEventListener('change', function () {
+            const isChecked = this.checked;
             const section = this.closest('.employee-section');
             const checkboxes = section.querySelectorAll('tbody input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.checked = this.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = isChecked;
+                if (isChecked) {
+                    selectedOrderIds.add(cb.value);
+                } else {
+                    selectedOrderIds.delete(cb.value);
+                }
+            });
+
+            // Update main selectAll checkbox state
+            const mainSelectAll = document.getElementById('selectAll');
+            if (mainSelectAll) {
+                const allEmployeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
+                const allChecked = Array.from(allEmployeeSelectAlls).every(cb => cb.checked);
+                mainSelectAll.checked = allChecked;
+            }
+
             updateActionButtons();
         });
     });
@@ -1680,16 +1697,22 @@ function handleSelectAll() {
     if (isChecked) {
         // Select ALL displayed data (not just visible rows)
         displayedData.forEach(order => {
-            selectedOrderIds.add(order.Id);
+            selectedOrderIds.add(String(order.Id));
         });
     } else {
         // Deselect ALL
         selectedOrderIds.clear();
     }
 
-    // Update visible checkboxes
+    // Update visible checkboxes in main table
     const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
     checkboxes.forEach((cb) => {
+        cb.checked = isChecked;
+    });
+
+    // Update checkboxes in employee sections (when grouped by employee)
+    const employeeSections = document.querySelectorAll('.employee-section tbody input[type="checkbox"]');
+    employeeSections.forEach((cb) => {
         cb.checked = isChecked;
     });
 
