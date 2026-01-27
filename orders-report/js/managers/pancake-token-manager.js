@@ -1229,6 +1229,50 @@ class PancakeTokenManager {
     }
 
     /**
+     * Generate page_access_token using a specific account token
+     * Safe for parallel/multi-account usage (no global state mutation)
+     * @param {string} pageId - Page ID
+     * @param {string} accountToken - Account JWT access token
+     * @returns {Promise<string|null>} - New token or null
+     */
+    async generatePageAccessTokenWithToken(pageId, accountToken) {
+        try {
+            if (!accountToken) {
+                throw new Error('Account token is required');
+            }
+
+            console.log('[PANCAKE-TOKEN] Generating page_access_token for page:', pageId, '(with explicit token)');
+
+            const url = window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/generate_page_access_token`,
+                `access_token=${accountToken}`
+            );
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.page_access_token) {
+                console.log('[PANCAKE-TOKEN] ✅ page_access_token generated for page:', pageId);
+                // Save to cache and Firestore
+                await this.savePageAccessToken(pageId, result.page_access_token);
+                return result.page_access_token;
+            } else {
+                throw new Error(result.message || 'Failed to generate token');
+            }
+        } catch (error) {
+            console.error('[PANCAKE-TOKEN] ❌ Error generating page_access_token with token:', error);
+            return null;
+        }
+    }
+
+    /**
      * Get or generate page_access_token
      * Returns cached token or generates a new one
      * @param {string} pageId - Page ID

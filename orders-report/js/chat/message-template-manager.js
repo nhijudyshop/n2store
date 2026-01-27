@@ -775,6 +775,16 @@ class MessageTemplateManager {
             return;
         }
 
+        // Pre-load page access tokens from Firestore to ensure they're in memory
+        this.log('🔑 Pre-loading page access tokens...');
+        try {
+            await window.pancakeTokenManager.loadPageAccessTokens();
+            const pageTokenCount = Object.keys(window.pancakeTokenManager.pageAccessTokens || {}).length;
+            this.log(`🔑 Page access tokens loaded: ${pageTokenCount} pages`);
+        } catch (e) {
+            this.log('⚠️ Warning: Could not pre-load page tokens:', e.message);
+        }
+
         this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Accounts:', validAccounts.length);
         this.log('📋 Valid accounts:', validAccounts.map(a => a.name).join(', '));
 
@@ -1292,7 +1302,16 @@ class MessageTemplateManager {
         }
 
         // Get page_access_token for Official API (pages.fm)
-        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        // First try cached token, then generate using worker's account token if needed
+        let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+        if (!pageAccessToken) {
+            // Try generate using worker's account token (multi-account sending)
+            const accountToken = token || window.pancakeTokenManager?.currentToken;
+            if (accountToken && window.pancakeTokenManager) {
+                this.log(`🔑 Generating page_access_token for page ${channelId} using account token...`);
+                pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+            }
+        }
         if (!pageAccessToken) {
             throw new Error(`Không tìm thấy page_access_token cho page ${channelId}`);
         }
