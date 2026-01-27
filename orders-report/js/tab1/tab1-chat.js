@@ -5009,8 +5009,36 @@ function renderChatMessages(messages, scrollToBottom = false) {
                         </a>
                     ` : ''}
                 </div>`;
+        } else if (hasPhone && messageText) {
+            // Message with phone number - show full message with phone highlight and copy button
+            const phoneNumber = msg.phone_info[0].phone_number;
+
+            // Escape HTML to prevent XSS
+            let escapedMessage = messageText
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>')
+                .replace(/\r/g, '');
+
+            // Highlight phone numbers in the message
+            const phoneRegex = /(0[0-9]{9,10})/g;
+            escapedMessage = escapedMessage.replace(phoneRegex, '<span style="background: #ecfdf5; color: #047857; font-weight: 600; padding: 1px 4px; border-radius: 4px;">$1</span>');
+
+            content = `
+                <div class="chat-phone-message-container">
+                    <p class="chat-message-text" style="word-wrap: break-word; white-space: pre-wrap; margin-bottom: 8px;">${escapedMessage}</p>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="phone-highlight" style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); color: #047857; font-weight: 600; padding: 6px 12px; border-radius: 8px; font-size: 15px; letter-spacing: 0.5px; border: 1px solid #a7f3d0;">
+                            <i class="fas fa-phone" style="margin-right: 6px; font-size: 12px;"></i>${phoneNumber}
+                        </span>
+                        <button onclick="navigator.clipboard.writeText('${phoneNumber}'); this.innerHTML='<i class=\\'fas fa-check\\'></i> Đã copy'; setTimeout(() => this.innerHTML='<i class=\\'fas fa-copy\\'></i> Copy', 1500);"
+                                style="background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer; color: #6b7280; transition: all 0.2s;">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>`;
         } else if (hasPhone) {
-            // Phone number message - highlight the phone
+            // Phone number only (no message text)
             const phoneNumber = msg.phone_info[0].phone_number;
             content = `
                 <div class="chat-phone-message" style="display: flex; align-items: center; gap: 8px;">
