@@ -8,6 +8,96 @@
 // =====================================================
 let saleSearchTimeout = null;
 
+// =====================================================
+// DISCOUNT HELPERS FOR SINGLE ORDER SALE MODAL
+// =====================================================
+
+/**
+ * Parse discount from product note (e.g., "100k" = 100000)
+ * @param {string} note - Product note
+ * @returns {number} Discount amount in VND
+ */
+function parseDiscountFromNoteSale(note) {
+    if (!note || typeof note !== 'string') return 0;
+
+    const cleanNote = note.trim().toLowerCase();
+    if (!cleanNote) return 0;
+
+    // Pattern 1: "100k" or "100K" -> 100000
+    const kMatch = cleanNote.match(/^(\d+(?:[.,]\d+)?)\s*k$/i);
+    if (kMatch) {
+        const num = parseFloat(kMatch[1].replace(',', '.'));
+        return Math.round(num * 1000);
+    }
+
+    // Pattern 2: Plain number "100000" or "100.000"
+    const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
+    if (plainMatch) {
+        const numStr = plainMatch[1].replace(/[.,]/g, '');
+        const num = parseInt(numStr, 10);
+        if (num >= 1000) {
+            return num;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Check if order has "GIẢM GIÁ" tag
+ * @param {object} order - Order object (currentSaleOrderData)
+ * @returns {boolean}
+ */
+function saleOrderHasDiscountTag(order) {
+    if (!order) return false;
+
+    // Check Tags directly from order
+    if (order.Tags) {
+        try {
+            const tags = typeof order.Tags === 'string'
+                ? JSON.parse(order.Tags)
+                : order.Tags;
+
+            if (Array.isArray(tags)) {
+                return tags.some(tag => {
+                    const tagName = (tag.Name || '').toUpperCase();
+                    return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
+                });
+            }
+        } catch (e) {
+            console.warn('[SALE-DISCOUNT] Error parsing tags:', e);
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Calculate total discount for sale order from product notes
+ * @param {object} order - Order object with orderLines
+ * @returns {{totalDiscount: number, discountedProducts: Array}}
+ */
+function calculateSaleOrderDiscount(order) {
+    const orderLines = order?.orderLines || [];
+    let totalDiscount = 0;
+    const discountedProducts = [];
+
+    orderLines.forEach(line => {
+        const note = line.Note || '';
+        const discount = parseDiscountFromNoteSale(note);
+        if (discount > 0) {
+            totalDiscount += discount;
+            discountedProducts.push({
+                productName: line.Product?.Name || line.ProductName || 'N/A',
+                discount: discount,
+                note: note
+            });
+        }
+    });
+
+    return { totalDiscount, discountedProducts };
+}
+
 /**
  * Initialize product search for Sale Modal
  * Similar to initInlineProductSearch() from Edit Modal (~7300)
@@ -745,7 +835,23 @@ function buildSaleOrderModelForInsertList() {
 
     // Build order lines
     const orderLines = buildOrderLines();
-    const amountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+    const originalAmountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+
+    // 🔥 DISCOUNT LOGIC: Check for "GIẢM GIÁ" tag and apply discount from product notes
+    let decreaseAmount = 0;
+    let finalAmountTotal = originalAmountTotal;
+
+    if (saleOrderHasDiscountTag(order)) {
+        const { totalDiscount, discountedProducts } = calculateSaleOrderDiscount(order);
+        if (totalDiscount > 0) {
+            decreaseAmount = totalDiscount;
+            finalAmountTotal = originalAmountTotal - decreaseAmount;
+            console.log(`[SALE-DISCOUNT] Order has discount tag. Applied ${decreaseAmount.toLocaleString('vi-VN')}đ discount from ${discountedProducts.length} products`);
+            discountedProducts.forEach(p => {
+                console.log(`  - ${p.productName}: -${p.discount.toLocaleString('vi-VN')}đ (note: "${p.note}")`);
+            });
+        }
+    }
 
     // Build model matching InsertListOrderModel format
     return {
@@ -763,11 +869,11 @@ function buildSaleOrderModelForInsertList() {
         PartnerPhone: receiverPhone || null,
         Reference: order.Code || '',
         PriceListId: 0,
-        AmountTotal: amountTotal,
+        AmountTotal: finalAmountTotal,
         TotalQuantity: 0,
         Discount: 0,
         DiscountAmount: 0,
-        DecreaseAmount: 0,
+        DecreaseAmount: decreaseAmount,
         DiscountLoyaltyTotal: null,
         WeightTotal: 0,
         AmountTax: null,
@@ -1169,8 +1275,21 @@ function buildFastSaleOrderPayload() {
     const orderLines = buildOrderLines();
 
     // Calculate totals
-    const amountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+    const originalAmountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
     const totalQuantity = orderLines.reduce((sum, line) => sum + (line.ProductUOMQty || 0), 0);
+
+    // 🔥 DISCOUNT LOGIC: Check for "GIẢM GIÁ" tag and apply discount from product notes
+    let decreaseAmountPayload = 0;
+    let finalAmountTotalPayload = originalAmountTotal;
+
+    if (saleOrderHasDiscountTag(order)) {
+        const { totalDiscount, discountedProducts } = calculateSaleOrderDiscount(order);
+        if (totalDiscount > 0) {
+            decreaseAmountPayload = totalDiscount;
+            finalAmountTotalPayload = originalAmountTotal - decreaseAmountPayload;
+            console.log(`[SALE-PAYLOAD-DISCOUNT] Applied ${decreaseAmountPayload.toLocaleString('vi-VN')}đ discount`);
+        }
+    }
 
     const now = new Date();
     const dateInvoice = now.toISOString();
@@ -1198,15 +1317,15 @@ function buildFastSaleOrderPayload() {
         PartnerPhone: receiverPhone || null,
         Reference: order.Code || '',
         PriceListId: 1,
-        AmountTotal: amountTotal,
+        AmountTotal: finalAmountTotalPayload,
         TotalQuantity: totalQuantity,
         Discount: 0,
         DiscountAmount: 0,
-        DecreaseAmount: 0,
+        DecreaseAmount: decreaseAmountPayload,
         DiscountLoyaltyTotal: null,
         WeightTotal: 0,
         AmountTax: 0,
-        AmountUntaxed: amountTotal,
+        AmountUntaxed: finalAmountTotalPayload,
         TaxId: null,
         MoveId: null,
         UserId: userId,

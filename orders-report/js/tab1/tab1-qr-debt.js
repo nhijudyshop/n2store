@@ -1593,6 +1593,51 @@ function populateSaleOrderItems(order) {
 }
 
 /**
+ * Parse discount from product note (e.g., "100k" = 100000)
+ * Helper for populateSaleOrderLinesFromAPI highlighting
+ */
+function parseDiscountFromNoteForDisplay(note) {
+    if (!note || typeof note !== 'string') return 0;
+    const cleanNote = note.trim().toLowerCase();
+    if (!cleanNote) return 0;
+
+    // Pattern 1: "100k" or "100K" -> 100000
+    const kMatch = cleanNote.match(/^(\d+(?:[.,]\d+)?)\s*k$/i);
+    if (kMatch) {
+        const num = parseFloat(kMatch[1].replace(',', '.'));
+        return Math.round(num * 1000);
+    }
+
+    // Pattern 2: Plain number "100000" or "100.000"
+    const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
+    if (plainMatch) {
+        const numStr = plainMatch[1].replace(/[.,]/g, '');
+        const num = parseInt(numStr, 10);
+        if (num >= 1000) return num;
+    }
+    return 0;
+}
+
+/**
+ * Check if current sale order has "GIẢM GIÁ" tag
+ */
+function currentSaleOrderHasDiscountTag() {
+    if (!currentSaleOrderData?.Tags) return false;
+    try {
+        const tags = typeof currentSaleOrderData.Tags === 'string'
+            ? JSON.parse(currentSaleOrderData.Tags)
+            : currentSaleOrderData.Tags;
+        if (Array.isArray(tags)) {
+            return tags.some(tag => {
+                const tagName = (tag.Name || '').toUpperCase();
+                return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
+            });
+        }
+    } catch (e) {}
+    return false;
+}
+
+/**
  * Populate order lines from API response (orderLines with Product, ProductUOM)
  */
 function populateSaleOrderLinesFromAPI(orderLines) {
@@ -1613,8 +1658,12 @@ function populateSaleOrderLinesFromAPI(orderLines) {
     // Store order lines for editing
     currentSaleOrderData.orderLines = orderLines;
 
+    // Check if order has discount tag
+    const hasDiscountTag = currentSaleOrderHasDiscountTag();
+
     let totalQuantity = 0;
     let totalAmount = 0;
+    let totalDiscount = 0;
 
     const itemsHTML = orderLines.map((item, index) => {
         const qty = item.ProductUOMQty || item.Quantity || 1;
@@ -1623,8 +1672,19 @@ function populateSaleOrderLinesFromAPI(orderLines) {
 
         // Get product info from nested Product object or direct field
         const productName = item.Product?.NameGet || item.ProductName || '';
-        const productNote = item.Note || 'Ghi chú';
+        const productNote = item.Note || '';
         const productUOM = item.ProductUOMName || item.ProductUOM?.Name || 'Cái';
+
+        // Check for discount in note (only if order has discount tag)
+        const productDiscount = hasDiscountTag ? parseDiscountFromNoteForDisplay(productNote) : 0;
+        const isDiscountedProduct = productDiscount > 0;
+        if (isDiscountedProduct) totalDiscount += productDiscount;
+
+        // Highlight style for discounted products
+        const rowStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : '';
+        const noteStyle = isDiscountedProduct
+            ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+            : 'font-size: 11px; color: #6b7280;';
 
         // Get product image (prefer thumbnail 128x128, fallback to ImageUrl)
         const productImage = item.Product?.Thumbnails?.[1] || item.Product?.ImageUrl || '';
@@ -1635,15 +1695,22 @@ function populateSaleOrderLinesFromAPI(orderLines) {
         totalQuantity += qty;
         totalAmount += total;
 
+        // Note display with discount badge
+        const noteDisplay = productNote
+            ? (isDiscountedProduct
+                ? `<span style="${noteStyle}"><i class="fas fa-tag"></i> -${productDiscount.toLocaleString('vi-VN')}đ (${productNote})</span>`
+                : `<div style="${noteStyle}">${productNote}</div>`)
+            : '<div style="font-size: 11px; color: #9ca3af;">Ghi chú</div>';
+
         return `
-            <tr>
+            <tr style="${rowStyle}">
                 <td>${index + 1}</td>
                 <td>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         ${imageHTML}
                         <div>
                             <div class="sale-product-name">${productName}</div>
-                            <div style="font-size: 11px; color: #6b7280;">${productNote}</div>
+                            ${noteDisplay}
                         </div>
                     </div>
                 </td>
@@ -1665,6 +1732,17 @@ function populateSaleOrderLinesFromAPI(orderLines) {
 
     container.innerHTML = itemsHTML;
     updateSaleTotals(totalQuantity, totalAmount);
+
+    // Show discount summary if applicable
+    if (hasDiscountTag && totalDiscount > 0) {
+        console.log(`[SALE-MODAL] Order has discount tag. Total discount: ${totalDiscount.toLocaleString('vi-VN')}đ`);
+        // Update discount display if exists
+        const discountEl = document.getElementById('saleDiscountFromTag');
+        if (discountEl) {
+            discountEl.textContent = `-${totalDiscount.toLocaleString('vi-VN')}`;
+            discountEl.parentElement.style.display = 'flex';
+        }
+    }
 }
 
 /**
