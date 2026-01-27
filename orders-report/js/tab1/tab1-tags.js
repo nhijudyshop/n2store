@@ -497,10 +497,14 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         const oppositeTagName = `${oppositePrefix} ${currentUserIdentifier}`.toUpperCase();
         const oppositeTagIndex = orderTags.findIndex(t => t.Name && t.Name.toUpperCase() === oppositeTagName);
 
+        // Track removed tag ID for filter re-apply check
+        let removedTagId = null;
+
         if (oppositeTagIndex !== -1) {
             const removedTag = orderTags[oppositeTagIndex];
+            removedTagId = removedTag.Id;
             orderTags.splice(oppositeTagIndex, 1);
-            console.log('[QUICK-TAG] Removed opposite tag:', removedTag.Name);
+            console.log('[QUICK-TAG] Removed opposite tag:', removedTag.Name, 'ID:', removedTagId);
         }
 
         // Check if tag already assigned
@@ -567,13 +571,39 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
         // Re-apply filters to hide order if it no longer matches the current tag filter
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
         if (currentTagFilter !== 'all') {
-            // Check if order still matches the filter
-            const orderStillMatchesFilter = orderTags.some(tag => String(tag.Id) === String(currentTagFilter));
-            if (!orderStillMatchesFilter) {
-                // Order no longer matches filter - re-filter the table
+            // Check if the removed tag matches the current filter - if so, always re-filter
+            const removedTagMatchesFilter = removedTagId && String(removedTagId) === String(currentTagFilter);
+
+            // Also check if filter tag name starts with opposite prefix (handle Unicode comparison issues)
+            // e.g., if we're adding "OK" tag and filter is set to a "XỬ LÝ" tag, always re-filter
+            let filterTagMatchesOppositePrefix = false;
+            if (window.availableTags) {
+                const filterTag = window.availableTags.find(t => String(t.Id) === String(currentTagFilter));
+                if (filterTag && filterTag.Name) {
+                    const filterTagNameUpper = filterTag.Name.toUpperCase();
+                    // oppositePrefix is "XỬ LÝ" when tagPrefix is "ok", or "OK" when tagPrefix is "xử lý"
+                    filterTagMatchesOppositePrefix = filterTagNameUpper.startsWith(oppositePrefix);
+                    if (filterTagMatchesOppositePrefix) {
+                        console.log('[QUICK-TAG] Filter tag matches opposite prefix:', filterTag.Name, '→', oppositePrefix);
+                    }
+                }
+            }
+
+            if (removedTagMatchesFilter || filterTagMatchesOppositePrefix) {
+                // The tag that was removed matches the current filter - re-filter immediately
                 if (typeof window.performTableSearch === 'function') {
                     window.performTableSearch();
-                    console.log('[QUICK-TAG] Order hidden - no longer matches tag filter');
+                    console.log('[QUICK-TAG] Order hidden - removed tag matches current filter or filter matches opposite prefix');
+                }
+            } else {
+                // Fallback: Check if order still matches the filter
+                const orderStillMatchesFilter = orderTags.some(tag => String(tag.Id) === String(currentTagFilter));
+                if (!orderStillMatchesFilter) {
+                    // Order no longer matches filter - re-filter the table
+                    if (typeof window.performTableSearch === 'function') {
+                        window.performTableSearch();
+                        console.log('[QUICK-TAG] Order hidden - no longer matches tag filter');
+                    }
                 }
             }
         }
@@ -701,18 +731,29 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
             window.notificationManager.success(`Đã xóa tag "${tagToRemove.Name}" khỏi đơn ${orderCode}!`, 2000);
         }
 
-        console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'from order:', orderCode);
+        console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'ID:', tagToRemove.Id, 'from order:', orderCode);
 
         // Re-apply filters to hide order if it no longer matches the current tag filter
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
         if (currentTagFilter !== 'all') {
-            // Check if order still matches the filter
-            const orderStillMatchesFilter = newOrderTags.some(tag => String(tag.Id) === String(currentTagFilter));
-            if (!orderStillMatchesFilter) {
-                // Order no longer matches filter - re-filter the table
+            // Check if the removed tag matches the current filter - if so, always re-filter
+            const removedTagMatchesFilter = String(tagToRemove.Id) === String(currentTagFilter);
+
+            if (removedTagMatchesFilter) {
+                // The tag that was removed matches the current filter - re-filter immediately
                 if (typeof window.performTableSearch === 'function') {
                     window.performTableSearch();
-                    console.log('[QUICK-TAG] Order hidden - no longer matches tag filter after removal');
+                    console.log('[QUICK-TAG] Order hidden - removed tag matches current filter, ID:', tagToRemove.Id);
+                }
+            } else {
+                // Fallback: Check if order still matches the filter
+                const orderStillMatchesFilter = newOrderTags.some(tag => String(tag.Id) === String(currentTagFilter));
+                if (!orderStillMatchesFilter) {
+                    // Order no longer matches filter - re-filter the table
+                    if (typeof window.performTableSearch === 'function') {
+                        window.performTableSearch();
+                        console.log('[QUICK-TAG] Order hidden - no longer matches tag filter after removal');
+                    }
                 }
             }
         }
