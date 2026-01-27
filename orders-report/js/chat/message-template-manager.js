@@ -158,6 +158,10 @@ class MessageTemplateManager {
                                     <div id="messageProgressBar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
                                 </div>
                             </div>
+                            <button class="message-btn-history" id="messageBtnHistory" style="padding: 8px 16px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 14px; color: #374151;" title="Xem lịch sử gửi tin">
+                                <i class="fas fa-history"></i>
+                                Lịch sử
+                            </button>
                             <button class="message-btn-cancel" id="messageBtnCancel">Hủy</button>
                             <button class="message-btn-send" id="messageBtnSend">
                                 <i class="fas fa-paper-plane"></i>
@@ -171,6 +175,42 @@ class MessageTemplateManager {
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         this.log('✅ Modal DOM created');
+
+        // Create History Modal
+        this.createHistoryModalDOM();
+    }
+
+    createHistoryModalDOM() {
+        if (document.getElementById('messageHistoryModal')) return;
+
+        const historyModalHTML = `
+            <div class="message-modal-overlay" id="messageHistoryModal" style="display: none;">
+                <div class="message-modal" style="max-width: 900px;">
+                    <div class="message-modal-header">
+                        <h3>
+                            <i class="fas fa-history"></i>
+                            Lịch sử gửi tin nhắn
+                        </h3>
+                        <button class="message-modal-close" id="closeHistoryModal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="message-modal-body" id="historyModalBody" style="max-height: 500px; overflow-y: auto;">
+                        <div class="message-loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Đang tải lịch sử...</p>
+                        </div>
+                    </div>
+                    <div class="message-modal-footer" style="justify-content: space-between;">
+                        <div style="font-size: 13px; color: #6b7280;">
+                            <i class="fas fa-info-circle"></i> Lịch sử tự động xóa sau 7 ngày
+                        </div>
+                        <button class="message-btn-cancel" id="closeHistoryBtn">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', historyModalHTML);
     }
 
     attachEventListeners() {
@@ -207,6 +247,25 @@ class MessageTemplateManager {
 
         document.getElementById('messageBtnSend')?.addEventListener('click', () => {
             this.sendMessage();
+        });
+
+        // History button
+        document.getElementById('messageBtnHistory')?.addEventListener('click', () => {
+            this.openHistoryModal();
+        });
+
+        document.getElementById('closeHistoryModal')?.addEventListener('click', () => {
+            this.closeHistoryModal();
+        });
+
+        document.getElementById('closeHistoryBtn')?.addEventListener('click', () => {
+            this.closeHistoryModal();
+        });
+
+        document.getElementById('messageHistoryModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'messageHistoryModal') {
+                this.closeHistoryModal();
+            }
         });
 
         document.addEventListener('keydown', (e) => {
@@ -713,14 +772,16 @@ class MessageTemplateManager {
             // Get template content (ONE TIME)
             const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
 
-            // Initialize State
+            // Initialize State with tracking arrays for Firestore
             this.sendingState = {
                 isRunning: true,
                 total: ordersCount,
                 completed: 0,
                 success: 0,
                 error: 0,
-                errors: []
+                errors: [],
+                successOrders: [], // Track success orders with details
+                errorOrders: []    // Track error orders with details
             };
 
             // Update UI
@@ -769,24 +830,46 @@ class MessageTemplateManager {
 
                             await this._processSingleOrder(order, context);
                             this.sendingState.success++;
+
+                            // Track success order with details
+                            this.sendingState.successOrders.push({
+                                stt: order.stt || order.STT || '',
+                                code: order.code || order.Id || '',
+                                customerName: order.customerName || '',
+                                account: account.name
+                            });
+
                             this.log(`✅ [${account.name}] Sent successfully to order ${order.code || order.Id}`);
                         } catch (err) {
                             this.sendingState.error++;
 
-                            // Track 24-hour policy errors and user unavailable errors specially
-                            const errorInfo = {
-                                order: order.code || order.Id,
-                                error: err.message,
-                                account: account.name
-                            };
+                            // Track error with full details
+                            let errorMessage = err.message;
                             if (err.is24HourError) {
-                                errorInfo.is24HourError = true;
-                                errorInfo.error = 'Đã quá 24h - Vui lòng dùng COMMENT';
+                                errorMessage = 'Đã quá 24h - Vui lòng dùng COMMENT';
                             } else if (err.isUserUnavailable) {
-                                errorInfo.isUserUnavailable = true;
-                                errorInfo.error = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
+                                errorMessage = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
                             }
-                            this.sendingState.errors.push(errorInfo);
+
+                            // Track error order with details
+                            this.sendingState.errorOrders.push({
+                                stt: order.stt || order.STT || '',
+                                code: order.code || order.Id || '',
+                                customerName: order.customerName || '',
+                                account: account.name,
+                                error: errorMessage,
+                                is24HourError: err.is24HourError || false,
+                                isUserUnavailable: err.isUserUnavailable || false
+                            });
+
+                            // Also keep old format for backward compatibility
+                            this.sendingState.errors.push({
+                                order: order.code || order.Id,
+                                error: errorMessage,
+                                account: account.name,
+                                is24HourError: err.is24HourError,
+                                isUserUnavailable: err.isUserUnavailable
+                            });
 
                             this.log(`❌ [${account.name}] Error sending to order ${order.code}:`, err);
                         } finally {
@@ -866,6 +949,19 @@ class MessageTemplateManager {
                     }
                 }
             }
+
+            // Save campaign to Firestore for history
+            await this.saveCampaignToFirestore({
+                templateName: this.selectedTemplate?.Name || 'Unknown',
+                templateId: this.selectedTemplate?.Id || null,
+                totalOrders: ordersCount,
+                successCount: this.sendingState.success,
+                errorCount: this.sendingState.error,
+                successOrders: this.sendingState.successOrders,
+                errorOrders: this.sendingState.errorOrders,
+                accountsUsed: validAccounts.map(a => a.name),
+                delay: delaySeconds
+            });
 
             this.closeModal();
 
@@ -2171,6 +2267,277 @@ class MessageTemplateManager {
         } catch (error) {
             this.log('❌ Error clearing history:', error);
         }
+    }
+
+    // =====================================================
+    // FIRESTORE CAMPAIGN HISTORY - Auto delete after 7 days
+    // =====================================================
+
+    /**
+     * Save campaign results to Firestore
+     * @param {Object} campaignData - Campaign data with success/error details
+     */
+    async saveCampaignToFirestore(campaignData) {
+        try {
+            if (!window.firebase || !window.firebase.firestore) {
+                this.log('⚠️ Firestore not available, skipping campaign save');
+                return null;
+            }
+
+            const db = window.firebase.firestore();
+            const campaignsRef = db.collection('message_campaigns');
+
+            // Add TTL timestamp (7 days from now)
+            const now = new Date();
+            const expireAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+            const campaign = {
+                ...campaignData,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+                expireAt: expireAt, // For TTL auto-delete
+                localCreatedAt: now.toISOString()
+            };
+
+            const docRef = await campaignsRef.add(campaign);
+            this.log('✅ Campaign saved to Firestore:', docRef.id);
+            return docRef.id;
+
+        } catch (error) {
+            this.log('❌ Error saving campaign to Firestore:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Load campaign history from Firestore (last 7 days)
+     * @returns {Array} Array of campaigns
+     */
+    async loadCampaignsFromFirestore() {
+        try {
+            if (!window.firebase || !window.firebase.firestore) {
+                this.log('⚠️ Firestore not available');
+                return [];
+            }
+
+            const db = window.firebase.firestore();
+            const campaignsRef = db.collection('message_campaigns');
+
+            // Get campaigns from last 7 days, newest first
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+            const snapshot = await campaignsRef
+                .where('expireAt', '>', sevenDaysAgo)
+                .orderBy('expireAt', 'desc')
+                .limit(50)
+                .get();
+
+            const campaigns = [];
+            snapshot.forEach(doc => {
+                campaigns.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            // Sort by localCreatedAt descending (newest first)
+            campaigns.sort((a, b) => {
+                const dateA = new Date(a.localCreatedAt || 0);
+                const dateB = new Date(b.localCreatedAt || 0);
+                return dateB - dateA;
+            });
+
+            this.log('📋 Loaded campaigns from Firestore:', campaigns.length);
+            return campaigns;
+
+        } catch (error) {
+            this.log('❌ Error loading campaigns from Firestore:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Delete old campaigns (called manually or by Cloud Function)
+     */
+    async cleanupOldCampaigns() {
+        try {
+            if (!window.firebase || !window.firebase.firestore) return;
+
+            const db = window.firebase.firestore();
+            const campaignsRef = db.collection('message_campaigns');
+
+            const now = new Date();
+            const snapshot = await campaignsRef
+                .where('expireAt', '<', now)
+                .limit(100)
+                .get();
+
+            if (snapshot.empty) {
+                this.log('📋 No expired campaigns to delete');
+                return;
+            }
+
+            const batch = db.batch();
+            snapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+
+            this.log('🗑️ Deleted', snapshot.size, 'expired campaigns');
+
+        } catch (error) {
+            this.log('❌ Error cleaning up campaigns:', error);
+        }
+    }
+
+    /**
+     * Open history modal
+     */
+    async openHistoryModal() {
+        this.log('📂 Opening history modal...');
+
+        const modal = document.getElementById('messageHistoryModal');
+        const body = document.getElementById('historyModalBody');
+
+        if (!modal || !body) return;
+
+        modal.style.display = 'flex';
+        body.innerHTML = `
+            <div class="message-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Đang tải lịch sử...</p>
+            </div>
+        `;
+
+        // Cleanup old campaigns first
+        await this.cleanupOldCampaigns();
+
+        // Load campaigns
+        const campaigns = await this.loadCampaignsFromFirestore();
+
+        if (campaigns.length === 0) {
+            body.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                    <p>Chưa có lịch sử gửi tin nhắn</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Render campaigns
+        this.renderHistoryList(campaigns, body);
+    }
+
+    /**
+     * Close history modal
+     */
+    closeHistoryModal() {
+        const modal = document.getElementById('messageHistoryModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    /**
+     * Render history list in modal
+     * @param {Array} campaigns - Array of campaign objects
+     * @param {HTMLElement} container - Container element
+     */
+    renderHistoryList(campaigns, container) {
+        let html = '';
+
+        campaigns.forEach((campaign, index) => {
+            const date = campaign.localCreatedAt
+                ? new Date(campaign.localCreatedAt).toLocaleString('vi-VN')
+                : 'N/A';
+
+            const successCount = campaign.successOrders?.length || 0;
+            const errorCount = campaign.errorOrders?.length || 0;
+            const total = successCount + errorCount;
+
+            html += `
+                <div class="history-campaign-item" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fff;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <strong style="font-size: 15px;">${campaign.templateName || 'Không có tên'}</strong>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+                                <i class="fas fa-calendar"></i> ${date}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <span style="background: #dcfce7; color: #16a34a; padding: 4px 10px; border-radius: 12px; font-size: 13px;">
+                                <i class="fas fa-check"></i> ${successCount} thành công
+                            </span>
+                            <span style="background: #fee2e2; color: #dc2626; padding: 4px 10px; border-radius: 12px; font-size: 13px;">
+                                <i class="fas fa-times"></i> ${errorCount} thất bại
+                            </span>
+                        </div>
+                    </div>
+
+                    ${errorCount > 0 ? `
+                    <details style="margin-top: 8px;">
+                        <summary style="cursor: pointer; color: #dc2626; font-size: 13px; padding: 8px 0;">
+                            <i class="fas fa-exclamation-triangle"></i> Xem ${errorCount} đơn thất bại (click để mở)
+                        </summary>
+                        <div style="margin-top: 8px; max-height: 200px; overflow-y: auto;">
+                            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f9fafb;">
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">STT</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Mã đơn</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Khách hàng</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Lỗi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${(campaign.errorOrders || []).map((order, i) => `
+                                        <tr style="border-bottom: 1px solid #f3f4f6;">
+                                            <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
+                                            <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
+                                            <td style="padding: 8px;">${order.customerName || 'N/A'}</td>
+                                            <td style="padding: 8px; color: #dc2626; font-size: 11px;">${order.error || 'Không xác định'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                    ` : ''}
+
+                    ${successCount > 0 ? `
+                    <details style="margin-top: 8px;">
+                        <summary style="cursor: pointer; color: #16a34a; font-size: 13px; padding: 8px 0;">
+                            <i class="fas fa-check-circle"></i> Xem ${successCount} đơn thành công (click để mở)
+                        </summary>
+                        <div style="margin-top: 8px; max-height: 200px; overflow-y: auto;">
+                            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f9fafb;">
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">STT</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Mã đơn</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Khách hàng</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Account</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${(campaign.successOrders || []).map((order, i) => `
+                                        <tr style="border-bottom: 1px solid #f3f4f6;">
+                                            <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
+                                            <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
+                                            <td style="padding: 8px;">${order.customerName || 'N/A'}</td>
+                                            <td style="padding: 8px; color: #6b7280; font-size: 11px;">${order.account || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
     }
 }
 
