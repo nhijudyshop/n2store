@@ -104,11 +104,23 @@ const BillService = (function () {
             orderResult?.ReceiverAddress ||
             '';
 
-        // Notes
-        const deliveryNote = (isModalVisible && document.getElementById('saleDeliveryNote')?.value) ||
-            orderResult?.DeliveryNote ||
+        // Notes - separated into order-level and shop-level
+        // Order comment (per-order note like "CK 100K ACB 26/01")
+        const orderComment = (isModalVisible && document.getElementById('saleComment')?.value) ||
+            orderResult?.Comment ||
+            order?.Comment ||
             '';
-        const comment = orderResult?.Comment || '';
+
+        // Shop-wide delivery note (hotline warning + return policy)
+        // This comes from shop settings or default
+        const shopDeliveryNote = defaultData?.DeliveryNote ||
+            orderResult?.DeliveryNote ||
+            'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng, "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào.';
+
+        // Shop-wide comment (bank account info)
+        // This comes from shop settings or default
+        const shopComment = defaultData?.Comment ||
+            'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)';
 
         // Money values
         const shippingFee = (isModalVisible && parseFloat(document.getElementById('saleShippingFee')?.value)) ||
@@ -897,28 +909,21 @@ ${prepaidAmount > 0 ? `
 ` : ''}
                                     </tfoot>
             </table>
-${deliveryNote ? `
-                    <div style="word-wrap:break-word">
-                <strong>Ghi chú giao hàng :</strong> <span style="white-space:pre-wrap; word-break: break-word;">${deliveryNote}</span>
-            </div>
-        ` : ''}
-
-${comment ? `
-
+${orderComment ? `
             <div style="word-wrap:break-word">
-                <strong>Ghi chú: </strong>
-                <p class="form-control-static">
-                    ${comment.replace(/\n/g, '<br />')}
-                </p>
+                <strong>Ghi chú :</strong> ${orderComment}
             </div>
 ` : ''}
-
-
-<div class='text-center'>
-</div>
-
+            <div style="word-wrap:break-word">
+                <strong>Ghi chú giao hàng :</strong> <span style="white-space:pre-wrap; word-break: break-word;">${shopDeliveryNote}</span>
             </div>
-
+            <div style="word-wrap:break-word">
+                <strong>Ghi chú:</strong>
+                <p class="form-control-static">
+                    ${shopComment.replace(/\n/g, '<br />')}
+                </p>
+            </div>
+        </div>
     </div>
 </body>
 </html>
