@@ -1881,24 +1881,24 @@ router.post('/:id/adjust', async (req, res) => {
             WHERE phone = $2
         `, [newBalance, tx.linked_customer_phone]);
 
-        // Log wallet transaction
+        // Log wallet transaction (use valid type and source from CHECK constraints)
         await db.query(`
             INSERT INTO wallet_transactions (
                 phone, wallet_id, type, amount,
                 balance_before, balance_after,
                 source, reference_type, reference_id, note
             )
-            SELECT $1, id, 'ADJUSTMENT_DEBIT', $2,
+            SELECT $1, id, 'ADJUSTMENT', $2,
                    $3, $4,
-                   'WRONG_MAPPING_CORRECTION', 'balance_history', $5, $6
+                   'MANUAL_ADJUSTMENT', 'balance_history', $5::text, $6
             FROM customer_wallets WHERE phone = $1
         `, [
             tx.linked_customer_phone,
-            adjustAmount,
+            -adjustAmount,  // Negative for debit
             currentBalance,
             newBalance,
             id,
-            `Điều chỉnh: ${reason}`
+            `Điều chỉnh trừ ví KH sai: ${reason}`
         ]);
 
         adjustments.push({
@@ -1940,20 +1940,20 @@ router.post('/:id/adjust', async (req, res) => {
                 WHERE phone = $2
             `, [correctNewBalance, normalizedCorrectPhone]);
 
-            // Log wallet transaction
+            // Log wallet transaction (use valid type and source from CHECK constraints)
             await db.query(`
                 INSERT INTO wallet_transactions (
                     phone, wallet_id, type, amount,
                     balance_before, balance_after,
                     source, reference_type, reference_id, note
                 )
-                SELECT $1, id, 'ADJUSTMENT_CREDIT', $2,
+                SELECT $1, id, 'ADJUSTMENT', $2,
                        $3, $4,
-                       'WRONG_MAPPING_CORRECTION', 'balance_history', $5, $6
+                       'MANUAL_ADJUSTMENT', 'balance_history', $5::text, $6
                 FROM customer_wallets WHERE phone = $1
             `, [
                 normalizedCorrectPhone,
-                adjustAmount,
+                adjustAmount,  // Positive for credit
                 correctCurrentBalance,
                 correctNewBalance,
                 id,
