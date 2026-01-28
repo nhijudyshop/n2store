@@ -416,6 +416,21 @@
                 toggleAutoApprove(e.target.checked);
             });
         }
+
+        // Nút Điều chỉnh trong bảng Đã Duyệt (event delegation)
+        if (elements.approvedTableBody) {
+            elements.approvedTableBody.addEventListener('click', async (e) => {
+                const adjustBtn = e.target.closest('.acc-adjust-btn');
+                if (adjustBtn) {
+                    e.preventDefault();
+                    const txId = adjustBtn.dataset.id;
+                    const amount = adjustBtn.dataset.amount;
+                    const phone = adjustBtn.dataset.phone;
+                    const name = adjustBtn.dataset.name;
+                    await openAdjustmentModal(txId, amount, phone, name);
+                }
+            });
+        }
     }
 
     // =====================================================
@@ -1606,7 +1621,7 @@
         if (state.approvedToday.length === 0) {
             elements.approvedTableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="acc-empty-state">
+                    <td colspan="8" class="acc-empty-state">
                         <div class="empty-icon">📋</div>
                         <div class="empty-text">Chưa có giao dịch được duyệt ngày này</div>
                     </td>
@@ -1622,6 +1637,10 @@
 
             // Dịch ghi chú
             let note = tx.verification_note || '';
+            let hasAdjustment = false;
+            if (note.includes('[Đã điều chỉnh:')) {
+                hasAdjustment = true;
+            }
             if (note.includes('Auto-approved by accountant')) {
                 // Format: Auto-approved by accountant [user] at [time]
                 // Rút gọn vì đã có cột Duyệt bởi
@@ -1644,6 +1663,11 @@
             }
             noteHtml += `<span class="acc-approve-note">${note}</span></div>`;
 
+            // Nút Điều chỉnh - disable nếu đã có adjustment
+            const adjustBtnHtml = hasAdjustment
+                ? `<span class="badge badge-secondary" title="Giao dịch đã được điều chỉnh">✓ Đã điều chỉnh</span>`
+                : `<button class="btn btn-sm btn-outline-warning acc-adjust-btn" data-id="${tx.id}" data-amount="${tx.amount}" data-phone="${tx.linked_customer_phone || ''}" data-name="${tx.customer_name || ''}" title="Điều chỉnh nếu phát hiện sai">⚠️ Điều chỉnh</button>`;
+
             return `
                 <tr>
                     <td>${verifiedAt}</td>
@@ -1658,6 +1682,7 @@
                     <td>${getMatchMethodBadge(tx.match_method)}</td>
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
                     <td>${noteHtml}</td>
+                    <td class="acc-action-cell">${adjustBtnHtml}</td>
                 </tr>
             `;
         }).join('');
@@ -2064,6 +2089,295 @@
     }
 
     // =====================================================
+    // TRANSACTION ADJUSTMENT (Điều chỉnh GD đã duyệt)
+    // =====================================================
+
+    /**
+     * Mở modal điều chỉnh giao dịch
+     * @param {string} txId - ID giao dịch
+     * @param {string} amount - Số tiền
+     * @param {string} phone - SĐT khách hàng
+     * @param {string} name - Tên khách hàng
+     */
+    async function openAdjustmentModal(txId, amount, phone, name) {
+        try {
+            showNotification('Đang kiểm tra...', 'info');
+
+            // Gọi API kiểm tra có thể điều chỉnh không
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/can-adjust`);
+            const result = await response.json();
+
+            if (!result.success) {
+                showNotification(`Lỗi: ${result.error}`, 'error');
+                return;
+            }
+
+            if (!result.canAdjust) {
+                // Hiển thị modal thông báo không thể điều chỉnh
+                showAdjustmentBlockedModal(result);
+                return;
+            }
+
+            // Có thể điều chỉnh - hiển thị modal form
+            showAdjustmentFormModal(txId, result.transaction, result.wallet);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] openAdjustmentModal error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Hiển thị modal khi không thể điều chỉnh
+     */
+    function showAdjustmentBlockedModal(result) {
+        const { reason, transaction, wallet, hasWithdrawals } = result;
+
+        const modalHtml = `
+            <div class="modal-overlay acc-modal-overlay" id="accAdjustBlockedModal">
+                <div class="modal acc-modal" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3>⛔ Không thể điều chỉnh</h3>
+                        <button class="close-btn" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="acc-blocked-reason">
+                            <p><strong>${reason}</strong></p>
+                        </div>
+
+                        <div class="acc-blocked-details" style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                            <h4>Thông tin giao dịch:</h4>
+                            <p>Số tiền: <strong>${parseFloat(transaction.amount).toLocaleString()}đ</strong></p>
+                            <p>Khách hàng: <strong>${transaction.customer_name || transaction.phone}</strong></p>
+                            <p>SĐT: <strong>${transaction.phone}</strong></p>
+                            ${wallet ? `
+                                <p>Số dư hiện tại: <strong>${parseFloat(wallet.current_balance).toLocaleString()}đ</strong></p>
+                                ${wallet.used_amount > 0 ? `<p>Đã sử dụng: <strong class="text-danger">${parseFloat(wallet.used_amount).toLocaleString()}đ</strong></p>` : ''}
+                            ` : ''}
+                        </div>
+
+                        <div class="acc-blocked-action" style="margin-top: 16px; padding: 12px; background: #fff3cd; border-radius: 8px;">
+                            <p><strong>Giải pháp:</strong></p>
+                            <p>Liên hệ Admin để cộng/trừ công nợ riêng lẻ qua tab "Điều Chỉnh Công Nợ".</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.closeAdjustmentModal()">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    /**
+     * Hiển thị modal form điều chỉnh
+     */
+    function showAdjustmentFormModal(txId, transaction, wallet) {
+        const modalHtml = `
+            <div class="modal-overlay acc-modal-overlay" id="accAdjustFormModal">
+                <div class="modal acc-modal" style="max-width: 550px;">
+                    <div class="modal-header">
+                        <h3>⚠️ Điều chỉnh giao dịch</h3>
+                        <button class="close-btn" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="acc-adjust-info" style="padding: 12px; background: #e7f3ff; border-radius: 8px; margin-bottom: 16px;">
+                            <h4>Giao dịch gốc:</h4>
+                            <p>Mã GD: <strong>#${transaction.id}</strong></p>
+                            <p>Số tiền: <strong>${parseFloat(transaction.amount).toLocaleString()}đ</strong></p>
+                            <p>Khách hàng: <strong>${transaction.customer_name || 'N/A'}</strong> (${transaction.phone})</p>
+                            <p>Duyệt bởi: <strong>${transaction.verified_by || 'N/A'}</strong></p>
+                        </div>
+
+                        <form id="accAdjustForm">
+                            <input type="hidden" id="accAdjustTxId" value="${txId}">
+                            <input type="hidden" id="accAdjustAmount" value="${transaction.amount}">
+                            <input type="hidden" id="accAdjustWrongPhone" value="${transaction.phone}">
+
+                            <div class="form-group">
+                                <label><strong>Loại điều chỉnh:</strong></label>
+                                <div class="acc-adjust-types">
+                                    <label class="acc-radio-label">
+                                        <input type="radio" name="adjustType" value="debit_only" checked>
+                                        <span>Chỉ trừ ví khách sai (không biết khách đúng)</span>
+                                    </label>
+                                    <label class="acc-radio-label">
+                                        <input type="radio" name="adjustType" value="transfer_to_correct">
+                                        <span>Chuyển từ khách sai sang khách đúng</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group" id="accCorrectCustomerGroup" style="display: none;">
+                                <label>SĐT khách hàng đúng:</label>
+                                <input type="text" id="accCorrectPhone" class="form-control" placeholder="0901234567" maxlength="10">
+                                <div id="accCorrectCustomerLookup" class="acc-customer-lookup" style="display: none;"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label><strong>Lý do điều chỉnh:</strong> <span class="text-danger">*</span></label>
+                                <textarea id="accAdjustReason" class="form-control" rows="3" placeholder="Nhập lý do điều chỉnh (ít nhất 10 ký tự)..." minlength="10" required></textarea>
+                                <small class="text-muted">Ví dụ: Duyệt nhầm cho khách A, thực tế là khách B.</small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.closeAdjustmentModal()">Hủy</button>
+                        <button class="acc-btn acc-btn-danger" onclick="AccountantModule.confirmAdjustment()">Xác nhận điều chỉnh</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Add event listeners
+        document.querySelectorAll('input[name="adjustType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const correctGroup = document.getElementById('accCorrectCustomerGroup');
+                if (e.target.value === 'transfer_to_correct') {
+                    correctGroup.style.display = 'block';
+                } else {
+                    correctGroup.style.display = 'none';
+                }
+            });
+        });
+
+        // Phone lookup for correct customer
+        const correctPhoneInput = document.getElementById('accCorrectPhone');
+        if (correctPhoneInput) {
+            correctPhoneInput.addEventListener('input', debounce(lookupCorrectCustomer, 500));
+        }
+    }
+
+    /**
+     * Lookup khách hàng đúng
+     */
+    async function lookupCorrectCustomer(e) {
+        const phone = e.target.value.replace(/\D/g, '');
+        const lookupDiv = document.getElementById('accCorrectCustomerLookup');
+
+        if (phone.length !== 10) {
+            lookupDiv.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${phone}`);
+            const result = await response.json();
+
+            const customers = (result.data || []).flatMap(g => g.customers || []);
+
+            if (customers.length > 0) {
+                const c = customers[0];
+                lookupDiv.innerHTML = `
+                    <div class="acc-customer-found" style="padding: 8px; background: #d4edda; border-radius: 4px;">
+                        <strong>${c.name}</strong><br>
+                        <small>${c.phone}</small>
+                    </div>
+                `;
+                lookupDiv.style.display = 'block';
+            } else {
+                lookupDiv.innerHTML = `
+                    <div class="acc-customer-not-found" style="padding: 8px; background: #fff3cd; border-radius: 4px;">
+                        Khách hàng mới - sẽ được tạo tự động
+                    </div>
+                `;
+                lookupDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('[ACCOUNTANT] lookupCorrectCustomer error:', error);
+        }
+    }
+
+    /**
+     * Xác nhận điều chỉnh
+     */
+    async function confirmAdjustment() {
+        const txId = document.getElementById('accAdjustTxId')?.value;
+        const adjustType = document.querySelector('input[name="adjustType"]:checked')?.value;
+        const correctPhone = document.getElementById('accCorrectPhone')?.value;
+        const reason = document.getElementById('accAdjustReason')?.value?.trim();
+
+        if (!reason || reason.length < 10) {
+            showNotification('Lý do điều chỉnh phải có ít nhất 10 ký tự', 'error');
+            return;
+        }
+
+        if (adjustType === 'transfer_to_correct' && (!correctPhone || correctPhone.length !== 10)) {
+            showNotification('Vui lòng nhập SĐT khách hàng đúng (10 số)', 'error');
+            return;
+        }
+
+        const confirmBtn = document.querySelector('#accAdjustFormModal .acc-btn-danger');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = 'Đang xử lý...';
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/adjust`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    adjustment_type: adjustType,
+                    correct_customer_phone: adjustType === 'transfer_to_correct' ? correctPhone : null,
+                    reason,
+                    performed_by: window.authManager?.getUserInfo()?.username || 'accountant'
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Lỗi điều chỉnh');
+            }
+
+            showNotification(result.message || 'Điều chỉnh thành công!', 'success');
+            closeAdjustmentModal();
+
+            // Reload bảng Đã Duyệt
+            await loadApprovedToday(state.pagination.approved.page);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] confirmAdjustment error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = 'Xác nhận điều chỉnh';
+            }
+        }
+    }
+
+    /**
+     * Đóng modal điều chỉnh
+     */
+    function closeAdjustmentModal() {
+        const blockedModal = document.getElementById('accAdjustBlockedModal');
+        const formModal = document.getElementById('accAdjustFormModal');
+        if (blockedModal) blockedModal.remove();
+        if (formModal) formModal.remove();
+    }
+
+    /**
+     * Debounce helper
+     */
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -2095,7 +2409,11 @@
         lookupCustomerInApprove,
         // Auto-approve toggle
         loadAutoApproveSetting,
-        toggleAutoApprove
+        toggleAutoApprove,
+        // Adjustment functions (điều chỉnh GD đã duyệt)
+        openAdjustmentModal,
+        confirmAdjustment,
+        closeAdjustmentModal
     };
 
     // Auto-initialize when DOM is ready

@@ -1653,3 +1653,130 @@
     color: #991b1b;
     background: #fee2e2;
 }
+
+/* =====================================================
+   ADJUSTMENT BUTTON & MODAL
+   ===================================================== */
+
+.acc-action-cell {
+    white-space: nowrap;
+    text-align: center;
+}
+
+.acc-adjust-btn {
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid #f59e0b;
+    background: transparent;
+    color: #b45309;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.acc-adjust-btn:hover {
+    background: #fef3c7;
+    border-color: #d97706;
+}
+
+.acc-adjust-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Radio buttons for adjustment type */
+.acc-adjust-types {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.acc-radio-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.acc-radio-label:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.acc-radio-label input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #3b82f6;
+}
+
+.acc-radio-label input[type="radio"]:checked + span {
+    font-weight: 600;
+}
+
+/* Customer lookup in adjustment modal */
+.acc-customer-lookup {
+    margin-top: 8px;
+}
+
+.acc-customer-found,
+.acc-customer-not-found {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.acc-customer-found {
+    background: #d1fae5;
+    border: 1px solid #6ee7b7;
+}
+
+.acc-customer-not-found {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+}
+
+/* Blocked modal styling */
+.acc-blocked-reason {
+    padding: 16px;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    color: #991b1b;
+}
+
+.acc-blocked-reason p {
+    margin: 0;
+}
+
+.acc-blocked-details h4,
+.acc-blocked-action p strong {
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.acc-blocked-details p,
+.acc-blocked-action p {
+    margin: 4px 0;
+    font-size: 14px;
+}
+
+.text-danger {
+    color: #dc2626;
+}
+
+/* Adjust info in modal */
+.acc-adjust-info h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    color: #1e40af;
+}
+
+.acc-adjust-info p {
+    margin: 4px 0;
+    font-size: 14px;
+}
