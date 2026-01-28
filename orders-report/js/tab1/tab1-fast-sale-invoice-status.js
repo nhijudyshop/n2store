@@ -343,11 +343,29 @@
                 return order;
             };
 
+            // Helper: get PaymentAmount and Discount from request model
+            // API response doesn't include these, but request model has them
+            const enrichWithPaymentData = (order) => {
+                const matchedModel = requestModels.find(m => m.Reference === order.Reference);
+                if (matchedModel) {
+                    // PaymentAmount = số tiền trả trước từ request
+                    if (matchedModel.PaymentAmount && !order.PaymentAmount) {
+                        order.PaymentAmount = matchedModel.PaymentAmount;
+                    }
+                    // Discount = giảm giá từ request
+                    if ((matchedModel.Discount || matchedModel.DecreaseAmount) && !order.Discount) {
+                        order.Discount = matchedModel.Discount || matchedModel.DecreaseAmount || 0;
+                    }
+                }
+                return order;
+            };
+
             // Store successful orders
             if (apiResult.OrdersSucessed && Array.isArray(apiResult.OrdersSucessed)) {
                 apiResult.OrdersSucessed.forEach(order => {
                     enrichWithSessionIndex(order);
                     enrichWithOrderLines(order);
+                    enrichWithPaymentData(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             // Get original SaleOnlineOrder for enrichment
@@ -364,6 +382,7 @@
                 apiResult.OrdersError.forEach(order => {
                     enrichWithSessionIndex(order);
                     enrichWithOrderLines(order);
+                    enrichWithPaymentData(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             // Get original SaleOnlineOrder for enrichment
