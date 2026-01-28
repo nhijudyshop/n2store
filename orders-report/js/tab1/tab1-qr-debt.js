@@ -1790,13 +1790,10 @@ function populateSaleOrderLinesFromAPI(orderLines) {
         const productUOM = item.ProductUOMName || item.ProductUOM?.Name || 'Cái';
 
         // Check for discount in note (only if order has discount tag)
-        // notePrice = giá bán thực tế (e.g., "100k" = 100000)
-        // discount = (PriceUnit - notePrice) * Quantity (e.g., (180000 - 100000) * 2 = 160000)
-        const notePrice = hasDiscountTag ? parseDiscountFromNoteForDisplay(productNote) : 0;
-        const discountPerUnit = notePrice > 0 ? Math.max(0, price - notePrice) : 0;
-        const productDiscount = discountPerUnit * qty;
-        const isDiscountedProduct = productDiscount > 0;
-        if (isDiscountedProduct) totalDiscount += productDiscount;
+        // noteDiscount = giảm giá trực tiếp (e.g., "100k" = 100000 giảm giá)
+        const noteDiscount = hasDiscountTag ? parseDiscountFromNoteForDisplay(productNote) : 0;
+        const isDiscountedProduct = noteDiscount > 0;
+        if (isDiscountedProduct) totalDiscount += noteDiscount;
 
         // Highlight style for discounted products
         const rowStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : '';
@@ -1816,7 +1813,7 @@ function populateSaleOrderLinesFromAPI(orderLines) {
         // Note display with discount badge
         const noteDisplay = productNote
             ? (isDiscountedProduct
-                ? `<span style="${noteStyle}"><i class="fas fa-tag"></i> -${discountPerUnit.toLocaleString('vi-VN')}đ (${productNote})</span>`
+                ? `<span style="${noteStyle}"><i class="fas fa-tag"></i> -${noteDiscount.toLocaleString('vi-VN')}đ (${productNote})</span>`
                 : `<div style="${noteStyle}">${productNote}</div>`)
             : '<div style="font-size: 11px; color: #9ca3af;">Ghi chú</div>';
 
