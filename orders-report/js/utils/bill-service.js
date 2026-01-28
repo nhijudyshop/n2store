@@ -1165,29 +1165,9 @@ ${comment ? `
             if (contentUrl && contentId) {
                 console.log('[BILL-SERVICE] ⚡ Using pre-generated bill image:', contentUrl);
             } else {
-                // Step 1: Fetch TPOS bill HTML first (preferred) for accurate bill image
-                let billHtml = null;
-                const tposOrderId = orderResult?.Id;
-
-                if (tposOrderId && typeof window.getBillAuthHeader === 'function') {
-                    try {
-                        console.log('[BILL-SERVICE] Step 1a: Fetching TPOS bill HTML for order:', tposOrderId);
-                        const headers = await window.getBillAuthHeader();
-                        // Get orderData with SessionIndex
-                        const orderData = orderResult.SessionIndex ? orderResult :
-                            (window.OrderStore?.get(orderResult.SaleOnlineIds?.[0]) || orderResult);
-                        billHtml = await fetchTPOSBillHTML(tposOrderId, headers, orderData);
-                        if (billHtml) {
-                            console.log('[BILL-SERVICE] ✅ Got TPOS bill HTML');
-                        }
-                    } catch (tposError) {
-                        console.warn('[BILL-SERVICE] Failed to fetch TPOS bill, will use custom bill:', tposError.message);
-                    }
-                }
-
-                // Step 1b: Generate bill image (using TPOS HTML if available)
-                console.log('[BILL-SERVICE] Step 1b: Generating bill image...');
-                const imageBlob = await generateBillImage(orderResult, { ...options, billHtml });
+                // Generate bill image using custom template (no TPOS API request)
+                console.log('[BILL-SERVICE] Step 1: Generating bill image using custom template...');
+                const imageBlob = await generateBillImage(orderResult, options);
 
                 // Convert blob to File for upload
                 const imageFile = new File([imageBlob], `bill_${orderResult?.Number || Date.now()}.png`, {
