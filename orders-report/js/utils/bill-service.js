@@ -104,24 +104,6 @@ const BillService = (function () {
             orderResult?.ReceiverAddress ||
             '';
 
-        // Notes - separated into order-level and shop-level
-        // Order comment (per-order note like "CK 100K ACB 26/01")
-        const orderComment = (isModalVisible && document.getElementById('saleComment')?.value) ||
-            orderResult?.Comment ||
-            order?.Comment ||
-            '';
-
-        // Shop-wide delivery note (hotline warning + return policy)
-        // This comes from shop settings or default
-        const shopDeliveryNote = defaultData?.DeliveryNote ||
-            orderResult?.DeliveryNote ||
-            'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng, "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào.';
-
-        // Shop-wide comment (bank account info)
-        // This comes from shop settings or default
-        const shopComment = defaultData?.Comment ||
-            'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)';
-
         // Money values
         const shippingFee = (isModalVisible && parseFloat(document.getElementById('saleShippingFee')?.value)) ||
             orderResult?.DeliveryPrice ||
@@ -135,6 +117,84 @@ const BillService = (function () {
             orderResult?.AmountDeposit ||
             orderResult?.PaymentAmount ||
             0;
+
+        // ========== PARSE TAGS ==========
+        let orderTags = [];
+        try {
+            const tagsRaw = order?.Tags || orderResult?.Tags;
+            if (tagsRaw) {
+                orderTags = typeof tagsRaw === 'string' ? JSON.parse(tagsRaw) : tagsRaw;
+                if (!Array.isArray(orderTags)) orderTags = [];
+            }
+        } catch (e) {
+            orderTags = [];
+        }
+
+        // Find merge tag (Gộp X Y Z or GỘP X Y Z)
+        let mergeTagNumbers = [];
+        const mergeTag = orderTags.find(t => {
+            const tagName = (t.Name || '').trim();
+            return tagName.toLowerCase().startsWith('gộp ') || tagName.startsWith('Gộp ') || tagName.startsWith('GỘP ');
+        });
+        if (mergeTag) {
+            // Extract numbers from tag name "Gộp 745 923" → [745, 923]
+            const numbers = mergeTag.Name.match(/\d+/g);
+            if (numbers && numbers.length > 0) {
+                mergeTagNumbers = numbers;
+            }
+        }
+
+        // Check for discount tag (GIẢM GIÁ)
+        const hasDiscountTag = orderTags.some(t => {
+            const tagName = (t.Name || '').toUpperCase();
+            return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
+        });
+
+        // ========== AUTO-GENERATE ORDER COMMENT ==========
+        // Priority: 1. CK (prepaid), 2. GG (discount), 3. đơn gộp
+        const commentParts = [];
+        const commentDate = new Date();
+        const todayStr = `${String(commentDate.getDate()).padStart(2, '0')}/${String(commentDate.getMonth() + 1).padStart(2, '0')}`;
+
+        // 1. Prepaid amount → "CK 100K ACB 26/01"
+        if (prepaidAmount > 0) {
+            const amountStr = prepaidAmount >= 1000 ? `${Math.round(prepaidAmount / 1000)}K` : prepaidAmount.toLocaleString('vi-VN');
+            commentParts.push(`CK ${amountStr} ACB ${todayStr}`);
+        }
+
+        // 2. Discount amount → "GG 50K"
+        if (discount > 0 || hasDiscountTag) {
+            if (discount > 0) {
+                const discountStr = discount >= 1000 ? `${Math.round(discount / 1000)}K` : discount.toLocaleString('vi-VN');
+                commentParts.push(`GG ${discountStr}`);
+            } else {
+                commentParts.push('GG');
+            }
+        }
+
+        // 3. Merge tag → "đơn gộp 745 + 923"
+        if (mergeTagNumbers.length > 1) {
+            commentParts.push(`đơn gộp ${mergeTagNumbers.join(' + ')}`);
+        }
+
+        // Combine auto-generated comment with existing comment
+        const existingComment = (isModalVisible && document.getElementById('saleComment')?.value) ||
+            orderResult?.Comment ||
+            order?.Comment ||
+            '';
+        const autoComment = commentParts.join(', ');
+        const orderComment = autoComment || existingComment;
+
+        // Shop-wide delivery note (hotline warning + return policy)
+        // This comes from shop settings or default
+        const shopDeliveryNote = defaultData?.DeliveryNote ||
+            orderResult?.DeliveryNote ||
+            'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng, "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào.';
+
+        // Shop-wide comment (bank account info)
+        // This comes from shop settings or default
+        const shopComment = defaultData?.Comment ||
+            'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)';
 
         // Carrier info
         const carrierSelect = isModalVisible ? document.getElementById('saleDeliveryPartner') : null;
@@ -152,14 +212,18 @@ const BillService = (function () {
             orderResult?.UserName ||
             '';
 
-        // STT (Session Index)
+        // STT (Session Index) - prioritize merge tag numbers
         let sttDisplay = '';
-        if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
+        if (mergeTagNumbers.length > 1) {
+            // If has merge tag "Gộp 745 923", show "745 + 923"
+            sttDisplay = mergeTagNumbers.join(' + ');
+        } else if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
+            // Fallback to merged orders STTs
             const allSTTs = order.OriginalOrders
                 .map(o => o.SessionIndex)
                 .filter(stt => stt)
                 .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
-            sttDisplay = allSTTs.join(', ');
+            sttDisplay = allSTTs.join(' + ');
         } else {
             sttDisplay = order?.SessionIndex || orderResult?.SessionIndex || '';
         }
