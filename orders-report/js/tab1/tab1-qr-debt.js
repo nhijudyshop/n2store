@@ -1172,14 +1172,8 @@ async function openSaleButtonModal() {
     // Initialize product search for this modal
     initSaleProductSearch();
 
-    // Auto-fill notes after all data is loaded (transactions, discount tag, merge tag)
-    if (phone) {
-        try {
-            await fetchAndAutoFillNotes(normalizePhoneForQR(phone));
-        } catch (noteError) {
-            console.error('[SALE-MODAL] Error auto-filling notes:', noteError);
-        }
-    }
+    // Auto-fill notes from existing data (wallet, tags)
+    autoFillSaleNote();
 }
 
 /**
@@ -1558,149 +1552,62 @@ async function fetchDebtForSaleModal(phone) {
 
     // Note: Auto-fill notes is now called from openSaleModal after orderDetails are loaded
 }
-
 /**
- * Generate auto-notes from wallet transactions
- * Format:
- * - Bank transfer: "CK [amount]K [bank] [DD/MM]" (e.g., "CK 1335K ACB 25/01")
- * - Return/refund: "Trừ [amount]K Tiền Trả Hàng Đơn [Order Code]"
- * @param {Array} transactions - Array of transaction objects
- * @returns {string} Combined notes string
+ * Auto-fill notes from existing data (no extra API calls)
+ * Uses: salePrepaidAmount (wallet), order.Tags (discount/merge)
  */
-function generateAutoNotesFromTransactions(transactions) {
-    if (!transactions || !Array.isArray(transactions)) return '';
-
-    const notes = [];
-
-    transactions.forEach(tx => {
-        // Chỉ xử lý giao dịch dương (công nợ dương)
-        if (tx.amount <= 0) return;
-
-        const amountK = Math.round(tx.amount / 1000);
-        const date = new Date(tx.created_at);
-        const dateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-
-        if (tx.source === 'BANK_TRANSFER' || tx.reference_type === 'balance_history') {
-            // Chuyển khoản: CK [amount]K [bank] [DD/MM]
-            const bank = tx.gateway || 'BANK';
-            notes.push(`CK ${amountK}K ${bank} ${dateStr}`);
-        } else if (tx.source === 'RETURN_GOODS' || tx.type === 'VIRTUAL_CREDIT_ISSUED' || tx.reference_type === 'ticket') {
-            // Trả hàng/Thu về: Trừ [amount]K Tiền Trả Hàng Đơn [Mã đơn]
-            const orderCode = tx.reference_id || tx.source_id || '';
-            if (orderCode) {
-                notes.push(`Trừ ${amountK}K Tiền Trả Hàng Đơn ${orderCode}`);
-            } else {
-                notes.push(`Trừ ${amountK}K Tiền Trả Hàng`);
-            }
-        }
-    });
-
-    return notes.join('\n');
-}
-
-/**
- * Fetch transactions and auto-fill notes in the sale modal
- * Also includes discount tag (GG) and merge tag (đơn gộp) from order
- * @param {string} phone - Normalized phone number
- */
-async function fetchAndAutoFillNotes(phone) {
+function autoFillSaleNote() {
     const noteField = document.getElementById('saleReceiverNote');
-    if (!noteField) return;
+    if (!noteField || noteField.value.trim()) return; // Skip if already has value
+
+    const order = currentSaleOrderData;
+    if (!order) return;
 
     const noteParts = [];
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    // ========== 1. CK from transactions ==========
+    // 1. CK from wallet balance (already fetched to salePrepaidAmount)
+    const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    if (walletBalance > 0) {
+        const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
+        noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
+    }
+
+    // Parse order tags
+    let orderTags = [];
     try {
-        const response = await fetch(`${QR_API_URL}/api/customer/${encodeURIComponent(phone)}/transactions?limit=50`);
-        const result = await response.json();
-
-        if (result.success && result.data && result.data.length > 0) {
-            const positiveTransactions = result.data.filter(tx => tx.amount > 0);
-
-            if (positiveTransactions.length > 0) {
-                const autoNotes = generateAutoNotesFromTransactions(positiveTransactions);
-                if (autoNotes) {
-                    noteParts.push(autoNotes);
-                }
-            }
+        if (order.Tags) {
+            orderTags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : order.Tags;
+            if (!Array.isArray(orderTags)) orderTags = [];
         }
-    } catch (error) {
-        console.error('[SALE-MODAL] Error fetching transactions:', error);
+    } catch (e) {
+        orderTags = [];
     }
 
-    // ========== 2. GG from discount tag + 3. Gộp from merge tag ==========
-    const order = currentSaleOrderData;
-    if (order) {
-        // Parse order tags
-        let orderTags = [];
-        try {
-            const tagsRaw = order.Tags;
-            if (tagsRaw) {
-                orderTags = typeof tagsRaw === 'string' ? JSON.parse(tagsRaw) : tagsRaw;
-                if (!Array.isArray(orderTags)) orderTags = [];
-            }
-        } catch (e) {
-            orderTags = [];
-        }
+    // 2. GG from discount tag
+    const hasDiscountTag = orderTags.some(tag =>
+        (tag.Name || '').toUpperCase().includes('GIẢM GIÁ')
+    );
+    if (hasDiscountTag) {
+        noteParts.push('GG');
+    }
 
-        // Check for discount tag "GIẢM GIÁ"
-        const hasDiscountTag = orderTags.some(tag => {
-            const tagName = (tag.Name || '').toUpperCase();
-            return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
-        });
-
-        // Calculate discount from product notes if has discount tag
-        if (hasDiscountTag && order.Details && order.Details.length > 0) {
-            let totalDiscount = 0;
-            order.Details.forEach(line => {
-                const note = line.Note || '';
-                // Parse discount note like "100k" or "550K" = actual price
-                const match = note.match(/(\d+)\s*k/i);
-                if (match) {
-                    const actualPrice = parseInt(match[1]) * 1000;
-                    const originalPrice = line.Price || 0;
-                    const qty = line.Quantity || 1;
-                    const discountPerUnit = originalPrice - actualPrice;
-                    if (discountPerUnit > 0) {
-                        totalDiscount += discountPerUnit * qty;
-                    }
-                }
-            });
-
-            if (totalDiscount > 0) {
-                const discountStr = totalDiscount >= 1000
-                    ? `${Math.round(totalDiscount / 1000)}K`
-                    : totalDiscount.toLocaleString('vi-VN');
-                noteParts.push(`GG ${discountStr}`);
-                console.log('[SALE-MODAL] Auto-note: discount =', totalDiscount);
-            }
-        }
-
-        // Check for merge tag "Gộp X Y" or "GỘP X Y"
-        const mergeTag = orderTags.find(tag => {
-            const tagName = (tag.Name || '').trim();
-            return tagName.toLowerCase().startsWith('gộp ') ||
-                   tagName.startsWith('Gộp ') ||
-                   tagName.startsWith('GỘP ');
-        });
-
-        if (mergeTag) {
-            const numbers = mergeTag.Name.match(/\d+/g);
-            if (numbers && numbers.length > 1) {
-                noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
-                console.log('[SALE-MODAL] Auto-note: merge tag =', mergeTag.Name);
-            }
+    // 3. Gộp from merge tag
+    const mergeTag = orderTags.find(tag =>
+        (tag.Name || '').toLowerCase().startsWith('gộp ')
+    );
+    if (mergeTag) {
+        const numbers = mergeTag.Name.match(/\d+/g);
+        if (numbers && numbers.length > 1) {
+            noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
         }
     }
 
-    // ========== Combine all notes ==========
+    // Set note
     if (noteParts.length > 0) {
-        const combinedNote = noteParts.join(', ');
-        // Only auto-fill if the note field is empty
-        if (!noteField.value.trim()) {
-            noteField.value = combinedNote;
-            console.log('[SALE-MODAL] Auto-filled notes:', combinedNote);
-        }
+        noteField.value = noteParts.join(', ');
+        console.log('[SALE-MODAL] Auto-filled note:', noteField.value);
     }
 }
 
@@ -1737,7 +1644,6 @@ function showCustomerWalletHistory() {
 
 // Export functions to window
 window.showCustomerWalletHistory = showCustomerWalletHistory;
-window.generateAutoNotesFromTransactions = generateAutoNotesFromTransactions;
 
 /**
  * Populate order items (products) into the modal
