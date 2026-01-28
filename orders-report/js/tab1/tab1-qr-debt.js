@@ -1579,7 +1579,7 @@ function generateAutoNotesFromTransactions(transactions) {
         }
     });
 
-    return notes.join(' | ');
+    return notes.join('\n');
 }
 
 /**
