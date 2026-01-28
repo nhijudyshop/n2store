@@ -3364,16 +3364,29 @@ router.put('/customer-info/:unique_code', async (req, res) => {
  * PUT /api/sepay/transaction/:id/phone
  * Update linked_customer_phone for a specific transaction
  * This allows moving a transaction's debt from one phone to another
- * Body: { 
+ * Body: {
  *   phone: string,
  *   is_manual_entry?: boolean - If true, sets verification_status = 'PENDING_VERIFICATION' for accountant approval
  *   entered_by?: string - Email/name of the person entering the phone (for audit trail)
+ *   customer_name?: string - Customer name (optional)
+ *   is_accountant_correction?: boolean - If true, this is an accountant correction with note + image
+ *   note?: string - Custom note from accountant
+ *   verification_image_url?: string - Image URL for verification
  * }
  */
 router.put('/transaction/:id/phone', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { phone, name, is_manual_entry = false, entered_by = 'staff' } = req.body;
+    const {
+        phone,
+        name,
+        customer_name,
+        is_manual_entry = false,
+        entered_by = 'staff',
+        is_accountant_correction = false,
+        note,
+        verification_image_url
+    } = req.body;
 
     try {
         // Validate inputs
@@ -3432,16 +3445,32 @@ router.put('/transaction/:id/phone', async (req, res) => {
             // Manual entry by staff → requires accountant approval
             // Set verification_status = 'PENDING_VERIFICATION', match_method = 'manual_entry'
             // Do NOT set wallet_processed = TRUE (will be set after approval)
-            updateQuery = `UPDATE balance_history 
-                SET linked_customer_phone = $1, 
+            updateQuery = `UPDATE balance_history
+                SET linked_customer_phone = $1,
                     match_method = 'manual_entry',
                     verification_status = 'PENDING_VERIFICATION',
                     verification_note = $3,
                     wallet_processed = FALSE
-                WHERE id = $2 
+                WHERE id = $2
                 RETURNING *`;
             updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`];
             console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval`);
+        } else if (is_accountant_correction) {
+            // Accountant correction with custom note and optional image
+            const finalNote = note || `Thay đổi SĐT bởi ${entered_by}`;
+            updateQuery = `UPDATE balance_history
+                SET linked_customer_phone = $1,
+                    customer_name = COALESCE($5, customer_name),
+                    match_method = 'manual_link',
+                    verification_status = 'APPROVED',
+                    verified_by = $3,
+                    verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+                    verification_note = $4,
+                    verification_image_url = COALESCE($6, verification_image_url)
+                WHERE id = $2
+                RETURNING *`;
+            updateParams = [newPhone, id, entered_by, finalNote, customer_name || name || null, verification_image_url || null];
+            console.log(`[TRANSACTION-PHONE-UPDATE] Accountant correction with custom note/image - auto-approving`);
         } else {
             // Accountant/admin editing → AUTO-APPROVE immediately
             // Set verification_status = 'APPROVED', match_method = 'manual_link'
