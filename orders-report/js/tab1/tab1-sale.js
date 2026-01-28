@@ -84,14 +84,20 @@ function calculateSaleOrderDiscount(order) {
 
     orderLines.forEach(line => {
         const note = line.Note || '';
-        const noteDiscount = parseDiscountFromNoteSale(note);  // "100k" = 100000 (giảm giá trực tiếp)
-        if (noteDiscount > 0) {
-            totalDiscount += noteDiscount;
-            discountedProducts.push({
-                productName: line.Product?.Name || line.ProductName || 'N/A',
-                discount: noteDiscount,
-                note: note
-            });
+        const notePrice = parseDiscountFromNoteSale(note);  // "100k" = 100000 (giá bán thực tế)
+        if (notePrice > 0) {
+            const priceUnit = line.PriceUnit || line.Price || 0;
+            const qty = line.ProductUOMQty || line.Quantity || 1;
+            const discountPerUnit = priceUnit - notePrice;  // 180000 - 100000 = 80000
+            if (discountPerUnit > 0) {
+                const lineDiscount = discountPerUnit * qty;  // 80000 * 2 = 160000
+                totalDiscount += lineDiscount;
+                discountedProducts.push({
+                    productName: line.Product?.Name || line.ProductName || 'N/A',
+                    discount: lineDiscount,
+                    note: note
+                });
+            }
         }
     });
 
