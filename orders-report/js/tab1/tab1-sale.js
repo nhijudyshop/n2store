@@ -714,20 +714,37 @@ async function confirmAndPrintSale() {
 
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
-        // Store invoice status to localStorage + Firebase and update "Phiếu bán hàng" column
+        // IMPORTANT: Save form values BEFORE debt update and BEFORE storing
+        // (debt update changes salePrepaidAmount to remainingDebt)
+        const savedWalletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+        const savedDiscount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
+
+        // Store invoice status to localStorage + Firebase
         if (window.InvoiceStatusStore) {
             console.log('[SALE-CONFIRM] Storing invoice status...');
             window.InvoiceStatusStore.storeFromApiResult(result);
+
+            // ĐƠN GIẢN HÓA: Cập nhật trực tiếp PaymentAmount và Discount từ form
+            // Vì API response không có các field này
+            const saleOnlineId = currentSaleOrderData?.Id;
+            if (saleOnlineId) {
+                const storedData = window.InvoiceStatusStore.get(saleOnlineId);
+                if (storedData) {
+                    storedData.PaymentAmount = savedWalletBalance;
+                    storedData.Discount = savedDiscount;
+                    window.InvoiceStatusStore.set(saleOnlineId, storedData, currentSaleOrderData);
+                    console.log('[SALE-CONFIRM] Updated InvoiceStatusStore with form values:', {
+                        PaymentAmount: savedWalletBalance,
+                        Discount: savedDiscount
+                    });
+                }
+            }
         }
         if (window.updateMainTableInvoiceCells) {
             setTimeout(() => {
                 window.updateMainTableInvoiceCells(result);
             }, 100);
         }
-
-        // IMPORTANT: Save wallet balance BEFORE debt update for bill generation
-        // (debt update changes salePrepaidAmount to remainingDebt)
-        const savedWalletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
 
         // Update debt after order creation (same logic as before)
         const currentDebt = savedWalletBalance;
