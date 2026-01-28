@@ -2139,13 +2139,13 @@
         const { reason, transaction, wallet, hasWithdrawals } = result;
 
         const modalHtml = `
-            <div class="modal-overlay acc-modal-overlay" id="accAdjustBlockedModal">
-                <div class="modal acc-modal" style="max-width: 500px;">
-                    <div class="modal-header">
+            <div class="acc-modal-overlay" id="accAdjustBlockedModal">
+                <div class="acc-modal" style="max-width: 500px;">
+                    <div class="acc-modal-header">
                         <h3>⛔ Không thể điều chỉnh</h3>
-                        <button class="close-btn" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
+                        <button class="acc-modal-close" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
                     </div>
-                    <div class="modal-body">
+                    <div class="acc-modal-body">
                         <div class="acc-blocked-reason">
                             <p><strong>${reason}</strong></p>
                         </div>
@@ -2166,7 +2166,7 @@
                             <p>Liên hệ Admin để cộng/trừ công nợ riêng lẻ qua tab "Điều Chỉnh Công Nợ".</p>
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="acc-modal-footer">
                         <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.closeAdjustmentModal()">Đóng</button>
                     </div>
                 </div>
@@ -2184,13 +2184,13 @@
      */
     function showAdjustmentFormModal(txId, transaction, wallet) {
         const modalHtml = `
-            <div class="modal-overlay acc-modal-overlay" id="accAdjustFormModal">
-                <div class="modal acc-modal" style="max-width: 550px;">
-                    <div class="modal-header">
+            <div class="acc-modal-overlay" id="accAdjustFormModal">
+                <div class="acc-modal" style="max-width: 550px;">
+                    <div class="acc-modal-header">
                         <h3>⚠️ Điều chỉnh giao dịch</h3>
-                        <button class="close-btn" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
+                        <button class="acc-modal-close" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
                     </div>
-                    <div class="modal-body">
+                    <div class="acc-modal-body">
                         <div class="acc-adjust-info" style="padding: 12px; background: #e7f3ff; border-radius: 8px; margin-bottom: 16px;">
                             <h4>Giao dịch gốc:</h4>
                             <p>Mã GD: <strong>#${transaction.id}</strong></p>
@@ -2231,7 +2231,7 @@
                             </div>
                         </form>
                     </div>
-                    <div class="modal-footer">
+                    <div class="acc-modal-footer">
                         <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.closeAdjustmentModal()">Hủy</button>
                         <button class="acc-btn acc-btn-danger" onclick="AccountantModule.confirmAdjustment()">Xác nhận điều chỉnh</button>
                     </div>
