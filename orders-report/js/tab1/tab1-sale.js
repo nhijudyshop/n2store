@@ -725,8 +725,12 @@ async function confirmAndPrintSale() {
             }, 100);
         }
 
+        // IMPORTANT: Save wallet balance BEFORE debt update for bill generation
+        // (debt update changes salePrepaidAmount to remainingDebt)
+        const savedWalletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+
         // Update debt after order creation (same logic as before)
-        const currentDebt = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+        const currentDebt = savedWalletBalance;
         const codAmount = parseFloat(document.getElementById('saleCOD')?.value) || 0;
         if (currentDebt > 0) {
             const customerPhone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
@@ -796,12 +800,14 @@ async function confirmAndPrintSale() {
 
         if (useTposBill) {
             // Fetch HTML bill from TPOS API and open print popup
+            // Pass savedWalletBalance for fallback case if TPOS API fails
             console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
-            window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData);
+            window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData, savedWalletBalance);
         } else {
             // Use Web bill template (local)
-            console.log('[SALE-CONFIRM] Using Web bill template...');
-            window.openPrintPopup(createResult, { currentSaleOrderData: currentSaleOrderData });
+            // Pass savedWalletBalance to ensure correct calculation (before debt update modified the form field)
+            console.log('[SALE-CONFIRM] Using Web bill template with walletBalance:', savedWalletBalance);
+            window.openPrintPopup(createResult, { currentSaleOrderData: currentSaleOrderData, walletBalance: savedWalletBalance });
         }
 
         // Success notification
@@ -1111,9 +1117,10 @@ function buildSaleOrderModelForInsertList() {
  * @param {number} orderId - Order ID from TPOS
  * @param {object} headers - Auth headers for TPOS API
  * @param {object} orderData - Original order data (for getting STT)
+ * @param {number} walletBalance - Wallet balance for fallback custom bill (optional)
  * @deprecated Use window.fetchAndPrintTPOSBill from bill-service.js
  */
-async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
+async function fetchAndPrintTPOSBill(orderId, headers, orderData, walletBalance = null) {
     try {
         console.log('[SALE-CONFIRM] Fetching HTML bill for order:', orderId);
 
@@ -1184,8 +1191,9 @@ async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
     } catch (error) {
         console.error('[SALE-CONFIRM] Error fetching HTML bill:', error);
         // Fallback to custom bill if TPOS API fails
-        console.log('[SALE-CONFIRM] Falling back to custom bill...');
-        window.openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData });
+        // Pass walletBalance for correct calculation (form field may have been modified by debt update)
+        console.log('[SALE-CONFIRM] Falling back to custom bill with walletBalance:', walletBalance);
+        window.openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData, walletBalance: walletBalance });
     }
 }
 

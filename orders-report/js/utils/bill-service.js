@@ -114,8 +114,12 @@ const BillService = (function () {
             orderResult?.DecreaseAmount ||
             0;
 
-        // Wallet balance from form (for offline calculation)
-        const walletBalance = (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) ||
+        // Wallet balance for offline calculation
+        // Priority: 1) options.walletBalance (passed explicitly, e.g. from confirmAndPrintSale)
+        //           2) form field salePrepaidAmount (when modal visible)
+        //           3) orderResult.PaymentAmount (fallback)
+        const walletBalance = options.walletBalance ||
+            (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) ||
             orderResult?.PaymentAmount ||
             0;
 
@@ -206,9 +210,11 @@ const BillService = (function () {
         const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
 
         // Debug log key variables (AFTER orderLines is defined)
+        const walletSource = options.walletBalance ? 'options' :
+            (isModalVisible && document.getElementById('salePrepaidAmount')?.value) ? 'form' : 'orderResult';
         console.log('[BILL-SERVICE] Bill variables:', {
             shopName, carrierName, billNumber, sellerName, sttDisplay,
-            shippingFee, discount, walletBalance,
+            shippingFee, discount, walletBalance, walletSource,
             orderLinesCount: orderLines.length
         });
         let totalQuantity = 0;
@@ -264,6 +270,16 @@ ${uomName}                            </td>
 
         // Còn lại = tổng tiền - trả trước
         const codAmount = Math.max(0, finalTotal - safePrepaidAmount);
+
+        console.log('[BILL-SERVICE] Calculation:', {
+            totalAmount: safeTotalAmount,
+            discount: safeDiscount,
+            shippingFee: safeShippingFee,
+            finalTotal,
+            walletBalance: safeWalletBalance,
+            prepaidAmount: safePrepaidAmount,
+            codAmount
+        });
 
         // ========== EXACT TPOS HTML TEMPLATE ==========
         // CSS and structure copied directly from TPOS API response (html_bill.txt)
@@ -907,7 +923,7 @@ ${productsHTML}
                             <td colspan="2" class="text-right" style="border-right: none !important">
                                 <strong>Giảm giá :</strong>
                             </td>
-                             <td style="border-left:none !important" class="text-right">-${discount.toLocaleString('vi-VN')}</td>
+                             <td style="border-left:none !important" class="text-right">${safeDiscount.toLocaleString('vi-VN')}</td>
                         </tr>` : ''}
 
 
@@ -915,7 +931,7 @@ ${productsHTML}
                             <td colspan="2" class="text-right" style="border-right: none !important">
                                 <strong>Tiền ship :</strong>
                             </td>
-                             <td style="border-left:none !important" class="text-right">${shippingFee.toLocaleString('vi-VN')}</td>
+                             <td style="border-left:none !important" class="text-right">${safeShippingFee.toLocaleString('vi-VN')}</td>
                         </tr>
 
 
