@@ -519,7 +519,7 @@ router.get('/customer/:phone/transactions', async (req, res) => {
                             ELSE note
                         END as note,
                         NULL as created_by,
-                        created_at,  -- Luôn dùng created_at (thời điểm cấp)
+                        issued_at as created_at,  -- Dùng issued_at vì bảng virtual_credits có cột issued_at
                         expires_at,
                         NULL::varchar as gateway  -- Virtual credits don't have gateway
                     FROM virtual_credits
