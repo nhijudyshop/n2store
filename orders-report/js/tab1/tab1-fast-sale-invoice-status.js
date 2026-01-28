@@ -230,12 +230,19 @@
             // Ensure complete data - use Reference as Number if Number is null (for draft orders)
             const billNumber = invoiceData.Number || invoiceData.Reference || order?.Code || '';
 
+            // Determine ShowState based on payment: "Đã thanh toán" if fully prepaid (CashOnDelivery = 0)
+            const cashOnDelivery = invoiceData.CashOnDelivery || 0;
+            const paymentAmount = invoiceData.PaymentAmount || 0;
+            const isFullyPaid = cashOnDelivery === 0 && paymentAmount > 0;
+            const showState = isFullyPaid ? 'Đã thanh toán' : (invoiceData.ShowState || 'Nháp');
+            const state = isFullyPaid ? 'paid' : (invoiceData.State || 'draft');
+
             this._data.set(String(saleOnlineId), {
                 Id: invoiceData.Id,
                 Number: billNumber,  // Use complete bill number (never null)
                 Reference: invoiceData.Reference || order?.Code || '',
-                State: invoiceData.State,           // "draft", "open", "cancel", etc.
-                ShowState: invoiceData.ShowState,   // "Nháp", "Đã xác nhận", "Huỷ bỏ", "Đã thanh toán", etc.
+                State: state,           // "draft", "open", "cancel", "paid"
+                ShowState: showState,   // "Nháp", "Đã xác nhận", "Huỷ bỏ", "Đã thanh toán"
                 StateCode: invoiceData.StateCode,   // "None", "NotEnoughInventory", "CrossCheckComplete", etc.
                 IsMergeCancel: invoiceData.IsMergeCancel,
                 PartnerId: invoiceData.PartnerId,

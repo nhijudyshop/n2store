@@ -856,12 +856,6 @@ function buildSaleOrderModelForInsertList() {
     const remainingText = document.getElementById('saleRemainingBalance')?.textContent || '0';
     const cashOnDelivery = parseFloat(remainingText.replace(/[.,]/g, '')) || 0;
 
-    // Determine State based on payment: "paid" if fully prepaid, "draft" otherwise
-    const isFullyPaid = prepaidAmount >= codValue && codValue > 0;
-    const orderState = isFullyPaid ? "paid" : "draft";
-    const orderShowState = isFullyPaid ? "Đã thanh toán" : "Nháp";
-    console.log('[SALE-MODEL] Payment status:', { prepaidAmount, codValue, cashOnDelivery, isFullyPaid, orderState, orderShowState });
-
     // Get carrier
     const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 0;
@@ -914,8 +908,8 @@ function buildSaleOrderModelForInsertList() {
         DateInvoice: new Date().toISOString(),
         DateCreated: new Date().toISOString(),
         CreatedById: null,
-        State: orderState,
-        ShowState: orderShowState,
+        State: "draft",
+        ShowState: "Nháp",
         CompanyId: 0,
         Comment: comment,
         WarehouseId: 0,
@@ -1256,11 +1250,6 @@ function buildFastSaleOrderPayload() {
     // 🔥 CashOnDelivery = Còn lại = Total - Prepaid
     const cashOnDelivery = codValue - prepaidAmount;
 
-    // Determine State based on payment: "paid" if fully prepaid, "draft" otherwise
-    const isFullyPaidPayload = prepaidAmount >= codValue && codValue > 0;
-    const orderStatePayload = isFullyPaidPayload ? "paid" : "draft";
-    const orderShowStatePayload = isFullyPaidPayload ? "Đã thanh toán" : "Nháp";
-
     // Get carrier from dropdown (saleDeliveryPartner)
     const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 7;
@@ -1335,8 +1324,8 @@ function buildFastSaleOrderPayload() {
         DateInvoice: dateInvoice,
         DateCreated: dateCreated,
         CreatedById: null,
-        State: orderStatePayload,
-        ShowState: orderShowStatePayload,
+        State: 'draft',
+        ShowState: 'Nháp',
         CompanyId: 1,
         Comment: document.getElementById('saleReceiverNote')?.value || '',
         WarehouseId: 1,
