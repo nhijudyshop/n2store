@@ -1163,53 +1163,18 @@ async function fetchAndPrintTPOSBill(orderId, headers, orderData) {
             console.log('[SALE-CONFIRM] No STT to display');
         }
 
-        // Open print popup with modified HTML
-        openPrintPopupWithHtml(modifiedHtml);
+        // Open print popup with modified HTML (use BillService)
+        window.openPrintPopupWithHtml(modifiedHtml);
 
     } catch (error) {
         console.error('[SALE-CONFIRM] Error fetching HTML bill:', error);
         // Fallback to custom bill if TPOS API fails
         console.log('[SALE-CONFIRM] Falling back to custom bill...');
-        openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData });
+        window.openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData });
     }
 }
 
-/**
- * Open print popup with raw HTML content
- * @param {string} html - HTML content to print
- */
-function openPrintPopupWithHtml(html) {
-    console.log('[SALE-CONFIRM] Opening print popup with TPOS HTML...');
-
-    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
-
-    if (!printWindow) {
-        console.error('[SALE-CONFIRM] Failed to open print window - popup blocked?');
-        window.notificationManager?.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
-        return;
-    }
-
-    // Write the HTML content
-    printWindow.document.write(html);
-    printWindow.document.close();
-
-    // Use flag to prevent double print
-    let printed = false;
-    const triggerPrint = () => {
-        if (printed || !printWindow || printWindow.closed) return;
-        printed = true;
-        printWindow.focus();
-        printWindow.print();
-    };
-
-    // Wait for content to load, then trigger print
-    printWindow.onload = function() {
-        setTimeout(triggerPrint, 500);
-    };
-
-    // Fallback if onload doesn't fire
-    setTimeout(triggerPrint, 1500);
-}
+// NOTE: openPrintPopupWithHtml is now provided by BillService (bill-service.js)
 
 /**
  * Format date with timezone like: 2025-12-11T21:58:53.4497898+07:00
