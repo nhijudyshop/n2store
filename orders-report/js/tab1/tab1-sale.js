@@ -718,24 +718,30 @@ async function confirmAndPrintSale() {
         // (debt update changes salePrepaidAmount to remainingDebt)
         const savedWalletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
         const savedDiscount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
+        // Get carrier name from dropdown (API response often misses this)
+        const carrierSelect = document.getElementById('saleDeliveryPartner');
+        const selectedOption = carrierSelect?.selectedOptions[0];
+        const savedCarrierName = selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || '';
 
         // Store invoice status to localStorage + Firebase
         if (window.InvoiceStatusStore) {
             console.log('[SALE-CONFIRM] Storing invoice status...');
             window.InvoiceStatusStore.storeFromApiResult(result);
 
-            // ĐƠN GIẢN HÓA: Cập nhật trực tiếp PaymentAmount và Discount từ form
-            // Vì API response không có các field này
+            // ĐƠN GIẢN HÓA: Cập nhật trực tiếp các giá trị từ form
+            // Vì API response không có hoặc sai các field này
             const saleOnlineId = currentSaleOrderData?.Id;
             if (saleOnlineId) {
                 const storedData = window.InvoiceStatusStore.get(saleOnlineId);
                 if (storedData) {
                     storedData.PaymentAmount = savedWalletBalance;
                     storedData.Discount = savedDiscount;
+                    storedData.CarrierName = savedCarrierName;
                     window.InvoiceStatusStore.set(saleOnlineId, storedData, currentSaleOrderData);
                     console.log('[SALE-CONFIRM] Updated InvoiceStatusStore with form values:', {
                         PaymentAmount: savedWalletBalance,
-                        Discount: savedDiscount
+                        Discount: savedDiscount,
+                        CarrierName: savedCarrierName
                     });
                 }
             }
