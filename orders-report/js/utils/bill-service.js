@@ -9,53 +9,63 @@
 const BillService = (function () {
 
     /**
-     * Generate custom bill HTML from order data
+     * Generate bill HTML from order data (TPOS-style template)
+     *
+     * This is a fallback bill template that matches TPOS bill format.
+     * Used when TPOS API is unavailable or fails.
+     *
+     * ===== TEMPLATE VARIABLES =====
+     * These variables are extracted from orderResult and can be customized:
+     *
+     * SHOP INFO:
+     *   - shopName: Shop name (default: "NJD Live")
+     *   - shopPhone: Shop phone (default: "090 8888 674")
+     *   - shopAddress: Shop address (optional)
+     *
+     * ORDER INFO:
+     *   - orderResult.Number: Bill number (e.g., "NJD/2026/49318")
+     *   - dateStr: Bill date formatted as "DD/MM/YYYY HH:mm"
+     *   - carrierName: Delivery carrier name
+     *   - sttDisplay: Session index / STT number
+     *
+     * CUSTOMER INFO:
+     *   - receiverName: Customer name
+     *   - receiverPhone: Customer phone
+     *   - receiverAddress: Customer address
+     *   - sellerName: Seller name
+     *
+     * PRODUCTS:
+     *   - orderLines[].ProductName: Product name
+     *   - orderLines[].ProductUOMQty / Quantity: Quantity
+     *   - orderLines[].PriceUnit / Price: Unit price
+     *   - orderLines[].Note: Product note (optional)
+     *
+     * TOTALS:
+     *   - totalQuantity: Sum of all quantities
+     *   - totalAmount: Sum of all product prices (before shipping/discount)
+     *   - shippingFee: Shipping fee
+     *   - discount: Discount amount (DecreaseAmount)
+     *   - prepaidAmount: Prepaid/deposit amount (PaymentAmount)
+     *   - finalTotal: totalAmount - discount + shippingFee
+     *   - remainingBalance: COD amount to collect
+     *
+     * NOTES:
+     *   - deliveryNote: Delivery note / Comment
+     *
      * @param {Object} orderResult - The created order result from FastSaleOrder API
      * @param {Object} options - Optional parameters
      * @param {Object} options.currentSaleOrderData - Current sale order data (from saleButtonModal)
      * @returns {string} HTML content for the bill
      */
     function generateCustomBillHTML(orderResult, options = {}) {
-        // Get bill template settings from localStorage
-        const settings = window.getBillTemplateSettings ? window.getBillTemplateSettings() : {};
-
         // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
         const currentSaleOrderData = options.currentSaleOrderData || null;
         const order = currentSaleOrderData || orderResult;
         const defaultData = window.lastDefaultSaleData || {};
         const company = defaultData.Company || { Name: 'NJD Live', Phone: '090 8888 674' };
 
-        // Use settings for shop info if provided, otherwise fallback to company data
-        const shopName = settings.shopName || company.Name || 'NJD Live';
-        const shopPhone = settings.shopPhone || company.Phone || '090 8888 674';
-        const shopAddress = settings.shopAddress || '';
-        const billTitle = settings.billTitle || 'PHIẾU BÁN HÀNG';
-        const footerText = settings.footerText || 'Cảm ơn quý khách! Hẹn gặp lại!';
-
-        // Section visibility settings (default all visible)
-        const showHeader = settings.showHeader !== false;
-        const showTitle = settings.showTitle !== false;
-        const showSTT = settings.showSTT !== false;
-        const showBarcode = settings.showBarcode !== false;
-        const showOrderInfo = settings.showOrderInfo !== false;
-        const showCarrier = settings.showCarrier !== false;
-        const showCustomer = settings.showCustomer !== false;
-        const showSeller = settings.showSeller !== false;
-        const showProducts = settings.showProducts !== false;
-        const showTotals = settings.showTotals !== false;
-        const showCOD = settings.showCOD !== false;
-        const showDeliveryNote = settings.showDeliveryNote !== false;
-        const showFooter = settings.showFooter !== false;
-
-        // Style settings
-        const fontShopName = settings.fontShopName || 18;
-        const fontTitle = settings.fontTitle || 16;
-        const fontContent = settings.fontContent || 13;
-        const fontCOD = settings.fontCOD || 18;
-        const billWidth = settings.billWidth || '80mm';
-        const billPadding = settings.billPadding || 20;
-        const codBackground = settings.codBackground || '#fef3c7';
-        const codBorder = settings.codBorder || '#f59e0b';
+        // Shop info
+        const shopName = company.Name || 'NJD Live';
 
         // Only read form fields if saleButtonModal is currently visible (single order flow)
         // This prevents batch flow from using stale form data from previous single order
@@ -79,10 +89,9 @@ const BillService = (function () {
             orderResult?.ReceiverAddress ||
             '';
         const deliveryNote = (isModalVisible && document.getElementById('saleDeliveryNote')?.value) ||
-            orderResult?.Ship_Note ||
-            orderResult?.Comment ||
             orderResult?.DeliveryNote ||
             '';
+        const comment = orderResult?.Comment || '';
         const shippingFee = (isModalVisible && parseFloat(document.getElementById('saleShippingFee')?.value)) ||
             orderResult?.DeliveryPrice ||
             0;
@@ -91,27 +100,21 @@ const BillService = (function () {
             orderResult?.DiscountAmount ||
             orderResult?.DecreaseAmount ||
             0;
-        const codAmount = (isModalVisible && parseFloat(document.getElementById('saleCOD')?.value)) ||
-            orderResult?.CashOnDelivery ||
-            orderResult?.AmountTotal ||
-            0;
         const prepaidAmount = (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) ||
             orderResult?.AmountDeposit ||
             orderResult?.PaymentAmount ||
             0;
 
-        // Get carrier info - prioritize orderResult.CarrierName (set by FastSale enrichment)
-        // Only use saleDeliveryPartner dropdown as fallback when modal is visible
+        // Get carrier info
         const carrierSelect = isModalVisible ? document.getElementById('saleDeliveryPartner') : null;
         const carrierFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
-        // Skip dropdown value if it's a loading placeholder
         const isValidDropdownCarrier = carrierFromDropdown && !carrierFromDropdown.includes('Đang tải');
         const carrierName = orderResult?.CarrierName ||
             orderResult?.Carrier?.Name ||
             (isValidDropdownCarrier ? carrierFromDropdown : '') ||
             '';
 
-        // Get seller name from current user
+        // Get seller name
         const sellerName = window.authManager?.currentUser?.displayName ||
             defaultData.User?.Name ||
             orderResult?.User?.Name ||
@@ -130,16 +133,18 @@ const BillService = (function () {
             sttDisplay = order?.SessionIndex || orderResult?.SessionIndex || '';
         }
 
-        // Get products from orderLines - support multiple field names
+        // Get products from orderLines
         const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
         let totalQuantity = 0;
         let totalAmount = 0;
 
-        const productsHTML = orderLines.map((item, index) => {
+        // Generate product rows HTML (TPOS style - product name on first row, qty/price on second row)
+        const productsHTML = orderLines.map((item) => {
             const quantity = item.Quantity || item.ProductUOMQty || 1;
             const price = item.PriceUnit || item.Price || 0;
             const total = quantity * price;
             const productName = item.ProductName || item.ProductNameGet || '';
+            const uomName = item.ProductUOMName || 'Cái';
             const note = item.Note || '';
 
             totalQuantity += quantity;
@@ -147,21 +152,21 @@ const BillService = (function () {
 
             return `
                 <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${index + 1}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">
-                        ${productName}
-                        ${note ? `<div style="font-size: 11px; color: #6b7280; font-style: italic;">${note}</div>` : ''}
+                    <td class="PaddingProduct word-break" colspan="3" style="border-bottom:none">
+                        <label>${productName}${note ? ` <span style="color:#666;font-style:italic">(${note})</span>` : ''}</label>
                     </td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${quantity}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${price.toLocaleString('vi-VN')}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">${total.toLocaleString('vi-VN')}</td>
                 </tr>
-            `;
+                <tr>
+                    <td class="text-center numberPadding">${quantity} ${uomName}</td>
+                    <td class="text-right numberPadding">${price.toLocaleString('vi-VN')}</td>
+                    <td class="text-right numberPadding">${total.toLocaleString('vi-VN')}</td>
+                </tr>`;
         }).join('');
 
-        // Calculate final total
+        // Calculate totals
         const finalTotal = totalAmount - discount + shippingFee;
-        const remainingBalance = codAmount - prepaidAmount;
+        const remainingBalance = finalTotal - prepaidAmount;
+        const codAmount = remainingBalance > 0 ? remainingBalance : 0;
 
         // Format date
         const now = new Date();
@@ -171,286 +176,185 @@ const BillService = (function () {
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
-        });
+        }).replace(',', '');
 
-        return `
-<!DOCTYPE html>
+        // Bill number
+        const billNumber = orderResult?.Number || '';
+
+        // Barcode URL (TPOS CDN)
+        const barcodeUrl = billNumber ?
+            `https://statics.tpos.vn/Web/Barcode?type=Code%20128&value=${encodeURIComponent(billNumber)}&width=600&height=100` : '';
+
+        // ========== TPOS-STYLE HTML TEMPLATE ==========
+        return `<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Phiếu bán hàng - ${orderResult?.Number || ''}</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phiếu bán hàng - ${billNumber}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        @page { margin: 1mm 0; }
+        html, body {
+            width: 80mm;
+            margin: auto;
+            color: #000 !important;
+            font-size: 13px;
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.2;
         }
-        body {
-            font-family: Arial, sans-serif;
-            font-size: ${fontContent}px;
-            line-height: 1.4;
-            padding: ${billPadding}px;
-            max-width: ${billWidth};
-            margin: 0 auto;
+        *, *:before, *:after { box-sizing: border-box; }
+        .container { padding: 10px; margin: auto; }
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+        label { display: inline-block; margin-bottom: 5px; font-weight: bold; }
+        strong { font-weight: bold !important; }
+        h3 { font-size: 15px !important; font-weight: bold; margin: 0; }
+        table { width: 100%; border-collapse: collapse; border-spacing: 0; max-width: 100%; }
+        .table { width: 100%; margin-bottom: 10px; }
+        .table tbody > tr > td { padding: 1px; }
+        .table thead > tr > th { padding: 1px; border-top: 2px solid #ddd !important; }
+        .table tfoot > tr > td { padding: 1px; font-weight: bold !important; }
+        .table-cs > tbody > tr > td, .table-cs > thead > tr > th {
+            border-top: 1px solid gray !important;
+            border-bottom: 1px solid gray !important;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px dashed #333;
+        .table-cs > tfoot > tr > td { border: none !important; }
+        .table.print-header, .table.print-header td, .table.print-header th {
+            border: none !important;
+            padding: 0 !important;
         }
-        .shop-name {
-            font-size: ${fontShopName}px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .shop-phone {
-            font-size: 14px;
-            color: #333;
-        }
-        .shop-address {
-            font-size: 12px;
-            color: #666;
-            margin-top: 3px;
-        }
-        .bill-title {
-            font-size: ${fontTitle}px;
-            font-weight: bold;
-            text-align: center;
-            margin: 10px 0;
-        }
-        .order-info {
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed #ccc;
-        }
-        .order-info div {
-            margin-bottom: 3px;
-        }
-        .stt-display {
-            font-size: 20px;
-            font-weight: bold;
-            text-align: center;
-            background: #f3f4f6;
-            padding: 8px;
-            margin: 10px 0;
-            border-radius: 4px;
-        }
-        .customer-info {
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed #ccc;
-        }
-        .customer-info div {
-            margin-bottom: 3px;
-        }
-        .label {
-            font-weight: bold;
-            display: inline-block;
-            min-width: 80px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-        }
-        th {
-            background: #f3f4f6;
-            padding: 8px 4px;
-            text-align: left;
-            font-weight: bold;
-            border-bottom: 2px solid #333;
-        }
-        th:nth-child(1) { width: 30px; text-align: center; }
-        th:nth-child(3) { width: 40px; text-align: center; }
-        th:nth-child(4), th:nth-child(5) { width: 70px; text-align: right; }
-        .totals {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 2px dashed #333;
-        }
-        .total-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-        .total-row.final {
-            font-size: ${fontTitle}px;
-            font-weight: bold;
-            padding-top: 5px;
-            border-top: 1px solid #333;
-            margin-top: 5px;
-        }
-        .cod-amount {
-            font-size: ${fontCOD}px;
-            font-weight: bold;
-            text-align: center;
-            background: ${codBackground};
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            border: 2px solid ${codBorder};
-        }
-        .delivery-note {
-            margin-top: 10px;
-            padding: 10px;
-            background: #fef2f2;
-            border-radius: 4px;
-            font-size: 11px;
-            color: #dc2626;
-        }
-        .footer {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 2px dashed #333;
-            text-align: center;
-            font-size: 12px;
-            color: #666;
-        }
-        .barcode-container {
-            text-align: center;
-            margin: 10px 0;
-        }
-        .barcode-container svg {
-            max-width: 100%;
-            height: auto;
-        }
-        @media print {
-            body { padding: 5px; }
-            .no-print { display: none; }
-        }
+        .word-break { word-break: break-word; }
+        .PaddingProduct { padding-top: 2px; padding-bottom: 2px; border-bottom: none !important; }
+        .numberPadding { padding-top: 0px; padding-bottom: 2px; border-top: none !important; }
+        hr.dash-cs { margin-top: 5px; margin-bottom: 5px; border-top: 1px dashed black; }
+        .size-16 { font-size: 16px; }
+        .font-bold { font-weight: bold; }
     </style>
 </head>
 <body>
-    ${showHeader ? `
-    <div class="header">
-        <div class="shop-name">${shopName}</div>
-        <div class="shop-phone">Hotline: ${shopPhone}</div>
-        ${shopAddress ? `<div class="shop-address">${shopAddress}</div>` : ''}
-    </div>
-    ` : ''}
+    <div class="container body-content">
+        <div>
+            <!-- Shop Header -->
+            <div class='row'>
+                <div class='text-center'>
+                    <span style='font-size:16px; font-weight:bold'>${shopName}</span>
+                </div>
+            </div>
 
-    ${showTitle ? `<div class="bill-title">${billTitle}</div>` : ''}
+            <table class="table print-header table-bordered">
+                <thead>
+                    <!-- Carrier & COD Header -->
+                    <tr>
+                        <th class="text-center">
+                            ${carrierName ? `<div class='text-center'><span>${carrierName}</span><br/>` : '<div class="text-center">'}
+                            <p class='size-16 font-bold'>Tiền thu hộ: ${codAmount.toLocaleString('vi-VN')}</p>
+                            </div>
+                            <hr class="b-b dash-cs" />
+                        </th>
+                    </tr>
 
-    ${showSTT && sttDisplay ? `<div class="stt-display">STT: ${sttDisplay}</div>` : ''}
+                    <!-- Bill Title -->
+                    <tr>
+                        <th class="text-center">
+                            <h3 style="text-transform:uppercase">Phiếu bán hàng</h3>
+                        </th>
+                    </tr>
 
-    ${showBarcode ? `
-    <!-- Barcode for order number -->
-    <div class="barcode-container">
-        <svg id="barcode"></svg>
-    </div>
-    ` : ''}
+                    <!-- Barcode & Bill Number -->
+                    <tr>
+                        <th>
+                            <div class='text-center'>
+                                ${barcodeUrl ? `<div><img src='${barcodeUrl}' style='width:95%' /></div>` : ''}
+                                <strong>Số phiếu</strong>: ${billNumber}
+                                <div><strong>Ngày</strong>: ${dateStr}</div>
+                                ${sttDisplay ? `<div><strong>STT</strong>: ${sttDisplay}</div>` : ''}
+                                <hr class='b-b dash-cs' />
+                            </div>
+                        </th>
+                    </tr>
 
-    ${showOrderInfo ? `
-    <div class="order-info">
-        <div><span class="label">Số HĐ:</span> ${orderResult?.Number || 'N/A'}</div>
-        <div><span class="label">Ngày:</span> ${dateStr}</div>
-        ${showCarrier && carrierName ? `<div><span class="label">ĐVVC:</span> ${carrierName}</div>` : ''}
-    </div>
-    ` : ''}
+                    <!-- Customer Info -->
+                    <tr>
+                        <th class="text-left">
+                            <div><strong>Khách hàng:</strong> ${receiverName}</div>
+                            ${receiverAddress ? `<div><strong>Địa chỉ:</strong> ${receiverAddress}</div>` : ''}
+                            <div><strong>Điện thoại:</strong> ${receiverPhone}</div>
+                            ${sellerName ? `<div><strong>Người bán:</strong> ${sellerName}</div>` : ''}
+                        </th>
+                    </tr>
+                </thead>
+            </table>
 
-    ${showCustomer ? `
-    <div class="customer-info">
-        <div><span class="label">Khách hàng:</span> ${receiverName}</div>
-        <div><span class="label">SĐT:</span> ${receiverPhone}</div>
-        <div><span class="label">Địa chỉ:</span> ${receiverAddress}</div>
-        ${showSeller && sellerName ? `<div><span class="label">Người bán:</span> ${sellerName}</div>` : ''}
-    </div>
-    ` : ''}
+            <!-- Products Table -->
+            <table class="table table-cs">
+                <thead>
+                    <tr>
+                        <th width="80">Sản phẩm</th>
+                        <th class="text-right" width="80">Giá</th>
+                        <th class="text-right" width="80">Tổng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${productsHTML}
+                </tbody>
+                <tfoot style="display: table-row-group !important;" class="word-break">
+                    <!-- Total Quantity & Amount -->
+                    <tr>
+                        <td colspan="1"><strong>Tổng:</strong></td>
+                        <td><strong>SL: ${totalQuantity}</strong></td>
+                        <td class="text-right"><strong>${totalAmount.toLocaleString('vi-VN')}</strong></td>
+                    </tr>
 
-    ${showProducts ? `
-    <table>
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Sản phẩm</th>
-                <th>SL</th>
-                <th>Đơn giá</th>
-                <th>Thành tiền</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${productsHTML}
-        </tbody>
-    </table>
-    ` : ''}
+                    ${discount > 0 ? `
+                    <!-- Discount -->
+                    <tr>
+                        <td colspan="2" class="text-right" style="border-right: none !important"><strong>Giảm giá :</strong></td>
+                        <td style="border-left:none !important" class="text-right">-${discount.toLocaleString('vi-VN')}</td>
+                    </tr>` : ''}
 
-    ${showTotals ? `
-    <div class="totals">
-        <div class="total-row">
-            <span>Tổng SL:</span>
-            <span>${totalQuantity}</span>
+                    <!-- Shipping Fee -->
+                    <tr>
+                        <td colspan="2" class="text-right" style="border-right: none !important"><strong>Tiền ship :</strong></td>
+                        <td style="border-left:none !important" class="text-right">${shippingFee.toLocaleString('vi-VN')}</td>
+                    </tr>
+
+                    <!-- Grand Total -->
+                    <tr>
+                        <td colspan="2" class="text-right"><strong>Tổng tiền :</strong></td>
+                        <td class="text-right">${finalTotal.toLocaleString('vi-VN')}</td>
+                    </tr>
+
+                    ${prepaidAmount > 0 ? `
+                    <!-- Prepaid Amount -->
+                    <tr>
+                        <td colspan="2" class="text-right" style="border-right: none !important"><strong>Trả trước :</strong></td>
+                        <td style="border-left:none !important" class="text-right">${prepaidAmount.toLocaleString('vi-VN')}</td>
+                    </tr>
+                    <!-- Remaining Balance -->
+                    <tr>
+                        <td colspan="2" class="text-right"><strong>Còn lại :</strong></td>
+                        <td class="text-right">${codAmount.toLocaleString('vi-VN')}</td>
+                    </tr>` : ''}
+                </tfoot>
+            </table>
+
+            ${deliveryNote ? `
+            <!-- Delivery Note -->
+            <div style="word-wrap:break-word">
+                <strong>Ghi chú giao hàng :</strong> <span style="white-space:pre-wrap; word-break: break-word;">${deliveryNote}</span>
+            </div>` : ''}
+
+            ${comment ? `
+            <!-- Comment -->
+            <div style="word-wrap:break-word">
+                <strong>Ghi chú: </strong>
+                <p class="form-control-static">${comment.replace(/\n/g, '<br />')}</p>
+            </div>` : ''}
         </div>
-        <div class="total-row">
-            <span>Tổng tiền hàng:</span>
-            <span>${totalAmount.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ${discount > 0 ? `
-        <div class="total-row">
-            <span>Chiết khấu:</span>
-            <span>-${discount.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ` : ''}
-        <div class="total-row">
-            <span>Phí giao hàng:</span>
-            <span>${shippingFee.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ${prepaidAmount > 0 ? `
-        <div class="total-row">
-            <span>Trả trước (Công nợ):</span>
-            <span>-${prepaidAmount.toLocaleString('vi-VN')} đ</span>
-        </div>
-        ` : ''}
-        <div class="total-row final">
-            <span>TỔNG CỘNG:</span>
-            <span>${finalTotal.toLocaleString('vi-VN')} đ</span>
-        </div>
     </div>
-    ` : ''}
-
-    ${showCOD ? `
-    <div class="cod-amount">
-        THU HỘ (COD): ${(prepaidAmount > 0 ? remainingBalance : finalTotal).toLocaleString('vi-VN')} đ
-    </div>
-    ` : ''}
-
-    ${showDeliveryNote && deliveryNote ? `
-    <div class="delivery-note">
-        <strong>Ghi chú giao hàng:</strong><br>
-        ${deliveryNote}
-    </div>
-    ` : ''}
-
-    ${showFooter ? `
-    <div class="footer">
-        <div>${footerText}</div>
-        <div>Mọi thắc mắc vui lòng liên hệ: ${shopPhone}</div>
-    </div>
-    ` : ''}
-
-    <!-- JsBarcode library -->
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <script>
-        // Generate barcode after page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            ${showBarcode ? `
-            try {
-                JsBarcode("#barcode", "${orderResult?.Number || ''}", {
-                    format: "CODE128",
-                    width: 1.5,
-                    height: 40,
-                    displayValue: false,
-                    margin: 5
-                });
-            } catch (e) {
-                console.error('Barcode generation failed:', e);
-            }
-            ` : ''}
-        });
-    </script>
 </body>
-</html>
-        `;
+</html>`;
     }
 
     /**
