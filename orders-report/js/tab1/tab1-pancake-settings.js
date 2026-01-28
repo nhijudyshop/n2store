@@ -10,7 +10,7 @@ window.openPancakeSettingsModal = async function() {
     document.getElementById('pancakeSettingsModal').style.display = 'flex';
 
     // Check admin permission and show/hide buttons accordingly
-    const isAdmin = window.authManager?.hasPermission(0) || false;
+    const isAdmin = isUserAdmin();
 
     // Hide/show add/delete buttons for non-admin
     const btnAddAccount = document.getElementById('btnAddAccount');
@@ -187,7 +187,7 @@ window.refreshAccountsList = async function() {
         const accounts = window.pancakeTokenManager.getAllAccounts();
         const activeAccountId = window.pancakeTokenManager.activeAccountId;
         const listDiv = document.getElementById('pancakeAccountsList');
-        const isAdmin = window.authManager?.hasPermission(0) || false;
+        const isAdmin = isUserAdmin();
 
         if (!accounts || Object.keys(accounts).length === 0) {
             listDiv.innerHTML = `
@@ -265,10 +265,20 @@ window.refreshAccountsList = async function() {
     }
 };
 
+// Helper function to check if user is admin
+function isUserAdmin() {
+    // Check via authManager first
+    if (window.authManager?.hasPermission) {
+        return window.authManager.hasPermission(0);
+    }
+    // Fallback: check localStorage directly (checkLogin: 0 = Admin)
+    const checkLogin = parseInt(localStorage.getItem('checkLogin'));
+    return checkLogin === 0;
+}
+
 // Helper function to check admin permission
 function checkAdminPermission(action = 'thực hiện thao tác này') {
-    const isAdmin = window.authManager?.hasPermission(0) || false;
-    if (!isAdmin) {
+    if (!isUserAdmin()) {
         const message = `⛔ Chỉ Admin mới có quyền ${action}`;
         if (window.notificationManager) {
             window.notificationManager.show(message, 'error');
@@ -1122,7 +1132,7 @@ window.refreshPageTokensList = async function() {
         }
 
         const tokens = window.pancakeTokenManager.getAllPageAccessTokens();
-        const isAdmin = window.authManager?.hasPermission(0) || false;
+        const isAdmin = isUserAdmin();
 
         if (!tokens || tokens.length === 0) {
             listDiv.innerHTML = `
