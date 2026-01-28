@@ -730,18 +730,8 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
             updateSaleCOD();
         }
 
-        // Add/remove "freeship" in note
-        const noteInput = document.getElementById('saleReceiverNote');
-        if (noteInput) {
-            let note = noteInput.value || '';
-            // Remove existing freeship
-            note = note.replace(/,?\s*freeship/gi, '').trim();
-            // Add freeship if applicable
-            if (isFreeShip) {
-                note = note ? `${note}, freeship` : 'freeship';
-            }
-            noteInput.value = note;
-        }
+        // Regenerate note with all parts (CK, GG, gộp, freeship)
+        autoFillSaleNote(true);
     };
 
     // If a carrier was pre-selected, trigger the change event to set fee
@@ -1586,11 +1576,13 @@ async function fetchDebtForSaleModal(phone) {
 }
 /**
  * Auto-fill notes from existing data (no extra API calls)
- * Uses: salePrepaidAmount (wallet), order.Tags (discount/merge)
+ * Uses: salePrepaidAmount (wallet), order.Tags (discount/merge), carrier (freeship)
+ * @param {boolean} forceRegenerate - If true, regenerate even if note already has value
  */
-function autoFillSaleNote() {
+function autoFillSaleNote(forceRegenerate = false) {
     const noteField = document.getElementById('saleReceiverNote');
-    if (!noteField || noteField.value.trim()) return; // Skip if already has value
+    if (!noteField) return;
+    if (!forceRegenerate && noteField.value.trim()) return; // Skip if already has value
 
     const order = currentSaleOrderData;
     if (!order) return;
