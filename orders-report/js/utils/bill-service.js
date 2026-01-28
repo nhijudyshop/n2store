@@ -57,41 +57,52 @@ const BillService = (function () {
         const codBackground = settings.codBackground || '#fef3c7';
         const codBorder = settings.codBorder || '#f59e0b';
 
-        // Get form values - try form fields first, then fallback to orderResult data
-        const receiverName = document.getElementById('saleReceiverName')?.value ||
+        // Only read form fields if saleButtonModal is currently visible (single order flow)
+        // This prevents batch flow from using stale form data from previous single order
+        const saleModal = document.getElementById('saleButtonModal');
+        const isModalVisible = saleModal && saleModal.style.display !== 'none' && saleModal.style.display !== '';
+
+        // Get form values - only use form fields when modal is visible, otherwise use orderResult data
+        const receiverName = (isModalVisible && document.getElementById('saleReceiverName')?.value) ||
             orderResult?.Partner?.Name ||
             orderResult?.PartnerDisplayName ||
+            orderResult?.ReceiverName ||
             '';
-        const receiverPhone = document.getElementById('saleReceiverPhone')?.value ||
+        const receiverPhone = (isModalVisible && document.getElementById('saleReceiverPhone')?.value) ||
             orderResult?.Partner?.Phone ||
             orderResult?.Ship_Receiver?.Phone ||
+            orderResult?.ReceiverPhone ||
             '';
-        const receiverAddress = document.getElementById('saleReceiverAddress')?.value ||
+        const receiverAddress = (isModalVisible && document.getElementById('saleReceiverAddress')?.value) ||
             orderResult?.Partner?.Street ||
             orderResult?.Ship_Receiver?.Street ||
+            orderResult?.ReceiverAddress ||
             '';
-        const deliveryNote = document.getElementById('saleDeliveryNote')?.value ||
+        const deliveryNote = (isModalVisible && document.getElementById('saleDeliveryNote')?.value) ||
             orderResult?.Ship_Note ||
             orderResult?.Comment ||
+            orderResult?.DeliveryNote ||
             '';
-        const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) ||
+        const shippingFee = (isModalVisible && parseFloat(document.getElementById('saleShippingFee')?.value)) ||
             orderResult?.DeliveryPrice ||
             0;
-        const discount = parseFloat(document.getElementById('saleDiscount')?.value) ||
+        const discount = (isModalVisible && parseFloat(document.getElementById('saleDiscount')?.value)) ||
             orderResult?.Discount ||
             orderResult?.DiscountAmount ||
+            orderResult?.DecreaseAmount ||
             0;
-        const codAmount = parseFloat(document.getElementById('saleCOD')?.value) ||
+        const codAmount = (isModalVisible && parseFloat(document.getElementById('saleCOD')?.value)) ||
             orderResult?.CashOnDelivery ||
             orderResult?.AmountTotal ||
             0;
-        const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) ||
+        const prepaidAmount = (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) ||
             orderResult?.AmountDeposit ||
+            orderResult?.PaymentAmount ||
             0;
 
         // Get carrier info - prioritize orderResult.CarrierName (set by FastSale enrichment)
-        // Only use saleDeliveryPartner dropdown as fallback for saleButtonModal
-        const carrierSelect = document.getElementById('saleDeliveryPartner');
+        // Only use saleDeliveryPartner dropdown as fallback when modal is visible
+        const carrierSelect = isModalVisible ? document.getElementById('saleDeliveryPartner') : null;
         const carrierFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
         // Skip dropdown value if it's a loading placeholder
         const isValidDropdownCarrier = carrierFromDropdown && !carrierFromDropdown.includes('Đang tải');

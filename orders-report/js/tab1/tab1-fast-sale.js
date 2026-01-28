@@ -1359,14 +1359,14 @@ async function preGenerateBillImages() {
             };
 
             // Find saleOnline order for chat info
+            // Only use SaleOnlineIds or SaleOnlineNames - don't fallback to PartnerId
+            // because that could match the wrong order when same customer has multiple orders
             let saleOnlineOrder = saleOnlineOrderForData;
             const saleOnlineName = order.SaleOnlineNames?.[0];
             if (!saleOnlineOrder && saleOnlineName) {
                 saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
             }
-            if (!saleOnlineOrder && order.PartnerId) {
-                saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
-            }
+            // PartnerId fallback removed - it could return wrong order for same customer
 
             // Prepare send task
             let sendTask = null;
@@ -1385,8 +1385,25 @@ async function preGenerateBillImages() {
                 }
             }
 
-            // Generate bill image in background
-            const imageBlob = await generateBillImage(enrichedOrder, {});
+            // Fetch TPOS bill HTML first (preferred) - same pattern as sendBillToCustomer
+            let billHtml = null;
+            const tposOrderId = order.Id;
+            if (tposOrderId && typeof window.getBillAuthHeader === 'function') {
+                try {
+                    const headers = await window.getBillAuthHeader();
+                    const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
+                        (window.OrderStore?.get(order.SaleOnlineIds?.[0]) || enrichedOrder);
+                    billHtml = await window.fetchTPOSBillHTML(tposOrderId, headers, orderData);
+                    if (billHtml) {
+                        console.log(`[FAST-SALE] ✅ Got TPOS bill HTML for pre-generate: ${order.Number}`);
+                    }
+                } catch (tposError) {
+                    console.warn(`[FAST-SALE] Failed to fetch TPOS bill for pre-generate ${order.Number}:`, tposError.message);
+                }
+            }
+
+            // Generate bill image using TPOS HTML if available, otherwise custom bill fallback
+            const imageBlob = await generateBillImage(enrichedOrder, { billHtml });
 
             // Upload image to Pancake immediately if we have sendTask
             let contentUrl = null;
@@ -1943,14 +1960,14 @@ async function printSuccessOrders(type) {
             });
 
             // Find saleOnline order for chat info
+            // Only use SaleOnlineIds or SaleOnlineNames - don't fallback to PartnerId
+            // because that could match the wrong order when same customer has multiple orders
             let saleOnlineOrder = saleOnlineOrderForData;
             const saleOnlineName = order.SaleOnlineNames?.[0];
             if (!saleOnlineOrder && saleOnlineName) {
                 saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
             }
-            if (!saleOnlineOrder && order.PartnerId) {
-                saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
-            }
+            // PartnerId fallback removed - it could return wrong order for same customer
 
             // DEBUG: Log customer matching info
             console.log('[FAST-SALE] DEBUG - Customer matching for order:', order.Number, {
