@@ -2542,7 +2542,27 @@ function previewBillTemplate() {
     const html = window.generateCustomBillHTML(sampleOrder, {});
     const container = document.getElementById('billPreviewContainer');
     if (container) {
-        container.innerHTML = `<div style="background: white; padding: 10px; max-width: 320px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">${html}</div>`;
+        // Use iframe to render full HTML with CSS (browser strips CSS from innerHTML)
+        container.innerHTML = `<iframe id="billPreviewIframe" style="width: 100%; min-height: 600px; border: none; background: white;"></iframe>`;
+        const iframe = document.getElementById('billPreviewIframe');
+        if (iframe) {
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            doc.open();
+            doc.write(html);
+            doc.close();
+            // Auto-resize iframe to content height
+            iframe.onload = () => {
+                try {
+                    iframe.style.height = (doc.body.scrollHeight + 20) + 'px';
+                } catch (e) {}
+            };
+            // Fallback resize
+            setTimeout(() => {
+                try {
+                    iframe.style.height = (doc.body.scrollHeight + 20) + 'px';
+                } catch (e) {}
+            }, 100);
+        }
     }
 }
 

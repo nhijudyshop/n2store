@@ -186,3 +186,26 @@ hr.dash-cs {
    - Trả trước/Còn lại: chỉ hiện nếu `prepaidAmount > 0`
    - Ghi chú GH: chỉ hiện nếu có nội dung
    - Ghi chú: chỉ hiện nếu có nội dung
+
+---
+
+## Render bill trong preview
+
+**QUAN TRỌNG**: `generateCustomBillHTML()` trả về full HTML document (có `<!DOCTYPE>`, `<html>`, `<head>`, `<style>`).
+
+Khi render trong preview, **PHẢI dùng iframe**:
+
+```javascript
+// SAI - CSS bị browser strip mất
+container.innerHTML = html;
+
+// ĐÚNG - Dùng iframe để giữ CSS
+const iframe = document.createElement('iframe');
+container.appendChild(iframe);
+const doc = iframe.contentDocument;
+doc.open();
+doc.write(html);
+doc.close();
+```
+
+Lý do: Browser tự động strip `<html>`, `<head>`, `<style>` tags khi insert vào `innerHTML`, làm mất toàn bộ CSS.
