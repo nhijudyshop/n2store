@@ -2579,8 +2579,8 @@ window.saveBillTemplateSettings = async function() {
             // Re-render bill with new settings
             if (window._currentBillPreviewOrder) {
                 const container = document.getElementById('billPreviewSendContainer');
-                if (container && window.billService) {
-                    container.innerHTML = await window.billService.generateBillHTML(window._currentBillPreviewOrder);
+                if (container && window.generateCustomBillHTML) {
+                    container.innerHTML = window.generateCustomBillHTML(window._currentBillPreviewOrder, {});
                 }
             }
         }
