@@ -2169,6 +2169,9 @@
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Add visible class to show modal
+        document.getElementById('accAdjustBlockedModal').classList.add('visible');
     }
 
     /**
@@ -2232,6 +2235,9 @@
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Add visible class to show modal
+        document.getElementById('accAdjustFormModal').classList.add('visible');
 
         // Add event listeners
         document.querySelectorAll('input[name="adjustType"]').forEach(radio => {
