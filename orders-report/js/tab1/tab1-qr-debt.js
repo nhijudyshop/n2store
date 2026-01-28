@@ -700,7 +700,23 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
     // Add change event to update shipping fee
     select.onchange = function () {
         const selectedOption = this.options[this.selectedIndex];
-        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        let fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const carrierName = selectedOption.dataset.name || '';
+
+        // Free shipping logic
+        const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+        const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+        const isTinh = carrierName.includes('TỈNH');
+
+        if (isThanhPho && finalTotal > 1500000) {
+            fee = 0;
+            console.log(`[SALE-MODAL] Free shipping applied: THÀNH PHỐ carrier, finalTotal ${finalTotal.toLocaleString('vi-VN')}đ > 1,500,000đ`);
+        }
+        if (isTinh && finalTotal > 3000000) {
+            fee = 0;
+            console.log(`[SALE-MODAL] Free shipping applied: TỈNH carrier, finalTotal ${finalTotal.toLocaleString('vi-VN')}đ > 3,000,000đ`);
+        }
+
         const shippingFeeInput = document.getElementById('saleShippingFee');
         if (shippingFeeInput) {
             shippingFeeInput.value = fee;

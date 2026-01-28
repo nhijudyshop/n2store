@@ -915,7 +915,37 @@ function updateFastSaleShippingFee(index) {
 
     if (carrierSelect && shippingFeeInput) {
         const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
-        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        let fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const carrierName = selectedOption.dataset.name || '';
+
+        // Get order data for this row
+        const order = fastSaleOrdersData[index];
+        if (order) {
+            // Calculate finalAmountTotal (after discount)
+            const originalAmountTotal = order.AmountTotal || 0;
+            let finalAmountTotal = originalAmountTotal;
+
+            if (orderHasDiscountTag(order)) {
+                const { totalDiscount } = calculateOrderDiscount(order);
+                if (totalDiscount > 0) {
+                    finalAmountTotal = originalAmountTotal - totalDiscount;
+                }
+            }
+
+            // Free shipping logic
+            const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+            const isTinh = carrierName.includes('TỈNH');
+
+            if (isThanhPho && finalAmountTotal > 1500000) {
+                fee = 0;
+                console.log(`[FAST-SALE] Row ${index}: Free shipping - THÀNH PHỐ, total ${finalAmountTotal.toLocaleString('vi-VN')}đ > 1,500,000đ`);
+            }
+            if (isTinh && finalAmountTotal > 3000000) {
+                fee = 0;
+                console.log(`[FAST-SALE] Row ${index}: Free shipping - TỈNH, total ${finalAmountTotal.toLocaleString('vi-VN')}đ > 3,000,000đ`);
+            }
+        }
+
         shippingFeeInput.value = fee;
     }
 }
