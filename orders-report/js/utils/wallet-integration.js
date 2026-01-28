@@ -444,12 +444,22 @@ const WalletIntegration = (function() {
         modal.style.display = 'flex';
         document.getElementById('wallet-modal-title').textContent = `Ví Khách Hàng - ${normalizedPhone}`;
 
+        // Track if we had any network errors
+        let networkError = false;
+
         // Load wallet data - try customer360 first, fallback to wallet API
-        let customer360 = await getCustomer360(normalizedPhone);
+        let customer360 = null;
         let wallet = {};
         let customer = {};
         let virtualCredits = [];
         let recentTransactions = [];
+
+        try {
+            customer360 = await getCustomer360(normalizedPhone);
+        } catch (e) {
+            console.warn('[WALLET-MODAL] Customer360 error:', e.message);
+            networkError = true;
+        }
 
         if (customer360) {
             wallet = customer360.wallet || {};
@@ -459,11 +469,16 @@ const WalletIntegration = (function() {
         } else {
             // Fallback: fetch wallet data directly (customer may not exist in customers table)
             console.log('[WALLET-MODAL] Customer360 not found, trying wallet API...');
-            const walletData = await getWallet(normalizedPhone);
 
-            if (walletData) {
-                wallet = walletData;
-                virtualCredits = walletData.virtual_credits || [];
+            try {
+                const walletData = await getWallet(normalizedPhone);
+                if (walletData) {
+                    wallet = walletData;
+                    virtualCredits = walletData.virtual_credits || [];
+                }
+            } catch (e) {
+                console.warn('[WALLET-MODAL] Wallet API error:', e.message);
+                networkError = true;
             }
 
             // Try to fetch transactions separately
@@ -475,7 +490,24 @@ const WalletIntegration = (function() {
                 }
             } catch (txError) {
                 console.warn('[WALLET-MODAL] Could not fetch transactions:', txError.message);
+                networkError = true;
             }
+        }
+
+        // If network error and no data, show connection error
+        if (networkError && !wallet.balance && !wallet.virtual_balance && recentTransactions.length === 0) {
+            document.getElementById('wallet-modal-body').innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #ef4444;">
+                    <i class="fas fa-exclamation-triangle fa-2x" style="margin-bottom: 10px;"></i>
+                    <p>Không thể kết nối đến server</p>
+                    <p style="font-size: 12px; color: #999;">Server có thể đang khởi động lại. Vui lòng thử lại sau vài giây.</p>
+                    <button onclick="WalletIntegration.showWalletModal('${normalizedPhone}')"
+                        style="margin-top: 15px; padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-sync"></i> Thử lại
+                    </button>
+                </div>
+            `;
+            return;
         }
 
         // If still no wallet data, show empty state
