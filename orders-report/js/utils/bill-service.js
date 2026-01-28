@@ -780,10 +780,7 @@ ${carrierName ? `<span>${carrierName}</span><br/>` : ''}
                 <strong>Số phiếu</strong>: ${billNumber}
                 <div>
                     <strong>Ngày</strong>: ${dateStr}
-                </div>${sttDisplay ? `
-                <div>
-                    <strong>STT</strong>: ${sttDisplay}
-                </div>` : ''}
+                </div>
                 <hr class='b-b dash-cs' />
                 </div>
                     </th>
@@ -803,6 +800,9 @@ ${carrierName ? `<span>${carrierName}</span><br/>` : ''}
                             </div>
                                                     ${sellerName ? `<div>
                                 <strong>Người bán:</strong> ${sellerName}
+                            </div>` : ''}
+${sttDisplay ? `                            <div>
+                                <strong>STT:</strong> ${sttDisplay}
                             </div>` : ''}
                                                                                             </th>
 

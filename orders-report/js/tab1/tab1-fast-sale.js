@@ -2525,17 +2525,17 @@ function previewBillTemplate() {
         Number: 'NJD/2026/SAMPLE',
         PartnerDisplayName: 'Nguyễn Văn A',
         Partner: { Name: 'Nguyễn Văn A', Phone: '0901234567', Street: '123 Đường ABC, Quận 1, TP.HCM' },
-        CarrierName: 'Giao hàng nhanh (GHN)',
-        DeliveryPrice: 25000,
-        CashOnDelivery: 350000,
-        AmountDeposit: 50000,
-        Discount: 10000,
-        Ship_Note: 'Gọi trước khi giao. Ship COD.',
-        SessionIndex: '123',
-        UserName: 'nvkt', // Account tạo bill
+        CarrierName: 'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp,)',
+        DeliveryPrice: 20000,
+        CashOnDelivery: 220000,
+        AmountDeposit: 0,
+        Discount: 160000,
+        DeliveryNote: 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng , "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào .',
+        Comment: 'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)',
+        SessionIndex: '252',
+        UserName: 'Tú',
         OrderLines: [
-            { ProductName: 'Áo thun nam size L', Quantity: 2, PriceUnit: 150000 },
-            { ProductName: 'Quần jean nữ size M', Quantity: 1, PriceUnit: 250000, Note: 'Màu xanh đậm' }
+            { ProductName: '[N23] 0510 A3 ÁO 2D FENDY HỒNG', Quantity: 2, PriceUnit: 180000 }
         ]
     };
 
