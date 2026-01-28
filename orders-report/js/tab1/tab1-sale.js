@@ -787,9 +787,22 @@ async function confirmAndPrintSale() {
             }
         }
 
-        // Fetch HTML bill from TPOS API and open print popup (using shared BillService)
-        console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
-        window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData);
+        // Check bill type toggle preference
+        const billTypeToggle = document.querySelector('input[name="saleBillType"]:checked');
+        const useTposBill = billTypeToggle?.value === 'tpos';
+
+        // Store preference in localStorage
+        localStorage.setItem('saleBillTypePreference', billTypeToggle?.value || 'web');
+
+        if (useTposBill) {
+            // Fetch HTML bill from TPOS API and open print popup
+            console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
+            window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData);
+        } else {
+            // Use Web bill template (local)
+            console.log('[SALE-CONFIRM] Using Web bill template...');
+            window.openPrintPopup(createResult, { currentSaleOrderData: currentSaleOrderData });
+        }
 
         // Success notification
         window.notificationManager?.success(`Đã tạo đơn hàng ${orderNumber}`);

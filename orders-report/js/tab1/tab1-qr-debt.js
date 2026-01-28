@@ -1051,6 +1051,15 @@ async function openSaleButtonModal() {
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
 
+    // Restore bill type preference from localStorage (default: 'web')
+    const savedBillType = localStorage.getItem('saleBillTypePreference') || 'web';
+    const billTypeWeb = document.getElementById('saleBillTypeWeb');
+    const billTypeTpos = document.getElementById('saleBillTypeTpos');
+    if (billTypeWeb && billTypeTpos) {
+        billTypeWeb.checked = savedBillType === 'web';
+        billTypeTpos.checked = savedBillType === 'tpos';
+    }
+
     // Check if user is admin and enable/disable Công nợ field accordingly
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
     const confirmDebtBtn = document.getElementById('confirmDebtBtn');

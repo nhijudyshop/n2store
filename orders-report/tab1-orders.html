@@ -2751,6 +2751,21 @@
                 style="background: white; padding: 12px 20px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
                 <button class="sale-btn sale-btn-teal" onclick="confirmAndPrintSale()">Xác nhận và in (F9)</button>
 
+                <!-- Bill Type Toggle -->
+                <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px; padding: 4px 12px; background: #f3f4f6; border-radius: 6px;">
+                    <span style="font-size: 12px; color: #6b7280;">Bill:</span>
+                    <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                        <input type="radio" name="saleBillType" id="saleBillTypeWeb" value="web" checked
+                            style="margin: 0; cursor: pointer;">
+                        <span style="font-size: 12px; color: #059669; font-weight: 500;">Web</span>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                        <input type="radio" name="saleBillType" id="saleBillTypeTpos" value="tpos"
+                            style="margin: 0; cursor: pointer;">
+                        <span style="font-size: 12px; color: #3b82f6; font-weight: 500;">TPOS</span>
+                    </label>
+                </div>
+
                 <!-- Customer Info -->
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 12px; color: #6b7280;">Tên khách hàng:</span>
@@ -3027,7 +3042,22 @@
             </div>
 
             <!-- Footer -->
-            <div class="merge-modal-footer">
+            <div class="merge-modal-footer" style="display: flex; align-items: center; gap: 12px;">
+                <!-- Bill Type Toggle -->
+                <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f3f4f6; border-radius: 6px; margin-right: auto;">
+                    <span style="font-size: 12px; color: #6b7280;">Bill:</span>
+                    <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                        <input type="radio" name="fastSaleBillType" id="fastSaleBillTypeWeb" value="web" checked
+                            style="margin: 0; cursor: pointer;">
+                        <span style="font-size: 12px; color: #059669; font-weight: 500;">Web</span>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                        <input type="radio" name="fastSaleBillType" id="fastSaleBillTypeTpos" value="tpos"
+                            style="margin: 0; cursor: pointer;">
+                        <span style="font-size: 12px; color: #3b82f6; font-weight: 500;">TPOS</span>
+                    </label>
+                </div>
+
                 <button class="merge-btn-cancel" onclick="closeFastSaleModal()">
                     <i class="fas fa-times"></i> Đóng
                 </button>

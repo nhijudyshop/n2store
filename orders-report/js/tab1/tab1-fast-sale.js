@@ -294,6 +294,15 @@ async function showFastSaleModal() {
         </div>
     `;
 
+    // Restore bill type preference from localStorage (default: 'web')
+    const savedBillType = localStorage.getItem('fastSaleBillTypePreference') || 'web';
+    const billTypeWeb = document.getElementById('fastSaleBillTypeWeb');
+    const billTypeTpos = document.getElementById('fastSaleBillTypeTpos');
+    if (billTypeWeb && billTypeTpos) {
+        billTypeWeb.checked = savedBillType === 'web';
+        billTypeTpos.checked = savedBillType === 'tpos';
+    }
+
     try {
         // Get selected order IDs
         const allSelectedIds = Array.from(selectedOrderIds);
@@ -1385,10 +1394,14 @@ async function preGenerateBillImages() {
                 }
             }
 
-            // Fetch TPOS bill HTML first (preferred) - same pattern as sendBillToCustomer
+            // Check bill type toggle preference (TPOS or Web)
+            const billTypeToggle = document.querySelector('input[name="fastSaleBillType"]:checked');
+            const useTposBill = billTypeToggle?.value === 'tpos';
+
+            // Fetch TPOS bill HTML only if toggle is set to 'tpos'
             let billHtml = null;
             const tposOrderId = order.Id;
-            if (tposOrderId && typeof window.getBillAuthHeader === 'function') {
+            if (useTposBill && tposOrderId && typeof window.getBillAuthHeader === 'function') {
                 try {
                     const headers = await window.getBillAuthHeader();
                     const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
@@ -1400,6 +1413,8 @@ async function preGenerateBillImages() {
                 } catch (tposError) {
                     console.warn(`[FAST-SALE] Failed to fetch TPOS bill for pre-generate ${order.Number}:`, tposError.message);
                 }
+            } else if (!useTposBill) {
+                console.log(`[FAST-SALE] Using Web bill template for pre-generate: ${order.Number}`);
             }
 
             // Generate bill image using TPOS HTML if available, otherwise custom bill fallback
@@ -2025,51 +2040,74 @@ async function printSuccessOrders(type) {
             sendTasksCount: sendTasks.length
         });
 
-        // 1. Open TPOS bills print popup (directly using orderIds - no fallback to custom bill)
+        // 1. Check bill type toggle preference
+        const billTypeToggle = document.querySelector('input[name="fastSaleBillType"]:checked');
+        const useTposBill = billTypeToggle?.value === 'tpos';
+
+        // Store preference in localStorage
+        localStorage.setItem('fastSaleBillTypePreference', billTypeToggle?.value || 'web');
+
+        // Open print popup based on toggle preference
         if (orderIds.length > 0) {
-            console.log('[FAST-SALE] Opening TPOS print popup for', orderIds.length, 'bills, IDs:', orderIds);
+            if (useTposBill) {
+                // TPOS Bill - fetch from TPOS API with STT
+                console.log('[FAST-SALE] Using TPOS bill for', orderIds.length, 'bills...');
 
-            try {
-                const headers = await getBillAuthHeader();
-                console.log('[FAST-SALE] Got auth headers:', headers ? 'OK' : 'MISSING');
+                try {
+                    const headers = await getBillAuthHeader();
+                    console.log('[FAST-SALE] Got auth headers:', headers ? 'OK' : 'MISSING');
 
-                // Build TPOS orders array for printing
-                const tposOrders = selectedOrders.map((order, idx) => {
-                    // Find saleOnline order for SessionIndex
-                    const saleOnlineId = order.SaleOnlineIds?.[0];
-                    const saleOnlineOrder = saleOnlineId
-                        ? (window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId))
-                        : null;
+                    // Build TPOS orders array for printing
+                    const tposOrders = selectedOrders.map((order, idx) => {
+                        // Find saleOnline order for SessionIndex
+                        const saleOnlineId = order.SaleOnlineIds?.[0];
+                        const saleOnlineOrder = saleOnlineId
+                            ? (window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId))
+                            : null;
 
-                    return {
-                        orderId: order.Id,
-                        orderData: saleOnlineOrder || order
-                    };
-                });
+                        return {
+                            orderId: order.Id,
+                            orderData: saleOnlineOrder || order
+                        };
+                    });
 
-                console.log('[FAST-SALE] TPOS orders for print:', tposOrders.map(o => ({
-                    orderId: o.orderId,
-                    sessionIndex: o.orderData?.SessionIndex
-                })));
+                    console.log('[FAST-SALE] TPOS orders for print:', tposOrders.map(o => ({
+                        orderId: o.orderId,
+                        sessionIndex: o.orderData?.SessionIndex
+                    })));
 
-                // Check if function exists
-                if (typeof window.openCombinedTPOSPrintPopup !== 'function') {
-                    console.error('[FAST-SALE] ERROR: window.openCombinedTPOSPrintPopup is not a function!');
-                    window.notificationManager?.error('Lỗi: Hàm in TPOS bill không tồn tại');
+                    // Check if function exists
+                    if (typeof window.openCombinedTPOSPrintPopup !== 'function') {
+                        console.error('[FAST-SALE] ERROR: window.openCombinedTPOSPrintPopup is not a function!');
+                        window.notificationManager?.error('Lỗi: Hàm in TPOS bill không tồn tại');
+                        return;
+                    }
+
+                    // Use TPOS bill style with STT
+                    console.log('[FAST-SALE] Calling openCombinedTPOSPrintPopup...');
+                    await window.openCombinedTPOSPrintPopup(tposOrders, headers);
+                    console.log('[FAST-SALE] openCombinedTPOSPrintPopup completed');
+
+                } catch (error) {
+                    console.error('[FAST-SALE] Error printing TPOS bills:', error);
+                    window.notificationManager?.error(`Lỗi khi in TPOS bill: ${error.message}`);
+                }
+            } else {
+                // Web Bill - use local template (generateCustomBillHTML)
+                console.log('[FAST-SALE] Using Web bill template for', enrichedOrders.length, 'bills...');
+
+                if (typeof window.openCombinedPrintPopup !== 'function') {
+                    console.error('[FAST-SALE] ERROR: window.openCombinedPrintPopup is not a function!');
+                    window.notificationManager?.error('Lỗi: Hàm in Web bill không tồn tại');
                     return;
                 }
 
-                // Use TPOS bill style with STT
-                console.log('[FAST-SALE] Calling openCombinedTPOSPrintPopup...');
-                await window.openCombinedTPOSPrintPopup(tposOrders, headers);
-                console.log('[FAST-SALE] openCombinedTPOSPrintPopup completed');
-
-            } catch (error) {
-                console.error('[FAST-SALE] Error printing TPOS bills:', error);
-                window.notificationManager?.error(`Lỗi khi in TPOS bill: ${error.message}`);
+                // Use Web bill (local template)
+                window.openCombinedPrintPopup(enrichedOrders);
+                console.log('[FAST-SALE] openCombinedPrintPopup completed');
             }
         } else {
-            window.notificationManager?.error('Không có đơn hàng TPOS để in');
+            window.notificationManager?.error('Không có đơn hàng để in');
         }
 
         // 3. Clear main table checkboxes after printing
