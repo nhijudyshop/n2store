@@ -949,13 +949,13 @@ ${safePrepaidAmount > 0 ? `
                             </td>
                             <td style="border-left:none !important" class="text-right">${safePrepaidAmount.toLocaleString('vi-VN')}</td>
                         </tr>
-${codAmount > 0 ? `                        <tr>
+                        <tr>
                             <td colspan="2" class="text-right">
                                 <strong>Còn lại :</strong>
                             </td>
                             <td class="text-right">${codAmount.toLocaleString('vi-VN')}</td>
                         </tr>
-` : ''}` : ''}
+` : ''}
                                     </tfoot>
             </table>
 ${orderComment ? `

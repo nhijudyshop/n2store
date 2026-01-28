@@ -62,7 +62,7 @@
 │             │Tiền ship:│  20.000  │
 │             │Tổng tiền:│ 220.000  │
 │             │Trả trước:│ 220.000  │  <- min(walletBalance, finalTotal)
-│             │ Còn lại: │       0  │  <- Custom bill ẩn nếu = 0
+│             │ Còn lại: │       0  │  <- Luôn hiện nếu có trả trước
 └─────────────┴──────────┴──────────┘
 ```
 
@@ -273,13 +273,9 @@ hr.dash-cs {
 4. **Điều kiện hiển thị**:
    - Giảm giá: chỉ hiện nếu `discount > 0`
    - Trả trước: chỉ hiện nếu `safePrepaidAmount > 0`
-   - **Còn lại**: Custom bill chỉ hiện nếu `codAmount > 0` (TPOS bill luôn hiện)
+   - **Còn lại**: Luôn hiện nếu có trả trước (giống TPOS)
    - Ghi chú GH: chỉ hiện nếu có nội dung
    - Ghi chú: chỉ hiện nếu có nội dung
-
-**Khác biệt TPOS vs Custom bill:**
-- TPOS: Luôn hiện "Còn lại: 0" khi có trả trước
-- Custom: Ẩn "Còn lại" nếu `codAmount = 0` (trả đủ)
 
 ---
 
