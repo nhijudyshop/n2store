@@ -703,34 +703,14 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
     // - TỈNH: Free if total > 3,000,000
     select.onchange = function () {
         const selectedOption = this.options[this.selectedIndex];
-        const carrierName = selectedOption.dataset.name || selectedOption.text || '';
-        let fee = parseFloat(selectedOption.dataset.fee) || 0;
-        let isFreeShip = false;
-
-        // Get final total (after discount) for free shipping check
-        const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
-
-        if (fee > 0 && finalTotal > 0) {
-            const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
-            const isTinh = carrierName.includes('TỈNH');
-
-            if (isThanhPho && finalTotal > 1500000) {
-                fee = 0;
-                isFreeShip = true;
-            } else if (isTinh && finalTotal > 3000000) {
-                fee = 0;
-                isFreeShip = true;
-            }
-        }
+        const fee = parseFloat(selectedOption.dataset.fee) || 0;
 
         const shippingFeeInput = document.getElementById('saleShippingFee');
         if (shippingFeeInput) {
             shippingFeeInput.value = fee;
-            // Trigger recalculation of COD
-            updateSaleCOD();
         }
 
-        // Regenerate note with all parts (CK, GG, gộp, freeship)
+        // autoFillSaleNote handles everything: freeship check, set fee=0, update note, update COD
         autoFillSaleNote(true);
     };
 
@@ -1628,21 +1608,29 @@ function autoFillSaleNote(forceRegenerate = false) {
     }
 
     // 4. Freeship - check based on final total (after discount)
+    // Also set shipping fee to 0 if freeship applies
     const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
     const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+    const shippingFeeInput = document.getElementById('saleShippingFee');
 
     const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
     const isTinh = carrierName.includes('TỈNH');
-    if ((isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000)) {
+    const isFreeShip = (isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000);
+
+    if (isFreeShip) {
         noteParts.push('freeship');
+        // Set shipping fee to 0
+        if (shippingFeeInput) {
+            shippingFeeInput.value = 0;
+        }
     }
 
     // Set note
-    if (noteParts.length > 0) {
-        noteField.value = noteParts.join(', ');
-        console.log('[SALE-MODAL] Auto-filled note:', noteField.value);
-    }
+    noteField.value = noteParts.length > 0 ? noteParts.join(', ') : '';
+
+    // Update COD after shipping fee change
+    updateSaleCOD();
 }
 
 /**
