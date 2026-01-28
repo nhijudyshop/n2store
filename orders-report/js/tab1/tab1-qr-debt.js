@@ -703,15 +703,31 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
     // - TỈNH: Free if total > 3,000,000
     select.onchange = function () {
         const selectedOption = this.options[this.selectedIndex];
-        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const carrierName = selectedOption.dataset.name || selectedOption.text || '';
+        let fee = parseFloat(selectedOption.dataset.fee) || 0;
+
+        // Get total amount for free shipping check
+        const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+
+        if (fee > 0 && totalAmount > 0) {
+            const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+            const isTinh = carrierName.includes('TỈNH');
+
+            if (isThanhPho && totalAmount > 1500000) {
+                fee = 0;
+                console.log(`[SALE-MODAL] 🚚 Free ship THÀNH PHỐ: Total ${totalAmount.toLocaleString('vi-VN')}đ > 1.5M`);
+            } else if (isTinh && totalAmount > 3000000) {
+                fee = 0;
+                console.log(`[SALE-MODAL] 🚚 Free ship TỈNH: Total ${totalAmount.toLocaleString('vi-VN')}đ > 3M`);
+            }
+        }
 
         const shippingFeeInput = document.getElementById('saleShippingFee');
         if (shippingFeeInput) {
             shippingFeeInput.value = fee;
+            // Trigger recalculation of COD
+            updateSaleCOD();
         }
-
-        // autoFillSaleNote handles everything: freeship check, set fee=0, update note, update COD
-        autoFillSaleNote(true);
     };
 
     // If a carrier was pre-selected, trigger the change event to set fee
@@ -1556,13 +1572,11 @@ async function fetchDebtForSaleModal(phone) {
 }
 /**
  * Auto-fill notes from existing data (no extra API calls)
- * Uses: salePrepaidAmount (wallet), order.Tags (discount/merge), carrier (freeship)
- * @param {boolean} forceRegenerate - If true, regenerate even if note already has value
+ * Uses: salePrepaidAmount (wallet), order.Tags (discount/merge)
  */
-function autoFillSaleNote(forceRegenerate = false) {
+function autoFillSaleNote() {
     const noteField = document.getElementById('saleReceiverNote');
-    if (!noteField) return;
-    if (!forceRegenerate && noteField.value.trim()) return; // Skip if already has value
+    if (!noteField || noteField.value.trim()) return; // Skip if already has value
 
     const order = currentSaleOrderData;
     if (!order) return;
@@ -1607,30 +1621,11 @@ function autoFillSaleNote(forceRegenerate = false) {
         }
     }
 
-    // 4. Freeship - check based on final total (after discount)
-    // Also set shipping fee to 0 if freeship applies
-    const carrierSelect = document.getElementById('saleDeliveryPartner');
-    const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
-    const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
-    const shippingFeeInput = document.getElementById('saleShippingFee');
-
-    const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
-    const isTinh = carrierName.includes('TỈNH');
-    const isFreeShip = (isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000);
-
-    if (isFreeShip) {
-        noteParts.push('freeship');
-        // Set shipping fee to 0
-        if (shippingFeeInput) {
-            shippingFeeInput.value = 0;
-        }
-    }
-
     // Set note
-    noteField.value = noteParts.length > 0 ? noteParts.join(', ') : '';
-
-    // Update COD after shipping fee change
-    updateSaleCOD();
+    if (noteParts.length > 0) {
+        noteField.value = noteParts.join(', ');
+        console.log('[SALE-MODAL] Auto-filled note:', noteField.value);
+    }
 }
 
 /**

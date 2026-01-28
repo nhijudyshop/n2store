@@ -915,21 +915,19 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
 function updateFastSaleShippingFee(index) {
     const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
     const shippingFeeInput = document.getElementById(`fastSaleShippingFee_${index}`);
-    const noteInput = document.getElementById(`fastSaleNote_${index}`);
 
     if (carrierSelect && shippingFeeInput) {
         const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
         const carrierName = selectedOption.dataset.name || selectedOption.text || '';
         let fee = parseFloat(selectedOption.dataset.fee) || 0;
-        let isFreeShip = false;
 
         // Get order total for this row
-        // Use final total (after discount) for freeship check
         const order = fastSaleOrdersData[index];
         if (order && fee > 0) {
-            const productTotal = order.AmountTotal || 0;
+            // Calculate total after discount
+            const originalTotal = order.AmountTotal || 0;
             const { totalDiscount } = orderHasDiscountTag(order) ? calculateOrderDiscount(order) : { totalDiscount: 0 };
-            const finalTotal = productTotal - totalDiscount;
+            const finalTotal = originalTotal - totalDiscount;
 
             // Check free shipping conditions
             const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
@@ -937,26 +935,14 @@ function updateFastSaleShippingFee(index) {
 
             if (isThanhPho && finalTotal > 1500000) {
                 fee = 0;
-                isFreeShip = true;
+                console.log(`[FAST-SALE] 🚚 Free ship THÀNH PHỐ: Total ${finalTotal.toLocaleString('vi-VN')}đ > 1.5M`);
             } else if (isTinh && finalTotal > 3000000) {
                 fee = 0;
-                isFreeShip = true;
+                console.log(`[FAST-SALE] 🚚 Free ship TỈNH: Total ${finalTotal.toLocaleString('vi-VN')}đ > 3M`);
             }
         }
 
         shippingFeeInput.value = fee;
-
-        // Add/remove "freeship" in note
-        if (noteInput) {
-            let note = noteInput.value || '';
-            // Remove existing freeship
-            note = note.replace(/,?\s*freeship/gi, '').trim();
-            // Add freeship if applicable
-            if (isFreeShip) {
-                note = note ? `${note}, freeship` : 'freeship';
-            }
-            noteInput.value = note;
-        }
     }
 }
 
