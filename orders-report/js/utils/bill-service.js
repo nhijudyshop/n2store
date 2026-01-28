@@ -59,7 +59,17 @@ const BillService = (function () {
      * @returns {string} HTML content for the bill (EXACT TPOS format)
      */
     function generateCustomBillHTML(orderResult, options = {}) {
-        console.log('[BILL-SERVICE] generateCustomBillHTML input:', orderResult);
+        console.log('[BILL-SERVICE] generateCustomBillHTML called');
+        console.log('[BILL-SERVICE] orderResult:', {
+            Number: orderResult?.Number,
+            Reference: orderResult?.Reference,
+            CarrierName: orderResult?.CarrierName,
+            State: orderResult?.State,
+            ShowState: orderResult?.ShowState,
+            SessionIndex: orderResult?.SessionIndex,
+            PartnerDisplayName: orderResult?.PartnerDisplayName,
+            hasOrderLines: !!(orderResult?.OrderLines || orderResult?.orderLines)
+        });
 
         // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
         const currentSaleOrderData = options.currentSaleOrderData || null;
@@ -142,8 +152,8 @@ const BillService = (function () {
             sttDisplay = order?.SessionIndex || orderResult?.SessionIndex || '';
         }
 
-        // Bill number and date
-        const billNumber = orderResult?.Number || orderResult?.Reference || '';
+        // Bill number and date (data should already be complete from InvoiceStatusStore)
+        const billNumber = orderResult?.Number || '';
         const now = new Date();
         const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -151,15 +161,16 @@ const BillService = (function () {
         const barcodeUrl = billNumber ?
             `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${encodeURIComponent(billNumber)}&width=600&height=100` : '';
 
-        // Debug log key variables
+        // ========== GENERATE PRODUCT ROWS ==========
+        const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
+
+        // Debug log key variables (AFTER orderLines is defined)
         console.log('[BILL-SERVICE] Bill variables:', {
             shopName, carrierName, billNumber, sellerName, sttDisplay,
             shippingFee, discount, prepaidAmount,
-            orderLinesCount: orderLines.length
+            orderLinesCount: orderLines.length,
+            orderResultKeys: Object.keys(orderResult || {})
         });
-
-        // ========== GENERATE PRODUCT ROWS ==========
-        const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
         let totalQuantity = 0;
         let totalAmount = 0;
 
