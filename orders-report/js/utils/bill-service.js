@@ -253,10 +253,12 @@ ${uomName}                            </td>
         // Ensure all values are valid numbers
         const safeShippingFee = Number(shippingFee) || 0;
         const safeDiscount = Number(discount) || 0;
-        const safePrepaidAmount = Number(prepaidAmount) || 0;
+        const walletBalance = Number(prepaidAmount) || 0;
         const safeTotalAmount = Number(totalAmount) || 0;
 
         const finalTotal = safeTotalAmount - safeDiscount + safeShippingFee;
+        // Số tiền thực trả = min(số dư ví, tổng tiền cần trả)
+        const safePrepaidAmount = Math.min(walletBalance, finalTotal);
         const remainingBalance = finalTotal - safePrepaidAmount;
         const codAmount = remainingBalance > 0 ? remainingBalance : 0;
 
