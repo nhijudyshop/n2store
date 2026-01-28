@@ -414,7 +414,7 @@ const WalletIntegration = (function() {
             modal.innerHTML = `
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h3 id="wallet-modal-title">Ví Tiền</h3>
+                        <h3 id="wallet-modal-title">Ví Khách Hàng</h3>
                         <button class="close-modal">&times;</button>
                     </div>
                     <div class="modal-body" id="wallet-modal-body">
@@ -442,7 +442,7 @@ const WalletIntegration = (function() {
 
         // Show modal
         modal.style.display = 'flex';
-        document.getElementById('wallet-modal-title').textContent = `Ví Tiền - ${normalizedPhone}`;
+        document.getElementById('wallet-modal-title').textContent = `Ví Khách Hàng - ${normalizedPhone}`;
 
         // Load wallet data
         const customer360 = await getCustomer360(normalizedPhone);
