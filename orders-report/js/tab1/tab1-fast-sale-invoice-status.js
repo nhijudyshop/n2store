@@ -220,11 +220,13 @@
                 displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
 
             // Simplify OrderLines to reduce storage size
+            // Include Note for product discount display (e.g. "100" = giảm 100k)
             const orderLines = (invoiceData.OrderLines || []).map(line => ({
                 ProductName: line.ProductName || line.ProductNameGet || '',
-                ProductUOMQty: line.ProductUOMQty || 1,
-                PriceUnit: line.PriceUnit || 0,
-                PriceTotal: line.PriceTotal || (line.ProductUOMQty || 1) * (line.PriceUnit || 0)
+                ProductUOMQty: line.ProductUOMQty || line.Quantity || 1,
+                PriceUnit: line.PriceUnit || line.Price || 0,
+                PriceTotal: line.PriceTotal || (line.ProductUOMQty || line.Quantity || 1) * (line.PriceUnit || line.Price || 0),
+                Note: line.Note || ''  // Ghi chú sản phẩm (giảm giá từng item)
             }));
 
             // Ensure complete data - use Reference as Number if Number is null (for draft orders)
