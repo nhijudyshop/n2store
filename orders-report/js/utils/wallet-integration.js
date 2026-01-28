@@ -526,10 +526,18 @@ const WalletIntegration = (function() {
             return;
         }
 
-        // Separate transactions: available (positive) vs completed (negative/used)
+        // Separate transactions:
+        // - "Available" only shown when totalBalance > 0, limited to recent deposits
+        // - "Completed" shows all withdrawal transactions
         // Note: amount may be string from API, so parse to float
-        const availableTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) > 0);
-        const completedTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) <= 0);
+
+        // If balance is 0 or negative, no transactions are "available" - the money has been used
+        const depositTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) > 0);
+        const withdrawalTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) <= 0);
+
+        // Only show deposits as "available" if there's actual balance remaining
+        const availableTransactions = totalBalance > 0 ? depositTransactions : [];
+        const completedTransactions = totalBalance > 0 ? withdrawalTransactions : recentTransactions;
 
         // Format balance display
         const totalBalance = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
