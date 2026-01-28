@@ -16,7 +16,7 @@
 ┌─────────────────────────────────────┐
 │           NJD Live                  │  <- Tên shop (company.Name)
 │  THÀNH PHỐ (1 3 4 5 6 7 8...)      │  <- Carrier name (vùng giao hàng)
-│      Tiền thu hộ: 220.000           │  <- COD amount
+│      Tiền thu hộ: 0                 │  <- COD amount (0 nếu trả đủ)
 │─────────────────────────────────────│
 ```
 
@@ -53,6 +53,7 @@
 │ Sản phẩm    │   Giá    │   Tổng   │
 ├─────────────┴──────────┴──────────┤
 │ [N23] 0510 A3 ÁO 2D FENDY HỒNG    │  <- Tên sản phẩm (colspan=3)
+│ (100)                              │  <- Note sản phẩm (giảm giá)
 ├─────────────┬──────────┬──────────┤
 │   2 Cái     │ 180.000  │ 360.000  │  <- Số lượng, đơn giá, thành tiền
 ├─────────────┴──────────┴──────────┤
@@ -60,10 +61,17 @@
 │             │ Giảm giá:│ 160.000  │  <- Chỉ hiện nếu > 0
 │             │Tiền ship:│  20.000  │
 │             │Tổng tiền:│ 220.000  │
-│             │Trả trước:│ 100.000  │  <- Chỉ hiện nếu > 0
-│             │ Còn lại: │ 120.000  │  <- Chỉ hiện nếu có trả trước
+│             │Trả trước:│ 220.000  │  <- min(walletBalance, finalTotal)
+│             │ Còn lại: │       0  │  <- Custom bill ẩn nếu = 0
 └─────────────┴──────────┴──────────┘
 ```
+
+**Ví dụ thực tế (wallet 400K, total 220K):**
+- Số dư ví: 400.000
+- Tổng tiền: 220.000
+- Trả trước: min(400K, 220K) = **220.000**
+- Còn lại: 220K - 220K = **0**
+- Tiền thu hộ: **0**
 
 ### 5. Ghi chú giao hàng
 ```
@@ -133,9 +141,10 @@ codAmount = Math.max(0, finalTotal - prepaidAmount)
 Khi mở modal "Phiếu bán hàng", field **Ghi chú** (`saleReceiverNote`) sẽ được auto-fill từ dữ liệu có sẵn:
 
 ```javascript
-// Format: "CK 50K ACB 28/01, GG 100K, đơn gộp 1026 + 1074"
+// Format: "CK 400K ACB 28/01, GG 160K, đơn gộp 1026 + 1074"
 
 // 1. CK (Chuyển khoản) - từ số dư ví (salePrepaidAmount)
+// Ghi số dư ví gốc, KHÔNG phải số tiền trả trước
 if (walletBalance > 0) {
     noteParts.push(`CK ${walletBalance/1000}K ACB ${dd/mm}`);
 }
@@ -150,6 +159,10 @@ if (mergeTag) {
     noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
 }
 ```
+
+**Ví dụ thực tế:** `"CK 400K ACB 28/01, GG 160K"`
+- Số dư ví 400K → ghi "CK 400K" (ghi số dư gốc để track)
+- Giảm giá 160K → ghi "GG 160K"
 
 **Điều kiện hiển thị:**
 - CK: Chỉ hiện nếu `walletBalance > 0`
@@ -217,9 +230,14 @@ hr.dash-cs {
 3. **Giữ nguyên CSS** - Đã được tối ưu cho máy in nhiệt 80mm
 4. **Điều kiện hiển thị**:
    - Giảm giá: chỉ hiện nếu `discount > 0`
-   - Trả trước/Còn lại: chỉ hiện nếu `prepaidAmount > 0`
+   - Trả trước: chỉ hiện nếu `safePrepaidAmount > 0`
+   - **Còn lại**: Custom bill chỉ hiện nếu `codAmount > 0` (TPOS bill luôn hiện)
    - Ghi chú GH: chỉ hiện nếu có nội dung
    - Ghi chú: chỉ hiện nếu có nội dung
+
+**Khác biệt TPOS vs Custom bill:**
+- TPOS: Luôn hiện "Còn lại: 0" khi có trả trước
+- Custom: Ẩn "Còn lại" nếu `codAmount = 0` (trả đủ)
 
 ---
 
