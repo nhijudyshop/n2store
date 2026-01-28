@@ -118,7 +118,7 @@ const BillService = (function () {
             orderResult?.PaymentAmount ||
             0;
 
-        // ========== PARSE TAGS ==========
+        // ========== PARSE TAGS (for STT merge display) ==========
         let orderTags = [];
         try {
             const tagsRaw = order?.Tags || orderResult?.Tags;
@@ -130,60 +130,24 @@ const BillService = (function () {
             orderTags = [];
         }
 
-        // Find merge tag (Gộp X Y Z or GỘP X Y Z)
+        // Find merge tag (Gộp X Y Z or GỘP X Y Z) for STT display
         let mergeTagNumbers = [];
         const mergeTag = orderTags.find(t => {
             const tagName = (t.Name || '').trim();
             return tagName.toLowerCase().startsWith('gộp ') || tagName.startsWith('Gộp ') || tagName.startsWith('GỘP ');
         });
         if (mergeTag) {
-            // Extract numbers from tag name "Gộp 745 923" → [745, 923]
             const numbers = mergeTag.Name.match(/\d+/g);
             if (numbers && numbers.length > 0) {
                 mergeTagNumbers = numbers;
             }
         }
 
-        // Check for discount tag (GIẢM GIÁ)
-        const hasDiscountTag = orderTags.some(t => {
-            const tagName = (t.Name || '').toUpperCase();
-            return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
-        });
-
-        // ========== AUTO-GENERATE ORDER COMMENT ==========
-        // Priority: 1. CK (prepaid), 2. GG (discount), 3. đơn gộp
-        const commentParts = [];
-        const commentDate = new Date();
-        const todayStr = `${String(commentDate.getDate()).padStart(2, '0')}/${String(commentDate.getMonth() + 1).padStart(2, '0')}`;
-
-        // 1. Prepaid amount → "CK 100K ACB 26/01"
-        if (prepaidAmount > 0) {
-            const amountStr = prepaidAmount >= 1000 ? `${Math.round(prepaidAmount / 1000)}K` : prepaidAmount.toLocaleString('vi-VN');
-            commentParts.push(`CK ${amountStr} ACB ${todayStr}`);
-        }
-
-        // 2. Discount amount → "GG 50K"
-        if (discount > 0 || hasDiscountTag) {
-            if (discount > 0) {
-                const discountStr = discount >= 1000 ? `${Math.round(discount / 1000)}K` : discount.toLocaleString('vi-VN');
-                commentParts.push(`GG ${discountStr}`);
-            } else {
-                commentParts.push('GG');
-            }
-        }
-
-        // 3. Merge tag → "đơn gộp 745 + 923"
-        if (mergeTagNumbers.length > 1) {
-            commentParts.push(`đơn gộp ${mergeTagNumbers.join(' + ')}`);
-        }
-
-        // Combine auto-generated comment with existing comment
-        const existingComment = (isModalVisible && document.getElementById('saleComment')?.value) ||
+        // Order comment - get from form or data (pre-filled by fast sale modal)
+        const orderComment = (isModalVisible && document.getElementById('saleReceiverNote')?.value) ||
             orderResult?.Comment ||
             order?.Comment ||
             '';
-        const autoComment = commentParts.join(', ');
-        const orderComment = autoComment || existingComment;
 
         // Shop-wide delivery note (hotline warning + return policy)
         // This comes from shop settings or default
