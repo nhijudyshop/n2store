@@ -2024,6 +2024,13 @@ function updateSaleTotals(quantity, amount) {
 
     // Update remaining balance after COD changes
     updateSaleRemainingBalance();
+
+    // Re-check free shipping now that total is set
+    // This fixes timing issue where carrier onchange fires before total is populated
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    if (carrierSelect && carrierSelect.value) {
+        carrierSelect.dispatchEvent(new Event('change'));
+    }
 }
 
 /**
