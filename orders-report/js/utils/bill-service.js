@@ -59,6 +59,8 @@ const BillService = (function () {
      * @returns {string} HTML content for the bill (EXACT TPOS format)
      */
     function generateCustomBillHTML(orderResult, options = {}) {
+        console.log('[BILL-SERVICE] generateCustomBillHTML input:', orderResult);
+
         // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
         const currentSaleOrderData = options.currentSaleOrderData || null;
         const order = currentSaleOrderData || orderResult;
@@ -141,13 +143,20 @@ const BillService = (function () {
         }
 
         // Bill number and date
-        const billNumber = orderResult?.Number || '';
+        const billNumber = orderResult?.Number || orderResult?.Reference || '';
         const now = new Date();
         const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
         // Barcode URL (TPOS CDN - exact format from TPOS)
         const barcodeUrl = billNumber ?
-            `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${billNumber}&width=600&height=100` : '';
+            `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${encodeURIComponent(billNumber)}&width=600&height=100` : '';
+
+        // Debug log key variables
+        console.log('[BILL-SERVICE] Bill variables:', {
+            shopName, carrierName, billNumber, sellerName, sttDisplay,
+            shippingFee, discount, prepaidAmount,
+            orderLinesCount: orderLines.length
+        });
 
         // ========== GENERATE PRODUCT ROWS ==========
         const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
@@ -190,8 +199,14 @@ ${uomName}                            </td>
         }).join('\n');
 
         // ========== CALCULATE TOTALS ==========
-        const finalTotal = totalAmount - discount + shippingFee;
-        const remainingBalance = finalTotal - prepaidAmount;
+        // Ensure all values are valid numbers
+        const safeShippingFee = Number(shippingFee) || 0;
+        const safeDiscount = Number(discount) || 0;
+        const safePrepaidAmount = Number(prepaidAmount) || 0;
+        const safeTotalAmount = Number(totalAmount) || 0;
+
+        const finalTotal = safeTotalAmount - safeDiscount + safeShippingFee;
+        const remainingBalance = finalTotal - safePrepaidAmount;
         const codAmount = remainingBalance > 0 ? remainingBalance : 0;
 
         // ========== EXACT TPOS HTML TEMPLATE ==========
@@ -774,9 +789,9 @@ ${carrierName ? `<span>${carrierName}</span><br/>` : ''}
                 <tr>
                     <th>
                         <div class='text-center'>
-                    <div>
-                        <img src='${barcodeUrl}' style='width:95%' />
-                    </div>
+                    ${barcodeUrl ? `<div>
+                        <img src='${barcodeUrl}' style='width:95%' onerror="this.style.display='none'" />
+                    </div>` : ''}
                 <strong>Số phiếu</strong>: ${billNumber}
                 <div>
                     <strong>Ngày</strong>: ${dateStr}
