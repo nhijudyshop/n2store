@@ -2007,7 +2007,7 @@ router.post('/:id/adjust', async (req, res) => {
         // 10. Log customer activities (use WALLET_WITHDRAW since WALLET_ADJUSTMENT not in CHECK constraint)
         await db.query(`
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, description)
-            SELECT $1::text, customer_id, 'WALLET_WITHDRAW'::text, $2::text, $3::text
+            SELECT $1::text, id, 'WALLET_WITHDRAW'::text, $2::text, $3::text
             FROM customers WHERE phone = $1::text
         `, [
             tx.linked_customer_phone,
