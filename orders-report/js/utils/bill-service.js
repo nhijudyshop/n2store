@@ -113,10 +113,12 @@ const BillService = (function () {
             orderResult?.DiscountAmount ||
             orderResult?.DecreaseAmount ||
             0;
-        const prepaidAmount = (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) ||
-            orderResult?.AmountDeposit ||
-            orderResult?.PaymentAmount ||
-            0;
+
+        // IMPORTANT: Prioritize orderResult values (after order creation) over form fields
+        // This ensures custom bill matches TPOS bill exactly
+        const apiPaymentAmount = orderResult?.PaymentAmount;
+        const apiCashOnDelivery = orderResult?.CashOnDelivery;
+        const walletBalanceFromForm = (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) || 0;
 
         // ========== PARSE TAGS (for STT merge display) ==========
         let orderTags = [];
@@ -207,7 +209,8 @@ const BillService = (function () {
         // Debug log key variables (AFTER orderLines is defined)
         console.log('[BILL-SERVICE] Bill variables:', {
             shopName, carrierName, billNumber, sellerName, sttDisplay,
-            shippingFee, discount, prepaidAmount,
+            shippingFee, discount,
+            apiPaymentAmount, apiCashOnDelivery, walletBalanceFromForm,
             orderLinesCount: orderLines.length,
             orderResultKeys: Object.keys(orderResult || {})
         });
@@ -253,14 +256,23 @@ ${uomName}                            </td>
         // Ensure all values are valid numbers
         const safeShippingFee = Number(shippingFee) || 0;
         const safeDiscount = Number(discount) || 0;
-        const walletBalance = Number(prepaidAmount) || 0;
         const safeTotalAmount = Number(totalAmount) || 0;
 
         const finalTotal = safeTotalAmount - safeDiscount + safeShippingFee;
-        // Số tiền thực trả = min(số dư ví, tổng tiền cần trả)
-        const safePrepaidAmount = Math.min(walletBalance, finalTotal);
-        const remainingBalance = finalTotal - safePrepaidAmount;
-        const codAmount = remainingBalance > 0 ? remainingBalance : 0;
+
+        // IMPORTANT: Use orderResult values when available (after order creation)
+        // This ensures custom bill matches TPOS bill exactly
+        let safePrepaidAmount, codAmount;
+        if (apiPaymentAmount !== undefined && apiPaymentAmount !== null) {
+            // After order creation: use exact values from API response (same as TPOS)
+            safePrepaidAmount = Number(apiPaymentAmount) || 0;
+            codAmount = Number(apiCashOnDelivery) || 0;
+        } else {
+            // Preview before order creation: calculate from form fields
+            const walletBalance = Number(walletBalanceFromForm) || 0;
+            safePrepaidAmount = Math.min(walletBalance, finalTotal);
+            codAmount = Math.max(0, finalTotal - safePrepaidAmount);
+        }
 
         // ========== EXACT TPOS HTML TEMPLATE ==========
         // CSS and structure copied directly from TPOS API response (html_bill.txt)
