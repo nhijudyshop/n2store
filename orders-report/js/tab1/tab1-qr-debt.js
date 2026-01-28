@@ -1635,6 +1635,18 @@ function autoFillSaleNote() {
         }
     }
 
+    // 4. Freeship - check if shipping fee is 0 and carrier qualifies
+    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+    const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+
+    const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+    const isTinh = carrierName.includes('TỈNH');
+    if ((isThanhPho && totalAmount > 1500000) || (isTinh && totalAmount > 3000000)) {
+        noteParts.push('freeship');
+    }
+
     // Set note
     if (noteParts.length > 0) {
         noteField.value = noteParts.join(', ');
