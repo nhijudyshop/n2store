@@ -637,6 +637,20 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
     // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder
     const customerAddress = saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
 
+    // Get partner status from SaleOnlineOrder
+    const partnerStatusText = saleOnlineOrder?.PartnerStatusText || '';
+    const partnerStatusColors = {
+        "Bình thường": "#5cb85c",
+        "Bom hàng": "#d1332e",
+        "Cảnh báo": "#f0ad4e",
+        "Khách sỉ": "#5cb85c",
+        "Nguy hiểm": "#d9534f",
+        "Thân thiết": "#5bc0de",
+        "Vip": "#337ab7",
+        "VIP": "#5bc0de"
+    };
+    const partnerStatusColor = partnerStatusColors[partnerStatusText] || "#6b7280";
+
     // Get products from OrderLines or SaleOnlineOrder Details
     const products = order.OrderLines || saleOnlineOrder?.Details || [];
 
@@ -666,7 +680,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         // Check if this product has a discount in its note
         const productDiscount = parseDiscountFromNote(note);
         const isDiscountedProduct = productDiscount > 0;
-        const alternatingBg = index % 2 === 1 ? 'background-color: #f9fafb;' : '';
+        const alternatingBg = index % 2 === 1 ? 'background-color: #e5e7eb;' : '';
         const rowHighlightStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : alternatingBg;
         const orderSeparator = pIndex === 0 && index > 0 ? 'border-top: 2px solid #d1d5db;' : '';
         const noteStyle = isDiscountedProduct
@@ -680,7 +694,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-weight: 600;">${customerName}</span>
-                                ${order.ShowShipStatus ? `<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">Bom hàng</span>` : ''}
+                                ${partnerStatusText ? `<span class="badge" style="background: ${partnerStatusColor}; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">${partnerStatusText}</span>` : ''}
                             </div>
                             <div style="font-size: 12px; color: #6b7280;">${customerCode}</div>
                             <div style="display: flex; align-items: center; gap: 4px;">
