@@ -1593,34 +1593,107 @@ function generateAutoNotesFromTransactions(transactions) {
 
 /**
  * Fetch transactions and auto-fill notes in the sale modal
+ * Also includes discount tag (GG) and merge tag (đơn gộp) from order
  * @param {string} phone - Normalized phone number
  */
 async function fetchAndAutoFillNotes(phone) {
     const noteField = document.getElementById('saleReceiverNote');
     if (!noteField) return;
 
+    const noteParts = [];
+
+    // ========== 1. CK from transactions ==========
     try {
-        // Fetch transactions from API
         const response = await fetch(`${QR_API_URL}/api/customer/${encodeURIComponent(phone)}/transactions?limit=50`);
         const result = await response.json();
 
         if (result.success && result.data && result.data.length > 0) {
-            // Filter only positive amount transactions (công nợ dương)
             const positiveTransactions = result.data.filter(tx => tx.amount > 0);
 
             if (positiveTransactions.length > 0) {
                 const autoNotes = generateAutoNotesFromTransactions(positiveTransactions);
                 if (autoNotes) {
-                    // Only auto-fill if the note field is empty
-                    if (!noteField.value.trim()) {
-                        noteField.value = autoNotes;
-                        console.log('[SALE-MODAL] Auto-filled notes:', autoNotes);
-                    }
+                    noteParts.push(autoNotes);
                 }
             }
         }
     } catch (error) {
         console.error('[SALE-MODAL] Error fetching transactions:', error);
+    }
+
+    // ========== 2. GG from discount tag + 3. Gộp from merge tag ==========
+    const order = currentSaleOrderData;
+    if (order) {
+        // Parse order tags
+        let orderTags = [];
+        try {
+            const tagsRaw = order.Tags;
+            if (tagsRaw) {
+                orderTags = typeof tagsRaw === 'string' ? JSON.parse(tagsRaw) : tagsRaw;
+                if (!Array.isArray(orderTags)) orderTags = [];
+            }
+        } catch (e) {
+            orderTags = [];
+        }
+
+        // Check for discount tag "GIẢM GIÁ"
+        const hasDiscountTag = orderTags.some(tag => {
+            const tagName = (tag.Name || '').toUpperCase();
+            return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
+        });
+
+        // Calculate discount from product notes if has discount tag
+        if (hasDiscountTag && order.Details && order.Details.length > 0) {
+            let totalDiscount = 0;
+            order.Details.forEach(line => {
+                const note = line.Note || '';
+                // Parse discount note like "100k" or "550K" = actual price
+                const match = note.match(/(\d+)\s*k/i);
+                if (match) {
+                    const actualPrice = parseInt(match[1]) * 1000;
+                    const originalPrice = line.Price || 0;
+                    const qty = line.Quantity || 1;
+                    const discountPerUnit = originalPrice - actualPrice;
+                    if (discountPerUnit > 0) {
+                        totalDiscount += discountPerUnit * qty;
+                    }
+                }
+            });
+
+            if (totalDiscount > 0) {
+                const discountStr = totalDiscount >= 1000
+                    ? `${Math.round(totalDiscount / 1000)}K`
+                    : totalDiscount.toLocaleString('vi-VN');
+                noteParts.push(`GG ${discountStr}`);
+                console.log('[SALE-MODAL] Auto-note: discount =', totalDiscount);
+            }
+        }
+
+        // Check for merge tag "Gộp X Y" or "GỘP X Y"
+        const mergeTag = orderTags.find(tag => {
+            const tagName = (tag.Name || '').trim();
+            return tagName.toLowerCase().startsWith('gộp ') ||
+                   tagName.startsWith('Gộp ') ||
+                   tagName.startsWith('GỘP ');
+        });
+
+        if (mergeTag) {
+            const numbers = mergeTag.Name.match(/\d+/g);
+            if (numbers && numbers.length > 1) {
+                noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
+                console.log('[SALE-MODAL] Auto-note: merge tag =', mergeTag.Name);
+            }
+        }
+    }
+
+    // ========== Combine all notes ==========
+    if (noteParts.length > 0) {
+        const combinedNote = noteParts.join(', ');
+        // Only auto-fill if the note field is empty
+        if (!noteField.value.trim()) {
+            noteField.value = combinedNote;
+            console.log('[SALE-MODAL] Auto-filled notes:', combinedNote);
+        }
     }
 }
 
