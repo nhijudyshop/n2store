@@ -923,20 +923,20 @@ ${productsHTML}
                             </td>
                             <td class="text-right">${finalTotal.toLocaleString('vi-VN')}</td>
                         </tr>
-${prepaidAmount > 0 ? `
+${safePrepaidAmount > 0 ? `
                         <tr>
                             <td colspan="2" class="text-right" style="border-right: none !important">
                                 <strong>Trả trước :</strong>
                             </td>
-                            <td style="border-left:none !important" class="text-right">${prepaidAmount.toLocaleString('vi-VN')}</td>
+                            <td style="border-left:none !important" class="text-right">${safePrepaidAmount.toLocaleString('vi-VN')}</td>
                         </tr>
-                        <tr>
+${codAmount > 0 ? `                        <tr>
                             <td colspan="2" class="text-right">
                                 <strong>Còn lại :</strong>
                             </td>
                             <td class="text-right">${codAmount.toLocaleString('vi-VN')}</td>
                         </tr>
-` : ''}
+` : ''}` : ''}
                                     </tfoot>
             </table>
 ${orderComment ? `
