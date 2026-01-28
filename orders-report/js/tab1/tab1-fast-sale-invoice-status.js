@@ -681,39 +681,28 @@
         }
 
         try {
-            // Try to fetch TPOS bill (with STT) if order has TPOS ID
+            // Use custom bill template (no TPOS API request)
             let billHTML = null;
-            const tposOrderId = enrichedOrder.Id || orderId;
 
-            if (tposOrderId && typeof window.fetchTPOSBillHTML === 'function') {
-                console.log('[INVOICE-STATUS] Fetching TPOS bill for preview, orderId:', tposOrderId);
-                const headers = await getBillAuthHeader();
-                // Get orderData with SessionIndex (from saleOnline order or enrichedOrder)
-                const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
-                    (window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder);
-                billHTML = await window.fetchTPOSBillHTML(tposOrderId, headers, orderData);
-            }
-
-            // Fallback to custom bill if TPOS fetch failed
-            if (!billHTML && typeof window.generateCustomBillHTML === 'function') {
-                console.log('[INVOICE-STATUS] Using custom bill for preview');
+            if (typeof window.generateCustomBillHTML === 'function') {
+                console.log('[INVOICE-STATUS] Generating custom bill for preview');
                 billHTML = window.generateCustomBillHTML(enrichedOrder, {});
             }
 
             if (billHTML) {
-                // Use iframe to display TPOS bill exactly as-is (no CSS conflicts)
+                // Use iframe to display bill exactly as-is (no CSS conflicts)
                 const iframe = document.createElement('iframe');
                 iframe.style.cssText = 'width: 100%; height: 600px; border: none; background: white;';
                 container.innerHTML = '';
                 container.appendChild(iframe);
 
-                // Write the full TPOS HTML to iframe
+                // Write the full HTML to iframe
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
                 iframeDoc.open();
                 iframeDoc.write(billHTML);
                 iframeDoc.close();
 
-                console.log('[INVOICE-STATUS] TPOS bill loaded in iframe');
+                console.log('[INVOICE-STATUS] Custom bill loaded in iframe');
             } else {
                 container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Không thể tạo bill preview</p>';
             }
