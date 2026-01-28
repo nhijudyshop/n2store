@@ -24,7 +24,7 @@ const WalletIntegration = (function() {
     // =====================================================
 
     const CONFIG = {
-        API_URL: 'https://n2store.onrender.com/api',
+        API_URL: 'https://n2store-fallback.onrender.com/api',
         CACHE_TTL: 60000, // 1 minute cache
         POLLING_INTERVAL: 30000, // 30 seconds polling
     };
