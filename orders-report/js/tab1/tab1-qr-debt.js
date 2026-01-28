@@ -1585,12 +1585,29 @@ function autoFillSaleNote() {
         orderTags = [];
     }
 
-    // 2. GG from discount tag
+    // 2. GG from discount tag + product notes
     const hasDiscountTag = orderTags.some(tag =>
         (tag.Name || '').toUpperCase().includes('GIẢM GIÁ')
     );
-    if (hasDiscountTag) {
-        noteParts.push('GG');
+    if (hasDiscountTag && order.Details?.length > 0) {
+        let totalDiscount = 0;
+        order.Details.forEach(line => {
+            const note = line.Note || '';
+            // Parse "550K" or "100k" from note = actual price
+            const match = note.match(/(\d+)\s*k/i);
+            if (match) {
+                const actualPrice = parseInt(match[1]) * 1000;
+                const originalPrice = line.Price || 0;
+                const qty = line.Quantity || 1;
+                if (originalPrice > actualPrice) {
+                    totalDiscount += (originalPrice - actualPrice) * qty;
+                }
+            }
+        });
+        if (totalDiscount > 0) {
+            const discountStr = totalDiscount >= 1000 ? `${Math.round(totalDiscount / 1000)}K` : totalDiscount;
+            noteParts.push(`GG ${discountStr}`);
+        }
     }
 
     // 3. Gộp from merge tag
