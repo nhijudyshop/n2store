@@ -676,7 +676,10 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                 ${pIndex === 0 ? `
                     <td rowspan="${products.length}" style="vertical-align: top; ${hasAnyDiscount ? 'border-left: 4px solid #f59e0b;' : ''}">
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-weight: 600;">${customerName}</div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-weight: 600;">${customerName}</span>
+                                ${order.ShowShipStatus ? `<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">Bom hàng</span>` : ''}
+                            </div>
                             <div style="font-size: 12px; color: #6b7280;">${customerCode}</div>
                             <div style="display: flex; align-items: center; gap: 4px;">
                                 <i class="fas fa-phone" style="font-size: 10px; color: #9ca3af;"></i>
@@ -689,7 +692,6 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                 </span>
                             </div>
                             ${hasAnyDiscount ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;"><i class="fas fa-tag"></i> Giảm ${totalDiscount.toLocaleString('vi-VN')}đ</span>` : ''}
-                            ${order.ShowShipStatus ? `<span class="badge" style="background: #10b981; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">Bom hàng</span>` : ''}
                             <div style="font-size: 12px; color: #6b7280;">
                                 <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i>
                                 ${customerAddress}
@@ -712,11 +714,11 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                 <input id="fastSaleShippingFee_${index}" type="number" class="form-control form-control-sm"
                                        value="${defaultShippingFee}" style="font-size: 12px; margin-top: 4px;" />
                             </div>
-                            <div style="margin-top: 4px;">
+                            <div style="margin-top: 4px; display: none;">
                                 <div style="font-size: 11px; color: #6b7280;">KL (g)</div>
                                 <input id="fastSaleWeight_${index}" type="number" class="form-control form-control-sm" value="100" style="font-size: 12px; margin-top: 4px;" />
                             </div>
-                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            <div style="display: none; gap: 8px; margin-top: 8px;">
                                 <div style="flex: 1;">
                                     <div style="font-size: 11px; color: #6b7280;">Chiều dài:</div>
                                     <input id="fastSaleLength_${index}" type="number" class="form-control form-control-sm" value="0.00" style="font-size: 12px; margin-top: 4px;" step="0.01" />
