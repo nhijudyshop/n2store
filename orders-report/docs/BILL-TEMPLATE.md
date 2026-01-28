@@ -136,6 +136,45 @@ codAmount = Math.max(0, finalTotal - prepaidAmount)
 
 ---
 
+## walletBalance Priority
+
+Khi tạo bill, `walletBalance` được lấy theo thứ tự ưu tiên:
+
+```javascript
+// Priority:
+// 1) options.walletBalance - passed explicitly from confirmAndPrintSale
+// 2) form field salePrepaidAmount - when modal visible
+// 3) orderResult.PaymentAmount - fallback for batch flow
+
+const walletBalance = options.walletBalance ||
+    (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) ||
+    orderResult?.PaymentAmount ||
+    0;
+```
+
+**Lý do cần `options.walletBalance`:**
+
+Trong `confirmAndPrintSale()`, sau khi tạo đơn hàng thành công:
+1. **Debt update** chạy trước - cập nhật `salePrepaidAmount` thành `remainingDebt` (400K → 180K)
+2. **Bill generation** chạy sau - nếu đọc từ form field sẽ lấy sai giá trị
+
+```javascript
+// confirmAndPrintSale() flow:
+const savedWalletBalance = 400000; // Lưu TRƯỚC debt update
+
+// Debt update: salePrepaidAmount = remainingDebt = 180K
+prepaidInput.value = remainingDebt; // Form field bị thay đổi!
+
+// Bill generation: Pass savedWalletBalance để đảm bảo đúng
+openPrintPopup(result, { walletBalance: savedWalletBalance });
+```
+
+**Kết quả:**
+- ❌ Không có fix: `prepaid = min(180K, 220K) = 180K` (SAI)
+- ✅ Có fix: `prepaid = min(400K, 220K) = 220K` (ĐÚNG)
+
+---
+
 ## Auto-fill Ghi chú đơn hàng
 
 Khi mở modal "Phiếu bán hàng", field **Ghi chú** (`saleReceiverNote`) sẽ được auto-fill từ dữ liệu có sẵn:
@@ -217,8 +256,11 @@ hr.dash-cs {
 | File | Mô tả |
 |------|-------|
 | `js/utils/bill-service.js` | Function `generateCustomBillHTML()` - tạo HTML bill |
-| `js/tab1/tab1-fast-sale.js` | Preview bill, sample data |
+| `js/tab1/tab1-sale.js` | `confirmAndPrintSale()` - xác nhận đơn và in bill |
+| `js/tab1/tab1-fast-sale.js` | Preview bill, sample data, batch print |
+| `js/tab1/tab1-qr-debt.js` | `fetchDebtForSaleModal()` - lấy wallet balance |
 | `bill_template.txt` | Template gốc từ TPOS API |
+| `html_bill.txt` | Ví dụ response từ TPOS API |
 | `Phiếu bán hàng - TPOS.VN.pdf` | PDF mẫu chuẩn (có STT) |
 
 ---
