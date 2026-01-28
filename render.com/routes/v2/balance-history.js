@@ -1802,7 +1802,7 @@ router.post('/:id/adjust', async (req, res) => {
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             WHERE bh.id = $1
-            FOR UPDATE
+            FOR UPDATE OF bh
         `, [id]);
 
         if (txResult.rows.length === 0) {
