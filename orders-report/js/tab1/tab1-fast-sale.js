@@ -995,9 +995,10 @@ function collectFastSaleData() {
         // 🔥 WALLET BALANCE / CÔNG NỢ CALCULATION
         // Get customer phone and check wallet balance
         const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || '';
+        const defaultShipFee = parseFloat(shippingFeeInput?.value) || 0;
         let walletBalance = 0;
         let paymentAmount = 0;
-        let cashOnDelivery = finalAmountTotal;
+        let cashOnDelivery = finalAmountTotal + defaultShipFee; // Total payment = amount + ship
 
         if (customerPhone) {
             // Normalize phone for lookup
@@ -1012,12 +1013,15 @@ function collectFastSaleData() {
                 walletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
 
                 if (walletBalance > 0) {
-                    // Calculate payment from wallet (min of wallet balance and order total)
-                    paymentAmount = Math.min(walletBalance, finalAmountTotal);
+                    // Total payment = Amount (after discount) + Shipping fee
+                    const shippingFee = parseFloat(shippingFeeInput?.value) || 0;
+                    const totalPayment = finalAmountTotal + shippingFee;
+                    // Calculate payment from wallet (min of wallet balance and total payment)
+                    paymentAmount = Math.min(walletBalance, totalPayment);
                     // COD = Total - Wallet payment (remaining amount customer needs to pay)
-                    cashOnDelivery = finalAmountTotal - paymentAmount;
+                    cashOnDelivery = totalPayment - paymentAmount;
 
-                    console.log(`[FAST-SALE] Order ${order.Reference}: Wallet balance ${walletBalance.toLocaleString('vi-VN')}đ, Payment ${paymentAmount.toLocaleString('vi-VN')}đ, COD ${cashOnDelivery.toLocaleString('vi-VN')}đ`);
+                    console.log(`[FAST-SALE] Order ${order.Reference}: Wallet ${walletBalance.toLocaleString('vi-VN')}đ, Total ${totalPayment.toLocaleString('vi-VN')}đ, Payment ${paymentAmount.toLocaleString('vi-VN')}đ, COD ${cashOnDelivery.toLocaleString('vi-VN')}đ`);
                 }
             }
         }

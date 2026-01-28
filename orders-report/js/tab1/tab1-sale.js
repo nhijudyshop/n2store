@@ -843,7 +843,9 @@ function buildSaleOrderModelForInsertList() {
         : 35000;
 
     const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    // PaymentAmount = min(số dư ví, tổng tiền cần thanh toán)
+    const prepaidAmount = Math.min(walletBalance, codValue);
     // Get remaining balance from span (not input) - parse number from text like "280.000" or "280,000"
     const remainingText = document.getElementById('saleRemainingBalance')?.textContent || '0';
     const cashOnDelivery = parseFloat(remainingText.replace(/[.,]/g, '')) || 0;
@@ -1233,11 +1235,12 @@ function buildFastSaleOrderPayload() {
         : 35000;
 
     const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
-    const prepaidAmount = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    // PaymentAmount = min(số dư ví, tổng tiền cần thanh toán)
+    const prepaidAmount = Math.min(walletBalance, codValue);
 
-    // 🔥 CashOnDelivery should equal "Còn lại" (Remaining balance)
-    // Logic: Remaining = COD - Prepaid (if Prepaid < COD), otherwise 0
-    const cashOnDelivery = prepaidAmount < codValue ? (codValue - prepaidAmount) : 0;
+    // 🔥 CashOnDelivery = Còn lại = Total - Prepaid
+    const cashOnDelivery = codValue - prepaidAmount;
 
     // Get carrier from dropdown (saleDeliveryPartner)
     const carrierSelect = document.getElementById('saleDeliveryPartner');
@@ -1353,7 +1356,7 @@ function buildFastSaleOrderPayload() {
         SaleOnlineName: '',
         PartnerShippingId: null,
         PaymentJournalId: 1,
-        PaymentAmount: prepaidAmount < codValue ? prepaidAmount : codValue, // Nếu trả trước < COD thì PaymentAmount = trả trước, ngược lại = COD
+        PaymentAmount: prepaidAmount, // = min(walletBalance, totalPayment)
         SaleOrderId: null,
         SaleOrderIds: [],
         FacebookName: receiverName,
