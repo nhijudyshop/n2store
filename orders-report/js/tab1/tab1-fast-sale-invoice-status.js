@@ -569,13 +569,13 @@
 
         // Messenger button or sent badge - only show for "Đã xác nhận" status
         if (billSent) {
-            // Bill đã gửi: cho phép xem preview và in, nhưng không gửi lại
+            // Bill đã gửi: click để xem preview và in (không gửi lại)
             html += `
                 <button type="button"
-                    class="btn-view-bill-main"
+                    class="btn-send-bill-main"
                     data-order-id="${order.Id}"
-                    onclick="window.viewBillFromMainTable('${order.Id}'); event.stopPropagation();"
-                    title="Xem bill (đã gửi)"
+                    onclick="window.sendBillFromMainTable('${order.Id}'); event.stopPropagation();"
+                    title="Xem bill (đã gửi) - chỉ in, không gửi lại"
                     style="background: #d1fae5; color: #059669; border: 1px solid #6ee7b7; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; gap: 2px;">
                     ✓
                 </button>
@@ -880,17 +880,12 @@
             if (source === 'main') {
                 const cell = document.querySelector(`td[data-column="invoice-status"] .btn-send-bill-main[data-order-id="${orderId}"]`);
                 if (cell) {
-                    // Replace send button with view button (can still view/print, but not send again)
-                    cell.outerHTML = `
-                        <button type="button"
-                            class="btn-view-bill-main"
-                            data-order-id="${orderId}"
-                            onclick="window.viewBillFromMainTable('${orderId}'); event.stopPropagation();"
-                            title="Xem bill (đã gửi)"
-                            style="background: #d1fae5; color: #059669; border: 1px solid #6ee7b7; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; gap: 2px;">
-                            ✓
-                        </button>
-                    `;
+                    // Change button style to green (sent), keep same onclick for viewing
+                    cell.style.background = '#d1fae5';
+                    cell.style.color = '#059669';
+                    cell.style.border = '1px solid #6ee7b7';
+                    cell.title = 'Xem bill (đã gửi) - chỉ in, không gửi lại';
+                    cell.innerHTML = '✓';
                 }
             } else if (source === 'results') {
                 const cell = document.querySelector(`.invoice-status-cell[data-order-id="${enrichedOrder.Id}"]`);
@@ -928,12 +923,16 @@
             return;
         }
 
-        // Get customer info for Messenger
+        // Check if bill was already sent
+        const billAlreadySent = InvoiceStatusStore.isBillSent(orderId);
+
+        // Get customer info for Messenger (only needed if not already sent)
         const psid = order.Facebook_ASUserId;
         const postId = order.Facebook_PostId;
         const channelId = postId ? postId.split('_')[0] : null;
 
-        if (!psid || !channelId) {
+        // Only require Messenger info if bill not sent yet
+        if (!billAlreadySent && (!psid || !channelId)) {
             window.notificationManager?.error('Không có thông tin Messenger của khách hàng');
             return;
         }
@@ -974,8 +973,8 @@
 
         // Check if preview is enabled
         if (isPreviewBeforeSendEnabled()) {
-            // Show preview modal
-            await showBillPreviewModal(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null);
+            // Show preview modal (viewOnly if bill already sent)
+            await showBillPreviewModal(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null, billAlreadySent);
         } else {
             // Direct send with confirm
             const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${order.Code || order.Name}?`);
@@ -1001,63 +1000,6 @@
                 }
             }
         }
-    }
-
-    /**
-     * View bill from main table (for already sent bills - view only, no send)
-     * @param {string} orderId - SaleOnlineOrder ID
-     */
-    async function viewBillFromMainTable(orderId) {
-        const displayedData = window.displayedData || [];
-        const order = window.OrderStore?.get(orderId) ||
-            displayedData.find(o => o.Id === orderId || String(o.Id) === String(orderId));
-
-        if (!order) {
-            window.notificationManager?.error('Không tìm thấy đơn hàng');
-            return;
-        }
-
-        const invoiceData = InvoiceStatusStore.get(orderId);
-        if (!invoiceData) {
-            window.notificationManager?.error('Đơn hàng chưa có phiếu bán hàng');
-            return;
-        }
-
-        // Build enriched order for bill generation
-        let orderLines = invoiceData.OrderLines || [];
-        if (orderLines.length === 0 && order.Details) {
-            orderLines = order.Details.map(d => ({
-                ProductName: d.ProductName || d.ProductNameGet || '',
-                ProductNameGet: d.ProductNameGet || d.ProductName || '',
-                ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
-                PriceUnit: d.Price || d.PriceUnit || 0,
-                Note: d.Note || ''
-            }));
-        }
-
-        const enrichedOrder = {
-            Id: invoiceData.Id,
-            Number: invoiceData.Number,
-            Reference: invoiceData.Reference || order.Code,
-            PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName || order.Name,
-            DeliveryPrice: invoiceData.DeliveryPrice || 0,
-            CashOnDelivery: invoiceData.CashOnDelivery || 0,
-            AmountTotal: invoiceData.AmountTotal || order.TotalAmount,
-            AmountUntaxed: invoiceData.AmountUntaxed || 0,
-            CarrierName: invoiceData.CarrierName || '',
-            UserName: invoiceData.UserName || '',
-            SessionIndex: order.SessionIndex || invoiceData.SessionIndex || '',
-            SaleOnlineIds: [orderId],
-            OrderLines: orderLines,
-            Partner: {
-                Name: invoiceData.ReceiverName || order.Name,
-                Phone: invoiceData.ReceiverPhone || order.Telephone,
-                Street: invoiceData.ReceiverAddress || order.Address
-            }
-        };
-
-        // Show preview modal in view-only mode (no send, only print)
-        await showBillPreviewModal(enrichedOrder, null, null, orderId, order.Code || order.Name, 'main', null, true);
     }
 
     // =====================================================
@@ -1616,7 +1558,6 @@
         // Expose functions globally
         window.renderInvoiceStatusCell = renderInvoiceStatusCell;
         window.sendBillFromMainTable = sendBillFromMainTable;
-        window.viewBillFromMainTable = viewBillFromMainTable;
         window.sendBillManually = sendBillManually;
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
