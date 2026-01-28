@@ -9,6 +9,18 @@
 window.openPancakeSettingsModal = async function() {
     document.getElementById('pancakeSettingsModal').style.display = 'flex';
 
+    // Check admin permission and show/hide buttons accordingly
+    const isAdmin = window.authManager?.hasPermission(0) || false;
+
+    // Hide/show add/delete buttons for non-admin
+    const btnAddAccount = document.getElementById('btnAddAccount');
+    const btnAddPageToken = document.getElementById('btnAddPageToken');
+    const btnClearAllAccounts = document.getElementById('btnClearAllAccounts');
+
+    if (btnAddAccount) btnAddAccount.style.display = isAdmin ? 'inline-block' : 'none';
+    if (btnAddPageToken) btnAddPageToken.style.display = isAdmin ? 'inline-block' : 'none';
+    if (btnClearAllAccounts) btnClearAllAccounts.style.display = isAdmin ? 'inline-block' : 'none';
+
     // Load accounts list
     if (window.pancakeTokenManager) {
         await window.pancakeTokenManager.initialize();
@@ -175,6 +187,7 @@ window.refreshAccountsList = async function() {
         const accounts = window.pancakeTokenManager.getAllAccounts();
         const activeAccountId = window.pancakeTokenManager.activeAccountId;
         const listDiv = document.getElementById('pancakeAccountsList');
+        const isAdmin = window.authManager?.hasPermission(0) || false;
 
         if (!accounts || Object.keys(accounts).length === 0) {
             listDiv.innerHTML = `
@@ -217,7 +230,7 @@ window.refreshAccountsList = async function() {
                         </div>
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        ${!isActive && !isExpired ? `
+                        ${!isActive && !isExpired && isAdmin ? `
                             <button onclick="selectAccount('${accountId}')"
                                 style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
                                 <i class="fas fa-check"></i> Chọn
@@ -228,10 +241,12 @@ window.refreshAccountsList = async function() {
                                 <i class="fas fa-star"></i> Đang dùng
                             </span>
                         ` : ''}
-                        <button onclick="deleteAccount('${accountId}')"
-                            style="padding: 4px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
-                            <i class="fas fa-trash"></i> Xóa
-                        </button>
+                        ${isAdmin ? `
+                            <button onclick="deleteAccount('${accountId}')"
+                                style="padding: 4px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                                <i class="fas fa-trash"></i> Xóa
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -250,9 +265,27 @@ window.refreshAccountsList = async function() {
     }
 };
 
+// Helper function to check admin permission
+function checkAdminPermission(action = 'thực hiện thao tác này') {
+    const isAdmin = window.authManager?.hasPermission(0) || false;
+    if (!isAdmin) {
+        const message = `⛔ Chỉ Admin mới có quyền ${action}`;
+        if (window.notificationManager) {
+            window.notificationManager.show(message, 'error');
+        } else {
+            alert(message);
+        }
+        return false;
+    }
+    return true;
+}
+
 // Add Account From Cookie
 window.addAccountFromCookie = async function() {
     try {
+        // Admin check
+        if (!checkAdminPermission('thêm tài khoản Pancake')) return;
+
         if (!window.pancakeTokenManager) {
             throw new Error('PancakeTokenManager not available');
         }
@@ -297,6 +330,9 @@ window.addAccountFromCookie = async function() {
 // Add Account Manual
 window.addAccountManual = async function() {
     try {
+        // Admin check
+        if (!checkAdminPermission('thêm tài khoản Pancake')) return;
+
         const tokenInput = document.getElementById('newAccountTokenInput').value.trim();
 
         if (!tokenInput) {
@@ -341,6 +377,9 @@ window.addAccountManual = async function() {
 // Select Account
 window.selectAccount = async function(accountId) {
     try {
+        // Admin check
+        if (!checkAdminPermission('chọn tài khoản Pancake')) return;
+
         if (!window.pancakeTokenManager) {
             throw new Error('PancakeTokenManager not available');
         }
@@ -377,6 +416,9 @@ window.selectAccount = async function(accountId) {
 
 // Delete Account
 window.deleteAccount = async function(accountId) {
+    // Admin check
+    if (!checkAdminPermission('xóa tài khoản Pancake')) return;
+
     if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) {
         return;
     }
@@ -413,6 +455,9 @@ window.deleteAccount = async function(accountId) {
 
 // Clear All Accounts
 window.clearAllPancakeAccounts = async function() {
+    // Admin check
+    if (!checkAdminPermission('xóa tất cả tài khoản Pancake')) return;
+
     if (!confirm('Bạn có chắc muốn xóa TẤT CẢ tài khoản?')) {
         return;
     }
@@ -911,6 +956,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Show Add Page Token Form
 window.showAddPageTokenForm = async function() {
+    // Admin check
+    if (!checkAdminPermission('thêm Page Access Token')) return;
+
     document.getElementById('addPageTokenForm').style.display = 'block';
     document.getElementById('newPageAccessTokenInput').value = '';
     document.getElementById('pageTokenValidationMessage').style.display = 'none';
@@ -962,6 +1010,9 @@ async function loadPagesToSelector() {
 // Generate page token from API
 window.generatePageTokenFromAPI = async function() {
     try {
+        // Admin check
+        if (!checkAdminPermission('tạo Page Access Token')) return;
+
         const selector = document.getElementById('pageTokenPageSelector');
         const pageId = selector.value;
 
@@ -1012,6 +1063,9 @@ window.generatePageTokenFromAPI = async function() {
 // Add page access token manually
 window.addPageAccessTokenManual = async function() {
     try {
+        // Admin check
+        if (!checkAdminPermission('thêm Page Access Token')) return;
+
         const selector = document.getElementById('pageTokenPageSelector');
         const pageId = selector.value;
         const token = document.getElementById('newPageAccessTokenInput').value.trim();
@@ -1071,6 +1125,7 @@ window.refreshPageTokensList = async function() {
         }
 
         const tokens = window.pancakeTokenManager.getAllPageAccessTokens();
+        const isAdmin = window.authManager?.hasPermission(0) || false;
 
         if (!tokens || tokens.length === 0) {
             listDiv.innerHTML = `
@@ -1103,10 +1158,12 @@ window.refreshPageTokensList = async function() {
                                 Token: ${tokenPreview} | Lưu: ${savedDate}
                             </div>
                         </div>
-                        <button onclick="deletePageAccessToken('${item.pageId}')"
-                            style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        ${isAdmin ? `
+                            <button onclick="deletePageAccessToken('${item.pageId}')"
+                                style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1127,6 +1184,9 @@ window.refreshPageTokensList = async function() {
 
 // Delete page access token
 window.deletePageAccessToken = async function(pageId) {
+    // Admin check
+    if (!checkAdminPermission('xóa Page Access Token')) return;
+
     if (!confirm('Bạn có chắc muốn xóa Page Access Token này?')) {
         return;
     }

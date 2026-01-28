@@ -2239,7 +2239,7 @@
                         <h4 style="margin: 0; font-size: 15px; color: #374151;">
                             <i class="fas fa-users"></i> Danh sách tài khoản
                         </h4>
-                        <button onclick="showAddAccountForm()"
+                        <button id="btnAddAccount" onclick="showAddAccountForm()"
                             style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
                             <i class="fas fa-plus"></i> Thêm tài khoản
                         </button>
@@ -2324,7 +2324,7 @@
                         <h4 style="margin: 0; font-size: 15px; color: #374151;">
                             <i class="fas fa-key"></i> Page Access Tokens
                         </h4>
-                        <button onclick="showAddPageTokenForm()"
+                        <button id="btnAddPageToken" onclick="showAddPageTokenForm()"
                             style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
                             <i class="fas fa-plus"></i> Thêm Page Token
                         </button>
@@ -2404,7 +2404,7 @@
                 <button class="tag-btn-cancel" onclick="closePancakeSettingsModal()">
                     Đóng
                 </button>
-                <button class="tag-btn-cancel" onclick="clearAllPancakeAccounts()" style="background: #ef4444;">
+                <button id="btnClearAllAccounts" class="tag-btn-cancel" onclick="clearAllPancakeAccounts()" style="background: #ef4444;">
                     <i class="fas fa-trash"></i> Xóa tất cả
                 </button>
             </div>

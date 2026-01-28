@@ -222,9 +222,20 @@ class PancakeTokenManager {
         }
     }
 
-    // Sync version for backwards compatibility (returns cached data)
+    // Sync version for backwards compatibility (returns cached data, also checks localStorage)
     getPageAccessTokensFromLocalStorage() {
-        // Return cached in-memory data
+        // If in-memory cache is empty, try to load from localStorage synchronously
+        if (!this.pageAccessTokens || Object.keys(this.pageAccessTokens).length === 0) {
+            try {
+                const localData = localStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+                if (localData) {
+                    this.pageAccessTokens = JSON.parse(localData);
+                    console.log('[PANCAKE-TOKEN] ✅ Loaded page tokens from localStorage (sync):', Object.keys(this.pageAccessTokens).length);
+                }
+            } catch (error) {
+                console.warn('[PANCAKE-TOKEN] Error reading from localStorage:', error);
+            }
+        }
         return this.pageAccessTokens || {};
     }
 
@@ -1072,6 +1083,7 @@ class PancakeTokenManager {
 
     /**
      * Load page access tokens from Firestore
+     * Smart merge: keeps the newer version based on savedAt timestamp
      */
     async loadPageAccessTokens() {
         try {
@@ -1083,12 +1095,31 @@ class PancakeTokenManager {
             const doc = await this.pageTokensRef.get();
             const firestoreTokens = doc.exists ? (doc.data()?.data || {}) : {};
 
-            // Merge Firestore tokens with existing localStorage tokens
-            // Firestore takes priority (more up-to-date)
-            this.pageAccessTokens = {
-                ...this.pageAccessTokens, // localStorage tokens (already loaded)
-                ...firestoreTokens        // Firestore tokens (override)
-            };
+            // Smart merge: keep the newer version for each pageId based on savedAt
+            const mergedTokens = { ...this.pageAccessTokens };
+
+            for (const [pageId, firestoreData] of Object.entries(firestoreTokens)) {
+                const localData = this.pageAccessTokens[pageId];
+
+                // If no local data, use Firestore data
+                if (!localData) {
+                    mergedTokens[pageId] = firestoreData;
+                    continue;
+                }
+
+                // Compare savedAt timestamps - keep the newer one
+                const localSavedAt = localData.savedAt || 0;
+                const firestoreSavedAt = firestoreData.savedAt || 0;
+
+                if (firestoreSavedAt > localSavedAt) {
+                    mergedTokens[pageId] = firestoreData;
+                    console.log(`[PANCAKE-TOKEN] Page ${pageId}: Using Firestore data (newer)`);
+                } else {
+                    console.log(`[PANCAKE-TOKEN] Page ${pageId}: Keeping local data (newer or same)`);
+                }
+            }
+
+            this.pageAccessTokens = mergedTokens;
 
             // Sync merged tokens back to localStorage
             this.savePageAccessTokensToLocalStorage();
@@ -1273,8 +1304,8 @@ class PancakeTokenManager {
     }
 
     /**
-     * Get or generate page_access_token
-     * Returns cached token or generates a new one
+     * Get page_access_token from cache only (NO auto-generation)
+     * Admin must manually add tokens via UI
      * @param {string} pageId - Page ID
      * @returns {Promise<string|null>}
      */
@@ -1288,17 +1319,11 @@ class PancakeTokenManager {
             return cached;
         }
 
-        // Generate new token
-        console.log('[PANCAKE-TOKEN] ⚠️ No cached token, generating new one...');
-        const newToken = await this.generatePageAccessToken(pageId);
-
-        if (newToken) {
-            console.log('[PANCAKE-TOKEN] ✅ NEW page_access_token:', newToken.substring(0, 50) + '...');
-        } else {
-            console.error('[PANCAKE-TOKEN] ❌ Failed to generate page_access_token');
-        }
-
-        return newToken;
+        // NO auto-generation - return null if no cached token
+        // Admin must manually add tokens via "Quản lý Pancake Accounts" modal
+        console.log('[PANCAKE-TOKEN] ⚠️ No cached token for page:', pageId);
+        console.log('[PANCAKE-TOKEN] 💡 Admin cần thêm Page Access Token thủ công qua modal "Quản lý Pancake Accounts"');
+        return null;
     }
 
     /**
