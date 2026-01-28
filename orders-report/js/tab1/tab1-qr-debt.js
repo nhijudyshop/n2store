@@ -705,6 +705,7 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
         const selectedOption = this.options[this.selectedIndex];
         const carrierName = selectedOption.dataset.name || selectedOption.text || '';
         let fee = parseFloat(selectedOption.dataset.fee) || 0;
+        let isFreeShip = false;
 
         // Get total amount for free shipping check
         const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
@@ -715,10 +716,10 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
 
             if (isThanhPho && totalAmount > 1500000) {
                 fee = 0;
-                console.log(`[SALE-MODAL] 🚚 Free ship THÀNH PHỐ: Total ${totalAmount.toLocaleString('vi-VN')}đ > 1.5M`);
+                isFreeShip = true;
             } else if (isTinh && totalAmount > 3000000) {
                 fee = 0;
-                console.log(`[SALE-MODAL] 🚚 Free ship TỈNH: Total ${totalAmount.toLocaleString('vi-VN')}đ > 3M`);
+                isFreeShip = true;
             }
         }
 
@@ -727,6 +728,19 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
             shippingFeeInput.value = fee;
             // Trigger recalculation of COD
             updateSaleCOD();
+        }
+
+        // Add/remove "freeship" in note
+        const noteInput = document.getElementById('saleReceiverNote');
+        if (noteInput) {
+            let note = noteInput.value || '';
+            // Remove existing freeship
+            note = note.replace(/,?\s*freeship/gi, '').trim();
+            // Add freeship if applicable
+            if (isFreeShip) {
+                note = note ? `${note}, freeship` : 'freeship';
+            }
+            noteInput.value = note;
         }
     };
 
