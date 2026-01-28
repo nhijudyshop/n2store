@@ -666,7 +666,8 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         // Check if this product has a discount in its note
         const productDiscount = parseDiscountFromNote(note);
         const isDiscountedProduct = productDiscount > 0;
-        const rowHighlightStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : '';
+        const alternatingBg = index % 2 === 1 ? 'background-color: #f9fafb;' : '';
+        const rowHighlightStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : alternatingBg;
         const noteStyle = isDiscountedProduct
             ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             : '';
