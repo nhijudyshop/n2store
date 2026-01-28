@@ -1272,7 +1272,10 @@
                 }
             }
 
-            // 2. Remove "OK ..." tags
+            // =====================================================
+            // [DISABLED] 2. Remove "OK ..." tags - Tạm tắt, bỏ comment để mở lại
+            // =====================================================
+            /*
             let orderTags = [];
             try {
                 if (order.Tags) {
@@ -1332,6 +1335,7 @@
                     console.warn(`[INVOICE-STATUS] Failed to remove tags: ${tagResponse.status}`);
                 }
             }
+            */
 
         } catch (error) {
             console.error(`[INVOICE-STATUS] Error updating order on invoice confirm:`, error);
