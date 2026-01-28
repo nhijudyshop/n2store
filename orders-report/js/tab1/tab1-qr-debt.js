@@ -698,9 +698,30 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
     select.disabled = false;
 
     // Add change event to update shipping fee
+    // Auto-apply free shipping:
+    // - THÀNH PHỐ: Free if total > 1,500,000
+    // - TỈNH: Free if total > 3,000,000
     select.onchange = function () {
         const selectedOption = this.options[this.selectedIndex];
-        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const carrierName = selectedOption.dataset.name || selectedOption.text || '';
+        let fee = parseFloat(selectedOption.dataset.fee) || 0;
+
+        // Get total amount for free shipping check
+        const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+
+        if (fee > 0 && totalAmount > 0) {
+            const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+            const isTinh = carrierName.includes('TỈNH');
+
+            if (isThanhPho && totalAmount > 1500000) {
+                fee = 0;
+                console.log(`[SALE-MODAL] 🚚 Free ship THÀNH PHỐ: Total ${totalAmount.toLocaleString('vi-VN')}đ > 1.5M`);
+            } else if (isTinh && totalAmount > 3000000) {
+                fee = 0;
+                console.log(`[SALE-MODAL] 🚚 Free ship TỈNH: Total ${totalAmount.toLocaleString('vi-VN')}đ > 3M`);
+            }
+        }
+
         const shippingFeeInput = document.getElementById('saleShippingFee');
         if (shippingFeeInput) {
             shippingFeeInput.value = fee;

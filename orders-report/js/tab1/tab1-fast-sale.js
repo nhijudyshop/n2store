@@ -907,6 +907,9 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
 
 /**
  * Update shipping fee when carrier is selected for a row
+ * Auto-apply free shipping:
+ * - THÀNH PHỐ: Free if total > 1,500,000
+ * - TỈNH: Free if total > 3,000,000
  * @param {number} index - Row index
  */
 function updateFastSaleShippingFee(index) {
@@ -915,7 +918,30 @@ function updateFastSaleShippingFee(index) {
 
     if (carrierSelect && shippingFeeInput) {
         const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
-        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const carrierName = selectedOption.dataset.name || selectedOption.text || '';
+        let fee = parseFloat(selectedOption.dataset.fee) || 0;
+
+        // Get order total for this row
+        const order = fastSaleOrdersData[index];
+        if (order && fee > 0) {
+            // Calculate total after discount
+            const originalTotal = order.AmountTotal || 0;
+            const { totalDiscount } = orderHasDiscountTag(order) ? calculateOrderDiscount(order) : { totalDiscount: 0 };
+            const finalTotal = originalTotal - totalDiscount;
+
+            // Check free shipping conditions
+            const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+            const isTinh = carrierName.includes('TỈNH');
+
+            if (isThanhPho && finalTotal > 1500000) {
+                fee = 0;
+                console.log(`[FAST-SALE] 🚚 Free ship THÀNH PHỐ: Total ${finalTotal.toLocaleString('vi-VN')}đ > 1.5M`);
+            } else if (isTinh && finalTotal > 3000000) {
+                fee = 0;
+                console.log(`[FAST-SALE] 🚚 Free ship TỈNH: Total ${finalTotal.toLocaleString('vi-VN')}đ > 3M`);
+            }
+        }
+
         shippingFeeInput.value = fee;
     }
 }
