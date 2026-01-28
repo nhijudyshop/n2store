@@ -103,9 +103,9 @@ STK ngân hàng Lại Thụy Yến Nhi
 | Đơn giá | `OrderLines[].PriceUnit` | 0 |
 | Giảm giá | `Discount`, `DiscountAmount`, `DecreaseAmount` | 0 |
 | Tiền ship | `DeliveryPrice` | 0 |
-| Trả trước | `AmountDeposit`, `PaymentAmount` | 0 |
+| Trả trước | `min(walletBalance, finalTotal)` | 0 |
 | Ghi chú GH | `DeliveryNote` | "" |
-| Ghi chú | `Comment` | "" |
+| Ghi chú | `Comment` (auto-fill từ modal) | "" |
 
 ---
 
@@ -118,9 +118,43 @@ totalAmount = sum(OrderLines.map(item => item.Quantity * item.PriceUnit))
 // Tổng tiền đơn hàng
 finalTotal = totalAmount - discount + shippingFee
 
-// Tiền thu hộ (COD)
+// Trả trước = min(số dư ví, tổng tiền cần trả)
+// VD: Số dư 400K, tổng tiền 220K → Trả trước = 220K
+prepaidAmount = Math.min(walletBalance, finalTotal)
+
+// Tiền thu hộ (COD) = Còn lại
 codAmount = Math.max(0, finalTotal - prepaidAmount)
 ```
+
+---
+
+## Auto-fill Ghi chú đơn hàng
+
+Khi mở modal "Phiếu bán hàng", field **Ghi chú** (`saleReceiverNote`) sẽ được auto-fill từ dữ liệu có sẵn:
+
+```javascript
+// Format: "CK 50K ACB 28/01, GG 100K, đơn gộp 1026 + 1074"
+
+// 1. CK (Chuyển khoản) - từ số dư ví (salePrepaidAmount)
+if (walletBalance > 0) {
+    noteParts.push(`CK ${walletBalance/1000}K ACB ${dd/mm}`);
+}
+
+// 2. GG (Giảm giá) - từ field saleDiscount (đã tính từ product notes)
+if (discount > 0) {
+    noteParts.push(`GG ${discount/1000}K`);
+}
+
+// 3. Gộp - từ tag "Gộp X Y" trong order.Tags
+if (mergeTag) {
+    noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
+}
+```
+
+**Điều kiện hiển thị:**
+- CK: Chỉ hiện nếu `walletBalance > 0`
+- GG: Chỉ hiện nếu `discount > 0` (từ tag "GIẢM GIÁ" + product notes)
+- Gộp: Chỉ hiện nếu có tag bắt đầu bằng "Gộp "
 
 ---
 
