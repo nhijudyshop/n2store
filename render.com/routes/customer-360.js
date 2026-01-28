@@ -473,8 +473,11 @@ router.get('/customer/:phone/transactions', async (req, res) => {
                 FROM wallet_transactions wt
                 LEFT JOIN balance_history bh ON wt.reference_type = 'balance_history'
                     AND wt.reference_id IS NOT NULL
-                    AND wt.reference_id ~ '^[0-9]+$'
-                    AND bh.id = CAST(wt.reference_id AS INTEGER)
+                    AND bh.id = CASE
+                        WHEN wt.reference_id ~ '^[0-9]+$'
+                        THEN CAST(wt.reference_id AS INTEGER)
+                        ELSE NULL
+                    END
                 WHERE wt.phone = $1 AND wt.type = $2
                 ORDER BY wt.created_at DESC
                 LIMIT $3 OFFSET $4
@@ -495,8 +498,11 @@ router.get('/customer/:phone/transactions', async (req, res) => {
                     FROM wallet_transactions wt
                     LEFT JOIN balance_history bh ON wt.reference_type = 'balance_history'
                         AND wt.reference_id IS NOT NULL
-                        AND wt.reference_id ~ '^[0-9]+$'
-                        AND bh.id = CAST(wt.reference_id AS INTEGER)
+                        AND bh.id = CASE
+                            WHEN wt.reference_id ~ '^[0-9]+$'
+                            THEN CAST(wt.reference_id AS INTEGER)
+                            ELSE NULL
+                        END
                     WHERE wt.phone = $1
 
                     UNION ALL
