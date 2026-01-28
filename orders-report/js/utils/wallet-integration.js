@@ -442,7 +442,6 @@ const WalletIntegration = (function() {
 
         // Show modal
         modal.style.display = 'flex';
-        document.getElementById('wallet-modal-title').textContent = `Ví Khách Hàng - ${normalizedPhone}`;
 
         // Track if we had any network errors
         let networkError = false;
@@ -483,7 +482,7 @@ const WalletIntegration = (function() {
 
             // Try to fetch transactions separately
             try {
-                const txResponse = await fetch(`${CONFIG.API_URL}/customer/${normalizedPhone}/transactions?limit=20`);
+                const txResponse = await fetch(`${CONFIG.API_URL}/customer/${normalizedPhone}/transactions?limit=50`);
                 if (txResponse.ok) {
                     const txResult = await txResponse.json();
                     recentTransactions = txResult.data || [];
@@ -493,6 +492,10 @@ const WalletIntegration = (function() {
                 networkError = true;
             }
         }
+
+        // Update header with customer name
+        const customerName = customer.name || 'Khách hàng';
+        document.getElementById('wallet-modal-title').textContent = `Ví Khách Hàng - ${customerName} ${normalizedPhone}`;
 
         // If network error and no data, show connection error
         if (networkError && !wallet.balance && !wallet.virtual_balance && recentTransactions.length === 0) {
@@ -522,82 +525,88 @@ const WalletIntegration = (function() {
             return;
         }
 
+        // Separate transactions: available (positive) vs completed (negative/used)
+        const availableTransactions = recentTransactions.filter(tx => tx.amount > 0);
+        const completedTransactions = recentTransactions.filter(tx => tx.amount <= 0);
+
+        // Format balance display
+        const totalBalance = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
+        const realBalance = parseFloat(wallet.balance) || 0;
+        const virtualBalance = parseFloat(wallet.virtual_balance) || 0;
+
         document.getElementById('wallet-modal-body').innerHTML = `
             <div style="padding: 10px;">
-                <!-- Customer Info -->
-                <div style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee;">
-                    <div style="font-weight: 600;">${customer.name || 'Khách hàng'}</div>
-                    <div style="color: #666; font-size: 13px;">${normalizedPhone}</div>
-                    ${customer.tier ? `<span class="badge" style="background: #8b5cf6; color: white; margin-top: 5px;">${customer.tier}</span>` : ''}
-                </div>
-
-                <!-- Balance Summary -->
+                <!-- Balance Summary - Compact 1 line -->
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-radius: 12px; padding: 20px; color: white; margin-bottom: 15px;">
-                    <div style="font-size: 13px; opacity: 0.8; margin-bottom: 5px;">Tổng số dư khả dụng</div>
-                    <div style="font-size: 28px; font-weight: 700;">
-                        ${formatCurrency((wallet.balance || 0) + (wallet.virtual_balance || 0))}
-                    </div>
-                    <div style="display: flex; gap: 20px; margin-top: 15px; font-size: 13px;">
-                        <div>
-                            <div style="opacity: 0.8;">Số dư thực</div>
-                            <div style="font-weight: 600;">${formatCurrency(wallet.balance || 0)}</div>
+                    border-radius: 12px; padding: 15px; color: white; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <div style="font-size: 22px; font-weight: 700;">
+                            ${formatCurrency(totalBalance)}
                         </div>
-                        <div>
-                            <div style="opacity: 0.8;">Công nợ ảo</div>
-                            <div style="font-weight: 600;">${formatCurrency(wallet.virtual_balance || 0)}</div>
+                        <div style="font-size: 12px; opacity: 0.9;">
+                            (Thực ${formatCurrency(realBalance)} | Công Nợ Ảo ${formatCurrency(virtualBalance)})
                         </div>
                     </div>
                 </div>
 
-                <!-- Active Virtual Credits -->
-                ${virtualCredits.length > 0 ? `
+                <!-- Available Transactions (Positive balance - still usable) -->
+                ${availableTransactions.length > 0 ? `
                     <div style="margin-bottom: 15px;">
-                        <div style="font-weight: 600; margin-bottom: 8px;">Công nợ ảo đang hoạt động</div>
-                        ${virtualCredits.map(vc => {
-                            const daysLeft = Math.ceil((new Date(vc.expires_at) - new Date()) / (1000 * 60 * 60 * 24));
-                            return `
-                                <div style="display: flex; justify-content: space-between; align-items: center;
-                                    padding: 8px 12px; background: #fef3c7; border-radius: 8px; margin-bottom: 5px;">
-                                    <div>
-                                        <span style="font-weight: 600;">${formatCurrency(vc.remaining_amount)}</span>
-                                        <span style="color: #92400e; font-size: 12px; margin-left: 8px;">
-                                            Còn ${daysLeft} ngày
-                                        </span>
-                                    </div>
-                                    <span style="color: #92400e; font-size: 11px;">${vc.source_type}</span>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                ` : ''}
-
-                <!-- Recent Transactions -->
-                ${recentTransactions.length > 0 ? `
-                    <div>
-                        <div style="font-weight: 600; margin-bottom: 8px;">Giao dịch gần đây</div>
+                        <div style="font-weight: 600; margin-bottom: 8px; color: #10b981;">
+                            <i class="fas fa-check-circle"></i> Giao dịch khả dụng (${availableTransactions.length})
+                        </div>
                         <div style="max-height: 200px; overflow-y: auto;">
-                            ${recentTransactions.slice(0, 10).map(tx => {
-                                const isPositive = tx.amount > 0;
+                            ${availableTransactions.map(tx => {
                                 const date = new Date(tx.created_at);
+                                const dateStr = date.toLocaleDateString('vi-VN');
+                                const noteText = tx.note || tx.type || 'Giao dịch';
                                 return `
                                     <div style="display: flex; justify-content: space-between; align-items: center;
-                                        padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
-                                        <div>
-                                            <div style="font-size: 13px;">${tx.note || tx.type}</div>
-                                            <div style="font-size: 11px; color: #999;">
-                                                ${date.toLocaleDateString('vi-VN')} ${date.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}
-                                            </div>
+                                        padding: 10px; background: #ecfdf5; border-radius: 8px; margin-bottom: 6px; border-left: 3px solid #10b981;">
+                                        <div style="flex: 1;">
+                                            <div style="font-size: 13px; font-weight: 500; color: #065f46;">${noteText}</div>
+                                            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${dateStr}</div>
                                         </div>
-                                        <div style="font-weight: 600; color: ${isPositive ? '#10b981' : '#ef4444'};">
-                                            ${isPositive ? '+' : ''}${formatCurrency(tx.amount)}
+                                        <div style="font-weight: 700; color: #10b981; font-size: 14px;">
+                                            +${formatCurrency(tx.amount)}
                                         </div>
                                     </div>
                                 `;
                             }).join('')}
                         </div>
                     </div>
-                ` : '<div style="color: #999; text-align: center; padding: 15px;">Chưa có giao dịch</div>'}
+                ` : '<div style="color: #999; text-align: center; padding: 15px; background: #f9fafb; border-radius: 8px; margin-bottom: 15px;">Không có giao dịch khả dụng</div>'}
+
+                <!-- Show More Button for Completed Transactions -->
+                ${completedTransactions.length > 0 ? `
+                    <div>
+                        <button id="wallet-show-more-btn" onclick="document.getElementById('wallet-completed-transactions').style.display = document.getElementById('wallet-completed-transactions').style.display === 'none' ? 'block' : 'none'; this.innerHTML = document.getElementById('wallet-completed-transactions').style.display === 'none' ? '<i class=\\'fas fa-chevron-down\\'></i> Xem thêm (${completedTransactions.length} giao dịch đã hoàn tất)' : '<i class=\\'fas fa-chevron-up\\'></i> Ẩn bớt'"
+                            style="width: 100%; padding: 10px; background: #f3f4f6; color: #6b7280; border: 1px dashed #d1d5db; border-radius: 8px; cursor: pointer; font-size: 13px;">
+                            <i class="fas fa-chevron-down"></i> Xem thêm (${completedTransactions.length} giao dịch đã hoàn tất)
+                        </button>
+                        <div id="wallet-completed-transactions" style="display: none; margin-top: 10px;">
+                            <div style="max-height: 250px; overflow-y: auto;">
+                                ${completedTransactions.map(tx => {
+                                    const date = new Date(tx.created_at);
+                                    const dateStr = date.toLocaleDateString('vi-VN');
+                                    const noteText = tx.note || tx.type || 'Giao dịch';
+                                    return `
+                                        <div style="display: flex; justify-content: space-between; align-items: center;
+                                            padding: 10px; background: #f9fafb; border-radius: 8px; margin-bottom: 6px; opacity: 0.7;">
+                                            <div style="flex: 1;">
+                                                <div style="font-size: 13px; color: #6b7280;">${noteText}</div>
+                                                <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${dateStr}</div>
+                                            </div>
+                                            <div style="font-weight: 600; color: #ef4444; font-size: 13px;">
+                                                ${formatCurrency(tx.amount)}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
             </div>
         `;
     }
