@@ -30,13 +30,18 @@ function parseDiscountFromNoteSale(note) {
         return Math.round(num * 1000);
     }
 
-    // Pattern 2: Plain number "100000" or "100.000"
+    // Pattern 2: Plain number "100000" or "100.000" or "100"
     const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
     if (plainMatch) {
         const numStr = plainMatch[1].replace(/[.,]/g, '');
         const num = parseInt(numStr, 10);
+        // Numbers >= 1000 are literal values (e.g., "100000", "100.000")
         if (num >= 1000) {
             return num;
+        }
+        // Small numbers treated as shorthand "k" (e.g., "100" = 100k = 100000)
+        if (num > 0) {
+            return num * 1000;
         }
     }
 

@@ -821,7 +821,7 @@
                 }
             }
 
-            window.notificationManager?.success(`Đã gửi bill cho ${orderCode}`, 'Thành công');
+            window.notificationManager?.success(`Đã gửi bill cho ${orderCode}`);
         } else {
             throw new Error(result.error || 'Gửi bill thất bại');
         }
@@ -837,13 +837,13 @@
             displayedData.find(o => o.Id === orderId || String(o.Id) === String(orderId));
 
         if (!order) {
-            window.notificationManager?.error('Không tìm thấy đơn hàng', 'Lỗi');
+            window.notificationManager?.error('Không tìm thấy đơn hàng');
             return;
         }
 
         const invoiceData = InvoiceStatusStore.get(orderId);
         if (!invoiceData) {
-            window.notificationManager?.error('Đơn hàng chưa có phiếu bán hàng', 'Lỗi');
+            window.notificationManager?.error('Đơn hàng chưa có phiếu bán hàng');
             return;
         }
 
@@ -853,7 +853,7 @@
         const channelId = postId ? postId.split('_')[0] : null;
 
         if (!psid || !channelId) {
-            window.notificationManager?.error('Không có thông tin Messenger của khách hàng', 'Lỗi');
+            window.notificationManager?.error('Không có thông tin Messenger của khách hàng');
             return;
         }
 
@@ -911,7 +911,7 @@
                 await performActualSend(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null);
             } catch (error) {
                 console.error('[INVOICE-STATUS] Error sending bill:', error);
-                window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+                window.notificationManager?.error(`Lỗi: ${error.message}`);
 
                 // Restore button
                 if (button) {
@@ -1006,7 +1006,7 @@
     async function sendBillManually(index) {
         const resultsData = window.fastSaleResultsData;
         if (!resultsData || !resultsData.success[index]) {
-            window.notificationManager?.error('Không tìm thấy đơn hàng', 'Lỗi');
+            window.notificationManager?.error('Không tìm thấy đơn hàng');
             return;
         }
 
@@ -1097,7 +1097,7 @@
                     await performActualSend(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index);
                 } catch (sendError) {
                     console.error('[INVOICE-STATUS] Error:', sendError);
-                    window.notificationManager?.error(`Lỗi: ${sendError.message}`, 'Lỗi');
+                    window.notificationManager?.error(`Lỗi: ${sendError.message}`);
 
                     if (button) {
                         button.disabled = false;
@@ -1108,7 +1108,7 @@
 
         } catch (error) {
             console.error('[INVOICE-STATUS] Error preparing bill:', error);
-            window.notificationManager?.error(`Lỗi: ${error.message}`, 'Lỗi');
+            window.notificationManager?.error(`Lỗi: ${error.message}`);
         }
     }
 
@@ -1120,7 +1120,7 @@
             .map(cb => parseInt(cb.value));
 
         if (selectedIndexes.length === 0) {
-            window.notificationManager?.warning('Vui lòng chọn ít nhất 1 đơn hàng để in', 'Thông báo');
+            window.notificationManager?.warning('Vui lòng chọn ít nhất 1 đơn hàng để in');
             return;
         }
 
@@ -1129,7 +1129,7 @@
         const orderIds = selectedOrders.map(o => o.Id).filter(id => id);
 
         if (orderIds.length === 0) {
-            window.notificationManager?.error('Không tìm thấy ID đơn hàng', 'Lỗi');
+            window.notificationManager?.error('Không tìm thấy ID đơn hàng');
             return;
         }
 

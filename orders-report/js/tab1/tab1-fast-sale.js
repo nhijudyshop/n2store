@@ -98,15 +98,19 @@ function parseDiscountFromNote(note) {
         return Math.round(num * 1000);
     }
 
-    // Try to parse as plain number (could be "100000" or "100.000")
+    // Try to parse as plain number (could be "100000" or "100.000" or "100")
     const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
     if (plainMatch) {
         // Remove dots/commas used as thousand separators
         const numStr = plainMatch[1].replace(/[.,]/g, '');
         const num = parseInt(numStr, 10);
-        // Only accept if it looks like a reasonable discount (>= 1000)
+        // Numbers >= 1000 are literal values (e.g., "100000", "100.000")
         if (num >= 1000) {
             return num;
+        }
+        // Small numbers treated as shorthand "k" (e.g., "100" = 100k = 100000)
+        if (num > 0) {
+            return num * 1000;
         }
     }
 
