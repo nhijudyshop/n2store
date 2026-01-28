@@ -251,6 +251,8 @@
                 AmountUntaxed: invoiceData.AmountUntaxed || 0, // Tổng tiền hàng (chưa ship)
                 DeliveryPrice: invoiceData.DeliveryPrice || order?.DeliveryPrice || 0,
                 CashOnDelivery: invoiceData.CashOnDelivery || 0,
+                PaymentAmount: invoiceData.PaymentAmount || 0,  // Số tiền trả trước (wallet balance)
+                Discount: invoiceData.Discount || invoiceData.DiscountAmount || invoiceData.DecreaseAmount || 0,  // Giảm giá
                 TrackingRef: invoiceData.TrackingRef || '',
                 CarrierName: invoiceData.CarrierName || invoiceData.Carrier?.Name || '',
                 UserName: invoiceData.UserName || window.authManager?.currentUser?.displayName || '',  // Tên account tạo bill
@@ -662,8 +664,9 @@
      * @param {string} source - 'main' or 'results' (where the send was triggered)
      * @param {number} resultIndex - Index in results modal (for results source)
      * @param {boolean} viewOnly - If true, hide send buttons (only allow print)
+     * @param {number} walletBalance - Optional wallet balance for bill calculation
      */
-    async function showBillPreviewModal(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex, viewOnly = false) {
+    async function showBillPreviewModal(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex, viewOnly = false, walletBalance = 0) {
         const modal = document.getElementById('billPreviewSendModal');
         const container = document.getElementById('billPreviewSendContainer');
         const sendBtn = document.getElementById('billPreviewSendBtn');
@@ -687,7 +690,8 @@
             orderCode,
             source,
             resultIndex,
-            viewOnly
+            viewOnly,
+            walletBalance
         };
 
         // Show loading in container
@@ -711,8 +715,8 @@
             let billHTML = null;
 
             if (typeof window.generateCustomBillHTML === 'function') {
-                console.log('[INVOICE-STATUS] Generating custom bill for preview');
-                billHTML = window.generateCustomBillHTML(enrichedOrder, {});
+                console.log('[INVOICE-STATUS] Generating custom bill for preview, walletBalance:', walletBalance);
+                billHTML = window.generateCustomBillHTML(enrichedOrder, { walletBalance });
             }
 
             if (billHTML) {
@@ -961,6 +965,8 @@
             PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName,
             DeliveryPrice: invoiceData.DeliveryPrice,
             CashOnDelivery: invoiceData.CashOnDelivery,
+            PaymentAmount: invoiceData.PaymentAmount,  // Số tiền trả trước
+            Discount: invoiceData.Discount,            // Giảm giá
             AmountTotal: invoiceData.AmountTotal,
             AmountUntaxed: invoiceData.AmountUntaxed,
             CarrierName: invoiceData.CarrierName,
@@ -977,10 +983,13 @@
             }
         };
 
+        // Calculate walletBalance for bill generation
+        const walletBalance = invoiceData.PaymentAmount || 0;
+
         // Check if preview is enabled
         if (isPreviewBeforeSendEnabled()) {
             // Show preview modal (viewOnly if bill already sent)
-            await showBillPreviewModal(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null, billAlreadySent);
+            await showBillPreviewModal(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null, billAlreadySent, walletBalance);
         } else {
             // Direct send with confirm
             const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${order.Code || order.Name}?`);
@@ -1154,6 +1163,9 @@
                 }));
             }
 
+            // Get wallet balance (PaymentAmount) for bill calculation
+            const walletBalance = order.PaymentAmount || originalOrder?.PaymentAmount || 0;
+
             const enrichedOrder = {
                 ...order,
                 OrderLines: orderLines,
@@ -1167,7 +1179,7 @@
             // Check if preview is enabled
             if (isPreviewBeforeSendEnabled()) {
                 // Show preview modal
-                await showBillPreviewModal(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index);
+                await showBillPreviewModal(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index, false, walletBalance);
             } else {
                 // Direct send with confirm
                 const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${orderNumber}?`);
