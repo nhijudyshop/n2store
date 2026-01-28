@@ -1227,6 +1227,18 @@ async function confirmAndCheckFastSale() {
 let isSavingFastSale = false;
 
 /**
+ * Reset submission state - re-enable buttons and clear flag
+ */
+function resetFastSaleSubmissionState() {
+    isSavingFastSale = false;
+    const saveBtn = document.getElementById('confirmFastSaleBtn');
+    const confirmBtn = document.getElementById('confirmAndCheckFastSaleBtn');
+    if (saveBtn) saveBtn.disabled = false;
+    if (confirmBtn) confirmBtn.disabled = false;
+    console.log('[FAST-SALE] 🔓 Submission state reset, buttons re-enabled');
+}
+
+/**
  * Save Fast Sale orders to backend
  * @param {boolean} isApprove - Whether to approve orders (Lưu xác nhận)
  */
@@ -1238,11 +1250,12 @@ async function saveFastSaleOrders(isApprove = false) {
     }
 
     // Disable buttons to prevent double-click
-    const saveBtn = document.getElementById('fastSaleSaveBtn');
-    const confirmBtn = document.getElementById('fastSaleConfirmBtn');
+    const saveBtn = document.getElementById('confirmFastSaleBtn');
+    const confirmBtn = document.getElementById('confirmAndCheckFastSaleBtn');
     if (saveBtn) saveBtn.disabled = true;
     if (confirmBtn) confirmBtn.disabled = true;
     isSavingFastSale = true;
+    console.log('[FAST-SALE] 🔒 Buttons disabled, starting submission...');
 
     try {
         console.log(`[FAST-SALE] Saving Fast Sale orders (is_approve: ${isApprove})...`);
@@ -1252,6 +1265,7 @@ async function saveFastSaleOrders(isApprove = false) {
 
         if (models.length === 0) {
             window.notificationManager.error('Không có dữ liệu để lưu', 'Lỗi');
+            resetFastSaleSubmissionState();
             return;
         }
 
@@ -1277,6 +1291,7 @@ async function saveFastSaleOrders(isApprove = false) {
                 `Có ${invalidOrders.length} đơn hàng thiếu thông tin bắt buộc (đối tác ship, SĐT, địa chỉ)`,
                 'Lỗi validation'
             );
+            resetFastSaleSubmissionState();
             return;
         }
 
@@ -1352,12 +1367,8 @@ async function saveFastSaleOrders(isApprove = false) {
             'Lỗi hệ thống'
         );
 
-        // Error: reset flag and re-enable buttons so user can try again
-        isSavingFastSale = false;
-        const saveBtn = document.getElementById('fastSaleSaveBtn');
-        const confirmBtn = document.getElementById('fastSaleConfirmBtn');
-        if (saveBtn) saveBtn.disabled = false;
-        if (confirmBtn) confirmBtn.disabled = false;
+        // Error: reset submission state so user can try again
+        resetFastSaleSubmissionState();
     }
 }
 
