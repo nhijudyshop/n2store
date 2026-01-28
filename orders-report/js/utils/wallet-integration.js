@@ -53,7 +53,8 @@ const WalletIntegration = (function() {
 
     function formatCurrency(amount) {
         if (amount === null || amount === undefined) return '-';
-        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+        const num = parseFloat(amount) || 0;
+        return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
     }
 
     function formatCurrencyShort(amount) {
@@ -463,8 +464,7 @@ const WalletIntegration = (function() {
         if (customer360) {
             wallet = customer360.wallet || {};
             customer = customer360.customer || {};
-            virtualCredits = customer360.virtual_credits || [];
-            recentTransactions = customer360.transactions || [];
+            virtualCredits = customer360.virtual_credits || wallet.virtualCredits || [];
         } else {
             // Fallback: fetch wallet data directly (customer may not exist in customers table)
             console.log('[WALLET-MODAL] Customer360 not found, trying wallet API...');
@@ -473,24 +473,25 @@ const WalletIntegration = (function() {
                 const walletData = await getWallet(normalizedPhone);
                 if (walletData) {
                     wallet = walletData;
-                    virtualCredits = walletData.virtual_credits || [];
+                    virtualCredits = walletData.virtual_credits || walletData.virtualCredits || [];
                 }
             } catch (e) {
                 console.warn('[WALLET-MODAL] Wallet API error:', e.message);
                 networkError = true;
             }
+        }
 
-            // Try to fetch transactions separately
-            try {
-                const txResponse = await fetch(`${CONFIG.API_URL}/customer/${normalizedPhone}/transactions?limit=50`);
-                if (txResponse.ok) {
-                    const txResult = await txResponse.json();
-                    recentTransactions = txResult.data || [];
-                }
-            } catch (txError) {
-                console.warn('[WALLET-MODAL] Could not fetch transactions:', txError.message);
-                networkError = true;
+        // Always fetch transactions from dedicated API (customer360 doesn't include transactions)
+        try {
+            const txResponse = await fetch(`${CONFIG.API_URL}/customer/${normalizedPhone}/transactions?limit=50`);
+            if (txResponse.ok) {
+                const txResult = await txResponse.json();
+                recentTransactions = txResult.data || [];
+                console.log('[WALLET-MODAL] Fetched transactions:', recentTransactions.length);
             }
+        } catch (txError) {
+            console.warn('[WALLET-MODAL] Could not fetch transactions:', txError.message);
+            networkError = true;
         }
 
         // Update header with customer name
@@ -526,8 +527,9 @@ const WalletIntegration = (function() {
         }
 
         // Separate transactions: available (positive) vs completed (negative/used)
-        const availableTransactions = recentTransactions.filter(tx => tx.amount > 0);
-        const completedTransactions = recentTransactions.filter(tx => tx.amount <= 0);
+        // Note: amount may be string from API, so parse to float
+        const availableTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) > 0);
+        const completedTransactions = recentTransactions.filter(tx => parseFloat(tx.amount) <= 0);
 
         // Format balance display
         const totalBalance = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
