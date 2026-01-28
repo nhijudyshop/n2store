@@ -886,8 +886,14 @@
             transactionId: transactionId,
             imageUrl: null,
             imageFile: null,
-            isUploading: false
+            isUploading: false,
+            originalPhone: tx.linked_customer_phone || '',
+            originalName: tx.customer_name || '',
+            changeCustomerExpanded: false
         };
+
+        // Reset change customer section
+        resetChangeCustomerSection(tx);
 
         // Generate default note: "ĐÃ NHẬN [amount]K [bank] [DD/MM]"
         const amountNum = parseFloat(tx.amount || 0);
@@ -1088,7 +1094,125 @@
     }
 
     /**
+     * Reset change customer section in approve modal
+     */
+    function resetChangeCustomerSection(tx) {
+        const changeFields = document.getElementById('accChangeFields');
+        const changeToggle = document.querySelector('.acc-change-toggle');
+        const phoneInput = document.getElementById('accApprovePhone');
+        const nameInput = document.getElementById('accApproveName');
+        const lookupResult = document.getElementById('accApproveLookupResult');
+
+        // Collapse section
+        if (changeFields) changeFields.style.display = 'none';
+        if (changeToggle) changeToggle.classList.remove('expanded');
+
+        // Pre-fill with current customer info
+        if (phoneInput) phoneInput.value = tx?.linked_customer_phone || '';
+        if (nameInput) nameInput.value = tx?.customer_name || '';
+        if (lookupResult) {
+            lookupResult.innerHTML = '';
+            lookupResult.className = 'tpos-lookup';
+        }
+
+        state.approveModal.changeCustomerExpanded = false;
+    }
+
+    /**
+     * Toggle change customer section visibility
+     */
+    function toggleChangeCustomer() {
+        const changeFields = document.getElementById('accChangeFields');
+        const changeToggle = document.querySelector('.acc-change-toggle');
+
+        if (!changeFields || !changeToggle) return;
+
+        const isExpanded = state.approveModal.changeCustomerExpanded;
+
+        if (isExpanded) {
+            changeFields.style.display = 'none';
+            changeToggle.classList.remove('expanded');
+        } else {
+            changeFields.style.display = 'block';
+            changeToggle.classList.add('expanded');
+            // Focus on phone input
+            const phoneInput = document.getElementById('accApprovePhone');
+            if (phoneInput) {
+                setTimeout(() => phoneInput.focus(), 100);
+            }
+        }
+
+        state.approveModal.changeCustomerExpanded = !isExpanded;
+
+        // Reinitialize icons
+        if (window.lucide) lucide.createIcons();
+    }
+
+    /**
+     * Lookup customer in approve modal (similar to lookupCustomerForChange)
+     */
+    async function lookupCustomerInApprove(phone) {
+        const lookupResult = document.getElementById('accApproveLookupResult');
+        if (!lookupResult) return;
+
+        const normalized = phone.replace(/\D/g, '');
+        if (normalized.length !== 10) {
+            lookupResult.innerHTML = '';
+            return;
+        }
+
+        lookupResult.innerHTML = '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${normalized}`);
+            const result = await response.json();
+
+            const phoneGroups = result.data || [];
+            const customers = phoneGroups.flatMap(group => group.customers || []);
+
+            if (!result.success || !customers.length) {
+                lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH</div>';
+                return;
+            }
+
+            if (customers.length === 1) {
+                const customer = customers[0];
+                document.getElementById('accApproveName').value = customer.name || '';
+                lookupResult.innerHTML = `<div class="tpos-result">✅ ${customer.name}</div>`;
+            } else {
+                const options = customers.map(c =>
+                    `<option value="${c.name}">${c.name} - ${c.phone || ''}</option>`
+                ).join('');
+                lookupResult.innerHTML = `
+                    <div class="tpos-multiple">
+                        <span>⚠️ Tìm thấy ${customers.length} KH</span>
+                        <select id="accApproveCustomerSelect" onchange="document.getElementById('accApproveName').value = this.value">
+                            <option value="">-- Chọn KH --</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('[ACCOUNTANT] Customer lookup error:', error);
+            lookupResult.innerHTML = '<div class="tpos-result error">Lỗi kết nối TPOS</div>';
+        }
+    }
+
+    /**
+     * Check if customer info has changed
+     */
+    function hasCustomerChanged() {
+        const phoneInput = document.getElementById('accApprovePhone');
+        const newPhone = phoneInput?.value?.replace(/\D/g, '') || '';
+        const originalPhone = (state.approveModal.originalPhone || '').replace(/\D/g, '');
+
+        return newPhone !== originalPhone && newPhone.length === 10;
+    }
+
+    /**
      * Confirm approval with note and optional image
+     * If customer info changed, update phone first then approve
      */
     async function confirmApprove() {
         const transactionId = state.approveModal.transactionId;
@@ -1106,6 +1230,11 @@
         const userInfo = window.authManager?.getUserInfo() || {};
         const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
+        // Check if customer info changed
+        const customerChanged = hasCustomerChanged();
+        const newPhone = document.getElementById('accApprovePhone')?.value?.replace(/\D/g, '') || '';
+        const newName = document.getElementById('accApproveName')?.value?.trim() || '';
+
         // Disable button
         if (elements.approveConfirmBtn) {
             elements.approveConfirmBtn.disabled = true;
@@ -1113,23 +1242,49 @@
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    verified_by: performedBy,
-                    note: note,
-                    verification_image_url: imageUrl || null
-                })
-            });
+            // If customer changed, update phone first (this API also approves)
+            if (customerChanged) {
+                const changeResponse = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: newPhone,
+                        customer_name: newName || null,
+                        entered_by: performedBy,
+                        is_accountant_correction: true,
+                        note: note,
+                        verification_image_url: imageUrl || null
+                    })
+                });
 
-            const result = await response.json();
+                const changeResult = await changeResponse.json();
 
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to approve');
+                if (!changeResult.success) {
+                    throw new Error(changeResult.error || 'Failed to update customer');
+                }
+
+                showNotification(`Đã thay đổi SĐT thành ${newPhone} và duyệt giao dịch`, 'success');
+            } else {
+                // Normal approval without customer change
+                const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        verified_by: performedBy,
+                        note: note,
+                        verification_image_url: imageUrl || null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to approve');
+                }
+
+                showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
             }
 
-            showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
             closeAllModals();
 
             // Refresh data
@@ -1259,6 +1414,9 @@
     // CHANGE PHONE MODAL
     // =====================================================
 
+    /**
+     * Show change modal - now opens approve modal with change section expanded
+     */
     function showChangeModal(transactionId, currentPhone, currentName) {
         // Permission check
         if (!window.authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
@@ -1273,25 +1431,30 @@
             return;
         }
 
-        if (!elements.changeModal) return;
+        // Open approve modal instead
+        showApproveModal(transactionId);
 
-        elements.changeModal.dataset.txId = transactionId;
-        document.getElementById('accChangePhone').value = currentPhone || '';
-        document.getElementById('accChangeName').value = currentName || '';
+        // Expand change customer section after modal is shown
+        setTimeout(() => {
+            const changeFields = document.getElementById('accChangeFields');
+            const changeToggle = document.querySelector('.acc-change-toggle');
 
-        // Reset lookup state
-        const lookupResult = document.getElementById('accChangeLookupResult');
-        if (lookupResult) {
-            lookupResult.innerHTML = '';
-            lookupResult.className = '';
-        }
+            if (changeFields && changeToggle) {
+                changeFields.style.display = 'block';
+                changeToggle.classList.add('expanded');
+                state.approveModal.changeCustomerExpanded = true;
 
-        elements.changeModal.classList.add('visible');
+                // Focus on phone input
+                const phoneInput = document.getElementById('accApprovePhone');
+                if (phoneInput) {
+                    phoneInput.focus();
+                    phoneInput.select();
+                }
 
-        // Trigger lookup if phone is valid
-        if (currentPhone?.replace(/\D/g, '').length === 10) {
-            lookupCustomerForChange(currentPhone);
-        }
+                // Reinitialize icons
+                if (window.lucide) lucide.createIcons();
+            }
+        }, 100);
     }
 
     async function lookupCustomerForChange(phone) {
@@ -1927,6 +2090,9 @@
         showApproveModal,
         confirmApprove,
         clearApproveImage,
+        // Change customer in approve modal
+        toggleChangeCustomer,
+        lookupCustomerInApprove,
         // Auto-approve toggle
         loadAutoApproveSetting,
         toggleAutoApprove

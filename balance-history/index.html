@@ -925,6 +925,27 @@
                             <!-- Dynamically filled: amount, customer, content -->
                         </div>
 
+                        <!-- Change Customer Section (Collapsible) -->
+                        <div class="acc-change-customer-section" id="accChangeCustomerSection">
+                            <div class="acc-change-toggle" onclick="AccountantModule.toggleChangeCustomer()">
+                                <i data-lucide="user-cog" style="width:16px;height:16px"></i>
+                                <span id="accChangeToggleText">Thay đổi thông tin khách hàng</span>
+                                <i data-lucide="chevron-down" style="width:16px;height:16px" id="accChangeToggleIcon"></i>
+                            </div>
+                            <div class="acc-change-fields" id="accChangeFields" style="display:none">
+                                <div class="acc-form-group">
+                                    <label for="accApprovePhone">Số điện thoại mới</label>
+                                    <input type="tel" id="accApprovePhone" placeholder="Nhập 10 số" maxlength="10"
+                                        oninput="AccountantModule.lookupCustomerInApprove && AccountantModule.lookupCustomerInApprove(this.value)">
+                                    <div id="accApproveLookupResult" class="tpos-lookup"></div>
+                                </div>
+                                <div class="acc-form-group">
+                                    <label for="accApproveName">Tên khách hàng</label>
+                                    <input type="text" id="accApproveName" placeholder="Tự động điền từ TPOS">
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Note Input -->
                         <div class="acc-form-group">
                             <label for="accApproveNote">Ghi chú (tùy chọn)</label>
