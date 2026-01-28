@@ -1143,7 +1143,7 @@ ${orderComment ? `
             left: -9999px;
             top: 0;
             width: 400px;
-            height: 1200px;
+            height: auto;
             border: none;
         `;
         document.body.appendChild(iframe);
@@ -1161,12 +1161,16 @@ ${orderComment ? `
             // Get the body element from iframe
             const iframeBody = iframeDoc.body;
 
+            // Get actual content height (add small padding)
+            const contentHeight = iframeBody.scrollHeight + 20;
+            console.log('[BILL-SERVICE] Content height:', contentHeight);
+
             // Check if html2canvas is available
             if (typeof html2canvas === 'undefined') {
                 throw new Error('html2canvas library not loaded');
             }
 
-            // Generate image using html2canvas
+            // Generate image using html2canvas with dynamic height
             const canvas = await html2canvas(iframeBody, {
                 backgroundColor: '#ffffff',
                 scale: 2,
@@ -1174,7 +1178,8 @@ ${orderComment ? `
                 useCORS: true,
                 allowTaint: true,
                 windowWidth: 400,
-                windowHeight: 1200
+                windowHeight: contentHeight,
+                height: contentHeight
             });
 
             // Remove iframe
