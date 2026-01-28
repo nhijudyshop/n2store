@@ -924,19 +924,21 @@ function updateFastSaleShippingFee(index) {
         let isFreeShip = false;
 
         // Get order total for this row
-        // Use AmountTotal (product total) for freeship check - matches "Tổng tiền" shown in UI
+        // Use final total (after discount) for freeship check
         const order = fastSaleOrdersData[index];
         if (order && fee > 0) {
-            const totalAmount = order.AmountTotal || 0;
+            const productTotal = order.AmountTotal || 0;
+            const { totalDiscount } = orderHasDiscountTag(order) ? calculateOrderDiscount(order) : { totalDiscount: 0 };
+            const finalTotal = productTotal - totalDiscount;
 
             // Check free shipping conditions
             const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
             const isTinh = carrierName.includes('TỈNH');
 
-            if (isThanhPho && totalAmount > 1500000) {
+            if (isThanhPho && finalTotal > 1500000) {
                 fee = 0;
                 isFreeShip = true;
-            } else if (isTinh && totalAmount > 3000000) {
+            } else if (isTinh && finalTotal > 3000000) {
                 fee = 0;
                 isFreeShip = true;
             }

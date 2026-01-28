@@ -707,17 +707,17 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
         let fee = parseFloat(selectedOption.dataset.fee) || 0;
         let isFreeShip = false;
 
-        // Get total amount for free shipping check
-        const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+        // Get final total (after discount) for free shipping check
+        const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
 
-        if (fee > 0 && totalAmount > 0) {
+        if (fee > 0 && finalTotal > 0) {
             const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
             const isTinh = carrierName.includes('TỈNH');
 
-            if (isThanhPho && totalAmount > 1500000) {
+            if (isThanhPho && finalTotal > 1500000) {
                 fee = 0;
                 isFreeShip = true;
-            } else if (isTinh && totalAmount > 3000000) {
+            } else if (isTinh && finalTotal > 3000000) {
                 fee = 0;
                 isFreeShip = true;
             }
@@ -1635,15 +1635,14 @@ function autoFillSaleNote() {
         }
     }
 
-    // 4. Freeship - check if shipping fee is 0 and carrier qualifies
-    const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
+    // 4. Freeship - check based on final total (after discount)
     const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
-    const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+    const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
 
     const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
     const isTinh = carrierName.includes('TỈNH');
-    if ((isThanhPho && totalAmount > 1500000) || (isTinh && totalAmount > 3000000)) {
+    if ((isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000)) {
         noteParts.push('freeship');
     }
 
