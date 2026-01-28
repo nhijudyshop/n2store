@@ -82,31 +82,77 @@
         },
 
         /**
+         * Check if current user is admin
+         */
+        _isAdmin() {
+            const authState = window.authManager?.getAuthState();
+            return authState?.userType === 'admin-admin@@' || authState?.username === 'admin';
+        },
+
+        /**
          * Load from Firestore and merge with localStorage
+         * Admin loads ALL users' data, normal users load only their own
          */
         async _loadFromFirestore() {
             try {
-                const doc = await this._getDocRef().get();
-                if (!doc.exists) return;
+                const isAdmin = this._isAdmin();
 
-                const firestoreData = doc.data();
+                if (isAdmin) {
+                    // Admin: load ALL documents from invoice_status collection
+                    console.log('[INVOICE-STATUS] Admin detected, loading ALL users data...');
+                    const db = firebase.firestore();
+                    const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
 
-                // Merge data (newer timestamp wins)
-                if (firestoreData.data) {
-                    const entries = Array.isArray(firestoreData.data)
-                        ? firestoreData.data
-                        : Object.entries(firestoreData.data);
-                    entries.forEach(([key, value]) => {
-                        const localValue = this._data.get(key);
-                        if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
-                            this._data.set(key, value);
+                    let totalEntries = 0;
+                    snapshot.forEach(doc => {
+                        const firestoreData = doc.data();
+                        const username = doc.id;
+
+                        // Merge data (newer timestamp wins)
+                        if (firestoreData.data) {
+                            const entries = Array.isArray(firestoreData.data)
+                                ? firestoreData.data
+                                : Object.entries(firestoreData.data);
+                            entries.forEach(([key, value]) => {
+                                const localValue = this._data.get(key);
+                                if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
+                                    this._data.set(key, value);
+                                    totalEntries++;
+                                }
+                            });
+                        }
+
+                        // Merge sent bills
+                        if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                            firestoreData.sentBills.forEach(id => this._sentBills.add(id));
                         }
                     });
-                }
 
-                // Merge sent bills
-                if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                    firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                    console.log(`[INVOICE-STATUS] Admin loaded ${totalEntries} entries from ${snapshot.size} users`);
+                } else {
+                    // Normal user: load only their own document
+                    const doc = await this._getDocRef().get();
+                    if (!doc.exists) return;
+
+                    const firestoreData = doc.data();
+
+                    // Merge data (newer timestamp wins)
+                    if (firestoreData.data) {
+                        const entries = Array.isArray(firestoreData.data)
+                            ? firestoreData.data
+                            : Object.entries(firestoreData.data);
+                        entries.forEach(([key, value]) => {
+                            const localValue = this._data.get(key);
+                            if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
+                                this._data.set(key, value);
+                            }
+                        });
+                    }
+
+                    // Merge sent bills
+                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                        firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                    }
                 }
 
                 console.log(`[INVOICE-STATUS] Merged from Firestore, total ${this._data.size} entries`);
