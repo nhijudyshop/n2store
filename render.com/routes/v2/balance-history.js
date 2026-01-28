@@ -1888,16 +1888,16 @@ router.post('/:id/adjust', async (req, res) => {
                 balance_before, balance_after,
                 source, reference_type, reference_id, note
             )
-            SELECT $1, id, 'ADJUSTMENT', $2,
-                   $3, $4,
-                   'MANUAL_ADJUSTMENT', 'balance_history', $5::text, $6
-            FROM customer_wallets WHERE phone = $1
+            SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
+                   $3::numeric, $4::numeric,
+                   'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
+            FROM customer_wallets WHERE phone = $1::text
         `, [
             tx.linked_customer_phone,
             -adjustAmount,  // Negative for debit
             currentBalance,
             newBalance,
-            id,
+            String(id),
             `Điều chỉnh trừ ví KH sai: ${reason}`
         ]);
 
@@ -1947,16 +1947,16 @@ router.post('/:id/adjust', async (req, res) => {
                     balance_before, balance_after,
                     source, reference_type, reference_id, note
                 )
-                SELECT $1, id, 'ADJUSTMENT', $2,
-                       $3, $4,
-                       'MANUAL_ADJUSTMENT', 'balance_history', $5::text, $6
-                FROM customer_wallets WHERE phone = $1
+                SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
+                       $3::numeric, $4::numeric,
+                       'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
+                FROM customer_wallets WHERE phone = $1::text
             `, [
                 normalizedCorrectPhone,
                 adjustAmount,  // Positive for credit
                 correctCurrentBalance,
                 correctNewBalance,
-                id,
+                String(id),
                 `Nhận điều chỉnh từ GD #${id}: ${reason}`
             ]);
 
