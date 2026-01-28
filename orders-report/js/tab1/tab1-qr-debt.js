@@ -1157,6 +1157,9 @@ async function openSaleButtonModal() {
                 SaleOnlineDetailId: line.Id || line.SaleOnlineDetailId || null
             }));
             populateSaleOrderLinesFromAPI(mappedOrderLines);
+
+            // Update currentSaleOrderData.Details for auto-fill notes
+            currentSaleOrderData.Details = mappedOrderLines;
         }
     } else {
         // Fallback: try smart selection with basic order address if no partner details
@@ -1168,6 +1171,15 @@ async function openSaleButtonModal() {
 
     // Initialize product search for this modal
     initSaleProductSearch();
+
+    // Auto-fill notes after all data is loaded (transactions, discount tag, merge tag)
+    if (phone) {
+        try {
+            await fetchAndAutoFillNotes(normalizePhoneForQR(phone));
+        } catch (noteError) {
+            console.error('[SALE-MODAL] Error auto-filling notes:', noteError);
+        }
+    }
 }
 
 /**
@@ -1544,12 +1556,7 @@ async function fetchDebtForSaleModal(phone) {
         updateSaleRemainingBalance();
     }
 
-    // Fetch transactions and auto-fill notes
-    try {
-        await fetchAndAutoFillNotes(normalizedPhone);
-    } catch (txError) {
-        console.error('[SALE-MODAL] Error fetching transactions for auto-notes:', txError);
-    }
+    // Note: Auto-fill notes is now called from openSaleModal after orderDetails are loaded
 }
 
 /**
