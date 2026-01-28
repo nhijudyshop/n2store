@@ -1968,20 +1968,25 @@ router.post('/:id/adjust', async (req, res) => {
         }
 
         // 8. Ghi nhận adjustment vào bảng wallet_adjustments
+        // Map adjustment_type từ frontend sang DB constraint
+        const dbAdjustmentType = adjustment_type === 'transfer_to_correct'
+            ? 'WRONG_MAPPING_DEBIT'  // Vì ta trừ từ KH sai và cộng cho KH đúng
+            : 'WRONG_MAPPING_DEBIT'; // debit_only = chỉ trừ từ KH sai
+
         await db.query(`
             INSERT INTO wallet_adjustments (
                 original_transaction_id,
                 adjustment_type,
                 wrong_customer_phone,
                 correct_customer_phone,
-                amount,
+                adjustment_amount,
                 reason,
                 created_by,
                 created_at
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
             id,
-            adjustment_type.toUpperCase(),
+            dbAdjustmentType,
             tx.linked_customer_phone,
             adjustment_type === 'transfer_to_correct' ? normalizePhone(correct_customer_phone) : null,
             adjustAmount,
