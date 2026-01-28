@@ -230,7 +230,7 @@ window.refreshAccountsList = async function() {
                         </div>
                     </div>
                     <div style="display: flex; gap: 6px;">
-                        ${!isActive && !isExpired && isAdmin ? `
+                        ${!isActive && !isExpired ? `
                             <button onclick="selectAccount('${accountId}')"
                                 style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
                                 <i class="fas fa-check"></i> Chọn
@@ -374,12 +374,9 @@ window.addAccountManual = async function() {
     }
 };
 
-// Select Account
+// Select Account (cho phép tất cả user chọn account để dùng)
 window.selectAccount = async function(accountId) {
     try {
-        // Admin check
-        if (!checkAdminPermission('chọn tài khoản Pancake')) return;
-
         if (!window.pancakeTokenManager) {
             throw new Error('PancakeTokenManager not available');
         }
