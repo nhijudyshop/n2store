@@ -668,12 +668,13 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         const isDiscountedProduct = productDiscount > 0;
         const alternatingBg = index % 2 === 1 ? 'background-color: #f9fafb;' : '';
         const rowHighlightStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : alternatingBg;
+        const orderSeparator = pIndex === 0 && index > 0 ? 'border-top: 2px solid #d1d5db;' : '';
         const noteStyle = isDiscountedProduct
             ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             : '';
 
         return `
-            <tr style="${rowHighlightStyle}">
+            <tr style="${rowHighlightStyle} ${orderSeparator}">
                 ${pIndex === 0 ? `
                     <td rowspan="${products.length}" style="vertical-align: top; ${hasAnyDiscount ? 'border-left: 4px solid #f59e0b;' : ''}">
                         <div style="display: flex; flex-direction: column; gap: 8px;">
