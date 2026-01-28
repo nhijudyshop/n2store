@@ -344,18 +344,24 @@
             };
 
             // Helper: get PaymentAmount and Discount from request model
-            // API response doesn't include these, but request model has them
+            // ALWAYS use request model values (API response may have wrong values)
             const enrichWithPaymentData = (order) => {
                 const matchedModel = requestModels.find(m => m.Reference === order.Reference);
                 if (matchedModel) {
-                    // PaymentAmount = số tiền trả trước từ request
-                    if (matchedModel.PaymentAmount && !order.PaymentAmount) {
+                    // PaymentAmount = số tiền trả trước từ request (ALWAYS overwrite)
+                    if (matchedModel.PaymentAmount !== undefined) {
                         order.PaymentAmount = matchedModel.PaymentAmount;
                     }
-                    // Discount = giảm giá từ request
-                    if ((matchedModel.Discount || matchedModel.DecreaseAmount) && !order.Discount) {
-                        order.Discount = matchedModel.Discount || matchedModel.DecreaseAmount || 0;
+                    // Discount = giảm giá từ request (ALWAYS overwrite)
+                    const discount = matchedModel.DecreaseAmount || matchedModel.Discount || 0;
+                    if (discount > 0) {
+                        order.Discount = discount;
                     }
+                    console.log('[INVOICE-STATUS] Enriched payment data:', {
+                        Reference: order.Reference,
+                        PaymentAmount: order.PaymentAmount,
+                        Discount: order.Discount
+                    });
                 }
                 return order;
             };
