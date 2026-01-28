@@ -444,23 +444,51 @@ const WalletIntegration = (function() {
         modal.style.display = 'flex';
         document.getElementById('wallet-modal-title').textContent = `Ví Khách Hàng - ${normalizedPhone}`;
 
-        // Load wallet data
-        const customer360 = await getCustomer360(normalizedPhone);
+        // Load wallet data - try customer360 first, fallback to wallet API
+        let customer360 = await getCustomer360(normalizedPhone);
+        let wallet = {};
+        let customer = {};
+        let virtualCredits = [];
+        let recentTransactions = [];
 
-        if (!customer360) {
+        if (customer360) {
+            wallet = customer360.wallet || {};
+            customer = customer360.customer || {};
+            virtualCredits = customer360.virtual_credits || [];
+            recentTransactions = customer360.transactions || [];
+        } else {
+            // Fallback: fetch wallet data directly (customer may not exist in customers table)
+            console.log('[WALLET-MODAL] Customer360 not found, trying wallet API...');
+            const walletData = await getWallet(normalizedPhone);
+
+            if (walletData) {
+                wallet = walletData;
+                virtualCredits = walletData.virtual_credits || [];
+            }
+
+            // Try to fetch transactions separately
+            try {
+                const txResponse = await fetch(`${CONFIG.API_URL}/customer/${normalizedPhone}/transactions?limit=20`);
+                if (txResponse.ok) {
+                    const txResult = await txResponse.json();
+                    recentTransactions = txResult.data || [];
+                }
+            } catch (txError) {
+                console.warn('[WALLET-MODAL] Could not fetch transactions:', txError.message);
+            }
+        }
+
+        // If still no wallet data, show empty state
+        if (!wallet.balance && !wallet.virtual_balance && recentTransactions.length === 0) {
             document.getElementById('wallet-modal-body').innerHTML = `
                 <div style="text-align: center; padding: 20px; color: #999;">
-                    <i class="fas fa-user-slash fa-2x" style="margin-bottom: 10px;"></i>
-                    <p>Không tìm thấy thông tin khách hàng</p>
+                    <i class="fas fa-wallet fa-2x" style="margin-bottom: 10px;"></i>
+                    <p>Chưa có thông tin ví</p>
+                    <p style="font-size: 12px;">Khách hàng chưa có giao dịch nào</p>
                 </div>
             `;
             return;
         }
-
-        const wallet = customer360.wallet || {};
-        const customer = customer360.customer || {};
-        const virtualCredits = customer360.virtual_credits || [];
-        const recentTransactions = customer360.transactions || [];
 
         document.getElementById('wallet-modal-body').innerHTML = `
             <div style="padding: 10px;">
