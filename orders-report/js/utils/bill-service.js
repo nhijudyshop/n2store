@@ -9,60 +9,63 @@
 const BillService = (function () {
 
     /**
-     * Generate bill HTML from order data (TPOS-style template)
+     * Generate bill HTML from order data (EXACT TPOS template copy)
      *
-     * This is a fallback bill template that matches TPOS bill format.
+     * This is a fallback bill template that matches TPOS bill format EXACTLY.
      * Used when TPOS API is unavailable or fails.
+     * CSS and HTML structure copied directly from TPOS API response.
      *
      * ===== TEMPLATE VARIABLES =====
      * These variables are extracted from orderResult and can be customized:
      *
      * SHOP INFO:
      *   - shopName: Shop name (default: "NJD Live")
-     *   - shopPhone: Shop phone (default: "090 8888 674")
-     *   - shopAddress: Shop address (optional)
      *
      * ORDER INFO:
-     *   - orderResult.Number: Bill number (e.g., "NJD/2026/49318")
+     *   - billNumber: orderResult.Number - Bill number (e.g., "NJD/2026/49318")
      *   - dateStr: Bill date formatted as "DD/MM/YYYY HH:mm"
      *   - carrierName: Delivery carrier name
      *   - sttDisplay: Session index / STT number
      *
      * CUSTOMER INFO:
-     *   - receiverName: Customer name
-     *   - receiverPhone: Customer phone
-     *   - receiverAddress: Customer address
-     *   - sellerName: Seller name
+     *   - receiverName: Customer name (Partner.Name, PartnerDisplayName, ReceiverName)
+     *   - receiverPhone: Customer phone (Partner.Phone, Ship_Receiver.Phone, ReceiverPhone)
+     *   - receiverAddress: Customer address (Partner.Street, Ship_Receiver.Street, ReceiverAddress)
+     *   - sellerName: Seller name (from authManager or orderResult.User.Name)
      *
-     * PRODUCTS:
-     *   - orderLines[].ProductName: Product name
-     *   - orderLines[].ProductUOMQty / Quantity: Quantity
-     *   - orderLines[].PriceUnit / Price: Unit price
-     *   - orderLines[].Note: Product note (optional)
+     * PRODUCTS (from orderLines array):
+     *   - ProductName / ProductNameGet: Product name
+     *   - Quantity / ProductUOMQty: Quantity
+     *   - PriceUnit / Price: Unit price
+     *   - ProductUOMName: Unit name (default "Cái")
+     *   - Note: Product note (optional, displayed in italics)
      *
      * TOTALS:
      *   - totalQuantity: Sum of all quantities
      *   - totalAmount: Sum of all product prices (before shipping/discount)
-     *   - shippingFee: Shipping fee
+     *   - shippingFee: Shipping fee (DeliveryPrice)
      *   - discount: Discount amount (DecreaseAmount)
-     *   - prepaidAmount: Prepaid/deposit amount (PaymentAmount)
+     *   - prepaidAmount: Prepaid/deposit amount (AmountDeposit, PaymentAmount)
      *   - finalTotal: totalAmount - discount + shippingFee
-     *   - remainingBalance: COD amount to collect
+     *   - codAmount: Amount to collect on delivery (còn lại)
      *
      * NOTES:
-     *   - deliveryNote: Delivery note / Comment
+     *   - deliveryNote: Delivery note (DeliveryNote field)
+     *   - comment: General comment (Comment field)
      *
      * @param {Object} orderResult - The created order result from FastSaleOrder API
      * @param {Object} options - Optional parameters
      * @param {Object} options.currentSaleOrderData - Current sale order data (from saleButtonModal)
-     * @returns {string} HTML content for the bill
+     * @returns {string} HTML content for the bill (EXACT TPOS format)
      */
     function generateCustomBillHTML(orderResult, options = {}) {
         // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
         const currentSaleOrderData = options.currentSaleOrderData || null;
         const order = currentSaleOrderData || orderResult;
         const defaultData = window.lastDefaultSaleData || {};
-        const company = defaultData.Company || { Name: 'NJD Live', Phone: '090 8888 674' };
+        const company = defaultData.Company || { Name: 'NJD Live' };
+
+        // ========== EXTRACT VARIABLES ==========
 
         // Shop info
         const shopName = company.Name || 'NJD Live';
@@ -72,7 +75,7 @@ const BillService = (function () {
         const saleModal = document.getElementById('saleButtonModal');
         const isModalVisible = saleModal && saleModal.style.display !== 'none' && saleModal.style.display !== '';
 
-        // Get form values - only use form fields when modal is visible, otherwise use orderResult data
+        // Customer info - only use form fields when modal is visible
         const receiverName = (isModalVisible && document.getElementById('saleReceiverName')?.value) ||
             orderResult?.Partner?.Name ||
             orderResult?.PartnerDisplayName ||
@@ -88,10 +91,14 @@ const BillService = (function () {
             orderResult?.Ship_Receiver?.Street ||
             orderResult?.ReceiverAddress ||
             '';
+
+        // Notes
         const deliveryNote = (isModalVisible && document.getElementById('saleDeliveryNote')?.value) ||
             orderResult?.DeliveryNote ||
             '';
         const comment = orderResult?.Comment || '';
+
+        // Money values
         const shippingFee = (isModalVisible && parseFloat(document.getElementById('saleShippingFee')?.value)) ||
             orderResult?.DeliveryPrice ||
             0;
@@ -105,7 +112,7 @@ const BillService = (function () {
             orderResult?.PaymentAmount ||
             0;
 
-        // Get carrier info
+        // Carrier info
         const carrierSelect = isModalVisible ? document.getElementById('saleDeliveryPartner') : null;
         const carrierFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
         const isValidDropdownCarrier = carrierFromDropdown && !carrierFromDropdown.includes('Đang tải');
@@ -114,14 +121,14 @@ const BillService = (function () {
             (isValidDropdownCarrier ? carrierFromDropdown : '') ||
             '';
 
-        // Get seller name
+        // Seller name
         const sellerName = window.authManager?.currentUser?.displayName ||
             defaultData.User?.Name ||
             orderResult?.User?.Name ||
             orderResult?.UserName ||
             '';
 
-        // Get STT
+        // STT (Session Index)
         let sttDisplay = '';
         if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
             const allSTTs = order.OriginalOrders
@@ -133,12 +140,20 @@ const BillService = (function () {
             sttDisplay = order?.SessionIndex || orderResult?.SessionIndex || '';
         }
 
-        // Get products from orderLines
+        // Bill number and date
+        const billNumber = orderResult?.Number || '';
+        const now = new Date();
+        const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        // Barcode URL (TPOS CDN - exact format from TPOS)
+        const barcodeUrl = billNumber ?
+            `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${billNumber}&width=600&height=100` : '';
+
+        // ========== GENERATE PRODUCT ROWS ==========
         const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
         let totalQuantity = 0;
         let totalAmount = 0;
 
-        // Generate product rows HTML (TPOS style - product name on first row, qty/price on second row)
         const productsHTML = orderLines.map((item) => {
             const quantity = item.Quantity || item.ProductUOMQty || 1;
             const price = item.PriceUnit || item.Price || 0;
@@ -150,144 +165,652 @@ const BillService = (function () {
             totalQuantity += quantity;
             totalAmount += total;
 
-            return `
-                <tr>
-                    <td class="PaddingProduct word-break" colspan="3" style="border-bottom:none">
-                        <label>${productName}${note ? ` <span style="color:#666;font-style:italic">(${note})</span>` : ''}</label>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="text-center numberPadding">${quantity} ${uomName}</td>
-                    <td class="text-right numberPadding">${price.toLocaleString('vi-VN')}</td>
-                    <td class="text-right numberPadding">${total.toLocaleString('vi-VN')}</td>
-                </tr>`;
-        }).join('');
+            // EXACT TPOS format: product name row + quantity/price row
+            return `                        <tr>
+                            <td class="PaddingProduct word-break" colspan="3" style="border-bottom:none">
+                                    <label>
+                                        ${productName}${note ? ` <span style="color:#666;font-style:italic">(${note})</span>` : ''}
 
-        // Calculate totals
+                                                                            </label>
+
+
+                            </td>
+                        </tr>
+                        <tr class="">
+                            <td class="text-center numberPadding">
+                                ${quantity}
+${uomName}                            </td>
+                            <td class="text-right numberPadding">
+                                ${price.toLocaleString('vi-VN')}
+                            </td>
+                            <td class="text-right numberPadding">
+                                ${total.toLocaleString('vi-VN')}
+                            </td>
+                        </tr>`;
+        }).join('\n');
+
+        // ========== CALCULATE TOTALS ==========
         const finalTotal = totalAmount - discount + shippingFee;
         const remainingBalance = finalTotal - prepaidAmount;
         const codAmount = remainingBalance > 0 ? remainingBalance : 0;
 
-        // Format date
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        }).replace(',', '');
+        // ========== EXACT TPOS HTML TEMPLATE ==========
+        // CSS and structure copied directly from TPOS API response (html_bill.txt)
+        return `
 
-        // Bill number
-        const billNumber = orderResult?.Number || '';
-
-        // Barcode URL (TPOS CDN)
-        const barcodeUrl = billNumber ?
-            `https://statics.tpos.vn/Web/Barcode?type=Code%20128&value=${encodeURIComponent(billNumber)}&width=600&height=100` : '';
-
-        // ========== TPOS-STYLE HTML TEMPLATE ==========
-        return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phiếu bán hàng - ${billNumber}</title>
+    <title>Phiếu bán hàng - TPOS.VN</title>
     <style>
-        @page { margin: 1mm 0; }
+        @page {
+            margin: 1mm  0;
+        }
         html, body {
             width: 80mm;
             margin: auto;
             color: #000 !important;
-            font-size: 13px;
+            font-size:  13px;
             font-family: Arial, Helvetica, sans-serif;
-            line-height: 1.2;
+            line-height:1.2
         }
-        *, *:before, *:after { box-sizing: border-box; }
-        .container { padding: 10px; margin: auto; }
-        .text-center { text-align: center; }
-        .text-left { text-align: left; }
-        .text-right { text-align: right; }
-        label { display: inline-block; margin-bottom: 5px; font-weight: bold; }
-        strong { font-weight: bold !important; }
-        h3 { font-size: 15px !important; font-weight: bold; margin: 0; }
-        table { width: 100%; border-collapse: collapse; border-spacing: 0; max-width: 100%; }
-        .table { width: 100%; margin-bottom: 10px; }
-        .table tbody > tr > td { padding: 1px; }
-        .table thead > tr > th { padding: 1px; border-top: 2px solid #ddd !important; }
-        .table tfoot > tr > td { padding: 1px; font-weight: bold !important; }
-        .table-cs > tbody > tr > td, .table-cs > thead > tr > th {
-            border-top: 1px solid gray !important;
-            border-bottom: 1px solid gray !important;
+        /*---*/
+        html {
+            font-family: Arial, Helvetica, sans-serif;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
         }
-        .table-cs > tfoot > tr > td { border: none !important; }
+        .word-break {
+            word-break: break-word;
+        }
+
+        *, *:before, *:after {
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+        }
+
+        .container {
+            padding-right: 10px;
+            padding-left: 10px;
+            margin-right: auto;
+            margin-left: auto;
+        }
+
+        .row {
+            margin: 0 !important;
+        }
+
+        .form-horizontal .form-group {
+            margin-right: -15px;
+            margin-left: -15px;
+        }
+
+            .form-horizontal .form-group:before, .form-horizontal .form-group:after {
+                display: table;
+                content: " ";
+            }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-left {
+            text-align: left;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-muted {
+            color: black;
+        }
+
+        .hidden {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        label {
+            display: inline-block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        code {
+            padding: 2px 4px;
+            font-size: 90%;
+            color: black;
+            font-weight: 500;
+            border-radius: 4px;
+        }
+
+        h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+            font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+            font-weight: 500;
+            line-height: 1.1;
+        }
+
+        h3 {
+            display: block;
+            font-size: 1.17em;
+            margin-block-start: 1em;
+            margin-block-end: 1em;
+            margin-inline-start: 0px;
+            margin-inline-end: 0px;
+            font-weight: bold;
+        }
+
+        table {
+            max-width: 100%;
+            background-color: transparent;
+        }
+
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+        }
+
+        .table {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .img-responsive {
+            display: block;
+            height: auto;
+            max-width: 100%;
+        }
+
+        img {
+            vertical-align: middle;
+        }
+
+        img {
+            border: 0;
+        }
+
+        .image_header img {
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+        }
+        /*---*/
+        .size-18 {
+            font-size: 18px;
+        }
+
+        .size-20 {
+            font-size: 20px;
+        }
+        .size-16 {
+            font-size: 16px;
+        }
+        .size-12 {
+            font-size: 12px;
+        }
+        .size-13 {
+            font-size: 13px;
+        }
+        .size-18pt {
+            font-size: 18pt;
+        }
+        .size-15pt {
+            font-size: 15pt;
+        }
+        .size-14pt {
+            font-size: 14pt;
+        }
+        .size-11pt {
+            font-size: 11pt;
+        }
+        .size-trackingRef {
+            font-size: 1.2em;
+        }
+
+        .inline-cs > div {
+            display: inline-block !important;
+            vertical-align: middle !important;
+        }
+
+        .table-custom > thead > tr > th {
+            vertical-align: middle !important;
+            text-align: center;
+        }
+
+        .table-custom > tbody > tr > td {
+            vertical-align: middle !important;
+        }
+
         .table.print-header, .table.print-header td, .table.print-header th {
             border: none !important;
             padding: 0 !important;
         }
-        .word-break { word-break: break-word; }
-        .PaddingProduct { padding-top: 2px; padding-bottom: 2px; border-bottom: none !important; }
-        .numberPadding { padding-top: 0px; padding-bottom: 2px; border-top: none !important; }
-        hr.dash-cs { margin-top: 5px; margin-bottom: 5px; border-top: 1px dashed black; }
-        .size-16 { font-size: 16px; }
-        .font-bold { font-weight: bold; }
+
+            .table.print-header th {
+                font-weight: 500;
+            }
+
+            .table.print-header h1 {
+                font-size: 28px;
+            }
+
+        h3 {
+            font-size: 15px !important;
+        }
+
+        .table .table-heading {
+            text-transform: uppercase;
+        }
+
+        .dataBody {
+            margin-top: 0;
+        }
+
+        .price_text {
+            display: inline-block;
+        }
+
+            .price_text:first-letter {
+                text-transform: uppercase;
+            }
+
+        .table tbody > tr > td.numberPadding {
+            padding-top: 0px;
+            padding-bottom: 2px;
+            border-top: none !important;
+        }
+
+        .table tbody > tr > td.PaddingProduct {
+            padding-top: 2px;
+            padding-bottom: 2px;
+            border-bottom: none !important;
+        }
+
+        .table tbody > tr > td {
+            padding: 1px;
+        }
+
+        .table tfoot > tr > td {
+            padding: 1px;
+        }
+
+        .table thead > tr > th {
+            padding: 1px;
+        }
+
+        .table thead > tr > th {
+            border-top: 2px solid #ddd !important
+        }
+
+        .table tfoot > tr > td {
+            font-weight: bold !important;
+        }
+
+        .oe_page {
+            page-break-after: always;
+        }
+
+        .form-control-static {
+            padding-top: 0;
+            padding-bottom: 0;
+            margin:0;
+        }
+
+        .pre-wrap {
+            white-space: pre-wrap !important;
+        }
+
+        .footer-cs {
+            margin-bottom: 0 !important;
+        }
+
+        .column20 {
+            float: left;
+            width: 20%;
+        }
+
+        .column80 {
+            float: left;
+            width: 80%;
+            padding-left: 10px;
+        }
+
+        /*.image_header {
+            margin-top: -15px;
+        }*/
+
+        .image_header img {
+            width: 100%;
+        }
+        /* Clear floats after the columns */
+        .row {
+            margin: 0 !important;
+        }
+
+            .row:after {
+                content: "";
+                display: table;
+                clear: both;
+            }
+
+        table tbody.border-none > tr > td {
+            border: none;
+        }
+
+        .border-top {
+            border-top: 1px solid black !important;
+        }
+
+        .border-bottom {
+            border-bottom: 1px solid black !important;
+        }
+        /*.table-cs >th > tr {
+            border-top: 1px solid black !important;
+            border-bottom: 1px solid black !important;
+        }*/
+        .table-cs > tbody > tr > td, .table-cs > thead > tr > th {
+            border-top: 1px solid gray !important;
+            border-bottom: 1px solid gray !important;
+        }
+
+        .table-cs > tfoot > tr > td {
+            border: none !important
+        }
+
+        .logo-center img {
+            margin-left: auto;
+            margin-right: auto;
+            max-width: 180px !important;
+            max-height: 180px !important;
+        }
+
+        hr.dash-cs {
+            margin-top: 5px;
+            margin-bottom: 5px;
+            border-top: 1px dashed black;
+        }
+
+        .bottom_0 {
+            margin-bottom: 0;
+        }
+
+        .bottom-size {
+            font-size: 16pt !important;
+        }
+
+        .ship-font {
+            font-size:  14px;
+        }
+
+        .font-ship-bexinh {
+            font-size: 14px;
+        }
+        /*.pos .pos-receipt-container {
+            text-align: center;
+        }*/
+        /*.receipt-total, receipt-paymentlines, receipt-change {
+            width: 100%
+        }*/
+        table {
+            width: 100%;
+        }
+
+        .pos .pos-sale-ticket {
+            text-align: left;
+            background-color: white;
+            font-size: 13px;
+            /*display: inline-block;*/
+            /*font-family: "Inconsolata";*/
+            /*border: solid 1px rgb(220, 220, 220);*/
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .pos .pos-center-align {
+            text-align: center;
+        }
+
+        .pos .pos-right-align {
+            text-align: right;
+        }
+
+        .pos .pos-sale-ticket h3 {
+            margin-top: 10px;
+            margin-bottom: 5px;
+            font-size: 20px;
+        }
+
+        .pos .pos-sale-ticket p {
+            margin-bottom: 5px;
+        }
+
+        table.receipt-orderlines > tbody > tr.border-top {
+            border-top: 1px solid #ccc !important;
+        }
+
+        table.receipt-orderlines > tbody > tr.border-bottom {
+            border-bottom: 1px solid #ccc !important;
+        }
+
+        .pos .pos-sale-ticket table {
+            width: 100%;
+            border: 0;
+            table-layout: auto;
+        }
+            .pos .pos-sale-ticket table tr th,
+            .pos .pos-sale-ticket table tr td {
+                padding-right: 2px;
+            }
+
+            .pos .pos-sale-ticket table td {
+                border: 0;
+                word-wrap: break-word;
+            }
+
+            .pos .pos-sale-ticket table.receipt-orderlines tr td.product-name {
+                /*border-top: 1px dashed #333;*/
+            }
+
+        .pos .pos-disc-font {
+            font-size: 12px;
+            font-style: italic;
+            color: #808080;
+        }
+
+        .pos .pos-sale-ticket .emph {
+            font-size: 14px;
+            margin: 5px;
+        }
+
+        .pos .pos-sale-ticket hr {
+            margin-top: 5px;
+            margin-bottom: 5px;
+            border: 0;
+            border-top: 1px dashed #333;
+        }
+
+        .text-uppercase {
+            text-transform: uppercase;
+        }
+
+        .content-thuchi {
+            margin-top: 15px;
+        }
+
+            .content-thuchi div {
+                margin-bottom: 10px;
+            }
+        .ship-group .form-group{
+        margin-bottom: 5px
+        }
+
+         .flex-ship {
+            display: flex;
+            flex-flow: column;
+            width: 100%;
+            height: 50mm;
+
+            margin-left: 0;
+            margin-right: 0;
+            font-size:12px;
+        }
+
+         .flex-ship-80 {
+            display: flex;
+            flex-flow: column;
+            width: 100%;
+            height: 78mm;
+
+            margin-left: 0;
+            margin-right: 0;
+            font-size: 11px !important;
+            border: 1px solid;
+        }
+         .flex-ship-80x35 {
+            display: flex;
+            flex-flow: column;
+            width: 100%;
+            height: 34mm;
+
+            margin-left: 0;
+            margin-right: 0;
+            font-size: 11px !important;
+        }
+        .ship-top {
+            flex: 1;
+        }
+
+        .ship-mid {
+            flex: 1;
+            text-align: center;
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .ship-bottom {
+            font-size:  12px;
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+        }
+       .ship-bottom .form-group, .ship-top .form-group  {
+        margin-bottom: 0 !important;
+        }
+
+        .border-bottom{
+        border-bottom: 1px solid;
+        }
+        .container {
+            padding-right: 10px;
+            padding-left: 10px;
+            margin-right: auto;
+            margin-left: auto;
+        }
+      .col-xs-1, .col-xs-2, .col-xs-3, .col-xs-4, .col-xs-5, .col-xs-6, .col-xs-7, .col-xs-8, .col-xs-9, .col-xs-10, .col-xs-11, .col-xs-12, .col-sm-1, .col-sm-2, .col-sm-3, .col-sm-4, .col-sm-5, .col-sm-6, .col-sm-7, .col-sm-8, .col-sm-9, .col-sm-10, .col-sm-11, .col-sm-12, .col-md-1, .col-md-2, .col-md-3, .col-md-4, .col-md-5, .col-md-6, .col-md-7, .col-md-8, .col-md-9, .col-md-10, .col-md-11, .col-md-12, .col-lg-1, .col-lg-2, .col-lg-3, .col-lg-4, .col-lg-5, .col-lg-6, .col-lg-7, .col-lg-8, .col-lg-9, .col-lg-10, .col-lg-11, .col-lg-12 {
+    position: relative;
+    min-height: 1px;
+    padding-right: 5px;
+    padding-left: 5px;
+        }
+        .font-bold {
+            font-weight: bold;
+        }
+    .text-clamp {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2; /* number of lines to show */
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    strong {
+        font-weight: bold !important;
+    }
+
+        .page-break {
+            display: block;
+            height: 0;
+            page-break-before: always;
+        }
     </style>
 </head>
 <body>
     <div class="container body-content">
-        <div>
-            <!-- Shop Header -->
-            <div class='row'>
-                <div class='text-center'>
-                    <span style='font-size:16px; font-weight:bold'>${shopName}</span>
+
+
+
+    <div class="hidden">0</div>
+    <div>
+        <div class='row'>
+                    <div class='text-center'>
+                        <span style='font-size:16px; font-weight:bold'>${shopName}</span>
+                    </div>
+                    <div class='text-center'>
+                        <strong><span style='white-space:pre-wrap; word-break:break-word'></span></strong>
+                    </div>
+                    </div>
+        <table class="table print-header table-bordered">
+            <thead>
+                <tr>
+                    <th class="text-center">
+                                                                                                <div class='text-center'>
+${carrierName ? `<span>${carrierName}</span><br/>` : ''}
+<p class='size-16 font-bold'>Tiền thu hộ: ${codAmount.toLocaleString('vi-VN')}</p>
+</div>
+                        <hr class="b-b dash-cs" />
+                    </th>
+
+                </tr>
+                <tr>
+                    <th class="text-center">
+                        <h3 style="text-transform:uppercase">Phiếu bán hàng</h3>
+
+                    </th>
+                </tr>
+                <tr>
+                    <th>
+                        <div class='text-center'>
+                    <div>
+                        <img src='${barcodeUrl}' style='width:95%' />
+                    </div>
+                <strong>Số phiếu</strong>: ${billNumber}
+                <div>
+                    <strong>Ngày</strong>: ${dateStr}
+                </div>${sttDisplay ? `
+                <div>
+                    <strong>STT</strong>: ${sttDisplay}
+                </div>` : ''}
+                <hr class='b-b dash-cs' />
                 </div>
-            </div>
-
-            <table class="table print-header table-bordered">
-                <thead>
-                    <!-- Carrier & COD Header -->
-                    <tr>
-                        <th class="text-center">
-                            ${carrierName ? `<div class='text-center'><span>${carrierName}</span><br/>` : '<div class="text-center">'}
-                            <p class='size-16 font-bold'>Tiền thu hộ: ${codAmount.toLocaleString('vi-VN')}</p>
+                    </th>
+                </tr>
+                <tr>
+                    <th class="text-left">
+                            <div>
+                                <strong>Khách hàng:</strong> ${receiverName}
                             </div>
-                            <hr class="b-b dash-cs" />
-                        </th>
-                    </tr>
-
-                    <!-- Bill Title -->
-                    <tr>
-                        <th class="text-center">
-                            <h3 style="text-transform:uppercase">Phiếu bán hàng</h3>
-                        </th>
-                    </tr>
-
-                    <!-- Barcode & Bill Number -->
-                    <tr>
-                        <th>
-                            <div class='text-center'>
-                                ${barcodeUrl ? `<div><img src='${barcodeUrl}' style='width:95%' /></div>` : ''}
-                                <strong>Số phiếu</strong>: ${billNumber}
-                                <div><strong>Ngày</strong>: ${dateStr}</div>
-                                ${sttDisplay ? `<div><strong>STT</strong>: ${sttDisplay}</div>` : ''}
-                                <hr class='b-b dash-cs' />
+                                                                            ${receiverAddress ? `<div>
+                                <strong>Địa chỉ:</strong> ${receiverAddress}
+                            </div>` : ''}
+                                                                            <div style="float:right">
                             </div>
-                        </th>
-                    </tr>
+                            <div>
+                                <strong>Điện thoại:</strong> ${receiverPhone}
+                            </div>
+                                                    ${sellerName ? `<div>
+                                <strong>Người bán:</strong> ${sellerName}
+                            </div>` : ''}
+                                                                                            </th>
 
-                    <!-- Customer Info -->
-                    <tr>
-                        <th class="text-left">
-                            <div><strong>Khách hàng:</strong> ${receiverName}</div>
-                            ${receiverAddress ? `<div><strong>Địa chỉ:</strong> ${receiverAddress}</div>` : ''}
-                            <div><strong>Điện thoại:</strong> ${receiverPhone}</div>
-                            ${sellerName ? `<div><strong>Người bán:</strong> ${sellerName}</div>` : ''}
-                        </th>
-                    </tr>
-                </thead>
-            </table>
+                </tr>
+            </thead>
+        </table>
 
-            <!-- Products Table -->
-            <table class="table table-cs">
+            <table class="table table-cs ">
                 <thead>
                     <tr>
                         <th width="80">Sản phẩm</th>
@@ -296,65 +819,84 @@ const BillService = (function () {
                     </tr>
                 </thead>
                 <tbody>
-                    ${productsHTML}
+${productsHTML}
                 </tbody>
                 <tfoot style="display: table-row-group !important;" class="word-break">
-                    <!-- Total Quantity & Amount -->
                     <tr>
-                        <td colspan="1"><strong>Tổng:</strong></td>
-                        <td><strong>SL: ${totalQuantity}</strong></td>
-                        <td class="text-right"><strong>${totalAmount.toLocaleString('vi-VN')}</strong></td>
+                        <td colspan="1">
+                            <strong>Tổng:</strong>
+                        </td>
+                         <td>
+                            <strong>SL: ${totalQuantity}</strong>
+                        </td>
+                        <td class="text-right"><strong>${totalAmount.toLocaleString('vi-VN')}</strong> </td>
                     </tr>
+                                    ${discount > 0 ? `
+                        <tr>
+                            <td colspan="2" class="text-right" style="border-right: none !important">
+                                <strong>Giảm giá :</strong>
+                            </td>
+                             <td style="border-left:none !important" class="text-right">-${discount.toLocaleString('vi-VN')}</td>
+                        </tr>` : ''}
 
-                    ${discount > 0 ? `
-                    <!-- Discount -->
-                    <tr>
-                        <td colspan="2" class="text-right" style="border-right: none !important"><strong>Giảm giá :</strong></td>
-                        <td style="border-left:none !important" class="text-right">-${discount.toLocaleString('vi-VN')}</td>
-                    </tr>` : ''}
 
-                    <!-- Shipping Fee -->
-                    <tr>
-                        <td colspan="2" class="text-right" style="border-right: none !important"><strong>Tiền ship :</strong></td>
-                        <td style="border-left:none !important" class="text-right">${shippingFee.toLocaleString('vi-VN')}</td>
-                    </tr>
+                        <tr>
+                            <td colspan="2" class="text-right" style="border-right: none !important">
+                                <strong>Tiền ship :</strong>
+                            </td>
+                             <td style="border-left:none !important" class="text-right">${shippingFee.toLocaleString('vi-VN')}</td>
+                        </tr>
 
-                    <!-- Grand Total -->
-                    <tr>
-                        <td colspan="2" class="text-right"><strong>Tổng tiền :</strong></td>
-                        <td class="text-right">${finalTotal.toLocaleString('vi-VN')}</td>
-                    </tr>
 
-                    ${prepaidAmount > 0 ? `
-                    <!-- Prepaid Amount -->
-                    <tr>
-                        <td colspan="2" class="text-right" style="border-right: none !important"><strong>Trả trước :</strong></td>
-                        <td style="border-left:none !important" class="text-right">${prepaidAmount.toLocaleString('vi-VN')}</td>
-                    </tr>
-                    <!-- Remaining Balance -->
-                    <tr>
-                        <td colspan="2" class="text-right"><strong>Còn lại :</strong></td>
-                        <td class="text-right">${codAmount.toLocaleString('vi-VN')}</td>
-                    </tr>` : ''}
-                </tfoot>
+
+                        <tr>
+                            <td colspan="2" class="text-right">
+                                <strong>Tổng tiền :</strong>
+                            </td>
+                            <td class="text-right">${finalTotal.toLocaleString('vi-VN')}</td>
+                        </tr>
+${prepaidAmount > 0 ? `
+                        <tr>
+                            <td colspan="2" class="text-right" style="border-right: none !important">
+                                <strong>Trả trước :</strong>
+                            </td>
+                            <td style="border-left:none !important" class="text-right">${prepaidAmount.toLocaleString('vi-VN')}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="2" class="text-right">
+                                <strong>Còn lại :</strong>
+                            </td>
+                            <td class="text-right">${codAmount.toLocaleString('vi-VN')}</td>
+                        </tr>
+` : ''}
+                                    </tfoot>
             </table>
-
-            ${deliveryNote ? `
-            <!-- Delivery Note -->
-            <div style="word-wrap:break-word">
+${deliveryNote ? `
+                    <div style="word-wrap:break-word">
                 <strong>Ghi chú giao hàng :</strong> <span style="white-space:pre-wrap; word-break: break-word;">${deliveryNote}</span>
-            </div>` : ''}
+            </div>
+        ` : ''}
 
-            ${comment ? `
-            <!-- Comment -->
+${comment ? `
+
             <div style="word-wrap:break-word">
                 <strong>Ghi chú: </strong>
-                <p class="form-control-static">${comment.replace(/\n/g, '<br />')}</p>
-            </div>` : ''}
-        </div>
+                <p class="form-control-static">
+                    ${comment.replace(/\n/g, '<br />')}
+                </p>
+            </div>
+` : ''}
+
+
+<div class='text-center'>
+</div>
+
+            </div>
+
     </div>
 </body>
-</html>`;
+</html>
+`;
     }
 
     /**
