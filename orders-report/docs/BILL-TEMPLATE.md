@@ -210,30 +210,6 @@ if (mergeTag) {
 
 ---
 
-## Free Shipping Logic
-
-Phí ship tự động = 0 khi:
-
-| Loại Carrier | Điều kiện | Ví dụ |
-|--------------|-----------|-------|
-| **THÀNH PHỐ** | Tổng tiền > 1.500.000 | THÀNH PHỐ (Q1-3-4-5...), THÀNH PHỐ GỘP |
-| **TỈNH** | Tổng tiền > 3.000.000 | SHIP TỈNH, TỈNH GỘP |
-
-```javascript
-// Code in updateFastSaleShippingFee() và carrier.onchange
-const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
-const isTinh = carrierName.includes('TỈNH');
-
-if (isThanhPho && finalTotal > 1500000) fee = 0;
-if (isTinh && finalTotal > 3000000) fee = 0;
-```
-
-**Files liên quan:**
-- `js/tab1/tab1-fast-sale.js` → `updateFastSaleShippingFee()`
-- `js/tab1/tab1-qr-debt.js` → carrier `onchange` handler
-
----
-
 ## Barcode
 
 - **Loại**: Code 128
