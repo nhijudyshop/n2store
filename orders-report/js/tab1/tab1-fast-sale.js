@@ -351,15 +351,14 @@ async function showFastSaleModal() {
             return;
         }
 
-        // Update subtitle with TPOS account info
+        // Update subtitle with TPOS account info (will be updated again after filtering confirmed orders)
         const tposAccountInfo = getTposAccountDisplay();
-        const filteredInfo = emptyCartIds.length > 0 ? ` (đã bỏ ${emptyCartIds.length} giỏ trống)` : '';
-        subtitle.innerHTML = `Đã chọn ${selectedIds.length} đơn hàng${filteredInfo} ${tposAccountInfo}`;
+        subtitle.innerHTML = `Đang tải... ${tposAccountInfo}`;
 
         // Fetch FastSaleOrder data using batch API
-        fastSaleOrdersData = await fetchFastSaleOrdersData(selectedIds);
+        let fetchedOrders = await fetchFastSaleOrdersData(selectedIds);
 
-        if (fastSaleOrdersData.length === 0) {
+        if (fetchedOrders.length === 0) {
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
@@ -368,6 +367,64 @@ async function showFastSaleModal() {
             `;
             return;
         }
+
+        // Filter out orders that already have confirmed invoices
+        // These orders should NOT be re-submitted to avoid duplicates
+        const confirmedOrderCodes = [];
+        fastSaleOrdersData = fetchedOrders.filter(order => {
+            // Check 1: FastSaleOrder has confirmed status from API
+            if (order.ShowState === 'Đã xác nhận' || order.State === 'open') {
+                const code = order.Reference || order.SaleOnlineIds?.[0] || order.Id;
+                confirmedOrderCodes.push(code);
+                console.log(`[FAST-SALE] Skipping confirmed order: ${code} (ShowState: ${order.ShowState}, State: ${order.State})`);
+                return false;
+            }
+
+            // Check 2: InvoiceStatusStore has confirmed invoice for this SaleOnlineId
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            if (saleOnlineId && window.InvoiceStatusStore) {
+                const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
+                if (invoiceData && (invoiceData.ShowState === 'Đã xác nhận' || invoiceData.State === 'open')) {
+                    const code = order.Reference || saleOnlineId;
+                    confirmedOrderCodes.push(code);
+                    console.log(`[FAST-SALE] Skipping order with confirmed invoice in store: ${code}`);
+                    return false;
+                }
+            }
+
+            return true; // Keep order for processing
+        });
+
+        // Show warning if some orders were filtered out due to confirmed status
+        if (confirmedOrderCodes.length > 0) {
+            console.warn(`[FAST-SALE] Filtered out ${confirmedOrderCodes.length} confirmed orders:`, confirmedOrderCodes);
+            if (window.notificationManager) {
+                window.notificationManager.warning(
+                    `Đã bỏ qua ${confirmedOrderCodes.length} đơn đã có phiếu "Đã xác nhận"`,
+                    4000
+                );
+            }
+        }
+
+        // Check if all orders were filtered out
+        if (fastSaleOrdersData.length === 0) {
+            modalBody.innerHTML = `
+                <div class="merge-no-duplicates">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Tất cả đơn hàng đã chọn đều đã có phiếu "Đã xác nhận".</p>
+                    <p style="font-size: 12px; color: #6b7280;">Không thể tạo phiếu mới cho các đơn đã xác nhận.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Update subtitle with final count after filtering
+        const totalFiltered = emptyCartIds.length + confirmedOrderCodes.length;
+        const filterDetails = [];
+        if (emptyCartIds.length > 0) filterDetails.push(`${emptyCartIds.length} giỏ trống`);
+        if (confirmedOrderCodes.length > 0) filterDetails.push(`${confirmedOrderCodes.length} đã xác nhận`);
+        const filteredInfo = totalFiltered > 0 ? ` (đã bỏ ${filterDetails.join(', ')})` : '';
+        subtitle.innerHTML = `Đã chọn ${fastSaleOrdersData.length} đơn hàng${filteredInfo} ${tposAccountInfo}`;
 
         // Fetch wallet balances for all customer phones
         const phones = fastSaleOrdersData.map(order => {
@@ -832,8 +889,18 @@ function smartSelectCarrierForRow(select, address, extraAddress = null) {
  */
 function collectFastSaleData() {
     const models = [];
+    const processedSaleOnlineIds = new Set(); // Track processed orders to prevent duplicates
 
     fastSaleOrdersData.forEach((order, index) => {
+        // Prevent duplicate orders in the same batch
+        const saleOnlineId = order.SaleOnlineIds?.[0];
+        if (saleOnlineId) {
+            if (processedSaleOnlineIds.has(saleOnlineId)) {
+                console.warn(`[FAST-SALE] Skipping duplicate order ${order.Reference} (SaleOnlineId: ${saleOnlineId})`);
+                return; // Skip this order
+            }
+            processedSaleOnlineIds.add(saleOnlineId);
+        }
         // Get input values
         const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
         const shippingFeeInput = document.getElementById(`fastSaleShippingFee_${index}`);
@@ -1156,11 +1223,27 @@ async function confirmAndCheckFastSale() {
     await saveFastSaleOrders(true);
 }
 
+// Flag to prevent double submission
+let isSavingFastSale = false;
+
 /**
  * Save Fast Sale orders to backend
  * @param {boolean} isApprove - Whether to approve orders (Lưu xác nhận)
  */
 async function saveFastSaleOrders(isApprove = false) {
+    // Prevent double submission
+    if (isSavingFastSale) {
+        console.warn('[FAST-SALE] ⚠️ Save already in progress, ignoring duplicate request');
+        return;
+    }
+
+    // Disable buttons to prevent double-click
+    const saveBtn = document.getElementById('fastSaleSaveBtn');
+    const confirmBtn = document.getElementById('fastSaleConfirmBtn');
+    if (saveBtn) saveBtn.disabled = true;
+    if (confirmBtn) confirmBtn.disabled = true;
+    isSavingFastSale = true;
+
     try {
         console.log(`[FAST-SALE] Saving Fast Sale orders (is_approve: ${isApprove})...`);
 
@@ -1253,6 +1336,8 @@ async function saveFastSaleOrders(isApprove = false) {
         showFastSaleResultsModal(result);
 
         // Note: Bill sending is handled manually via "In hóa đơn" button in printSuccessOrders()
+        // Success: reset flag but don't re-enable buttons (modal will close)
+        isSavingFastSale = false;
 
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
@@ -1266,6 +1351,13 @@ async function saveFastSaleOrders(isApprove = false) {
             `Lỗi khi lưu đơn hàng: ${error.message}`,
             'Lỗi hệ thống'
         );
+
+        // Error: reset flag and re-enable buttons so user can try again
+        isSavingFastSale = false;
+        const saveBtn = document.getElementById('fastSaleSaveBtn');
+        const confirmBtn = document.getElementById('fastSaleConfirmBtn');
+        if (saveBtn) saveBtn.disabled = false;
+        if (confirmBtn) confirmBtn.disabled = false;
     }
 }
 
