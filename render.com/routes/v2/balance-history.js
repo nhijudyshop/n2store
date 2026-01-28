@@ -1385,15 +1385,17 @@ router.post('/wallet/manual-adjustment', async (req, res) => {
             performed_by
         ]);
 
-        // 5. Log activity
+        // 5. Log activity (use WALLET_DEPOSIT or WALLET_WITHDRAW based on type - WALLET_ADJUSTMENT not in CHECK constraint)
+        const activityType = type === 'add' ? 'WALLET_DEPOSIT' : 'WALLET_WITHDRAW';
         await db.query(`
             INSERT INTO customer_activities (
                 phone, activity_type, title, description, icon, color, created_at
             ) VALUES (
-                $1, 'WALLET_ADJUSTMENT', $2, $3, $4, $5, CURRENT_TIMESTAMP
+                $1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP
             )
         `, [
             normalizedPhone,
+            activityType,
             `${type === 'add' ? 'Cộng' : 'Trừ'} ví: ${adjustAmount.toLocaleString()}đ`,
             `${reason} - thực hiện bởi ${performed_by}`,
             type === 'add' ? 'plus-circle' : 'minus-circle',
