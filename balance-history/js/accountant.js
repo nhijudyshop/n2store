@@ -2100,12 +2100,15 @@
      * @param {string} name - Tên khách hàng
      */
     async function openAdjustmentModal(txId, amount, phone, name) {
+        console.log('[ACCOUNTANT] openAdjustmentModal called with:', { txId, amount, phone, name });
         try {
             showNotification('Đang kiểm tra...', 'info');
 
             // Gọi API kiểm tra có thể điều chỉnh không
+            console.log('[ACCOUNTANT] Calling can-adjust API...');
             const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/can-adjust`);
             const result = await response.json();
+            console.log('[ACCOUNTANT] can-adjust API response:', result);
 
             if (!result.success) {
                 showNotification(`Lỗi: ${result.error}`, 'error');
@@ -2114,11 +2117,13 @@
 
             if (!result.canAdjust) {
                 // Hiển thị modal thông báo không thể điều chỉnh
+                console.log('[ACCOUNTANT] Cannot adjust, showing blocked modal');
                 showAdjustmentBlockedModal(result);
                 return;
             }
 
             // Có thể điều chỉnh - hiển thị modal form
+            console.log('[ACCOUNTANT] Can adjust, showing form modal');
             showAdjustmentFormModal(txId, result.transaction, result.wallet);
 
         } catch (error) {
@@ -2237,7 +2242,15 @@
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
         // Add visible class to show modal
-        document.getElementById('accAdjustFormModal').classList.add('visible');
+        console.log('[ACCOUNTANT] showAdjustmentFormModal - adding visible class');
+        const modal = document.getElementById('accAdjustFormModal');
+        console.log('[ACCOUNTANT] Modal element:', modal);
+        if (modal) {
+            modal.classList.add('visible');
+            console.log('[ACCOUNTANT] Modal visible class added');
+        } else {
+            console.error('[ACCOUNTANT] Modal element not found!');
+        }
 
         // Add event listeners
         document.querySelectorAll('input[name="adjustType"]').forEach(radio => {
