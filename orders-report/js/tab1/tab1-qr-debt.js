@@ -1125,7 +1125,7 @@ async function openSaleButtonModal() {
     // Fetch realtime debt for the phone number (same as debt column in table)
     const phone = order.Telephone || order.PartnerPhone;
     if (phone) {
-        fetchDebtForSaleModal(phone);
+        await fetchDebtForSaleModal(phone);
     }
 
     // Populate delivery carrier dropdown (async, with localStorage cache)
