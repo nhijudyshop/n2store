@@ -314,44 +314,35 @@ export class WalletPanelModule {
     }
 
     async _handleDeposit(amount, note) {
-        const response = await fetch(`${apiService.RENDER_API_URL}/wallets/${this.customerPhone}/deposit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                amount,
-                source: 'MANUAL_ADJUSTMENT',
-                note: note || 'Nạp tiền thủ công từ Customer 360',
-                created_by: this._getCurrentUserEmail()
-            })
+        // Use apiService.walletDeposit which has the correct endpoint /wallet/:phone/deposit
+        const result = await apiService.walletDeposit(this.customerPhone, amount, {
+            source: 'MANUAL_ADJUSTMENT',
+            note: note || 'Nạp tiền thủ công từ Customer 360',
+            created_by: this._getCurrentUserEmail()
         });
-        return await response.json();
+        return { success: true, data: result };
     }
 
     async _handleWithdraw(amount, note) {
-        const response = await fetch(`${apiService.RENDER_API_URL}/wallets/${this.customerPhone}/withdraw`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                amount,
-                note: note || 'Rút tiền từ Customer 360'
-            })
-        });
-        return await response.json();
+        // Use apiService.walletWithdraw which has the correct endpoint /wallet/:phone/withdraw
+        const result = await apiService.walletWithdraw(
+            this.customerPhone,
+            amount,
+            null, // orderId
+            note || 'Rút tiền từ Customer 360'
+        );
+        return { success: true, data: result };
     }
 
     async _handleIssueVirtualCredit(amount, expiryDays, note) {
-        const response = await fetch(`${apiService.RENDER_API_URL}/wallets/${this.customerPhone}/credit`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                amount,
-                expiry_days: expiryDays,
-                source_type: 'ADMIN_ISSUE',
-                note: note || `Cấp công nợ ảo từ Customer 360 (${expiryDays} ngày)`,
-                created_by: this._getCurrentUserEmail()
-            })
+        // Use apiService.issueVirtualCredit which has the correct endpoint /wallet/:phone/virtual-credit
+        const result = await apiService.issueVirtualCredit(this.customerPhone, amount, {
+            source_type: 'ADMIN_ISSUE',
+            expiry_days: expiryDays,
+            note: note || `Cấp công nợ ảo từ Customer 360 (${expiryDays} ngày)`,
+            created_by: this._getCurrentUserEmail()
         });
-        return await response.json();
+        return { success: true, data: result };
     }
 
     _getCurrentUserEmail() {
