@@ -220,6 +220,15 @@ async function initSocialTab() {
     try {
         showLoading(true);
 
+        // Initialize Pancake Token Manager for fetching posts
+        if (window.pancakeTokenManager) {
+            console.log('[Tab Social] Initializing Pancake Token Manager...');
+            await window.pancakeTokenManager.initialize();
+            console.log('[Tab Social] Pancake Token Manager initialized');
+        } else {
+            console.warn('[Tab Social] Pancake Token Manager not available');
+        }
+
         // Load mock data for now (Phase 1 - UI only)
         SocialOrderState.orders = [...MOCK_ORDERS];
         SocialOrderState.tags = [...MOCK_TAGS];
