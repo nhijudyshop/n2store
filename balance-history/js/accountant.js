@@ -29,15 +29,13 @@
     // =====================================================
 
     const state = {
-        currentSubTab: 'pending', // pending | approved | adjustment
+        currentSubTab: 'pending', // pending | approved
         pendingQueue: [],
         approvedToday: [],
-        adjustmentsToday: [],
         selectedIds: new Set(),
         pagination: {
             pending: { page: 1, totalPages: 1, total: 0 },
-            approved: { page: 1, totalPages: 1, total: 0 },
-            adjustments: { page: 1, totalPages: 1, total: 0 }
+            approved: { page: 1, totalPages: 1, total: 0 }
         },
         filters: {
             pending: { startDate: '', endDate: '', search: '' },
@@ -47,8 +45,7 @@
             pending: 0,
             pendingOverdue: 0,
             approvedToday: 0,
-            rejectedToday: 0,
-            adjustmentsToday: 0
+            rejectedToday: 0
         },
         refreshTimer: null,
         isLoading: false,
@@ -134,19 +131,16 @@
         statPending: null,
         statApproved: null,
         statRejected: null,
-        statAdjustment: null,
         alertBar: null,
 
         // Sub-tabs
         subTabs: null,
         tabPending: null,
         tabApproved: null,
-        tabAdjustment: null,
 
         // Panels
         panelPending: null,
         panelApproved: null,
-        panelAdjustment: null,
 
         // Pending queue
         pendingTable: null,
@@ -159,20 +153,6 @@
         approvedTable: null,
         approvedTableBody: null,
         approvedDateFilter: null,
-
-        // Adjustment form
-        adjustmentForm: null,
-        adjustmentPhone: null,
-        adjustmentName: null,
-        adjustmentBalance: null,
-        adjustmentType: null,
-        adjustmentAmount: null,
-        adjustmentReason: null,
-        adjustmentSubmit: null,
-        customerLookup: null,
-
-        // Adjustment history
-        adjustmentHistoryBody: null,
 
         // Modals
         rejectModal: null,
@@ -221,19 +201,16 @@
         elements.statPending = document.getElementById('accStatPending');
         elements.statApproved = document.getElementById('accStatApproved');
         elements.statRejected = document.getElementById('accStatRejected');
-        elements.statAdjustment = document.getElementById('accStatAdjustment');
         elements.alertBar = document.getElementById('accAlertBar');
 
         // Sub-tabs
         elements.subTabs = document.getElementById('accSubTabs');
         elements.tabPending = document.getElementById('accTabPending');
         elements.tabApproved = document.getElementById('accTabApproved');
-        elements.tabAdjustment = document.getElementById('accTabAdjustment');
 
         // Panels
         elements.panelPending = document.getElementById('accPanelPending');
         elements.panelApproved = document.getElementById('accPanelApproved');
-        elements.panelAdjustment = document.getElementById('accPanelAdjustment');
 
         // Pending queue
         elements.pendingTableBody = document.getElementById('accPendingTableBody');
@@ -253,19 +230,6 @@
 
         // Approved table
         elements.approvedTableBody = document.getElementById('accApprovedTableBody');
-
-        // Adjustment form
-        elements.adjustmentForm = document.getElementById('accAdjustmentForm');
-        elements.adjustmentPhone = document.getElementById('accAdjustmentPhone');
-        elements.adjustmentName = document.getElementById('accAdjustmentName');
-        elements.adjustmentBalance = document.getElementById('accAdjustmentBalance');
-        elements.adjustmentAmount = document.getElementById('accAdjustmentAmount');
-        elements.adjustmentReason = document.getElementById('accAdjustmentReason');
-        elements.adjustmentSubmit = document.getElementById('accAdjustmentSubmit');
-        elements.customerLookup = document.getElementById('accCustomerLookup');
-
-        // Adjustment history
-        elements.adjustmentHistoryBody = document.getElementById('accAdjustmentHistoryBody');
 
         // Modals
         elements.rejectModal = document.getElementById('accRejectModal');
@@ -303,16 +267,6 @@
         // Select all checkbox
         if (elements.selectAllCheckbox) {
             elements.selectAllCheckbox.addEventListener('change', handleSelectAll);
-        }
-
-        // Adjustment form submit
-        if (elements.adjustmentForm) {
-            elements.adjustmentForm.addEventListener('submit', handleAdjustmentSubmit);
-        }
-
-        // Phone input for customer lookup
-        if (elements.adjustmentPhone) {
-            elements.adjustmentPhone.addEventListener('input', debounce(handlePhoneLookup, 500));
         }
 
         // Approved date filter
@@ -531,9 +485,6 @@
             case 'approved':
                 loadApprovedToday();
                 break;
-            case 'adjustment':
-                loadAdjustmentsToday();
-                break;
         }
 
         // Reinitialize Lucide icons
@@ -564,7 +515,7 @@
     }
 
     function renderDashboard() {
-        const { pending, pendingOverdue, approvedToday, rejectedToday, adjustmentsToday } = state.stats;
+        const { pending, pendingOverdue, approvedToday, rejectedToday } = state.stats;
 
         // Update stat cards
         if (elements.statPending) {
@@ -582,10 +533,6 @@
 
         if (elements.statRejected) {
             elements.statRejected.querySelector('.stat-value').textContent = rejectedToday;
-        }
-
-        if (elements.statAdjustment) {
-            elements.statAdjustment.querySelector('.stat-value').textContent = adjustmentsToday;
         }
 
         // Update alert bar
@@ -1689,211 +1636,6 @@
     }
 
     // =====================================================
-    // MANUAL ADJUSTMENT
-    // =====================================================
-
-    async function handlePhoneLookup(e) {
-        const phone = e.target.value.replace(/\D/g, '');
-
-        if (phone.length !== 10) {
-            if (elements.customerLookup) {
-                elements.customerLookup.classList.remove('visible');
-            }
-            if (elements.adjustmentName) elements.adjustmentName.value = '';
-            if (elements.adjustmentBalance) elements.adjustmentBalance.value = '';
-            return;
-        }
-
-        try {
-            // Use TPOS search API for accurate customer names
-            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${phone}`);
-            const result = await response.json();
-
-            // API returns { success, data: [{ phone, count, customers: [...] }] }
-            const phoneGroups = result.data || [];
-            const customers = phoneGroups.flatMap(group => group.customers || []);
-
-            if (!result.success || !customers.length) {
-                if (elements.customerLookup) {
-                    elements.customerLookup.classList.add('visible');
-                    elements.customerLookup.innerHTML = '<span class="acc-text-danger">Không tìm thấy KH</span>';
-                }
-                return;
-            }
-
-            const customer = customers[0];
-
-            if (elements.adjustmentName) {
-                elements.adjustmentName.value = customer.name || '';
-            }
-
-            // Get wallet balance
-            const balanceResponse = await fetch(`${API_BASE_URL}/api/v2/wallet/balance?phone=${phone}`);
-            const balanceResult = await balanceResponse.json();
-
-            const balance = balanceResult.success ? (balanceResult.balance || 0) : 0;
-            if (elements.adjustmentBalance) {
-                elements.adjustmentBalance.value = balance.toLocaleString('vi-VN') + 'đ';
-            }
-
-            if (elements.customerLookup) {
-                elements.customerLookup.classList.add('visible');
-                elements.customerLookup.innerHTML = `
-                    <span class="lookup-name">✅ ${customer.name}</span>
-                    <span class="lookup-balance">Số dư: ${balance.toLocaleString('vi-VN')}đ</span>
-                `;
-            }
-
-        } catch (error) {
-            console.error('[ACCOUNTANT] Phone lookup error:', error);
-        }
-    }
-
-    async function handleAdjustmentSubmit(e) {
-        e.preventDefault();
-
-        const phone = elements.adjustmentPhone?.value?.replace(/\D/g, '');
-        const name = elements.adjustmentName?.value?.trim();
-        const typeRadio = document.querySelector('input[name="adjustmentType"]:checked');
-        const type = typeRadio?.value;
-        const amount = parseFloat(elements.adjustmentAmount?.value || 0);
-        const reason = elements.adjustmentReason?.value?.trim();
-
-        // Validation
-        if (!phone || phone.length !== 10) {
-            showNotification('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
-            return;
-        }
-
-        if (!type) {
-            showNotification('Vui lòng chọn loại điều chỉnh', 'error');
-            return;
-        }
-
-        if (!amount || amount <= 0) {
-            showNotification('Vui lòng nhập số tiền hợp lệ', 'error');
-            return;
-        }
-
-        if (!reason || reason.length < 10) {
-            showNotification('Vui lòng nhập lý do (ít nhất 10 ký tự)', 'error');
-            return;
-        }
-
-        // Permission check
-        if (!window.authManager?.hasDetailedPermission('balance-history', 'adjustWallet')) {
-            showNotification('Bạn không có quyền điều chỉnh công nợ', 'error');
-            return;
-        }
-
-        const userInfo = window.authManager?.getUserInfo() || {};
-        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
-
-        if (!confirm(`Xác nhận ${type === 'add' ? 'CỘNG' : 'TRỪ'} ${amount.toLocaleString('vi-VN')}đ cho khách ${name || phone}?\n\nLý do: ${reason}`)) {
-            return;
-        }
-
-        if (elements.adjustmentSubmit) {
-            elements.adjustmentSubmit.disabled = true;
-            elements.adjustmentSubmit.textContent = 'Đang xử lý...';
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/wallet/manual-adjustment`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: phone,
-                    customer_name: name,
-                    type: type, // 'add' or 'subtract'
-                    amount: amount,
-                    reason: reason,
-                    performed_by: performedBy
-                })
-            });
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to adjust');
-            }
-
-            showNotification(`Đã ${type === 'add' ? 'cộng' : 'trừ'} ${amount.toLocaleString('vi-VN')}đ cho ${name || phone}`, 'success');
-
-            // Reset form
-            elements.adjustmentForm.reset();
-            if (elements.customerLookup) {
-                elements.customerLookup.classList.remove('visible');
-            }
-
-            // Refresh
-            loadDashboardStats();
-            loadAdjustmentsToday();
-
-        } catch (error) {
-            console.error('[ACCOUNTANT] Adjustment error:', error);
-            showNotification(`Lỗi: ${error.message}`, 'error');
-        } finally {
-            if (elements.adjustmentSubmit) {
-                elements.adjustmentSubmit.disabled = false;
-                elements.adjustmentSubmit.textContent = 'Thực hiện điều chỉnh';
-            }
-        }
-    }
-
-    async function loadAdjustmentsToday() {
-        if (!elements.adjustmentHistoryBody) return;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/wallet/adjustments-today`);
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to load');
-            }
-
-            state.adjustmentsToday = result.data;
-            renderAdjustmentsToday();
-
-        } catch (error) {
-            console.error('[ACCOUNTANT] Load adjustments error:', error);
-            elements.adjustmentHistoryBody.innerHTML = `<tr><td colspan="6" class="acc-text-danger">Lỗi: ${error.message}</td></tr>`;
-        }
-    }
-
-    function renderAdjustmentsToday() {
-        if (!elements.adjustmentHistoryBody) return;
-
-        if (state.adjustmentsToday.length === 0) {
-            elements.adjustmentHistoryBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="acc-text-muted" style="text-align: center; padding: 20px;">
-                        Chưa có điều chỉnh nào hôm nay
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        elements.adjustmentHistoryBody.innerHTML = state.adjustmentsToday.map(adj => {
-            const time = formatDateTime(adj.created_at);
-            const amount = parseFloat(adj.amount || 0).toLocaleString('vi-VN') + 'đ';
-            const typeClass = adj.type === 'add' ? 'type-add' : 'type-subtract';
-            const typeIcon = adj.type === 'add' ? '+' : '-';
-
-            return `
-                <tr>
-                    <td>${time}</td>
-                    <td class="${typeClass}">${typeIcon}${amount}</td>
-                    <td>${adj.customer_name || adj.phone}</td>
-                    <td>${adj.reason || ''}</td>
-                    <td>${adj.performed_by || 'N/A'}</td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    // =====================================================
     // PAGINATION
     // =====================================================
 
@@ -2163,7 +1905,7 @@
 
                         <div class="acc-blocked-action" style="margin-top: 16px; padding: 12px; background: #fff3cd; border-radius: 8px;">
                             <p><strong>Giải pháp:</strong></p>
-                            <p>Liên hệ Admin để cộng/trừ công nợ riêng lẻ qua tab "Điều Chỉnh Công Nợ".</p>
+                            <p>Liên hệ Admin để cộng/trừ công nợ riêng lẻ qua Customer Hub.</p>
                         </div>
                     </div>
                     <div class="acc-modal-footer">

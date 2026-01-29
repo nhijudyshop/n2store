@@ -592,10 +592,6 @@
                         <i data-lucide="check-circle" style="width:16px;height:16px"></i>
                         Đã Duyệt Hôm Nay
                     </button>
-                    <button class="acc-sub-tab" data-tab="adjustment" id="accTabAdjustment">
-                        <i data-lucide="wallet" style="width:16px;height:16px"></i>
-                        Điều Chỉnh Công Nợ
-                    </button>
                 </div>
 
                 <!-- ========== SUB-PANEL: Pending Queue ========== -->
@@ -756,104 +752,6 @@
                     <div class="acc-pagination" id="accPaginationApproved"></div>
 
                 </div><!-- End Approved Panel -->
-
-                <!-- ========== SUB-PANEL: Manual Adjustment ========== -->
-                <div class="acc-sub-panel" data-panel="adjustment" id="accPanelAdjustment">
-
-                    <div class="acc-adjustment-container">
-
-                        <!-- Adjustment Form -->
-                        <div class="acc-adjustment-form">
-                            <div class="form-title">
-                                <i data-lucide="edit-3" style="width:20px;height:20px"></i>
-                                Điều Chỉnh Công Nợ
-                            </div>
-
-                            <form id="accAdjustmentForm">
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentPhone">Số điện thoại khách hàng</label>
-                                    <input type="tel" id="accAdjustmentPhone" placeholder="Nhập 10 số" maxlength="10">
-                                    <div class="acc-customer-lookup" id="accCustomerLookup"></div>
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentName">Tên khách hàng</label>
-                                    <input type="text" id="accAdjustmentName" placeholder="Tự động điền từ TPOS"
-                                        readonly style="background: #f9fafb;">
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentBalance">Số dư hiện tại</label>
-                                    <input type="text" id="accAdjustmentBalance" placeholder="--" readonly
-                                        style="background: #f9fafb;">
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label>Loại điều chỉnh</label>
-                                    <div class="acc-radio-group">
-                                        <label class="acc-radio-label add">
-                                            <input type="radio" name="adjustmentType" value="add">
-                                            <span>➕ Cộng ví</span>
-                                        </label>
-                                        <label class="acc-radio-label subtract">
-                                            <input type="radio" name="adjustmentType" value="subtract">
-                                            <span>➖ Trừ ví</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentAmount">Số tiền (VNĐ)</label>
-                                    <input type="number" id="accAdjustmentAmount" placeholder="Nhập số tiền" min="1000"
-                                        step="1000">
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentReason">Lý do điều chỉnh</label>
-                                    <textarea id="accAdjustmentReason"
-                                        placeholder="Nhập lý do chi tiết (tối thiểu 10 ký tự)"></textarea>
-                                    <div class="helper-text">VD: Hoàn tiền đơn #12345, Sửa sai match nhầm, Cộng khuyến
-                                        mãi...</div>
-                                </div>
-
-                                <button type="submit" class="acc-form-submit" id="accAdjustmentSubmit">
-                                    <i data-lucide="send" style="width:16px;height:16px"></i>
-                                    Thực hiện điều chỉnh
-                                </button>
-                            </form>
-                        </div>
-
-                        <!-- Adjustment History -->
-                        <div class="acc-adjustment-history">
-                            <div class="history-title">
-                                <i data-lucide="history" style="width:18px;height:18px"></i>
-                                Lịch sử điều chỉnh hôm nay
-                            </div>
-
-                            <table class="acc-adjustment-table">
-                                <thead>
-                                    <tr>
-                                        <th>Giờ</th>
-                                        <th>Số tiền</th>
-                                        <th>Khách hàng</th>
-                                        <th>Lý do</th>
-                                        <th>Người thực hiện</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="accAdjustmentHistoryBody">
-                                    <tr>
-                                        <td colspan="5" class="acc-text-muted"
-                                            style="text-align: center; padding: 20px;">
-                                            Chưa có điều chỉnh nào hôm nay
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                    </div>
-
-                </div><!-- End Adjustment Panel -->
 
             </div><!-- End Verification/Accountant Panel -->
 
