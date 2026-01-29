@@ -1852,6 +1852,38 @@ function updateActionButtons() {
     }
 }
 
+// =====================================================
+// DESELECT ALL ORDERS
+// Bỏ chọn tất cả các checkbox đã chọn
+// =====================================================
+function deselectAllOrders() {
+    // Clear the selected IDs set
+    selectedOrderIds.clear();
+
+    // Uncheck all checkboxes in the table
+    const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Also uncheck in employee subtables if any
+    const employeeCheckboxes = document.querySelectorAll('.employee-subtable input[type="checkbox"]');
+    employeeCheckboxes.forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Uncheck "Select All" checkbox
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
+
+    // Update action buttons visibility (will hide the section)
+    updateActionButtons();
+
+    console.log('[DESELECT] All orders deselected');
+}
+
 async function handleClearCache() {
     const confirmed = await window.notificationManager.confirm(
         "Bạn có chắc muốn xóa toàn bộ cache?",

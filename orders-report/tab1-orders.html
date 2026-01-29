@@ -204,12 +204,16 @@
         </div>
 
         <!-- Action Buttons Section (New) -->
-        <div class="action-buttons-section" style="padding: 16px 24px; display: none; gap: 12px; flex-wrap: wrap;"
+        <div class="action-buttons-section" style="padding: 16px 24px; display: none; gap: 12px; flex-wrap: wrap; align-items: center;"
             id="actionButtonsSection">
-            <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="color: #6b7280; font-size: 13px; font-weight: 500;">
                     <span id="selectedOrdersCount">0</span> đơn được chọn
                 </span>
+                <button class="btn-deselect-all" onclick="deselectAllOrders()" title="Bỏ chọn tất cả">
+                    <i class="fas fa-times"></i>
+                    Bỏ chọn
+                </button>
             </div>
 
             <button class="btn-message-action" id="sendMessageBtn" onclick="openMessageTemplateModal()" style="

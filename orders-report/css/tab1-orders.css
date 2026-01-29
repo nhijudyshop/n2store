@@ -6541,3 +6541,49 @@ td[data-column].hidden {
 .text-danger-dker { color: #c0392b; }
 .text-success-dk { color: #27ae60; }
 .text-secondary { color: #6c757d; }
+
+/* =====================================================
+   STICKY ACTION BUTTONS SECTION
+   Hiển thị khi chọn checkbox và sticky khi scroll
+   ===================================================== */
+.action-buttons-section {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    margin-bottom: 16px;
+    border: 1px solid #e5e7eb;
+}
+
+.action-buttons-section.sticky-active {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-color: #d1d5db;
+}
+
+/* Deselect All Button */
+.btn-deselect-all {
+    padding: 8px 16px;
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.btn-deselect-all:hover {
+    background: #e5e7eb;
+    color: #374151;
+    border-color: #9ca3af;
+}
+
+.btn-deselect-all i {
+    font-size: 12px;
+}
