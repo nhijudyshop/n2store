@@ -1830,6 +1830,7 @@ document.addEventListener('change', function (e) {
 function updateActionButtons() {
     const actionButtonsSection = document.getElementById('actionButtonsSection');
     const selectedCountSpan = document.getElementById('selectedOrdersCount');
+    const sendMessageBtn = document.getElementById('sendMessageBtn');
     const createSaleButtonBtn = document.getElementById('createSaleButtonBtn');
     const createFastSaleBtn = document.getElementById('createFastSaleBtn');
     const checkedCount = selectedOrderIds.size;
@@ -1839,6 +1840,11 @@ function updateActionButtons() {
         selectedCountSpan.textContent = checkedCount.toLocaleString('vi-VN');
     } else {
         actionButtonsSection.style.display = 'none';
+    }
+
+    // Show send message button when any orders are selected
+    if (sendMessageBtn) {
+        sendMessageBtn.style.display = checkedCount > 0 ? 'flex' : 'none';
     }
 
     // Show "Tạo nút bán hàng" button only when exactly 1 order is selected
