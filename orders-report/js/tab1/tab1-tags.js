@@ -1221,3 +1221,526 @@ async function saveOrderTags() {
     }
 }
 
+// =====================================================
+// MULTI-SELECT TAG FILTER FUNCTIONS
+// =====================================================
+
+// Store selected tag IDs (multi-select)
+const SELECTED_TAGS_KEY = 'orderTableSelectedTags';
+const EXCLUDED_TAGS_FILTER_KEY = 'orderTableExcludedTags';
+
+/**
+ * Get selected tags from localStorage
+ */
+window.getSelectedTagFilters = function() {
+    try {
+        const saved = localStorage.getItem(SELECTED_TAGS_KEY);
+        return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+        console.error('[TAG-FILTER] Error loading selected tags:', error);
+        return [];
+    }
+};
+
+/**
+ * Save selected tags to localStorage
+ */
+window.saveSelectedTagFilters = function(tagIds) {
+    try {
+        localStorage.setItem(SELECTED_TAGS_KEY, JSON.stringify(tagIds));
+        console.log('[TAG-FILTER] Saved selected tags:', tagIds);
+    } catch (error) {
+        console.error('[TAG-FILTER] Error saving selected tags:', error);
+    }
+};
+
+/**
+ * Toggle tag filter dropdown
+ */
+window.toggleTagFilterDropdown = function() {
+    const dropdown = document.getElementById('tagFilterDropdown');
+    if (!dropdown) return;
+
+    const isOpen = dropdown.classList.contains('open');
+
+    // Close all other dropdowns
+    document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+
+    if (!isOpen) {
+        dropdown.classList.add('open');
+        // Load tags if not loaded
+        if (!window.availableTags || window.availableTags.length === 0) {
+            if (typeof loadAvailableTags === 'function') {
+                loadAvailableTags().then(() => {
+                    window.populateTagFilterOptions();
+                });
+            }
+        } else {
+            window.populateTagFilterOptions();
+        }
+        // Focus search input
+        setTimeout(() => {
+            const searchInput = document.getElementById('tagFilterSearchInput');
+            if (searchInput) searchInput.focus();
+        }, 100);
+    }
+};
+
+/**
+ * Close tag filter dropdown
+ */
+window.closeTagFilterDropdown = function() {
+    const dropdown = document.getElementById('tagFilterDropdown');
+    if (dropdown) dropdown.classList.remove('open');
+};
+
+/**
+ * Populate tag filter options (Multi-select with checkboxes)
+ */
+window.populateTagFilterOptions = function(searchTerm = '') {
+    const optionsContainer = document.getElementById('tagFilterOptions');
+    if (!optionsContainer) return;
+
+    const tags = window.availableTags || [];
+    const selectedTags = window.getSelectedTagFilters();
+    const search = searchTerm.toLowerCase().trim();
+
+    // Filter tags by search term
+    let filteredTags = tags;
+    if (search) {
+        filteredTags = tags.filter(tag =>
+            (tag.Name || '').toLowerCase().includes(search)
+        );
+    }
+
+    // Build options HTML with checkboxes
+    let html = '';
+
+    filteredTags.forEach(tag => {
+        const isSelected = selectedTags.includes(String(tag.Id));
+        const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
+        html += `
+            <label class="tag-filter-option" style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s; ${isSelected ? 'background: #eff6ff;' : ''}"
+                onmouseover="this.style.background='${isSelected ? '#dbeafe' : '#f9fafb'}'"
+                onmouseout="this.style.background='${isSelected ? '#eff6ff' : 'transparent'}'">
+                <input type="checkbox" ${isSelected ? 'checked' : ''}
+                    onchange="toggleTagFilterOption('${tag.Id}')"
+                    style="margin-right: 10px; cursor: pointer; width: 16px; height: 16px;">
+                <span class="tag-color-dot" style="${colorStyle}; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;"></span>
+                <span class="tag-name" style="flex: 1;">${tag.Name || 'Unnamed'}</span>
+            </label>
+        `;
+    });
+
+    if (filteredTags.length === 0) {
+        html = `<div style="padding: 12px; text-align: center; color: #9ca3af;">Không tìm thấy tag</div>`;
+    }
+
+    optionsContainer.innerHTML = html;
+
+    // Update display text
+    updateTagFilterDisplayText();
+};
+
+/**
+ * Toggle a tag in the filter selection
+ */
+window.toggleTagFilterOption = function(tagId) {
+    const selectedTags = window.getSelectedTagFilters();
+    const tagIdStr = String(tagId);
+    const index = selectedTags.indexOf(tagIdStr);
+
+    if (index > -1) {
+        selectedTags.splice(index, 1);
+    } else {
+        selectedTags.push(tagIdStr);
+    }
+
+    window.saveSelectedTagFilters(selectedTags);
+
+    // Update hidden input for backward compatibility
+    const hiddenInput = document.getElementById('tagFilter');
+    if (hiddenInput) {
+        hiddenInput.value = selectedTags.length === 0 ? 'all' : selectedTags.join(',');
+    }
+
+    // Update display text
+    updateTagFilterDisplayText();
+
+    // Re-render options to update checkbox states
+    const searchInput = document.getElementById('tagFilterSearchInput');
+    window.populateTagFilterOptions(searchInput?.value || '');
+
+    // Trigger table search
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
+
+    console.log(`[TAG-FILTER] Toggled tag ${tagId}, selected: ${selectedTags.join(', ')}`);
+};
+
+/**
+ * Select all visible tags in filter
+ */
+window.selectAllTagFilters = function() {
+    const tags = window.availableTags || [];
+    const searchInput = document.getElementById('tagFilterSearchInput');
+    const search = (searchInput?.value || '').toLowerCase().trim();
+
+    // Get currently visible tags
+    let visibleTags = tags;
+    if (search) {
+        visibleTags = tags.filter(tag => (tag.Name || '').toLowerCase().includes(search));
+    }
+
+    const selectedTags = window.getSelectedTagFilters();
+
+    // Add all visible tags to selection
+    visibleTags.forEach(tag => {
+        const tagIdStr = String(tag.Id);
+        if (!selectedTags.includes(tagIdStr)) {
+            selectedTags.push(tagIdStr);
+        }
+    });
+
+    window.saveSelectedTagFilters(selectedTags);
+
+    // Update hidden input
+    const hiddenInput = document.getElementById('tagFilter');
+    if (hiddenInput) {
+        hiddenInput.value = selectedTags.length === 0 ? 'all' : selectedTags.join(',');
+    }
+
+    // Update display and trigger search
+    updateTagFilterDisplayText();
+    window.populateTagFilterOptions(search);
+
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
+};
+
+/**
+ * Clear all tag filters
+ */
+window.clearTagFilters = function() {
+    window.saveSelectedTagFilters([]);
+
+    // Update hidden input
+    const hiddenInput = document.getElementById('tagFilter');
+    if (hiddenInput) hiddenInput.value = 'all';
+
+    // Update display
+    updateTagFilterDisplayText();
+
+    // Re-render options
+    const searchInput = document.getElementById('tagFilterSearchInput');
+    window.populateTagFilterOptions(searchInput?.value || '');
+
+    // Trigger table search
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
+};
+
+/**
+ * Update the tag filter display text
+ */
+function updateTagFilterDisplayText() {
+    const displayText = document.getElementById('tagFilterText');
+    if (!displayText) return;
+
+    const selectedTags = window.getSelectedTagFilters();
+    const tags = window.availableTags || [];
+
+    if (selectedTags.length === 0) {
+        displayText.textContent = 'Tất cả';
+        displayText.style.color = '';
+    } else if (selectedTags.length === 1) {
+        const tag = tags.find(t => String(t.Id) === selectedTags[0]);
+        displayText.textContent = tag ? tag.Name : '1 tag';
+        displayText.style.color = tag?.Color || '';
+    } else {
+        displayText.textContent = `${selectedTags.length} tags`;
+        displayText.style.color = '#3b82f6';
+    }
+}
+
+/**
+ * Filter tag options based on search input
+ */
+window.filterTagOptions = function() {
+    const searchInput = document.getElementById('tagFilterSearchInput');
+    const searchTerm = searchInput ? searchInput.value : '';
+    window.populateTagFilterOptions(searchTerm);
+};
+
+// =====================================================
+// EXCLUDE TAG FILTER FUNCTIONS
+// =====================================================
+
+/**
+ * Get excluded tags from localStorage
+ */
+window.getExcludedTagFilters = function() {
+    try {
+        const saved = localStorage.getItem(EXCLUDED_TAGS_FILTER_KEY);
+        return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+        console.error('[EXCLUDE-TAG-FILTER] Error loading excluded tags:', error);
+        return [];
+    }
+};
+
+/**
+ * Save excluded tags to localStorage
+ */
+window.saveExcludedTagFilters = function(tagIds) {
+    try {
+        localStorage.setItem(EXCLUDED_TAGS_FILTER_KEY, JSON.stringify(tagIds));
+        console.log('[EXCLUDE-TAG-FILTER] Saved excluded tags:', tagIds);
+    } catch (error) {
+        console.error('[EXCLUDE-TAG-FILTER] Error saving excluded tags:', error);
+    }
+};
+
+/**
+ * Toggle exclude tag filter dropdown
+ */
+window.toggleExcludeTagFilterDropdown = function() {
+    const dropdown = document.getElementById('excludeTagFilterDropdown');
+    if (!dropdown) return;
+
+    const isOpen = dropdown.classList.contains('open');
+
+    // Close all other dropdowns
+    document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+
+    if (!isOpen) {
+        dropdown.classList.add('open');
+        // Load tags if not loaded
+        if (!window.availableTags || window.availableTags.length === 0) {
+            if (typeof loadAvailableTags === 'function') {
+                loadAvailableTags().then(() => {
+                    window.populateExcludeTagFilterOptions();
+                });
+            }
+        } else {
+            window.populateExcludeTagFilterOptions();
+        }
+        // Focus search input
+        setTimeout(() => {
+            const searchInput = document.getElementById('excludeTagFilterSearchInput');
+            if (searchInput) searchInput.focus();
+        }, 100);
+    }
+};
+
+/**
+ * Close exclude tag filter dropdown
+ */
+window.closeExcludeTagFilterDropdown = function() {
+    const dropdown = document.getElementById('excludeTagFilterDropdown');
+    if (dropdown) dropdown.classList.remove('open');
+};
+
+/**
+ * Populate exclude tag filter options
+ */
+window.populateExcludeTagFilterOptions = function(searchTerm = '') {
+    const optionsContainer = document.getElementById('excludeTagFilterOptions');
+    if (!optionsContainer) return;
+
+    const tags = window.availableTags || [];
+    const excludedTags = window.getExcludedTagFilters();
+    const search = searchTerm.toLowerCase().trim();
+
+    // Filter tags by search term
+    let filteredTags = tags;
+    if (search) {
+        filteredTags = tags.filter(tag =>
+            (tag.Name || '').toLowerCase().includes(search)
+        );
+    }
+
+    // Build options HTML with checkboxes
+    let html = '';
+
+    filteredTags.forEach(tag => {
+        const isExcluded = excludedTags.includes(String(tag.Id));
+        const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
+        html += `
+            <label class="tag-filter-option" style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s; ${isExcluded ? 'background: #fef2f2;' : ''}"
+                onmouseover="this.style.background='${isExcluded ? '#fee2e2' : '#f9fafb'}'"
+                onmouseout="this.style.background='${isExcluded ? '#fef2f2' : 'transparent'}'">
+                <input type="checkbox" ${isExcluded ? 'checked' : ''}
+                    onchange="toggleExcludeTagFilterOption('${tag.Id}')"
+                    style="margin-right: 10px; cursor: pointer; width: 16px; height: 16px;">
+                <span class="tag-color-dot" style="${colorStyle}; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;"></span>
+                <span class="tag-name" style="flex: 1;">${tag.Name || 'Unnamed'}</span>
+            </label>
+        `;
+    });
+
+    if (filteredTags.length === 0) {
+        html = `<div style="padding: 12px; text-align: center; color: #9ca3af;">Không tìm thấy tag</div>`;
+    }
+
+    optionsContainer.innerHTML = html;
+
+    // Update display text
+    updateExcludeTagFilterDisplayText();
+
+    // Update the main display area
+    window.updateExcludedTagsMainDisplay();
+};
+
+/**
+ * Toggle a tag in the exclude filter selection
+ */
+window.toggleExcludeTagFilterOption = function(tagId) {
+    const excludedTags = window.getExcludedTagFilters();
+    const tagIdStr = String(tagId);
+    const index = excludedTags.indexOf(tagIdStr);
+
+    if (index > -1) {
+        excludedTags.splice(index, 1);
+    } else {
+        excludedTags.push(tagIdStr);
+    }
+
+    window.saveExcludedTagFilters(excludedTags);
+
+    // Update display text
+    updateExcludeTagFilterDisplayText();
+
+    // Re-render options to update checkbox states
+    const searchInput = document.getElementById('excludeTagFilterSearchInput');
+    window.populateExcludeTagFilterOptions(searchInput?.value || '');
+
+    // Trigger table search
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
+
+    console.log(`[EXCLUDE-TAG-FILTER] Toggled tag ${tagId}, excluded: ${excludedTags.join(', ')}`);
+};
+
+/**
+ * Clear all exclude tag filters
+ */
+window.clearExcludeTagFilters = function() {
+    window.saveExcludedTagFilters([]);
+
+    // Update display
+    updateExcludeTagFilterDisplayText();
+
+    // Re-render options
+    const searchInput = document.getElementById('excludeTagFilterSearchInput');
+    window.populateExcludeTagFilterOptions(searchInput?.value || '');
+
+    // Trigger table search
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
+};
+
+/**
+ * Update the exclude tag filter display text
+ */
+function updateExcludeTagFilterDisplayText() {
+    const displayText = document.getElementById('excludeTagFilterText');
+    if (!displayText) return;
+
+    const excludedTags = window.getExcludedTagFilters();
+    const tags = window.availableTags || [];
+
+    if (excludedTags.length === 0) {
+        displayText.textContent = 'Không ẩn';
+        displayText.style.color = '';
+    } else if (excludedTags.length === 1) {
+        const tag = tags.find(t => String(t.Id) === excludedTags[0]);
+        displayText.textContent = tag ? tag.Name : '1 tag';
+        displayText.style.color = '#ef4444';
+    } else {
+        displayText.textContent = `${excludedTags.length} tags`;
+        displayText.style.color = '#ef4444';
+    }
+}
+
+/**
+ * Filter exclude tag options based on search input
+ */
+window.filterExcludeTagOptions = function() {
+    const searchInput = document.getElementById('excludeTagFilterSearchInput');
+    const searchTerm = searchInput ? searchInput.value : '';
+    window.populateExcludeTagFilterOptions(searchTerm);
+};
+
+/**
+ * Update excluded tags display in main area
+ */
+window.updateExcludedTagsMainDisplay = function() {
+    const container = document.getElementById('excludedTagsDisplay');
+    const listEl = document.getElementById('excludedTagsDisplayList');
+    if (!container || !listEl) return;
+
+    const excludedTags = window.getExcludedTagFilters();
+    const tags = window.availableTags || [];
+
+    if (excludedTags.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+
+    // If tags not loaded yet, show loading state
+    if (tags.length === 0) {
+        listEl.innerHTML = `<span style="font-size: 11px; color: #9ca3af;"><i class="fas fa-spinner fa-spin"></i> ${excludedTags.length} tag...</span>`;
+        return;
+    }
+
+    listEl.innerHTML = excludedTags.map(tagId => {
+        const tag = tags.find(t => String(t.Id) === String(tagId));
+        const tagColor = tag?.Color || '#6b7280';
+        const tagName = tag?.Name || `Tag #${tagId}`;
+        return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
+            ${tagName}
+            <button onclick="removeExcludedTagFromMain('${tagId}')" style="margin-left: 6px; background: none; border: none; cursor: pointer; padding: 0; color: ${tagColor}; font-size: 12px; line-height: 1; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Bỏ ẩn tag này">×</button>
+        </span>`;
+    }).join('');
+};
+
+/**
+ * Remove a tag from excluded list directly from main page
+ */
+window.removeExcludedTagFromMain = function(tagId) {
+    const excludedTags = window.getExcludedTagFilters();
+    const index = excludedTags.indexOf(String(tagId));
+    if (index > -1) {
+        excludedTags.splice(index, 1);
+        window.saveExcludedTagFilters(excludedTags);
+        updateExcludeTagFilterDisplayText();
+        window.updateExcludedTagsMainDisplay();
+        // Re-apply filter
+        if (typeof performTableSearch === 'function') {
+            performTableSearch();
+        }
+    }
+};
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    const tagDropdown = document.getElementById('tagFilterDropdown');
+    const excludeDropdown = document.getElementById('excludeTagFilterDropdown');
+
+    if (tagDropdown && !tagDropdown.contains(event.target)) {
+        window.closeTagFilterDropdown();
+    }
+    if (excludeDropdown && !excludeDropdown.contains(event.target)) {
+        window.closeExcludeTagFilterDropdown();
+    }
+});
+
