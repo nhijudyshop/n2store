@@ -2148,7 +2148,6 @@
         loadDashboardStats,
         loadPendingQueue,
         loadApprovedToday,
-        loadAdjustmentsToday,
         approve,
         bulkApprove,
         showRejectModal,
