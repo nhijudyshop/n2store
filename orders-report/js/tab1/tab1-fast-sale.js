@@ -1991,7 +1991,6 @@ function renderSuccessOrdersTable() {
                     const showState = order.ShowState || '';
                     const isActionable = showState === 'Đã thanh toán' || showState === 'Đã xác nhận';
                     const cancelBtn = isActionable ? (window.getCancelButtonHtml ? window.getCancelButtonHtml(order, index) : '') : '';
-                    const okBtn = isActionable ? (window.getCustomerOKButtonHtml ? window.getCustomerOKButtonHtml(order, index) : '') : '';
 
                     return `
                     <tr>
@@ -2002,7 +2001,7 @@ function renderSuccessOrdersTable() {
                         <td><span style="color: #10b981; font-weight: 600;">✓ ${showState || 'Nhập'}</span></td>
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
                         <td>${order.TrackingRef || ''}</td>
-                        <td style="white-space: nowrap;">${okBtn}${cancelBtn}</td>
+                        <td style="white-space: nowrap;">${cancelBtn}</td>
                     </tr>
                     `;
                 }).join('')}
@@ -2015,6 +2014,11 @@ function renderSuccessOrdersTable() {
     // Trigger auto send bills if enabled
     if (window.autoSendBillsIfEnabled && fastSaleResultsData.success.length > 0) {
         window.autoSendBillsIfEnabled(fastSaleResultsData.success);
+    }
+
+    // Auto-remove "OK + NV" tags from success orders (Đã thanh toán/Đã xác nhận)
+    if (window.processSuccessOrders && fastSaleResultsData.success.length > 0) {
+        window.processSuccessOrders(fastSaleResultsData.success);
     }
 }
 

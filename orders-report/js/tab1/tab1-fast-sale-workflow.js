@@ -301,9 +301,36 @@
                 SaleOnlineId: saleOnlineId
             }, reason);
 
-            // TODO: Chuyển đơn về Nháp (nếu có API)
+            // Re-add "OK + NV" tag (was removed on success)
+            const removedOkTag = order._removedOkTag;
+            if (removedOkTag) {
+                console.log(`[WORKFLOW] Re-adding tag "${removedOkTag.Name}" to cancelled order`);
+                await addTagToOrder(saleOnlineId, {
+                    Id: removedOkTag.Id,
+                    Name: removedOkTag.Name,
+                    Color: removedOkTag.Color
+                });
+            } else {
+                // Try to find an "OK + NV" tag from the user's current identifier
+                const authState = window.authManager?.getAuthState();
+                const username = authState?.username || '';
+                if (username) {
+                    // Find tag matching "OK " + username pattern
+                    const okTagForUser = window.availableTags?.find(t =>
+                        (t.Name || '').toUpperCase() === `OK ${username}`.toUpperCase()
+                    );
+                    if (okTagForUser) {
+                        console.log(`[WORKFLOW] Re-adding tag "${okTagForUser.Name}" based on current user`);
+                        await addTagToOrder(saleOnlineId, {
+                            Id: okTagForUser.Id,
+                            Name: okTagForUser.Name,
+                            Color: okTagForUser.Color
+                        });
+                    }
+                }
+            }
 
-            window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
+            window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`);
             closeCancelOrderModal();
 
             // Update UI - mark as cancelled
@@ -357,6 +384,87 @@
         return window.availableTags.find(tag =>
             (tag.Name || '').toUpperCase() === name.toUpperCase()
         );
+    }
+
+    /**
+     * Generate random color for new tag
+     */
+    function generateRandomColor() {
+        const colors = [
+            '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+            '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
+            '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
+            '#ec4899', '#f43f5e'
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    /**
+     * Find or create tag by name
+     * @param {string} tagName - Tag name to find or create
+     * @returns {object|null} - Tag object {Id, Name, Color}
+     */
+    async function findOrCreateTag(tagName) {
+        // Try to find existing tag first
+        let tag = findTagByName(tagName);
+        if (tag) {
+            return tag;
+        }
+
+        // Tag not found - create new one
+        console.log(`[WORKFLOW] Tag "${tagName}" not found, creating...`);
+
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const color = generateRandomColor();
+
+            const response = await API_CONFIG.smartFetch(
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
+                {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        'accept': 'application/json, text/plain, */*',
+                        'content-type': 'application/json;charset=UTF-8',
+                    },
+                    body: JSON.stringify({
+                        Name: tagName.toUpperCase(),
+                        Color: color
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                // Tag might already exist (race condition)
+                if (response.status === 400) {
+                    // Refresh tags and try to find again
+                    if (typeof loadTags === 'function') {
+                        await loadTags();
+                    }
+                    return findTagByName(tagName);
+                }
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const newTag = await response.json();
+            console.log(`[WORKFLOW] Created tag "${tagName}":`, newTag);
+
+            // Remove @odata.context
+            if (newTag['@odata.context']) {
+                delete newTag['@odata.context'];
+            }
+
+            // Update local tags list
+            if (Array.isArray(window.availableTags)) {
+                window.availableTags.push(newTag);
+                window.cacheManager?.set("tags", window.availableTags, "tags");
+            }
+
+            return newTag;
+        } catch (error) {
+            console.error(`[WORKFLOW] Error creating tag "${tagName}":`, error);
+            return null;
+        }
     }
 
     /**
@@ -470,30 +578,7 @@
     // =====================================================
 
     /**
-     * Handle "Khách OK" - Remove "OK + NV" tag from order
-     * @param {object} order - Success order data
-     */
-    async function handleCustomerOK(order) {
-        const saleOnlineId = order.SaleOnlineIds?.[0];
-        if (!saleOnlineId) {
-            console.error('[WORKFLOW] No SaleOnlineId found');
-            return false;
-        }
-
-        // Remove tag starting with "OK " (OK Hạnh, OK Huyên, etc.)
-        const success = await removeTagFromOrder(saleOnlineId, 'OK ');
-
-        if (success) {
-            window.notificationManager?.success(`Đã gỡ tag OK cho đơn ${order.Number || order.Reference}`);
-        } else {
-            window.notificationManager?.error(`Lỗi gỡ tag OK cho đơn ${order.Number || order.Reference}`);
-        }
-
-        return success;
-    }
-
-    /**
-     * Handle failed order - Add "Âm Mã" tag
+     * Handle failed order - Add "Âm Mã" tag (auto-create if not exists)
      * @param {object} order - Failed order data
      */
     async function handleFailedOrder(order) {
@@ -504,11 +589,10 @@
         }
 
         // Find or create "Âm Mã" tag
-        let amMaTag = findTagByName('Âm Mã');
+        const amMaTag = await findOrCreateTag('ÂM MÃ');
 
         if (!amMaTag) {
-            console.warn('[WORKFLOW] Tag "Âm Mã" not found in system');
-            // TODO: Có thể tạo tag mới nếu cần
+            console.error('[WORKFLOW] Could not find or create tag "Âm Mã"');
             return false;
         }
 
@@ -551,6 +635,63 @@
         }
 
         console.log(`[WORKFLOW] Failed orders processed: ${successCount} success, ${failCount} failed`);
+    }
+
+    /**
+     * Process successful orders - Auto remove "OK + NV" tag
+     * @param {array} successOrders - Array of success order data
+     */
+    async function processSuccessOrders(successOrders) {
+        if (!successOrders || successOrders.length === 0) return;
+
+        // Filter orders with "Đã thanh toán" or "Đã xác nhận"
+        const ordersToProcess = successOrders.filter(order =>
+            order.ShowState === 'Đã thanh toán' || order.ShowState === 'Đã xác nhận'
+        );
+
+        if (ordersToProcess.length === 0) {
+            console.log('[WORKFLOW] No successful orders to remove OK tag');
+            return;
+        }
+
+        console.log(`[WORKFLOW] Auto removing "OK + NV" tag from ${ordersToProcess.length} successful orders...`);
+
+        let successCount = 0;
+        for (const order of ordersToProcess) {
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            if (!saleOnlineId) continue;
+
+            // Store the removed tag info for potential re-add on cancel
+            const orderData = window.OrderStore?.get(saleOnlineId) || window.displayedData?.find(o => o.Id === saleOnlineId);
+            let currentTags = [];
+            try {
+                if (typeof orderData?.Tags === 'string') {
+                    currentTags = JSON.parse(orderData.Tags);
+                } else if (Array.isArray(orderData?.Tags)) {
+                    currentTags = orderData.Tags;
+                }
+            } catch (e) {
+                currentTags = [];
+            }
+
+            // Find "OK + NV" tag to store for later re-add
+            const okTag = currentTags.find(t => (t.Name || '').toUpperCase().startsWith('OK '));
+            if (okTag) {
+                // Store in order object for re-add on cancel
+                order._removedOkTag = okTag;
+            }
+
+            const success = await removeTagFromOrder(saleOnlineId, 'OK ');
+            if (success) {
+                successCount++;
+            }
+        }
+
+        if (successCount > 0) {
+            window.notificationManager?.success(`Đã gỡ tag "OK + NV" cho ${successCount} đơn thành công`);
+        }
+
+        console.log(`[WORKFLOW] Success orders processed: ${successCount} tags removed`);
     }
 
     /**
@@ -627,51 +768,6 @@
         `;
     }
 
-    /**
-     * Add "Khách OK" button to success orders table row
-     */
-    function getCustomerOKButtonHtml(order, index) {
-        // Only show for "Đã thanh toán" or "Đã xác nhận"
-        const showState = order.ShowState || '';
-        if (showState !== 'Đã thanh toán' && showState !== 'Đã xác nhận') {
-            return '';
-        }
-
-        return `
-            <button class="btn-customer-ok"
-                    onclick="window.handleCustomerOKClick(${index}); event.stopPropagation();"
-                    title="Khách OK - Gỡ tag OK NV"
-                    style="background: #10b981; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; margin-left: 4px;">
-                <i class="fas fa-check"></i> OK
-            </button>
-        `;
-    }
-
-    /**
-     * Handle "Khách OK" button click
-     */
-    async function handleCustomerOKClick(index) {
-        const order = window.fastSaleResultsData?.success?.[index];
-        if (!order) return;
-
-        const confirmed = confirm(`Xác nhận khách OK cho đơn ${order.Number || order.Reference}?\nSẽ gỡ tag "OK + NV" khỏi đơn này.`);
-        if (!confirmed) return;
-
-        const success = await handleCustomerOK(order);
-
-        if (success) {
-            // Update UI
-            const row = document.querySelector(`.success-order-checkbox[value="${index}"]`)?.closest('tr');
-            if (row) {
-                const okBtn = row.querySelector('.btn-customer-ok');
-                if (okBtn) {
-                    okBtn.innerHTML = '<i class="fas fa-check"></i> Done';
-                    okBtn.disabled = true;
-                    okBtn.style.background = '#9ca3af';
-                }
-            }
-        }
-    }
 
     /**
      * Inject auto send bill toggle into Bill Settings modal
@@ -735,13 +831,11 @@
     window.showCancelOrderModal = showCancelOrderModal;
     window.closeCancelOrderModal = closeCancelOrderModal;
     window.confirmCancelOrder = confirmCancelOrder;
-    window.handleCustomerOK = handleCustomerOK;
-    window.handleCustomerOKClick = handleCustomerOKClick;
     window.handleFailedOrder = handleFailedOrder;
     window.processFailedOrders = processFailedOrders;
+    window.processSuccessOrders = processSuccessOrders;
     window.autoSendBillsIfEnabled = autoSendBillsIfEnabled;
     window.getCancelButtonHtml = getCancelButtonHtml;
-    window.getCustomerOKButtonHtml = getCustomerOKButtonHtml;
     window.removeTagFromOrder = removeTagFromOrder;
     window.addTagToOrder = addTagToOrder;
     window.assignTagsToOrder = assignTagsToOrder;
