@@ -454,6 +454,15 @@
                 </div>
                 <div
                     class="mobile-dropdown-item"
+                    onclick="switchMobileTab('pending-delete', 'Bill Chờ Xóa')"
+                    data-mobile-tab="pending-delete"
+                >
+                    <i data-lucide="trash-2"></i>
+                    <span>Bill Chờ Xóa</span>
+                    <i data-lucide="check" class="check-icon"></i>
+                </div>
+                <div
+                    class="mobile-dropdown-item"
                     onclick="window.location.href = '../index.html'"
                     style="border-top: 1px solid #eee; margin-top: 4px; color: #ef4444"
                 >
@@ -545,6 +554,14 @@
                         <i data-lucide="share-2" class="tab-icon"></i>
                         Đơn Social
                     </button>
+                    <button
+                        class="tab-button"
+                        onclick="switchTab('pending-delete')"
+                        data-tab="pending-delete"
+                    >
+                        <i data-lucide="trash-2" class="tab-icon"></i>
+                        Bill Chờ Xóa
+                    </button>
 
                     <!-- Campaign Firebase Badge -->
                     <div class="campaign-badge-wrapper">
@@ -597,6 +614,10 @@
 
             <div id="socialOrdersTab" class="tab-content">
                 <iframe id="socialOrdersFrame" src="tab-social-orders.html"></iframe>
+            </div>
+
+            <div id="pendingDeleteTab" class="tab-content">
+                <iframe id="pendingDeleteFrame" src="tab-pending-delete.html"></iframe>
             </div>
 
             <div id="reportOnlineTab" class="tab-content">
@@ -669,6 +690,8 @@
                     document.getElementById('overviewTab').classList.add('active');
                 } else if (tabName === 'social-orders') {
                     document.getElementById('socialOrdersTab').classList.add('active');
+                } else if (tabName === 'pending-delete') {
+                    document.getElementById('pendingDeleteTab').classList.add('active');
                 } else if (tabName === 'report-online') {
                     document.getElementById('reportOnlineTab').classList.add('active');
                 }
@@ -715,6 +738,7 @@
                     statistics: 'Thống Kê',
                     overview: 'Báo Cáo Tổng Hợp',
                     'social-orders': 'Đơn Social',
+                    'pending-delete': 'Bill Chờ Xóa',
                     'report-online': 'Báo Cáo Online',
                 };
 
@@ -1014,6 +1038,8 @@
                         'statistics',
                         'product-assignment',
                         'overview',
+                        'social-orders',
+                        'pending-delete',
                         'report-online',
                     ].includes(savedTab)
                 ) {
