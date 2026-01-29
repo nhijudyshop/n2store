@@ -1487,11 +1487,6 @@ function updateTagFilterDisplayText() {
     if (typeof window.updateSelectedTagsMainDisplay === 'function') {
         window.updateSelectedTagsMainDisplay();
     }
-
-    // Sync to sticky filter
-    if (typeof updateStickyFilterText === 'function') {
-        updateStickyFilterText();
-    }
 }
 
 /**
@@ -1693,11 +1688,6 @@ function updateExcludeTagFilterDisplayText() {
     } else {
         displayText.textContent = `${excludedTags.length} tags`;
         displayText.style.color = '#ef4444';
-    }
-
-    // Sync to sticky filter
-    if (typeof updateStickyFilterText === 'function') {
-        updateStickyFilterText();
     }
 }
 
