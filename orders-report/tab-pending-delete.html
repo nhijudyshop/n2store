@@ -552,6 +552,9 @@
         <script src="../shared/js/shared-auth-manager.js"></script>
         <script src="../shared/js/notification-system.js"></script>
 
+        <!-- Bill Service for generating bill preview -->
+        <script src="js/utils/bill-service.js"></script>
+
         <script>
             // =====================================================
             // DATA STORE
@@ -870,10 +873,10 @@
                         }
                     };
 
-                    // Try to generate bill using parent frame's function
+                    // Generate bill using BillService
                     let billHTML = null;
-                    if (window.parent && typeof window.parent.generateCustomBillHTML === 'function') {
-                        billHTML = window.parent.generateCustomBillHTML(enrichedOrder, { walletBalance: item.PaymentAmount || 0 });
+                    if (typeof BillService !== 'undefined' && BillService.generateCustomBillHTML) {
+                        billHTML = BillService.generateCustomBillHTML(enrichedOrder, { walletBalance: item.PaymentAmount || 0 });
                     }
 
                     if (billHTML) {

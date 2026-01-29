@@ -60,8 +60,9 @@
          */
         _getDocRef() {
             const db = firebase.firestore();
-            const authState = window.authManager?.getAuthState();
-            const username = authState?.username || 'default';
+            // Get username from authManager - use getAuthData() and extract from userType
+            const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+            const username = authData?.username || (authData?.userType ? authData.userType.split('-')[0] : 'default');
             return db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
         },
 
@@ -119,11 +120,15 @@
          */
         async add(saleOnlineId, invoiceData, reason) {
             const key = String(saleOnlineId);
+            // Get username from authManager
+            const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+            const username = authData?.username || (authData?.userType ? authData.userType.split('-')[0] : 'unknown');
+
             const entry = {
                 ...invoiceData,
                 cancelReason: reason,
                 deletedAt: Date.now(),
-                deletedBy: window.authManager?.getAuthState()?.username || 'unknown',
+                deletedBy: username,
                 isOldVersion: false // Đánh dấu version mới
             };
 
