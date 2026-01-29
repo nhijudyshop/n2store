@@ -30,6 +30,13 @@ function openCreateOrderModal() {
     document.getElementById('orderForm')?.reset();
     document.getElementById('orderId').value = '';
     document.getElementById('orderProducts').value = '[]';
+    document.getElementById('selectedPostId').value = '';
+
+    // Set default source to Facebook Post
+    const orderSourceSelect = document.getElementById('orderSource');
+    if (orderSourceSelect) {
+        orderSourceSelect.value = 'facebook_post';
+    }
 
     // Update title
     const title = document.getElementById('orderModalTitle');
@@ -362,6 +369,230 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
+// ===== FACEBOOK POST SELECTION =====
+let cachedPosts = [];
+let filteredPosts = [];
+const BASE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+const PAGE_ID = '270136663390370'; // NhiJudy Store
+
+async function openPostSelectionModal() {
+    const modal = document.getElementById('postSelectionModal');
+    if (modal) {
+        modal.classList.add('show');
+    }
+
+    // Show loading
+    document.getElementById('postLoading').style.display = 'flex';
+    document.getElementById('postList').innerHTML = '';
+
+    // Load posts if not cached
+    if (cachedPosts.length === 0) {
+        await fetchFacebookPosts();
+    } else {
+        renderPostList(cachedPosts);
+    }
+}
+
+function closePostSelectionModal() {
+    const modal = document.getElementById('postSelectionModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+async function fetchFacebookPosts() {
+    try {
+        // Get JWT token from pancakeTokenManager
+        let jwtToken = null;
+        if (window.pancakeTokenManager) {
+            jwtToken = await window.pancakeTokenManager.getToken();
+        }
+
+        if (!jwtToken) {
+            document.getElementById('postLoading').style.display = 'none';
+            document.getElementById('postList').innerHTML = `
+                <div style="padding: 40px; text-align: center; color: #ef4444;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i>
+                    <p>Chưa đăng nhập Pancake. Vui lòng cài đặt JWT token trong tab Quản Lý Đơn Hàng.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Fetch posts via Cloudflare worker
+        const url = `${BASE_URL}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PAGE_ID}&jwt=${encodeURIComponent(jwtToken)}&page_ids=${PAGE_ID}`;
+
+        console.log('[SOCIAL-POST] Fetching posts from:', url);
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            cachedPosts = result.data;
+            filteredPosts = cachedPosts;
+            renderPostList(cachedPosts);
+            console.log('[SOCIAL-POST] Loaded', cachedPosts.length, 'posts');
+        } else {
+            throw new Error(result.message || 'Failed to load posts');
+        }
+
+    } catch (error) {
+        console.error('[SOCIAL-POST] Error fetching posts:', error);
+        document.getElementById('postLoading').style.display = 'none';
+        document.getElementById('postList').innerHTML = `
+            <div style="padding: 40px; text-align: center; color: #ef4444;">
+                <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 12px;"></i>
+                <p>Không thể tải danh sách bài viết. Vui lòng thử lại.</p>
+                <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+function renderPostList(posts) {
+    document.getElementById('postLoading').style.display = 'none';
+
+    if (!posts || posts.length === 0) {
+        document.getElementById('postList').innerHTML = `
+            <div style="padding: 40px; text-align: center; color: #6b7280;">
+                <i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 12px;"></i>
+                <p>Không có bài viết nào.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const html = posts.map(post => {
+        // Get thumbnail
+        const thumbnail = post.attachments?.data?.[0]?.url || null;
+        const hasMultipleImages = (post.attachments?.data?.length || 0) > 1;
+
+        // Get message/title
+        let title = post.message || 'Không có tiêu đề';
+        if (title.length > 80) {
+            title = title.substring(0, 80) + '...';
+        }
+
+        // Format date
+        const date = new Date(post.inserted_at);
+        const dateStr = date.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+        const timeStr = date.toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        // Get post type icon
+        let typeIcon = '';
+        let typeLabel = '';
+        switch (post.type) {
+            case 'livestream':
+                typeIcon = '<i class="fas fa-video"></i>';
+                typeLabel = 'Live';
+                break;
+            case 'video':
+                typeIcon = '<i class="fas fa-play"></i>';
+                typeLabel = 'Video';
+                break;
+            case 'photo':
+                typeIcon = '<i class="fas fa-image"></i>';
+                typeLabel = 'Ảnh';
+                break;
+            default:
+                typeIcon = '<i class="fas fa-file-alt"></i>';
+                typeLabel = 'Text';
+        }
+
+        // Get post URL
+        const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
+
+        return `
+            <div class="post-item" onclick="selectPost('${post.id}', '${postUrl.replace(/'/g, "\\'")}', '${title.replace(/'/g, "\\'")}')">
+                <div class="post-thumbnail">
+                    ${thumbnail
+                        ? `<img src="${BASE_URL}/api/image-proxy?url=${encodeURIComponent(thumbnail)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'fas fa-image no-image\\'></i>';">`
+                        : '<i class="fas fa-image no-image"></i>'
+                    }
+                    ${hasMultipleImages ? `<span class="post-type-icon">+${post.attachments.data.length - 1}</span>` : ''}
+                    ${post.type === 'livestream' || post.type === 'video' ? `<span class="post-type-icon">${typeIcon}</span>` : ''}
+                </div>
+                <div class="post-info">
+                    <div class="post-title">${title}</div>
+                    <div class="post-date">${dateStr} ${timeStr}</div>
+                    <div class="post-meta">
+                        ${post.phone_number_count > 0 ? `<span class="post-meta-item"><i class="fas fa-phone"></i> ${post.phone_number_count}</span>` : ''}
+                        ${post.comment_count > 0 ? `<span class="post-meta-item"><i class="fas fa-comment"></i> ${formatNumber(post.comment_count)}</span>` : ''}
+                        ${post.share_count > 0 ? `<span class="post-meta-item"><i class="fas fa-share"></i> ${post.share_count}</span>` : ''}
+                    </div>
+                </div>
+                <div class="post-stats">
+                    <button class="post-copy-btn" onclick="event.stopPropagation(); copyPostId('${post.id}')" title="Sao chép ID">
+                        <i class="far fa-copy"></i> Sao chép ID
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    document.getElementById('postList').innerHTML = html;
+}
+
+function filterPosts() {
+    const input = document.getElementById('postFilterInput');
+    const term = input.value.toLowerCase().trim();
+
+    if (!term) {
+        filteredPosts = cachedPosts;
+    } else {
+        filteredPosts = cachedPosts.filter(post => {
+            const message = (post.message || '').toLowerCase();
+            return message.includes(term);
+        });
+    }
+
+    renderPostList(filteredPosts);
+}
+
+function selectPost(postId, postUrl, postTitle) {
+    // Update the form fields
+    document.getElementById('postUrl').value = postUrl;
+    document.getElementById('selectedPostId').value = postId;
+
+    // Close modal
+    closePostSelectionModal();
+
+    // Show notification
+    if (typeof showNotification === 'function') {
+        showNotification('Đã chọn bài viết', 'success');
+    }
+}
+
+function copyPostId(postId) {
+    navigator.clipboard.writeText(postId).then(() => {
+        if (typeof showNotification === 'function') {
+            showNotification('Đã sao chép ID: ' + postId, 'success');
+        }
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+    });
+}
+
+function formatNumber(num) {
+    if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+}
+
 // ===== EXPORTS =====
 window.openCreateOrderModal = openCreateOrderModal;
 window.openEditOrderModal = openEditOrderModal;
@@ -371,3 +602,8 @@ window.addProductToOrder = addProductToOrder;
 window.removeProductFromOrder = removeProductFromOrder;
 window.updateProductQuantity = updateProductQuantity;
 window.saveOrder = saveOrder;
+window.openPostSelectionModal = openPostSelectionModal;
+window.closePostSelectionModal = closePostSelectionModal;
+window.filterPosts = filterPosts;
+window.selectPost = selectPost;
+window.copyPostId = copyPostId;

@@ -326,17 +326,21 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Link bài Post</label>
-                                    <input
-                                        type="url"
-                                        id="postUrl"
-                                        placeholder="https://facebook.com/..."
-                                    />
+                                    <div class="post-url-input-wrapper" onclick="openPostSelectionModal()">
+                                        <input
+                                            type="text"
+                                            id="postUrl"
+                                            placeholder="https://facebook.com/..."
+                                            readonly
+                                        />
+                                        <input type="hidden" id="selectedPostId" />
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label>Nguồn</label>
                                     <select id="orderSource">
                                         <option value="manual">Thủ công</option>
-                                        <option value="facebook_post">Facebook Post</option>
+                                        <option value="facebook_post" selected>Facebook Post</option>
                                         <option value="instagram">Instagram</option>
                                         <option value="tiktok">TikTok</option>
                                     </select>
@@ -461,6 +465,42 @@
                         <i class="fas fa-trash"></i>
                         Xóa
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Facebook Post Selection Modal -->
+        <div class="modal-overlay" id="postSelectionModal">
+            <div class="modal-content modal-large post-selection-modal">
+                <div class="modal-header">
+                    <h3>
+                        <i class="fab fa-facebook" style="color: #1877f2"></i>
+                        Chọn bài viết
+                    </h3>
+                    <button class="modal-close" onclick="closePostSelectionModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Post Filter -->
+                    <div class="post-filter-section">
+                        <div class="post-filter-input-wrapper">
+                            <i class="fas fa-search"></i>
+                            <input
+                                type="text"
+                                id="postFilterInput"
+                                placeholder="Nội dung bài viết"
+                                oninput="filterPosts()"
+                            />
+                        </div>
+                    </div>
+                    <!-- Loading State -->
+                    <div class="post-loading" id="postLoading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>Đang tải danh sách bài viết...</span>
+                    </div>
+                    <!-- Post List -->
+                    <div class="post-list" id="postList">
+                        <!-- Posts will be rendered here -->
+                    </div>
                 </div>
             </div>
         </div>
