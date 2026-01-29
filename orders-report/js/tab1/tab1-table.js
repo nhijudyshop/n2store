@@ -1741,46 +1741,8 @@ function sendDataToTab2() {
 }
 
 // =====================================================
-// HELPER: CHECK IF ORDER SHOULD BE SELECTABLE
-// =====================================================
-// =====================================================
-// HELPER: CHECK IF ORDER SHOULD BE SELECTABLE
-// =====================================================
 // SELECTION MANAGEMENT (STATE-BASED)
 // =====================================================
-
-
-function isOrderSelectable(orderId) {
-    // O(1) via OrderStore with fallback
-    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
-    if (!order) return true; // Nếu không tìm thấy, cho phép select
-
-    // Kiểm tra số lượng = 0
-    if (order.TotalQuantity === 0) {
-        console.log(`[SELECT] Skipping order ${order.Code}: TotalQuantity = 0`);
-        return false;
-    }
-
-    // Kiểm tra tag "GIỎ TRỐNG"
-    if (order.Tags) {
-        try {
-            const tags = JSON.parse(order.Tags);
-            if (Array.isArray(tags)) {
-                const hasEmptyCartTag = tags.some(tag =>
-                    tag.Name && tag.Name.toUpperCase() === "GIỎ TRỐNG"
-                );
-                if (hasEmptyCartTag) {
-                    console.log(`[SELECT] Skipping order ${order.Code}: Has "GIỎ TRỐNG" tag`);
-                    return false;
-                }
-            }
-        } catch (e) {
-            // Nếu parse lỗi, cho phép select
-        }
-    }
-
-    return true;
-}
 
 function handleSelectAll() {
     const isChecked = document.getElementById("selectAll").checked;
