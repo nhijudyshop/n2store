@@ -1827,6 +1827,11 @@ function showFastSaleResultsModal(results) {
         // Process wallet withdrawals for successful orders (async)
         setTimeout(() => processWalletWithdrawalsForSuccessOrders(), 200);
     }
+
+    // Process failed orders - add "Âm Mã" tag (async)
+    if (fastSaleResultsData.failed.length > 0 && window.processFailedOrders) {
+        setTimeout(() => window.processFailedOrders(fastSaleResultsData.failed), 300);
+    }
 }
 
 /**
@@ -1978,25 +1983,39 @@ function renderSuccessOrdersTable() {
                     <th>Trạng thái</th>
                     <th>Khách hàng</th>
                     <th>Mã vận đơn</th>
+                    <th style="width: 120px;">Thao tác</th>
                 </tr>
             </thead>
             <tbody>
-                ${fastSaleResultsData.success.map((order, index) => `
+                ${fastSaleResultsData.success.map((order, index) => {
+                    const showState = order.ShowState || '';
+                    const isActionable = showState === 'Đã thanh toán' || showState === 'Đã xác nhận';
+                    const cancelBtn = isActionable ? (window.getCancelButtonHtml ? window.getCancelButtonHtml(order, index) : '') : '';
+                    const okBtn = isActionable ? (window.getCustomerOKButtonHtml ? window.getCustomerOKButtonHtml(order, index) : '') : '';
+
+                    return `
                     <tr>
                         <td>${index + 1}</td>
                         <td><input type="checkbox" class="success-order-checkbox" value="${index}" data-order-id="${order.Id}"></td>
                         <td>${order.Reference || 'N/A'}</td>
                         <td>${order.Number || ''}</td>
-                        <td><span style="color: #10b981; font-weight: 600;">✓ ${order.ShowState || 'Nhập'}</span></td>
+                        <td><span style="color: #10b981; font-weight: 600;">✓ ${showState || 'Nhập'}</span></td>
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
                         <td>${order.TrackingRef || ''}</td>
+                        <td style="white-space: nowrap;">${okBtn}${cancelBtn}</td>
                     </tr>
-                `).join('')}
+                    `;
+                }).join('')}
             </tbody>
         </table>
     `;
 
     container.innerHTML = html;
+
+    // Trigger auto send bills if enabled
+    if (window.autoSendBillsIfEnabled && fastSaleResultsData.success.length > 0) {
+        window.autoSendBillsIfEnabled(fastSaleResultsData.success);
+    }
 }
 
 /**
