@@ -8,7 +8,8 @@ class MessageTemplateManager {
         this.filteredTemplates = [];
         this.selectedTemplate = null;
         this.isLoading = false;
-        this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)';
+        // Firestore collection for templates (replacing TPOS API)
+        this.TEMPLATES_COLLECTION = 'message_templates';
         this.currentOrder = null;
         this.selectedOrders = [];
         this.DEBUG_MODE = true; // Enable debug logging
@@ -270,9 +271,9 @@ class MessageTemplateManager {
         if (document.getElementById('messageHistoryModal')) return;
 
         const historyModalHTML = `
-            <div class="message-modal-overlay" id="messageHistoryModal" style="display: none;">
-                <div class="message-modal" style="max-width: 900px;">
-                    <div class="message-modal-header">
+            <div class="message-modal-overlay" id="messageHistoryModal">
+                <div class="message-modal" style="max-width: 950px; width: 95%;">
+                    <div class="message-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
                         <h3>
                             <i class="fas fa-history"></i>
                             Lịch sử gửi tin nhắn
@@ -281,13 +282,13 @@ class MessageTemplateManager {
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div class="message-modal-body" id="historyModalBody" style="max-height: 500px; overflow-y: auto;">
+                    <div class="message-modal-body" id="historyModalBody" style="max-height: 65vh; overflow-y: auto; padding: 20px;">
                         <div class="message-loading">
                             <i class="fas fa-spinner fa-spin"></i>
                             <p>Đang tải lịch sử...</p>
                         </div>
                     </div>
-                    <div class="message-modal-footer" style="justify-content: space-between;">
+                    <div class="message-modal-footer" style="justify-content: space-between; padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb;">
                         <div style="font-size: 13px; color: #6b7280;">
                             <i class="fas fa-info-circle"></i> Lịch sử tự động xóa sau 7 ngày
                         </div>
@@ -473,7 +474,7 @@ class MessageTemplateManager {
     async loadTemplates() {
         this.log('');
         this.log('='.repeat(60));
-        this.log('🔄 LOADING TEMPLATES FROM API');
+        this.log('🔄 LOADING TEMPLATES FROM FIRESTORE');
         this.log('='.repeat(60));
 
         this.isLoading = true;
@@ -483,107 +484,55 @@ class MessageTemplateManager {
         bodyEl.innerHTML = `
             <div class="message-loading">
                 <i class="fas fa-spinner fa-spin"></i>
-                <p>Đang tải danh sách template từ API...</p>
-                <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">
-                    Check Network tab để xem request
-                </p>
+                <p>Đang tải danh sách template...</p>
             </div>
         `;
 
         try {
-            this.log('🌐 API URL:', this.API_URL);
-            this.log('🔑 TokenManager:', window.tokenManager ? 'Available' : 'NOT FOUND');
-
-            let response;
-            let fetchMethod = 'unknown';
-
-            if (window.tokenManager && typeof window.tokenManager.authenticatedFetch === 'function') {
-                this.log('✅ Using TokenManager.authenticatedFetch()');
-                fetchMethod = 'TokenManager';
-
-                try {
-                    this.log('📡 Calling API with Bearer token...');
-                    response = await window.tokenManager.authenticatedFetch(this.API_URL, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    this.log('📥 Response received:', response.status, response.statusText);
-                } catch (tokenError) {
-                    this.log('❌ TokenManager error:', tokenError);
-                    throw new Error(`Token authentication failed: ${tokenError.message}`);
-                }
-            } else {
-                this.log('⚠️ TokenManager not available');
-                this.log('⚠️ Trying direct fetch (will likely fail due to CORS/Auth)...');
-                fetchMethod = 'Direct Fetch';
-
-                response = await fetch(this.API_URL, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                this.log('📥 Response received:', response.status, response.statusText);
+            // Check Firebase
+            if (!window.firebase || !window.firebase.firestore) {
+                throw new Error('Firebase chưa được khởi tạo');
             }
 
-            this.log('📊 Response status:', response.status);
-            this.log('📊 Response ok:', response.ok);
-            this.log('📊 Fetch method used:', fetchMethod);
+            const db = window.firebase.firestore();
+            const templatesRef = db.collection(this.TEMPLATES_COLLECTION);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                this.log('❌ Response error:', errorText);
-                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+            // Get all active templates, ordered by name
+            const snapshot = await templatesRef
+                .where('active', '==', true)
+                .orderBy('order', 'asc')
+                .get();
+
+            this.log('📊 Firestore query completed');
+            this.log('  - Documents found:', snapshot.size);
+
+            // If no templates exist, seed default templates
+            if (snapshot.empty) {
+                this.log('📋 No templates found, seeding defaults...');
+                await this._seedDefaultTemplates();
+                // Reload after seeding
+                return this.loadTemplates();
             }
 
-            this.log('📄 Parsing JSON response...');
-            const data = await response.json();
-
-            this.log('📊 Response data structure:');
-            this.log('  - @odata.context:', data['@odata.context'] ? 'Present' : 'Missing');
-            this.log('  - value:', Array.isArray(data.value) ? `Array[${data.value.length}]` : typeof data.value);
-
-            if (!data.value || !Array.isArray(data.value)) {
-                this.log('❌ Invalid data structure');
-                this.log('   Expected: { value: [...] }');
-                this.log('   Received:', typeof data);
-                throw new Error('Invalid API response: expected data.value array');
-            }
-
-            // Filter to only include Messenger templates
-            const allTemplates = data.value;
-            this.templates = allTemplates.filter(t => {
-                const typeId = (t.TypeId || '').toLowerCase();
-                return typeId.includes('messenger');
-            });
+            // Map documents to template objects
+            this.templates = snapshot.docs.map(doc => ({
+                Id: doc.id,
+                ...doc.data()
+            }));
             this.filteredTemplates = [...this.templates];
-
-            this.log('📊 Total templates from API:', allTemplates.length);
-            this.log('📊 Messenger templates only:', this.templates.length);
 
             this.log('');
             this.log('✅ SUCCESS! Templates loaded:');
             this.log('  - Total templates:', this.templates.length);
 
             if (this.templates.length > 0) {
-                this.log('  - Sample template names:');
-                this.templates.slice(0, 3).forEach((t, i) => {
-                    this.log(`    ${i + 1}. ${t.Name} (${t.TypeId})`);
+                this.log('  - Template names:');
+                this.templates.forEach((t, i) => {
+                    this.log(`    ${i + 1}. ${t.Name}`);
                 });
             }
 
             this.log('='.repeat(60));
-            this.log('');
-
-            // Show success notification
-            if (window.notificationManager) {
-                window.notificationManager.success(
-                    `Đã tải ${this.templates.length} template từ API`,
-                    2000
-                );
-            }
 
             // Render templates
             this.renderTemplates();
@@ -591,12 +540,7 @@ class MessageTemplateManager {
         } catch (error) {
             this.log('');
             this.log('❌ ERROR LOADING TEMPLATES');
-            this.log('='.repeat(60));
-            this.log('Error type:', error.name);
-            this.log('Error message:', error.message);
-            this.log('Error stack:', error.stack);
-            this.log('='.repeat(60));
-            this.log('');
+            this.log('Error:', error.message);
 
             // Show error in modal
             bodyEl.innerHTML = `
@@ -608,38 +552,16 @@ class MessageTemplateManager {
                     <p style="color: #6b7280; font-size: 14px; margin-bottom: 16px;">
                         ${this.escapeHtml(error.message)}
                     </p>
-                    <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: left;">
-                        <p style="font-size: 13px; color: #991b1b; margin: 0;">
-                            <strong>Có thể do:</strong><br>
-                            • TokenManager chưa được khởi tạo<br>
-                            • Token hết hạn (refresh trang)<br>
-                            • API không phản hồi<br>
-                            • Lỗi network/CORS
-                        </p>
-                    </div>
-                    <button 
-                        onclick="messageTemplateManager.loadTemplates()" 
-                        style="
-                            padding: 10px 20px;
-                            background: #6366f1;
-                            color: white;
-                            border: none;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 500;
-                        "
-                    >
+                    <button
+                        onclick="messageTemplateManager.loadTemplates()"
+                        style="padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
                         <i class="fas fa-redo"></i> Thử lại
                     </button>
                 </div>
             `;
 
-            // Show error notification
             if (window.notificationManager) {
-                window.notificationManager.error(
-                    `Lỗi tải template: ${error.message}`,
-                    5000
-                );
+                window.notificationManager.error(`Lỗi tải template: ${error.message}`, 5000);
             }
 
         } finally {
@@ -663,50 +585,57 @@ class MessageTemplateManager {
                 <div class="message-no-results">
                     <i class="fas fa-search"></i>
                     <p>Không tìm thấy template nào</p>
+                    <button onclick="messageTemplateManager.openNewTemplateForm()"
+                        style="margin-top: 12px; padding: 10px 20px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-plus"></i> Tạo template mới
+                    </button>
                 </div>
             `;
             return;
         }
 
         const templatesHTML = templates.map(template => {
-            // CHỈ LẤY BodyPlain, không lấy BodyHtml
-            const content = template.BodyPlain || 'Không có nội dung';
-            const date = new Date(template.DateCreated).toLocaleDateString('vi-VN');
+            // Support both Firestore (Content) and legacy TPOS (BodyPlain)
+            const content = template.Content || (template.Content || template.BodyPlain) || 'Không có nội dung';
+            const date = template.createdAt?.toDate
+                ? template.createdAt.toDate().toLocaleDateString('vi-VN')
+                : (template.DateCreated ? new Date(template.DateCreated).toLocaleDateString('vi-VN') : '');
 
             // Convert \n thành <br> để giữ line breaks
             const contentWithBreaks = this.escapeHtml(content).replace(/\n/g, '<br>');
 
-            // Kiểm tra nếu content dài (nhiều hơn 8 dòng ~ 200 chars)
-            // để hiển thị nút "Xem thêm"
+            // Kiểm tra nếu content dài
             const needsExpand = content.length > 200;
 
             return `
-                <div class="message-template-item ${this.selectedTemplate?.Id === template.Id ? 'selected' : ''}" 
+                <div class="message-template-item ${this.selectedTemplate?.Id === template.Id ? 'selected' : ''}"
                      data-template-id="${template.Id}"
-                     onclick="messageTemplateManager.selectTemplate(${template.Id})">
+                     onclick="messageTemplateManager.selectTemplate('${template.Id}')">
                     <div class="message-template-header">
                         <div class="message-template-name">
                             ${this.escapeHtml(template.Name)}
                         </div>
-                        <span class="message-template-type ${this.getTypeClass(template.TypeId)}">
-                            ${template.TypeId}
-                        </span>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button onclick="event.stopPropagation(); messageTemplateManager.openNewTemplateForm(messageTemplateManager.templates.find(t => t.Id === '${template.Id}'))"
+                                style="padding: 4px 10px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; cursor: pointer; color: #6b7280;"
+                                title="Chỉnh sửa template">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <span class="message-template-type type-messenger">MESSENGER</span>
+                        </div>
                     </div>
                     <div class="message-template-content" data-full-content="${this.escapeHtml(content)}">
                         ${contentWithBreaks}
                     </div>
                     <div class="message-template-actions">
                         ${needsExpand ? `
-                            <button class="message-expand-btn" onclick="event.stopPropagation(); messageTemplateManager.toggleExpand(${template.Id})">
+                            <button class="message-expand-btn" onclick="event.stopPropagation(); messageTemplateManager.toggleExpand('${template.Id}')">
                                 <i class="fas fa-chevron-down"></i>
                                 <span class="expand-text">Xem thêm</span>
                             </button>
                         ` : '<div></div>'}
                         <div class="message-template-meta">
-                            <span>
-                                <i class="fas fa-calendar"></i>
-                                ${date}
-                            </span>
+                            ${date ? `<span><i class="fas fa-calendar"></i> ${date}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -718,7 +647,8 @@ class MessageTemplateManager {
     }
 
     selectTemplate(templateId) {
-        const template = this.templates.find(t => t.Id === templateId);
+        // Support both string (Firestore) and number (legacy) IDs
+        const template = this.templates.find(t => String(t.Id) === String(templateId));
         if (!template) {
             this.log('❌ Template not found:', templateId);
             return;
@@ -782,7 +712,7 @@ class MessageTemplateManager {
             this.filteredTemplates = this.templates.filter(template => {
                 const name = (template.Name || '').toLowerCase();
                 // CHỈ TÌM TRONG BodyPlain
-                const content = (template.BodyPlain || '').toLowerCase();
+                const content = ((template.Content || template.BodyPlain) || '').toLowerCase();
                 const type = (template.TypeId || '').toLowerCase();
 
                 return name.includes(searchLower) ||
@@ -866,7 +796,7 @@ class MessageTemplateManager {
             // NOTE: No employee signature for multi-account sending
 
             // Get template content (ONE TIME)
-            const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
+            const templateContent = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || 'Không có nội dung';
 
             // Initialize State with tracking arrays for Firestore
             this.sendingState = {
@@ -929,7 +859,7 @@ class MessageTemplateManager {
 
                             // Track success order with details
                             this.sendingState.successOrders.push({
-                                stt: order.stt || order.STT || '',
+                                stt: order.SessionIndex || order.stt || order.STT || '',
                                 code: order.code || order.Id || '',
                                 customerName: order.customerName || '',
                                 account: account.name
@@ -947,16 +877,20 @@ class MessageTemplateManager {
                                 errorMessage = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
                             }
 
-                            // Track error order with details
+                            // Track error order with details (including Facebook fields for comment reply)
                             this.sendingState.errorOrders.push({
                                 orderId: order.Id || '',
-                                stt: order.stt || order.STT || '',
+                                stt: order.SessionIndex || order.stt || order.STT || '',
                                 code: order.code || order.Id || '',
                                 customerName: order.customerName || '',
                                 account: account.name,
                                 error: errorMessage,
                                 is24HourError: err.is24HourError || false,
-                                isUserUnavailable: err.isUserUnavailable || false
+                                isUserUnavailable: err.isUserUnavailable || false,
+                                // Facebook fields for comment reply
+                                Facebook_PostId: order.Facebook_PostId || order.raw?.Facebook_PostId || '',
+                                Facebook_CommentId: order.Facebook_CommentId || order.raw?.Facebook_CommentId || '',
+                                Facebook_ASUserId: order.Facebook_ASUserId || order.raw?.Facebook_ASUserId || ''
                             });
 
                             // Also keep old format for backward compatibility
@@ -1126,7 +1060,7 @@ class MessageTemplateManager {
             this.log('  - Employee:', displayName || '(Anonymous)');
 
             // Get template content
-            const templateContent = this.selectedTemplate.BodyPlain || '';
+            const templateContent = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || '';
             this.log('  - Template:', this.selectedTemplate.Name);
 
             // Initialize state
@@ -2039,7 +1973,7 @@ class MessageTemplateManager {
         }
 
         // Get template content (plain text only)
-        let content = this.selectedTemplate.BodyPlain || '';
+        let content = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || '';
 
         // If we have order data, replace placeholders
         if (this.currentOrder) {
@@ -2238,10 +2172,16 @@ class MessageTemplateManager {
                     address: fullOrder.Partner?.Address || fullOrder.Address,
                     totalAmount: fullOrder.TotalAmount,
                     PartnerId: fullOrder.PartnerId || fullOrder.Partner?.Id,
+                    // STT from SessionIndex (the table row number)
+                    SessionIndex: fullOrder.SessionIndex || null,
+                    // Facebook fields for comment reply (if available)
+                    Facebook_PostId: fullOrder.Facebook_PostId || null,
+                    Facebook_CommentId: fullOrder.Facebook_CommentId || null,
+                    Facebook_ASUserId: fullOrder.Facebook_ASUserId || null,
                     // Keep raw data for getChatInfoForOrder
                     raw: fullOrder
                 });
-                this.log('  - Found full order:', fullOrder.Code);
+                this.log('  - Found full order:', fullOrder.Code, 'STT:', fullOrder.SessionIndex);
             } else {
                 // Fallback to DOM scraping (should rarely happen if allData is synced)
                 const row = checkbox.closest('tr');
@@ -2265,13 +2205,258 @@ class MessageTemplateManager {
         return selectedOrders;
     }
 
-    openNewTemplateForm() {
-        if (window.notificationManager) {
-            window.notificationManager.info(
-                'Chức năng tạo template mới đang được phát triển',
-                3000
-            );
+    openNewTemplateForm(editTemplate = null) {
+        this._showTemplateEditorModal(editTemplate);
+    }
+
+    /**
+     * Show template editor modal (create or edit)
+     */
+    _showTemplateEditorModal(template = null) {
+        const isEdit = !!template;
+        const modalId = 'templateEditorModal';
+
+        // Remove existing modal
+        document.getElementById(modalId)?.remove();
+
+        const modalHTML = `
+            <div id="${modalId}" class="message-modal-overlay active" style="z-index: 10003;">
+                <div class="message-modal" style="max-width: 600px; width: 95%;">
+                    <div class="message-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 16px 20px;">
+                        <h3 style="font-size: 16px;">
+                            <i class="fas fa-${isEdit ? 'edit' : 'plus'}"></i>
+                            ${isEdit ? 'Chỉnh sửa template' : 'Tạo template mới'}
+                        </h3>
+                        <button onclick="document.getElementById('${modalId}').remove()" class="message-modal-close">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="message-modal-body" style="padding: 20px;">
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                Tên template <span style="color: #ef4444;">*</span>
+                            </label>
+                            <input type="text" id="templateName" value="${template?.Name || ''}"
+                                placeholder="VD: Chốt đơn, Xác nhận địa chỉ..."
+                                style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                Nội dung tin nhắn <span style="color: #ef4444;">*</span>
+                            </label>
+                            <textarea id="templateContent" rows="8"
+                                placeholder="Nhập nội dung tin nhắn..."
+                                style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; resize: vertical;">${template?.Content || ''}</textarea>
+                        </div>
+
+                        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px;">
+                            <div style="font-weight: 500; color: #0369a1; margin-bottom: 8px;">
+                                <i class="fas fa-info-circle"></i> Biến có thể dùng:
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px;">
+                                <code onclick="document.getElementById('templateContent').value += '{partner.name}'"
+                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{partner.name}</code>
+                                <code onclick="document.getElementById('templateContent').value += '{partner.address}'"
+                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{partner.address}</code>
+                                <code onclick="document.getElementById('templateContent').value += '{order.details}'"
+                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{order.details}</code>
+                                <code onclick="document.getElementById('templateContent').value += '{order.total}'"
+                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{order.total}</code>
+                                <code onclick="document.getElementById('templateContent').value += '{order.code}'"
+                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{order.code}</code>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="message-modal-footer" style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between;">
+                        <div>
+                            ${isEdit ? `
+                                <button onclick="window.messageTemplateManager?.deleteTemplate('${template?.Id}')"
+                                    style="padding: 10px 16px; background: #fee2e2; color: #dc2626; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                                    <i class="fas fa-trash"></i> Xóa
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button onclick="document.getElementById('${modalId}').remove()"
+                                style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                                Hủy
+                            </button>
+                            <button onclick="window.messageTemplateManager?.saveTemplate('${template?.Id || ''}')"
+                                id="saveTemplateBtn"
+                                style="padding: 10px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                                <i class="fas fa-save"></i> ${isEdit ? 'Cập nhật' : 'Tạo mới'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Focus on name input
+        setTimeout(() => document.getElementById('templateName')?.focus(), 100);
+    }
+
+    /**
+     * Save template (create or update)
+     */
+    async saveTemplate(templateId = '') {
+        const nameInput = document.getElementById('templateName');
+        const contentInput = document.getElementById('templateContent');
+        const saveBtn = document.getElementById('saveTemplateBtn');
+
+        const name = nameInput?.value?.trim();
+        const content = contentInput?.value?.trim();
+
+        if (!name) {
+            window.notificationManager?.warning('Vui lòng nhập tên template');
+            nameInput?.focus();
+            return;
         }
+        if (!content) {
+            window.notificationManager?.warning('Vui lòng nhập nội dung tin nhắn');
+            contentInput?.focus();
+            return;
+        }
+
+        // Disable button
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+        }
+
+        try {
+            const db = window.firebase.firestore();
+            const templatesRef = db.collection(this.TEMPLATES_COLLECTION);
+
+            const templateData = {
+                Name: name,
+                Content: content,
+                active: true,
+                updatedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if (templateId) {
+                // Update existing
+                await templatesRef.doc(templateId).update(templateData);
+                window.notificationManager?.success('Đã cập nhật template');
+            } else {
+                // Create new
+                templateData.createdAt = window.firebase.firestore.FieldValue.serverTimestamp();
+                templateData.order = this.templates.length + 1;
+                await templatesRef.add(templateData);
+                window.notificationManager?.success('Đã tạo template mới');
+            }
+
+            // Close modal and reload
+            document.getElementById('templateEditorModal')?.remove();
+            await this.loadTemplates();
+
+        } catch (error) {
+            console.error('Error saving template:', error);
+            window.notificationManager?.error('Lỗi lưu template: ' + error.message);
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<i class="fas fa-save"></i> ${templateId ? 'Cập nhật' : 'Tạo mới'}`;
+            }
+        }
+    }
+
+    /**
+     * Delete template
+     */
+    async deleteTemplate(templateId) {
+        if (!templateId) return;
+
+        const confirmed = confirm('Bạn có chắc muốn xóa template này?');
+        if (!confirmed) return;
+
+        try {
+            const db = window.firebase.firestore();
+            await db.collection(this.TEMPLATES_COLLECTION).doc(templateId).delete();
+
+            window.notificationManager?.success('Đã xóa template');
+
+            // Close modal and reload
+            document.getElementById('templateEditorModal')?.remove();
+            await this.loadTemplates();
+
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            window.notificationManager?.error('Lỗi xóa template: ' + error.message);
+        }
+    }
+
+    /**
+     * Seed default templates on first load
+     */
+    async _seedDefaultTemplates() {
+        const db = window.firebase.firestore();
+        const templatesRef = db.collection(this.TEMPLATES_COLLECTION);
+        const batch = db.batch();
+
+        const defaultTemplates = [
+            {
+                Name: 'Chốt đơn',
+                Content: `Dạ chào chị {partner.name},
+
+Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
+
+{order.details}
+
+Đơn hàng của mình sẽ được gửi về địa chỉ "{partner.address}"
+
+Chị xác nhận giúp em để em gửi hàng nha ạ! 🙏`,
+                order: 1,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            },
+            {
+                Name: 'Xác nhận địa chỉ',
+                Content: `Dạ chị {partner.name} ơi,
+
+Em xác nhận lại địa chỉ nhận hàng của chị là:
+📍 {partner.address}
+
+Chị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?`,
+                order: 2,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            },
+            {
+                Name: 'Thông báo giao hàng',
+                Content: `Dạ chị {partner.name} ơi,
+
+Đơn hàng #{order.code} của chị đã được giao cho đơn vị vận chuyển rồi ạ.
+
+Chị chú ý điện thoại để nhận hàng nha! 📦`,
+                order: 3,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            },
+            {
+                Name: 'Cảm ơn khách hàng',
+                Content: `Dạ cảm ơn chị {partner.name} đã ủng hộ shop ạ! 🙏❤️
+
+Chị dùng hàng có gì thắc mắc cứ inbox shop em hỗ trợ nha.
+
+Chúc chị một ngày vui vẻ! 😊`,
+                order: 4,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            }
+        ];
+
+        defaultTemplates.forEach(template => {
+            const docRef = templatesRef.doc();
+            batch.set(docRef, template);
+        });
+
+        await batch.commit();
+        this.log('✅ Seeded', defaultTemplates.length, 'default templates');
     }
 
     getTypeClass(typeId) {
@@ -2515,7 +2700,8 @@ class MessageTemplateManager {
 
         if (!modal || !body) return;
 
-        modal.style.display = 'flex';
+        // Use .active class for proper centering (see CSS: .message-modal-overlay.active)
+        modal.classList.add('active');
         body.innerHTML = `
             <div class="message-loading">
                 <i class="fas fa-spinner fa-spin"></i>
@@ -2552,7 +2738,7 @@ class MessageTemplateManager {
     closeHistoryModal() {
         const modal = document.getElementById('messageHistoryModal');
         if (modal) {
-            modal.style.display = 'none';
+            modal.classList.remove('active');
         }
     }
 
@@ -2893,6 +3079,203 @@ class MessageTemplateManager {
             this.removeFailedOrder(orderId);
         }
         return result;
+    }
+
+    /**
+     * Open quick comment reply modal for a failed order
+     * Called from the "Gửi lại" button in orders table
+     * @param {string} orderId - Order ID
+     */
+    async openQuickCommentReply(orderId) {
+        this.log('🔄 Opening quick comment reply for order:', orderId);
+
+        try {
+            // Show loading notification
+            if (window.notificationManager) {
+                window.notificationManager.info('Đang tải thông tin đơn hàng...', 2000);
+            }
+
+            // Fetch full order data
+            const fullOrderData = await this.fetchFullOrderData(orderId);
+            const raw = fullOrderData.raw;
+            const orderCode = raw.Code || orderId;
+
+            // Check if order has Facebook data for comment reply
+            if (!raw.Facebook_CommentId && !raw.Facebook_PostId) {
+                if (window.notificationManager) {
+                    window.notificationManager.warning(
+                        'Đơn này không có thông tin bình luận Facebook',
+                        4000,
+                        `Đơn: ${orderCode}`
+                    );
+                }
+                return;
+            }
+
+            // Create quick template selection modal
+            this._showQuickTemplateModal(orderId, orderCode, fullOrderData);
+
+        } catch (error) {
+            console.error('[QUICK-COMMENT] Error:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error(
+                    'Lỗi tải thông tin đơn hàng: ' + error.message,
+                    4000
+                );
+            }
+        }
+    }
+
+    /**
+     * Show quick template selection modal
+     */
+    _showQuickTemplateModal(orderId, orderCode, fullOrderData) {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('quickCommentModal');
+        if (existingModal) existingModal.remove();
+
+        // Get templates
+        const templates = this.templates || [];
+        const messengerTemplates = templates.filter(t =>
+            (t.TypeId || '').toLowerCase().includes('messenger') ||
+            (t.Type || '').toLowerCase().includes('messenger')
+        );
+
+        const templateOptions = messengerTemplates.length > 0 ? messengerTemplates : templates.slice(0, 10);
+
+        const modalHTML = `
+            <div id="quickCommentModal" class="message-modal-overlay active" style="z-index: 10002;">
+                <div class="message-modal" style="max-width: 500px; width: 90%;">
+                    <div class="message-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 16px 20px;">
+                        <h3 style="font-size: 16px;">
+                            <i class="fas fa-comment-dots"></i>
+                            Gửi tin nhắn qua Comment
+                        </h3>
+                        <button onclick="document.getElementById('quickCommentModal').remove()" class="message-modal-close">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="message-modal-body" style="padding: 20px;">
+                        <div style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                            <div style="font-weight: 600; color: #0369a1;">Đơn hàng: ${orderCode}</div>
+                            <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">
+                                ${fullOrderData.converted?.customerName || 'N/A'} - ${fullOrderData.converted?.phone || 'N/A'}
+                            </div>
+                        </div>
+
+                        <label style="display: block; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                            <i class="fas fa-file-alt"></i> Chọn mẫu tin nhắn:
+                        </label>
+                        <select id="quickTemplateSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: white;">
+                            ${templateOptions.map(t => `<option value="${t.Id}">${t.Name}</option>`).join('')}
+                        </select>
+
+                        <div id="quickTemplatePreview" style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; font-size: 13px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; color: #4b5563;">
+                            ${templateOptions[0]?.Content || 'Chọn mẫu tin nhắn...'}
+                        </div>
+                    </div>
+                    <div class="message-modal-footer" style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
+                        <button onclick="document.getElementById('quickCommentModal').remove()"
+                            style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                            Hủy
+                        </button>
+                        <button onclick="window.messageTemplateManager?._executeQuickCommentSend('${orderId}')"
+                            id="quickSendBtn"
+                            style="padding: 10px 20px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-paper-plane"></i> Gửi qua Comment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Add change event for template preview
+        const select = document.getElementById('quickTemplateSelect');
+        const preview = document.getElementById('quickTemplatePreview');
+        select?.addEventListener('change', () => {
+            const selectedTemplate = templateOptions.find(t => t.Id === select.value);
+            if (selectedTemplate && preview) {
+                // Replace placeholders with actual data for preview
+                let previewContent = this.replacePlaceholders(selectedTemplate.Content || '', fullOrderData.converted);
+                preview.textContent = previewContent;
+            }
+        });
+
+        // Trigger initial preview
+        if (select && templateOptions[0]) {
+            const initialPreview = this.replacePlaceholders(templateOptions[0].Content || '', fullOrderData.converted);
+            if (preview) preview.textContent = initialPreview;
+        }
+
+        // Store fullOrderData for send
+        this._quickCommentOrderData = fullOrderData;
+    }
+
+    /**
+     * Execute quick comment send
+     */
+    async _executeQuickCommentSend(orderId) {
+        const select = document.getElementById('quickTemplateSelect');
+        const sendBtn = document.getElementById('quickSendBtn');
+
+        if (!select || !this._quickCommentOrderData) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi: Thiếu dữ liệu', 3000);
+            }
+            return;
+        }
+
+        const selectedTemplate = (this.templates || []).find(t => t.Id === select.value);
+        if (!selectedTemplate) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Vui lòng chọn mẫu tin nhắn', 3000);
+            }
+            return;
+        }
+
+        // Disable button and show loading
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        }
+
+        try {
+            // Create error order object for _sendOrderViaCommentReply
+            const errorOrder = {
+                orderId: orderId,
+                code: this._quickCommentOrderData.raw?.Code || orderId
+            };
+
+            await this._sendOrderViaCommentReply(errorOrder, selectedTemplate.Content);
+
+            // Close modal
+            document.getElementById('quickCommentModal')?.remove();
+
+            if (window.notificationManager) {
+                window.notificationManager.success(
+                    'Đã gửi tin nhắn qua comment thành công!',
+                    3000,
+                    `Đơn: ${errorOrder.code}`
+                );
+            }
+
+        } catch (error) {
+            console.error('[QUICK-COMMENT] Send error:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error(
+                    'Lỗi gửi comment: ' + error.message,
+                    5000
+                );
+            }
+
+            // Re-enable button
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi qua Comment';
+            }
+        }
     }
 }
 

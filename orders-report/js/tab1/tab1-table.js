@@ -664,12 +664,17 @@ window.addEventListener('failedOrdersUpdated', (event) => {
 
         // Only update if state changed
         if (isFailed && !currentlyShowingFailed) {
-            // Mark as failed
+            // Mark as failed with quick fix button
             td.innerHTML = `
-                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #dc2626; font-size: 11px; font-weight: 500;">
+                <button onclick="window.messageTemplateManager?.openQuickCommentReply('${orderId}')"
+                    style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s;"
+                    onmouseover="this.style.background='linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)'; this.style.transform='scale(1.02)'"
+                    onmouseout="this.style.background='linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'; this.style.transform='scale(1)'"
+                    title="Click để gửi tin nhắn qua comment">
                     <i class="fas fa-exclamation-triangle" style="font-size: 10px;"></i>
-                    Cần gửi lại
-                </span>`;
+                    <span>Gửi lại</span>
+                    <i class="fas fa-comment-dots" style="font-size: 10px; margin-left: 2px;"></i>
+                </button>`;
             td.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
         } else if (!isFailed && currentlyShowingFailed) {
             // Clear failed state
@@ -693,9 +698,12 @@ window.addEventListener('failedOrdersUpdated', (event) => {
 
         if (isFailed && !currentlyShowingFailed) {
             badgeSpan.outerHTML = `
-                <span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i> Cần gửi
-                </span>`;
+                <button onclick="event.stopPropagation(); window.messageTemplateManager?.openQuickCommentReply('${orderId}')"
+                    style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #dc2626; font-size: 10px; font-weight: 500; cursor: pointer;"
+                    title="Click để gửi lại qua comment">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i>
+                    <span>Gửi lại</span>
+                </button>`;
             row.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
         } else if (!isFailed && currentlyShowingFailed) {
             badgeSpan.outerHTML = '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
