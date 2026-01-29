@@ -3961,7 +3961,19 @@
             }
 
             filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
-            console.log(`[HISTORY-V2] ✅ Loaded ${uploadHistoryRecordsV2.length} history records`);
+
+            // Enhanced logging with timestamp range for debugging
+            if (uploadHistoryRecordsV2.length > 0) {
+                const newest = new Date(uploadHistoryRecordsV2[0].timestamp);
+                const oldest = new Date(uploadHistoryRecordsV2[uploadHistoryRecordsV2.length - 1].timestamp);
+                console.log(`[HISTORY-V2] ✅ Loaded ${uploadHistoryRecordsV2.length} records`, {
+                    newest: newest.toLocaleString('vi-VN'),
+                    oldest: oldest.toLocaleString('vi-VN'),
+                    uploadIds: uploadHistoryRecordsV2.slice(0, 5).map(r => r.uploadId)
+                });
+            } else {
+                console.log('[HISTORY-V2] ✅ Loaded 0 history records');
+            }
 
             filterUploadHistoryV2();
 
@@ -5141,13 +5153,19 @@
 
             // Save to V2 database path
             const historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+            console.log('[HISTORY-V2-SAVE] Saving to path:', `${historyPath}/${uploadId}`);
             await database.ref(`${historyPath}/${uploadId}`).set(historyRecord);
 
             console.log('[HISTORY-V2-SAVE] ✅ Saved to V2 database:', uploadId);
+            return true;
 
         } catch (error) {
             console.error('[HISTORY-V2-SAVE] ❌ Error saving V2 history:', error);
-            // Don't throw - history is for audit, not critical
+            // Show warning notification so user knows history wasn't saved
+            if (window.showNotification) {
+                showNotification('⚠️ Cảnh báo: Không thể lưu lịch sử upload. Vui lòng kiểm tra lại.', 'warning');
+            }
+            return false;
         }
     }
 
