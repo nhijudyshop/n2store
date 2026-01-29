@@ -1393,17 +1393,43 @@ function renderTransactionRow(row) {
             </div>
         `;
     } else {
-        // NORMAL: Show customer name or "Chưa có"
-        customerNameCell = `
-            <div style="display: flex; align-items: center; gap: 5px;">
-                <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
-                ${authManager?.hasDetailedPermission('balance-history', 'edit') ? `
-                    <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', '${customerDisplay.name}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
-                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
-                    </button>
-                ` : ''}
-            </div>
-        `;
+        // NORMAL: Show customer name with clickable name selector (if has phone)
+        // customer_aliases comes from backend JOIN
+        const aliases = row.customer_aliases || [];
+        const aliasesJson = JSON.stringify(aliases).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const hasAliases = aliases.length > 1 || (row.linked_customer_phone && customerDisplay.hasInfo);
+
+        if (hasAliases && row.linked_customer_phone) {
+            // Has phone + potential aliases: show clickable name
+            customerNameCell = `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span class="clickable-name"
+                          onclick="showNameSelector(${row.id}, '${row.linked_customer_phone}', '${customerDisplay.name.replace(/'/g, "\\'")}', ${aliasesJson})"
+                          title="Click để chọn tên khác"
+                          style="cursor: pointer; color: #3b82f6; border-bottom: 1px dashed #3b82f6;">
+                        ${customerDisplay.name}
+                        <i data-lucide="chevron-down" style="width: 12px; height: 12px; vertical-align: middle;"></i>
+                    </span>
+                    ${authManager?.hasDetailedPermission('balance-history', 'edit') ? `
+                        <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', '${customerDisplay.name}')" title="Chỉnh sửa thông tin" style="padding: 4px 6px;">
+                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            // No aliases or no phone: show normal name with edit button
+            customerNameCell = `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="${!customerDisplay.hasInfo ? 'color: #999; font-style: italic;' : ''}">${customerDisplay.name}</span>
+                    ${authManager?.hasDetailedPermission('balance-history', 'edit') ? `
+                        <button class="btn btn-secondary btn-sm" onclick="editTransactionCustomer(${row.id}, '${row.linked_customer_phone || ''}', '${customerDisplay.name}')" title="${customerDisplay.hasInfo ? 'Chỉnh sửa thông tin' : 'Thêm thông tin khách hàng'}" style="padding: 4px 6px;">
+                            <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }
     }
 
     // Build phone cell content
@@ -4470,6 +4496,254 @@ function setupVerificationFilterChips() {
         });
     });
 }
+
+// =====================================================
+// NAME SELECTOR POPUP
+// For selecting different reference names (Facebook nicknames)
+// =====================================================
+
+/**
+ * Show popup to select a different display name for the transaction
+ * @param {number} transactionId - The transaction ID
+ * @param {string} phone - Customer phone number
+ * @param {string} currentName - Current display name
+ * @param {Array} aliases - Array of alias names from backend
+ */
+function showNameSelector(transactionId, phone, currentName, aliases = []) {
+    console.log('[NAME-SELECTOR] Showing selector for TX:', transactionId, 'Phone:', phone, 'Current:', currentName, 'Aliases:', aliases);
+
+    // Remove any existing popup
+    closeNameSelector();
+
+    // Ensure aliases is an array
+    if (!Array.isArray(aliases)) {
+        try {
+            aliases = JSON.parse(aliases) || [];
+        } catch (e) {
+            aliases = [];
+        }
+    }
+
+    // Build popup content
+    let optionsHtml = '';
+
+    if (aliases.length > 0) {
+        // Show alias options
+        optionsHtml = aliases.map((alias, index) => {
+            const isSelected = alias === currentName;
+            return `
+                <div class="name-option ${isSelected ? 'selected' : ''}"
+                     onclick="selectDisplayName(${transactionId}, '${alias.replace(/'/g, "\\'")}', '${phone}')">
+                    <span class="name-text">${alias}</span>
+                    ${isSelected ? '<i data-lucide="check" class="check-icon"></i>' : ''}
+                </div>
+            `;
+        }).join('');
+    } else {
+        optionsHtml = '<div class="no-aliases">Chưa có tên tham khảo nào</div>';
+    }
+
+    // Add custom input option
+    optionsHtml += `
+        <div class="name-option custom-input-option">
+            <input type="text" id="customNameInput" placeholder="Nhập tên mới..."
+                   onkeypress="if(event.key==='Enter') submitCustomName(${transactionId}, '${phone}')"
+                   style="flex: 1; border: none; background: transparent; outline: none; font-size: 14px;">
+            <button onclick="submitCustomName(${transactionId}, '${phone}')"
+                    class="btn btn-sm btn-primary"
+                    style="padding: 4px 8px; margin-left: 8px;">
+                <i data-lucide="plus" style="width: 14px; height: 14px;"></i>
+            </button>
+        </div>
+    `;
+
+    // Create popup element
+    const popup = document.createElement('div');
+    popup.id = 'nameSelectorPopup';
+    popup.className = 'name-selector-popup';
+    popup.innerHTML = `
+        <div class="popup-header">
+            <span>Chọn tên tham khảo</span>
+            <button onclick="closeNameSelector()" class="close-btn">
+                <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+            </button>
+        </div>
+        <div class="popup-body">
+            ${optionsHtml}
+        </div>
+        <div class="popup-footer">
+            <span class="phone-hint">SĐT: ${phone}</span>
+        </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Position popup near the clicked element
+    positionPopup(popup, event);
+
+    // Re-render Lucide icons
+    if (window.lucide) {
+        window.lucide.createIcons();
+    }
+
+    // Close popup when clicking outside
+    setTimeout(() => {
+        document.addEventListener('click', handleOutsideClick);
+    }, 100);
+}
+
+/**
+ * Position the popup near the triggering event
+ */
+function positionPopup(popup, event) {
+    const rect = event.target.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+    popup.style.position = 'absolute';
+    popup.style.top = (rect.bottom + scrollTop + 5) + 'px';
+    popup.style.left = (rect.left + scrollLeft) + 'px';
+    popup.style.zIndex = '10000';
+
+    // Ensure popup doesn't go off-screen
+    requestAnimationFrame(() => {
+        const popupRect = popup.getBoundingClientRect();
+        if (popupRect.right > window.innerWidth) {
+            popup.style.left = (window.innerWidth - popupRect.width - 10 + scrollLeft) + 'px';
+        }
+        if (popupRect.bottom > window.innerHeight) {
+            popup.style.top = (rect.top + scrollTop - popupRect.height - 5) + 'px';
+        }
+    });
+}
+
+/**
+ * Handle click outside popup to close it
+ */
+function handleOutsideClick(event) {
+    const popup = document.getElementById('nameSelectorPopup');
+    if (popup && !popup.contains(event.target) && !event.target.closest('.clickable-name')) {
+        closeNameSelector();
+    }
+}
+
+/**
+ * Close the name selector popup
+ */
+function closeNameSelector() {
+    const popup = document.getElementById('nameSelectorPopup');
+    if (popup) {
+        popup.remove();
+    }
+    document.removeEventListener('click', handleOutsideClick);
+}
+
+/**
+ * Select a display name for the transaction
+ * @param {number} transactionId - The transaction ID
+ * @param {string} newName - The selected name
+ * @param {string} phone - Customer phone number
+ */
+async function selectDisplayName(transactionId, newName, phone) {
+    console.log('[NAME-SELECTOR] Selecting name:', newName, 'for TX:', transactionId);
+
+    try {
+        const response = await fetch(`${API_BASE}/sepay/transaction/${transactionId}/display-name`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                display_name: newName,
+                add_to_aliases: true
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('[NAME-SELECTOR] Updated successfully');
+
+            // Close popup
+            closeNameSelector();
+
+            // Update the row in the table
+            updateTransactionNameInTable(transactionId, newName);
+
+            // Show success notification
+            if (window.showNotification) {
+                window.showNotification('Đã cập nhật tên tham khảo', 'success');
+            }
+        } else {
+            console.error('[NAME-SELECTOR] Failed:', result.error);
+            if (window.showNotification) {
+                window.showNotification('Lỗi: ' + result.error, 'error');
+            }
+        }
+    } catch (error) {
+        console.error('[NAME-SELECTOR] Error:', error);
+        if (window.showNotification) {
+            window.showNotification('Lỗi kết nối server', 'error');
+        }
+    }
+}
+
+/**
+ * Submit custom name input
+ */
+async function submitCustomName(transactionId, phone) {
+    const input = document.getElementById('customNameInput');
+    const newName = input?.value?.trim();
+
+    if (!newName) {
+        if (window.showNotification) {
+            window.showNotification('Vui lòng nhập tên', 'warning');
+        }
+        return;
+    }
+
+    await selectDisplayName(transactionId, newName, phone);
+}
+
+/**
+ * Update the customer name in the table row without full reload
+ */
+function updateTransactionNameInTable(transactionId, newName) {
+    const row = document.querySelector(`tr[data-id="${transactionId}"]`);
+    if (!row) {
+        // If row not found, reload data
+        loadData(false);
+        return;
+    }
+
+    // Find the name cell and update it
+    const nameCell = row.querySelector('.clickable-name');
+    if (nameCell) {
+        // Update the text content but preserve the icon
+        const textSpan = nameCell.querySelector('.name-text') || nameCell.childNodes[0];
+        if (textSpan) {
+            if (textSpan.nodeType === Node.TEXT_NODE) {
+                textSpan.textContent = newName + ' ';
+            } else {
+                textSpan.textContent = newName;
+            }
+        } else {
+            // Fallback: just update the text
+            const icon = nameCell.querySelector('i');
+            nameCell.textContent = newName + ' ';
+            if (icon) nameCell.appendChild(icon);
+        }
+    } else {
+        // Reload the row
+        loadData(false);
+    }
+}
+
+// Export name selector functions for global access
+window.showNameSelector = showNameSelector;
+window.closeNameSelector = closeNameSelector;
+window.selectDisplayName = selectDisplayName;
+window.submitCustomName = submitCustomName;
 
 // Export for global access
 window.loadVerificationStats = loadVerificationStats;

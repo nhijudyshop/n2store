@@ -14,7 +14,7 @@
  * =====================================================
  */
 
-const { searchCustomerByPhone, normalizePhone } = require('./tpos-customer-service');
+const { searchCustomerByPhone, searchAllCustomersByPhone, normalizePhone } = require('./tpos-customer-service');
 
 // =====================================================
 // CUSTOMER CREATION FUNCTIONS
@@ -264,11 +264,210 @@ async function getCustomerByPhone(db, phone, forceRefresh = false) {
     return customer;
 }
 
+/**
+ * Collect all names from TPOS for a phone number and update aliases
+ *
+ * @param {Object} db - Database connection
+ * @param {string} phone - Phone number
+ * @returns {Promise<{success: boolean, allNames: string[], primaryName: string|null}>}
+ */
+async function collectAllNamesFromTPOS(db, phone) {
+    const normalized = normalizePhone(phone);
+
+    if (!normalized) {
+        return { success: false, allNames: [], primaryName: null };
+    }
+
+    try {
+        // Fetch ALL customers with this phone from TPOS
+        const tposResult = await searchAllCustomersByPhone(normalized);
+
+        if (!tposResult.success || !tposResult.customers || tposResult.customers.length === 0) {
+            console.log(`[CUSTOMER-SERVICE] No TPOS customers found for ${normalized}`);
+            return { success: true, allNames: [], primaryName: null };
+        }
+
+        // Collect all unique names
+        const allNames = [];
+        for (const customer of tposResult.customers) {
+            if (customer.name && customer.name.trim() !== '' && !allNames.includes(customer.name)) {
+                allNames.push(customer.name);
+            }
+        }
+
+        console.log(`[CUSTOMER-SERVICE] Collected ${allNames.length} unique names for ${normalized}: ${allNames.join(', ')}`);
+
+        // Update customer aliases in database
+        if (allNames.length > 0) {
+            // Get current aliases
+            const currentResult = await db.query(
+                'SELECT aliases FROM customers WHERE phone = $1',
+                [normalized]
+            );
+
+            if (currentResult.rows.length > 0) {
+                const currentAliases = currentResult.rows[0].aliases || [];
+                const currentAliasesArray = Array.isArray(currentAliases) ? currentAliases : [];
+
+                // Merge new names with existing aliases (keep unique)
+                const mergedAliases = [...new Set([...currentAliasesArray, ...allNames])];
+
+                await db.query(
+                    'UPDATE customers SET aliases = $2, name = COALESCE(name, $3), updated_at = CURRENT_TIMESTAMP WHERE phone = $1',
+                    [normalized, JSON.stringify(mergedAliases), allNames[0]]
+                );
+
+                console.log(`[CUSTOMER-SERVICE] Updated aliases for ${normalized}: ${mergedAliases.join(', ')}`);
+            }
+        }
+
+        return {
+            success: true,
+            allNames,
+            primaryName: allNames[0] || null
+        };
+    } catch (error) {
+        console.error(`[CUSTOMER-SERVICE] Error collecting names for ${normalized}:`, error.message);
+        return { success: false, allNames: [], primaryName: null, error: error.message };
+    }
+}
+
+/**
+ * Get or create customer with ALL names from TPOS
+ * This is the enhanced version that collects all aliases
+ *
+ * @param {Object} db - Database connection
+ * @param {string} phone - Customer phone number
+ * @param {Object|null} tposData - TPOS customer data (optional, will fetch all if not provided)
+ * @returns {Promise<{customerId: number, created: boolean, customerName: string, allNames: string[]}>}
+ */
+async function getOrCreateCustomerWithAliases(db, phone, tposData = null) {
+    const normalized = normalizePhone(phone);
+
+    if (!normalized) {
+        throw new Error('Invalid phone number');
+    }
+
+    // 1. Check if customer exists
+    let result = await db.query('SELECT id, name, aliases FROM customers WHERE phone = $1', [normalized]);
+
+    // 2. Fetch ALL names from TPOS
+    let allNames = [];
+    if (!tposData) {
+        console.log(`[CUSTOMER-SERVICE] Fetching ALL names from TPOS for ${normalized}`);
+        try {
+            const tposResult = await searchAllCustomersByPhone(normalized);
+
+            if (tposResult.success && tposResult.customers && tposResult.customers.length > 0) {
+                // Collect all unique names
+                for (const customer of tposResult.customers) {
+                    if (customer.name && customer.name.trim() !== '' && !allNames.includes(customer.name)) {
+                        allNames.push(customer.name);
+                    }
+                }
+                // Use first (most recent) customer as primary tposData
+                tposData = tposResult.customers[0];
+                console.log(`[CUSTOMER-SERVICE] Got ${allNames.length} names from TPOS: ${allNames.join(', ')}`);
+            }
+        } catch (tposError) {
+            console.error(`[CUSTOMER-SERVICE] TPOS fetch failed for ${normalized}:`, tposError.message);
+        }
+    } else if (tposData.name) {
+        // Single tposData provided - add to allNames
+        allNames = [tposData.name];
+    }
+
+    if (result.rows.length > 0) {
+        const existing = result.rows[0];
+        const currentAliases = existing.aliases || [];
+        const currentAliasesArray = Array.isArray(currentAliases) ? currentAliases : [];
+
+        // Merge new names with existing aliases
+        const mergedAliases = [...new Set([...currentAliasesArray, ...allNames])];
+
+        // Customer exists - update with TPOS data and aliases
+        if (tposData && tposData.id) {
+            await db.query(`
+                UPDATE customers SET
+                    name = COALESCE($2, name),
+                    address = COALESCE($3, address),
+                    tpos_id = COALESCE($4, tpos_id),
+                    tpos_data = COALESCE($5, tpos_data),
+                    status = COALESCE($6, status),
+                    aliases = $7,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE phone = $1
+            `, [
+                normalized,
+                tposData.name,
+                tposData.address,
+                tposData.id?.toString(),
+                JSON.stringify(tposData),
+                tposData.status || null,
+                JSON.stringify(mergedAliases)
+            ]);
+            console.log(`[CUSTOMER-SERVICE] Updated customer ${normalized} with ${mergedAliases.length} aliases`);
+        } else if (mergedAliases.length > currentAliasesArray.length) {
+            // Just update aliases if no TPOS ID
+            await db.query(
+                'UPDATE customers SET aliases = $2, updated_at = CURRENT_TIMESTAMP WHERE phone = $1',
+                [normalized, JSON.stringify(mergedAliases)]
+            );
+        }
+
+        return {
+            customerId: existing.id,
+            created: false,
+            customerName: tposData?.name || existing.name,
+            allNames: mergedAliases
+        };
+    }
+
+    // 3. Customer not exists - create with aliases
+    const name = tposData?.name || allNames[0] || 'Khách hàng mới';
+    const address = tposData?.address || null;
+    const tposId = tposData?.id?.toString() || null;
+    const tposDataJson = tposData ? JSON.stringify(tposData) : null;
+    const status = tposData?.status || null;
+    const aliasesJson = JSON.stringify(allNames.length > 0 ? allNames : (name !== 'Khách hàng mới' ? [name] : []));
+
+    result = await db.query(`
+        INSERT INTO customers (phone, name, address, tpos_id, tpos_data, status, aliases, tier, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'new', CURRENT_TIMESTAMP)
+        ON CONFLICT (phone) DO UPDATE SET
+            name = COALESCE(EXCLUDED.name, customers.name),
+            address = COALESCE(EXCLUDED.address, customers.address),
+            tpos_id = COALESCE(EXCLUDED.tpos_id, customers.tpos_id),
+            tpos_data = COALESCE(EXCLUDED.tpos_data, customers.tpos_data),
+            status = COALESCE(EXCLUDED.status, customers.status),
+            aliases = CASE
+                WHEN customers.aliases IS NULL OR customers.aliases = '[]'::jsonb
+                THEN EXCLUDED.aliases
+                ELSE customers.aliases || EXCLUDED.aliases
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        RETURNING id, name, aliases
+    `, [normalized, name, address, tposId, tposDataJson, status, aliasesJson]);
+
+    const newCustomer = result.rows[0];
+    console.log(`[CUSTOMER-SERVICE] Created customer: ${name} (${normalized}) with ${allNames.length} aliases`);
+
+    return {
+        customerId: newCustomer.id,
+        created: true,
+        customerName: newCustomer.name,
+        allNames: newCustomer.aliases || allNames
+    };
+}
+
 module.exports = {
     getOrCreateCustomerFromTPOS,
     updateCustomerFromTPOS,
     ensureCustomerWithTPOS,
     batchEnsureCustomers,
     getCustomerByPhone,
-    normalizePhone
+    normalizePhone,
+    // New functions for aliases support
+    collectAllNamesFromTPOS,
+    getOrCreateCustomerWithAliases
 };
