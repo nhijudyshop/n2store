@@ -650,7 +650,20 @@
                 </button>
             `;
         }
-        // Note: For non-confirmed/non-paid statuses (Nháp, Huỷ bỏ, etc.), no button is shown
+
+        // X Cancel button for confirmed/paid invoices - to request cancellation
+        if (canSendBill) {
+            html += `
+                <button type="button"
+                    class="btn-cancel-order-main"
+                    data-order-id="${order.Id}"
+                    onclick="window.showCancelOrderModalFromMain('${order.Id}'); event.stopPropagation();"
+                    title="Nhờ hủy đơn"
+                    style="background: #dc2626; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; gap: 2px; margin-left: 2px;">
+                    ✕
+                </button>
+            `;
+        }
         html += `</div>`;
 
         // Row 2: StateCode text (cross-check status like Chưa đối soát, Hoàn thành đối soát)

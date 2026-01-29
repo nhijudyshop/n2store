@@ -2597,7 +2597,8 @@ const defaultBillSettings = {
     codBorder: '#f59e0b',
     // Send behavior
     previewBeforeSend: true,  // Xem trước bill trước khi gửi (mặc định: bật)
-    preGenerateBills: false   // Tự động tạo trước hình bill sau khi lưu đơn (mặc định: tắt)
+    preGenerateBills: false,  // Tự động tạo trước hình bill sau khi lưu đơn (mặc định: tắt)
+    autoSendOnSuccess: false  // Tự động gửi bill khi đơn thành công (mặc định: tắt)
 };
 
 /**
@@ -2694,6 +2695,10 @@ function loadBillSettingsToForm() {
     if (preGenerateCheckbox) {
         preGenerateCheckbox.checked = settings.preGenerateBills === true; // default: false
     }
+    const autoSendCheckbox = document.getElementById('billAutoSendOnSuccess');
+    if (autoSendCheckbox) {
+        autoSendCheckbox.checked = settings.autoSendOnSuccess === true; // default: false
+    }
     // Style
     document.getElementById('billFontShopName').value = settings.fontShopName || 18;
     document.getElementById('billFontTitle').value = settings.fontTitle || 16;
@@ -2711,6 +2716,7 @@ function loadBillSettingsToForm() {
 function saveBillTemplateSettings() {
     const previewCheckbox = document.getElementById('billPreviewBeforeSend');
     const preGenerateCheckbox = document.getElementById('billPreGenerateBills');
+    const autoSendCheckbox = document.getElementById('billAutoSendOnSuccess');
     const settings = {
         // General
         shopName: document.getElementById('billShopName').value.trim(),
@@ -2735,6 +2741,7 @@ function saveBillTemplateSettings() {
         // Send behavior
         previewBeforeSend: previewCheckbox ? previewCheckbox.checked : true,
         preGenerateBills: preGenerateCheckbox ? preGenerateCheckbox.checked : false,
+        autoSendOnSuccess: autoSendCheckbox ? autoSendCheckbox.checked : false,
         // Style
         fontShopName: parseInt(document.getElementById('billFontShopName').value) || 18,
         fontTitle: parseInt(document.getElementById('billFontTitle').value) || 16,

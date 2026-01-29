@@ -699,7 +699,9 @@
      * @param {array} successOrders - Array of success order data
      */
     async function autoSendBillsIfEnabled(successOrders) {
-        if (!WorkflowSettings.autoSendBillOnSuccess) {
+        // Check setting from Bill Template Settings
+        const billSettings = window.getBillTemplateSettings ? window.getBillTemplateSettings() : {};
+        if (!billSettings.autoSendOnSuccess) {
             console.log('[WORKFLOW] Auto send bill is disabled');
             return;
         }
@@ -748,6 +750,184 @@
     // =====================================================
 
     /**
+     * Show cancel order modal from main table
+     * @param {string} orderId - SaleOnlineOrder ID (same as saleOnlineId in main table)
+     */
+    function showCancelOrderModalFromMain(orderId) {
+        if (!orderId) {
+            window.notificationManager?.error('Không tìm thấy Order ID');
+            return;
+        }
+
+        // Find order from displayedData
+        const orderData = window.displayedData?.find(o => o.Id === orderId);
+        if (!orderData) {
+            window.notificationManager?.error('Không tìm thấy dữ liệu đơn hàng');
+            return;
+        }
+
+        // Get invoice data from InvoiceStatusStore
+        const invoiceData = window.InvoiceStatusStore?.get(orderId);
+        if (!invoiceData) {
+            window.notificationManager?.error('Không tìm thấy dữ liệu phiếu bán hàng');
+            return;
+        }
+
+        // Create a compatible order object
+        const order = {
+            Id: orderId,
+            SaleOnlineIds: [orderId], // Main table: orderId IS the SaleOnlineId
+            Reference: orderData.Code || orderData.Reference,
+            Number: invoiceData.Number,
+            PartnerDisplayName: orderData.PartnerDisplayName || orderData.Partner?.PartnerDisplayName,
+            ShowState: invoiceData.ShowState,
+            Tags: orderData.Tags
+        };
+
+        // Store in a temporary global for confirmCancelOrder to access
+        window._cancelOrderFromMain = order;
+
+        // Create modal HTML (similar to showCancelOrderModal but for main table)
+        const modalHtml = `
+            <div id="cancelOrderModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
+                <div class="modal-content" style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h3 style="margin: 0; color: #dc2626;">
+                            <i class="fas fa-times-circle"></i> Nhờ Hủy Đơn
+                        </h3>
+                        <button onclick="closeCancelOrderModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
+                    </div>
+
+                    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                        <p style="margin: 0 0 8px 0; font-weight: 600;">Thông tin đơn:</p>
+                        <p style="margin: 0; font-size: 14px;">
+                            <strong>Mã:</strong> ${order.Reference || 'N/A'}<br>
+                            <strong>Số phiếu:</strong> ${order.Number || 'N/A'}<br>
+                            <strong>Khách:</strong> ${order.PartnerDisplayName || 'N/A'}<br>
+                            <strong>Trạng thái:</strong> ${order.ShowState || 'N/A'}
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Lý do hủy đơn:</label>
+                        <textarea id="cancelReasonInput" rows="3" placeholder="Nhập lý do khách hủy / đổi ý..." style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: vertical; font-size: 14px;"></textarea>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="closeCancelOrderModal()" style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; border-radius: 8px; cursor: pointer;">
+                            Đóng
+                        </button>
+                        <button onclick="confirmCancelOrderFromMain()" style="padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                            <i class="fas fa-check"></i> Xác nhận hủy
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Remove existing modal if any
+        const existingModal = document.getElementById('cancelOrderModal');
+        if (existingModal) existingModal.remove();
+
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    /**
+     * Confirm cancel order from main table
+     */
+    async function confirmCancelOrderFromMain() {
+        const reason = document.getElementById('cancelReasonInput')?.value?.trim();
+        if (!reason) {
+            window.notificationManager?.warning('Vui lòng nhập lý do hủy đơn');
+            return;
+        }
+
+        const order = window._cancelOrderFromMain;
+        if (!order) {
+            window.notificationManager?.error('Không tìm thấy dữ liệu đơn hủy');
+            closeCancelOrderModal();
+            return;
+        }
+
+        const saleOnlineId = order.SaleOnlineIds?.[0];
+        const invoiceData = window.InvoiceStatusStore?.get(saleOnlineId);
+
+        if (!invoiceData) {
+            window.notificationManager?.error('Không tìm thấy dữ liệu phiếu bán hàng');
+            closeCancelOrderModal();
+            return;
+        }
+
+        try {
+            // Save to delete store
+            await InvoiceStatusDeleteStore.add(saleOnlineId, {
+                ...invoiceData,
+                ...order,
+                SaleOnlineId: saleOnlineId
+            }, reason);
+
+            // Re-add "OK + NV" tag
+            // Parse current tags
+            let currentTags = [];
+            try {
+                if (typeof order.Tags === 'string') {
+                    currentTags = JSON.parse(order.Tags);
+                } else if (Array.isArray(order.Tags)) {
+                    currentTags = order.Tags;
+                }
+            } catch (e) {
+                currentTags = [];
+            }
+
+            // Find OK tag from current tags or from user
+            let okTag = currentTags.find(t => (t.Name || '').toUpperCase().startsWith('OK '));
+
+            if (!okTag) {
+                // Try to find from user's current identifier
+                const authState = window.authManager?.getAuthState();
+                const username = authState?.username || '';
+                if (username) {
+                    okTag = window.availableTags?.find(t =>
+                        (t.Name || '').toUpperCase() === `OK ${username}`.toUpperCase()
+                    );
+                }
+            }
+
+            if (okTag) {
+                console.log(`[WORKFLOW] Re-adding tag "${okTag.Name}" to cancelled order from main table`);
+                await addTagToOrder(saleOnlineId, {
+                    Id: okTag.Id,
+                    Name: okTag.Name,
+                    Color: okTag.Color
+                });
+            }
+
+            window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
+            closeCancelOrderModal();
+
+            // Update main table UI
+            const cell = document.querySelector(`.btn-cancel-order-main[data-order-id="${order.Id}"]`)?.closest('td');
+            if (cell) {
+                const cancelBtn = cell.querySelector('.btn-cancel-order-main');
+                if (cancelBtn) {
+                    cancelBtn.innerHTML = '✓';
+                    cancelBtn.style.background = '#9ca3af';
+                    cancelBtn.disabled = true;
+                    cancelBtn.title = 'Đã yêu cầu hủy';
+                }
+            }
+
+            // Clear temp data
+            delete window._cancelOrderFromMain;
+
+        } catch (error) {
+            console.error('[WORKFLOW] Error saving cancel order:', error);
+            window.notificationManager?.error('Lỗi lưu yêu cầu hủy đơn');
+        }
+    }
+
+    /**
      * Add cancel button to success orders table row
      * Called when rendering success orders
      */
@@ -769,43 +949,6 @@
     }
 
 
-    /**
-     * Inject auto send bill toggle into Bill Settings modal
-     */
-    function injectAutoSendBillToggle() {
-        // Find the bill settings modal content
-        const billSettingsModal = document.getElementById('billSettingsModal');
-        if (!billSettingsModal) return;
-
-        // Check if already injected
-        if (document.getElementById('autoSendBillToggle')) return;
-
-        // Find insertion point (after existing settings)
-        const modalBody = billSettingsModal.querySelector('.modal-body');
-        if (!modalBody) return;
-
-        const toggleHtml = `
-            <div class="setting-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-                <h4 style="margin: 0 0 12px 0; color: #374151; font-size: 14px;">
-                    <i class="fas fa-paper-plane"></i> Tự động gửi bill
-                </h4>
-                <label class="toggle-switch" style="display: flex; align-items: center; cursor: pointer;">
-                    <input type="checkbox" id="autoSendBillToggle"
-                           ${WorkflowSettings.autoSendBillOnSuccess ? 'checked' : ''}
-                           onchange="window.WorkflowSettings.autoSendBillOnSuccess = this.checked"
-                           style="margin-right: 8px;">
-                    <span>Tự động gửi bill sau khi đơn "Đã thanh toán" hoặc "Đã xác nhận"</span>
-                </label>
-                <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">
-                    Mặc định: Tắt. Khi bật sẽ gửi bill ngay sau khi đi đơn thành công.
-                </p>
-            </div>
-        `;
-
-        modalBody.insertAdjacentHTML('beforeend', toggleHtml);
-        console.log('[WORKFLOW] Injected auto send bill toggle into Bill Settings');
-    }
-
     // =====================================================
     // INITIALIZATION & EXPORTS
     // =====================================================
@@ -813,9 +956,6 @@
     async function initWorkflow() {
         await InvoiceStatusDeleteStore.init();
         console.log('[WORKFLOW] Fast Sale Workflow initialized');
-
-        // Try to inject toggle after a delay (modal may not exist yet)
-        setTimeout(injectAutoSendBillToggle, 2000);
     }
 
     // Initialize when DOM ready
@@ -829,8 +969,10 @@
     window.InvoiceStatusDeleteStore = InvoiceStatusDeleteStore;
     window.WorkflowSettings = WorkflowSettings;
     window.showCancelOrderModal = showCancelOrderModal;
+    window.showCancelOrderModalFromMain = showCancelOrderModalFromMain;
     window.closeCancelOrderModal = closeCancelOrderModal;
     window.confirmCancelOrder = confirmCancelOrder;
+    window.confirmCancelOrderFromMain = confirmCancelOrderFromMain;
     window.handleFailedOrder = handleFailedOrder;
     window.processFailedOrders = processFailedOrders;
     window.processSuccessOrders = processSuccessOrders;
