@@ -321,8 +321,9 @@ function performTableSearch() {
                 const orderTags = JSON.parse(order.Tags);
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
 
-                // Check if the order has ANY of the selected tags (OR logic)
-                return orderTags.some(tag => selectedTags.includes(String(tag.Id)));
+                // Check if the order has ALL of the selected tags (AND logic)
+                const orderTagIds = orderTags.map(tag => String(tag.Id));
+                return selectedTags.every(selectedId => orderTagIds.includes(selectedId));
             } catch (e) {
                 return false;
             }

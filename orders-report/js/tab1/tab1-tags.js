@@ -1225,6 +1225,20 @@ async function saveOrderTags() {
 // MULTI-SELECT TAG FILTER FUNCTIONS
 // =====================================================
 
+/**
+ * Remove Vietnamese diacritics for search
+ * Example: "GIẢM GIÁ" -> "giam gia", "CHỜ HÀNG VỀ" -> "cho hang ve"
+ */
+function removeVietnameseDiacritics(str) {
+    if (!str) return '';
+    return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase();
+}
+
 // Store selected tag IDs (multi-select)
 const SELECTED_TAGS_KEY = 'orderTableSelectedTags';
 const EXCLUDED_TAGS_FILTER_KEY = 'orderTableExcludedTags';
@@ -1303,13 +1317,13 @@ window.populateTagFilterOptions = function(searchTerm = '') {
 
     const tags = window.availableTags || [];
     const selectedTags = window.getSelectedTagFilters();
-    const search = searchTerm.toLowerCase().trim();
+    const search = removeVietnameseDiacritics(searchTerm.trim());
 
-    // Filter tags by search term
+    // Filter tags by search term (diacritic-free matching)
     let filteredTags = tags;
     if (search) {
         filteredTags = tags.filter(tag =>
-            (tag.Name || '').toLowerCase().includes(search)
+            removeVietnameseDiacritics(tag.Name || '').includes(search)
         );
     }
 
@@ -1553,13 +1567,13 @@ window.populateExcludeTagFilterOptions = function(searchTerm = '') {
 
     const tags = window.availableTags || [];
     const excludedTags = window.getExcludedTagFilters();
-    const search = searchTerm.toLowerCase().trim();
+    const search = removeVietnameseDiacritics(searchTerm.trim());
 
-    // Filter tags by search term
+    // Filter tags by search term (diacritic-free matching)
     let filteredTags = tags;
     if (search) {
         filteredTags = tags.filter(tag =>
-            (tag.Name || '').toLowerCase().includes(search)
+            removeVietnameseDiacritics(tag.Name || '').includes(search)
         );
     }
 
