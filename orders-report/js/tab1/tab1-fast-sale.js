@@ -980,6 +980,13 @@ function smartSelectCarrierForRow(select, address, extraAddress = null) {
         return;
     }
 
+    // If address is detected as province (not HCM/Hanoi), select SHIP TỈNH immediately
+    if (districtInfo.isProvince) {
+        console.log('[FAST-SALE] Address is in province:', districtInfo.cityName, '- selecting SHIP TỈNH');
+        selectCarrierByName(select, 'SHIP TỈNH', false);
+        return;
+    }
+
     // Find matching carrier
     const matchedCarrier = findMatchingCarrier(select, districtInfo);
 

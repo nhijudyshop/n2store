@@ -805,6 +805,16 @@ function smartSelectDeliveryPartner(address, extraAddress = null) {
         return;
     }
 
+    // If address is detected as province (not HCM/Hanoi), select SHIP TỈNH immediately
+    if (districtInfo.isProvince) {
+        console.log('[SMART-DELIVERY] Address is in province, selecting SHIP TỈNH');
+        selectCarrierByName(select, 'SHIP TỈNH', false);
+        if (window.notificationManager) {
+            window.notificationManager.success(`Tự động chọn: SHIP TỈNH (${districtInfo.cityName || 'tỉnh'})`, 2000);
+        }
+        return;
+    }
+
     // Try to find matching carrier based on district
     const matchedCarrier = findMatchingCarrier(select, districtInfo);
 
@@ -825,7 +835,9 @@ function smartSelectDeliveryPartner(address, extraAddress = null) {
 
 /**
  * Extract district information from address string or ExtraAddress object
- * @returns {object|null} - { districtName, districtNumber, wardName, cityName }
+ * IMPORTANT: Reads address from END to START to correctly identify province/city first
+ * This prevents false matches like "ấp bình thạnh" being matched as "Bình Thạnh" district
+ * @returns {object|null} - { districtName, districtNumber, wardName, cityName, isProvince }
  */
 function extractDistrictFromAddress(address, extraAddress) {
     let result = {
@@ -833,6 +845,7 @@ function extractDistrictFromAddress(address, extraAddress) {
         districtNumber: null,
         wardName: null,
         cityName: null,
+        isProvince: false, // true if address is outside HCM/Hanoi
         originalText: address
     };
 
@@ -851,13 +864,56 @@ function extractDistrictFromAddress(address, extraAddress) {
         }
         if (extraAddress.City?.name) {
             result.cityName = extraAddress.City.name;
+            // Check if city is a province (not HCM or Hanoi)
+            const cityNorm = extraAddress.City.name.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (!cityNorm.includes('ho chi minh') && !cityNorm.includes('ha noi') &&
+                !cityNorm.includes('hcm') && !cityNorm.includes('sai gon')) {
+                result.isProvince = true;
+                console.log('[SMART-DELIVERY] ExtraAddress indicates province:', extraAddress.City.name);
+            }
         }
     }
 
-    // Also parse from address string as fallback/supplement
+    // Parse from address string - READ FROM END TO START
     if (address) {
         const normalizedAddress = address.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics for matching
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics
+
+        // List of provinces (excluding HCM and Hanoi which need district matching)
+        const provinces = [
+            'an giang', 'ba ria', 'vung tau', 'bac giang', 'bac kan', 'bac lieu',
+            'bac ninh', 'ben tre', 'binh dinh', 'binh duong', 'binh phuoc', 'binh thuan',
+            'ca mau', 'can tho', 'cao bang', 'da nang', 'dak lak', 'dak nong',
+            'dien bien', 'dong nai', 'dong thap', 'gia lai', 'ha giang', 'ha nam',
+            'ha tinh', 'hai duong', 'hai phong', 'hau giang', 'hoa binh', 'hung yen',
+            'khanh hoa', 'kien giang', 'kon tum', 'lai chau', 'lam dong', 'lang son',
+            'lao cai', 'long an', 'nam dinh', 'nghe an', 'ninh binh', 'ninh thuan',
+            'phu tho', 'phu yen', 'quang binh', 'quang nam', 'quang ngai', 'quang ninh',
+            'quang tri', 'soc trang', 'son la', 'tay ninh', 'thai binh', 'thai nguyen',
+            'thanh hoa', 'thua thien hue', 'tien giang', 'tra vinh', 'tuyen quang',
+            'vinh long', 'vinh phuc', 'yen bai'
+        ];
+
+        // Split address into parts and check FROM END
+        // Address format: "số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+        const parts = normalizedAddress.split(/[,\s]+/).filter(p => p.length > 1);
+
+        // Check last 3-4 parts for province name (reading from end)
+        const endParts = parts.slice(-4).join(' ');
+
+        for (const province of provinces) {
+            // Check if province name appears at the END of address
+            if (endParts.includes(province)) {
+                result.isProvince = true;
+                result.cityName = province;
+                console.log('[SMART-DELIVERY] Detected province from address END:', province);
+                return result; // Province detected, no need to find district
+            }
+        }
+
+        // If not a province, check for HCM/Hanoi districts
+        // Only proceed with district matching if we're sure it's HCM or Hanoi
 
         // Try to match district patterns
         // "Quận 1", "Q1", "Q.1", "Quan 1", "District 1"
@@ -875,7 +931,8 @@ function extractDistrictFromAddress(address, extraAddress) {
             }
         }
 
-        // Match named districts (without diacritics)
+        // Match named districts (HCM districts only)
+        // These should only match if we've confirmed the address is in HCM
         const namedDistricts = [
             { normalized: 'binh chanh', original: 'Bình Chánh' },
             { normalized: 'binh tan', original: 'Bình Tân' },
@@ -891,16 +948,29 @@ function extractDistrictFromAddress(address, extraAddress) {
             { normalized: 'can gio', original: 'Cần Giờ' }
         ];
 
+        // Only match named districts if they appear AFTER common address prefixes
+        // This prevents "ấp bình thạnh" from matching "Bình Thạnh" district
         for (const district of namedDistricts) {
-            if (normalizedAddress.includes(district.normalized)) {
+            // Check if district name appears with proper context (after quan/huyen/phuong/xa)
+            // or at the end of address (last 3 parts)
+            const lastThreeParts = parts.slice(-3).join(' ');
+
+            // Pattern: district name should be preceded by address markers or be near the end
+            const districtPattern = new RegExp(
+                `(quan|huyen|phuong|xa|thi tran|tp|thanh pho)?\\s*${district.normalized}(?:\\s|,|$)`,
+                'i'
+            );
+
+            if (districtPattern.test(lastThreeParts) || lastThreeParts.endsWith(district.normalized)) {
                 result.districtName = district.original;
+                console.log('[SMART-DELIVERY] Matched district from address END:', district.original);
                 break;
             }
         }
     }
 
-    // Return null if we couldn't extract any district info
-    if (!result.districtName && !result.districtNumber) {
+    // Return null if we couldn't extract any district info AND it's not marked as province
+    if (!result.districtName && !result.districtNumber && !result.isProvince) {
         return null;
     }
 
