@@ -420,7 +420,8 @@ async function fetchFacebookPosts() {
         }
 
         // Fetch posts via Cloudflare worker
-        const url = `${BASE_URL}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PAGE_ID}&jwt=${encodeURIComponent(jwtToken)}&page_ids=${PAGE_ID}`;
+        // Note: access_token must be passed in URL for Pancake API, jwt is for cloudflare worker headers
+        const url = `${BASE_URL}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PAGE_ID}&jwt=${encodeURIComponent(jwtToken)}&page_ids=${PAGE_ID}&access_token=${encodeURIComponent(jwtToken)}`;
 
         console.log('[SOCIAL-POST] Fetching posts from:', url);
 
