@@ -2221,9 +2221,9 @@ class MessageTemplateManager {
 
         const modalHTML = `
             <div id="${modalId}" class="message-modal-overlay active" style="z-index: 10003;">
-                <div class="message-modal" style="max-width: 600px; width: 95%;">
-                    <div class="message-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 16px 20px;">
-                        <h3 style="font-size: 16px;">
+                <div class="message-modal" style="max-width: 750px; width: 95%;">
+                    <div class="message-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 16px 24px;">
+                        <h3 style="font-size: 17px;">
                             <i class="fas fa-${isEdit ? 'edit' : 'plus'}"></i>
                             ${isEdit ? 'Chỉnh sửa template' : 'Tạo template mới'}
                         </h3>
@@ -2231,60 +2231,94 @@ class MessageTemplateManager {
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div class="message-modal-body" style="padding: 20px;">
-                        <div style="margin-bottom: 16px;">
-                            <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                    <div class="message-modal-body" style="padding: 24px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151; font-size: 14px;">
+                                <i class="fas fa-tag" style="color: #6b7280; margin-right: 6px;"></i>
                                 Tên template <span style="color: #ef4444;">*</span>
                             </label>
                             <input type="text" id="templateName" value="${template?.Name || ''}"
-                                placeholder="VD: Chốt đơn, Xác nhận địa chỉ..."
-                                style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                                placeholder="VD: Chốt đơn, Xác nhận địa chỉ, Cảm ơn khách..."
+                                style="width: 100%; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
                         </div>
 
-                        <div style="margin-bottom: 16px;">
-                            <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151; font-size: 14px;">
+                                <i class="fas fa-comment-alt" style="color: #6b7280; margin-right: 6px;"></i>
                                 Nội dung tin nhắn <span style="color: #ef4444;">*</span>
                             </label>
-                            <textarea id="templateContent" rows="8"
-                                placeholder="Nhập nội dung tin nhắn..."
-                                style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; resize: vertical;">${template?.Content || ''}</textarea>
+                            <textarea id="templateContent" rows="10"
+                                placeholder="Nhập nội dung tin nhắn...&#10;&#10;Sử dụng các biến bên dưới để tự động điền thông tin khách hàng."
+                                style="width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; resize: vertical; line-height: 1.6; box-sizing: border-box;">${template?.Content || ''}</textarea>
                         </div>
 
-                        <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px;">
-                            <div style="font-weight: 500; color: #0369a1; margin-bottom: 8px;">
-                                <i class="fas fa-info-circle"></i> Biến có thể dùng:
+                        <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #7dd3fc; border-radius: 10px; padding: 16px;">
+                            <div style="font-weight: 600; color: #0369a1; margin-bottom: 12px; font-size: 14px;">
+                                <i class="fas fa-magic"></i> Click để chèn biến vào nội dung:
                             </div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px;">
-                                <code onclick="document.getElementById('templateContent').value += '{partner.name}'"
-                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{partner.name}</code>
-                                <code onclick="document.getElementById('templateContent').value += '{partner.address}'"
-                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{partner.address}</code>
-                                <code onclick="document.getElementById('templateContent').value += '{order.details}'"
-                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{order.details}</code>
-                                <code onclick="document.getElementById('templateContent').value += '{order.total}'"
-                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{order.total}</code>
-                                <code onclick="document.getElementById('templateContent').value += '{order.code}'"
-                                    style="background: #e0f2fe; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #0369a1;">{order.code}</code>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                                <div onclick="document.getElementById('templateContent').value += '{partner.name}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{partner.name}</code>
+                                    <span style="font-size: 13px; color: #374151;">Tên khách hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{partner.address}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{partner.address}</code>
+                                    <span style="font-size: 13px; color: #374151;">Địa chỉ giao hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{order.details}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{order.details}</code>
+                                    <span style="font-size: 13px; color: #374151;">Chi tiết sản phẩm</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{order.total}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{order.total}</code>
+                                    <span style="font-size: 13px; color: #374151;">Tổng tiền đơn hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{order.code}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{order.code}</code>
+                                    <span style="font-size: 13px; color: #374151;">Mã đơn hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{partner.phone}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{partner.phone}</code>
+                                    <span style="font-size: 13px; color: #374151;">Số điện thoại</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="message-modal-footer" style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between;">
+                    <div class="message-modal-footer" style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between;">
                         <div>
                             ${isEdit ? `
                                 <button onclick="window.messageTemplateManager?.deleteTemplate('${template?.Id}')"
-                                    style="padding: 10px 16px; background: #fee2e2; color: #dc2626; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                                    style="padding: 10px 18px; background: #fee2e2; color: #dc2626; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 14px;">
                                     <i class="fas fa-trash"></i> Xóa
                                 </button>
                             ` : ''}
                         </div>
                         <div style="display: flex; gap: 12px;">
                             <button onclick="document.getElementById('${modalId}').remove()"
-                                style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                                style="padding: 10px 24px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 14px;">
                                 Hủy
                             </button>
                             <button onclick="window.messageTemplateManager?.saveTemplate('${template?.Id || ''}')"
                                 id="saveTemplateBtn"
-                                style="padding: 10px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                                style="padding: 10px 24px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
                                 <i class="fas fa-save"></i> ${isEdit ? 'Cập nhật' : 'Tạo mới'}
                             </button>
                         </div>
