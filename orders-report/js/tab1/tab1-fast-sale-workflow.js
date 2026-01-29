@@ -812,7 +812,7 @@
         // Create modal HTML with bill preview section
         const modalHtml = `
             <div id="cancelOrderModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
-                <div class="modal-content" style="background: white; border-radius: 12px; padding: 24px; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-content" style="background: white; border-radius: 12px; padding: 24px; max-width: 1200px; width: 98%; max-height: 95vh; overflow-y: auto;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3 style="margin: 0; color: #dc2626;">
                             <i class="fas fa-times-circle"></i> Nhờ Hủy Đơn
@@ -820,16 +820,16 @@
                         <button onclick="closeCancelOrderModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
                     </div>
 
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
                         <!-- Left: Bill Preview -->
-                        <div style="flex: 1; min-width: 300px;">
-                            <div id="cancelBillPreview" style="border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; min-height: 400px; max-height: 500px; overflow: auto;">
+                        <div style="flex: 1.2; min-width: 400px;">
+                            <div id="cancelBillPreview" style="border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; min-height: 600px; max-height: 75vh; overflow: auto;">
                                 <p style="color: #9ca3af; padding: 40px; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Đang tạo bill...</p>
                             </div>
                         </div>
 
                         <!-- Right: Order Info & Reason -->
-                        <div style="flex: 1; min-width: 280px;">
+                        <div style="flex: 0.8; min-width: 320px;">
                             <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
                                 <p style="margin: 0 0 8px 0; font-weight: 600;">Thông tin đơn:</p>
                                 <p style="margin: 0; font-size: 14px;">
@@ -876,7 +876,7 @@
                 if (billHTML) {
                     // Use iframe to display bill
                     const iframe = document.createElement('iframe');
-                    iframe.style.cssText = 'width: 100%; height: 450px; border: none; background: white;';
+                    iframe.style.cssText = 'width: 100%; height: 600px; border: none; background: white;';
                     previewContainer.innerHTML = '';
                     previewContainer.appendChild(iframe);
 
