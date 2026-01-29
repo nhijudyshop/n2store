@@ -307,6 +307,7 @@
             }, reason);
 
             // Re-add "OK + NV" tag (was removed on success)
+            // Use currentUserIdentifier (same as quick-tag-ok button)
             const removedOkTag = order._removedOkTag;
             if (removedOkTag) {
                 console.log(`[WORKFLOW] Re-adding tag "${removedOkTag.Name}" to cancelled order`);
@@ -316,22 +317,26 @@
                     Color: removedOkTag.Color
                 });
             } else {
-                // Try to find an "OK + NV" tag from the user's current identifier
-                const authState = window.authManager?.getAuthState();
-                const username = authState?.username || '';
-                if (username) {
-                    // Find tag matching "OK " + username pattern
+                // Try to find an "OK + NV" tag using currentUserIdentifier (from Firebase users collection)
+                const userIdentifier = window.currentUserIdentifier;
+                if (userIdentifier) {
+                    // Build tag name same as quickAssignTag: "OK {identifier}".toUpperCase()
+                    const okTagName = `OK ${userIdentifier}`.toUpperCase();
                     const okTagForUser = window.availableTags?.find(t =>
-                        (t.Name || '').toUpperCase() === `OK ${username}`.toUpperCase()
+                        (t.Name || '').toUpperCase() === okTagName
                     );
                     if (okTagForUser) {
-                        console.log(`[WORKFLOW] Re-adding tag "${okTagForUser.Name}" based on current user`);
+                        console.log(`[WORKFLOW] Re-adding tag "${okTagForUser.Name}" based on currentUserIdentifier`);
                         await addTagToOrder(saleOnlineId, {
                             Id: okTagForUser.Id,
                             Name: okTagForUser.Name,
                             Color: okTagForUser.Color
                         });
+                    } else {
+                        console.warn(`[WORKFLOW] OK tag not found: ${okTagName}`);
                     }
+                } else {
+                    console.warn('[WORKFLOW] currentUserIdentifier not available, cannot re-add OK tag');
                 }
             }
 
@@ -933,40 +938,31 @@
                 SaleOnlineId: saleOnlineId
             }, reason);
 
-            // Re-add "OK + NV" tag
-            // Parse current tags
-            let currentTags = [];
-            try {
-                if (typeof order.Tags === 'string') {
-                    currentTags = JSON.parse(order.Tags);
-                } else if (Array.isArray(order.Tags)) {
-                    currentTags = order.Tags;
+            // Re-add "OK + NV" tag using currentUserIdentifier (same as quick-tag-ok button)
+            // First, get current user identifier from window.currentUserIdentifier (loaded from Firebase)
+            const userIdentifier = window.currentUserIdentifier;
+
+            if (userIdentifier) {
+                // Build tag name same as quickAssignTag: "OK {identifier}".toUpperCase()
+                const okTagName = `OK ${userIdentifier}`.toUpperCase();
+
+                // Find the tag in availableTags
+                let okTag = window.availableTags?.find(t =>
+                    (t.Name || '').toUpperCase() === okTagName
+                );
+
+                if (okTag) {
+                    console.log(`[WORKFLOW] Re-adding tag "${okTag.Name}" to cancelled order from main table`);
+                    await addTagToOrder(saleOnlineId, {
+                        Id: okTag.Id,
+                        Name: okTag.Name,
+                        Color: okTag.Color
+                    });
+                } else {
+                    console.warn(`[WORKFLOW] OK tag not found: ${okTagName}`);
                 }
-            } catch (e) {
-                currentTags = [];
-            }
-
-            // Find OK tag from current tags or from user
-            let okTag = currentTags.find(t => (t.Name || '').toUpperCase().startsWith('OK '));
-
-            if (!okTag) {
-                // Try to find from user's current identifier
-                const authState = window.authManager?.getAuthState();
-                const username = authState?.username || '';
-                if (username) {
-                    okTag = window.availableTags?.find(t =>
-                        (t.Name || '').toUpperCase() === `OK ${username}`.toUpperCase()
-                    );
-                }
-            }
-
-            if (okTag) {
-                console.log(`[WORKFLOW] Re-adding tag "${okTag.Name}" to cancelled order from main table`);
-                await addTagToOrder(saleOnlineId, {
-                    Id: okTag.Id,
-                    Name: okTag.Name,
-                    Color: okTag.Color
-                });
+            } else {
+                console.warn('[WORKFLOW] currentUserIdentifier not available, cannot re-add OK tag');
             }
 
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);

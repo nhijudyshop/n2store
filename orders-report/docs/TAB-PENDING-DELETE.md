@@ -113,6 +113,11 @@ Click nút "Xem" để mở modal với:
 await InvoiceStatusDeleteStore.add(saleOnlineId, invoiceData, reason);
 
 // Gắn lại tag "OK + NV" cho đơn đã hủy
+// Sử dụng window.currentUserIdentifier (từ Firebase users collection)
+// Giống hệt logic của nút quick-tag-ok trong tab1-tags.js
+const userIdentifier = window.currentUserIdentifier; // VD: "HẠNH", "HUYÊN"
+const okTagName = `OK ${userIdentifier}`.toUpperCase(); // VD: "OK HẠNH"
+const okTag = window.availableTags.find(t => t.Name.toUpperCase() === okTagName);
 await addTagToOrder(saleOnlineId, okTag);
 ```
 
