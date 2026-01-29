@@ -759,29 +759,25 @@
             return;
         }
 
-        // Find order from displayedData
-        const orderData = window.displayedData?.find(o => o.Id === orderId);
-        if (!orderData) {
-            window.notificationManager?.error('Không tìm thấy dữ liệu đơn hàng');
-            return;
-        }
-
-        // Get invoice data from InvoiceStatusStore
+        // Get invoice data from InvoiceStatusStore (primary source)
         const invoiceData = window.InvoiceStatusStore?.get(orderId);
         if (!invoiceData) {
             window.notificationManager?.error('Không tìm thấy dữ liệu phiếu bán hàng');
             return;
         }
 
-        // Create a compatible order object
+        // Try to find order from displayedData for additional info (optional)
+        const orderData = window.displayedData?.find(o => o.Id === orderId);
+
+        // Create a compatible order object using invoiceData as primary source
         const order = {
             Id: orderId,
             SaleOnlineIds: [orderId], // Main table: orderId IS the SaleOnlineId
-            Reference: orderData.Code || orderData.Reference,
+            Reference: invoiceData.Reference || orderData?.Code || orderData?.Reference,
             Number: invoiceData.Number,
-            PartnerDisplayName: orderData.PartnerDisplayName || orderData.Partner?.PartnerDisplayName,
+            PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName || orderData?.PartnerDisplayName,
             ShowState: invoiceData.ShowState,
-            Tags: orderData.Tags
+            Tags: orderData?.Tags || invoiceData.Tags
         };
 
         // Store in a temporary global for confirmCancelOrder to access
