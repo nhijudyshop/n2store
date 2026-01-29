@@ -964,6 +964,10 @@ function populateTagFilter() {
     if (typeof populateTagFilterOptions === 'function') {
         populateTagFilterOptions();
     }
+    // Update selected tags display on main page
+    if (typeof window.updateSelectedTagsMainDisplay === 'function') {
+        window.updateSelectedTagsMainDisplay();
+    }
     // Update excluded tags display on main page
     if (typeof updateExcludedTagsMainDisplay === 'function') {
         updateExcludedTagsMainDisplay();
@@ -1478,6 +1482,11 @@ function updateTagFilterDisplayText() {
         displayText.textContent = `${selectedTags.length} tags`;
         displayText.style.color = '#3b82f6';
     }
+
+    // Also update the main display
+    if (typeof window.updateSelectedTagsMainDisplay === 'function') {
+        window.updateSelectedTagsMainDisplay();
+    }
 }
 
 /**
@@ -1692,6 +1701,68 @@ window.filterExcludeTagOptions = function() {
 };
 
 /**
+ * Update selected tags display in main area
+ */
+window.updateSelectedTagsMainDisplay = function() {
+    const parentContainer = document.getElementById('activeFiltersDisplay');
+    const container = document.getElementById('selectedTagsDisplay');
+    const listEl = document.getElementById('selectedTagsDisplayList');
+    if (!container || !listEl) return;
+
+    const selectedTags = window.getSelectedTagFilters();
+    const tags = window.availableTags || [];
+
+    if (selectedTags.length === 0) {
+        container.style.display = 'none';
+        updateActiveFiltersVisibility();
+        return;
+    }
+
+    container.style.display = 'block';
+
+    // If tags not loaded yet, show loading state
+    if (tags.length === 0) {
+        listEl.innerHTML = `<span style="font-size: 11px; color: #9ca3af;"><i class="fas fa-spinner fa-spin"></i> ${selectedTags.length} tag...</span>`;
+        updateActiveFiltersVisibility();
+        return;
+    }
+
+    listEl.innerHTML = selectedTags.map(tagId => {
+        const tag = tags.find(t => String(t.Id) === String(tagId));
+        const tagColor = tag?.Color || '#3b82f6';
+        const tagName = tag?.Name || `Tag #${tagId}`;
+        return `<span style="display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; background: ${tagColor}20; color: ${tagColor}; border: 1px solid ${tagColor}40;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: ${tagColor}; margin-right: 4px;"></span>
+            ${tagName}
+            <button onclick="removeSelectedTagFromMain('${tagId}')" style="margin-left: 6px; background: none; border: none; cursor: pointer; padding: 0; color: ${tagColor}; font-size: 12px; line-height: 1; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Bỏ lọc tag này">×</button>
+        </span>`;
+    }).join('');
+
+    updateActiveFiltersVisibility();
+};
+
+/**
+ * Remove a tag from selected filter list directly from main page
+ */
+window.removeSelectedTagFromMain = function(tagId) {
+    const selectedTags = window.getSelectedTagFilters();
+    const index = selectedTags.indexOf(String(tagId));
+    if (index > -1) {
+        selectedTags.splice(index, 1);
+        window.saveSelectedTagFilters(selectedTags);
+        updateTagFilterDisplayText();
+        window.updateSelectedTagsMainDisplay();
+        // Update dropdown checkboxes
+        const searchInput = document.getElementById('tagFilterSearchInput');
+        window.populateTagFilterOptions(searchInput?.value || '');
+        // Re-apply filter
+        if (typeof performTableSearch === 'function') {
+            performTableSearch();
+        }
+    }
+};
+
+/**
  * Update excluded tags display in main area
  */
 window.updateExcludedTagsMainDisplay = function() {
@@ -1704,6 +1775,7 @@ window.updateExcludedTagsMainDisplay = function() {
 
     if (excludedTags.length === 0) {
         container.style.display = 'none';
+        updateActiveFiltersVisibility();
         return;
     }
 
@@ -1712,6 +1784,7 @@ window.updateExcludedTagsMainDisplay = function() {
     // If tags not loaded yet, show loading state
     if (tags.length === 0) {
         listEl.innerHTML = `<span style="font-size: 11px; color: #9ca3af;"><i class="fas fa-spinner fa-spin"></i> ${excludedTags.length} tag...</span>`;
+        updateActiveFiltersVisibility();
         return;
     }
 
@@ -1725,7 +1798,25 @@ window.updateExcludedTagsMainDisplay = function() {
             <button onclick="removeExcludedTagFromMain('${tagId}')" style="margin-left: 6px; background: none; border: none; cursor: pointer; padding: 0; color: ${tagColor}; font-size: 12px; line-height: 1; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Bỏ ẩn tag này">×</button>
         </span>`;
     }).join('');
+
+    updateActiveFiltersVisibility();
 };
+
+/**
+ * Update activeFiltersDisplay container visibility
+ */
+function updateActiveFiltersVisibility() {
+    const parentContainer = document.getElementById('activeFiltersDisplay');
+    const selectedDisplay = document.getElementById('selectedTagsDisplay');
+    const excludedDisplay = document.getElementById('excludedTagsDisplay');
+
+    if (!parentContainer) return;
+
+    const hasSelected = selectedDisplay && selectedDisplay.style.display !== 'none';
+    const hasExcluded = excludedDisplay && excludedDisplay.style.display !== 'none';
+
+    parentContainer.style.display = (hasSelected || hasExcluded) ? 'block' : 'none';
+}
 
 /**
  * Remove a tag from excluded list directly from main page
