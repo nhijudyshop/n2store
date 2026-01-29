@@ -31,6 +31,13 @@ function openCreateOrderModal() {
     document.getElementById('orderId').value = '';
     document.getElementById('orderProducts').value = '[]';
     document.getElementById('selectedPostId').value = '';
+    document.getElementById('selectedPostThumbnail').value = '';
+
+    // Hide post preview
+    const preview = document.getElementById('selectedPostPreview');
+    if (preview) {
+        preview.style.display = 'none';
+    }
 
     // Set default source to Facebook Post
     const orderSourceSelect = document.getElementById('orderSource');
@@ -530,11 +537,14 @@ function renderPostList(posts) {
         // Get post URL
         const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
 
+        // Build thumbnail proxy URL
+        const thumbnailProxyUrl = thumbnail ? `${BASE_URL}/api/image-proxy?url=${encodeURIComponent(thumbnail)}` : '';
+
         return `
-            <div class="post-item" onclick="selectPost('${post.id}', '${postUrl.replace(/'/g, "\\'")}', '${title.replace(/'/g, "\\'")}')">
+            <div class="post-item" onclick="selectPost('${post.id}', '${postUrl.replace(/'/g, "\\'")}', '${title.replace(/'/g, "\\'")}', '${thumbnailProxyUrl.replace(/'/g, "\\'")}')">
                 <div class="post-thumbnail">
                     ${thumbnail
-                        ? `<img src="${BASE_URL}/api/image-proxy?url=${encodeURIComponent(thumbnail)}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'fas fa-image no-image\\'></i>';">`
+                        ? `<img src="${thumbnailProxyUrl}" alt="" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'fas fa-image no-image\\'></i>';">`
                         : '<i class="fas fa-image no-image"></i>'
                     }
                     ${hasMultipleImages ? `<span class="post-type-icon">+${post.attachments.data.length - 1}</span>` : ''}
@@ -577,10 +587,27 @@ function filterPosts() {
     renderPostList(filteredPosts);
 }
 
-function selectPost(postId, postUrl, postTitle) {
+function selectPost(postId, postUrl, postTitle, thumbnailUrl) {
     // Update the form fields
     document.getElementById('postUrl').value = postUrl;
     document.getElementById('selectedPostId').value = postId;
+    document.getElementById('selectedPostThumbnail').value = thumbnailUrl || '';
+
+    // Show preview
+    const preview = document.getElementById('selectedPostPreview');
+    const thumbImg = document.getElementById('selectedPostThumb');
+    const titleEl = document.getElementById('selectedPostTitle');
+
+    if (preview && thumbImg && titleEl) {
+        if (thumbnailUrl) {
+            thumbImg.src = thumbnailUrl;
+            thumbImg.style.display = 'block';
+        } else {
+            thumbImg.style.display = 'none';
+        }
+        titleEl.textContent = postTitle || 'Bài viết đã chọn';
+        preview.style.display = 'flex';
+    }
 
     // Close modal
     closePostSelectionModal();
@@ -588,6 +615,23 @@ function selectPost(postId, postUrl, postTitle) {
     // Show notification
     if (typeof showNotification === 'function') {
         showNotification('Đã chọn bài viết', 'success');
+    }
+}
+
+function clearSelectedPost(event) {
+    if (event) {
+        event.stopPropagation();
+    }
+
+    // Clear form fields
+    document.getElementById('postUrl').value = '';
+    document.getElementById('selectedPostId').value = '';
+    document.getElementById('selectedPostThumbnail').value = '';
+
+    // Hide preview
+    const preview = document.getElementById('selectedPostPreview');
+    if (preview) {
+        preview.style.display = 'none';
     }
 }
 
@@ -621,4 +665,5 @@ window.openPostSelectionModal = openPostSelectionModal;
 window.closePostSelectionModal = closePostSelectionModal;
 window.filterPosts = filterPosts;
 window.selectPost = selectPost;
+window.clearSelectedPost = clearSelectedPost;
 window.copyPostId = copyPostId;

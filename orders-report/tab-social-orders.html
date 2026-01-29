@@ -324,16 +324,27 @@
                         <div class="form-section">
                             <h4><i class="fas fa-link"></i> Nguồn đơn</h4>
                             <div class="form-row">
-                                <div class="form-group">
+                                <div class="form-group" style="flex: 2;">
                                     <label>Link bài Post</label>
                                     <div class="post-url-input-wrapper" onclick="openPostSelectionModal()">
                                         <input
                                             type="text"
                                             id="postUrl"
-                                            placeholder="https://facebook.com/..."
+                                            placeholder="Nhấn để chọn bài viết..."
                                             readonly
                                         />
                                         <input type="hidden" id="selectedPostId" />
+                                        <input type="hidden" id="selectedPostThumbnail" />
+                                    </div>
+                                    <!-- Selected Post Preview -->
+                                    <div class="selected-post-preview" id="selectedPostPreview" style="display: none;">
+                                        <img id="selectedPostThumb" src="" alt="" />
+                                        <div class="selected-post-info">
+                                            <div class="selected-post-title" id="selectedPostTitle"></div>
+                                            <button type="button" class="selected-post-clear" onclick="clearSelectedPost(event)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="form-group">
