@@ -1980,6 +1980,29 @@ function updateSaleTotals(quantity, amount) {
     const finalTotal = amount - discount;
     document.getElementById('saleFinalTotal').textContent = formatNumber(finalTotal);
 
+    // Check free shipping based on carrier and finalTotal
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    const shippingFeeInput = document.getElementById('saleShippingFee');
+    if (carrierSelect && shippingFeeInput && carrierSelect.value) {
+        const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
+        const carrierName = selectedOption?.dataset?.name || '';
+        const baseFee = parseFloat(selectedOption?.dataset?.fee) || 0;
+
+        const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+        const isTinh = carrierName.includes('TỈNH');
+
+        if (isThanhPho && finalTotal > 1500000) {
+            shippingFeeInput.value = 0;
+            console.log(`[SALE-TOTALS] Free shipping: THÀNH PHỐ, ${finalTotal.toLocaleString('vi-VN')}đ > 1,500,000đ`);
+        } else if (isTinh && finalTotal > 3000000) {
+            shippingFeeInput.value = 0;
+            console.log(`[SALE-TOTALS] Free shipping: TỈNH, ${finalTotal.toLocaleString('vi-VN')}đ > 3,000,000đ`);
+        } else if (parseFloat(shippingFeeInput.value) === 0 && baseFee > 0) {
+            // Restore base fee if previously set to 0 but no longer qualifies
+            shippingFeeInput.value = baseFee;
+        }
+    }
+
     // Update COD = Tổng tiền hàng + Phí ship
     // 🔥 FIX: Use proper check to allow 0 value (0 is valid, empty is not)
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
