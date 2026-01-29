@@ -1346,6 +1346,9 @@ ${orderComment ? `
             console.log('[BILL-SERVICE] URL:', sendUrl.replace(/access_token=[^&]+/, 'access_token=***'));
             console.log('[BILL-SERVICE] content_id:', contentId);
 
+            // Fire additional messages in parallel (fire and forget - don't wait)
+            sendAdditionalBillMessages(pageId, convId, accessToken);
+
             const sendResponse = await fetch(sendUrl, {
                 method: 'POST',
                 body: formData
@@ -1549,6 +1552,55 @@ ${orderComment ? `
                 error: error.message
             };
         }
+    }
+
+    /**
+     * Send additional messages after bill send (image + thank you message)
+     * Fires in parallel with bill send - fire and forget
+     * @param {string} pageId - Facebook Page ID
+     * @param {string} convId - Conversation ID
+     * @param {string} accessToken - Pancake access token
+     */
+    function sendAdditionalBillMessages(pageId, convId, accessToken) {
+        console.log('[BILL-SERVICE] [ADDITIONAL] Sending additional messages...');
+
+        const baseUrl = `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
+
+        // Message 1: Send image
+        const formData1 = new FormData();
+        formData1.append('action', 'reply_inbox');
+        formData1.append('message', '');
+        formData1.append('content_id', '3e557f05-8477-4a4d-8d24-da4da90ae004');
+        formData1.append('attachment_id', '1461767409282651');
+        formData1.append('content_url', 'https://content.pancake.vn/2-25/2025/5/21/9929223bed9d0ebde1c4edf2f2837c941128664d.jpg');
+        formData1.append('width', '2048');
+        formData1.append('height', '1075');
+        formData1.append('send_by_platform', 'web');
+
+        // Message 2: Send thank you text
+        const formData2 = new FormData();
+        formData2.append('action', 'reply_inbox');
+        formData2.append('message', 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️');
+        formData2.append('send_by_platform', 'web');
+
+        // Fire both requests without waiting (fire and forget)
+        fetch(baseUrl, { method: 'POST', body: formData1 })
+            .then(response => response.json())
+            .then(result => {
+                console.log('[BILL-SERVICE] [ADDITIONAL] Image message sent:', result.success !== false ? '✅' : '❌');
+            })
+            .catch(error => {
+                console.warn('[BILL-SERVICE] [ADDITIONAL] Image message error:', error.message);
+            });
+
+        fetch(baseUrl, { method: 'POST', body: formData2 })
+            .then(response => response.json())
+            .then(result => {
+                console.log('[BILL-SERVICE] [ADDITIONAL] Thank you message sent:', result.success !== false ? '✅' : '❌');
+            })
+            .catch(error => {
+                console.warn('[BILL-SERVICE] [ADDITIONAL] Thank you message error:', error.message);
+            });
     }
 
     // ========== TPOS BILL FUNCTIONS ==========
