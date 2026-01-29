@@ -2205,7 +2205,8 @@ async function searchOldOrders() {
     showLoading(true);
     try {
         // Gọi API tìm đơn theo SĐT
-        const orders = await ApiService.searchOrders(phone);
+        const result = await ApiService.searchOrders(phone);
+        const orders = result.orders || [];
 
         // Lọc bỏ đơn hiện tại và chỉ lấy đơn đã giao thành công
         const oldOrders = orders.filter(order =>
