@@ -402,10 +402,24 @@ function closePostSelectionModal() {
 
 async function fetchFacebookPosts() {
     try {
-        // Get JWT token from pancakeTokenManager
+        // Get JWT token from "Kỹ Thuật NJD" account specifically
         let jwtToken = null;
         if (window.pancakeTokenManager) {
-            jwtToken = await window.pancakeTokenManager.getToken();
+            // Get all accounts and find "Kỹ Thuật NJD"
+            const accounts = window.pancakeTokenManager.getAllAccounts();
+            for (const [accountId, account] of Object.entries(accounts)) {
+                if (account.name === 'Kỹ Thuật NJD') {
+                    jwtToken = account.token;
+                    console.log('[SOCIAL-POST] Using token from account:', account.name);
+                    break;
+                }
+            }
+
+            // Fallback to active account if "Kỹ Thuật NJD" not found
+            if (!jwtToken) {
+                console.log('[SOCIAL-POST] Account "Kỹ Thuật NJD" not found, using active account');
+                jwtToken = await window.pancakeTokenManager.getToken();
+            }
         }
 
         if (!jwtToken) {
