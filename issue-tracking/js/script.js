@@ -2073,12 +2073,19 @@ function resetCreateForm() {
     // Reset RETURN_OLD_ORDER UI section
     const oldOrdersList = document.getElementById('old-orders-list');
     const oldOrderProductsSection = document.getElementById('old-order-products-section');
+    const oldOrderSearchInput = document.getElementById('old-order-search-input');
     if (oldOrdersList) {
         oldOrdersList.innerHTML = '';
         oldOrdersList.classList.add('hidden');
+        delete oldOrdersList.dataset.orders; // Clear cached orders data
     }
     if (oldOrderProductsSection) {
         oldOrderProductsSection.classList.add('hidden');
+        const checklist = document.getElementById('old-order-product-checklist');
+        if (checklist) checklist.innerHTML = '';
+    }
+    if (oldOrderSearchInput) {
+        oldOrderSearchInput.value = ''; // Reset SĐT cache
     }
 }
 
@@ -2261,13 +2268,33 @@ function renderOldOrdersList(orders) {
 /**
  * Xử lý khi chọn một đơn cũ
  */
-window.onOldOrderSelected = function(orderIndex) {
+window.onOldOrderSelected = async function(orderIndex) {
     const container = document.getElementById('old-orders-list');
     const orders = JSON.parse(container.dataset.orders || '[]');
 
     if (orderIndex < 0 || orderIndex >= orders.length) return;
 
     selectedOldOrder = orders[orderIndex];
+
+    // Fetch products từ API nếu chưa có
+    if (!selectedOldOrder.products || selectedOldOrder.products.length === 0) {
+        showLoading(true);
+        try {
+            const details = await ApiService.getOrderDetails(selectedOldOrder.id);
+            if (details && details.products) {
+                selectedOldOrder.products = details.products;
+                // Update cached order data
+                orders[orderIndex] = selectedOldOrder;
+                container.dataset.orders = JSON.stringify(orders);
+            }
+        } catch (error) {
+            console.error('[RETURN_OLD_ORDER] Failed to fetch order details:', error);
+            alert('Lỗi khi tải chi tiết đơn hàng cũ');
+            return;
+        } finally {
+            showLoading(false);
+        }
+    }
 
     // Render danh sách sản phẩm của đơn cũ
     renderOldOrderProducts(selectedOldOrder);
@@ -2280,7 +2307,13 @@ function renderOldOrderProducts(order) {
     const container = document.getElementById('old-order-product-checklist');
     const section = document.getElementById('old-order-products-section');
 
-    if (!container || !section || !order.products) return;
+    if (!container || !section) return;
+
+    if (!order.products || order.products.length === 0) {
+        container.innerHTML = '<div style="padding:10px;color:#64748b;text-align:center;">Không có sản phẩm trong đơn hàng này</div>';
+        section.classList.remove('hidden');
+        return;
+    }
 
     container.innerHTML = order.products.map((product, idx) => `
         <div class="product-check-item" style="padding:8px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;">
