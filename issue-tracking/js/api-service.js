@@ -142,6 +142,9 @@ const ApiService = {
             const data = await response.json();
             console.log('[API] Order details loaded, products:', data.OrderLines?.length || 0);
 
+            // Calculate product subtotal from OrderLines (sum of PriceTotal for each line)
+            const productSubtotal = (data.OrderLines || []).reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+
             // Map to internal format
             return {
                 id: data.Id,
@@ -152,7 +155,8 @@ const ApiService = {
                 phone: data.Phone,
                 address: data.FullAddress || data.Address || '',
                 cod: data.CashOnDelivery || 0,
-                amountTotal: data.AmountTotal || 0,
+                // Use calculated product subtotal instead of AmountTotal (which is already reduced)
+                amountTotal: productSubtotal,
                 decreaseAmount: data.DecreaseAmount || 0,
                 deliveryPrice: data.DeliveryPrice || 0,
                 paymentAmount: data.PaymentAmount || 0,
