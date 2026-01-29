@@ -1572,10 +1572,12 @@ ${orderComment ? `
             )
             : `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
 
-        // Message 1: Send image from Pancake CDN (only content_url - no upload IDs needed)
+        // Message 1: Send image from Pancake CDN
+        // content_id = hash from URL (permanent), content_url = CDN URL
         const formData1 = new FormData();
         formData1.append('action', 'reply_inbox');
         formData1.append('message', '');
+        formData1.append('content_id', '9929223bed9d0ebde1c4edf2f2837c941128664d');
         formData1.append('content_url', 'https://content.pancake.vn/2-25/2025/5/21/9929223bed9d0ebde1c4edf2f2837c941128664d.jpg');
         formData1.append('send_by_platform', 'web');
 
