@@ -1572,15 +1572,14 @@ ${orderComment ? `
             )
             : `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
 
-        // Message 1: Send image from Pancake CDN (exact payload from fetch.txt)
+        // Message 1: Send image from Pancake CDN (uploaded 2026-01-29)
         const formData1 = new FormData();
         formData1.append('action', 'reply_inbox');
         formData1.append('message', '');
-        formData1.append('content_id', '3e557f05-8477-4a4d-8d24-da4da90ae004');
-        formData1.append('attachment_id', '1461767409282651');
-        formData1.append('content_url', 'https://content.pancake.vn/2-25/2025/5/21/9929223bed9d0ebde1c4edf2f2837c941128664d.jpg');
-        formData1.append('width', '2048');
-        formData1.append('height', '1075');
+        formData1.append('content_id', '4d0b73b0-8d3f-4dfa-bb9b-11a82096734d');
+        formData1.append('content_url', 'https://content.pancake.vn/2-2601/2026/1/29/402e8fd15439d66430ab886e2c122ef15a918cc0.jpg');
+        formData1.append('width', '1920');
+        formData1.append('height', '1008');
         formData1.append('send_by_platform', 'web');
 
         // Message 2: Send thank you text
