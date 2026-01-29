@@ -1194,14 +1194,15 @@ body {
     }
 }
 
-/* ===== SEARCH BOX STYLES ===== */
+/* ===== SEARCH BOX STYLES - Compact ===== */
 .search-section {
     background: white;
-    padding: 16px;
+    padding: 12px 16px;
     border-radius: 8px;
-    margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     display: none;
+    border: 1px solid #e5e7eb;
 }
 
 .search-section.active {
@@ -1210,22 +1211,25 @@ body {
 
 .search-wrapper {
     position: relative;
-    max-width: 600px;
+    max-width: 280px;
+    min-width: 200px;
 }
 
 .search-input {
     width: 100%;
-    padding: 12px 48px 12px 42px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 14px;
+    padding: 8px 36px 8px 36px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
     transition: all 0.2s;
+    background: #f9fafb;
 }
 
 .search-input:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    background: white;
 }
 
 .search-input::placeholder {
@@ -1234,23 +1238,23 @@ body {
 
 .search-icon {
     position: absolute;
-    left: 14px;
+    left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #6b7280;
-    font-size: 16px;
+    color: #9ca3af;
+    font-size: 14px;
 }
 
 .search-clear {
     position: absolute;
-    right: 12px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     color: #9ca3af;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 4px;
     border-radius: 4px;
     transition: all 0.2s;
     display: none;
@@ -1261,13 +1265,13 @@ body {
 }
 
 .search-clear:hover {
-    background: #f3f4f6;
-    color: #374151;
+    background: #fee2e2;
+    color: #ef4444;
 }
 
 .search-info {
     margin-top: 8px;
-    font-size: 13px;
+    font-size: 12px;
     color: #6b7280;
     display: flex;
     justify-content: space-between;
@@ -1277,11 +1281,28 @@ body {
 .search-result-count {
     font-weight: 600;
     color: #3b82f6;
+    font-size: 13px;
 }
 
 .search-tips {
-    font-size: 12px;
+    font-size: 11px;
     color: #9ca3af;
+}
+
+/* Search filter select - compact */
+.search-filter-select {
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #f9fafb;
+    cursor: pointer;
+    min-width: 90px;
+}
+
+.search-filter-select:focus {
+    outline: none;
+    border-color: #3b82f6;
 }
 
 /* Highlight search results */
@@ -6543,22 +6564,28 @@ td[data-column].hidden {
 .text-secondary { color: #6c757d; }
 
 /* =====================================================
-   STICKY ACTION BUTTONS SECTION - Compact & Fixed
-   Hiển thị khi chọn checkbox và sticky khi scroll
+   FIXED ACTION BUTTONS SECTION - Compact & Fixed at top
+   Hiển thị khi chọn checkbox và fixed khi scroll
    ===================================================== */
 .action-buttons-section {
     display: none;
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    position: sticky;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+    position: fixed;
     top: 0;
-    z-index: 50;
-    margin: 8px 0 12px 0;
-    border: 1px solid #e2e8f0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Add padding to body when action bar is visible */
+body.action-bar-visible {
+    padding-top: 48px;
 }
 
 /* Selected Count Text */

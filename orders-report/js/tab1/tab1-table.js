@@ -1838,8 +1838,10 @@ function updateActionButtons() {
     if (checkedCount > 0) {
         actionButtonsSection.style.display = 'flex';
         selectedCountSpan.textContent = checkedCount.toLocaleString('vi-VN');
+        document.body.classList.add('action-bar-visible');
     } else {
         actionButtonsSection.style.display = 'none';
+        document.body.classList.remove('action-bar-visible');
     }
 
     // Show send message button when any orders are selected
