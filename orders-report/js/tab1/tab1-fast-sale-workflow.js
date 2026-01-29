@@ -783,10 +783,36 @@
         // Store in a temporary global for confirmCancelOrder to access
         window._cancelOrderFromMain = order;
 
-        // Create modal HTML (similar to showCancelOrderModal but for main table)
+        // Create enriched order for bill generation
+        const enrichedOrder = {
+            Id: invoiceData.Id,
+            Number: invoiceData.Number,
+            Reference: invoiceData.Reference,
+            PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName,
+            DeliveryPrice: invoiceData.DeliveryPrice,
+            CashOnDelivery: invoiceData.CashOnDelivery,
+            PaymentAmount: invoiceData.PaymentAmount,
+            Discount: invoiceData.Discount,
+            AmountTotal: invoiceData.AmountTotal,
+            AmountUntaxed: invoiceData.AmountUntaxed,
+            CarrierName: invoiceData.CarrierName,
+            UserName: invoiceData.UserName,
+            SessionIndex: invoiceData.SessionIndex,
+            Comment: invoiceData.Comment,
+            DeliveryNote: invoiceData.DeliveryNote,
+            SaleOnlineIds: [orderId],
+            OrderLines: invoiceData.OrderLines || [],
+            Partner: {
+                Name: invoiceData.ReceiverName,
+                Phone: invoiceData.ReceiverPhone,
+                Street: invoiceData.ReceiverAddress
+            }
+        };
+
+        // Create modal HTML with bill preview section
         const modalHtml = `
             <div id="cancelOrderModal" class="modal-overlay" style="display: flex; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
-                <div class="modal-content" style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                <div class="modal-content" style="background: white; border-radius: 12px; padding: 24px; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <h3 style="margin: 0; color: #dc2626;">
                             <i class="fas fa-times-circle"></i> Nhờ Hủy Đơn
@@ -794,28 +820,40 @@
                         <button onclick="closeCancelOrderModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #6b7280;">&times;</button>
                     </div>
 
-                    <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-                        <p style="margin: 0 0 8px 0; font-weight: 600;">Thông tin đơn:</p>
-                        <p style="margin: 0; font-size: 14px;">
-                            <strong>Mã:</strong> ${order.Reference || 'N/A'}<br>
-                            <strong>Số phiếu:</strong> ${order.Number || 'N/A'}<br>
-                            <strong>Khách:</strong> ${order.PartnerDisplayName || 'N/A'}<br>
-                            <strong>Trạng thái:</strong> ${order.ShowState || 'N/A'}
-                        </p>
-                    </div>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <!-- Left: Bill Preview -->
+                        <div style="flex: 1; min-width: 300px;">
+                            <div id="cancelBillPreview" style="border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; min-height: 400px; max-height: 500px; overflow: auto;">
+                                <p style="color: #9ca3af; padding: 40px; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Đang tạo bill...</p>
+                            </div>
+                        </div>
 
-                    <div style="margin-bottom: 16px;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 8px;">Lý do hủy đơn:</label>
-                        <textarea id="cancelReasonInput" rows="3" placeholder="Nhập lý do khách hủy / đổi ý..." style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: vertical; font-size: 14px;"></textarea>
-                    </div>
+                        <!-- Right: Order Info & Reason -->
+                        <div style="flex: 1; min-width: 280px;">
+                            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                <p style="margin: 0 0 8px 0; font-weight: 600;">Thông tin đơn:</p>
+                                <p style="margin: 0; font-size: 14px;">
+                                    <strong>Mã:</strong> ${order.Reference || 'N/A'}<br>
+                                    <strong>Số phiếu:</strong> ${order.Number || 'N/A'}<br>
+                                    <strong>Khách:</strong> ${order.PartnerDisplayName || 'N/A'}<br>
+                                    <strong>Trạng thái:</strong> ${order.ShowState || 'N/A'}
+                                </p>
+                            </div>
 
-                    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button onclick="closeCancelOrderModal()" style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; border-radius: 8px; cursor: pointer;">
-                            Đóng
-                        </button>
-                        <button onclick="confirmCancelOrderFromMain()" style="padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
-                            <i class="fas fa-check"></i> Xác nhận hủy
-                        </button>
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 8px;">Lý do hủy đơn:</label>
+                                <textarea id="cancelReasonInput" rows="4" placeholder="Nhập lý do khách hủy / đổi ý..." style="width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; resize: vertical; font-size: 14px;"></textarea>
+                            </div>
+
+                            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                                <button onclick="closeCancelOrderModal()" style="padding: 10px 20px; border: 1px solid #d1d5db; background: white; border-radius: 8px; cursor: pointer;">
+                                    Đóng
+                                </button>
+                                <button onclick="confirmCancelOrderFromMain()" style="padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                                    <i class="fas fa-check"></i> Xác nhận hủy
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -827,6 +865,33 @@
 
         // Add modal to body
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Generate bill preview
+        const previewContainer = document.getElementById('cancelBillPreview');
+        if (previewContainer && typeof window.generateCustomBillHTML === 'function') {
+            try {
+                const walletBalance = invoiceData.PaymentAmount || 0;
+                const billHTML = window.generateCustomBillHTML(enrichedOrder, { walletBalance });
+
+                if (billHTML) {
+                    // Use iframe to display bill
+                    const iframe = document.createElement('iframe');
+                    iframe.style.cssText = 'width: 100%; height: 450px; border: none; background: white;';
+                    previewContainer.innerHTML = '';
+                    previewContainer.appendChild(iframe);
+
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    iframeDoc.open();
+                    iframeDoc.write(billHTML);
+                    iframeDoc.close();
+                } else {
+                    previewContainer.innerHTML = '<p style="color: #9ca3af; padding: 20px; text-align: center;">Không thể tạo bill preview</p>';
+                }
+            } catch (e) {
+                console.error('[WORKFLOW] Error generating bill preview:', e);
+                previewContainer.innerHTML = '<p style="color: #ef4444; padding: 20px; text-align: center;">Lỗi tạo bill</p>';
+            }
+        }
     }
 
     /**
