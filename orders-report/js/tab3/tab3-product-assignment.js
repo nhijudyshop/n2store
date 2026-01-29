@@ -3825,8 +3825,29 @@
                 </div>
             `;
 
+            // Check and sync any pending records first
+            const pendingCount = await getPendingHistoryCount();
+            if (pendingCount > 0) {
+                console.log(`[HISTORY-V2] Found ${pendingCount} pending records, attempting sync...`);
+                container.innerHTML = `
+                    <div class="history-loading">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Syncing...</span>
+                        </div>
+                        <p class="text-muted mt-3">Đang đồng bộ ${pendingCount} bản ghi chưa lưu...</p>
+                    </div>
+                `;
+                await syncPendingHistoryV2();
+            }
+
             await populateUserFilterV2();
             await loadUploadHistoryV2();
+
+            // Show remaining pending count if any
+            const remainingPending = await getPendingHistoryCount();
+            if (remainingPending > 0) {
+                updatePendingSyncIndicator(remainingPending);
+            }
 
         } catch (error) {
             console.error('[HISTORY-V2] ❌ Error opening history modal:', error);
@@ -3844,6 +3865,49 @@
                 </div>
             `;
         }
+    };
+
+    /**
+     * Update pending sync indicator in modal header
+     */
+    function updatePendingSyncIndicator(count) {
+        const modalHeader = document.querySelector('#uploadHistoryV2Modal .modal-header');
+        if (!modalHeader) return;
+
+        // Remove existing indicator
+        const existing = modalHeader.querySelector('.pending-sync-indicator');
+        if (existing) existing.remove();
+
+        if (count > 0) {
+            const indicator = document.createElement('div');
+            indicator.className = 'pending-sync-indicator ms-3';
+            indicator.innerHTML = `
+                <span class="badge bg-warning text-dark" title="Có ${count} bản ghi chưa đồng bộ">
+                    <i class="fas fa-exclamation-triangle"></i> ${count} chưa đồng bộ
+                </span>
+                <button class="btn btn-sm btn-outline-warning ms-2" onclick="retrySyncPendingHistory()" title="Thử đồng bộ lại">
+                    <i class="fas fa-sync"></i>
+                </button>
+            `;
+            modalHeader.querySelector('.modal-title').after(indicator);
+        }
+    }
+
+    /**
+     * Retry sync pending history (called from UI button)
+     */
+    window.retrySyncPendingHistory = async function() {
+        showNotification('🔄 Đang đồng bộ...', 'info');
+        const result = await syncPendingHistoryV2();
+
+        if (result.synced > 0) {
+            // Reload history to show newly synced records
+            await loadUploadHistoryV2();
+        }
+
+        // Update indicator
+        const remaining = await getPendingHistoryCount();
+        updatePendingSyncIndicator(remaining);
     };
 
     /**
@@ -5157,17 +5221,139 @@
             await database.ref(`${historyPath}/${uploadId}`).set(historyRecord);
 
             console.log('[HISTORY-V2-SAVE] ✅ Saved to V2 database:', uploadId);
+
+            // Clean up any pending backup for this uploadId (if previously failed but now succeeded)
+            if (window.indexedDBStorage) {
+                try {
+                    await window.indexedDBStorage.removeItem(`pending_history_v2_${uploadId}`);
+                } catch (e) { /* ignore */ }
+            }
+
             return true;
 
         } catch (error) {
             console.error('[HISTORY-V2-SAVE] ❌ Error saving V2 history:', error);
-            // Show warning notification so user knows history wasn't saved
-            if (window.showNotification) {
-                showNotification('⚠️ Cảnh báo: Không thể lưu lịch sử upload. Vui lòng kiểm tra lại.', 'warning');
+
+            // Fallback: Save to IndexedDB for later retry
+            try {
+                if (window.indexedDBStorage) {
+                    const pendingRecord = {
+                        uploadId: uploadId,
+                        historyRecord: historyRecord,
+                        error: error.message,
+                        failedAt: Date.now(),
+                        retryCount: 0
+                    };
+                    await window.indexedDBStorage.setItem(`pending_history_v2_${uploadId}`, pendingRecord);
+                    console.log('[HISTORY-V2-SAVE] 💾 Saved to IndexedDB for later retry:', uploadId);
+
+                    showNotification('⚠️ Lịch sử upload đã được lưu tạm. Sẽ đồng bộ lên server sau.', 'warning');
+                } else {
+                    showNotification('⚠️ Không thể lưu lịch sử upload. Vui lòng kiểm tra kết nối mạng.', 'error');
+                }
+            } catch (fallbackError) {
+                console.error('[HISTORY-V2-SAVE] ❌ Fallback to IndexedDB also failed:', fallbackError);
+                showNotification('⚠️ Không thể lưu lịch sử upload. Vui lòng kiểm tra kết nối mạng.', 'error');
             }
+
             return false;
         }
     }
+
+    /**
+     * Sync pending history records from IndexedDB to Firebase
+     * Call this when user opens history modal or manually triggers sync
+     */
+    async function syncPendingHistoryV2() {
+        if (!window.indexedDBStorage) {
+            console.log('[HISTORY-V2-SYNC] IndexedDB not available');
+            return { synced: 0, failed: 0, pending: 0 };
+        }
+
+        try {
+            console.log('[HISTORY-V2-SYNC] 🔄 Checking for pending history records...');
+
+            // Get all pending history keys
+            const allKeys = await window.indexedDBStorage.getKeys('pending_history_v2_*');
+            if (!allKeys || allKeys.length === 0) {
+                console.log('[HISTORY-V2-SYNC] ✅ No pending records to sync');
+                return { synced: 0, failed: 0, pending: 0 };
+            }
+
+            console.log(`[HISTORY-V2-SYNC] Found ${allKeys.length} pending records`);
+
+            let synced = 0;
+            let failed = 0;
+
+            for (const key of allKeys) {
+                try {
+                    const pendingRecord = await window.indexedDBStorage.getItem(key);
+                    if (!pendingRecord || !pendingRecord.historyRecord) {
+                        // Invalid record, remove it
+                        await window.indexedDBStorage.removeItem(key);
+                        continue;
+                    }
+
+                    const { uploadId, historyRecord } = pendingRecord;
+                    const historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+
+                    // Try to save to Firebase
+                    await database.ref(`${historyPath}/${uploadId}`).set(historyRecord);
+
+                    // Success! Remove from IndexedDB
+                    await window.indexedDBStorage.removeItem(key);
+                    synced++;
+                    console.log(`[HISTORY-V2-SYNC] ✅ Synced: ${uploadId}`);
+
+                } catch (syncError) {
+                    console.error(`[HISTORY-V2-SYNC] ❌ Failed to sync ${key}:`, syncError);
+
+                    // Update retry count
+                    try {
+                        const pendingRecord = await window.indexedDBStorage.getItem(key);
+                        if (pendingRecord) {
+                            pendingRecord.retryCount = (pendingRecord.retryCount || 0) + 1;
+                            pendingRecord.lastRetryAt = Date.now();
+                            pendingRecord.lastError = syncError.message;
+                            await window.indexedDBStorage.setItem(key, pendingRecord);
+                        }
+                    } catch (e) { /* ignore */ }
+
+                    failed++;
+                }
+            }
+
+            const remaining = allKeys.length - synced;
+            console.log(`[HISTORY-V2-SYNC] 📊 Result: ${synced} synced, ${failed} failed, ${remaining} remaining`);
+
+            if (synced > 0) {
+                showNotification(`✅ Đã đồng bộ ${synced} lịch sử upload lên server`, 'success');
+            }
+
+            return { synced, failed, pending: remaining };
+
+        } catch (error) {
+            console.error('[HISTORY-V2-SYNC] ❌ Error during sync:', error);
+            return { synced: 0, failed: 0, pending: -1 };
+        }
+    }
+
+    /**
+     * Get count of pending history records
+     */
+    async function getPendingHistoryCount() {
+        if (!window.indexedDBStorage) return 0;
+        try {
+            const keys = await window.indexedDBStorage.getKeys('pending_history_v2_*');
+            return keys ? keys.length : 0;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    // Expose sync function globally
+    window.syncPendingHistoryV2 = syncPendingHistoryV2;
+    window.getPendingHistoryCount = getPendingHistoryCount;
 
     // #region ═══════════════════════════════════════════════════════════════════
     // ║                 SECTION 12: PRODUCT REMOVAL FEATURE                     ║
