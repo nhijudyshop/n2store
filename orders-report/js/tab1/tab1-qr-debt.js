@@ -1616,6 +1616,22 @@ function autoFillSaleNote() {
         }
     }
 
+    // 4. Freeship - check if free shipping applies
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+
+    if (carrierSelect && carrierSelect.value) {
+        const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
+        const carrierName = selectedOption?.dataset?.name || '';
+        const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+        const isTinh = carrierName.includes('TỈNH');
+
+        // Check freeship conditions
+        if ((isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000)) {
+            noteParts.push('freeship');
+        }
+    }
+
     // Set note
     if (noteParts.length > 0) {
         noteField.value = noteParts.join(', ');

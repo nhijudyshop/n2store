@@ -197,9 +197,16 @@ if (discount > 0) {
 if (mergeTag) {
     noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
 }
+
+// 4. Freeship - nếu đủ điều kiện miễn phí ship
+// THÀNH PHỐ: finalTotal > 1,500,000đ
+// TỈNH: finalTotal > 3,000,000đ
+if (qualifiesForFreeship) {
+    noteParts.push('freeship');
+}
 ```
 
-**Ví dụ thực tế:** `"CK 400K ACB 28/01, GG 160K"`
+**Ví dụ thực tế:** `"CK 400K ACB 28/01, GG 160K, freeship"`
 - Số dư ví 400K → ghi "CK 400K" (ghi số dư gốc để track)
 - Giảm giá 160K → ghi "GG 160K"
 
@@ -207,6 +214,7 @@ if (mergeTag) {
 - CK: Chỉ hiện nếu `walletBalance > 0`
 - GG: Chỉ hiện nếu `discount > 0` (từ tag "GIẢM GIÁ" + product notes)
 - Gộp: Chỉ hiện nếu có tag bắt đầu bằng "Gộp "
+- Freeship: Chỉ hiện nếu đủ điều kiện (THÀNH PHỐ > 1.5M hoặc TỈNH > 3M)
 
 ---
 

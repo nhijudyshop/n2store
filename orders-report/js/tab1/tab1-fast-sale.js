@@ -935,14 +935,24 @@ function updateFastSaleShippingFee(index) {
             // Free shipping logic
             const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
             const isTinh = carrierName.includes('TỈNH');
+            const qualifiesForFreeship = (isThanhPho && finalAmountTotal > 1500000) || (isTinh && finalAmountTotal > 3000000);
 
-            if (isThanhPho && finalAmountTotal > 1500000) {
+            if (qualifiesForFreeship) {
                 fee = 0;
-                console.log(`[FAST-SALE] Row ${index}: Free shipping - THÀNH PHỐ, total ${finalAmountTotal.toLocaleString('vi-VN')}đ > 1,500,000đ`);
+                console.log(`[FAST-SALE] Row ${index}: Free shipping - ${isThanhPho ? 'THÀNH PHỐ' : 'TỈNH'}, total ${finalAmountTotal.toLocaleString('vi-VN')}đ`);
             }
-            if (isTinh && finalAmountTotal > 3000000) {
-                fee = 0;
-                console.log(`[FAST-SALE] Row ${index}: Free shipping - TỈNH, total ${finalAmountTotal.toLocaleString('vi-VN')}đ > 3,000,000đ`);
+
+            // Update note field to add/remove "freeship"
+            const noteInput = document.getElementById(`fastSaleNote_${index}`);
+            if (noteInput) {
+                let currentNote = noteInput.value || '';
+                // Remove existing freeship mention
+                currentNote = currentNote.replace(/,?\s*freeship/gi, '').replace(/freeship,?\s*/gi, '').trim();
+                // Add freeship if qualifies
+                if (qualifiesForFreeship) {
+                    currentNote = currentNote ? `${currentNote}, freeship` : 'freeship';
+                }
+                noteInput.value = currentNote;
             }
         }
 
