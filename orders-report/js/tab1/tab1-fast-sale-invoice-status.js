@@ -760,6 +760,12 @@
                 iframeDoc.close();
 
                 console.log('[INVOICE-STATUS] Custom bill loaded in iframe');
+
+                // Pre-generate bill image in background (don't await - fire and forget)
+                // This makes sending instant when user clicks "Gửi"
+                if (!viewOnly && channelId && typeof window.generateBillImage === 'function' && window.pancakeDataManager) {
+                    preGenerateBillInBackground(enrichedOrder, channelId, billHTML, walletBalance);
+                }
             } else {
                 container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Không thể tạo bill preview</p>';
             }
@@ -771,6 +777,45 @@
         // Enable send button (only if not view-only)
         if (sendBtn && !viewOnly) {
             sendBtn.disabled = false;
+        }
+    }
+
+    /**
+     * Pre-generate bill image and upload to Pancake in background
+     * Runs while user is viewing the preview - makes sending instant
+     */
+    async function preGenerateBillInBackground(enrichedOrder, channelId, billHtml, walletBalance) {
+        const cacheKey = enrichedOrder.Id || enrichedOrder.Number;
+        console.log('[INVOICE-STATUS] 🎨 Pre-generating bill image for:', cacheKey);
+
+        try {
+            // Initialize cache if not exists
+            if (!window.preGeneratedBillData) {
+                window.preGeneratedBillData = new Map();
+            }
+
+            // Generate image from the same HTML used in preview
+            const imageBlob = await window.generateBillImage(enrichedOrder, { billHtml, walletBalance });
+
+            // Convert blob to File for upload
+            const imageFile = new File([imageBlob], `bill_${cacheKey}.png`, { type: 'image/png' });
+
+            // Upload to Pancake
+            const uploadResult = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+            const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+            const contentId = typeof uploadResult === 'object' ? (uploadResult.content_id || uploadResult.id) : null;
+
+            if (contentUrl && contentId) {
+                // Cache for later use
+                window.preGeneratedBillData.set(cacheKey, {
+                    contentUrl,
+                    contentId,
+                    timestamp: Date.now()
+                });
+                console.log('[INVOICE-STATUS] ✅ Bill pre-generated and cached:', cacheKey, contentUrl);
+            }
+        } catch (error) {
+            console.warn('[INVOICE-STATUS] ⚠️ Pre-generation failed (will regenerate on send):', error.message);
         }
     }
 
