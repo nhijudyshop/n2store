@@ -766,7 +766,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         noteParts.push(`GG ${discountStr}`);
     }
 
-    // 3. Merge tag → "đơn gộp X + Y"
+    // 3. Merge tag → "ĐƠN GỘP X + Y"
     let orderTags = [];
     try {
         const tagsRaw = saleOnlineOrder?.Tags || order?.Tags;
@@ -785,7 +785,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
     if (mergeTag) {
         const numbers = mergeTag.Name.match(/\d+/g);
         if (numbers && numbers.length > 1) {
-            noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
+            noteParts.push(`ĐƠN GỘP ${numbers.join(' + ')}`);
         }
     }
 
@@ -942,15 +942,15 @@ function updateFastSaleShippingFee(index) {
                 console.log(`[FAST-SALE] Row ${index}: Free shipping - ${isThanhPho ? 'THÀNH PHỐ' : 'TỈNH'}, total ${finalAmountTotal.toLocaleString('vi-VN')}đ`);
             }
 
-            // Update note field to add/remove "freeship"
+            // Update note field to add/remove "FREESHIP"
             const noteInput = document.getElementById(`fastSaleNote_${index}`);
             if (noteInput) {
                 let currentNote = noteInput.value || '';
-                // Remove existing freeship mention
+                // Remove existing freeship mention (case insensitive)
                 currentNote = currentNote.replace(/,?\s*freeship/gi, '').replace(/freeship,?\s*/gi, '').trim();
-                // Add freeship if qualifies
+                // Add FREESHIP if qualifies
                 if (qualifiesForFreeship) {
-                    currentNote = currentNote ? `${currentNote}, freeship` : 'freeship';
+                    currentNote = currentNote ? `${currentNote}, FREESHIP` : 'FREESHIP';
                 }
                 noteInput.value = currentNote;
             }

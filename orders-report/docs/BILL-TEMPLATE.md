@@ -195,18 +195,18 @@ if (discount > 0) {
 
 // 3. Gộp - từ tag "Gộp X Y" trong order.Tags
 if (mergeTag) {
-    noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
+    noteParts.push(`ĐƠN GỘP ${numbers.join(' + ')}`);
 }
 
 // 4. Freeship - nếu đủ điều kiện miễn phí ship
 // THÀNH PHỐ: finalTotal > 1,500,000đ
 // TỈNH: finalTotal > 3,000,000đ
 if (qualifiesForFreeship) {
-    noteParts.push('freeship');
+    noteParts.push('FREESHIP');
 }
 ```
 
-**Ví dụ thực tế:** `"CK 400K ACB 28/01, GG 160K, freeship"`
+**Ví dụ thực tế:** `"CK 400K ACB 28/01, GG 160K, FREESHIP"`
 - Số dư ví 400K → ghi "CK 400K" (ghi số dư gốc để track)
 - Giảm giá 160K → ghi "GG 160K"
 

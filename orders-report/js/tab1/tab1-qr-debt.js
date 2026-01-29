@@ -1612,7 +1612,7 @@ function autoFillSaleNote() {
     if (mergeTag) {
         const numbers = mergeTag.Name.match(/\d+/g);
         if (numbers && numbers.length > 1) {
-            noteParts.push(`đơn gộp ${numbers.join(' + ')}`);
+            noteParts.push(`ĐƠN GỘP ${numbers.join(' + ')}`);
         }
     }
 
@@ -1628,7 +1628,7 @@ function autoFillSaleNote() {
 
         // Check freeship conditions
         if ((isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000)) {
-            noteParts.push('freeship');
+            noteParts.push('FREESHIP');
         }
     }
 
