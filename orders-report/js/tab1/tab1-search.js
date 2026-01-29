@@ -310,10 +310,10 @@ function performTableSearch() {
         });
     }
 
-    // Apply TAG filter
-    const tagFilter = document.getElementById('tagFilter')?.value || 'all';
+    // Apply TAG filter (Multi-select)
+    const selectedTags = window.getSelectedTagFilters ? window.getSelectedTagFilters() : [];
 
-    if (tagFilter !== 'all') {
+    if (selectedTags.length > 0) {
         tempData = tempData.filter(order => {
             if (!order.Tags) return false;
 
@@ -321,16 +321,17 @@ function performTableSearch() {
                 const orderTags = JSON.parse(order.Tags);
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
 
-                // Check if the order has the selected tag
-                return orderTags.some(tag => String(tag.Id) === String(tagFilter));
+                // Check if the order has ANY of the selected tags (OR logic)
+                return orderTags.some(tag => selectedTags.includes(String(tag.Id)));
             } catch (e) {
                 return false;
             }
         });
+        console.log(`[FILTER] Applied ${selectedTags.length} tag filters, remaining orders: ${tempData.length}`);
     }
 
     // Apply Excluded Tags filter (hide orders with certain tags)
-    const excludedTags = window.columnVisibility ? window.columnVisibility.loadExcludedTags() : [];
+    const excludedTags = window.getExcludedTagFilters ? window.getExcludedTagFilters() : [];
     if (excludedTags.length > 0) {
         tempData = tempData.filter(order => {
             if (!order.Tags) return true; // Orders without tags are not excluded

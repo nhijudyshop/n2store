@@ -291,7 +291,7 @@
                     </button>
                 </div>
 
-                <!-- TAG Filter with Search -->
+                <!-- TAG Filter with Multi-Select -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">TAG:</label>
                     <div class="tag-filter-dropdown" id="tagFilterDropdown">
@@ -299,16 +299,45 @@
                             <span id="tagFilterText">Tất cả</span>
                             <i class="fas fa-chevron-down"></i>
                         </div>
-                        <div class="tag-filter-menu" id="tagFilterMenu">
+                        <div class="tag-filter-menu" id="tagFilterMenu" style="min-width: 280px;">
                             <div class="tag-filter-search">
                                 <i class="fas fa-search"></i>
                                 <input type="text" id="tagFilterSearchInput" placeholder="Tìm tag..." oninput="filterTagOptions()">
                             </div>
-                            <div class="tag-filter-options" id="tagFilterOptions">
+                            <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">
+                                <button onclick="selectAllTagFilters()" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Chọn tất cả</button>
+                                <button onclick="clearTagFilters()" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;">Bỏ chọn</button>
+                            </div>
+                            <div class="tag-filter-options" id="tagFilterOptions" style="max-height: 300px; overflow-y: auto;">
                                 <!-- Options populated by JS -->
                             </div>
                         </div>
                         <input type="hidden" id="tagFilter" value="all">
+                    </div>
+                </div>
+
+                <!-- Exclude Tags Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
+                    <label style="font-size: 12px; font-weight: 500; color: #ef4444;">
+                        <i class="fas fa-eye-slash"></i> Ẩn:
+                    </label>
+                    <div class="tag-filter-dropdown exclude-tag-filter" id="excludeTagFilterDropdown">
+                        <div class="tag-filter-selected" onclick="toggleExcludeTagFilterDropdown()" id="excludeTagFilterSelected" style="border-color: #fecaca;">
+                            <span id="excludeTagFilterText">Không ẩn</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="tag-filter-menu" id="excludeTagFilterMenu" style="min-width: 280px;">
+                            <div class="tag-filter-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="excludeTagFilterSearchInput" placeholder="Tìm tag để ẩn..." oninput="filterExcludeTagOptions()">
+                            </div>
+                            <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">
+                                <button onclick="clearExcludeTagFilters()" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;"><i class="fas fa-times"></i> Bỏ ẩn tất cả</button>
+                            </div>
+                            <div class="tag-filter-options" id="excludeTagFilterOptions" style="max-height: 300px; overflow-y: auto;">
+                                <!-- Options populated by JS -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -348,7 +377,7 @@
                     </button>
                 </div>
             </div>
-            <!-- Excluded Tags Display -->
+            <!-- Excluded Tags Display (for showing selected excluded tags) -->
             <div id="excludedTagsDisplay" style="display: none; padding: 8px 0; border-top: 1px solid #e5e7eb; margin-top: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <span style="font-size: 12px; color: #6b7280;">
@@ -357,9 +386,6 @@
                     <div id="excludedTagsDisplayList" style="display: flex; flex-wrap: wrap; gap: 4px;">
                         <!-- Excluded tag names will be shown here -->
                     </div>
-                    <button onclick="openColumnSettingsModal()" style="padding: 2px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; color: #6b7280;">
-                        <i class="fas fa-edit"></i> Sửa
-                    </button>
                 </div>
             </div>
         </div>

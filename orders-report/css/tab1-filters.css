@@ -335,3 +335,32 @@
     font-weight: 500;
     color: #374151;
 }
+
+/* Exclude Tag Filter Dropdown Styles */
+.exclude-tag-filter .tag-filter-selected {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.exclude-tag-filter .tag-filter-selected:hover {
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+}
+
+/* Tag filter checkbox styles */
+.tag-filter-option input[type="checkbox"] {
+    accent-color: #3b82f6;
+}
+
+.exclude-tag-filter .tag-filter-option input[type="checkbox"] {
+    accent-color: #ef4444;
+}
+
+/* Tag filter actions bar */
+.tag-filter-actions button {
+    transition: all 0.15s;
+}
+
+.tag-filter-actions button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}

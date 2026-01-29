@@ -277,6 +277,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // =====================================================
 // EXCLUDED TAGS FUNCTIONS
+// (Now delegates to the main exclude tag filter functions in tab1-pancake-settings.js)
 // =====================================================
 
 // Temporary state for selected excluded tags while modal is open
@@ -284,8 +285,12 @@ let tempSelectedExcludedTags = [];
 
 /**
  * Load excluded tags from localStorage
+ * Now delegates to the global function if available
  */
 function loadExcludedTags() {
+    if (window.getExcludedTagFilters) {
+        return window.getExcludedTagFilters();
+    }
     try {
         const saved = localStorage.getItem(EXCLUDED_TAGS_KEY);
         if (saved) {
@@ -299,8 +304,13 @@ function loadExcludedTags() {
 
 /**
  * Save excluded tags to localStorage
+ * Now delegates to the global function if available
  */
 function saveExcludedTagsToStorage(tagIds) {
+    if (window.saveExcludedTagFilters) {
+        window.saveExcludedTagFilters(tagIds);
+        return;
+    }
     try {
         localStorage.setItem(EXCLUDED_TAGS_KEY, JSON.stringify(tagIds));
         console.log('[COLUMN] Excluded tags saved:', tagIds);
