@@ -1257,7 +1257,7 @@
      * Clear cache và reload Tab1, sau đó nhận dữ liệu mới khi Tab1 load xong
      * Tab3 KHÔNG reload - chỉ nhận data mới từ Tab1
      */
-    window.reloadWithCacheClear = function() {
+    window.reloadWithCacheClear = function () {
         console.log('[RELOAD] 🔄 Reload with cache clear requested...');
 
         // 1. Clear cache trực tiếp (cùng localStorage với Tab1)
@@ -1295,7 +1295,7 @@
     /**
      * Open Export Excel Modal
      */
-    window.openExportExcelModal = function() {
+    window.openExportExcelModal = function () {
         console.log('[EXPORT] 📊 Opening Export Excel Modal...');
 
         // Initialize Bootstrap modal if not exists
@@ -1328,7 +1328,7 @@
     /**
      * Close Export Excel Modal
      */
-    window.closeExportExcelModal = function() {
+    window.closeExportExcelModal = function () {
         if (exportExcelModal) {
             exportExcelModal.hide();
         }
@@ -1368,7 +1368,7 @@
      * Export Orders to Excel
      * Load 3000 orders from TPOS and export to Excel file
      */
-    window.exportOrdersToExcel = async function() {
+    window.exportOrdersToExcel = async function () {
         console.log('[EXPORT] 📊 Starting export to Excel...');
 
         const skipRange = document.getElementById('exportSkipRange');
@@ -1589,7 +1589,10 @@
             userStorageManager = window.userStorageManager;
             if (!userStorageManager) {
                 console.warn('[INIT] ⚠️ UserStorageManager not available, creating fallback');
-                userStorageManager = { getUserFirebasePath: (path) => `${path}/guest` };
+                userStorageManager = {
+                    getUserFirebasePath: (path) => `${path}/guest`,
+                    getUserIdentifier: () => 'guest'
+                };
             }
             console.log('[INIT] 📱 User identifier:', userStorageManager.getUserIdentifier ? userStorageManager.getUserIdentifier() : 'guest');
 
@@ -3187,11 +3190,11 @@
                                         </thead>
                                         <tbody>
                                             ${existingProducts.map(p => {
-                const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
-                const noteKey = `${stt}-${p.productId}`;
-                const rawNote = productNotes[noteKey] || p.note || '';
-                const existingNote = filterNonEncodedNotes(rawNote);
-                return `
+                    const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
+                    const noteKey = `${stt}-${p.productId}`;
+                    const rawNote = productNotes[noteKey] || p.note || '';
+                    const existingNote = filterNonEncodedNotes(rawNote);
+                    return `
                                                     <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                         <td>
                                                             <div class="d-flex align-items-center gap-2">
@@ -3218,7 +3221,7 @@
                                                         </td>
                                                     </tr>
                                                 `;
-            }).join('')}
+                }).join('')}
                                         </tbody>
                                     </table>
                                 ` : '<div class="text-center text-muted py-3 border rounded"><i class="fas fa-inbox fa-2x mb-2"></i><p class="mb-0">Không có sản phẩm có sẵn</p><small>(Tất cả sản phẩm đều là mới)</small></div>'}
@@ -3760,7 +3763,9 @@
             const previousSelection = userFilterSelect.value;
             console.log('[HISTORY-V2] Preserving selection:', previousSelection);
 
-            const currentUser = userStorageManager ? userStorageManager.getUserIdentifier() : null;
+            const currentUser = (userStorageManager && typeof userStorageManager.getUserIdentifier === 'function')
+                ? userStorageManager.getUserIdentifier()
+                : null;
             console.log('[HISTORY-V2] Current user:', currentUser);
 
             const allUsers = await loadAllUsersForFilterV2();
@@ -3896,7 +3901,7 @@
     /**
      * Retry sync pending history (called from UI button)
      */
-    window.retrySyncPendingHistory = async function() {
+    window.retrySyncPendingHistory = async function () {
         showNotification('🔄 Đang đồng bộ...', 'info');
         const result = await syncPendingHistoryV2();
 
@@ -4127,8 +4132,8 @@
                     const productName = String(assignment.productName || '');
                     const searchLower = searchProduct.toLowerCase();
                     return productCode.toLowerCase().includes(searchLower) ||
-                           productId.toLowerCase().includes(searchLower) ||
-                           productName.toLowerCase().includes(searchLower);
+                        productId.toLowerCase().includes(searchLower) ||
+                        productName.toLowerCase().includes(searchLower);
                 });
             });
             console.log('[HISTORY-V2] After product filter:', filteredHistoryRecordsV2.length);
@@ -4168,10 +4173,10 @@
         if (filteredHistoryRecordsV2.length === 0) {
             // Check if any filters are active
             const hasFilters = document.getElementById('historyV2StatusFilter').value !== 'all' ||
-                               document.getElementById('historyV2DateFrom').value ||
-                               document.getElementById('historyV2DateTo').value ||
-                               document.getElementById('historyV2SearchSTT').value.trim() ||
-                               document.getElementById('historyV2SearchProduct').value.trim();
+                document.getElementById('historyV2DateFrom').value ||
+                document.getElementById('historyV2DateTo').value ||
+                document.getElementById('historyV2SearchSTT').value.trim() ||
+                document.getElementById('historyV2SearchProduct').value.trim();
 
             container.innerHTML = `
                 <div class="history-empty-state">
@@ -4463,8 +4468,8 @@
             filteredSTTs = filteredSTTs.filter(([stt, data]) => {
                 return Array.from(data.products.values()).some(product => {
                     return product.productCode.toLowerCase().includes(searchLower) ||
-                           product.productId.toLowerCase().includes(searchLower) ||
-                           product.productName.toLowerCase().includes(searchLower);
+                        product.productId.toLowerCase().includes(searchLower) ||
+                        product.productName.toLowerCase().includes(searchLower);
                 });
             });
         }
@@ -5135,11 +5140,15 @@
      * Called from saveToUploadHistory() - completely separate from tab-upload-tpos
      */
     async function saveToUploadHistoryV2(uploadId, results, status) {
+        let historyRecord = null; // Defined outside try block for catch scope access
+
         try {
             console.log('[HISTORY-V2-SAVE] 💾 Saving to V2 database...');
 
-            // Get current user ID
-            const currentUserId = userStorageManager ? userStorageManager.getUserIdentifier() : 'guest';
+            // Get current user ID (Safe access)
+            const currentUserId = (window.userStorageManager && typeof window.userStorageManager.getUserIdentifier === 'function')
+                ? window.userStorageManager.getUserIdentifier()
+                : 'guest';
 
             // Get beforeSnapshot (current state before any deletions)
             const beforeSnapshot = {
@@ -5176,7 +5185,7 @@
             }
 
             // Build history record (GIỐNG 100% tab-upload-tpos structure)
-            const historyRecord = {
+            historyRecord = {
                 uploadId: uploadId,
                 timestamp: Date.now(),
                 userId: currentUserId,
@@ -5237,17 +5246,22 @@
             // Fallback: Save to IndexedDB for later retry
             try {
                 if (window.indexedDBStorage) {
-                    const pendingRecord = {
-                        uploadId: uploadId,
-                        historyRecord: historyRecord,
-                        error: error.message,
-                        failedAt: Date.now(),
-                        retryCount: 0
-                    };
-                    await window.indexedDBStorage.setItem(`pending_history_v2_${uploadId}`, pendingRecord);
-                    console.log('[HISTORY-V2-SAVE] 💾 Saved to IndexedDB for later retry:', uploadId);
-
-                    showNotification('⚠️ Lịch sử upload đã được lưu tạm. Sẽ đồng bộ lên server sau.', 'warning');
+                    // Only save if historyRecord was successfully created
+                    if (historyRecord) {
+                        const pendingRecord = {
+                            uploadId: uploadId,
+                            historyRecord: historyRecord,
+                            error: error.message,
+                            failedAt: Date.now(),
+                            retryCount: 0
+                        };
+                        await window.indexedDBStorage.setItem(`pending_history_v2_${uploadId}`, pendingRecord);
+                        console.log('[HISTORY-V2-SAVE] 💾 Saved to IndexedDB for later retry:', uploadId);
+                        showNotification('⚠️ Lịch sử upload đã được lưu tạm. Sẽ đồng bộ lên server sau.', 'warning');
+                    } else {
+                        console.error('[HISTORY-V2-SAVE] Cannot save to IndexedDB because historyRecord is null');
+                        showNotification('⚠️ Không thể lưu lịch sử upload (Dữ liệu bị lỗi).', 'error');
+                    }
                 } else {
                     showNotification('⚠️ Không thể lưu lịch sử upload. Vui lòng kiểm tra kết nối mạng.', 'error');
                 }
@@ -5371,7 +5385,7 @@
     // ===================================================================
     // MODAL CONTROLS
     // ===================================================================
-    window.openRemoveProductModal = function() {
+    window.openRemoveProductModal = function () {
         const modalEl = document.getElementById('removeProductModal');
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
@@ -5381,7 +5395,7 @@
         renderRemovalTable();
     };
 
-    window.closeRemoveProductModal = function() {
+    window.closeRemoveProductModal = function () {
         const modalEl = document.getElementById('removeProductModal');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
@@ -5391,7 +5405,7 @@
     // PRODUCT SEARCH FOR REMOVAL - CLONE 100% FROM MAIN UI
     // ===================================================================
     // Wrap in DOMContentLoaded to ensure modal HTML exists
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
         const removalSearchInput = document.getElementById('removalProductSearch');
         if (removalSearchInput) {
@@ -5722,7 +5736,7 @@
     // ===================================================================
     // ADD STT TO REMOVAL
     // ===================================================================
-    window.addSTTToRemoval = async function(removalId, stt) {
+    window.addSTTToRemoval = async function (removalId, stt) {
         if (!stt || !stt.trim()) return;
 
         stt = stt.trim();
@@ -5822,7 +5836,7 @@
     // ===================================================================
     // REMOVE STT FROM REMOVAL
     // ===================================================================
-    window.removeSTTFromRemoval = function(removalId, index) {
+    window.removeSTTFromRemoval = function (removalId, index) {
         const removal = removals.find(r => r.id === removalId);
         if (!removal || !removal.sttList) return;
 
@@ -5837,7 +5851,7 @@
     // ===================================================================
     // REMOVE PRODUCT FROM REMOVAL LIST
     // ===================================================================
-    window.removeProductFromRemovalList = function(removalId) {
+    window.removeProductFromRemovalList = function (removalId) {
         if (!confirm('Bạn có chắc muốn xóa sản phẩm này khỏi danh sách gỡ?')) return;
 
         removals = removals.filter(r => r.id !== removalId);
@@ -5849,7 +5863,7 @@
     // ===================================================================
     // CLEAR ALL REMOVALS
     // ===================================================================
-    window.clearAllRemovals = function() {
+    window.clearAllRemovals = function () {
         if (!confirm('Bạn có chắc muốn xóa tất cả sản phẩm trong danh sách gỡ?')) return;
 
         removals = [];
@@ -5903,7 +5917,7 @@
     // ===================================================================
     // PREVIEW REMOVAL
     // ===================================================================
-    window.previewRemoval = function() {
+    window.previewRemoval = function () {
         buildRemovalData();
 
         const stts = Object.keys(removalUploadData);
@@ -5923,7 +5937,7 @@
         renderRemovalPreview();
     };
 
-    window.switchRemovalViewMode = function(mode) {
+    window.switchRemovalViewMode = function (mode) {
         currentRemovalViewMode = mode;
 
         // Update button states
@@ -5973,13 +5987,13 @@
                                 </thead>
                                 <tbody>
                                     ${data.products.map(p => {
-                                        const statusIcon = p.canRemove ? '✅' : '⚠️';
-                                        const statusText = p.canRemove
-                                            ? (p.action === 'remove' ? 'Xóa hoàn toàn' : 'Giảm số lượng')
-                                            : (p.skipReason || 'Bỏ qua');
-                                        const rowClass = p.canRemove ? '' : 'table-warning';
+                    const statusIcon = p.canRemove ? '✅' : '⚠️';
+                    const statusText = p.canRemove
+                        ? (p.action === 'remove' ? 'Xóa hoàn toàn' : 'Giảm số lượng')
+                        : (p.skipReason || 'Bỏ qua');
+                    const rowClass = p.canRemove ? '' : 'table-warning';
 
-                                        return `
+                    return `
                                             <tr class="${rowClass}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
@@ -5996,7 +6010,7 @@
                                                 <td><small>${statusIcon} ${statusText}</small></td>
                                             </tr>
                                         `;
-                                    }).join('')}
+                }).join('')}
                                 </tbody>
                             </table>
                         </div>
@@ -6056,14 +6070,14 @@
                                 </thead>
                                 <tbody>
                                     ${group.stts.map(s => {
-                                        const orderInfo = removalUploadData[s.stt].orderInfo;
-                                        const statusIcon = s.canRemove ? '✅' : '⚠️';
-                                        const statusText = s.canRemove
-                                            ? (s.action === 'remove' ? 'Xóa' : 'Giảm')
-                                            : 'Bỏ qua';
-                                        const rowClass = s.canRemove ? '' : 'table-warning';
+                    const orderInfo = removalUploadData[s.stt].orderInfo;
+                    const statusIcon = s.canRemove ? '✅' : '⚠️';
+                    const statusText = s.canRemove
+                        ? (s.action === 'remove' ? 'Xóa' : 'Giảm')
+                        : 'Bỏ qua';
+                    const rowClass = s.canRemove ? '' : 'table-warning';
 
-                                        return `
+                    return `
                                             <tr class="${rowClass}">
                                                 <td><strong>${s.stt}</strong></td>
                                                 <td>${orderInfo.CustomerName}</td>
@@ -6072,7 +6086,7 @@
                                                 <td><small>${statusIcon} ${statusText}</small></td>
                                             </tr>
                                         `;
-                                    }).join('')}
+                }).join('')}
                                 </tbody>
                             </table>
                         </div>
@@ -6088,7 +6102,7 @@
         document.getElementById('removalSelectedCount').textContent = selectedRemovalSTTs.size;
     }
 
-    window.toggleRemovalSTT = function(stt, checked) {
+    window.toggleRemovalSTT = function (stt, checked) {
         if (checked) {
             selectedRemovalSTTs.add(stt);
         } else {
@@ -6100,7 +6114,7 @@
     // ===================================================================
     // EXECUTE REMOVAL - MAIN FUNCTION
     // ===================================================================
-    window.executeRemoval = async function() {
+    window.executeRemoval = async function () {
         const stts = Array.from(selectedRemovalSTTs);
 
         if (stts.length === 0) {
@@ -6467,12 +6481,12 @@
                         </div>
                         <ul class="mb-0" style="font-size:13px;">
                             ${r.removedProducts.map(p => {
-                                if (p.action === 'removed') {
-                                    return `<li>${p.productCode}: <strong>Đã xóa hoàn toàn</strong></li>`;
-                                } else {
-                                    return `<li>${p.productCode}: Giảm từ <strong>${p.from}</strong> → <strong>${p.to}</strong></li>`;
-                                }
-                            }).join('')}
+                    if (p.action === 'removed') {
+                        return `<li>${p.productCode}: <strong>Đã xóa hoàn toàn</strong></li>`;
+                    } else {
+                        return `<li>${p.productCode}: Giảm từ <strong>${p.from}</strong> → <strong>${p.to}</strong></li>`;
+                    }
+                }).join('')}
                         </ul>
                         ${skippedCount > 0 ? `<small class="text-muted">(${skippedCount} sản phẩm bỏ qua)</small>` : ''}
                     </div>
