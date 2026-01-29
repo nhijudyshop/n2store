@@ -1892,6 +1892,53 @@ function deselectAllOrders() {
     console.log('[DESELECT] All orders deselected');
 }
 
+// =====================================================
+// STICKY SEARCH SYNC
+// Đồng bộ search input giữa sticky bar và search section
+// =====================================================
+function syncStickySearch(value) {
+    const mainSearchInput = document.getElementById('tableSearchInput');
+    if (mainSearchInput) {
+        mainSearchInput.value = value;
+        // Trigger the search
+        performTableSearch();
+    }
+}
+
+// Sync từ main search sang sticky search
+function syncMainToStickySearch() {
+    const mainSearchInput = document.getElementById('tableSearchInput');
+    const stickySearchInput = document.getElementById('stickySearchInput');
+    if (mainSearchInput && stickySearchInput) {
+        stickySearchInput.value = mainSearchInput.value;
+    }
+}
+
+// Update sticky filter text khi filter thay đổi
+function updateStickyFilterText() {
+    // Update TAG filter text
+    const tagFilterText = document.getElementById('tagFilterText');
+    const stickyTagText = document.getElementById('stickyTagFilterText');
+    if (tagFilterText && stickyTagText) {
+        stickyTagText.textContent = tagFilterText.textContent;
+    }
+
+    // Update Exclude filter text
+    const excludeFilterText = document.getElementById('excludeTagFilterText');
+    const stickyExcludeText = document.getElementById('stickyExcludeFilterText');
+    if (excludeFilterText && stickyExcludeText) {
+        stickyExcludeText.textContent = excludeFilterText.textContent;
+    }
+}
+
+// Scroll to search section
+function scrollToSearchSection() {
+    const searchSection = document.getElementById('searchSection');
+    if (searchSection) {
+        searchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
 async function handleClearCache() {
     const confirmed = await window.notificationManager.confirm(
         "Bạn có chắc muốn xóa toàn bộ cache?",

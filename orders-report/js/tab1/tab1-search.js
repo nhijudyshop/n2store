@@ -14,6 +14,10 @@ function handleTableSearch(query) {
             .getElementById("searchClearBtn")
             .classList.toggle("active", !!searchQuery);
         performTableSearch();
+        // Sync to sticky search
+        if (typeof syncMainToStickySearch === 'function') {
+            syncMainToStickySearch();
+        }
     }, 300);
 }
 
