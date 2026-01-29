@@ -1564,7 +1564,13 @@ ${orderComment ? `
     function sendAdditionalBillMessages(pageId, convId, accessToken) {
         console.log('[BILL-SERVICE] [ADDITIONAL] Sending additional messages...');
 
-        const baseUrl = `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
+        // Use Cloudflare proxy (same as main bill send)
+        const baseUrl = window.API_CONFIG?.buildUrl?.pancake
+            ? window.API_CONFIG.buildUrl.pancake(
+                `pages/${pageId}/conversations/${convId}/messages`,
+                `access_token=${accessToken}`
+            )
+            : `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
 
         // Message 1: Send image
         const formData1 = new FormData();
