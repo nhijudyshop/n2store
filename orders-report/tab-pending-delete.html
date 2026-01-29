@@ -334,7 +334,7 @@
                 to { transform: rotate(360deg); }
             }
 
-            /* Bill Preview Hover Tooltip */
+            /* Bill Preview Hover Tooltip - Fixed position to avoid overflow clipping */
             .cancel-reason-wrapper {
                 position: relative;
                 display: inline-block;
@@ -344,23 +344,21 @@
                 cursor: pointer;
             }
 
-            .bill-hover-preview {
+            /* Global hover preview container - appended to body */
+            #globalBillPreview {
                 display: none;
-                position: absolute;
-                left: 0;
-                top: 100%;
-                z-index: 1000;
+                position: fixed;
+                z-index: 9999;
                 background: white;
                 border-radius: 12px;
-                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
                 padding: 8px;
-                margin-top: 8px;
-                width: 350px;
-                max-height: 450px;
+                width: 380px;
+                max-height: 480px;
                 overflow: hidden;
             }
 
-            .cancel-reason-wrapper:hover .bill-hover-preview {
+            #globalBillPreview.show {
                 display: block;
                 animation: fadeInUp 0.2s ease-out;
             }
@@ -376,25 +374,40 @@
                 }
             }
 
-            .bill-hover-preview iframe {
+            #globalBillPreview iframe {
                 width: 100%;
-                height: 400px;
+                height: 420px;
                 border: none;
                 border-radius: 8px;
                 background: #f8fafc;
-                pointer-events: none;
             }
 
-            .bill-hover-preview::before {
-                content: '';
-                position: absolute;
-                top: -8px;
-                left: 20px;
-                width: 0;
-                height: 0;
-                border-left: 8px solid transparent;
-                border-right: 8px solid transparent;
-                border-bottom: 8px solid white;
+            #globalBillPreview .preview-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 8px 4px;
+                margin-bottom: 8px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            #globalBillPreview .preview-title {
+                font-size: 13px;
+                font-weight: 600;
+                color: #991b1b;
+            }
+
+            #globalBillPreview .preview-close {
+                background: none;
+                border: none;
+                font-size: 18px;
+                cursor: pointer;
+                color: #64748b;
+                padding: 0 4px;
+            }
+
+            #globalBillPreview .preview-close:hover {
+                color: #ef4444;
             }
 
             /* Bill Preview Modal */
@@ -515,6 +528,17 @@
     </head>
 
     <body>
+        <!-- Global Bill Preview (positioned fixed) -->
+        <div id="globalBillPreview"
+             onmouseenter="cancelHideBillPreview()"
+             onmouseleave="hideBillPreview()">
+            <div class="preview-header">
+                <span class="preview-title"><i class="fas fa-receipt"></i> Bill Preview</span>
+                <button class="preview-close" onclick="hideBillPreview()">&times;</button>
+            </div>
+            <iframe id="globalBillFrame"></iframe>
+        </div>
+
         <div class="main-content">
             <!-- Header -->
             <div class="page-header">
@@ -839,12 +863,11 @@
                             </td>
                             <td class="amount">${amount}</td>
                             <td>
-                                <div class="cancel-reason-wrapper" onmouseenter="loadBillPreview(${index}, this)">
+                                <div class="cancel-reason-wrapper"
+                                     onmouseenter="showBillPreview(${index}, event)"
+                                     onmouseleave="hideBillPreviewDelayed()">
                                     <div class="cancel-reason" title="${escapeHtml(reason)}">
                                         <i class="fas fa-comment-dots"></i> ${escapeHtml(reason)}
-                                    </div>
-                                    <div class="bill-hover-preview">
-                                        <iframe id="billHoverFrame-${index}"></iframe>
                                     </div>
                                 </div>
                             </td>
@@ -1019,22 +1042,51 @@
             });
 
             // =====================================================
-            // BILL HOVER PREVIEW
+            // BILL HOVER PREVIEW (Global Fixed Position)
             // =====================================================
 
-            function loadBillPreview(index, wrapper) {
+            let hidePreviewTimeout = null;
+            let currentPreviewIndex = -1;
+
+            function showBillPreview(index, event) {
                 const item = filteredData[index];
                 if (!item) return;
 
-                const iframe = wrapper.querySelector('iframe');
-                if (!iframe) return;
+                // Cancel any pending hide
+                cancelHideBillPreview();
 
-                // Check if already loaded
-                if (billPreviewCache.has(index)) {
-                    return;
+                const preview = document.getElementById('globalBillPreview');
+                const iframe = document.getElementById('globalBillFrame');
+
+                // Position the preview near the mouse
+                const rect = event.target.getBoundingClientRect();
+                let left = rect.left;
+                let top = rect.bottom + 10;
+
+                // Adjust if too far right
+                if (left + 400 > window.innerWidth) {
+                    left = window.innerWidth - 410;
                 }
 
-                // Generate bill HTML
+                // Adjust if too far down
+                if (top + 500 > window.innerHeight) {
+                    top = rect.top - 490;
+                }
+
+                preview.style.left = Math.max(10, left) + 'px';
+                preview.style.top = Math.max(10, top) + 'px';
+
+                // Show preview
+                preview.classList.add('show');
+
+                // Load bill content if not cached or different index
+                if (currentPreviewIndex !== index) {
+                    currentPreviewIndex = index;
+                    loadBillContent(item, iframe);
+                }
+            }
+
+            function loadBillContent(item, iframe) {
                 try {
                     const enrichedOrder = {
                         Id: item.Id || item.id,
@@ -1071,10 +1123,26 @@
                         iframeDoc.open();
                         iframeDoc.write(billHTML);
                         iframeDoc.close();
-                        billPreviewCache.set(index, true);
                     }
                 } catch (e) {
-                    console.error('Error generating hover bill preview:', e);
+                    console.error('Error generating bill preview:', e);
+                }
+            }
+
+            function hideBillPreview() {
+                const preview = document.getElementById('globalBillPreview');
+                preview.classList.remove('show');
+                currentPreviewIndex = -1;
+            }
+
+            function hideBillPreviewDelayed() {
+                hidePreviewTimeout = setTimeout(hideBillPreview, 200);
+            }
+
+            function cancelHideBillPreview() {
+                if (hidePreviewTimeout) {
+                    clearTimeout(hidePreviewTimeout);
+                    hidePreviewTimeout = null;
                 }
             }
 
