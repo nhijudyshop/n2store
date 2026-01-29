@@ -1591,18 +1591,32 @@ ${orderComment ? `
 
         // Fire both requests without waiting (fire and forget)
         fetch(baseUrl, { method: 'POST', body: formData1 })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    console.warn('[BILL-SERVICE] [ADDITIONAL] Image message HTTP error:', response.status);
+                    return { success: false, httpError: response.status };
+                }
+                return response.json();
+            })
             .then(result => {
-                console.log('[BILL-SERVICE] [ADDITIONAL] Image message sent:', result.success !== false ? '✅' : '❌');
+                const success = result.success !== false && !result.httpError;
+                console.log('[BILL-SERVICE] [ADDITIONAL] Image message:', success ? '✅' : '❌', result);
             })
             .catch(error => {
                 console.warn('[BILL-SERVICE] [ADDITIONAL] Image message error:', error.message);
             });
 
         fetch(baseUrl, { method: 'POST', body: formData2 })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    console.warn('[BILL-SERVICE] [ADDITIONAL] Thank you message HTTP error:', response.status);
+                    return { success: false, httpError: response.status };
+                }
+                return response.json();
+            })
             .then(result => {
-                console.log('[BILL-SERVICE] [ADDITIONAL] Thank you message sent:', result.success !== false ? '✅' : '❌');
+                const success = result.success !== false && !result.httpError;
+                console.log('[BILL-SERVICE] [ADDITIONAL] Thank you message:', success ? '✅' : '❌', result);
             })
             .catch(error => {
                 console.warn('[BILL-SERVICE] [ADDITIONAL] Thank you message error:', error.message);
