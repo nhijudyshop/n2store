@@ -3902,6 +3902,12 @@
                             if (!record || typeof record !== 'object') return;
                             if (!record.timestamp && !record.uploadId && !record.uploadStatus) return;
 
+                            // Ensure uploadedSTTs is always a valid array
+                            let validatedUploadedSTTs = [];
+                            if (Array.isArray(record.uploadedSTTs)) {
+                                validatedUploadedSTTs = record.uploadedSTTs.filter(stt => stt != null).map(stt => String(stt));
+                            }
+
                             uploadHistoryRecordsV2.push({
                                 uploadId: record.uploadId || uploadKey,
                                 timestamp: record.timestamp || 0,
@@ -3910,7 +3916,7 @@
                                 totalAssignments: record.totalAssignments || 0,
                                 successCount: record.successCount || 0,
                                 failCount: record.failCount || 0,
-                                uploadedSTTs: record.uploadedSTTs || [],
+                                uploadedSTTs: validatedUploadedSTTs,
                                 note: record.note || '',
                                 committedAt: record.committedAt || null,
                                 restoredAt: record.restoredAt || null,
@@ -3923,6 +3929,13 @@
             } else {
                 uploadHistoryRecordsV2 = Object.keys(data).map(key => {
                     const record = data[key];
+
+                    // Ensure uploadedSTTs is always a valid array
+                    let validatedUploadedSTTs = [];
+                    if (Array.isArray(record.uploadedSTTs)) {
+                        validatedUploadedSTTs = record.uploadedSTTs.filter(stt => stt != null).map(stt => String(stt));
+                    }
+
                     return {
                         uploadId: record.uploadId || key,
                         timestamp: record.timestamp || 0,
@@ -3931,7 +3944,7 @@
                         totalAssignments: record.totalAssignments || 0,
                         successCount: record.successCount || 0,
                         failCount: record.failCount || 0,
-                        uploadedSTTs: record.uploadedSTTs || [],
+                        uploadedSTTs: validatedUploadedSTTs,
                         note: record.note || '',
                         committedAt: record.committedAt || null,
                         restoredAt: record.restoredAt || null,
@@ -3968,50 +3981,81 @@
         const searchSTT = document.getElementById('historyV2SearchSTT').value.trim();
         const searchProduct = document.getElementById('historyV2SearchProduct').value.trim();
 
-        console.log('[HISTORY-V2] 🔍 Filtering history:', { status, dateFrom, dateTo, searchSTT, searchProduct });
+        // Enhanced debug logging
+        console.log('[HISTORY-V2] 🔍 Pre-filter state:', {
+            totalUnfiltered: uploadHistoryRecordsV2.length,
+            filters: { status, dateFrom, dateTo, searchSTT, searchProduct }
+        });
 
         filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
 
+        // Filter by status
         if (status && status !== 'all') {
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.uploadStatus === status);
+            console.log('[HISTORY-V2] After status filter:', filteredHistoryRecordsV2.length);
         }
 
+        // Filter by dateFrom with NaN check
         if (dateFrom) {
-            // datetime-local format: YYYY-MM-DDTHH:MM
             const fromTimestamp = new Date(dateFrom).getTime();
-            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp >= fromTimestamp);
+            if (!isNaN(fromTimestamp)) {
+                filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
+                    const recordTime = record.timestamp || 0;
+                    return recordTime >= fromTimestamp;
+                });
+                console.log('[HISTORY-V2] After dateFrom filter:', filteredHistoryRecordsV2.length);
+            } else {
+                console.warn('[HISTORY-V2] Invalid dateFrom value:', dateFrom);
+            }
         }
 
+        // Filter by dateTo with NaN check
         if (dateTo) {
-            // datetime-local format: YYYY-MM-DDTHH:MM - use exact time selected
             const toTimestamp = new Date(dateTo).getTime();
-            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp <= toTimestamp);
+            if (!isNaN(toTimestamp)) {
+                filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
+                    const recordTime = record.timestamp || 0;
+                    return recordTime <= toTimestamp;
+                });
+                console.log('[HISTORY-V2] After dateTo filter:', filteredHistoryRecordsV2.length);
+            } else {
+                console.warn('[HISTORY-V2] Invalid dateTo value:', dateTo);
+            }
         }
 
+        // Filter by STT with defensive null check
         if (searchSTT) {
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
-                return record.uploadedSTTs.some(stt => stt.toString().includes(searchSTT));
+                // Defensive check for uploadedSTTs
+                if (!Array.isArray(record.uploadedSTTs) || record.uploadedSTTs.length === 0) {
+                    return false;
+                }
+                return record.uploadedSTTs.some(stt =>
+                    stt != null && stt.toString().includes(searchSTT)
+                );
             });
+            console.log('[HISTORY-V2] After STT filter:', filteredHistoryRecordsV2.length);
         }
 
+        // Filter by product with defensive null check
         if (searchProduct) {
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
-                // Check if the upload contains the searched product code
-                if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
-                    return record.beforeSnapshot.assignments.some(assignment => {
-                        const productCode = String(assignment.productCode || '');
-                        const productId = String(assignment.productId || '');
-                        const productName = String(assignment.productName || '');
-
-                        // Search in product code, product ID, or product name (case-insensitive)
-                        const searchLower = searchProduct.toLowerCase();
-                        return productCode.toLowerCase().includes(searchLower) ||
-                               productId.toLowerCase().includes(searchLower) ||
-                               productName.toLowerCase().includes(searchLower);
-                    });
+                // Check if beforeSnapshot has valid assignments array
+                const assignments = record.beforeSnapshot?.assignments;
+                if (!Array.isArray(assignments) || assignments.length === 0) {
+                    return false;
                 }
-                return false;
+                return assignments.some(assignment => {
+                    const productCode = String(assignment.productCode || '');
+                    const productId = String(assignment.productId || '');
+                    const productName = String(assignment.productName || '');
+                    const searchLower = searchProduct.toLowerCase();
+                    return productCode.toLowerCase().includes(searchLower) ||
+                           productId.toLowerCase().includes(searchLower) ||
+                           productName.toLowerCase().includes(searchLower);
+                });
             });
+            console.log('[HISTORY-V2] After product filter:', filteredHistoryRecordsV2.length);
         }
 
         currentHistoryPageV2 = 1;
@@ -4024,7 +4068,19 @@
             renderUploadHistoryListV2();
         }
 
-        console.log(`[HISTORY-V2] ✅ Filtered to ${filteredHistoryRecordsV2.length} records`);
+        console.log(`[HISTORY-V2] ✅ Final filtered count: ${filteredHistoryRecordsV2.length} records`);
+    };
+
+    /**
+     * Clear all history V2 filters and reload
+     */
+    window.clearHistoryV2Filters = function () {
+        document.getElementById('historyV2StatusFilter').value = 'all';
+        document.getElementById('historyV2DateFrom').value = '';
+        document.getElementById('historyV2DateTo').value = '';
+        document.getElementById('historyV2SearchSTT').value = '';
+        document.getElementById('historyV2SearchProduct').value = '';
+        filterUploadHistoryV2();
     };
 
     /**
@@ -4034,11 +4090,27 @@
         const container = document.getElementById('historyV2ListContainer');
 
         if (filteredHistoryRecordsV2.length === 0) {
+            // Check if any filters are active
+            const hasFilters = document.getElementById('historyV2StatusFilter').value !== 'all' ||
+                               document.getElementById('historyV2DateFrom').value ||
+                               document.getElementById('historyV2DateTo').value ||
+                               document.getElementById('historyV2SearchSTT').value.trim() ||
+                               document.getElementById('historyV2SearchProduct').value.trim();
+
             container.innerHTML = `
                 <div class="history-empty-state">
                     <i class="fas fa-inbox"></i>
                     <p>Không tìm thấy lịch sử upload nào</p>
-                    <p class="small">Lịch sử sẽ được lưu tự động sau mỗi lần upload</p>
+                    ${hasFilters ? `
+                        <p class="small text-muted">
+                            Đã tải ${uploadHistoryRecordsV2.length} bản ghi, nhưng không phù hợp với bộ lọc.
+                        </p>
+                        <button class="btn btn-sm btn-outline-secondary mt-2" onclick="clearHistoryV2Filters()">
+                            <i class="fas fa-times"></i> Xóa bộ lọc
+                        </button>
+                    ` : `
+                        <p class="small">Lịch sử sẽ được lưu tự động sau mỗi lần upload</p>
+                    `}
                 </div>
             `;
             document.getElementById('historyV2Pagination').innerHTML = '';
