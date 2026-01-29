@@ -1115,7 +1115,8 @@ class MessageTemplateManager {
                             name: detail.ProductNameGet || detail.ProductName,
                             quantity: detail.Quantity || 0,
                             price: detail.Price || 0,
-                            total: (detail.Quantity || 0) * (detail.Price || 0)
+                            total: (detail.Quantity || 0) * (detail.Price || 0),
+                            note: detail.Note || ''
                         })) || []
                     };
 
@@ -1271,7 +1272,8 @@ class MessageTemplateManager {
                     quantity: detail.Quantity || 0,
                     price: detail.Price || 0,
                     total: (detail.Quantity || 0) * (detail.Price || 0),
-                    imageUrl: detail.ImageUrl || ''
+                    imageUrl: detail.ImageUrl || '',
+                    note: detail.Note || ''
                 })) || []
             };
         }
@@ -1757,7 +1759,8 @@ class MessageTemplateManager {
                         name: detail.ProductNameGet || detail.ProductName,
                         quantity: detail.Quantity || 0,
                         price: detail.Price || 0,
-                        total: (detail.Quantity || 0) * (detail.Price || 0)
+                        total: (detail.Quantity || 0) * (detail.Price || 0),
+                        note: detail.Note || ''
                     })) || []
                 }
             };
@@ -1843,10 +1846,17 @@ class MessageTemplateManager {
             result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
-        // Replace order details (products) - bao gồm Tổng tiền
+        // Replace order details (products) - bao gồm Note và Tổng tiền
         if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
             const productList = orderData.products
-                .map(p => `- ${p.name} x${p.quantity} = ${this.formatCurrency(p.total)}`)
+                .map(p => {
+                    let line = `- ${p.name} x${p.quantity} = ${this.formatCurrency(p.total)}`;
+                    // Thêm note nếu có
+                    if (p.note && p.note.trim()) {
+                        line += `\n  📝 ${p.note.trim()}`;
+                    }
+                    return line;
+                })
                 .join('\n');
             // Thêm Tổng tiền vào cuối danh sách sản phẩm
             const totalAmount = orderData.totalAmount ? this.formatCurrency(orderData.totalAmount) : '0đ';
