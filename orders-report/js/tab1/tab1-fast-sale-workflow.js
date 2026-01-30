@@ -846,8 +846,8 @@
             Reference: invoiceData.Reference || orderData?.Code || orderData?.Reference,
             Number: invoiceData.Number,
             PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName || orderData?.PartnerDisplayName,
-            ShowState: invoiceData.ShowState,
-            Tags: orderData?.Tags || invoiceData.Tags
+            ShowState: invoiceData.ShowState
+            // Note: Tags removed - not used in Bill Chờ Xóa feature
         };
 
         // Store in a temporary global for confirmCancelOrder to access
