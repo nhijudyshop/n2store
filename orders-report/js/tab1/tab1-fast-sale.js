@@ -368,26 +368,26 @@ async function showFastSaleModal() {
             return;
         }
 
-        // Filter out orders that already have confirmed invoices
+        // Filter out orders that already have confirmed/paid invoices
         // These orders should NOT be re-submitted to avoid duplicates
         const confirmedOrderCodes = [];
         fastSaleOrdersData = fetchedOrders.filter(order => {
-            // Check 1: FastSaleOrder has confirmed status from API
-            if (order.ShowState === 'Đã xác nhận' || order.State === 'open') {
+            // Check 1: FastSaleOrder has confirmed/paid status from API
+            if (order.ShowState === 'Đã xác nhận' || order.ShowState === 'Đã thanh toán' || order.State === 'open') {
                 const code = order.Reference || order.SaleOnlineIds?.[0] || order.Id;
                 confirmedOrderCodes.push(code);
-                console.log(`[FAST-SALE] Skipping confirmed order: ${code} (ShowState: ${order.ShowState}, State: ${order.State})`);
+                console.log(`[FAST-SALE] Skipping confirmed/paid order: ${code} (ShowState: ${order.ShowState}, State: ${order.State})`);
                 return false;
             }
 
-            // Check 2: InvoiceStatusStore has confirmed invoice for this SaleOnlineId
+            // Check 2: InvoiceStatusStore has confirmed/paid invoice for this SaleOnlineId
             const saleOnlineId = order.SaleOnlineIds?.[0];
             if (saleOnlineId && window.InvoiceStatusStore) {
                 const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
-                if (invoiceData && (invoiceData.ShowState === 'Đã xác nhận' || invoiceData.State === 'open')) {
+                if (invoiceData && (invoiceData.ShowState === 'Đã xác nhận' || invoiceData.ShowState === 'Đã thanh toán' || invoiceData.State === 'open')) {
                     const code = order.Reference || saleOnlineId;
                     confirmedOrderCodes.push(code);
-                    console.log(`[FAST-SALE] Skipping order with confirmed invoice in store: ${code}`);
+                    console.log(`[FAST-SALE] Skipping order with confirmed/paid invoice in store: ${code}`);
                     return false;
                 }
             }
@@ -395,12 +395,12 @@ async function showFastSaleModal() {
             return true; // Keep order for processing
         });
 
-        // Show warning if some orders were filtered out due to confirmed status
+        // Show warning if some orders were filtered out due to confirmed/paid status
         if (confirmedOrderCodes.length > 0) {
-            console.warn(`[FAST-SALE] Filtered out ${confirmedOrderCodes.length} confirmed orders:`, confirmedOrderCodes);
+            console.warn(`[FAST-SALE] Filtered out ${confirmedOrderCodes.length} confirmed/paid orders:`, confirmedOrderCodes);
             if (window.notificationManager) {
                 window.notificationManager.warning(
-                    `Đã bỏ qua ${confirmedOrderCodes.length} đơn đã có phiếu "Đã xác nhận"`,
+                    `Đã bỏ qua ${confirmedOrderCodes.length} đơn đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán"`,
                     4000
                 );
             }
@@ -411,8 +411,8 @@ async function showFastSaleModal() {
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
-                    <p>Tất cả đơn hàng đã chọn đều đã có phiếu "Đã xác nhận".</p>
-                    <p style="font-size: 12px; color: #6b7280;">Không thể tạo phiếu mới cho các đơn đã xác nhận.</p>
+                    <p>Tất cả đơn hàng đã chọn đều đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán".</p>
+                    <p style="font-size: 12px; color: #6b7280;">Không thể tạo phiếu mới cho các đơn đã xử lý.</p>
                 </div>
             `;
             return;
@@ -422,7 +422,7 @@ async function showFastSaleModal() {
         const totalFiltered = emptyCartIds.length + confirmedOrderCodes.length;
         const filterDetails = [];
         if (emptyCartIds.length > 0) filterDetails.push(`${emptyCartIds.length} giỏ trống`);
-        if (confirmedOrderCodes.length > 0) filterDetails.push(`${confirmedOrderCodes.length} đã xác nhận`);
+        if (confirmedOrderCodes.length > 0) filterDetails.push(`${confirmedOrderCodes.length} đã có phiếu`);
         const filteredInfo = totalFiltered > 0 ? ` (đã bỏ ${filterDetails.join(', ')})` : '';
         subtitle.innerHTML = `Đã chọn ${fastSaleOrdersData.length} đơn hàng${filteredInfo} ${tposAccountInfo}`;
 
