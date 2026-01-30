@@ -266,7 +266,8 @@
                 Comment: invoiceData.Comment || order?.Comment || '',
                 DeliveryNote: invoiceData.DeliveryNote || order?.DeliveryNote || '',
                 Error: invoiceData.Error,
-                timestamp: Date.now()
+                DateInvoice: invoiceData.DateInvoice || new Date().toISOString(), // Ngày tạo bill từ API
+                timestamp: Date.now() // Thời điểm lưu vào localStorage
             });
             this.save();
         },
