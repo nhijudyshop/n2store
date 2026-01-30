@@ -302,7 +302,36 @@
         }
 
         try {
-            // Save to delete store
+            // Step 1: Call TPOS API to cancel the order
+            const fastSaleOrderId = order.Id;
+            if (fastSaleOrderId) {
+                console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
+                const authHeader = await window.tokenManager?.getAuthHeader?.() || {};
+
+                const cancelResponse = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json',
+                        'content-type': 'application/json',
+                        ...authHeader
+                    },
+                    body: JSON.stringify({ ids: [fastSaleOrderId] })
+                });
+
+                if (!cancelResponse.ok) {
+                    const errorText = await cancelResponse.text();
+                    console.error('[WORKFLOW] TPOS cancel API error:', cancelResponse.status, errorText);
+                    window.notificationManager?.error(`Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`);
+                    return;
+                }
+
+                const cancelResult = await cancelResponse.json();
+                console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
+            } else {
+                console.warn('[WORKFLOW] No FastSaleOrder ID found, skipping TPOS cancel API');
+            }
+
+            // Step 2: Save to delete store
             await InvoiceStatusDeleteStore.add(saleOnlineId, {
                 ...invoiceData,
                 ...order,
@@ -934,7 +963,36 @@
         }
 
         try {
-            // Save to delete store
+            // Step 1: Call TPOS API to cancel the order
+            const fastSaleOrderId = order.Id;
+            if (fastSaleOrderId) {
+                console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
+                const authHeader = await window.tokenManager?.getAuthHeader?.() || {};
+
+                const cancelResponse = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json',
+                        'content-type': 'application/json',
+                        ...authHeader
+                    },
+                    body: JSON.stringify({ ids: [fastSaleOrderId] })
+                });
+
+                if (!cancelResponse.ok) {
+                    const errorText = await cancelResponse.text();
+                    console.error('[WORKFLOW] TPOS cancel API error:', cancelResponse.status, errorText);
+                    window.notificationManager?.error(`Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`);
+                    return;
+                }
+
+                const cancelResult = await cancelResponse.json();
+                console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
+            } else {
+                console.warn('[WORKFLOW] No FastSaleOrder ID found, skipping TPOS cancel API');
+            }
+
+            // Step 2: Save to delete store
             await InvoiceStatusDeleteStore.add(saleOnlineId, {
                 ...invoiceData,
                 ...order,
