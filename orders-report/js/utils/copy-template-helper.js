@@ -372,7 +372,12 @@
             const orderData = convertOrderData(fullOrderData);
 
             // Replace placeholders
-            const finalContent = replacePlaceholders(template.BodyPlain, orderData);
+            let finalContent = replacePlaceholders(template.BodyPlain, orderData);
+
+            // Add payment reminder before closing line
+            const paymentReminder = 'Khách Thanh Toán Phương Thức Chuyển Khoản Hỗ Trợ Báo Trước Giúp Shop Ạ';
+            const closingLine = 'Dạ c xem okee để e đi đơn cho mình c nhé 😍';
+            finalContent = finalContent + '\n\n' + paymentReminder + '\n\n' + closingLine;
 
             // Copy to clipboard
             const copySuccess = await copyToClipboard(finalContent);
