@@ -19,7 +19,7 @@
 
     const STORAGE_KEY = 'invoiceStatusStore';
     const FIRESTORE_COLLECTION = 'invoice_status';
-    const MAX_AGE_DAYS = 7;
+    const MAX_AGE_DAYS = 14; // Auto cleanup after 14 days
 
     /**
      * InvoiceStatusStore - Manages invoice status data

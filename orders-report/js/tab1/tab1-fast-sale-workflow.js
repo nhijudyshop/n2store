@@ -19,6 +19,7 @@
 
     const DELETE_STORAGE_KEY = 'invoiceStatusDelete';
     const DELETE_FIRESTORE_COLLECTION = 'invoice_status_delete';
+    const DELETE_MAX_AGE_DAYS = 14; // Auto cleanup after 14 days
 
     const InvoiceStatusDeleteStore = {
         _data: new Map(),
@@ -47,6 +48,9 @@
 
                 // Load from Firestore
                 await this._loadFromFirestore();
+
+                // Cleanup old entries (>14 days)
+                await this.cleanup();
 
                 this._initialized = true;
             } catch (e) {
@@ -179,6 +183,35 @@
          */
         getAll() {
             return Array.from(this._data.entries());
+        },
+
+        /**
+         * Cleanup old entries (older than 14 days)
+         */
+        async cleanup() {
+            const now = Date.now();
+            const maxAge = DELETE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+
+            let removed = 0;
+            const keysToRemove = [];
+
+            this._data.forEach((value, key) => {
+                // Use deletedAt as timestamp
+                if (value.deletedAt && (now - value.deletedAt) > maxAge) {
+                    keysToRemove.push(key);
+                    removed++;
+                }
+            });
+
+            // Remove old entries
+            keysToRemove.forEach(key => {
+                this._data.delete(key);
+            });
+
+            if (removed > 0) {
+                console.log(`[INVOICE-DELETE] Cleaned up ${removed} old entries (>${DELETE_MAX_AGE_DAYS} days)`);
+                await this._save(); // Save to both localStorage and Firestore
+            }
         }
     };
 
