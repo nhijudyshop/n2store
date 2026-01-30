@@ -200,8 +200,10 @@ const BillService = (function () {
         // Bill number and date (data should already be complete from InvoiceStatusStore)
         const billNumber = orderResult?.Number || '';
 
-        // Use DateInvoice from stored data if available, otherwise use current time
-        const billDate = orderResult?.DateInvoice ? new Date(orderResult.DateInvoice) : new Date();
+        // Use DateInvoice or timestamp from stored data if available, otherwise use current time
+        const billDate = orderResult?.DateInvoice
+            ? new Date(orderResult.DateInvoice)
+            : (orderResult?.timestamp ? new Date(orderResult.timestamp) : new Date());
         const dateStr = `${String(billDate.getDate()).padStart(2, '0')}/${String(billDate.getMonth() + 1).padStart(2, '0')}/${billDate.getFullYear()} ${String(billDate.getHours()).padStart(2, '0')}:${String(billDate.getMinutes()).padStart(2, '0')}`;
 
         // Barcode URL (TPOS CDN - exact format from TPOS)
