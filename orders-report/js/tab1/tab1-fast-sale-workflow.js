@@ -326,7 +326,9 @@
                     return;
                 }
 
-                const cancelResult = await cancelResponse.json();
+                // Handle empty response (API may return 200/204 with no body)
+                const responseText = await cancelResponse.text();
+                const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
                 console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
                 console.warn('[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API');
@@ -988,7 +990,9 @@
                     return;
                 }
 
-                const cancelResult = await cancelResponse.json();
+                // Handle empty response (API may return 200/204 with no body)
+                const responseText = await cancelResponse.text();
+                const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
                 console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
                 console.warn('[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API');
