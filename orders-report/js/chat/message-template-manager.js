@@ -1816,6 +1816,94 @@ class MessageTemplateManager {
         }
     }
 
+    /**
+     * Parse discount price from product note
+     * Patterns: 100, 200 (số đứng một mình) or 100k, 200k (số + k)
+     * @returns {Object|null} - { discountPrice, displayText, remainingNote }
+     */
+    parseDiscountPrice(note) {
+        if (!note || typeof note !== 'string') return null;
+
+        const trimmedNote = note.trim();
+        if (!trimmedNote) return null;
+
+        // Pattern 1: number followed by k (e.g., 100k, 150k)
+        const kPattern = /^(\d+)k\b\s*(.*)/i;
+        // Pattern 2: number alone at the start (e.g., 100, 150)
+        const numPattern = /^(\d+)\b\s*(.*)/;
+
+        let match = null;
+        let priceValue = null;
+        let remainingNote = '';
+
+        // Try k pattern first (more specific)
+        match = trimmedNote.match(kPattern);
+        if (match) {
+            priceValue = parseInt(match[1], 10);
+            remainingNote = match[2] ? match[2].trim() : '';
+        }
+
+        // Try number pattern
+        if (!priceValue) {
+            match = trimmedNote.match(numPattern);
+            if (match) {
+                priceValue = parseInt(match[1], 10);
+                remainingNote = match[2] ? match[2].trim() : '';
+            }
+        }
+
+        if (priceValue && priceValue > 0) {
+            const discountPrice = priceValue * 1000;
+            return {
+                discountPrice: discountPrice,
+                displayText: priceValue.toString(),
+                remainingNote: remainingNote
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Format a single product line with discount detection
+     */
+    formatProductLineWithDiscount(product) {
+        const discountInfo = this.parseDiscountPrice(product.note);
+
+        if (discountInfo) {
+            const originalPricePerItem = product.price;
+            const discountPricePerItem = discountInfo.discountPrice;
+            const discountPerItem = originalPricePerItem - discountPricePerItem;
+            const totalDiscount = discountPerItem * product.quantity;
+
+            const productLine = `- ${product.name} x${product.quantity} = ${this.formatCurrency(product.total)}`;
+
+            let saleLine = `  📝Sale ${discountInfo.displayText}`;
+            if (discountInfo.remainingNote) {
+                saleLine += ` (${discountInfo.remainingNote})`;
+            }
+
+            return {
+                line: productLine + '\n' + saleLine,
+                hasDiscount: true,
+                discountData: {
+                    originalTotal: product.total,
+                    totalDiscount: totalDiscount
+                }
+            };
+        } else {
+            let line = `- ${product.name} x${product.quantity} = ${this.formatCurrency(product.total)}`;
+            if (product.note && product.note.trim()) {
+                line += `\n  📝 ${product.note.trim()}`;
+            }
+            return {
+                line: line,
+                hasDiscount: false,
+                discountData: null
+            };
+        }
+    }
+
     replacePlaceholders(content, orderData) {
         let result = content;
 
@@ -1846,21 +1934,39 @@ class MessageTemplateManager {
             result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
-        // Replace order details (products) - bao gồm Note và Tổng tiền
+        // Replace order details (products) - with discount detection
         if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
-            const productList = orderData.products
-                .map(p => {
-                    let line = `- ${p.name} x${p.quantity} = ${this.formatCurrency(p.total)}`;
-                    // Thêm note nếu có
-                    if (p.note && p.note.trim()) {
-                        line += `\n  📝 ${p.note.trim()}`;
-                    }
-                    return line;
-                })
-                .join('\n');
-            // Thêm Tổng tiền vào cuối danh sách sản phẩm
-            const totalAmount = orderData.totalAmount ? this.formatCurrency(orderData.totalAmount) : '0đ';
-            const productListWithTotal = `${productList}\n\nTổng tiền: ${totalAmount}`;
+            let totalDiscountAmount = 0;
+            let hasAnyDiscount = false;
+
+            const formattedProducts = orderData.products.map(p => {
+                const formatted = this.formatProductLineWithDiscount(p);
+                if (formatted.hasDiscount && formatted.discountData) {
+                    hasAnyDiscount = true;
+                    totalDiscountAmount += formatted.discountData.totalDiscount;
+                }
+                return formatted;
+            });
+
+            const productList = formattedProducts.map(fp => fp.line).join('\n');
+
+            // Format total section based on whether discounts exist
+            let totalSection;
+            if (hasAnyDiscount) {
+                const originalTotal = orderData.totalAmount || 0;
+                const finalTotal = originalTotal - totalDiscountAmount;
+
+                totalSection = [
+                    `Tổng : ${this.formatCurrency(originalTotal)}`,
+                    `Giảm giá: ${this.formatCurrency(totalDiscountAmount)}`,
+                    `Tổng tiền: ${this.formatCurrency(finalTotal)}`
+                ].join('\n');
+            } else {
+                const totalAmount = orderData.totalAmount ? this.formatCurrency(orderData.totalAmount) : '0đ';
+                totalSection = `Tổng tiền: ${totalAmount}`;
+            }
+
+            const productListWithTotal = `${productList}\n\n${totalSection}`;
             result = result.replace(/{order\.details}/g, productListWithTotal);
         } else {
             result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
