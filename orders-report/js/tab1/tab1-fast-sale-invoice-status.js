@@ -267,6 +267,8 @@
                 DeliveryNote: invoiceData.DeliveryNote || order?.DeliveryNote || '',
                 Error: invoiceData.Error,
                 DateInvoice: invoiceData.DateInvoice || new Date().toISOString(), // Ngày tạo bill từ API
+                DateCreated: invoiceData.DateCreated || order?.DateCreated || new Date().toISOString(), // Ngày tạo đơn
+                LiveCampaignId: invoiceData.LiveCampaignId || order?.LiveCampaignId || '', // ID chiến dịch live
                 timestamp: Date.now() // Thời điểm lưu vào localStorage
             });
             this.save();
