@@ -814,8 +814,8 @@
 
         // Create a compatible order object using invoiceData as primary source
         const order = {
-            Id: orderId,
-            SaleOnlineIds: [orderId], // Main table: orderId IS the SaleOnlineId
+            Id: invoiceData.Id, // FastSaleOrder ID for TPOS API calls (e.g., 419211)
+            SaleOnlineIds: [orderId], // Main table: orderId IS the SaleOnlineId (e.g., 15810000-5d48-...)
             Reference: invoiceData.Reference || orderData?.Code || orderData?.Reference,
             Number: invoiceData.Number,
             PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName || orderData?.PartnerDisplayName,
