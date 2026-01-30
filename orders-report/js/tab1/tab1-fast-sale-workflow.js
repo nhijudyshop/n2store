@@ -123,12 +123,15 @@
             // Get username from authManager
             const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
             const username = authData?.username || (authData?.userType ? authData.userType.split('-')[0] : 'unknown');
+            // Get displayName from Firebase users collection (same as currentUserIdentifier)
+            const displayName = window.currentUserIdentifier || username;
 
             const entry = {
                 ...invoiceData,
                 cancelReason: reason,
                 deletedAt: Date.now(),
                 deletedBy: username,
+                deletedByDisplayName: displayName, // Tên hiển thị từ Firebase (VD: "HẠNH", "HUYÊN")
                 isOldVersion: false // Đánh dấu version mới
             };
 

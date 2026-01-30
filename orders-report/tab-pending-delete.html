@@ -754,11 +754,20 @@
             // =====================================================
 
             function updateUserFilter() {
-                const users = [...new Set(allData.map(d => d.deletedBy).filter(Boolean))];
+                // Build unique users with displayName mapping
+                const userMap = new Map();
+                allData.forEach(d => {
+                    if (d.deletedBy) {
+                        // Use displayName if available, otherwise use deletedBy
+                        const displayName = d.deletedByDisplayName || d.deletedBy;
+                        userMap.set(d.deletedBy, displayName);
+                    }
+                });
+
                 const select = document.getElementById('userFilter');
                 select.innerHTML = '<option value="all">Tất cả người hủy</option>';
-                users.forEach(user => {
-                    select.innerHTML += `<option value="${user}">${user}</option>`;
+                userMap.forEach((displayName, username) => {
+                    select.innerHTML += `<option value="${username}">${displayName}</option>`;
                 });
             }
 
@@ -848,7 +857,7 @@
                     const amount = formatCurrency(item.AmountTotal || item.CashOnDelivery || 0);
                     const reason = item.cancelReason || 'Không có lý do';
                     const deletedAt = item.deletedAt ? formatDateTime(item.deletedAt) : 'N/A';
-                    const deletedBy = item.deletedBy || 'N/A';
+                    const deletedByDisplay = item.deletedByDisplayName || item.deletedBy || 'N/A';
 
                     return `
                         <tr>
@@ -877,7 +886,7 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="user-badge">${deletedBy}</span>
+                                <span class="user-badge">${deletedByDisplay}</span>
                             </td>
                             <td>
                                 <button class="btn-action btn-view" onclick="viewBill(${index})" title="Xem chi tiết">
@@ -933,7 +942,7 @@
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Người yêu cầu hủy</div>
-                        <div class="detail-value">${item.deletedBy || 'N/A'}</div>
+                        <div class="detail-value">${item.deletedByDisplayName || item.deletedBy || 'N/A'}</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Thời gian yêu cầu</div>
