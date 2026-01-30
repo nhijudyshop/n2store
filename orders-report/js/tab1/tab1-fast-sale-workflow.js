@@ -63,6 +63,7 @@
             // Get username from authManager - use getAuthData() and extract from userType
             const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
             const username = authData?.username || (authData?.userType ? authData.userType.split('-')[0] : 'default');
+            console.log(`[INVOICE-DELETE] Using Firestore doc: ${DELETE_FIRESTORE_COLLECTION}/${username}`);
             return db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
         },
 
@@ -101,12 +102,17 @@
                 // Save to localStorage
                 const dataObj = Object.fromEntries(this._data);
                 localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({ data: dataObj }));
+                console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
 
-                // Sync to Firestore
-                const docRef = this._getDocRef();
-                await docRef.set({ data: dataObj }, { merge: true });
-
-                console.log(`[INVOICE-DELETE] Saved ${this._data.size} entries`);
+                // Sync to Firestore (if Firebase is available)
+                if (typeof firebase !== 'undefined' && firebase.firestore) {
+                    const docRef = this._getDocRef();
+                    console.log(`[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`);
+                    await docRef.set({ data: dataObj }, { merge: true });
+                    console.log(`[INVOICE-DELETE] Synced to Firestore successfully`);
+                } else {
+                    console.warn('[INVOICE-DELETE] Firebase not available, skipping Firestore sync');
+                }
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error saving:', e);
             }
