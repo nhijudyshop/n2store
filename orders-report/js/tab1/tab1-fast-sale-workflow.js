@@ -95,6 +95,23 @@
         },
 
         /**
+         * Remove undefined values from object (Firestore doesn't accept undefined)
+         */
+        _cleanForFirestore(obj) {
+            if (obj === null || typeof obj !== 'object') return obj;
+            if (Array.isArray(obj)) {
+                return obj.map(item => this._cleanForFirestore(item)).filter(item => item !== undefined);
+            }
+            const cleaned = {};
+            for (const [key, value] of Object.entries(obj)) {
+                if (value !== undefined) {
+                    cleaned[key] = this._cleanForFirestore(value);
+                }
+            }
+            return cleaned;
+        },
+
+        /**
          * Save to localStorage and sync to Firestore
          */
         async _save() {
@@ -108,7 +125,9 @@
                 if (typeof firebase !== 'undefined' && firebase.firestore) {
                     const docRef = this._getDocRef();
                     console.log(`[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`);
-                    await docRef.set({ data: dataObj }, { merge: true });
+                    // Clean data to remove undefined values (Firestore doesn't accept them)
+                    const cleanedData = this._cleanForFirestore(dataObj);
+                    await docRef.set({ data: cleanedData }, { merge: true });
                     console.log(`[INVOICE-DELETE] Synced to Firestore successfully`);
                 } else {
                     console.warn('[INVOICE-DELETE] Firebase not available, skipping Firestore sync');
