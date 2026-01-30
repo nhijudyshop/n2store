@@ -18,6 +18,105 @@
     }
 
     /**
+     * Parse discount price from product note
+     * Patterns supported:
+     * - 100, 200, 250 - số đứng một mình (giá sale tính bằng nghìn đồng)
+     * - 100k, 200k, 250k - số + k (giá sale tính bằng nghìn đồng)
+     * @param {string} note - Product note
+     * @returns {Object|null} - { discountPrice: number, displayText: string, remainingNote: string } or null
+     */
+    function parseDiscountPrice(note) {
+        if (!note || typeof note !== 'string') return null;
+
+        const trimmedNote = note.trim();
+        if (!trimmedNote) return null;
+
+        // Pattern 1: number followed by k (e.g., 100k, 150k)
+        const kPattern = /^(\d+)k\b\s*(.*)/i;
+        // Pattern 2: number alone at the start (e.g., 100, 150)
+        const numPattern = /^(\d+)\b\s*(.*)/;
+
+        let match = null;
+        let priceValue = null;
+        let remainingNote = '';
+
+        // Try k pattern first (more specific)
+        match = trimmedNote.match(kPattern);
+        if (match) {
+            priceValue = parseInt(match[1], 10);
+            remainingNote = match[2] ? match[2].trim() : '';
+        }
+
+        // Try number pattern
+        if (!priceValue) {
+            match = trimmedNote.match(numPattern);
+            if (match) {
+                priceValue = parseInt(match[1], 10);
+                remainingNote = match[2] ? match[2].trim() : '';
+            }
+        }
+
+        if (priceValue && priceValue > 0) {
+            // Convert to full price (thousands)
+            const discountPrice = priceValue * 1000;
+            return {
+                discountPrice: discountPrice,
+                displayText: priceValue.toString(), // e.g., "150" for display
+                remainingNote: remainingNote
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Format a single product line for the template
+     * @param {Object} product - Product data { name, quantity, price, total, note }
+     * @returns {Object} - { line: string, hasDiscount: boolean, discountData: object|null }
+     */
+    function formatProductLine(product) {
+        const discountInfo = parseDiscountPrice(product.note);
+
+        if (discountInfo) {
+            // Product has discount
+            // Calculate discount amount per item
+            const originalPricePerItem = product.price;
+            const discountPricePerItem = discountInfo.discountPrice;
+            const discountPerItem = originalPricePerItem - discountPricePerItem;
+            const totalDiscount = discountPerItem * product.quantity;
+
+            // Format: "- ProductName x11 = 1.980.000 ₫\n  📝Sale 150"
+            const productLine = `- ${product.name} x${product.quantity} = ${formatCurrency(product.total)}`;
+
+            // Build sale line with remaining note if exists
+            let saleLine = `  📝Sale ${discountInfo.displayText}`;
+            if (discountInfo.remainingNote) {
+                saleLine += ` (${discountInfo.remainingNote})`;
+            }
+
+            return {
+                line: productLine + '\n' + saleLine,
+                hasDiscount: true,
+                discountData: {
+                    originalTotal: product.total,
+                    discountPricePerItem: discountPricePerItem,
+                    discountPerItem: discountPerItem,
+                    totalDiscount: totalDiscount,
+                    finalTotal: product.total - totalDiscount
+                }
+            };
+        } else {
+            // No discount - show note in parentheses (original behavior)
+            const noteText = product.note ? ` (${product.note})` : '';
+            return {
+                line: `- ${product.name} x${product.quantity} = ${formatCurrency(product.total)}${noteText}`,
+                hasDiscount: false,
+                discountData: null
+            };
+        }
+    }
+
+    /**
      * Convert fullOrderData (từ API) sang format dùng cho replacePlaceholders
      */
     function convertOrderData(fullOrderData) {
@@ -77,16 +176,39 @@
             result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
-        // {order.details} - danh sách sản phẩm + tổng tiền + ghi chú
+        // {order.details} - danh sách sản phẩm + tổng tiền + ghi chú (with discount support)
         if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
-            const productList = orderData.products
-                .map(p => {
-                    const noteText = p.note ? ` (${p.note})` : '';
-                    return `- ${p.name} x${p.quantity} = ${formatCurrency(p.total)}${noteText}`;
-                })
-                .join('\n');
-            const totalAmount = formatCurrency(orderData.totalAmount);
-            const productListWithTotal = `${productList}\n\nTổng tiền: ${totalAmount}`;
+            // Process all products and collect discount info
+            let totalDiscountAmount = 0;
+            let hasAnyDiscount = false;
+
+            const formattedProducts = orderData.products.map(p => {
+                const formatted = formatProductLine(p);
+                if (formatted.hasDiscount && formatted.discountData) {
+                    hasAnyDiscount = true;
+                    totalDiscountAmount += formatted.discountData.totalDiscount;
+                }
+                return formatted;
+            });
+
+            const productList = formattedProducts.map(fp => fp.line).join('\n');
+
+            // Format total section based on whether discounts exist
+            let totalSection;
+            if (hasAnyDiscount) {
+                const originalTotal = orderData.totalAmount;
+                const finalTotal = originalTotal - totalDiscountAmount;
+
+                totalSection = [
+                    `Tổng : ${formatCurrency(originalTotal)}`,
+                    `Giảm giá: ${formatCurrency(totalDiscountAmount)}`,
+                    `Tổng tiền: ${formatCurrency(finalTotal)}`
+                ].join('\n');
+            } else {
+                totalSection = `Tổng tiền: ${formatCurrency(orderData.totalAmount)}`;
+            }
+
+            const productListWithTotal = `${productList}\n\n${totalSection}`;
             result = result.replace(/{order\.details}/g, productListWithTotal);
         } else {
             result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
