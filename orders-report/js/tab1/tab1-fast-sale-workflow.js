@@ -303,8 +303,9 @@
 
         try {
             // Step 1: Call TPOS API to cancel the order
-            const fastSaleOrderId = order.Id;
-            if (fastSaleOrderId) {
+            // Parse ID to integer - API requires Int64, not string
+            const fastSaleOrderId = parseInt(order.Id, 10);
+            if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
                 const authHeader = await window.tokenManager?.getAuthHeader?.() || {};
 
@@ -328,7 +329,7 @@
                 const cancelResult = await cancelResponse.json();
                 console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
-                console.warn('[WORKFLOW] No FastSaleOrder ID found, skipping TPOS cancel API');
+                console.warn('[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API');
             }
 
             // Step 2: Save to delete store
@@ -964,8 +965,9 @@
 
         try {
             // Step 1: Call TPOS API to cancel the order
-            const fastSaleOrderId = order.Id;
-            if (fastSaleOrderId) {
+            // Parse ID to integer - API requires Int64, not string
+            const fastSaleOrderId = parseInt(order.Id, 10);
+            if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
                 const authHeader = await window.tokenManager?.getAuthHeader?.() || {};
 
@@ -989,7 +991,7 @@
                 const cancelResult = await cancelResponse.json();
                 console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
-                console.warn('[WORKFLOW] No FastSaleOrder ID found, skipping TPOS cancel API');
+                console.warn('[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API');
             }
 
             // Step 2: Save to delete store
