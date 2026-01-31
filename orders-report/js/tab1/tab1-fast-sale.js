@@ -1708,8 +1708,27 @@ async function saveFastSaleOrders(isApprove = false) {
             return;
         }
 
+        // =====================================================
+        // DEDUPE: Remove duplicate orders by Reference
+        // =====================================================
+        const seenRefs = new Set();
+        const uniqueModels = [];
+        for (const model of models) {
+            const key = model.Reference || JSON.stringify(model.SaleOnlineIds) || JSON.stringify(model.Partner?.Phone);
+            if (!seenRefs.has(key)) {
+                seenRefs.add(key);
+                uniqueModels.push(model);
+            } else {
+                console.warn(`[FAST-SALE] ⚠️ Duplicate order removed: ${key}`);
+            }
+        }
+
+        if (uniqueModels.length < models.length) {
+            console.log(`[FAST-SALE] 🔄 Deduplicated: ${models.length} → ${uniqueModels.length} orders`);
+        }
+
         // Store models for later use (to get OrderLines when API response is empty)
-        window.lastFastSaleModels = models;
+        window.lastFastSaleModels = uniqueModels;
 
         // MUST use billTokenManager - no fallback to default tokenManager
         const headers = await getBillAuthHeader();
@@ -1725,77 +1744,40 @@ async function saveFastSaleOrders(isApprove = false) {
         }
 
         // =====================================================
-        // SEND ONE REQUEST PER ORDER (not batch)
+        // SINGLE REQUEST for all orders (no duplicates)
         // =====================================================
-        const aggregatedResult = {
-            DataErrorFast: [],
-            OrdersError: [],
-            OrdersSucessed: []
+        const requestBody = {
+            is_approve: isApprove,
+            model: uniqueModels
         };
 
-        console.log(`[FAST-SALE] 📦 Sending ${models.length} orders individually...`);
+        console.log(`[FAST-SALE] 📦 Sending ${uniqueModels.length} orders in 1 request...`);
+        console.log('[FAST-SALE] Request body:', requestBody);
+        showFastSaleStatus(`Đang gửi ${uniqueModels.length} đơn hàng...`, 'loading');
 
-        for (let i = 0; i < models.length; i++) {
-            const singleModel = models[i];
-            const orderRef = singleModel.Reference || `Order ${i + 1}`;
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
 
-            showFastSaleStatus(`Đang xử lý đơn ${i + 1}/${models.length}: ${orderRef}...`, 'loading');
-            console.log(`[FAST-SALE] 📤 Sending order ${i + 1}/${models.length}: ${orderRef}`);
-
-            const requestBody = {
-                is_approve: isApprove,
-                model: [singleModel]  // Single order in array
-            };
-
-            try {
-                const response = await API_CONFIG.smartFetch(url, {
-                    method: 'POST',
-                    headers: {
-                        ...headers,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error(`[FAST-SALE] ❌ Order ${orderRef} failed: HTTP ${response.status}`);
-                    // Add to error list with error message
-                    aggregatedResult.OrdersError.push({
-                        ...singleModel,
-                        ErrorMessage: `HTTP ${response.status}: ${errorText}`
-                    });
-                    continue;
-                }
-
-                const result = await response.json();
-                console.log(`[FAST-SALE] ✅ Order ${orderRef} response:`, result);
-
-                // Aggregate results
-                if (result.DataErrorFast && result.DataErrorFast.length > 0) {
-                    aggregatedResult.DataErrorFast.push(...result.DataErrorFast);
-                }
-                if (result.OrdersError && result.OrdersError.length > 0) {
-                    aggregatedResult.OrdersError.push(...result.OrdersError);
-                }
-                if (result.OrdersSucessed && result.OrdersSucessed.length > 0) {
-                    aggregatedResult.OrdersSucessed.push(...result.OrdersSucessed);
-                }
-
-            } catch (orderError) {
-                console.error(`[FAST-SALE] ❌ Order ${orderRef} exception:`, orderError);
-                aggregatedResult.OrdersError.push({
-                    ...singleModel,
-                    ErrorMessage: orderError.message
-                });
-            }
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
-        console.log('[FAST-SALE] 📊 Aggregated results:', aggregatedResult);
-        showFastSaleStatus(`Hoàn thành: ${aggregatedResult.OrdersSucessed.length} thành công, ${aggregatedResult.OrdersError.length + aggregatedResult.DataErrorFast.length} lỗi`, 'success');
+        const result = await response.json();
+        console.log('[FAST-SALE] ✅ Save result:', result);
 
-        // Show results modal with aggregated data
-        showFastSaleResultsModal(aggregatedResult);
+        const successCount = result.OrdersSucessed?.length || 0;
+        const errorCount = (result.OrdersError?.length || 0) + (result.DataErrorFast?.length || 0);
+        showFastSaleStatus(`Hoàn thành: ${successCount} thành công, ${errorCount} lỗi`, 'success');
+
+        // Show results modal
+        showFastSaleResultsModal(result);
 
         // Note: Bill sending is handled manually via "In hóa đơn" button in printSuccessOrders()
         // Success: reset flag but don't re-enable buttons (modal will close)
