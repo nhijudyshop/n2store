@@ -877,7 +877,23 @@ function extractDistrictFromAddress(address, extraAddress) {
 
     // Parse from address string - READ FROM END TO START
     if (address) {
-        const normalizedAddress = address.toLowerCase()
+        // =====================================================
+        // STEP 1: Clean and normalize address
+        // =====================================================
+        let cleanedAddress = address
+            // Remove phone numbers (10-11 digit sequences)
+            .replace(/\b0\d{9,10}\b/g, '')
+            // Remove standalone "D." or "d." that might be abbreviations
+            .replace(/\bD\.\s*/gi, '')
+            // Clean up bad punctuation: "/." or "./" or multiple dots
+            .replace(/[/.]{2,}/g, ' ')
+            .replace(/\.\s+\./g, ' ')
+            // Normalize multiple spaces to single space
+            .replace(/\s{2,}/g, ' ')
+            // Trim
+            .trim();
+
+        const normalizedAddress = cleanedAddress.toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics
 
         // List of provinces (excluding HCM and Hanoi which need district matching)
@@ -912,27 +928,30 @@ function extractDistrictFromAddress(address, extraAddress) {
             }
         }
 
-        // If not a province, check for HCM/Hanoi districts
-        // Only proceed with district matching if we're sure it's HCM or Hanoi
-
-        // Try to match district patterns
-        // "Quận 1", "Q1", "Q.1", "Quan 1", "District 1"
+        // =====================================================
+        // STEP 2: Extract district number with improved patterns
+        // =====================================================
+        // Try to match district patterns - more comprehensive
+        // "Quận 1", "Q1", "Q.1", "Quan 1", "quan7", "q.7", "District 1"
         const districtPatterns = [
-            /quan\s*(\d+)/i,
-            /q\.?\s*(\d+)/i,
-            /district\s*(\d+)/i
+            /quan\s*\.?\s*(\d+)/i,       // "quan 7", "quân  7", "quan.7"
+            /q\s*\.?\s*(\d+)/i,          // "q7", "q.7", "q 7", "Q.10"
+            /district\s*(\d+)/i,          // "district 7"
+            /\bq(\d+)\b/i,               // "Q7" as word boundary
         ];
 
         for (const pattern of districtPatterns) {
             const match = normalizedAddress.match(pattern);
             if (match) {
                 result.districtNumber = match[1];
+                console.log(`[SMART-DELIVERY] Extracted district number: ${match[1]} from pattern: ${pattern}`);
                 break;
             }
         }
 
-        // Match named districts (HCM districts only)
-        // These should only match if we've confirmed the address is in HCM
+        // =====================================================
+        // STEP 3: Match named districts (HCM districts only)
+        // =====================================================
         const namedDistricts = [
             { normalized: 'binh chanh', original: 'Bình Chánh' },
             { normalized: 'binh tan', original: 'Bình Tân' },
@@ -956,12 +975,18 @@ function extractDistrictFromAddress(address, extraAddress) {
             const lastThreeParts = parts.slice(-3).join(' ');
 
             // Pattern: district name should be preceded by address markers or be near the end
+            // Also handle "Q.Bình Thạnh" or "q binh thanh" format
             const districtPattern = new RegExp(
-                `(quan|huyen|phuong|xa|thi tran|tp|thanh pho)?\\s*${district.normalized}(?:\\s|,|$)`,
+                `(quan|huyen|phuong|xa|thi tran|tp|thanh pho|q\\.?)?\\s*${district.normalized}(?:\\s|,|$)`,
                 'i'
             );
 
-            if (districtPattern.test(lastThreeParts) || lastThreeParts.endsWith(district.normalized)) {
+            // Additional check: district name at end without "ap/xom/thon" prefix
+            const hasApPrefix = normalizedAddress.includes(`ap ${district.normalized}`) ||
+                                normalizedAddress.includes(`xom ${district.normalized}`) ||
+                                normalizedAddress.includes(`thon ${district.normalized}`);
+
+            if (!hasApPrefix && (districtPattern.test(lastThreeParts) || lastThreeParts.endsWith(district.normalized))) {
                 result.districtName = district.original;
                 console.log('[SMART-DELIVERY] Matched district from address END:', district.original);
                 break;
