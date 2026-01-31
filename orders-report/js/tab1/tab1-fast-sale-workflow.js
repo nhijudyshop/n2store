@@ -72,6 +72,19 @@
         },
 
         /**
+         * Save only to localStorage (not Firestore)
+         */
+        _saveToLocalStorage() {
+            try {
+                const dataObj = Object.fromEntries(this._data);
+                localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({ data: dataObj }));
+                console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
+            } catch (e) {
+                console.error('[INVOICE-DELETE] Error saving to localStorage:', e);
+            }
+        },
+
+        /**
          * Load from Firestore
          */
         async _loadFromFirestore() {
@@ -83,15 +96,22 @@
                     const firestoreData = doc.data();
                     if (firestoreData.data) {
                         const entries = Object.entries(firestoreData.data);
+                        let mergedCount = 0;
                         entries.forEach(([key, value]) => {
                             // Merge: Firestore wins for newer data
                             const existing = this._data.get(key);
                             if (!existing || (value.deletedAt > (existing.deletedAt || 0))) {
                                 this._data.set(key, value);
+                                mergedCount++;
                             }
                         });
+                        console.log(`[INVOICE-DELETE] Merged ${mergedCount} new entries from Firestore, total: ${this._data.size}`);
+
+                        // Save merged data back to localStorage
+                        if (mergedCount > 0) {
+                            this._saveToLocalStorage();
+                        }
                     }
-                    console.log(`[INVOICE-DELETE] Merged ${this._data.size} entries from Firestore`);
                 }
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error loading from Firestore:', e);
