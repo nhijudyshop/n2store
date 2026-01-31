@@ -2384,3 +2384,316 @@ function closeBulkTagDeleteHistoryModal() {
     document.getElementById('bulkTagDeleteHistoryModal').classList.remove('show');
 }
 
+// =====================================================
+// BULK REMOVE TAG FOR SELECTED ORDERS
+// Xóa 1 tag từ tất cả các đơn đang được chọn (via checkbox)
+// =====================================================
+
+/**
+ * Show modal to select tag to remove from selected orders
+ */
+function showBulkRemoveTagForSelectedModal() {
+    // Check if any orders are selected
+    if (!window.selectedOrderIds || window.selectedOrderIds.size === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng', 3000);
+        } else {
+            alert('Vui lòng chọn ít nhất 1 đơn hàng');
+        }
+        return;
+    }
+
+    // Update selected count
+    document.getElementById('bulkRemoveTagSelectedCount').textContent = window.selectedOrderIds.size;
+
+    // Populate tag dropdown
+    populateBulkRemoveTagDropdown();
+
+    // Show modal
+    document.getElementById('bulkRemoveTagForSelectedModal').style.display = 'flex';
+}
+
+/**
+ * Close bulk remove tag modal
+ */
+function closeBulkRemoveTagForSelectedModal() {
+    document.getElementById('bulkRemoveTagForSelectedModal').style.display = 'none';
+    // Clear selected tags
+    bulkRemoveSelectedTagIds.clear();
+}
+
+// Set to store selected tag IDs for bulk remove
+let bulkRemoveSelectedTagIds = new Set();
+
+/**
+ * Populate the tag dropdown with available tags (searchable list with checkboxes)
+ */
+function populateBulkRemoveTagDropdown() {
+    const container = document.getElementById('bulkRemoveTagOptions');
+    const searchInput = document.getElementById('bulkRemoveTagSearchInput');
+
+    // Clear search and selection
+    if (searchInput) searchInput.value = '';
+    bulkRemoveSelectedTagIds.clear();
+    document.getElementById('bulkRemoveTagSelect').value = '';
+
+    // Get available tags from window.availableTags (loaded by tab1-tags.js)
+    const tags = window.availableTags || [];
+
+    if (tags.length === 0) {
+        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">Không có tag nào</div>';
+        return;
+    }
+
+    container.innerHTML = tags.map(tag => {
+        const color = tag.Color || '#6b7280';
+        return `
+            <div class="bulk-remove-tag-option" data-tag-id="${tag.Id}" data-tag-name="${tag.Name.toLowerCase()}"
+                onclick="toggleBulkRemoveTagOption('${tag.Id}')"
+                style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.15s;"
+                onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
+                <input type="checkbox" id="bulkRemoveTag_${tag.Id}" style="cursor: pointer; width: 16px; height: 16px;">
+                <span style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
+                <span style="font-size: 14px; color: #374151;">${tag.Name}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Toggle tag selection in bulk remove modal
+ */
+function toggleBulkRemoveTagOption(tagId) {
+    const checkbox = document.getElementById(`bulkRemoveTag_${tagId}`);
+    if (!checkbox) return;
+
+    // Toggle checkbox
+    checkbox.checked = !checkbox.checked;
+
+    if (checkbox.checked) {
+        bulkRemoveSelectedTagIds.add(String(tagId));
+    } else {
+        bulkRemoveSelectedTagIds.delete(String(tagId));
+    }
+
+    // Update hidden input with first selected tag (for single select behavior)
+    // Or all selected tags separated by comma (for multi-select)
+    document.getElementById('bulkRemoveTagSelect').value = Array.from(bulkRemoveSelectedTagIds).join(',');
+}
+
+/**
+ * Filter tag options based on search input
+ */
+function filterBulkRemoveTagOptions() {
+    const searchInput = document.getElementById('bulkRemoveTagSearchInput');
+    const searchTerm = (searchInput?.value || '').toLowerCase().trim();
+    const options = document.querySelectorAll('.bulk-remove-tag-option');
+
+    options.forEach(option => {
+        const tagName = option.getAttribute('data-tag-name') || '';
+        if (tagName.includes(searchTerm)) {
+            option.style.display = 'flex';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Select all visible tags in bulk remove modal
+ */
+function selectAllBulkRemoveTags() {
+    const options = document.querySelectorAll('.bulk-remove-tag-option');
+    options.forEach(option => {
+        if (option.style.display !== 'none') {
+            const tagId = option.getAttribute('data-tag-id');
+            const checkbox = document.getElementById(`bulkRemoveTag_${tagId}`);
+            if (checkbox && !checkbox.checked) {
+                checkbox.checked = true;
+                bulkRemoveSelectedTagIds.add(String(tagId));
+            }
+        }
+    });
+    document.getElementById('bulkRemoveTagSelect').value = Array.from(bulkRemoveSelectedTagIds).join(',');
+}
+
+/**
+ * Clear all selected tags in bulk remove modal
+ */
+function clearBulkRemoveTags() {
+    const options = document.querySelectorAll('.bulk-remove-tag-option');
+    options.forEach(option => {
+        const tagId = option.getAttribute('data-tag-id');
+        const checkbox = document.getElementById(`bulkRemoveTag_${tagId}`);
+        if (checkbox) {
+            checkbox.checked = false;
+        }
+    });
+    bulkRemoveSelectedTagIds.clear();
+    document.getElementById('bulkRemoveTagSelect').value = '';
+}
+
+/**
+ * Execute bulk remove tag for selected orders
+ */
+async function executeBulkRemoveTagForSelected() {
+    // Get selected tag IDs from the Set
+    const selectedTagIds = Array.from(bulkRemoveSelectedTagIds);
+
+    if (selectedTagIds.length === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn ít nhất 1 tag cần xóa', 2000);
+        }
+        return;
+    }
+
+    // Get tag names for confirmation message
+    const selectedTagNames = selectedTagIds.map(tagId => {
+        const tag = (window.availableTags || []).find(t => String(t.Id) === String(tagId));
+        return tag ? tag.Name : 'Unknown';
+    });
+
+    // Get selected order IDs
+    const orderIds = Array.from(window.selectedOrderIds || []);
+
+    if (orderIds.length === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Không có đơn hàng nào được chọn', 2000);
+        }
+        return;
+    }
+
+    // Confirm action
+    const tagNamesDisplay = selectedTagNames.length <= 3
+        ? selectedTagNames.join(', ')
+        : `${selectedTagNames.slice(0, 3).join(', ')} và ${selectedTagNames.length - 3} tag khác`;
+    const confirmMessage = `Bạn có chắc muốn xóa ${selectedTagNames.length} tag (${tagNamesDisplay}) khỏi ${orderIds.length} đơn hàng?`;
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+
+    // Close modal and show loading
+    closeBulkRemoveTagForSelectedModal();
+    if (typeof showLoading === 'function') {
+        showLoading(true);
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+
+        for (const orderId of orderIds) {
+            try {
+                // Get order data
+                const order = window.OrderStore?.get(orderId) ||
+                              window.displayedData?.find(o => String(o.Id) === String(orderId));
+
+                if (!order) {
+                    console.warn(`[BULK-REMOVE-TAG] Order not found: ${orderId}`);
+                    failedCount++;
+                    continue;
+                }
+
+                // Parse current tags
+                let orderTags = [];
+                try {
+                    if (order.Tags) {
+                        orderTags = JSON.parse(order.Tags);
+                        if (!Array.isArray(orderTags)) orderTags = [];
+                    }
+                } catch (e) {
+                    orderTags = [];
+                }
+
+                // Check if order has any of the selected tags
+                const hasAnySelectedTag = orderTags.some(t => selectedTagIds.includes(String(t.Id)));
+                if (!hasAnySelectedTag) {
+                    // None of selected tags present, skip but count as success
+                    successCount++;
+                    continue;
+                }
+
+                // Filter out all selected tags
+                const newOrderTags = orderTags.filter(t => !selectedTagIds.includes(String(t.Id)));
+
+                // Call API to update tags
+                const response = await API_CONFIG.smartFetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
+                    {
+                        method: 'POST',
+                        headers: {
+                            ...headers,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            Tags: newOrderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                            OrderId: orderId
+                        })
+                    }
+                );
+
+                if (response.ok) {
+                    // Update local data
+                    const newTagsJson = JSON.stringify(newOrderTags);
+                    if (typeof updateOrderInTable === 'function') {
+                        updateOrderInTable(orderId, { Tags: newTagsJson });
+                    }
+
+                    // Update OrderStore
+                    if (window.OrderStore && window.OrderStore.update) {
+                        window.OrderStore.update(orderId, { Tags: newTagsJson });
+                    }
+
+                    // Emit to Firebase
+                    if (typeof emitTagUpdateToFirebase === 'function') {
+                        await emitTagUpdateToFirebase(orderId, newOrderTags);
+                    }
+
+                    successCount++;
+                } else {
+                    console.error(`[BULK-REMOVE-TAG] Failed for order ${orderId}:`, response.status);
+                    failedCount++;
+                }
+            } catch (orderError) {
+                console.error(`[BULK-REMOVE-TAG] Error for order ${orderId}:`, orderError);
+                failedCount++;
+            }
+        }
+
+        // Show result notification
+        if (window.notificationManager) {
+            if (failedCount === 0) {
+                window.notificationManager.success(`Đã xóa ${selectedTagNames.length} tag khỏi ${successCount} đơn hàng`, 4000);
+            } else if (successCount > 0) {
+                window.notificationManager.warning(`Xóa tag: ${successCount} thành công, ${failedCount} thất bại`, 4000);
+            } else {
+                window.notificationManager.error(`Không thể xóa tag khỏi ${failedCount} đơn hàng`, 4000);
+            }
+        }
+
+        console.log(`[BULK-REMOVE-TAG] Completed: ${successCount} success, ${failedCount} failed`);
+
+    } catch (error) {
+        console.error('[BULK-REMOVE-TAG] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Có lỗi xảy ra khi xóa tag', 3000);
+        }
+    } finally {
+        if (typeof showLoading === 'function') {
+            showLoading(false);
+        }
+    }
+}
+
+// Expose functions to window
+window.showBulkRemoveTagForSelectedModal = showBulkRemoveTagForSelectedModal;
+window.closeBulkRemoveTagForSelectedModal = closeBulkRemoveTagForSelectedModal;
+window.executeBulkRemoveTagForSelected = executeBulkRemoveTagForSelected;
+window.filterBulkRemoveTagOptions = filterBulkRemoveTagOptions;
+window.toggleBulkRemoveTagOption = toggleBulkRemoveTagOption;
+window.selectAllBulkRemoveTags = selectAllBulkRemoveTags;
+window.clearBulkRemoveTags = clearBulkRemoveTags;
+

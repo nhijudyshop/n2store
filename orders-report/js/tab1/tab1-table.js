@@ -1828,6 +1828,12 @@ function updateActionButtons() {
     if (createFastSaleBtn) {
         createFastSaleBtn.style.display = checkedCount > 1 ? 'flex' : 'none';
     }
+
+    // Show "Xóa Tag" button when any orders are selected
+    const bulkRemoveTagBtn = document.getElementById('bulkRemoveTagBtn');
+    if (bulkRemoveTagBtn) {
+        bulkRemoveTagBtn.style.display = checkedCount > 0 ? 'flex' : 'none';
+    }
 }
 
 // =====================================================

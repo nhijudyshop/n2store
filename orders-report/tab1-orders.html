@@ -225,6 +225,13 @@
                 <i class="fas fa-file-invoice-dollar"></i>
                 Tạo nhanh PBH (F9)
             </button>
+            <button class="btn-action-compact" id="bulkRemoveTagBtn"
+                onclick="showBulkRemoveTagForSelectedModal()"
+                title="Xóa một tag khỏi tất cả đơn đang chọn"
+                style="display: none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                <i class="fas fa-times-circle"></i>
+                Xóa Tag
+            </button>
         </div>
 
         <!-- Info Banner -->
@@ -3399,6 +3406,62 @@
                     <button class="merge-btn-cancel" onclick="closeBillTemplateSettings()"><i class="fas fa-times"></i> Hủy</button>
                     <button class="merge-btn-confirm" onclick="saveBillTemplateSettings()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);"><i class="fas fa-save"></i> Lưu</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Remove Tag For Selected Modal -->
+    <div class="tag-modal" id="bulkRemoveTagForSelectedModal" style="display: none;">
+        <div class="tag-modal-content" style="max-width: 450px;">
+            <div class="tag-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-times-circle"></i>
+                    Xóa Tag Hàng Loạt
+                </h3>
+                <button class="tag-modal-close" onclick="closeBulkRemoveTagForSelectedModal()" style="color: white;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body" style="padding: 20px;">
+                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <p style="margin: 0; color: #991b1b; font-size: 14px;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i>
+                        Đang chọn <strong id="bulkRemoveTagSelectedCount">0</strong> đơn hàng
+                    </p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                        <i class="fas fa-tag" style="margin-right: 6px;"></i>
+                        Chọn tag cần xóa:
+                    </label>
+                    <!-- Searchable Tag Dropdown -->
+                    <div class="bulk-remove-tag-dropdown" style="position: relative;">
+                        <div class="tag-filter-search" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px 6px 0 0; background: #f9fafb;">
+                            <i class="fas fa-search" style="color: #9ca3af; margin-right: 8px;"></i>
+                            <input type="text" id="bulkRemoveTagSearchInput" placeholder="Tìm tag..."
+                                oninput="filterBulkRemoveTagOptions()"
+                                style="border: none; outline: none; background: transparent; width: calc(100% - 30px); font-size: 14px;">
+                        </div>
+                        <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-left: 1px solid #d1d5db; border-right: 1px solid #d1d5db; background: #f3f4f6;">
+                            <button type="button" onclick="selectAllBulkRemoveTags()" style="flex: 1; padding: 6px 12px; font-size: 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Chọn tất cả</button>
+                            <button type="button" onclick="clearBulkRemoveTags()" style="flex: 1; padding: 6px 12px; font-size: 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;">Bỏ chọn</button>
+                        </div>
+                        <div id="bulkRemoveTagOptions" style="max-height: 250px; overflow-y: auto; border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 6px 6px; background: white;">
+                            <!-- Options populated by JS -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="bulkRemoveTagSelect" value="">
+                </div>
+            </div>
+            <div class="tag-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+                <button onclick="closeBulkRemoveTagForSelectedModal()" style="padding: 10px 20px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                    <i class="fas fa-times" style="margin-right: 6px;"></i>
+                    Hủy
+                </button>
+                <button onclick="executeBulkRemoveTagForSelected()" style="padding: 10px 20px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    <i class="fas fa-trash-alt" style="margin-right: 6px;"></i>
+                    Xóa Tag
+                </button>
             </div>
         </div>
     </div>
