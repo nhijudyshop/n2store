@@ -289,6 +289,7 @@ async function showFastSaleModal() {
 
     // Show modal with loading state
     modal.classList.add('show');
+    clearFastSaleStatus();  // Clear any previous status messages
     modalBody.innerHTML = `
         <div class="merge-loading">
             <i class="fas fa-spinner fa-spin"></i>
@@ -310,6 +311,7 @@ async function showFastSaleModal() {
         const allSelectedIds = Array.from(selectedOrderIds);
 
         if (allSelectedIds.length === 0) {
+            showFastSaleStatus('Vui lòng chọn ít nhất một đơn hàng', 'warning');
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
@@ -344,6 +346,7 @@ async function showFastSaleModal() {
         }
 
         if (selectedIds.length === 0) {
+            showFastSaleStatus('Tất cả đơn đều là giỏ trống (không có sản phẩm)', 'warning');
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
@@ -361,6 +364,7 @@ async function showFastSaleModal() {
         let fetchedOrders = await fetchFastSaleOrdersData(selectedIds);
 
         if (fetchedOrders.length === 0) {
+            showFastSaleStatus('Không thể tải dữ liệu đơn hàng từ API', 'error');
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
@@ -410,6 +414,7 @@ async function showFastSaleModal() {
 
         // Check if all orders were filtered out
         if (fastSaleOrdersData.length === 0) {
+            showFastSaleStatus('Tất cả đơn đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán"', 'warning');
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
@@ -446,6 +451,7 @@ async function showFastSaleModal() {
 
     } catch (error) {
         console.error('[FAST-SALE] Error loading data:', error);
+        showFastSaleStatus('Lỗi khi tải dữ liệu: ' + error.message, 'error');
         modalBody.innerHTML = `
             <div class="merge-no-duplicates">
                 <i class="fas fa-exclamation-circle"></i>
@@ -464,6 +470,7 @@ function closeFastSaleModal() {
 
     // Reset state
     fastSaleOrdersData = [];
+    clearFastSaleStatus();  // Clear status message when closing modal
 }
 
 /**
@@ -1396,8 +1403,62 @@ function resetFastSaleSubmissionState() {
     const confirmBtn = document.getElementById('confirmAndCheckFastSaleBtn');
     if (saveBtn) saveBtn.disabled = false;
     if (confirmBtn) confirmBtn.disabled = false;
+    clearFastSaleStatus();  // Clear status message when reset
     console.log('[FAST-SALE] 🔓 Submission state reset, buttons re-enabled');
 }
+
+// =====================================================
+// FAST SALE STATUS MESSAGE SYSTEM
+// =====================================================
+
+/**
+ * Hiển thị status message trong Fast Sale modal
+ * @param {string} message - Nội dung thông báo
+ * @param {string} type - Loại: 'info', 'warning', 'error', 'loading', 'success'
+ */
+function showFastSaleStatus(message, type = 'info') {
+    const container = document.getElementById('fastSaleStatusMessage');
+    const textEl = document.getElementById('fastSaleStatusText');
+    const iconEl = container?.querySelector('i');
+
+    if (!container || !textEl || !iconEl) {
+        console.warn('[FAST-SALE-STATUS] Status message elements not found');
+        return;
+    }
+
+    // Update content
+    textEl.textContent = message;
+
+    // Update icon based on type
+    const icons = {
+        info: 'fa-info-circle',
+        warning: 'fa-exclamation-triangle',
+        error: 'fa-times-circle',
+        loading: 'fa-spinner fa-spin',
+        success: 'fa-check-circle'
+    };
+    iconEl.className = 'fas ' + (icons[type] || 'fa-info-circle');
+
+    // Update styling
+    container.className = 'fast-sale-status-message ' + type;
+    container.style.display = 'flex';
+
+    console.log(`[FAST-SALE-STATUS] ${type.toUpperCase()}: ${message}`);
+}
+
+/**
+ * Ẩn status message
+ */
+function clearFastSaleStatus() {
+    const container = document.getElementById('fastSaleStatusMessage');
+    if (container) {
+        container.style.display = 'none';
+    }
+}
+
+// Export for global access
+window.showFastSaleStatus = showFastSaleStatus;
+window.clearFastSaleStatus = clearFastSaleStatus;
 
 /**
  * Save Fast Sale orders to backend
@@ -1407,6 +1468,7 @@ async function saveFastSaleOrders(isApprove = false) {
     // Prevent double submission
     if (isSavingFastSale) {
         console.warn('[FAST-SALE] ⚠️ Save already in progress, ignoring duplicate request');
+        showFastSaleStatus('Đang xử lý, vui lòng đợi...', 'loading');
         return;
     }
 
@@ -1416,6 +1478,7 @@ async function saveFastSaleOrders(isApprove = false) {
     if (saveBtn) saveBtn.disabled = true;
     if (confirmBtn) confirmBtn.disabled = true;
     isSavingFastSale = true;
+    showFastSaleStatus('Đang lưu đơn hàng...', 'loading');
     console.log('[FAST-SALE] 🔒 Buttons disabled, starting submission...');
 
     try {
@@ -1425,6 +1488,7 @@ async function saveFastSaleOrders(isApprove = false) {
         const models = collectFastSaleData();
 
         if (models.length === 0) {
+            showFastSaleStatus('Không có dữ liệu để lưu', 'error');
             window.notificationManager.error('Không có dữ liệu để lưu', 'Lỗi');
             resetFastSaleSubmissionState();
             return;
@@ -1448,6 +1512,10 @@ async function saveFastSaleOrders(isApprove = false) {
         });
 
         if (invalidOrders.length > 0) {
+            const firstInvalid = invalidOrders[0];
+            const missingField = !firstInvalid.CarrierId ? 'đối tác ship' :
+                                 !firstInvalid.Partner?.Phone ? 'số điện thoại' : 'địa chỉ';
+            showFastSaleStatus(`Đơn ${firstInvalid.Reference || 'N/A'} thiếu ${missingField}`, 'warning');
             window.notificationManager.error(
                 `Có ${invalidOrders.length} đơn hàng thiếu thông tin bắt buộc (đối tác ship, SĐT, địa chỉ)`,
                 'Lỗi validation'
@@ -1523,6 +1591,7 @@ async function saveFastSaleOrders(isApprove = false) {
             loadingNotif.close();
         }
 
+        showFastSaleStatus('Lỗi khi lưu: ' + error.message, 'error');
         window.notificationManager.error(
             `Lỗi khi lưu đơn hàng: ${error.message}`,
             'Lỗi hệ thống'
