@@ -2204,3 +2204,7 @@ window.addEventListener('beforeunload', () => {
 window.connectDebtRealtime = connectDebtRealtime;
 window.disconnectDebtRealtime = disconnectDebtRealtime;
 
+// Export sale modal functions
+window.openSaleButtonModal = openSaleButtonModal;
+window.closeSaleButtonModal = closeSaleButtonModal;
+
