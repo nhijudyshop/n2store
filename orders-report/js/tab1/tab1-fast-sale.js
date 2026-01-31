@@ -1056,6 +1056,7 @@ function markAddressAsModified(index) {
 
 /**
  * Save address for a specific row via TPOS API
+ * Uses GET + PUT pattern: fetch full order, update ReceiverAddress, PUT back
  * @param {number} index - Row index
  */
 async function saveAddressForRow(index) {
@@ -1065,12 +1066,15 @@ async function saveAddressForRow(index) {
     if (!addressInput) return;
 
     const newAddress = addressInput.value.trim();
-    const saleOnlineId = saveBtn?.dataset.saleOnlineId;
 
-    if (!saleOnlineId) {
-        window.notificationManager?.error('Không tìm thấy ID đơn hàng');
+    // Get FastSaleOrder ID from fastSaleOrdersData
+    const fastSaleOrder = fastSaleOrdersData[index];
+    if (!fastSaleOrder || !fastSaleOrder.Id) {
+        window.notificationManager?.error('Không tìm thấy ID đơn hàng FastSale');
         return;
     }
+
+    const fastSaleOrderId = fastSaleOrder.Id;
 
     // Show loading state
     const originalBtnText = saveBtn.innerHTML;
@@ -1078,26 +1082,66 @@ async function saveAddressForRow(index) {
     saveBtn.disabled = true;
 
     try {
-        // Update SaleOnline_Order address via TPOS API
+        const baseUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         const headers = await window.tokenManager?.getAuthHeader() || {};
-        const updateUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order(${saleOnlineId})`;
 
-        const response = await fetch(updateUrl, {
-            method: 'PATCH',
+        // Step 1: GET full FastSaleOrder with $expand
+        const expandParams = '$expand=Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
+        const getUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})?${expandParams}`;
+
+        console.log(`[FAST-SALE] GET FastSaleOrder ${fastSaleOrderId} for address update...`);
+        const getResponse = await fetch(getUrl, {
+            method: 'GET',
             headers: {
                 ...headers,
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                Address: newAddress
-            })
+            }
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (!getResponse.ok) {
+            const errorText = await getResponse.text();
+            throw new Error(`GET failed: HTTP ${getResponse.status}: ${errorText}`);
         }
+
+        const orderData = await getResponse.json();
+        console.log(`[FAST-SALE] Got order data, updating ReceiverAddress...`);
+
+        // Step 2: Update address fields
+        orderData.ReceiverAddress = newAddress;
+        if (orderData.Ship_Receiver) {
+            orderData.Ship_Receiver.Street = newAddress;
+            if (orderData.Ship_Receiver.ExtraAddress) {
+                orderData.Ship_Receiver.ExtraAddress.Street = newAddress;
+            }
+        }
+        if (orderData.Partner) {
+            orderData.Partner.Street = newAddress;
+            orderData.Partner.FullAddress = newAddress;
+            if (orderData.Partner.ExtraAddress) {
+                orderData.Partner.ExtraAddress.Street = newAddress;
+            }
+        }
+
+        // Step 3: PUT full order back
+        const putUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})`;
+        console.log(`[FAST-SALE] PUT FastSaleOrder ${fastSaleOrderId} with new address...`);
+
+        const putResponse = await fetch(putUrl, {
+            method: 'PUT',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json;charset=UTF-8',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(orderData)
+        });
+
+        if (!putResponse.ok) {
+            const errorText = await putResponse.text();
+            throw new Error(`PUT failed: HTTP ${putResponse.status}: ${errorText}`);
+        }
+
+        console.log(`[FAST-SALE] ✅ Address updated successfully`);
 
         // Update original value
         addressInput.dataset.original = newAddress;
@@ -1114,13 +1158,17 @@ async function saveAddressForRow(index) {
         if (displayEl) displayEl.style.display = 'flex';
         if (editContainer) editContainer.style.display = 'none';
 
-        // Update OrderStore if available
-        if (window.OrderStore) {
+        // Update OrderStore if available (using SaleOnlineIds from FastSaleOrder)
+        if (window.OrderStore && fastSaleOrder.SaleOnlineIds?.length > 0) {
+            const saleOnlineId = fastSaleOrder.SaleOnlineIds[0];
             const order = window.OrderStore.get(saleOnlineId);
             if (order) {
                 order.Address = newAddress;
             }
         }
+
+        // Also update the local fastSaleOrdersData
+        fastSaleOrdersData[index].ReceiverAddress = newAddress;
 
         // Re-run carrier auto-select with new address
         const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
