@@ -887,9 +887,14 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                 </span>
                             </div>
                             ${hasAnyDiscount ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;"><i class="fas fa-tag"></i> Giảm ${totalDiscount.toLocaleString('vi-VN')}đ</span>` : ''}
-                            <div style="font-size: 12px; color: #6b7280;">
-                                <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i>
-                                ${customerAddress}
+                            <div style="margin-top: 4px;">
+                                <div style="font-size: 11px; color: #6b7280;">
+                                    <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i> Địa chỉ:
+                                </div>
+                                <input id="fastSaleAddress_${index}" type="text" class="form-control form-control-sm"
+                                       value="${customerAddress.replace(/"/g, '&quot;')}"
+                                       placeholder="Nhập địa chỉ giao hàng"
+                                       style="font-size: 12px; margin-top: 4px;" />
                             </div>
                             <div style="font-size: 11px; color: #9ca3af;">
                                 Chiến dịch Live: ${order.SaleOnlineNames || 'N/A'}
@@ -1077,6 +1082,10 @@ function collectFastSaleData() {
         const carrierId = parseInt(carrierSelect?.value) || 0;
         const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.dataset?.name || '';
 
+        // Get address from editable input
+        const addressInput = document.getElementById(`fastSaleAddress_${index}`);
+        const editedAddress = addressInput?.value?.trim() || '';
+
         // Get SaleOnlineOrder for phone and address - O(1) via OrderStore
         let saleOnlineOrder = null;
         if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
@@ -1194,9 +1203,9 @@ function collectFastSaleData() {
             CarrierName: carrierName,
             CarrierDeliveryType: null,
             DeliveryNote: null,
-            ReceiverName: null,
-            ReceiverPhone: null,
-            ReceiverAddress: null,
+            ReceiverName: saleOnlineOrder?.Name || order.PartnerDisplayName || null,
+            ReceiverPhone: customerPhone || null,
+            ReceiverAddress: editedAddress || saleOnlineOrder?.Address || null,
             ReceiverDate: null,
             ReceiverNote: null,
             CashOnDelivery: cashOnDelivery,
@@ -1225,8 +1234,8 @@ function collectFastSaleData() {
             ShipPaymentStatusCode: null,
             OldCredit: 0,
             NewCredit: 0,
-            Phone: null,
-            Address: null,
+            Phone: customerPhone || null,
+            Address: editedAddress || saleOnlineOrder?.Address || null,
             AmountTotalSigned: null,
             ResidualSigned: null,
             Origin: null,
@@ -1280,7 +1289,24 @@ function collectFastSaleData() {
             WiInvoiceTrackingUrl: "",
             WiInvoiceIsReplate: false,
             FormAction: null,
-            Ship_Receiver: null,
+            Ship_Receiver: {
+                IsNewAddress: false,
+                Name: saleOnlineOrder?.Name || order.PartnerDisplayName || null,
+                Phone: customerPhone || null,
+                Street: editedAddress || saleOnlineOrder?.Address || null,
+                City: saleOnlineOrder?.ExtraAddress?.City || null,
+                District: saleOnlineOrder?.ExtraAddress?.District || null,
+                Ward: saleOnlineOrder?.ExtraAddress?.Ward || null,
+                ExtraAddress: {
+                    Street: editedAddress || saleOnlineOrder?.Address || null,
+                    NewStreet: null,
+                    City: saleOnlineOrder?.ExtraAddress?.City || { name: null, nameNoSign: null, code: null },
+                    District: saleOnlineOrder?.ExtraAddress?.District || { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
+                    Ward: saleOnlineOrder?.ExtraAddress?.Ward || { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null, districtName: null, districtCode: null },
+                    NewCity: null,
+                    NewWard: null
+                }
+            },
             Ship_Extras: null,
             PaymentInfo: [],
             Search: null,
