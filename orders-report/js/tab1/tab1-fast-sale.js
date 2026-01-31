@@ -732,8 +732,9 @@ function filterFastSaleRows(keyword) {
 function renderFastSaleOrderRow(order, index, carriers = []) {
     // Get SaleOnlineOrder from displayedData to get phone and address - O(1) via OrderStore
     let saleOnlineOrder = null;
+    let saleOnlineId = null;
     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
-        const saleOnlineId = order.SaleOnlineIds[0];
+        saleOnlineId = order.SaleOnlineIds[0];
         saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
     }
 
@@ -904,7 +905,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                     <button id="fastSaleAddressSaveBtn_${index}" type="button"
                                             class="btn btn-sm btn-outline-primary fast-sale-address-save-btn"
                                             data-row-index="${index}"
-                                            data-sale-online-id="${saleOnlineId}"
+                                            data-sale-online-id="${saleOnlineId || ''}"
                                             style="font-size: 11px; padding: 2px 8px; white-space: nowrap; display: none;"
                                             onclick="saveAddressForRow(${index})">
                                         <i class="fas fa-save"></i> Lưu
