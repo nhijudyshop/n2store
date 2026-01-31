@@ -1106,21 +1106,8 @@ async function saveAddressForRow(index) {
         const orderData = await getResponse.json();
         console.log(`[FAST-SALE] Got order data, updating ReceiverAddress...`);
 
-        // Step 2: Update address fields
+        // Step 2: Update ReceiverAddress only
         orderData.ReceiverAddress = newAddress;
-        if (orderData.Ship_Receiver) {
-            orderData.Ship_Receiver.Street = newAddress;
-            if (orderData.Ship_Receiver.ExtraAddress) {
-                orderData.Ship_Receiver.ExtraAddress.Street = newAddress;
-            }
-        }
-        if (orderData.Partner) {
-            orderData.Partner.Street = newAddress;
-            orderData.Partner.FullAddress = newAddress;
-            if (orderData.Partner.ExtraAddress) {
-                orderData.Partner.ExtraAddress.Street = newAddress;
-            }
-        }
 
         // Step 3: PUT full order back
         const putUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})`;
