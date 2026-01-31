@@ -465,6 +465,38 @@ function closeFastSaleModal() {
 }
 
 /**
+ * Remove an order from Fast Sale selection
+ * @param {number} index - Index of order to remove
+ */
+function removeOrderFromFastSale(index) {
+    if (index < 0 || index >= fastSaleOrdersData.length) {
+        console.warn('[FAST-SALE] Invalid index for removal:', index);
+        return;
+    }
+
+    const removedOrder = fastSaleOrdersData[index];
+    console.log(`[FAST-SALE] Removing order at index ${index}:`, removedOrder.Reference || removedOrder.Id);
+
+    // Remove from array
+    fastSaleOrdersData.splice(index, 1);
+
+    // Update subtitle count
+    const subtitle = document.getElementById('fastSaleModalSubtitle');
+    if (subtitle) {
+        subtitle.textContent = `Đã chọn ${fastSaleOrdersData.length} đơn hàng (đã bỏ 1 giỏ trống)`;
+    }
+
+    // Re-render the modal body
+    if (fastSaleOrdersData.length === 0) {
+        closeFastSaleModal();
+        showNotification('Đã bỏ tất cả đơn hàng khỏi danh sách', 'info');
+    } else {
+        renderFastSaleModalBody();
+        showNotification(`Đã bỏ đơn ${removedOrder.Reference || ''} khỏi danh sách`, 'info');
+    }
+}
+
+/**
  * Fetch FastSaleOrder data for multiple orders (batch)
  * API has a limit of 200 orders per request, so we batch requests
  * @param {Array<string>} orderIds - Array of Order IDs
@@ -824,7 +856,12 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                 data-order-index="${index}">
                 ${pIndex === 0 ? `
                     <td rowspan="${products.length}" style="vertical-align: top; ${hasAnyDiscount ? 'border-left: 4px solid #f59e0b;' : ''}">
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; flex-direction: column; gap: 8px; position: relative;">
+                            <button type="button" onclick="removeOrderFromFastSale(${index})"
+                                    style="position: absolute; top: -4px; right: -4px; width: 20px; height: 20px; border-radius: 50%; border: none; background: #ef4444; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; line-height: 1;"
+                                    title="Bỏ chọn đơn hàng này">
+                                <i class="fas fa-times" style="font-size: 10px;"></i>
+                            </button>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-weight: 600;">${customerName}</span>
                                 ${partnerStatusText ? `<span class="badge" style="background: ${partnerStatusColor}; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;">${partnerStatusText}</span>` : ''}
