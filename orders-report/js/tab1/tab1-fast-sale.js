@@ -895,21 +895,37 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                 <div style="font-size: 11px; color: #6b7280;">
                                     <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i> Địa chỉ:
                                 </div>
-                                <div style="display: flex; gap: 4px; margin-top: 4px;">
+                                <!-- Display mode: show address text + Edit button -->
+                                <div id="fastSaleAddressDisplay_${index}" style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+                                    <span id="fastSaleAddressText_${index}" style="font-size: 12px; flex: 1; color: #374151;">${customerAddress || '<i style="color: #9ca3af;">Chưa có địa chỉ</i>'}</span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                            style="font-size: 10px; padding: 2px 6px; white-space: nowrap;"
+                                            onclick="enableAddressEdit(${index})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                                <!-- Edit mode: input + Save button (hidden by default) -->
+                                <div id="fastSaleAddressEditContainer_${index}" style="display: none; gap: 4px; margin-top: 4px;">
                                     <input id="fastSaleAddress_${index}" type="text" class="form-control form-control-sm"
                                            value="${customerAddress.replace(/"/g, '&quot;')}"
                                            data-original="${customerAddress.replace(/"/g, '&quot;')}"
                                            placeholder="Nhập địa chỉ giao hàng"
-                                           style="font-size: 12px; flex: 1;"
-                                           oninput="markAddressAsModified(${index})" />
-                                    <button id="fastSaleAddressSaveBtn_${index}" type="button"
-                                            class="btn btn-sm btn-outline-primary fast-sale-address-save-btn"
-                                            data-row-index="${index}"
-                                            data-sale-online-id="${saleOnlineId || ''}"
-                                            style="font-size: 11px; padding: 2px 8px; white-space: nowrap; display: none;"
-                                            onclick="saveAddressForRow(${index})">
-                                        <i class="fas fa-save"></i> Lưu
-                                    </button>
+                                           style="font-size: 12px; flex: 1;" />
+                                    <div style="display: flex; gap: 4px; margin-top: 4px;">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                style="font-size: 10px; padding: 2px 6px;"
+                                                onclick="cancelAddressEdit(${index})">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        <button id="fastSaleAddressSaveBtn_${index}" type="button"
+                                                class="btn btn-sm btn-primary fast-sale-address-save-btn"
+                                                data-row-index="${index}"
+                                                data-sale-online-id="${saleOnlineId || ''}"
+                                                style="font-size: 10px; padding: 2px 6px;"
+                                                onclick="saveAddressForRow(${index})">
+                                            <i class="fas fa-save"></i> Lưu
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div style="font-size: 11px; color: #9ca3af;">
@@ -980,6 +996,43 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
 const unsavedAddressRows = new Set();
 
 /**
+ * Enable address edit mode for a row
+ * @param {number} index - Row index
+ */
+function enableAddressEdit(index) {
+    const displayEl = document.getElementById(`fastSaleAddressDisplay_${index}`);
+    const editContainer = document.getElementById(`fastSaleAddressEditContainer_${index}`);
+
+    if (displayEl) displayEl.style.display = 'none';
+    if (editContainer) editContainer.style.display = 'block';
+
+    // Focus on input
+    const input = document.getElementById(`fastSaleAddress_${index}`);
+    if (input) input.focus();
+}
+
+/**
+ * Cancel address edit and return to display mode
+ * @param {number} index - Row index
+ */
+function cancelAddressEdit(index) {
+    const displayEl = document.getElementById(`fastSaleAddressDisplay_${index}`);
+    const editContainer = document.getElementById(`fastSaleAddressEditContainer_${index}`);
+    const addressInput = document.getElementById(`fastSaleAddress_${index}`);
+
+    // Restore original value
+    if (addressInput) {
+        addressInput.value = addressInput.dataset.original || '';
+    }
+
+    // Switch back to display mode
+    if (displayEl) displayEl.style.display = 'flex';
+    if (editContainer) editContainer.style.display = 'none';
+
+    unsavedAddressRows.delete(index);
+}
+
+/**
  * Mark address as modified (show save button)
  * @param {number} index - Row index
  */
@@ -1046,10 +1099,20 @@ async function saveAddressForRow(index) {
             throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
-        // Update original value and hide save button
+        // Update original value
         addressInput.dataset.original = newAddress;
-        saveBtn.style.display = 'none';
         unsavedAddressRows.delete(index);
+
+        // Update display text and switch back to display mode
+        const addressTextEl = document.getElementById(`fastSaleAddressText_${index}`);
+        const displayEl = document.getElementById(`fastSaleAddressDisplay_${index}`);
+        const editContainer = document.getElementById(`fastSaleAddressEditContainer_${index}`);
+
+        if (addressTextEl) {
+            addressTextEl.innerHTML = newAddress || '<i style="color: #9ca3af;">Chưa có địa chỉ</i>';
+        }
+        if (displayEl) displayEl.style.display = 'flex';
+        if (editContainer) editContainer.style.display = 'none';
 
         // Update OrderStore if available
         if (window.OrderStore) {
@@ -1094,6 +1157,8 @@ function getUnsavedAddressRows() {
 }
 
 // Expose to window for onclick handlers
+window.enableAddressEdit = enableAddressEdit;
+window.cancelAddressEdit = cancelAddressEdit;
 window.markAddressAsModified = markAddressAsModified;
 window.saveAddressForRow = saveAddressForRow;
 window.hasUnsavedAddressChanges = hasUnsavedAddressChanges;
