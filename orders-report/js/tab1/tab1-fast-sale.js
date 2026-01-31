@@ -617,6 +617,9 @@ async function fetchFastSaleOrdersData(orderIds) {
 async function renderFastSaleModalBody() {
     const modalBody = document.getElementById('fastSaleModalBody');
 
+    // Clear unsaved address tracking when modal re-renders
+    unsavedAddressRows.clear();
+
     if (fastSaleOrdersData.length === 0) {
         modalBody.innerHTML = `
             <div class="merge-no-duplicates">
@@ -891,10 +894,22 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                 <div style="font-size: 11px; color: #6b7280;">
                                     <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i> Địa chỉ:
                                 </div>
-                                <input id="fastSaleAddress_${index}" type="text" class="form-control form-control-sm"
-                                       value="${customerAddress.replace(/"/g, '&quot;')}"
-                                       placeholder="Nhập địa chỉ giao hàng"
-                                       style="font-size: 12px; margin-top: 4px;" />
+                                <div style="display: flex; gap: 4px; margin-top: 4px;">
+                                    <input id="fastSaleAddress_${index}" type="text" class="form-control form-control-sm"
+                                           value="${customerAddress.replace(/"/g, '&quot;')}"
+                                           data-original="${customerAddress.replace(/"/g, '&quot;')}"
+                                           placeholder="Nhập địa chỉ giao hàng"
+                                           style="font-size: 12px; flex: 1;"
+                                           oninput="markAddressAsModified(${index})" />
+                                    <button id="fastSaleAddressSaveBtn_${index}" type="button"
+                                            class="btn btn-sm btn-outline-primary fast-sale-address-save-btn"
+                                            data-row-index="${index}"
+                                            data-sale-online-id="${saleOnlineId}"
+                                            style="font-size: 11px; padding: 2px 8px; white-space: nowrap; display: none;"
+                                            onclick="saveAddressForRow(${index})">
+                                        <i class="fas fa-save"></i> Lưu
+                                    </button>
+                                </div>
                             </div>
                             <div style="font-size: 11px; color: #9ca3af;">
                                 Chiến dịch Live: ${order.SaleOnlineNames || 'N/A'}
@@ -955,6 +970,133 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
 
     return productRows;
 }
+
+// =====================================================
+// ADDRESS SAVE FUNCTIONS
+// =====================================================
+
+// Track which rows have unsaved address changes
+const unsavedAddressRows = new Set();
+
+/**
+ * Mark address as modified (show save button)
+ * @param {number} index - Row index
+ */
+function markAddressAsModified(index) {
+    const addressInput = document.getElementById(`fastSaleAddress_${index}`);
+    const saveBtn = document.getElementById(`fastSaleAddressSaveBtn_${index}`);
+
+    if (!addressInput || !saveBtn) return;
+
+    const currentValue = addressInput.value.trim();
+    const originalValue = addressInput.dataset.original || '';
+
+    if (currentValue !== originalValue) {
+        saveBtn.style.display = 'inline-block';
+        unsavedAddressRows.add(index);
+    } else {
+        saveBtn.style.display = 'none';
+        unsavedAddressRows.delete(index);
+    }
+}
+
+/**
+ * Save address for a specific row via TPOS API
+ * @param {number} index - Row index
+ */
+async function saveAddressForRow(index) {
+    const addressInput = document.getElementById(`fastSaleAddress_${index}`);
+    const saveBtn = document.getElementById(`fastSaleAddressSaveBtn_${index}`);
+
+    if (!addressInput) return;
+
+    const newAddress = addressInput.value.trim();
+    const saleOnlineId = saveBtn?.dataset.saleOnlineId;
+
+    if (!saleOnlineId) {
+        window.notificationManager?.error('Không tìm thấy ID đơn hàng');
+        return;
+    }
+
+    // Show loading state
+    const originalBtnText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    saveBtn.disabled = true;
+
+    try {
+        // Update SaleOnline_Order address via TPOS API
+        const headers = await window.tokenManager?.getAuthHeader() || {};
+        const updateUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order(${saleOnlineId})`;
+
+        const response = await fetch(updateUrl, {
+            method: 'PATCH',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                Address: newAddress
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        // Update original value and hide save button
+        addressInput.dataset.original = newAddress;
+        saveBtn.style.display = 'none';
+        unsavedAddressRows.delete(index);
+
+        // Update OrderStore if available
+        if (window.OrderStore) {
+            const order = window.OrderStore.get(saleOnlineId);
+            if (order) {
+                order.Address = newAddress;
+            }
+        }
+
+        // Re-run carrier auto-select with new address
+        const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
+        if (carrierSelect && typeof smartSelectCarrierForRow === 'function') {
+            smartSelectCarrierForRow(carrierSelect, newAddress, null);
+        }
+
+        window.notificationManager?.success('Đã lưu địa chỉ');
+        console.log(`[FAST-SALE] Address saved for row ${index}:`, newAddress);
+
+    } catch (error) {
+        console.error('[FAST-SALE] Error saving address:', error);
+        window.notificationManager?.error(`Lỗi lưu địa chỉ: ${error.message}`);
+    } finally {
+        saveBtn.innerHTML = originalBtnText;
+        saveBtn.disabled = false;
+    }
+}
+
+/**
+ * Check if there are unsaved address changes
+ * @returns {boolean}
+ */
+function hasUnsavedAddressChanges() {
+    return unsavedAddressRows.size > 0;
+}
+
+/**
+ * Get list of rows with unsaved address changes
+ * @returns {number[]}
+ */
+function getUnsavedAddressRows() {
+    return Array.from(unsavedAddressRows);
+}
+
+// Expose to window for onclick handlers
+window.markAddressAsModified = markAddressAsModified;
+window.saveAddressForRow = saveAddressForRow;
+window.hasUnsavedAddressChanges = hasUnsavedAddressChanges;
+window.getUnsavedAddressRows = getUnsavedAddressRows;
 
 /**
  * Update shipping fee when carrier is selected for a row
@@ -1491,6 +1633,21 @@ window.clearFastSaleStatus = clearFastSaleStatus;
  * @param {boolean} isApprove - Whether to approve orders (Lưu xác nhận)
  */
 async function saveFastSaleOrders(isApprove = false) {
+    // Check for unsaved address changes
+    if (hasUnsavedAddressChanges()) {
+        const unsavedRows = getUnsavedAddressRows();
+        const rowNumbers = unsavedRows.map(i => i + 1).join(', ');
+        const confirmed = confirm(
+            `Có ${unsavedRows.length} dòng chưa lưu địa chỉ (dòng: ${rowNumbers}).\n\n` +
+            `Nếu tiếp tục, địa chỉ sẽ được gửi đi nhưng KHÔNG lưu vào hệ thống.\n\n` +
+            `Bạn có muốn tiếp tục không?`
+        );
+        if (!confirmed) {
+            return;
+        }
+        console.log('[FAST-SALE] User chose to continue with unsaved addresses');
+    }
+
     // Prevent double submission
     if (isSavingFastSale) {
         console.warn('[FAST-SALE] ⚠️ Save already in progress, ignoring duplicate request');

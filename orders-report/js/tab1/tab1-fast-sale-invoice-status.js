@@ -515,6 +515,27 @@
         },
 
         /**
+         * Delete a single invoice entry
+         * @param {string} saleOnlineId - The SaleOnline order ID to delete
+         * @returns {boolean} True if deleted, false if not found
+         */
+        async delete(saleOnlineId) {
+            if (!saleOnlineId) return false;
+
+            const key = String(saleOnlineId);
+            const existed = this._data.has(key);
+
+            if (existed) {
+                this._data.delete(key);
+                this._sentBills.delete(key);
+                this.save(); // Save to both localStorage and Firestore
+                console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId}`);
+            }
+
+            return existed;
+        },
+
+        /**
          * Clear all data (for testing/reset)
          */
         async clearAll() {
@@ -724,6 +745,21 @@
                 </button>
             `;
         }
+
+        // Delete invoice button - removes from localStorage and Firebase
+        html += `
+            <button type="button"
+                class="btn-delete-invoice-main"
+                data-order-id="${order.Id}"
+                onclick="window.deleteInvoiceFromStore('${order.Id}'); event.stopPropagation();"
+                title="Xóa phiếu bán hàng (localStorage + Firebase)"
+                style="background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; margin-left: 2px;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+            </button>
+        `;
         html += `</div>`;
 
         // Row 2: StateCode text (cross-check status like Chưa đối soát, Hoàn thành đối soát)
@@ -1171,6 +1207,68 @@
                     button.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>`;
                 }
             }
+        }
+    }
+
+    // =====================================================
+    // DELETE INVOICE FROM STORE
+    // =====================================================
+
+    /**
+     * Delete invoice from localStorage and Firebase
+     * Called when clicking trash button in "Phiếu bán hàng" column
+     * @param {string} saleOnlineId - The SaleOnline order ID
+     */
+    async function deleteInvoiceFromStore(saleOnlineId) {
+        if (!saleOnlineId) return;
+
+        // Get invoice data for display
+        const invoiceData = InvoiceStatusStore.get(saleOnlineId);
+        if (!invoiceData) {
+            window.notificationManager?.warning('Không tìm thấy phiếu bán hàng để xóa', 3000);
+            return;
+        }
+
+        const billNumber = invoiceData.Number || invoiceData.Reference || 'N/A';
+        const customerName = invoiceData.PartnerDisplayName || invoiceData.ReceiverName || 'N/A';
+
+        // Confirmation dialog
+        const confirmed = confirm(
+            `Xóa phiếu bán hàng?\n\n` +
+            `Số phiếu: ${billNumber}\n` +
+            `Khách hàng: ${customerName}\n\n` +
+            `Dữ liệu sẽ bị xóa khỏi localStorage và Firebase.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+            // Delete from store (localStorage + Firebase)
+            const deleted = await InvoiceStatusStore.delete(saleOnlineId);
+
+            if (deleted) {
+                window.notificationManager?.success(`Đã xóa phiếu ${billNumber}`, 3000);
+
+                // Update UI - refresh the cell in main table
+                const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+                if (row) {
+                    const cell = row.querySelector('td[data-column="invoice-status"]');
+                    if (cell) {
+                        cell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+                    }
+                }
+
+                // Also refresh if in results modal
+                const resultCell = document.querySelector(`.invoice-status-cell[data-order-id="${saleOnlineId}"]`);
+                if (resultCell) {
+                    resultCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+                }
+            } else {
+                window.notificationManager?.warning('Không tìm thấy phiếu để xóa', 3000);
+            }
+        } catch (error) {
+            console.error('[INVOICE-STATUS] Error deleting invoice:', error);
+            window.notificationManager?.error(`Lỗi xóa phiếu: ${error.message}`, 5000);
         }
     }
 
@@ -1744,6 +1842,8 @@
         window.confirmSendBillFromPreview = confirmSendBillFromPreview;
         window.printBillFromPreview = printBillFromPreview;
         window.printAndSendBillFromPreview = printAndSendBillFromPreview;
+        // Delete invoice function
+        window.deleteInvoiceFromStore = deleteInvoiceFromStore;
 
         // Hook showFastSaleResultsModal
         if (!hookShowFastSaleResultsModal()) {
