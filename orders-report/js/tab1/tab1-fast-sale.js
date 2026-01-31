@@ -1518,13 +1518,13 @@ function collectFastSaleData() {
                 Id: order.PartnerId || 0,
                 Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
                 DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                Street: saleOnlineOrder?.Address || null,
-                Phone: saleOnlineOrder?.Telephone || '',
+                Street: saleOnlineOrder?.Address || order.Partner?.Street || null,
+                Phone: saleOnlineOrder?.Telephone || order.Partner?.Phone || '',
                 Customer: true,
                 Type: "contact",
                 CompanyType: "person",
                 DateCreated: new Date().toISOString(),
-                ExtraAddress: null
+                ExtraAddress: order.Partner?.ExtraAddress || null
             },
             Carrier: order.Carrier || {
                 Id: carrierId,
