@@ -845,7 +845,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         const isDiscountedProduct = productDiscount > 0;
         const alternatingBg = index % 2 === 1 ? 'background-color: #e5e7eb;' : '';
         const rowHighlightStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : alternatingBg;
-        const orderSeparator = pIndex === 0 && index > 0 ? 'border-top: 2px solid #d1d5db;' : '';
+        const orderSeparator = pIndex === 0 && index > 0 ? 'border-top: 4px solid #000;' : '';
         const noteStyle = isDiscountedProduct
             ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             : '';
