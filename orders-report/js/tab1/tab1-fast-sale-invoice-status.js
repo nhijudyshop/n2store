@@ -1050,6 +1050,7 @@
             Id: invoiceData.Id,
             Number: invoiceData.Number,  // Already complete (never null)
             Reference: invoiceData.Reference,
+            DateInvoice: invoiceData.DateInvoice,  // Ngày tạo bill từ TPOS
             PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName,
             DeliveryPrice: invoiceData.DeliveryPrice,
             CashOnDelivery: invoiceData.CashOnDelivery,
