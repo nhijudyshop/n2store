@@ -154,6 +154,41 @@
     // SIMULATE CARRIER SELECTION
     // =====================================================
 
+    // =====================================================
+    // ACTUAL CARRIERS (from TPOS)
+    // =====================================================
+    const CARRIERS = {
+        THANH_PHO_GOP: 'THÀNH PHỐ GỘP',
+        TINH_GOP: 'TỈNH GỘP',
+        BAN_HANG_SHOP: 'BÁN HÀNG SHOP',
+        SHIP_TINH: 'SHIP TỈNH (35.000 đ)',
+        THANH_PHO_OUTER1: 'THÀNH PHỐ (Bình Chánh- Q9, Nhà Bè, Hóc Môn) (35.000 đ)',
+        THANH_PHO_OUTER2: 'THÀNH PHỐ (Q2-12-Bình Tân-Thủ Đức) (30.000 đ)',
+        THANH_PHO_INNER: 'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp,) (20.000 đ)'
+    };
+
+    // District mapping based on actual carriers
+    const DISTRICT_MAPPING = {
+        // Inner city - Q1,3,4,5,6,7,8,10,11 + named districts (20k ship)
+        inner: {
+            numbers: ['1', '3', '4', '5', '6', '7', '8', '10', '11'],
+            names: ['Phú Nhuận', 'Bình Thạnh', 'Tân Phú', 'Tân Bình', 'Gò Vấp'],
+            carrier: CARRIERS.THANH_PHO_INNER
+        },
+        // Outer city 2 - Q2, Q12, Bình Tân, Thủ Đức (30k ship)
+        outer2: {
+            numbers: ['2', '12'],
+            names: ['Bình Tân', 'Thủ Đức'],
+            carrier: CARRIERS.THANH_PHO_OUTER2
+        },
+        // Outer city 1 - Q9, Bình Chánh, Nhà Bè, Hóc Môn (35k ship)
+        outer1: {
+            numbers: ['9'],
+            names: ['Bình Chánh', 'Nhà Bè', 'Hóc Môn', 'Củ Chi', 'Cần Giờ'],
+            carrier: CARRIERS.THANH_PHO_OUTER1
+        }
+    };
+
     function simulateCarrierSelection(address) {
         console.log('='.repeat(60));
         console.log('🚚 SIMULATING CARRIER SELECTION');
@@ -164,55 +199,138 @@
 
         if (!result) {
             console.log('❌ Could not extract district → Default to SHIP TỈNH');
-            return 'SHIP TỈNH';
+            return CARRIERS.SHIP_TINH;
         }
 
         if (result.isProvince) {
             console.log(`📍 Province detected: ${result.cityName} → SHIP TỈNH`);
-            return 'SHIP TỈNH';
+            return CARRIERS.SHIP_TINH;
         }
 
+        // Check district number first
         if (result.districtNumber) {
             const num = result.districtNumber;
-            // Simulate carrier matching based on known carriers
-            const hcmInnerDistricts = ['1', '3', '4', '5', '6', '7', '8', '10', '11'];
-            const hcmOuterDistricts = ['2', '9', '12'];
 
-            if (hcmInnerDistricts.includes(num)) {
-                console.log(`📍 District ${num} → THÀNH PHỐ (nội thành)`);
-                return `THÀNH PHỐ (1 3 4 5 6 7 8 10 11)`;
-            } else if (hcmOuterDistricts.includes(num)) {
-                console.log(`📍 District ${num} → THÀNH PHỐ (ngoại thành)`);
-                return `THÀNH PHỐ (Q2-12)`;
+            if (DISTRICT_MAPPING.inner.numbers.includes(num)) {
+                console.log(`📍 Quận ${num} → Nội thành (20k)`);
+                return CARRIERS.THANH_PHO_INNER;
+            }
+            if (DISTRICT_MAPPING.outer2.numbers.includes(num)) {
+                console.log(`📍 Quận ${num} → Ngoại thành 2 (30k)`);
+                return CARRIERS.THANH_PHO_OUTER2;
+            }
+            if (DISTRICT_MAPPING.outer1.numbers.includes(num)) {
+                console.log(`📍 Quận ${num} → Ngoại thành 1 (35k)`);
+                return CARRIERS.THANH_PHO_OUTER1;
             }
         }
 
+        // Check district name
         if (result.districtName) {
             const name = result.districtName;
-            const innerDistricts = ['Bình Thạnh', 'Phú Nhuận', 'Tân Bình', 'Tân Phú', 'Gò Vấp'];
-            const outerDistricts = ['Bình Tân', 'Thủ Đức', 'Hóc Môn', 'Củ Chi', 'Nhà Bè', 'Cần Giờ', 'Bình Chánh'];
 
-            if (innerDistricts.includes(name)) {
-                console.log(`📍 District ${name} → THÀNH PHỐ (nội thành)`);
-                return `THÀNH PHỐ (Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp)`;
-            } else if (outerDistricts.includes(name)) {
-                console.log(`📍 District ${name} → THÀNH PHỐ (ngoại thành)`);
-                return `THÀNH PHỐ (ngoại thành)`;
+            if (DISTRICT_MAPPING.inner.names.includes(name)) {
+                console.log(`📍 ${name} → Nội thành (20k)`);
+                return CARRIERS.THANH_PHO_INNER;
+            }
+            if (DISTRICT_MAPPING.outer2.names.includes(name)) {
+                console.log(`📍 ${name} → Ngoại thành 2 (30k)`);
+                return CARRIERS.THANH_PHO_OUTER2;
+            }
+            if (DISTRICT_MAPPING.outer1.names.includes(name)) {
+                console.log(`📍 ${name} → Ngoại thành 1 (35k)`);
+                return CARRIERS.THANH_PHO_OUTER1;
             }
         }
 
         console.log('⚠️ No match found → Default to SHIP TỈNH');
-        return 'SHIP TỈNH';
+        return CARRIERS.SHIP_TINH;
+    }
+
+    // =====================================================
+    // TEST ALL DISTRICTS
+    // =====================================================
+    function testAllDistricts() {
+        console.log('='.repeat(60));
+        console.log('🧪 TESTING ALL HCM DISTRICTS');
+        console.log('='.repeat(60));
+
+        const testAddresses = [
+            // Nội thành - 20k
+            { address: 'Q1 HCM', expected: 'Nội thành' },
+            { address: 'Quận 3, TPHCM', expected: 'Nội thành' },
+            { address: 'Q.4 Sài Gòn', expected: 'Nội thành' },
+            { address: 'quan 5 hcm', expected: 'Nội thành' },
+            { address: 'Quận 6', expected: 'Nội thành' },
+            { address: 'Q7 HCM', expected: 'Nội thành' },
+            { address: 'Quận 8', expected: 'Nội thành' },
+            { address: 'Q.10 TPHCM', expected: 'Nội thành' },
+            { address: 'Quận 11', expected: 'Nội thành' },
+            { address: 'Phú Nhuận, HCM', expected: 'Nội thành' },
+            { address: 'Bình Thạnh', expected: 'Nội thành' },
+            { address: 'Tân Phú, TPHCM', expected: 'Nội thành' },
+            { address: 'Tân Bình', expected: 'Nội thành' },
+            { address: 'Gò Vấp', expected: 'Nội thành' },
+
+            // Ngoại thành 2 - 30k (Q2, Q12, Bình Tân, Thủ Đức)
+            { address: 'Q2 HCM', expected: 'Ngoại thành 2' },
+            { address: 'Quận 12, TPHCM', expected: 'Ngoại thành 2' },
+            { address: 'Bình Tân', expected: 'Ngoại thành 2' },
+            { address: 'Thủ Đức', expected: 'Ngoại thành 2' },
+
+            // Ngoại thành 1 - 35k (Q9, Bình Chánh, Nhà Bè, Hóc Môn)
+            { address: 'Quận 9', expected: 'Ngoại thành 1' },
+            { address: 'Bình Chánh, HCM', expected: 'Ngoại thành 1' },
+            { address: 'Nhà Bè', expected: 'Ngoại thành 1' },
+            { address: 'Hóc Môn', expected: 'Ngoại thành 1' },
+            { address: 'Củ Chi', expected: 'Ngoại thành 1' },
+
+            // Tỉnh
+            { address: 'TP Biên Hòa, Đồng Nai', expected: 'SHIP TỈNH' },
+            { address: 'Thủ Dầu Một, Bình Dương', expected: 'SHIP TỈNH' },
+
+            // Edge cases
+            { address: '66/. 9. Trân thuận đông quân 7. D. 0965157133', expected: 'Nội thành' },
+            { address: 'ấp bình thạnh, xã abc, Tây Ninh', expected: 'SHIP TỈNH' },
+        ];
+
+        let passed = 0;
+        let failed = 0;
+
+        for (const test of testAddresses) {
+            const carrier = simulateCarrierSelection(test.address);
+            const isPass = carrier.includes(test.expected) ||
+                          (test.expected === 'Nội thành' && carrier.includes('1 3 4 5 6 7 8 10 11')) ||
+                          (test.expected === 'Ngoại thành 2' && carrier.includes('Q2-12')) ||
+                          (test.expected === 'Ngoại thành 1' && carrier.includes('Q9')) ||
+                          (test.expected === 'SHIP TỈNH' && carrier.includes('TỈNH'));
+
+            if (isPass) {
+                passed++;
+                console.log(`✅ "${test.address}" → ${test.expected}`);
+            } else {
+                failed++;
+                console.log(`❌ "${test.address}" → Expected: ${test.expected}, Got: ${carrier}`);
+            }
+        }
+
+        console.log('='.repeat(60));
+        console.log(`📊 RESULTS: ${passed}/${testAddresses.length} passed`);
+        console.log('='.repeat(60));
     }
 
     // Export for browser console
     window.testAddressParsing = runTests;
     window.testSingleAddress = testSingleAddress;
     window.simulateCarrierSelection = simulateCarrierSelection;
+    window.testAllDistricts = testAllDistricts;
     window.addressTestCases = testCases;
+    window.CARRIERS = CARRIERS;
+    window.DISTRICT_MAPPING = DISTRICT_MAPPING;
 
     console.log('[TEST] Address parsing test loaded.');
-    console.log('  - Run window.testAddressParsing() to run all tests');
-    console.log('  - Run window.testSingleAddress("địa chỉ") to test single address');
-    console.log('  - Run window.simulateCarrierSelection("địa chỉ") to simulate carrier selection');
+    console.log('  - window.testAddressParsing() - Run all parsing tests');
+    console.log('  - window.testAllDistricts() - Test all HCM districts');
+    console.log('  - window.testSingleAddress("địa chỉ") - Test single address');
+    console.log('  - window.simulateCarrierSelection("địa chỉ") - Simulate carrier selection');
 })();
