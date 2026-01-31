@@ -552,16 +552,19 @@ function toggleFastSaleAddressEdit(index) {
  * Save address edit and switch back to view mode
  * @param {number} index - Row index
  */
-function saveFastSaleAddressEdit(index) {
+async function saveFastSaleAddressEdit(index) {
     const viewDiv = document.getElementById(`fastSaleAddressView_${index}`);
     const editDiv = document.getElementById(`fastSaleAddressEdit_${index}`);
     const textarea = document.getElementById(`fastSaleAddress_${index}`);
+    const saveBtn = editDiv?.querySelector('button');
 
     if (!textarea) return;
 
     const newAddress = textarea.value.trim();
+    const order = fastSaleOrdersData[index];
+    const saleOnlineId = order?.SaleOnlineIds?.[0];
 
-    // Update address in memory
+    // Update address in memory first
     updateFastSaleAddress(index, newAddress);
 
     // Update view display
@@ -578,7 +581,71 @@ function saveFastSaleAddressEdit(index) {
         editDiv.style.display = 'none';
     }
 
-    showNotification('Đã cập nhật địa chỉ', 'success');
+    // Save to TPOS API if we have a SaleOnline_Order ID
+    if (saleOnlineId) {
+        try {
+            // Show saving state
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            // Get auth headers
+            const headers = await window.tokenManager.getAuthHeader();
+
+            // Fetch current order data (need RowVersion for PUT)
+            const getUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${saleOnlineId})?$expand=Details,Partner,User,CRMTeam`;
+            const getResponse = await API_CONFIG.smartFetch(getUrl, {
+                headers: { ...headers, 'Content-Type': 'application/json' }
+            });
+
+            if (!getResponse.ok) {
+                throw new Error(`Failed to fetch order: ${getResponse.status}`);
+            }
+
+            const orderData = await getResponse.json();
+
+            // Update Address
+            orderData.Address = newAddress;
+            orderData['@odata.context'] = 'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+
+            // PUT to save
+            const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${saleOnlineId})`;
+            const putResponse = await API_CONFIG.smartFetch(putUrl, {
+                method: 'PUT',
+                headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(orderData)
+            });
+
+            if (!putResponse.ok) {
+                const errorText = await putResponse.text();
+                throw new Error(`Failed to save: ${putResponse.status} - ${errorText}`);
+            }
+
+            // Update local OrderStore cache
+            if (window.OrderStore) {
+                const cachedOrder = window.OrderStore.get(saleOnlineId);
+                if (cachedOrder) {
+                    cachedOrder.Address = newAddress;
+                }
+            }
+
+            console.log(`[FAST-SALE] Address saved to TPOS for order ${saleOnlineId}`);
+            showNotification('Đã lưu địa chỉ lên TPOS', 'success');
+
+        } catch (error) {
+            console.error('[FAST-SALE] Error saving address to TPOS:', error);
+            showNotification(`Lỗi lưu địa chỉ: ${error.message}`, 'error');
+        } finally {
+            // Reset button state
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-check"></i>';
+            }
+        }
+    } else {
+        showNotification('Đã cập nhật địa chỉ (chưa lưu lên TPOS)', 'info');
+    }
 }
 
 /**
