@@ -497,6 +497,40 @@ function removeOrderFromFastSale(index) {
 }
 
 /**
+ * Update address for a specific order row in Fast Sale Modal
+ * @param {number} index - Row index
+ * @param {string} newAddress - New address value
+ */
+function updateFastSaleAddress(index, newAddress) {
+    const order = fastSaleOrdersData[index];
+    if (!order) return;
+
+    console.log(`[FAST-SALE] Updating address for order ${order.Reference || index}: ${newAddress}`);
+
+    // Update saleOnlineOrder.Address in memory (for display consistency)
+    if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+        const saleOnlineId = order.SaleOnlineIds[0];
+        const saleOnlineOrder = window.OrderStore?.get(saleOnlineId);
+        if (saleOnlineOrder) {
+            saleOnlineOrder.Address = newAddress;
+        }
+    }
+
+    // Update Partner.Street and PartnerAddress for API payload
+    if (!order.Partner) {
+        order.Partner = {};
+    }
+    order.Partner.Street = newAddress;
+    order.Partner.PartnerAddress = newAddress;
+
+    // Trigger carrier re-selection based on new address
+    const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
+    if (carrierSelect && newAddress) {
+        smartSelectCarrierForRow(carrierSelect, newAddress, order.Partner?.ExtraAddress);
+    }
+}
+
+/**
  * Fetch FastSaleOrder data for multiple orders (batch)
  * API has a limit of 200 orders per request, so we batch requests
  * @param {Array<string>} orderIds - Array of Order IDs
@@ -878,9 +912,13 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                 </span>
                             </div>
                             ${hasAnyDiscount ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;"><i class="fas fa-tag"></i> Giảm ${totalDiscount.toLocaleString('vi-VN')}đ</span>` : ''}
-                            <div style="font-size: 12px; color: #6b7280;">
-                                <i class="fas fa-map-marker-alt" style="font-size: 10px;"></i>
-                                ${customerAddress}
+                            <div style="margin-top: 4px;">
+                                <div style="font-size: 11px; color: #6b7280;">Địa chỉ:</div>
+                                <textarea id="fastSaleAddress_${index}"
+                                          class="form-control form-control-sm"
+                                          placeholder="Nhập địa chỉ giao hàng..."
+                                          style="font-size: 12px; min-height: 50px; resize: vertical; margin-top: 4px;"
+                                          onchange="updateFastSaleAddress(${index}, this.value)">${customerAddress !== '*Chưa có địa chỉ' ? customerAddress : ''}</textarea>
                             </div>
                             <div style="font-size: 11px; color: #9ca3af;">
                                 Chiến dịch Live: ${order.SaleOnlineNames || 'N/A'}
@@ -1342,18 +1380,35 @@ function collectFastSaleData() {
                 ReturnTotal: 0,
                 ConversionPrice: null
             })),
-            Partner: order.Partner || {
-                Id: order.PartnerId || 0,
-                Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                Street: saleOnlineOrder?.Address || order.Partner?.Street || null,
-                Phone: saleOnlineOrder?.Telephone || order.Partner?.Phone || '',
-                Customer: true,
-                Type: "contact",
-                CompanyType: "person",
-                DateCreated: new Date().toISOString(),
-                ExtraAddress: order.Partner?.ExtraAddress || null
-            },
+            Partner: (() => {
+                // Get address from textarea (user may have edited it)
+                const addressInput = document.getElementById(`fastSaleAddress_${index}`);
+                const editedAddress = addressInput && addressInput.value.trim() ? addressInput.value.trim() : null;
+                const originalAddress = saleOnlineOrder?.Address || order.Partner?.Street || null;
+                const finalAddress = editedAddress || originalAddress;
+
+                if (order.Partner) {
+                    // Update existing Partner with edited address
+                    return {
+                        ...order.Partner,
+                        Street: finalAddress
+                    };
+                } else {
+                    // Create new Partner object
+                    return {
+                        Id: order.PartnerId || 0,
+                        Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                        DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                        Street: finalAddress,
+                        Phone: saleOnlineOrder?.Telephone || '',
+                        Customer: true,
+                        Type: "contact",
+                        CompanyType: "person",
+                        DateCreated: new Date().toISOString(),
+                        ExtraAddress: null
+                    };
+                }
+            })(),
             Carrier: order.Carrier || {
                 Id: carrierId,
                 Name: carrierName,
