@@ -732,7 +732,7 @@
             `;
         }
 
-        // X Cancel button for confirmed/paid invoices - to request cancellation
+        // X button for confirmed/paid invoices - to request cancellation
         if (canSendBill) {
             html += `
                 <button type="button"
@@ -745,21 +745,6 @@
                 </button>
             `;
         }
-
-        // Delete invoice button - removes from localStorage and Firebase
-        html += `
-            <button type="button"
-                class="btn-delete-invoice-main"
-                data-order-id="${order.Id}"
-                onclick="window.deleteInvoiceFromStore('${order.Id}'); event.stopPropagation();"
-                title="Xóa phiếu bán hàng (localStorage + Firebase)"
-                style="background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px; display: inline-flex; align-items: center; margin-left: 2px;">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-            </button>
-        `;
         html += `</div>`;
 
         // Row 2: StateCode text (cross-check status like Chưa đối soát, Hoàn thành đối soát)

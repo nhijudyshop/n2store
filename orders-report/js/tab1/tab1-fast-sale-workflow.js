@@ -1063,6 +1063,12 @@
                 SaleOnlineId: saleOnlineId
             }, reason);
 
+            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
+            if (window.InvoiceStatusStore?.delete) {
+                await window.InvoiceStatusStore.delete(saleOnlineId);
+                console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
+            }
+
             // Re-add "OK + NV" tag using currentUserIdentifier (same as quick-tag-ok button)
             // First, get current user identifier from window.currentUserIdentifier (loaded from Firebase)
             const userIdentifier = window.currentUserIdentifier;
@@ -1093,15 +1099,12 @@
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
             closeCancelOrderModal();
 
-            // Update main table UI
-            const cell = document.querySelector(`.btn-cancel-order-main[data-order-id="${order.Id}"]`)?.closest('td');
-            if (cell) {
-                const cancelBtn = cell.querySelector('.btn-cancel-order-main');
-                if (cancelBtn) {
-                    cancelBtn.innerHTML = '✓';
-                    cancelBtn.style.background = '#9ca3af';
-                    cancelBtn.disabled = true;
-                    cancelBtn.title = 'Đã yêu cầu hủy';
+            // Update main table UI - show "−" since invoice was deleted
+            const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+            if (row) {
+                const invoiceCell = row.querySelector('td[data-column="invoice-status"]');
+                if (invoiceCell) {
+                    invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
                 }
             }
 
