@@ -1133,6 +1133,16 @@ async function openSaleButtonModal() {
     currentSaleOrderData = order;
     console.log('[SALE-MODAL] Selected order:', order);
 
+    // Reset form fields to avoid stale data from previous order
+    const discountInput = document.getElementById('saleDiscount');
+    if (discountInput) discountInput.value = 0;
+    const receiverNoteInput = document.getElementById('saleReceiverNote');
+    if (receiverNoteInput) receiverNoteInput.value = '';
+    const prepaidInput = document.getElementById('salePrepaidAmount');
+    if (prepaidInput) prepaidInput.value = 0;
+    const prepaidDateInput = document.getElementById('salePrepaidDate');
+    if (prepaidDateInput) prepaidDateInput.value = '';
+
     // Show modal with loading state
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';

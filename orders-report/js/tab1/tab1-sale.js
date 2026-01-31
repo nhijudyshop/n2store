@@ -13,7 +13,8 @@ let saleSearchTimeout = null;
 // =====================================================
 
 /**
- * Parse discount from product note (e.g., "100k" = 100000)
+ * Parse discount from product note (e.g., "100k" = 100000, "150K ( NÂU )" = 150000)
+ * The XXXk pattern can appear anywhere in the note with additional text
  * @param {string} note - Product note
  * @returns {number} Discount amount in VND
  */
@@ -23,14 +24,14 @@ function parseDiscountFromNoteSale(note) {
     const cleanNote = note.trim().toLowerCase();
     if (!cleanNote) return 0;
 
-    // Pattern 1: "100k" or "100K" -> 100000
-    const kMatch = cleanNote.match(/^(\d+(?:[.,]\d+)?)\s*k$/i);
+    // Pattern 1: "100k", "150K ( NÂU )", "sale 200k còn" -> finds XXXk anywhere
+    const kMatch = cleanNote.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*k(?:\s|$|\(|\))/i);
     if (kMatch) {
         const num = parseFloat(kMatch[1].replace(',', '.'));
         return Math.round(num * 1000);
     }
 
-    // Pattern 2: Plain number "100000" or "100.000" or "100"
+    // Pattern 2: Plain number "100000" or "100.000" or "100" - only when entire note is just the number
     const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
     if (plainMatch) {
         const numStr = plainMatch[1].replace(/[.,]/g, '');
