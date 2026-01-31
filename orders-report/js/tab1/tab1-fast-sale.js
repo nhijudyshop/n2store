@@ -531,6 +531,57 @@ function updateFastSaleAddress(index, newAddress) {
 }
 
 /**
+ * Toggle address edit mode for a Fast Sale order row
+ * @param {number} index - Row index
+ */
+function toggleFastSaleAddressEdit(index) {
+    const viewDiv = document.getElementById(`fastSaleAddressView_${index}`);
+    const editDiv = document.getElementById(`fastSaleAddressEdit_${index}`);
+    const textarea = document.getElementById(`fastSaleAddress_${index}`);
+
+    if (viewDiv && editDiv) {
+        viewDiv.style.display = 'none';
+        editDiv.style.display = 'block';
+        if (textarea) {
+            textarea.focus();
+        }
+    }
+}
+
+/**
+ * Save address edit and switch back to view mode
+ * @param {number} index - Row index
+ */
+function saveFastSaleAddressEdit(index) {
+    const viewDiv = document.getElementById(`fastSaleAddressView_${index}`);
+    const editDiv = document.getElementById(`fastSaleAddressEdit_${index}`);
+    const textarea = document.getElementById(`fastSaleAddress_${index}`);
+
+    if (!textarea) return;
+
+    const newAddress = textarea.value.trim();
+
+    // Update address in memory
+    updateFastSaleAddress(index, newAddress);
+
+    // Update view display
+    if (viewDiv) {
+        const addressDisplay = viewDiv.querySelector('div');
+        if (addressDisplay) {
+            addressDisplay.innerHTML = newAddress || '<span style="color: #9ca3af; font-style: italic;">Chưa có địa chỉ</span>';
+        }
+    }
+
+    // Switch back to view mode
+    if (viewDiv && editDiv) {
+        viewDiv.style.display = 'flex';
+        editDiv.style.display = 'none';
+    }
+
+    showNotification('Đã cập nhật địa chỉ', 'success');
+}
+
+/**
  * Fetch FastSaleOrder data for multiple orders (batch)
  * API has a limit of 200 orders per request, so we batch requests
  * @param {Array<string>} orderIds - Array of Order IDs
@@ -914,11 +965,27 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                             ${hasAnyDiscount ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;"><i class="fas fa-tag"></i> Giảm ${totalDiscount.toLocaleString('vi-VN')}đ</span>` : ''}
                             <div style="margin-top: 4px;">
                                 <div style="font-size: 11px; color: #6b7280;">Địa chỉ:</div>
-                                <textarea id="fastSaleAddress_${index}"
-                                          class="form-control form-control-sm"
-                                          placeholder="Nhập địa chỉ giao hàng..."
-                                          style="font-size: 12px; min-height: 50px; resize: vertical; margin-top: 4px;"
-                                          onchange="updateFastSaleAddress(${index}, this.value)">${customerAddress !== '*Chưa có địa chỉ' ? customerAddress : ''}</textarea>
+                                <div id="fastSaleAddressView_${index}" style="display: flex; align-items: flex-start; gap: 6px; margin-top: 4px;">
+                                    <div style="flex: 1; font-size: 12px; color: #374151;">${customerAddress !== '*Chưa có địa chỉ' ? customerAddress : '<span style="color: #9ca3af; font-style: italic;">Chưa có địa chỉ</span>'}</div>
+                                    <button type="button" onclick="toggleFastSaleAddressEdit(${index})"
+                                            style="padding: 4px 6px; border: none; background: #3b82f6; color: white; border-radius: 4px; cursor: pointer; font-size: 11px;"
+                                            title="Sửa địa chỉ">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                </div>
+                                <div id="fastSaleAddressEdit_${index}" style="display: none; margin-top: 4px;">
+                                    <div style="display: flex; gap: 6px; align-items: flex-start;">
+                                        <textarea id="fastSaleAddress_${index}"
+                                                  class="form-control form-control-sm"
+                                                  placeholder="Nhập địa chỉ giao hàng..."
+                                                  style="flex: 1; font-size: 12px; min-height: 50px; resize: vertical;">${customerAddress !== '*Chưa có địa chỉ' ? customerAddress : ''}</textarea>
+                                        <button type="button" onclick="saveFastSaleAddressEdit(${index})"
+                                                style="padding: 6px 10px; border: none; background: #10b981; color: white; border-radius: 4px; cursor: pointer; font-size: 12px;"
+                                                title="Lưu địa chỉ">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div style="font-size: 11px; color: #9ca3af;">
                                 Chiến dịch Live: ${order.SaleOnlineNames || 'N/A'}
