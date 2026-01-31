@@ -239,7 +239,7 @@ const BillService = (function () {
             return `                        <tr>
                             <td class="PaddingProduct word-break" colspan="3" style="border-bottom:none">
                                     <label>
-                                        ${productName}${note ? ` <span style="color:#666;font-style:italic">(${note})</span>` : ''}
+                                        ${productName}${note ? ` <span style="font-weight:bold">(${note})</span>` : ''}
 
                                                                             </label>
 
