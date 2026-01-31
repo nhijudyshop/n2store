@@ -21,6 +21,63 @@
     const FIRESTORE_COLLECTION = 'invoice_status';
     const MAX_AGE_DAYS = 14; // Auto cleanup after 14 days
 
+    // =====================================================
+    // CARRIER MAPPING (for auto-detect when CarrierName is empty)
+    // =====================================================
+    const DISTRICT_TO_CARRIER = {
+        // Nội thành - 20k (Q1,3,4,5,6,7,8,10,11 + named)
+        inner: {
+            numbers: ['1', '3', '4', '5', '6', '7', '8', '10', '11'],
+            names: ['Phú Nhuận', 'Bình Thạnh', 'Tân Phú', 'Tân Bình', 'Gò Vấp'],
+            carrier: 'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp,) (20.000 đ)'
+        },
+        // Ngoại thành 2 - 30k (Q2, Q12, Bình Tân, Thủ Đức)
+        outer2: {
+            numbers: ['2', '12'],
+            names: ['Bình Tân', 'Thủ Đức'],
+            carrier: 'THÀNH PHỐ (Q2-12-Bình Tân-Thủ Đức) (30.000 đ)'
+        },
+        // Ngoại thành 1 - 35k (Q9, Bình Chánh, Nhà Bè, Hóc Môn, Củ Chi, Cần Giờ)
+        outer1: {
+            numbers: ['9'],
+            names: ['Bình Chánh', 'Nhà Bè', 'Hóc Môn', 'Củ Chi', 'Cần Giờ'],
+            carrier: 'THÀNH PHỐ (Bình Chánh- Q9, Nhà Bè, Hóc Môn) (35.000 đ)'
+        }
+    };
+
+    /**
+     * Get carrier name from district info (fallback for empty CarrierName)
+     * @param {object} districtInfo - Result from extractDistrictFromAddress
+     * @returns {string} Carrier name or empty string
+     */
+    function getCarrierNameFromDistrict(districtInfo) {
+        if (!districtInfo) return '';
+
+        // Province → SHIP TỈNH
+        if (districtInfo.isProvince) {
+            return 'SHIP TỈNH (35.000 đ)';
+        }
+
+        // Check by district number
+        if (districtInfo.districtNumber) {
+            const num = districtInfo.districtNumber;
+            if (DISTRICT_TO_CARRIER.inner.numbers.includes(num)) return DISTRICT_TO_CARRIER.inner.carrier;
+            if (DISTRICT_TO_CARRIER.outer2.numbers.includes(num)) return DISTRICT_TO_CARRIER.outer2.carrier;
+            if (DISTRICT_TO_CARRIER.outer1.numbers.includes(num)) return DISTRICT_TO_CARRIER.outer1.carrier;
+        }
+
+        // Check by district name
+        if (districtInfo.districtName) {
+            const name = districtInfo.districtName;
+            if (DISTRICT_TO_CARRIER.inner.names.includes(name)) return DISTRICT_TO_CARRIER.inner.carrier;
+            if (DISTRICT_TO_CARRIER.outer2.names.includes(name)) return DISTRICT_TO_CARRIER.outer2.carrier;
+            if (DISTRICT_TO_CARRIER.outer1.names.includes(name)) return DISTRICT_TO_CARRIER.outer1.carrier;
+        }
+
+        // Default → SHIP TỈNH
+        return 'SHIP TỈNH (35.000 đ)';
+    }
+
     /**
      * InvoiceStatusStore - Manages invoice status data
      * Syncs to Firestore for persistence across devices
@@ -1046,6 +1103,17 @@
 
         // Build enriched order for bill generation
         // invoiceData already has complete data (set() ensures all fields are populated)
+
+        // Fallback: Auto-detect carrier from address if CarrierName is empty
+        let carrierName = invoiceData.CarrierName;
+        if (!carrierName && invoiceData.ReceiverAddress && typeof window.extractDistrictFromAddress === 'function') {
+            const districtInfo = window.extractDistrictFromAddress(invoiceData.ReceiverAddress, null);
+            if (districtInfo) {
+                carrierName = getCarrierNameFromDistrict(districtInfo);
+                console.log('[INVOICE-STATUS] Auto-detected carrier from address:', carrierName);
+            }
+        }
+
         const enrichedOrder = {
             Id: invoiceData.Id,
             Number: invoiceData.Number,  // Already complete (never null)
@@ -1058,7 +1126,7 @@
             Discount: invoiceData.Discount,            // Giảm giá
             AmountTotal: invoiceData.AmountTotal,
             AmountUntaxed: invoiceData.AmountUntaxed,
-            CarrierName: invoiceData.CarrierName,
+            CarrierName: carrierName,
             UserName: invoiceData.UserName,
             SessionIndex: invoiceData.SessionIndex,
             Comment: invoiceData.Comment,
