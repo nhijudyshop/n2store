@@ -163,7 +163,6 @@
                     let totalEntries = 0;
                     snapshot.forEach(doc => {
                         const firestoreData = doc.data();
-                        const username = doc.id;
 
                         // Merge data (newer timestamp wins)
                         if (firestoreData.data) {
@@ -523,12 +522,37 @@
             if (!saleOnlineId) return false;
 
             const key = String(saleOnlineId);
-            const existed = this._data.has(key);
+            const entry = this._data.get(key);
+            const existed = !!entry;
 
             if (existed) {
+                // Get UserName from entry to find correct Firestore doc
+                const ownerUsername = entry.UserName;
+
                 this._data.delete(key);
                 this._sentBills.delete(key);
-                this.save(); // Save to both localStorage and Firestore
+                this._saveToLocalStorage();
+
+                // Delete from owner's Firestore document using UserName
+                if (ownerUsername) {
+                    try {
+                        const db = firebase.firestore();
+                        const ownerDocRef = db.collection(FIRESTORE_COLLECTION).doc(ownerUsername);
+                        const ownerDoc = await ownerDocRef.get();
+
+                        if (ownerDoc.exists) {
+                            const ownerData = ownerDoc.data();
+                            if (ownerData.data && ownerData.data[key]) {
+                                delete ownerData.data[key];
+                                await ownerDocRef.set(ownerData);
+                                console.log(`[INVOICE-STATUS] Deleted from Firestore doc "${ownerUsername}"`);
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`[INVOICE-STATUS] Error deleting from Firestore:`, e);
+                    }
+                }
+
                 console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId}`);
             }
 

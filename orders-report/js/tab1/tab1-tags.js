@@ -349,6 +349,8 @@ async function loadCurrentUserIdentifier() {
         if (userDoc.exists) {
             const userData = userDoc.data();
             currentUserIdentifier = userData.identifier || null;
+            // Expose to window for other modules (workflow, etc.)
+            window.currentUserIdentifier = currentUserIdentifier;
             console.log('[QUICK-TAG] Loaded user identifier:', currentUserIdentifier);
         } else {
             console.warn('[QUICK-TAG] User document not found:', auth.username);
