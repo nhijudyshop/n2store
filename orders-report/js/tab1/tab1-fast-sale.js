@@ -78,7 +78,8 @@ let fastSaleWalletBalances = {}; // Store wallet balances by phone: { "090999999
 
 /**
  * Parse discount amount from product note
- * Supports formats: "100k", "100K", "100000", "100.000", "50k", etc.
+ * Supports formats: "100k", "100K", "100000", "100.000", "50k", "190k ( THANH TRUC )", etc.
+ * The XXXk pattern can appear anywhere in the note with additional text
  * @param {string} note - Product note containing discount
  * @returns {number} Discount amount in VND (0 if no valid discount found)
  */
@@ -89,16 +90,17 @@ function parseDiscountFromNote(note) {
     const cleanNote = note.trim().toLowerCase();
     if (!cleanNote) return 0;
 
-    // Match patterns: number followed by optional 'k' or standalone number
-    // Pattern 1: "100k" or "100K" -> 100000
-    // Pattern 2: "100000" or "100.000" -> 100000
-    const kMatch = cleanNote.match(/^(\d+(?:[.,]\d+)?)\s*k$/i);
+    // Match patterns: number followed by 'k' anywhere in the note
+    // Pattern 1: "100k", "190k ( THANH TRUC )", "hàng 150k sale" -> finds XXXk
+    // Use word boundary or start/whitespace to avoid matching partial numbers
+    const kMatch = cleanNote.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*k(?:\s|$|\(|\))/i);
     if (kMatch) {
         const num = parseFloat(kMatch[1].replace(',', '.'));
         return Math.round(num * 1000);
     }
 
-    // Try to parse as plain number (could be "100000" or "100.000" or "100")
+    // Pattern 2: Check if the entire note is just a number (could be "100000" or "100.000" or "100")
+    // This pattern remains strict - only entire note being a number
     const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
     if (plainMatch) {
         // Remove dots/commas used as thousand separators
