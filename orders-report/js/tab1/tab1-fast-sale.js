@@ -1055,26 +1055,92 @@ function markAddressAsModified(index) {
 }
 
 /**
- * Save address for a specific row via TPOS API
- * Uses GET + PUT pattern: fetch full order, update ReceiverAddress, PUT back
+ * Save address for a specific row
+ * If FastSaleOrder already exists (Id > 0): Uses GET + PUT pattern to update server
+ * If FastSaleOrder not created yet (Id = 0): Updates local data only, will be used when order is created
  * @param {number} index - Row index
  */
 async function saveAddressForRow(index) {
     const addressInput = document.getElementById(`fastSaleAddress_${index}`);
     const saveBtn = document.getElementById(`fastSaleAddressSaveBtn_${index}`);
+    const displayEl = document.getElementById(`fastSaleAddressDisplay_${index}`);
+    const editContainer = document.getElementById(`fastSaleAddressEditContainer_${index}`);
+    const addressTextEl = document.getElementById(`fastSaleAddressText_${index}`);
 
     if (!addressInput) return;
 
     const newAddress = addressInput.value.trim();
 
-    // Get FastSaleOrder ID from fastSaleOrdersData
+    // Get FastSaleOrder from fastSaleOrdersData
     const fastSaleOrder = fastSaleOrdersData[index];
-    if (!fastSaleOrder || !fastSaleOrder.Id) {
-        window.notificationManager?.error('Không tìm thấy ID đơn hàng FastSale');
-        return;
+    const fastSaleOrderId = fastSaleOrder?.Id;
+
+    // Check if order already exists on server (Id > 0)
+    if (fastSaleOrderId && fastSaleOrderId > 0) {
+        // Order exists - use GET + PUT pattern to update on server
+        await saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn);
+    } else {
+        // Order not created yet - just update local data
+        // This address will be used when order is created via "Lưu xác nhận"
+        updateLocalAddressData(index, newAddress);
+
+        // Update display text
+        if (addressTextEl) {
+            addressTextEl.innerHTML = newAddress || '<i style="color: #9ca3af;">Chưa có địa chỉ</i>';
+        }
+
+        // Update original value in input
+        addressInput.dataset.original = newAddress;
+
+        // Switch back to display mode
+        if (displayEl) displayEl.style.display = 'flex';
+        if (editContainer) editContainer.style.display = 'none';
+
+        unsavedAddressRows.delete(index);
+        window.notificationManager?.success('Đã lưu địa chỉ (sẽ áp dụng khi tạo đơn)');
+    }
+}
+
+/**
+ * Update local address data for a row (when order hasn't been created yet)
+ * @param {number} index - Row index
+ * @param {string} newAddress - New address value
+ */
+function updateLocalAddressData(index, newAddress) {
+    if (fastSaleOrdersData[index]) {
+        // Update all address-related fields in local data
+        fastSaleOrdersData[index].ReceiverAddress = newAddress;
+        fastSaleOrdersData[index].Address = newAddress;
+
+        if (fastSaleOrdersData[index].Ship_Receiver) {
+            fastSaleOrdersData[index].Ship_Receiver.Street = newAddress;
+            if (fastSaleOrdersData[index].Ship_Receiver.ExtraAddress) {
+                fastSaleOrdersData[index].Ship_Receiver.ExtraAddress.Street = newAddress;
+            }
+        }
+
+        if (fastSaleOrdersData[index].Partner) {
+            fastSaleOrdersData[index].Partner.Street = newAddress;
+            fastSaleOrdersData[index].Partner.FullAddress = newAddress;
+            if (fastSaleOrdersData[index].Partner.ExtraAddress) {
+                fastSaleOrdersData[index].Partner.ExtraAddress.Street = newAddress;
+            }
+        }
     }
 
-    const fastSaleOrderId = fastSaleOrder.Id;
+    console.log(`[FAST-SALE] Updated local address for row ${index}:`, newAddress);
+}
+
+/**
+ * Save address to server via TPOS API (for existing orders)
+ * Uses GET + PUT pattern: fetch full order, update address fields, PUT back
+ * @param {number} index - Row index
+ * @param {number} fastSaleOrderId - FastSaleOrder ID
+ * @param {string} newAddress - New address value
+ * @param {HTMLElement} saveBtn - Save button element
+ */
+async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) {
+    const addressInput = document.getElementById(`fastSaleAddress_${index}`);
 
     // Show loading state
     const originalBtnText = saveBtn.innerHTML;
