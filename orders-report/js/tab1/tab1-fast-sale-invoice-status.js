@@ -466,6 +466,18 @@
                             // Get original SaleOnlineOrder for enrichment
                             const originalOrder = window.OrderStore?.get(soId) ||
                                 displayedData.find(o => o.Id === soId || String(o.Id) === String(soId));
+
+                            // ĐƠN GIẢN: Lấy address từ fastSaleOrdersData (đã được user sửa trong form)
+                            const fastSaleData = window.fastSaleOrdersData?.find(f =>
+                                f.SaleOnlineIds?.includes(soId) ||
+                                JSON.stringify(f.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)
+                            );
+                            if (fastSaleData?.ReceiverAddress) {
+                                order.ReceiverAddress = fastSaleData.ReceiverAddress;
+                                order.Address = fastSaleData.ReceiverAddress;
+                                console.log('[INVOICE-STATUS] Address from fastSaleOrdersData:', fastSaleData.ReceiverAddress);
+                            }
+
                             this.set(soId, order, originalOrder);
                         });
                     }
@@ -484,6 +496,18 @@
                             // Get original SaleOnlineOrder for enrichment
                             const originalOrder = window.OrderStore?.get(soId) ||
                                 displayedData.find(o => o.Id === soId || String(o.Id) === String(soId));
+
+                            // ĐƠN GIẢN: Lấy address từ fastSaleOrdersData (đã được user sửa trong form)
+                            const fastSaleData = window.fastSaleOrdersData?.find(f =>
+                                f.SaleOnlineIds?.includes(soId) ||
+                                JSON.stringify(f.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)
+                            );
+                            if (fastSaleData?.ReceiverAddress) {
+                                order.ReceiverAddress = fastSaleData.ReceiverAddress;
+                                order.Address = fastSaleData.ReceiverAddress;
+                                console.log('[INVOICE-STATUS] Address from fastSaleOrdersData:', fastSaleData.ReceiverAddress);
+                            }
+
                             this.set(soId, order, originalOrder);
                         });
                     }

@@ -643,6 +643,9 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
     }
 }
 
+// Expose quickAssignTag to window for external use (e.g., cancel order workflow)
+window.quickAssignTag = quickAssignTag;
+
 /**
  * Quick remove tag from order
  * @param {string} orderId - Order ID

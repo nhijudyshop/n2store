@@ -70,6 +70,7 @@ document.addEventListener('keydown', function (event) {
 // =====================================================
 
 let fastSaleOrdersData = [];
+window.fastSaleOrdersData = fastSaleOrdersData; // Expose for InvoiceStatusStore to access edited addresses
 let fastSaleWalletBalances = {}; // Store wallet balances by phone: { "0909999999": { balance: 200000, virtual_balance: 0 } }
 
 // =====================================================
@@ -285,6 +286,7 @@ async function showFastSaleModal() {
 
     // Reset state
     fastSaleOrdersData = [];
+    window.fastSaleOrdersData = fastSaleOrdersData;
     fastSaleWalletBalances = {};
 
     // Show modal with loading state
@@ -400,6 +402,7 @@ async function showFastSaleModal() {
 
             return true; // Keep order for processing
         });
+        window.fastSaleOrdersData = fastSaleOrdersData;
 
         // Show warning if some orders were filtered out due to confirmed/paid status
         if (confirmedOrderCodes.length > 0) {
@@ -470,6 +473,7 @@ function closeFastSaleModal() {
 
     // Reset state
     fastSaleOrdersData = [];
+    window.fastSaleOrdersData = fastSaleOrdersData;
     clearFastSaleStatus();  // Clear status message when closing modal
 }
 

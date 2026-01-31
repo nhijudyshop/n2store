@@ -419,38 +419,13 @@
                 SaleOnlineId: saleOnlineId
             }, reason);
 
-            // Re-add "OK + NV" tag (was removed on success)
-            // Use currentUserIdentifier (same as quick-tag-ok button)
-            const removedOkTag = order._removedOkTag;
-            if (removedOkTag) {
-                console.log(`[WORKFLOW] Re-adding tag "${removedOkTag.Name}" to cancelled order`);
-                await addTagToOrder(saleOnlineId, {
-                    Id: removedOkTag.Id,
-                    Name: removedOkTag.Name,
-                    Color: removedOkTag.Color
-                });
+            // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
+            const orderCode = order.Reference || order.Number || '';
+            if (typeof window.quickAssignTag === 'function') {
+                console.log(`[WORKFLOW] Adding OK tag to cancelled order: ${saleOnlineId}`);
+                await window.quickAssignTag(saleOnlineId, orderCode, 'ok');
             } else {
-                // Try to find an "OK + NV" tag using currentUserIdentifier (from Firebase users collection)
-                const userIdentifier = window.currentUserIdentifier;
-                if (userIdentifier) {
-                    // Build tag name same as quickAssignTag: "OK {identifier}".toUpperCase()
-                    const okTagName = `OK ${userIdentifier}`.toUpperCase();
-                    const okTagForUser = window.availableTags?.find(t =>
-                        (t.Name || '').toUpperCase() === okTagName
-                    );
-                    if (okTagForUser) {
-                        console.log(`[WORKFLOW] Re-adding tag "${okTagForUser.Name}" based on currentUserIdentifier`);
-                        await addTagToOrder(saleOnlineId, {
-                            Id: okTagForUser.Id,
-                            Name: okTagForUser.Name,
-                            Color: okTagForUser.Color
-                        });
-                    } else {
-                        console.warn(`[WORKFLOW] OK tag not found: ${okTagName}`);
-                    }
-                } else {
-                    console.warn('[WORKFLOW] currentUserIdentifier not available, cannot re-add OK tag');
-                }
+                console.warn('[WORKFLOW] quickAssignTag function not available');
             }
 
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`);
@@ -1089,31 +1064,13 @@
                 console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
             }
 
-            // Re-add "OK + NV" tag using currentUserIdentifier (same as quick-tag-ok button)
-            // First, get current user identifier from window.currentUserIdentifier (loaded from Firebase)
-            const userIdentifier = window.currentUserIdentifier;
-
-            if (userIdentifier) {
-                // Build tag name same as quickAssignTag: "OK {identifier}".toUpperCase()
-                const okTagName = `OK ${userIdentifier}`.toUpperCase();
-
-                // Find the tag in availableTags
-                let okTag = window.availableTags?.find(t =>
-                    (t.Name || '').toUpperCase() === okTagName
-                );
-
-                if (okTag) {
-                    console.log(`[WORKFLOW] Re-adding tag "${okTag.Name}" to cancelled order from main table`);
-                    await addTagToOrder(saleOnlineId, {
-                        Id: okTag.Id,
-                        Name: okTag.Name,
-                        Color: okTag.Color
-                    });
-                } else {
-                    console.warn(`[WORKFLOW] OK tag not found: ${okTagName}`);
-                }
+            // Step 4: Add "OK + định danh" tag using quickAssignTag
+            const orderCode = order.Reference || order.Number || '';
+            if (typeof window.quickAssignTag === 'function') {
+                console.log(`[WORKFLOW] Adding OK tag to cancelled order: ${saleOnlineId}`);
+                await window.quickAssignTag(saleOnlineId, orderCode, 'ok');
             } else {
-                console.warn('[WORKFLOW] currentUserIdentifier not available, cannot re-add OK tag');
+                console.warn('[WORKFLOW] quickAssignTag function not available');
             }
 
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
