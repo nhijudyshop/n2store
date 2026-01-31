@@ -425,12 +425,42 @@
                 return order;
             };
 
+            // Helper: get Address from request model (user may have edited address in form)
+            const enrichWithAddress = (order) => {
+                // Match by Reference or SaleOnlineIds
+                const matchedModel = requestModels.find(m => {
+                    if (m.Reference && order.Reference && m.Reference === order.Reference) return true;
+                    if (m.SaleOnlineIds?.length && order.SaleOnlineIds?.length) {
+                        return JSON.stringify(m.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds);
+                    }
+                    return false;
+                });
+                if (matchedModel) {
+                    // Get address from request model (edited in form)
+                    const requestAddress = matchedModel.ReceiverAddress ||
+                        matchedModel.Address ||
+                        matchedModel.Partner?.Street;
+                    if (requestAddress) {
+                        order.ReceiverAddress = requestAddress;
+                        order.Address = requestAddress;
+                        if (order.Partner) {
+                            order.Partner.Street = requestAddress;
+                        }
+                        console.log('[INVOICE-STATUS] Enriched address from request:', requestAddress);
+                    }
+                } else {
+                    console.warn('[INVOICE-STATUS] No matching request model for address enrichment:', order.Reference);
+                }
+                return order;
+            };
+
             // Store successful orders
             if (apiResult.OrdersSucessed && Array.isArray(apiResult.OrdersSucessed)) {
                 apiResult.OrdersSucessed.forEach(order => {
                     enrichWithSessionIndex(order);
                     enrichWithOrderLines(order);
                     enrichWithPaymentData(order);
+                    enrichWithAddress(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             // Get original SaleOnlineOrder for enrichment
@@ -448,6 +478,7 @@
                     enrichWithSessionIndex(order);
                     enrichWithOrderLines(order);
                     enrichWithPaymentData(order);
+                    enrichWithAddress(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             // Get original SaleOnlineOrder for enrichment
