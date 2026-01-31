@@ -1514,35 +1514,18 @@ function collectFastSaleData() {
                 ReturnTotal: 0,
                 ConversionPrice: null
             })),
-            Partner: (() => {
-                // Get address from textarea (user may have edited it)
-                const addressInput = document.getElementById(`fastSaleAddress_${index}`);
-                const editedAddress = addressInput && addressInput.value.trim() ? addressInput.value.trim() : null;
-                const originalAddress = saleOnlineOrder?.Address || order.Partner?.Street || null;
-                const finalAddress = editedAddress || originalAddress;
-
-                if (order.Partner) {
-                    // Update existing Partner with edited address
-                    return {
-                        ...order.Partner,
-                        Street: finalAddress
-                    };
-                } else {
-                    // Create new Partner object
-                    return {
-                        Id: order.PartnerId || 0,
-                        Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                        DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
-                        Street: finalAddress,
-                        Phone: saleOnlineOrder?.Telephone || '',
-                        Customer: true,
-                        Type: "contact",
-                        CompanyType: "person",
-                        DateCreated: new Date().toISOString(),
-                        ExtraAddress: null
-                    };
-                }
-            })(),
+            Partner: order.Partner || {
+                Id: order.PartnerId || 0,
+                Name: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                DisplayName: order.PartnerDisplayName || saleOnlineOrder?.Name || '',
+                Street: saleOnlineOrder?.Address || null,
+                Phone: saleOnlineOrder?.Telephone || '',
+                Customer: true,
+                Type: "contact",
+                CompanyType: "person",
+                DateCreated: new Date().toISOString(),
+                ExtraAddress: null
+            },
             Carrier: order.Carrier || {
                 Id: carrierId,
                 Name: carrierName,
