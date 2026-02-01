@@ -582,6 +582,7 @@ router.get('/verification-queue', async (req, res) => {
                 bh.verification_status,
                 bh.match_method,
                 bh.verification_note,
+                bh.staff_note,
                 bh.created_at,
                 c.name as customer_name,
                 pcm.matched_customers,
