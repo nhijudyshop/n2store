@@ -1242,6 +1242,14 @@
                 console.warn('[WORKFLOW] quickAssignTag function not available');
             }
 
+            // Step 5: Update SaleOnline order status to "Nháp"
+            if (typeof window.updateOrderStatus === 'function') {
+                console.log(`[WORKFLOW] Updating order status to "Nháp": ${saleOnlineId}`);
+                await window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e');
+            } else {
+                console.warn('[WORKFLOW] updateOrderStatus function not available');
+            }
+
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
             closeCancelOrderModal();
 
