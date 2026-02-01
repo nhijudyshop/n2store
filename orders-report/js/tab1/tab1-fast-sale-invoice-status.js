@@ -121,7 +121,7 @@
                 await this.cleanup();
 
                 // 4. Setup real-time listener for cross-device sync
-                await this._setupRealtimeListener();
+                this._setupRealtimeListener();
 
                 this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
@@ -151,43 +151,13 @@
         },
 
         /**
-         * Wait for Firebase to be ready
-         * @param {number} maxRetries - Maximum number of retries
-         * @param {number} delay - Delay between retries in ms
-         */
-        async _waitForFirebase(maxRetries = 10, delay = 500) {
-            for (let i = 0; i < maxRetries; i++) {
-                // Check if Firebase is available
-                if (typeof firebase !== 'undefined' && firebase.firestore) {
-                    // Check if authManager has valid username
-                    const authState = window.authManager?.getAuthState?.() || window.authManager?.getAuthData?.();
-                    const username = authState?.username || authState?.userType?.split('-')?.[0];
-                    if (username && username !== 'default' && username !== 'undefined') {
-                        console.log(`[INVOICE-STATUS] Firebase ready, username: ${username}`);
-                        return true;
-                    }
-                }
-                console.log(`[INVOICE-STATUS] Waiting for Firebase/Auth... (${i + 1}/${maxRetries})`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-            console.warn('[INVOICE-STATUS] Firebase/Auth not ready after max retries');
-            return false;
-        },
-
-        /**
          * Setup real-time listener for cross-device sync
          * When another device changes data, this device will be notified
          */
-        async _setupRealtimeListener() {
-            if (this._unsubscribe) {
-                console.log('[INVOICE-STATUS] Real-time listener already active');
-                return;
-            }
-
-            // Wait for Firebase to be ready
-            const isReady = await this._waitForFirebase();
-            if (!isReady) {
-                console.warn('[INVOICE-STATUS] Skipping real-time listener setup - Firebase not ready');
+        _setupRealtimeListener() {
+            if (this._unsubscribe) return;
+            if (typeof firebase === 'undefined' || !firebase.firestore) {
+                console.warn('[INVOICE-STATUS] Firebase not available');
                 return;
             }
 

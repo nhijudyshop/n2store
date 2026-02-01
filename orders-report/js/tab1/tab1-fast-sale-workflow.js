@@ -54,7 +54,7 @@
                 await this.cleanup();
 
                 // Setup real-time listener for cross-device sync
-                await this._setupRealtimeListener();
+                this._setupRealtimeListener();
 
                 this._initialized = true;
             } catch (e) {
@@ -123,42 +123,12 @@
         },
 
         /**
-         * Wait for Firebase to be ready
-         * @param {number} maxRetries - Maximum number of retries
-         * @param {number} delay - Delay between retries in ms
-         */
-        async _waitForFirebase(maxRetries = 10, delay = 500) {
-            for (let i = 0; i < maxRetries; i++) {
-                // Check if Firebase is available
-                if (typeof firebase !== 'undefined' && firebase.firestore) {
-                    // Check if authManager has valid username
-                    const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
-                    const username = authData?.username || authData?.userType?.split('-')?.[0];
-                    if (username && username !== 'default' && username !== 'undefined') {
-                        console.log(`[INVOICE-DELETE] Firebase ready, username: ${username}`);
-                        return true;
-                    }
-                }
-                console.log(`[INVOICE-DELETE] Waiting for Firebase/Auth... (${i + 1}/${maxRetries})`);
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
-            console.warn('[INVOICE-DELETE] Firebase/Auth not ready after max retries');
-            return false;
-        },
-
-        /**
          * Setup real-time listener for cross-device sync
          */
-        async _setupRealtimeListener() {
-            if (this._unsubscribe) {
-                console.log('[INVOICE-DELETE] Real-time listener already active');
-                return;
-            }
-
-            // Wait for Firebase to be ready
-            const isReady = await this._waitForFirebase();
-            if (!isReady) {
-                console.warn('[INVOICE-DELETE] Skipping real-time listener setup - Firebase not ready');
+        _setupRealtimeListener() {
+            if (this._unsubscribe) return;
+            if (typeof firebase === 'undefined' || !firebase.firestore) {
+                console.warn('[INVOICE-DELETE] Firebase not available');
                 return;
             }
 
