@@ -156,24 +156,29 @@ const Store = {
         this._setupRealtimeListener();
     },
 
-    // QUAN TRỌNG: KHÔNG dùng { merge: true } để delete hoạt động đúng
+    // Add/Update: dùng merge:true (an toàn cho concurrent edits)
     _saveToFirestore() {
         await this._getDocRef().set({
             data: Object.fromEntries(this._data),
             lastUpdated: Date.now()
-        }); // KHÔNG có { merge: true }
+        }, { merge: true });
     },
 
     save() {
         this._saveToLocalStorage();
-        if (!this._isListening) {  // Tránh infinite loop
+        if (!this._isListening) {
             this._saveToFirestore();
         }
     },
 
+    // Delete: dùng FieldValue.delete() để xóa field cụ thể
     async delete(id) {
-        this._data.delete(id);  // Hard delete
-        this.save();
+        this._data.delete(id);
+        this._saveToLocalStorage();
+        await this._getDocRef().update({
+            [`data.${id}`]: firebase.firestore.FieldValue.delete(),
+            lastUpdated: Date.now()
+        });
     }
 };
 ```
@@ -181,5 +186,5 @@ const Store = {
 ### Tài liệu chi tiết:
 Xem `docs/DATA-SYNCHRONIZATION.md` để hiểu thêm về:
 - Firebase as Source of Truth + Real-time Listener pattern
-- Tại sao KHÔNG dùng `{ merge: true }` khi save
+- Strategy: `merge:true` cho add/update, `FieldValue.delete()` cho delete
 - Best practices

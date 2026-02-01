@@ -246,19 +246,18 @@
 
         /**
          * Save to Firestore (debounced 2s)
-         * Uses set() WITHOUT merge to ensure deleted entries are removed
+         * Uses merge:true for add/update operations (safe for concurrent edits)
+         * Delete uses FieldValue.delete() separately
          */
         _saveToFirestore() {
             clearTimeout(this._syncTimeout);
             this._syncTimeout = setTimeout(async () => {
                 try {
-                    // set() without merge = REPLACE entire document
-                    // This ensures deleted entries are removed from Firestore
                     await this._getDocRef().set({
                         data: Object.fromEntries(this._data),
                         sentBills: Array.from(this._sentBills),
                         lastUpdated: Date.now()
-                    });
+                    }, { merge: true });
                     console.log('[INVOICE-STATUS] Synced to Firestore');
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore save error:', e);
@@ -743,8 +742,8 @@
         },
 
         /**
-         * Delete a single invoice entry (soft delete with tombstone)
-         * Sử dụng soft delete để tránh code cũ revive entry đã xóa
+         * Delete a single invoice entry using FieldValue.delete()
+         * This removes only the specific entry without affecting other data
          * @param {string} saleOnlineId - The SaleOnline order ID to delete
          * @returns {boolean} True if deleted, false if not found
          */
@@ -755,11 +754,23 @@
             const existed = this._data.has(key);
 
             if (existed) {
-                // Hard delete - remove entry completely
+                // Remove from local _data
                 this._data.delete(key);
                 this._sentBills.delete(key);
-                this.save();
-                console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId}`);
+                this._saveToLocalStorage();
+
+                // Delete specific field from Firestore using FieldValue.delete()
+                try {
+                    await this._getDocRef().update({
+                        [`data.${key}`]: firebase.firestore.FieldValue.delete(),
+                        lastUpdated: Date.now()
+                    });
+                    console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId} from Firestore`);
+                } catch (e) {
+                    console.error('[INVOICE-STATUS] Firestore delete error:', e);
+                    // Fallback: save entire document if update fails (e.g., document doesn't exist)
+                    this._saveToFirestore();
+                }
             }
 
             return existed;

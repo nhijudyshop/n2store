@@ -159,13 +159,13 @@
                 }
 
                 // Sync to Firestore (if Firebase is available)
-                // set() without merge = REPLACE entire document (ensures deleted entries are removed)
+                // Uses merge:true for add/update, delete uses FieldValue.delete() separately
                 if (typeof firebase !== 'undefined' && firebase.firestore) {
                     const docRef = this._getDocRef();
                     console.log(`[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`);
                     // Clean data to remove undefined values (Firestore doesn't accept them)
                     const cleanedData = this._cleanForFirestore(dataObj);
-                    await docRef.set({ data: cleanedData, lastUpdated: Date.now() });
+                    await docRef.set({ data: cleanedData, lastUpdated: Date.now() }, { merge: true });
                     console.log(`[INVOICE-DELETE] Synced to Firestore successfully`);
                 } else {
                     console.warn('[INVOICE-DELETE] Firebase not available, skipping Firestore sync');
@@ -324,9 +324,25 @@
                 return false;
             }
 
+            // Remove from local _data
             this._data.delete(key);
-            await this._save();
-            console.log(`[INVOICE-DELETE] Deleted entry: ${key}`);
+            this._saveToLocalStorage();
+
+            // Delete specific field from Firestore using FieldValue.delete()
+            try {
+                if (typeof firebase !== 'undefined' && firebase.firestore) {
+                    await this._getDocRef().update({
+                        [`data.${key}`]: firebase.firestore.FieldValue.delete(),
+                        lastUpdated: Date.now()
+                    });
+                    console.log(`[INVOICE-DELETE] Deleted entry from Firestore: ${key}`);
+                }
+            } catch (e) {
+                console.error('[INVOICE-DELETE] Firestore delete error:', e);
+                // Fallback: save entire document if update fails
+                await this._save();
+            }
+
             return true;
         },
 

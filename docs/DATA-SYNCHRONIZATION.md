@@ -81,14 +81,14 @@ const Store = {
         return true;
     },
 
-    // QUAN TRỌNG: set() KHÔNG dùng merge để xóa entries thực sự hoạt động
+    // Add/Update: dùng merge:true (an toàn cho concurrent edits)
     _saveToFirestore() {
         clearTimeout(this._syncTimeout);
         this._syncTimeout = setTimeout(async () => {
             await this._getDocRef().set({
                 data: Object.fromEntries(this._data),
                 lastUpdated: Date.now()
-            }); // KHÔNG có { merge: true }
+            }, { merge: true });
         }, 2000);
     },
 
@@ -99,10 +99,16 @@ const Store = {
         }
     },
 
-    // Hard delete - xóa thật sự
+    // Delete: dùng FieldValue.delete() để xóa field cụ thể
     async delete(id) {
         this._data.delete(id);
-        this.save(); // Sync to Firestore (entry sẽ bị xóa vì không có merge)
+        this._saveToLocalStorage();
+
+        // Xóa field cụ thể, không ảnh hưởng entries khác
+        await this._getDocRef().update({
+            [`data.${id}`]: firebase.firestore.FieldValue.delete(),
+            lastUpdated: Date.now()
+        });
     }
 };
 ```
@@ -111,7 +117,8 @@ const Store = {
 - Firebase là single source of truth - không bị conflict
 - localStorage chỉ là cache, không gây stale data
 - Real-time listener tự động đồng bộ thay đổi từ máy khác
-- Delete thực sự xóa data (không dùng `merge: true`)
+- `merge: true` cho add/update: an toàn khi nhiều tab/device cùng edit
+- `FieldValue.delete()` cho delete: xóa chính xác 1 entry, không ảnh hưởng entries khác
 
 **Real-time Listener Pattern**:
 ```javascript
@@ -162,17 +169,22 @@ invoice_status_v2/
     └── lastUpdated: timestamp
 ```
 
-### QUAN TRỌNG: Không dùng `merge: true` khi save
+### Strategy: merge:true + FieldValue.delete()
 
 ```javascript
-// ❌ SAI - merge:true không xóa entries đã bị remove
+// Add/Update: dùng merge:true (an toàn cho concurrent edits)
 await docRef.set({ data: {...} }, { merge: true });
 
-// ✅ ĐÚNG - set() thay thế toàn bộ document
-await docRef.set({ data: {...}, lastUpdated: Date.now() });
+// Delete: dùng FieldValue.delete() để xóa field cụ thể
+await docRef.update({
+    [`data.${id}`]: firebase.firestore.FieldValue.delete(),
+    lastUpdated: Date.now()
+});
 ```
 
-**Lý do**: `merge: true` chỉ thêm/cập nhật fields, không xóa fields thiếu. Khi delete một entry từ `_data`, entry đó vẫn còn trên Firestore nếu dùng merge.
+**Tại sao?**
+- `merge: true` cho add/update: không ghi đè entries của tab/device khác
+- `FieldValue.delete()` cho delete: xóa chính xác 1 field, không ảnh hưởng gì khác
 
 ### Admin vs Normal User
 
