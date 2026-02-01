@@ -3990,7 +3990,7 @@
                                 note: record.note || '',
                                 committedAt: record.committedAt || null,
                                 restoredAt: record.restoredAt || null,
-                                userId: record.userId || userId,
+                                userId: record.userId || userId || 'guest',
                                 beforeSnapshot: record.beforeSnapshot || null
                             });
                         });
@@ -4008,6 +4008,7 @@
 
                     return {
                         uploadId: record.uploadId || key,
+                        firebaseKey: key, // Key thực sự trong Firebase để query
                         timestamp: record.timestamp || 0,
                         uploadStatus: record.uploadStatus || 'unknown',
                         totalSTTs: record.totalSTTs || 0,
@@ -4018,7 +4019,7 @@
                         note: record.note || '',
                         committedAt: record.committedAt || null,
                         restoredAt: record.restoredAt || null,
-                        userId: record.userId || (selectedUser !== 'current' ? selectedUser : undefined),
+                        userId: record.userId || selectedUser || 'guest',
                         beforeSnapshot: record.beforeSnapshot || null
                     };
                 });
@@ -4615,18 +4616,43 @@
                 </div>
             `;
 
-            let historyPath;
-            if (userId && userId !== '') {
-                historyPath = `productAssignments_v2_history/${userId}`;
-            } else {
-                historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+            // Xác định userId - fallback to 'guest' nếu không có
+            const effectiveUserId = (userId && userId !== '') ? userId : 'guest';
+            let historyPath = `productAssignments_v2_history/${effectiveUserId}`;
+            console.log('[HISTORY-V2] Loading detail from path:', `${historyPath}/${firebaseKey}`);
+
+            let snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+            let record = snapshot.val();
+
+            // Nếu không tìm thấy và userId khác guest, thử tìm ở guest
+            if (!record && effectiveUserId !== 'guest') {
+                console.log('[HISTORY-V2] ⚠️ Not found, trying guest path...');
+                historyPath = 'productAssignments_v2_history/guest';
+                snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+                record = snapshot.val();
             }
-            console.log('[HISTORY-V2] Loading detail from path:', historyPath);
-            const snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
-            const record = snapshot.val();
+
+            // Nếu vẫn không tìm thấy, thử với user hiện tại
+            if (!record) {
+                const currentUserPath = getUserFirebasePathV2('productAssignments_v2_history');
+                if (currentUserPath !== historyPath) {
+                    console.log('[HISTORY-V2] ⚠️ Not found, trying current user path:', currentUserPath);
+                    snapshot = await database.ref(`${currentUserPath}/${firebaseKey}`).once('value');
+                    record = snapshot.val();
+                }
+            }
 
             if (!record) {
-                throw new Error('Không tìm thấy record');
+                const errorInfo = {
+                    firebaseKey,
+                    userId: effectiveUserId,
+                    triedPaths: [
+                        `productAssignments_v2_history/${effectiveUserId}/${firebaseKey}`,
+                        `productAssignments_v2_history/guest/${firebaseKey}`
+                    ]
+                };
+                console.error('[HISTORY-V2] ❌ Record not found:', errorInfo);
+                throw new Error(`Không tìm thấy record (key: ${firebaseKey.slice(-8)}, user: ${effectiveUserId})`);
             }
 
             const shortId = firebaseKey.slice(-8);
@@ -4642,7 +4668,12 @@
             bodyEl.innerHTML = `
                 <div class="alert alert-danger" role="alert">
                     <i class="fas fa-exclamation-triangle"></i>
-                    Lỗi: ${error.message}
+                    <strong>Lỗi:</strong> ${error.message}
+                    <hr>
+                    <small class="text-muted">
+                        Có thể record này đã bị xóa hoặc được lưu với user khác.<br>
+                        Thử chọn "Tất cả người dùng" trong bộ lọc và tìm lại.
+                    </small>
                 </div>
             `;
         }
@@ -5104,18 +5135,36 @@
                 </div>
             `;
 
-            let historyPath;
-            if (userId && userId !== '') {
-                historyPath = `productAssignments_v2_history/${userId}`;
-            } else {
-                historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+            // Xác định userId - fallback to 'guest' nếu không có
+            const effectiveUserId = (userId && userId !== '') ? userId : 'guest';
+            let historyPath = `productAssignments_v2_history/${effectiveUserId}`;
+            console.log('[HISTORY-V2-COMPARE] Loading from path:', `${historyPath}/${firebaseKey}`);
+
+            let snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+            let record = snapshot.val();
+
+            // Nếu không tìm thấy và userId khác guest, thử tìm ở guest
+            if (!record && effectiveUserId !== 'guest') {
+                console.log('[HISTORY-V2-COMPARE] ⚠️ Not found, trying guest path...');
+                historyPath = 'productAssignments_v2_history/guest';
+                snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+                record = snapshot.val();
             }
-            console.log('[HISTORY-V2-COMPARE] Loading from path:', historyPath);
-            const snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
-            const record = snapshot.val();
+
+            // Nếu vẫn không tìm thấy, thử với user hiện tại
+            if (!record) {
+                const currentUserPath = getUserFirebasePathV2('productAssignments_v2_history');
+                if (currentUserPath !== historyPath) {
+                    console.log('[HISTORY-V2-COMPARE] ⚠️ Not found, trying current user path:', currentUserPath);
+                    snapshot = await database.ref(`${currentUserPath}/${firebaseKey}`).once('value');
+                    record = snapshot.val();
+                }
+            }
 
             if (!record || !record.beforeSnapshot) {
-                throw new Error('Không tìm thấy dữ liệu snapshot');
+                const errorInfo = { firebaseKey, userId: effectiveUserId };
+                console.error('[HISTORY-V2-COMPARE] ❌ Record or snapshot not found:', errorInfo);
+                throw new Error(`Không tìm thấy dữ liệu snapshot (key: ${firebaseKey.slice(-8)}, user: ${effectiveUserId})`);
             }
 
             console.log('[HISTORY-V2-COMPARE] ✅ Loaded record:', record);
@@ -5131,6 +5180,11 @@
                 <div class="alert alert-danger" role="alert">
                     <i class="fas fa-exclamation-triangle"></i>
                     <strong>Lỗi:</strong> ${error.message}
+                    <hr>
+                    <small class="text-muted">
+                        Có thể record này đã bị xóa hoặc không có snapshot.<br>
+                        Thử chọn "Tất cả người dùng" trong bộ lọc và tìm lại.
+                    </small>
                 </div>
             `;
         }
@@ -5249,6 +5303,13 @@
                 if (window.indexedDBStorage) {
                     // Only save if historyRecord was successfully created
                     if (historyRecord) {
+                        // Thêm thông tin lỗi vào record để có thể xem lại
+                        historyRecord.saveError = {
+                            message: error.message,
+                            timestamp: Date.now(),
+                            code: error.code || 'UNKNOWN'
+                        };
+
                         const pendingRecord = {
                             uploadId: uploadId,
                             historyRecord: historyRecord,
