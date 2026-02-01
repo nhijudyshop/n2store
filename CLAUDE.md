@@ -124,47 +124,46 @@ Use environment variables or `.pgpass` file for PostgreSQL credentials. Never ha
 
 ## Data Synchronization
 
-Project sử dụng pattern **localStorage + Firebase Real-time Listener** để đồng bộ dữ liệu giữa nhiều thiết bị.
+Project sử dụng pattern **localStorage + Firestore Load/Save** để đồng bộ dữ liệu giữa nhiều thiết bị.
 
-### Stores có Real-time Sync:
+> ⚠️ **KHÔNG DÙNG Real-time Listener** - đã bị xóa do gây xung đột dữ liệu khi nhiều người dùng cùng lúc.
+
+### Stores có Firestore Sync:
 | Store | File | Firestore Collection |
 |-------|------|---------------------|
 | `InvoiceStatusStore` | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` | `invoice_status` |
 | `InvoiceStatusDeleteStore` | `orders-report/js/tab1/tab1-fast-sale-workflow.js` | `invoice_status_delete` |
 
-### Pattern chuẩn:
+### Pattern chuẩn (Load-on-Init / Save-on-Change):
 ```javascript
 const Store = {
     _data: new Map(),
-    _unsubscribe: null,
+    _syncTimeout: null,
 
     async init() {
         this._loadFromLocalStorage();      // 1. Load local (fast)
         await this._loadFromFirestore();   // 2. Merge from server
-        this._setupRealtimeListener();     // 3. Listen for changes
+        await this.cleanup();              // 3. Cleanup old entries
     },
 
-    _setupRealtimeListener() {
-        this._unsubscribe = firebase.firestore()
-            .collection('my_collection').doc(username)
-            .onSnapshot((doc) => {
-                // Merge changes (newer timestamp wins)
-                this._mergeData(doc.data());
-                this._saveToLocalStorage();
-            });
+    async add(id, data) {
+        this._data.set(id, {
+            ...data,
+            timestamp: Date.now()
+        });
+        this.save(); // Save cả localStorage và Firestore
     },
 
-    destroy() {
-        if (this._unsubscribe) {
-            this._unsubscribe();
-            this._unsubscribe = null;
-        }
+    save() {
+        this._saveToLocalStorage();
+        this._saveToFirestore(); // debounced 2s
     }
 };
 ```
 
 ### Tài liệu chi tiết:
 Xem `docs/DATA-SYNCHRONIZATION.md` để hiểu thêm về:
-- Các giải pháp sync (Real-time, Polling, Timestamp-based, CRDT)
+- Giải pháp Load/Save hiện tại
+- Các giải pháp khác (Polling, Timestamp-based, CRDT)
 - Best practices
 - Conflict resolution strategies

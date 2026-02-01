@@ -2,9 +2,10 @@
 
 ## Mục lục
 1. [Vấn đề](#vấn-đề)
-2. [Giải pháp](#giải-pháp)
-3. [Implementation trong Project](#implementation-trong-project)
-4. [Best Practices](#best-practices)
+2. [Giải pháp hiện tại](#giải-pháp-hiện-tại)
+3. [Các giải pháp khác](#các-giải-pháp-khác)
+4. [Implementation trong Project](#implementation-trong-project)
+5. [Best Practices](#best-practices)
 
 ---
 
@@ -36,31 +37,78 @@ localStorage: {empty}
 
 ---
 
-## Giải pháp
+## Giải pháp hiện tại
 
-### 1. Real-time Listener (Recommended)
+### Load-on-Init / Save-on-Change (Recommended)
 
-**Mô tả**: Lắng nghe thay đổi từ server theo thời gian thực.
+**Mô tả**: Pattern đơn giản - load dữ liệu khi khởi tạo, save khi có thay đổi.
 
 ```javascript
-// Firebase Firestore example
-firebase.firestore().collection('data').doc(userId)
-    .onSnapshot((doc) => {
-        // Khi có thay đổi → cập nhật ngay
-        const data = doc.data();
-        localStorage.setItem('data', JSON.stringify(data));
-        updateUI(data);
-    });
+const Store = {
+    _data: new Map(),
+
+    async init() {
+        // 1. Load từ localStorage (nhanh)
+        this._loadFromLocalStorage();
+
+        // 2. Load từ Firestore và merge (timestamp mới hơn thắng)
+        await this._loadFromFirestore();
+
+        // 3. Cleanup dữ liệu cũ
+        await this.cleanup();
+    },
+
+    async add(id, data) {
+        this._data.set(id, {
+            ...data,
+            timestamp: Date.now()
+        });
+        this.save(); // Save cả localStorage và Firestore
+    },
+
+    save() {
+        this._saveToLocalStorage();
+        this._saveToFirestore(); // debounced
+    }
+};
 ```
 
 **Ưu điểm**:
-- Cập nhật ngay lập tức
-- Không cần polling
-- Tiết kiệm bandwidth (chỉ gửi changes)
+- Đơn giản, dễ hiểu và debug
+- Ít bug hơn real-time listener
+- Chi phí Firebase thấp (ít reads)
+- Không cần xử lý connection liên tục
 
 **Nhược điểm**:
-- Cần connection liên tục
-- Phức tạp hơn để implement
+- Không real-time (cần refresh để thấy thay đổi từ máy khác)
+- Có thể có stale data trong thời gian ngắn
+
+**Giải quyết stale data**:
+- User refresh trang = lấy dữ liệu mới nhất
+- Có thể thêm nút "Làm mới" thủ công
+- Hoặc thêm polling nhẹ (mỗi 30-60s)
+
+---
+
+## Các giải pháp khác
+
+### 1. Real-time Listener
+
+> ⚠️ **ĐÃ BỊ XÓA** khỏi project do gây nhiều bug và xung đột dữ liệu
+
+**Lý do không dùng**:
+- Logic phức tạp, khó debug
+- Gây xung đột khi nhiều người dùng cùng lúc
+- Data bị đè tùm lum
+- Chi phí Firebase cao hơn
+
+```javascript
+// KHÔNG DÙNG NỮA
+firebase.firestore().collection('data').doc(userId)
+    .onSnapshot((doc) => {
+        // Có thể gây conflict
+    });
+```
 
 ---
 
@@ -135,34 +183,9 @@ function merge(localData, serverData) {
 
 ---
 
-### 5. Optimistic UI + Rollback
-
-**Mô tả**: Cập nhật UI ngay, nếu server fail thì rollback.
-
-```javascript
-async function deleteOrder(orderId) {
-    // 1. Optimistic update (UI ngay)
-    const backup = localData[orderId];
-    delete localData[orderId];
-    updateUI();
-
-    try {
-        // 2. Sync to server
-        await api.delete(orderId);
-    } catch (error) {
-        // 3. Rollback on error
-        localData[orderId] = backup;
-        updateUI();
-        showError('Xóa thất bại');
-    }
-}
-```
-
----
-
 ## Implementation trong Project
 
-### Stores sử dụng Real-time Sync
+### Stores sử dụng Load/Save Pattern
 
 | Store | File | Collection |
 |-------|------|------------|
@@ -174,31 +197,46 @@ async function deleteOrder(orderId) {
 ```javascript
 const Store = {
     _data: new Map(),
-    _unsubscribe: null, // Real-time listener
+    _syncTimeout: null,
 
+    /**
+     * Initialize - load từ localStorage + Firestore
+     */
     async init() {
-        // 1. Load localStorage (fast)
+        // 1. Load từ localStorage (nhanh)
         this._loadFromLocalStorage();
 
-        // 2. Load & merge from Firestore
+        // 2. Load từ Firestore và merge
         await this._loadFromFirestore();
 
-        // 3. Setup real-time listener
-        this._setupRealtimeListener();
+        // 3. Cleanup dữ liệu cũ (>14 ngày)
+        await this.cleanup();
     },
 
-    _setupRealtimeListener() {
-        this._unsubscribe = firebase.firestore()
-            .collection('my_collection')
-            .doc(username)
-            .onSnapshot((doc) => {
-                // Merge changes (newer timestamp wins)
-                const serverData = doc.data();
-                this._mergeData(serverData);
-                this._saveToLocalStorage();
+    /**
+     * Load từ Firestore và merge với localStorage
+     * Admin: load tất cả users
+     * Normal user: chỉ load document của mình
+     */
+    async _loadFromFirestore() {
+        const isAdmin = this._isAdmin();
+
+        if (isAdmin) {
+            const snapshot = await db.collection('my_collection').get();
+            snapshot.forEach(doc => {
+                this._mergeData(doc.data());
             });
+        } else {
+            const doc = await this._getDocRef().get();
+            if (doc.exists) {
+                this._mergeData(doc.data());
+            }
+        }
     },
 
+    /**
+     * Merge data - timestamp mới hơn thắng
+     */
     _mergeData(serverData) {
         Object.entries(serverData.data || {}).forEach(([key, value]) => {
             const local = this._data.get(key);
@@ -206,14 +244,28 @@ const Store = {
                 this._data.set(key, value);
             }
         });
+        this._saveToLocalStorage();
     },
 
-    destroy() {
-        // Cleanup listener when done
-        if (this._unsubscribe) {
-            this._unsubscribe();
-            this._unsubscribe = null;
-        }
+    /**
+     * Save to both localStorage and Firestore
+     */
+    save() {
+        this._saveToLocalStorage();
+        this._saveToFirestore(); // debounced 2s
+    },
+
+    /**
+     * Save to Firestore (debounced)
+     */
+    _saveToFirestore() {
+        clearTimeout(this._syncTimeout);
+        this._syncTimeout = setTimeout(async () => {
+            await this._getDocRef().set({
+                data: Object.fromEntries(this._data),
+                lastUpdated: Date.now()
+            }, { merge: true });
+        }, 2000);
     }
 };
 ```
@@ -225,18 +277,19 @@ const Store = {
 │   User A    │     │  Firebase   │     │   User B    │
 └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
        │                   │                   │
-       │  1. Update local  │                   │
+       │  1. Add entry     │                   │
        │─────────────────►│                   │
        │                   │                   │
-       │  2. Sync to FB    │                   │
+       │  2. save()        │                   │
        │─────────────────►│                   │
        │                   │                   │
-       │                   │  3. onSnapshot    │
+       │                   │                   │
+       │                   │  3. User B refresh│
+       │                   │◄──────────────────│
+       │                   │                   │
+       │                   │  4. Load & merge  │
        │                   │──────────────────►│
        │                   │                   │
-       │                   │  4. Merge & save  │
-       │                   │                   │
-       │                   │                   ▼
        │                   │            localStorage
        │                   │              updated
 ```
@@ -244,24 +297,22 @@ const Store = {
 ### Admin vs Normal User
 
 ```javascript
-_setupRealtimeListener() {
+async _loadFromFirestore() {
     const isAdmin = this._isAdmin();
 
     if (isAdmin) {
-        // Admin: Listen to ENTIRE collection (all users)
-        this._unsubscribe = db.collection('invoice_status')
-            .onSnapshot((snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    // Handle changes from all users
-                });
-            });
+        // Admin: Load TẤT CẢ documents trong collection
+        const snapshot = await db.collection('invoice_status').get();
+        snapshot.forEach(doc => {
+            this._mergeData(doc.data());
+        });
     } else {
-        // Normal user: Listen to OWN document only
-        this._unsubscribe = db.collection('invoice_status')
-            .doc(username)
-            .onSnapshot((doc) => {
-                // Handle changes to own data
-            });
+        // Normal user: Chỉ load document của mình
+        const doc = await db.collection('invoice_status')
+            .doc(username).get();
+        if (doc.exists) {
+            this._mergeData(doc.data());
+        }
     }
 }
 ```
@@ -281,61 +332,70 @@ const entry = {
 };
 ```
 
-### 2. Cleanup Listeners
+### 2. Unique Keys để tránh đè dữ liệu
 
 ```javascript
-// Khi logout hoặc unmount
-window.addEventListener('beforeunload', () => {
-    InvoiceStatusStore.destroy();
-    InvoiceStatusDeleteStore.destroy();
-});
+// Dùng key unique (id + timestamp)
+const key = `${saleOnlineId}_${Date.now()}`;
+this._data.set(key, entry);
 ```
 
-### 3. Handle Offline
+### 3. Debounce Firestore Writes
 
 ```javascript
-// Firebase tự động handle offline
-// Khi online lại sẽ sync tự động
-
-// Hoặc manual check
-if (navigator.onLine) {
-    await syncToServer();
-} else {
-    queueForLaterSync(data);
+// Tránh write quá nhiều
+_saveToFirestore() {
+    clearTimeout(this._syncTimeout);
+    this._syncTimeout = setTimeout(async () => {
+        await this._getDocRef().set(data, { merge: true });
+    }, 2000); // Wait 2s
 }
 ```
 
-### 4. Conflict Resolution Strategy
+### 4. Cleanup Old Data
+
+```javascript
+async cleanup() {
+    const maxAge = 14 * 24 * 60 * 60 * 1000; // 14 days
+    const now = Date.now();
+
+    for (const [key, value] of this._data) {
+        if (now - value.timestamp > maxAge) {
+            this._data.delete(key);
+        }
+    }
+    this.save();
+}
+```
+
+### 5. Handle Errors
+
+```javascript
+async _saveToFirestore() {
+    try {
+        await this._getDocRef().set(data, { merge: true });
+        console.log('[STORE] Synced to Firestore');
+    } catch (error) {
+        console.error('[STORE] Firestore save error:', error);
+        // Data vẫn còn trong localStorage
+        // Có thể retry sau
+    }
+}
+```
+
+### 6. Conflict Resolution Strategy
 
 | Strategy | Khi nào dùng |
 |----------|-------------|
-| **Last Write Wins** | Data không critical |
+| **Last Write Wins** | Data không critical (hiện tại đang dùng) |
 | **Merge** | Có thể combine changes |
 | **Ask User** | Data critical, cần user quyết định |
 | **Server Wins** | Server là source of truth |
-
-### 5. Logging & Debugging
-
-```javascript
-_setupRealtimeListener() {
-    this._unsubscribe = docRef.onSnapshot(
-        (doc) => {
-            console.log('[STORE] Real-time update received');
-            console.log('[STORE] Changes:', doc.data());
-        },
-        (error) => {
-            console.error('[STORE] Listener error:', error);
-            // Có thể retry hoặc fallback to polling
-        }
-    );
-}
-```
 
 ---
 
 ## Tham khảo
 
-- [Firebase Realtime Listeners](https://firebase.google.com/docs/firestore/query-data/listen)
+- [Firebase Firestore](https://firebase.google.com/docs/firestore)
 - [Offline Data](https://firebase.google.com/docs/firestore/manage-data/enable-offline)
 - [CRDT - Conflict-free Replicated Data Types](https://crdt.tech/)
-- [Optimistic UI Pattern](https://www.apollographql.com/docs/react/performance/optimistic-ui/)
