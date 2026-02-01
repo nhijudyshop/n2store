@@ -614,7 +614,7 @@
         if (state.pendingQueue.length === 0) {
             elements.pendingTableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="acc-empty-state">
+                    <td colspan="9" class="acc-empty-state">
                         <div class="empty-icon">✅</div>
                         <div class="empty-text">Không có giao dịch nào chờ duyệt</div>
                     </td>
@@ -651,12 +651,12 @@
                     <td class="col-time">${timeStr}</td>
                     <td class="col-amount amount-in">${amountFormatted}</td>
                     <td class="col-content"><span class="content-tooltip" data-tooltip="${(tx.content || '').replace(/"/g, '&quot;')}">${truncate(tx.content || '', 30)}</span></td>
+                    <td class="col-staff-note">${tx.staff_note || ''}</td>
                     <td class="col-customer">
                         ${hasCustomer ? `
                             <div class="acc-customer-info">
                                 <span class="customer-name">${tx.customer_name || 'Chưa có tên'}</span>
                                 <span class="customer-phone">${tx.linked_customer_phone}</span>
-                                ${canChange ? `<span class="btn-change" onclick="AccountantModule.showChangeModal(${tx.id}, '${escapedPhone}', '${escapedName}')">Thay đổi</span>` : ''}
                             </div>
                         ` : `<span class="acc-text-muted">Chưa gán KH</span>`}
                     </td>
