@@ -87,6 +87,7 @@
         _sentBills: new Set(),
         _initialized: false,
         _syncTimeout: null,
+        _unsubscribe: null, // Real-time listener unsubscribe function
 
         /**
          * Initialize store from localStorage + Firestore
@@ -119,6 +120,9 @@
                 // 3. Cleanup old entries
                 await this.cleanup();
 
+                // 4. Setup real-time listener for cross-device sync
+                this._setupRealtimeListener();
+
                 this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
             } catch (e) {
@@ -144,6 +148,119 @@
         _isAdmin() {
             const authState = window.authManager?.getAuthState();
             return authState?.userType === 'admin-admin@@' || authState?.username === 'admin';
+        },
+
+        /**
+         * Setup real-time listener for cross-device sync
+         * When another device changes data, this device will be notified
+         */
+        _setupRealtimeListener() {
+            if (this._unsubscribe) {
+                console.log('[INVOICE-STATUS] Real-time listener already active');
+                return;
+            }
+
+            try {
+                const db = firebase.firestore();
+                const isAdmin = this._isAdmin();
+
+                if (isAdmin) {
+                    // Admin: listen to entire collection for changes
+                    this._unsubscribe = db.collection(FIRESTORE_COLLECTION)
+                        .onSnapshot((snapshot) => {
+                            let hasChanges = false;
+                            snapshot.docChanges().forEach((change) => {
+                                if (change.type === 'modified' || change.type === 'added') {
+                                    hasChanges = true;
+                                    const username = change.doc.id;
+                                    const data = change.doc.data();
+                                    console.log(`[INVOICE-STATUS] Real-time: ${change.type} from ${username}`);
+
+                                    // Merge changes (newer timestamp wins)
+                                    if (data.data) {
+                                        Object.entries(data.data).forEach(([key, value]) => {
+                                            const localValue = this._data.get(key);
+                                            if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
+                                                this._data.set(key, value);
+                                            }
+                                        });
+                                    }
+                                } else if (change.type === 'removed') {
+                                    hasChanges = true;
+                                    console.log(`[INVOICE-STATUS] Real-time: document removed`);
+                                }
+                            });
+
+                            if (hasChanges) {
+                                this._saveToLocalStorage();
+                                console.log(`[INVOICE-STATUS] Real-time sync complete, ${this._data.size} entries`);
+                            }
+                        }, (error) => {
+                            console.error('[INVOICE-STATUS] Real-time listener error:', error);
+                        });
+
+                    console.log('[INVOICE-STATUS] Real-time listener active (admin - all users)');
+                } else {
+                    // Normal user: listen to own document only
+                    this._unsubscribe = this._getDocRef()
+                        .onSnapshot((doc) => {
+                            if (doc.exists) {
+                                const data = doc.data();
+                                let hasChanges = false;
+
+                                // Check for deleted entries (exist locally but not in Firestore)
+                                const firestoreKeys = new Set(Object.keys(data.data || {}));
+                                for (const [key, value] of this._data) {
+                                    if (!firestoreKeys.has(key)) {
+                                        // Entry was deleted from another device
+                                        this._data.delete(key);
+                                        this._sentBills.delete(key);
+                                        hasChanges = true;
+                                        console.log(`[INVOICE-STATUS] Real-time: entry ${key} deleted from another device`);
+                                    }
+                                }
+
+                                // Merge new/updated entries (newer timestamp wins)
+                                if (data.data) {
+                                    Object.entries(data.data).forEach(([key, value]) => {
+                                        const localValue = this._data.get(key);
+                                        if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
+                                            this._data.set(key, value);
+                                            hasChanges = true;
+                                        }
+                                    });
+                                }
+
+                                // Sync sentBills
+                                if (Array.isArray(data.sentBills)) {
+                                    data.sentBills.forEach(id => this._sentBills.add(id));
+                                }
+
+                                if (hasChanges) {
+                                    this._saveToLocalStorage();
+                                    console.log(`[INVOICE-STATUS] Real-time sync complete, ${this._data.size} entries`);
+                                }
+                            }
+                        }, (error) => {
+                            console.error('[INVOICE-STATUS] Real-time listener error:', error);
+                        });
+
+                    console.log('[INVOICE-STATUS] Real-time listener active (user doc)');
+                }
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Error setting up real-time listener:', e);
+            }
+        },
+
+        /**
+         * Stop real-time listener (call when logging out or cleanup)
+         */
+        destroy() {
+            if (this._unsubscribe) {
+                this._unsubscribe();
+                this._unsubscribe = null;
+                console.log('[INVOICE-STATUS] Real-time listener stopped');
+            }
         },
 
         /**

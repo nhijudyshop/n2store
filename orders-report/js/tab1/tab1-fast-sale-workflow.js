@@ -24,6 +24,7 @@
     const InvoiceStatusDeleteStore = {
         _data: new Map(),
         _initialized: false,
+        _unsubscribe: null, // Real-time listener unsubscribe function
 
         /**
          * Initialize store from localStorage + Firestore
@@ -51,6 +52,9 @@
 
                 // Cleanup old entries (>14 days)
                 await this.cleanup();
+
+                // Setup real-time listener for cross-device sync
+                this._setupRealtimeListener();
 
                 this._initialized = true;
             } catch (e) {
@@ -115,6 +119,59 @@
                 }
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error loading from Firestore:', e);
+            }
+        },
+
+        /**
+         * Setup real-time listener for cross-device sync
+         */
+        _setupRealtimeListener() {
+            if (this._unsubscribe) {
+                console.log('[INVOICE-DELETE] Real-time listener already active');
+                return;
+            }
+
+            try {
+                this._unsubscribe = this._getDocRef()
+                    .onSnapshot((doc) => {
+                        if (doc.exists) {
+                            const data = doc.data();
+                            let hasChanges = false;
+
+                            // Merge new/updated entries (newer deletedAt wins)
+                            if (data.data) {
+                                Object.entries(data.data).forEach(([key, value]) => {
+                                    const localValue = this._data.get(key);
+                                    if (!localValue || (value.deletedAt > (localValue.deletedAt || 0))) {
+                                        this._data.set(key, value);
+                                        hasChanges = true;
+                                    }
+                                });
+                            }
+
+                            if (hasChanges) {
+                                this._saveToLocalStorage();
+                                console.log(`[INVOICE-DELETE] Real-time sync complete, ${this._data.size} entries`);
+                            }
+                        }
+                    }, (error) => {
+                        console.error('[INVOICE-DELETE] Real-time listener error:', error);
+                    });
+
+                console.log('[INVOICE-DELETE] Real-time listener active');
+            } catch (e) {
+                console.error('[INVOICE-DELETE] Error setting up real-time listener:', e);
+            }
+        },
+
+        /**
+         * Stop real-time listener (call when logging out or cleanup)
+         */
+        destroy() {
+            if (this._unsubscribe) {
+                this._unsubscribe();
+                this._unsubscribe = null;
+                console.log('[INVOICE-DELETE] Real-time listener stopped');
             }
         },
 

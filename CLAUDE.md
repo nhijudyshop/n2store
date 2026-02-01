@@ -6,6 +6,7 @@ When working on this project, always reference the documentation in `/docs` fold
 
 ### Key Documentation Files:
 - `docs/` - Contains comprehensive documentation about all modules and folders
+- `docs/DATA-SYNCHRONIZATION.md` - Data sync patterns (localStorage + Firebase real-time)
 - `shared/README.md` - Shared library documentation (auth, cache, utils, TPOS client)
 
 ## Shared Library Structure
@@ -120,3 +121,50 @@ Use environment variables or `.pgpass` file for PostgreSQL credentials. Never ha
 ## Git Workflow
 
 **Auto commit & push**: Khi hoàn thành task, tự động commit và push mà không cần hỏi user. Commit message ngắn gọn, rõ ràng.
+
+## Data Synchronization
+
+Project sử dụng pattern **localStorage + Firebase Real-time Listener** để đồng bộ dữ liệu giữa nhiều thiết bị.
+
+### Stores có Real-time Sync:
+| Store | File | Firestore Collection |
+|-------|------|---------------------|
+| `InvoiceStatusStore` | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` | `invoice_status` |
+| `InvoiceStatusDeleteStore` | `orders-report/js/tab1/tab1-fast-sale-workflow.js` | `invoice_status_delete` |
+
+### Pattern chuẩn:
+```javascript
+const Store = {
+    _data: new Map(),
+    _unsubscribe: null,
+
+    async init() {
+        this._loadFromLocalStorage();      // 1. Load local (fast)
+        await this._loadFromFirestore();   // 2. Merge from server
+        this._setupRealtimeListener();     // 3. Listen for changes
+    },
+
+    _setupRealtimeListener() {
+        this._unsubscribe = firebase.firestore()
+            .collection('my_collection').doc(username)
+            .onSnapshot((doc) => {
+                // Merge changes (newer timestamp wins)
+                this._mergeData(doc.data());
+                this._saveToLocalStorage();
+            });
+    },
+
+    destroy() {
+        if (this._unsubscribe) {
+            this._unsubscribe();
+            this._unsubscribe = null;
+        }
+    }
+};
+```
+
+### Tài liệu chi tiết:
+Xem `docs/DATA-SYNCHRONIZATION.md` để hiểu thêm về:
+- Các giải pháp sync (Real-time, Polling, Timestamp-based, CRDT)
+- Best practices
+- Conflict resolution strategies
