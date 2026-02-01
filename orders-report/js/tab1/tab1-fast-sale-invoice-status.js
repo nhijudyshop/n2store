@@ -335,11 +335,7 @@
                             if (!existingEntry || (value.timestamp && value.timestamp > (existingEntry.timestamp || 0))) {
                                 this._data.set(key, value);
                                 hasChanges = true;
-                                if (value._deleted) {
-                                    console.log(`[INVOICE-STATUS] Real-time: Entry ${key} marked as deleted from doc ${doc.id}`);
-                                } else {
-                                    console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated from doc ${doc.id}`);
-                                }
+                                console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated from doc ${doc.id}`);
                             }
                         });
                     }
@@ -393,11 +389,7 @@
                         if (!existingEntry || (value.timestamp && value.timestamp > (existingEntry.timestamp || 0))) {
                             this._data.set(key, value);
                             hasChanges = true;
-                            if (value._deleted) {
-                                console.log(`[INVOICE-STATUS] Real-time: Entry ${key} marked as deleted`);
-                            } else {
-                                console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated`);
-                            }
+                            console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated`);
                         }
                     });
                 }
@@ -512,28 +504,22 @@
 
         /**
          * Get invoice data for a SaleOnlineOrder
-         * Trả về null nếu entry đã bị xóa (tombstone)
          * @param {string} saleOnlineId
          * @returns {Object|null}
          */
         get(saleOnlineId) {
             if (!saleOnlineId) return null;
-            const entry = this._data.get(String(saleOnlineId));
-            // Filter out deleted entries (tombstones)
-            if (entry?._deleted) return null;
-            return entry || null;
+            return this._data.get(String(saleOnlineId)) || null;
         },
 
         /**
-         * Check if order has invoice (not deleted)
+         * Check if order has invoice
          * @param {string} saleOnlineId
          * @returns {boolean}
          */
         has(saleOnlineId) {
             if (!saleOnlineId) return false;
-            const entry = this._data.get(String(saleOnlineId));
-            // Filter out deleted entries (tombstones)
-            return entry && !entry._deleted;
+            return this._data.has(String(saleOnlineId));
         },
 
         /**
@@ -705,24 +691,15 @@
 
         /**
          * Clear old entries (older than 14 days)
-         * Also permanently deletes tombstones older than 7 days
          */
         async cleanup() {
             const now = Date.now();
             const maxAge = MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
-            const tombstoneMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days for tombstones
 
             let removed = 0;
             const keysToRemove = [];
 
             this._data.forEach((value, key) => {
-                // Permanently delete old tombstones (sau 7 ngày, tất cả máy đã update code)
-                if (value._deleted && value._deletedAt && (now - value._deletedAt) > tombstoneMaxAge) {
-                    keysToRemove.push(key);
-                    removed++;
-                    return;
-                }
-                // Delete old normal entries
                 if (value.timestamp && (now - value.timestamp) > maxAge) {
                     keysToRemove.push(key);
                     removed++;
@@ -732,12 +709,12 @@
             // Remove old entries
             keysToRemove.forEach(key => {
                 this._data.delete(key);
-                this._sentBills.delete(key); // Also remove from sentBills
+                this._sentBills.delete(key);
             });
 
             if (removed > 0) {
-                console.log(`[INVOICE-STATUS] Cleaned up ${removed} old entries (>${MAX_AGE_DAYS} days or tombstones >7 days)`);
-                this.save(); // Save to both localStorage and Firestore
+                console.log(`[INVOICE-STATUS] Cleaned up ${removed} old entries (>${MAX_AGE_DAYS} days)`);
+                this.save();
             }
         },
 
@@ -772,36 +749,17 @@
             if (!saleOnlineId) return false;
 
             const key = String(saleOnlineId);
-            const entry = this._data.get(key);
-            const existed = !!entry;
+            const existed = this._data.has(key);
 
             if (existed) {
-                // SOFT DELETE: Đánh dấu deleted thay vì xóa thật
-                // Điều này ngăn code cũ revive entry khi merge
-                const tombstone = {
-                    ...entry,
-                    _deleted: true,
-                    _deletedAt: Date.now(),
-                    _deletedBy: window.authManager?.getAuthState()?.username || 'unknown'
-                };
-                this._data.set(key, tombstone);
+                // Hard delete - remove entry completely
+                this._data.delete(key);
                 this._sentBills.delete(key);
-
-                // Save to localStorage AND Firestore (sync tombstone to cloud)
                 this.save();
-
-                console.log(`[INVOICE-STATUS] Soft-deleted invoice for order ${saleOnlineId}`);
+                console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId}`);
             }
 
             return existed;
-        },
-
-        /**
-         * Check if entry is deleted (tombstone)
-         */
-        isDeleted(saleOnlineId) {
-            const entry = this._data.get(String(saleOnlineId));
-            return entry?._deleted === true;
         },
 
         /**
