@@ -124,20 +124,21 @@ Use environment variables or `.pgpass` file for PostgreSQL credentials. Never ha
 
 ## Data Synchronization
 
-Project sử dụng pattern **Firebase as Source of Truth** - localStorage chỉ là cache.
+Project sử dụng pattern **Firebase as Source of Truth + Real-time Listener** - localStorage chỉ là cache.
 
-> ⚠️ **KHÔNG DÙNG Real-time Listener** - đã bị xóa do gây xung đột dữ liệu khi nhiều người dùng cùng lúc.
+### Stores có Firestore Sync (Version 2):
+| Store | File | localStorage Key | Firestore Collection |
+|-------|------|------------------|---------------------|
+| `InvoiceStatusStore` | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` | `invoiceStatusStore_v2` | `invoice_status_v2` |
+| `InvoiceStatusDeleteStore` | `orders-report/js/tab1/tab1-fast-sale-workflow.js` | `invoiceStatusDelete_v2` | `invoice_status_delete_v2` |
 
-### Stores có Firestore Sync:
-| Store | File | Firestore Collection |
-|-------|------|---------------------|
-| `InvoiceStatusStore` | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` | `invoice_status` |
-| `InvoiceStatusDeleteStore` | `orders-report/js/tab1/tab1-fast-sale-workflow.js` | `invoice_status_delete` |
+> **Note**: Sử dụng `_v2` suffix để tách biệt hoàn toàn với code cũ.
 
-### Pattern chuẩn (Firebase = Source of Truth):
+### Pattern chuẩn:
 ```javascript
 const Store = {
     _data: new Map(),
+    _isListening: false,  // Flag tránh infinite loop
 
     async init() {
         // 1. Load từ Firestore TRƯỚC (source of truth)
@@ -150,34 +151,35 @@ const Store = {
 
         // 3. Cleanup old entries
         await this.cleanup();
+
+        // 4. Setup real-time listener
+        this._setupRealtimeListener();
     },
 
-    async _loadFromFirestore() {
-        // CLEAR trước - Firebase là source of truth
-        this._data.clear();
-
-        const doc = await this._getDocRef().get();
-        if (doc.exists) {
-            // REPLACE (không merge) với data từ Firestore
-            Object.entries(doc.data().data || {}).forEach(([k, v]) => {
-                this._data.set(k, v);
-            });
-        }
-
-        this._saveToLocalStorage(); // Cache to localStorage
-        return true;
+    // QUAN TRỌNG: KHÔNG dùng { merge: true } để delete hoạt động đúng
+    _saveToFirestore() {
+        await this._getDocRef().set({
+            data: Object.fromEntries(this._data),
+            lastUpdated: Date.now()
+        }); // KHÔNG có { merge: true }
     },
 
     save() {
-        this._saveToLocalStorage(); // Cache locally
-        this._saveToFirestore();    // Sync to source of truth
+        this._saveToLocalStorage();
+        if (!this._isListening) {  // Tránh infinite loop
+            this._saveToFirestore();
+        }
+    },
+
+    async delete(id) {
+        this._data.delete(id);  // Hard delete
+        this.save();
     }
 };
 ```
 
 ### Tài liệu chi tiết:
 Xem `docs/DATA-SYNCHRONIZATION.md` để hiểu thêm về:
-- Firebase as Source of Truth pattern
-- Các giải pháp khác (Polling, Timestamp-based, CRDT)
+- Firebase as Source of Truth + Real-time Listener pattern
+- Tại sao KHÔNG dùng `{ merge: true }` khi save
 - Best practices
-- Conflict resolution strategies
