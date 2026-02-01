@@ -291,6 +291,77 @@
                 background: #fecaca;
             }
 
+            .btn-hide {
+                background: #fef3c7;
+                color: #b45309;
+            }
+
+            .btn-hide:hover {
+                background: #fde68a;
+            }
+
+            .btn-show {
+                background: #d1fae5;
+                color: #065f46;
+            }
+
+            .btn-show:hover {
+                background: #a7f3d0;
+            }
+
+            /* Status Tabs */
+            .status-tabs {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 16px;
+            }
+
+            .status-tab {
+                padding: 10px 20px;
+                border: 1px solid #e2e8f0;
+                background: white;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+
+            .status-tab:hover {
+                border-color: #ef4444;
+                background: #fef2f2;
+            }
+
+            .status-tab.active {
+                background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                color: white;
+                border-color: #dc2626;
+            }
+
+            .status-tab .tab-count {
+                background: rgba(0, 0, 0, 0.1);
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+            }
+
+            .status-tab.active .tab-count {
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+            /* Hidden row styling */
+            .row-hidden {
+                background: #f8fafc !important;
+                opacity: 0.7;
+            }
+
+            .row-hidden:hover {
+                background: #f1f5f9 !important;
+            }
+
             /* Empty State */
             .empty-state {
                 text-align: center;
@@ -554,6 +625,22 @@
                 </div>
             </div>
 
+            <!-- Status Tabs -->
+            <div class="status-tabs" id="statusTabs">
+                <button class="status-tab active" data-status="all" onclick="setStatusTab('all')">
+                    <i class="fas fa-list"></i> Tất cả
+                    <span class="tab-count" id="countAll">0</span>
+                </button>
+                <button class="status-tab" data-status="visible" onclick="setStatusTab('visible')">
+                    <i class="fas fa-eye"></i> Hiện
+                    <span class="tab-count" id="countVisible">0</span>
+                </button>
+                <button class="status-tab" data-status="hidden" onclick="setStatusTab('hidden')">
+                    <i class="fas fa-eye-slash"></i> Ẩn
+                    <span class="tab-count" id="countHidden">0</span>
+                </button>
+            </div>
+
             <!-- Filters -->
             <div class="filter-section">
                 <div class="search-box">
@@ -649,10 +736,104 @@
 
             const DELETE_STORAGE_KEY = 'invoiceStatusDelete';
             const DELETE_FIRESTORE_COLLECTION = 'invoice_status_delete';
+            const TAB_STATE_KEY = 'pendingDeleteTabState';
 
             let allData = [];
             let filteredData = [];
+            let currentStatusTab = 'all'; // 'all', 'visible', 'hidden'
             const billPreviewCache = new Map();
+
+            // Load saved tab state
+            function loadTabState() {
+                try {
+                    const saved = localStorage.getItem(TAB_STATE_KEY);
+                    if (saved) {
+                        currentStatusTab = saved;
+                    }
+                } catch (e) {
+                    console.warn('[PENDING-DELETE] Error loading tab state:', e);
+                }
+            }
+
+            // Save tab state
+            function saveTabState(tab) {
+                try {
+                    localStorage.setItem(TAB_STATE_KEY, tab);
+                } catch (e) {
+                    console.warn('[PENDING-DELETE] Error saving tab state:', e);
+                }
+            }
+
+            // Set active status tab
+            function setStatusTab(tab) {
+                currentStatusTab = tab;
+                saveTabState(tab);
+
+                // Update tab UI
+                document.querySelectorAll('.status-tab').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.status === tab) {
+                        btn.classList.add('active');
+                    }
+                });
+
+                // Re-filter and render
+                filterTable();
+            }
+
+            // Update tab counts
+            function updateTabCounts() {
+                const visibleCount = allData.filter(d => !d.hidden).length;
+                const hiddenCount = allData.filter(d => d.hidden).length;
+                const allCount = allData.length;
+
+                document.getElementById('countAll').textContent = allCount;
+                document.getElementById('countVisible').textContent = visibleCount;
+                document.getElementById('countHidden').textContent = hiddenCount;
+            }
+
+            // Toggle hidden status for an entry
+            async function toggleHidden(key, index) {
+                const item = allData.find(d => d.id === key);
+                if (!item) {
+                    console.warn('[PENDING-DELETE] Item not found:', key);
+                    return;
+                }
+
+                // Toggle hidden status
+                item.hidden = !item.hidden;
+
+                // Update localStorage
+                try {
+                    const saved = localStorage.getItem(DELETE_STORAGE_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.data && parsed.data[key]) {
+                            parsed.data[key].hidden = item.hidden;
+                            localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify(parsed));
+                        }
+                    }
+
+                    // Sync to Firestore
+                    const db = firebase.firestore();
+                    const authState = window.authManager?.getAuthState?.() ||
+                                     window.authManager?.getAuthData?.();
+                    const username = authState?.username || authState?.userType?.split('-')[0] || 'default';
+                    const docRef = db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
+
+                    await docRef.set({
+                        data: { [key]: { hidden: item.hidden } }
+                    }, { merge: true });
+
+                    console.log(`[PENDING-DELETE] Toggled hidden for ${key}: ${item.hidden}`);
+                } catch (e) {
+                    console.error('[PENDING-DELETE] Error toggling hidden:', e);
+                }
+
+                // Update counts and re-render
+                updateTabCounts();
+                filterTable();
+            }
 
             // =====================================================
             // LOAD DATA
@@ -730,6 +911,9 @@
                     // Update user filter options
                     updateUserFilter();
 
+                    // Update tab counts
+                    updateTabCounts();
+
                     // Apply filters and render
                     filterTable();
 
@@ -783,6 +967,10 @@
                 const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
                 filteredData = allData.filter(item => {
+                    // Status tab filter (hidden/visible)
+                    if (currentStatusTab === 'visible' && item.hidden) return false;
+                    if (currentStatusTab === 'hidden' && !item.hidden) return false;
+
                     // Search filter
                     if (searchTerm) {
                         const searchFields = [
@@ -858,9 +1046,20 @@
                     const reason = item.cancelReason || 'Không có lý do';
                     const deletedAt = item.deletedAt ? formatDateTime(item.deletedAt) : 'N/A';
                     const deletedByDisplay = item.deletedByDisplayName || item.deletedBy || 'N/A';
+                    const isHidden = item.hidden;
+                    const rowClass = isHidden ? 'row-hidden' : '';
+
+                    // Hide/Show button
+                    const hideShowBtn = isHidden
+                        ? `<button class="btn-action btn-show" onclick="toggleHidden('${item.id}', ${index})" title="Hiện lại">
+                               <i class="fas fa-eye"></i> Hiện
+                           </button>`
+                        : `<button class="btn-action btn-hide" onclick="toggleHidden('${item.id}', ${index})" title="Ẩn">
+                               <i class="fas fa-eye-slash"></i> Ẩn
+                           </button>`;
 
                     return `
-                        <tr>
+                        <tr class="${rowClass}">
                             <td>${index + 1}</td>
                             <td>
                                 <div class="order-number">${number}</div>
@@ -889,9 +1088,12 @@
                                 <span class="user-badge">${deletedByDisplay}</span>
                             </td>
                             <td>
-                                <button class="btn-action btn-view" onclick="viewBill(${index})" title="Xem chi tiết">
-                                    <i class="fas fa-eye"></i> Xem
-                                </button>
+                                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                                    <button class="btn-action btn-view" onclick="viewBill(${index})" title="Xem chi tiết">
+                                        <i class="fas fa-eye"></i> Xem
+                                    </button>
+                                    ${hideShowBtn}
+                                </div>
                             </td>
                         </tr>
                     `;
@@ -1191,6 +1393,15 @@
                 if (typeof AuthManager !== 'undefined' && !window.authManager) {
                     window.authManager = new AuthManager({ redirectUrl: '../index.html' });
                 }
+
+                // Load saved tab state and update UI
+                loadTabState();
+                document.querySelectorAll('.status-tab').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.status === currentStatusTab) {
+                        btn.classList.add('active');
+                    }
+                });
 
                 // Load data
                 setTimeout(loadData, 500);

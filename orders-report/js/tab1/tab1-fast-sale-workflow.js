@@ -220,12 +220,16 @@
 
         /**
          * Add a cancelled order with reason
+         * IMPORTANT: Does NOT overwrite existing entries - creates unique key with timestamp
          * @param {string} saleOnlineId - SaleOnline order ID
          * @param {object} invoiceData - Full invoice data from invoiceStatusStore
          * @param {string} reason - Cancellation reason
          */
         async add(saleOnlineId, invoiceData, reason) {
-            const key = String(saleOnlineId);
+            // Generate unique key: saleOnlineId_timestamp to avoid overwriting duplicates
+            const timestamp = Date.now();
+            const key = `${String(saleOnlineId)}_${timestamp}`;
+
             // Get username from authManager
             const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
             const username = authData?.username || (authData?.userType ? authData.userType.split('-')[0] : 'unknown');
@@ -234,18 +238,40 @@
 
             const entry = {
                 ...invoiceData,
+                SaleOnlineId: String(saleOnlineId), // Store original ID for reference
                 cancelReason: reason,
-                deletedAt: Date.now(),
+                deletedAt: timestamp,
                 deletedBy: username,
                 deletedByDisplayName: displayName, // Tên hiển thị từ Firebase (VD: "HẠNH", "HUYÊN")
-                isOldVersion: false // Đánh dấu version mới
+                isOldVersion: false, // Đánh dấu version mới
+                hidden: false // Trạng thái ẩn/hiện - mặc định là hiện
             };
 
             this._data.set(key, entry);
             await this._save();
 
-            console.log(`[INVOICE-DELETE] Added cancelled order: ${saleOnlineId}, reason: ${reason}`);
+            console.log(`[INVOICE-DELETE] Added cancelled order: ${saleOnlineId} (key: ${key}), reason: ${reason}`);
             return entry;
+        },
+
+        /**
+         * Toggle hidden status of an entry
+         * @param {string} key - Entry key (saleOnlineId_timestamp)
+         * @returns {boolean} - New hidden status
+         */
+        async toggleHidden(key) {
+            const entry = this._data.get(key);
+            if (!entry) {
+                console.warn(`[INVOICE-DELETE] Entry not found: ${key}`);
+                return null;
+            }
+
+            entry.hidden = !entry.hidden;
+            this._data.set(key, entry);
+            await this._save();
+
+            console.log(`[INVOICE-DELETE] Toggled hidden for ${key}: ${entry.hidden}`);
+            return entry.hidden;
         },
 
         /**
