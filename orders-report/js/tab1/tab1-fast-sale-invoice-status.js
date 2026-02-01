@@ -87,6 +87,8 @@
         _sentBills: new Set(),
         _initialized: false,
         _syncTimeout: null,
+        _unsubscribe: null,        // Real-time listener unsubscribe function
+        _isListening: false,       // Flag to prevent save loops when receiving updates
 
         /**
          * Initialize store from Firestore (source of truth)
@@ -123,6 +125,9 @@
 
                 this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
+
+                // 4. Setup real-time listener for add/delete from other devices
+                this._setupRealtimeListener();
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing store:', e);
                 this._initialized = true;
@@ -261,7 +266,176 @@
          */
         save() {
             this._saveToLocalStorage();
-            this._saveToFirestore();
+            // Skip Firestore save if currently receiving real-time updates (avoid infinite loops)
+            if (!this._isListening) {
+                this._saveToFirestore();
+            }
+        },
+
+        /**
+         * Setup real-time listener for add/delete operations from other devices
+         * Listens to Firestore changes and updates local _data accordingly
+         */
+        _setupRealtimeListener() {
+            // Don't setup if already listening
+            if (this._unsubscribe) {
+                console.log('[INVOICE-STATUS] Real-time listener already active');
+                return;
+            }
+
+            const isAdmin = this._isAdmin();
+            const db = firebase.firestore();
+
+            if (isAdmin) {
+                // Admin: Listen to ALL documents in the collection
+                console.log('[INVOICE-STATUS] Setting up real-time listener for ALL users (admin mode)...');
+                this._unsubscribe = db.collection(FIRESTORE_COLLECTION)
+                    .onSnapshot((snapshot) => {
+                        this._handleCollectionSnapshot(snapshot);
+                    }, (error) => {
+                        console.error('[INVOICE-STATUS] Real-time listener error:', error);
+                    });
+            } else {
+                // Normal user: Listen only to their own document
+                console.log('[INVOICE-STATUS] Setting up real-time listener for current user...');
+                this._unsubscribe = this._getDocRef()
+                    .onSnapshot((doc) => {
+                        this._handleDocSnapshot(doc);
+                    }, (error) => {
+                        console.error('[INVOICE-STATUS] Real-time listener error:', error);
+                    });
+            }
+        },
+
+        /**
+         * Handle collection snapshot (for admin - all docs)
+         * @param {firebase.firestore.QuerySnapshot} snapshot
+         */
+        _handleCollectionSnapshot(snapshot) {
+            // Set flag to prevent save loops
+            this._isListening = true;
+
+            let hasChanges = false;
+
+            snapshot.docChanges().forEach((change) => {
+                const doc = change.doc;
+                const firestoreData = doc.data();
+
+                if (change.type === 'added' || change.type === 'modified') {
+                    // Update entries from this document
+                    if (firestoreData.data) {
+                        const entries = Array.isArray(firestoreData.data)
+                            ? firestoreData.data
+                            : Object.entries(firestoreData.data);
+                        entries.forEach(([key, value]) => {
+                            const existingEntry = this._data.get(key);
+                            // Only update if server data is newer or entry doesn't exist locally
+                            if (!existingEntry || (value.timestamp && value.timestamp > (existingEntry.timestamp || 0))) {
+                                this._data.set(key, value);
+                                hasChanges = true;
+                                if (value._deleted) {
+                                    console.log(`[INVOICE-STATUS] Real-time: Entry ${key} marked as deleted from doc ${doc.id}`);
+                                } else {
+                                    console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated from doc ${doc.id}`);
+                                }
+                            }
+                        });
+                    }
+
+                    // Update sentBills
+                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                        firestoreData.sentBills.forEach(id => {
+                            if (!this._sentBills.has(id)) {
+                                this._sentBills.add(id);
+                                hasChanges = true;
+                            }
+                        });
+                    }
+                }
+            });
+
+            // Update localStorage cache if there were changes
+            if (hasChanges) {
+                this._saveToLocalStorage();
+                console.log('[INVOICE-STATUS] Real-time: localStorage cache updated');
+            }
+
+            // Reset flag
+            this._isListening = false;
+        },
+
+        /**
+         * Handle single document snapshot (for normal user)
+         * @param {firebase.firestore.DocumentSnapshot} doc
+         */
+        _handleDocSnapshot(doc) {
+            // Skip the initial snapshot (we already loaded data in init)
+            if (!this._initialized) return;
+
+            // Set flag to prevent save loops
+            this._isListening = true;
+
+            let hasChanges = false;
+
+            if (doc.exists) {
+                const firestoreData = doc.data();
+
+                // Update entries from Firestore
+                if (firestoreData.data) {
+                    const entries = Array.isArray(firestoreData.data)
+                        ? firestoreData.data
+                        : Object.entries(firestoreData.data);
+                    entries.forEach(([key, value]) => {
+                        const existingEntry = this._data.get(key);
+                        // Only update if server data is newer or entry doesn't exist locally
+                        if (!existingEntry || (value.timestamp && value.timestamp > (existingEntry.timestamp || 0))) {
+                            this._data.set(key, value);
+                            hasChanges = true;
+                            if (value._deleted) {
+                                console.log(`[INVOICE-STATUS] Real-time: Entry ${key} marked as deleted`);
+                            } else {
+                                console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated`);
+                            }
+                        }
+                    });
+                }
+
+                // Update sentBills
+                if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                    firestoreData.sentBills.forEach(id => {
+                        if (!this._sentBills.has(id)) {
+                            this._sentBills.add(id);
+                            hasChanges = true;
+                        }
+                    });
+                }
+            }
+
+            // Update localStorage cache if there were changes
+            if (hasChanges) {
+                this._saveToLocalStorage();
+                console.log('[INVOICE-STATUS] Real-time: localStorage cache updated');
+            }
+
+            // Reset flag
+            this._isListening = false;
+        },
+
+        /**
+         * Destroy real-time listener
+         * Call this when the page is unloaded or the store is no longer needed
+         */
+        destroy() {
+            if (this._unsubscribe) {
+                this._unsubscribe();
+                this._unsubscribe = null;
+                console.log('[INVOICE-STATUS] Real-time listener destroyed');
+            }
+            // Clear any pending sync timeout
+            if (this._syncTimeout) {
+                clearTimeout(this._syncTimeout);
+                this._syncTimeout = null;
+            }
         },
 
         /**

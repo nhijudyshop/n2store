@@ -24,6 +24,8 @@
     const InvoiceStatusDeleteStore = {
         _data: new Map(),
         _initialized: false,
+        _unsubscribe: null,        // Real-time listener unsubscribe function
+        _isListening: false,       // Flag to prevent save loops when receiving updates
 
         /**
          * Initialize store from Firestore (source of truth)
@@ -56,6 +58,9 @@
                 await this.cleanup();
 
                 this._initialized = true;
+
+                // 4. Setup real-time listener for add/delete from other devices
+                this._setupRealtimeListener();
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error initializing store:', e);
                 this._initialized = true;
@@ -146,6 +151,12 @@
                 localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({ data: dataObj }));
                 console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
 
+                // Skip Firestore save if currently receiving real-time updates (avoid infinite loops)
+                if (this._isListening) {
+                    console.log(`[INVOICE-DELETE] Skipping Firestore save (receiving real-time updates)`);
+                    return;
+                }
+
                 // Sync to Firestore (if Firebase is available)
                 if (typeof firebase !== 'undefined' && firebase.firestore) {
                     const docRef = this._getDocRef();
@@ -159,6 +170,89 @@
                 }
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error saving:', e);
+            }
+        },
+
+        /**
+         * Setup real-time listener for add/delete operations from other devices
+         */
+        _setupRealtimeListener() {
+            // Don't setup if already listening
+            if (this._unsubscribe) {
+                console.log('[INVOICE-DELETE] Real-time listener already active');
+                return;
+            }
+
+            console.log('[INVOICE-DELETE] Setting up real-time listener...');
+            this._unsubscribe = this._getDocRef()
+                .onSnapshot((doc) => {
+                    this._handleDocSnapshot(doc);
+                }, (error) => {
+                    console.error('[INVOICE-DELETE] Real-time listener error:', error);
+                });
+        },
+
+        /**
+         * Handle document snapshot from real-time listener
+         * @param {firebase.firestore.DocumentSnapshot} doc
+         */
+        _handleDocSnapshot(doc) {
+            // Skip the initial snapshot (we already loaded data in init)
+            if (!this._initialized) return;
+
+            // Set flag to prevent save loops
+            this._isListening = true;
+
+            let hasChanges = false;
+
+            if (doc.exists) {
+                const firestoreData = doc.data();
+
+                // Update entries from Firestore
+                if (firestoreData.data) {
+                    const entries = Object.entries(firestoreData.data);
+                    entries.forEach(([key, value]) => {
+                        const existingEntry = this._data.get(key);
+                        // Only update if entry doesn't exist locally or server data is newer
+                        if (!existingEntry || (value.deletedAt && value.deletedAt > (existingEntry.deletedAt || 0))) {
+                            this._data.set(key, value);
+                            hasChanges = true;
+                            console.log(`[INVOICE-DELETE] Real-time: Entry ${key} added/updated`);
+                        }
+                    });
+
+                    // Check for deleted entries (entries in local but not in server)
+                    // Note: Only sync deletes if the server entry is completely gone
+                    const serverKeys = new Set(Object.keys(firestoreData.data));
+                    this._data.forEach((value, key) => {
+                        if (!serverKeys.has(key)) {
+                            this._data.delete(key);
+                            hasChanges = true;
+                            console.log(`[INVOICE-DELETE] Real-time: Entry ${key} removed (deleted on server)`);
+                        }
+                    });
+                }
+            }
+
+            // Update localStorage cache if there were changes
+            if (hasChanges) {
+                this._saveToLocalStorage();
+                console.log('[INVOICE-DELETE] Real-time: localStorage cache updated');
+            }
+
+            // Reset flag
+            this._isListening = false;
+        },
+
+        /**
+         * Destroy real-time listener
+         * Call this when the page is unloaded or the store is no longer needed
+         */
+        destroy() {
+            if (this._unsubscribe) {
+                this._unsubscribe();
+                this._unsubscribe = null;
+                console.log('[INVOICE-DELETE] Real-time listener destroyed');
             }
         },
 

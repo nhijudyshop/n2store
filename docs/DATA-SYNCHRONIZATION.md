@@ -99,18 +99,37 @@ const Store = {
 **Ưu điểm**:
 - Firebase là single source of truth - không bị conflict
 - localStorage chỉ là cache, không gây stale data
+- Real-time listener tự động đồng bộ thay đổi từ máy khác
 - Đơn giản, dễ hiểu và debug
-- Ít bug hơn real-time listener
-- Chi phí Firebase thấp (ít reads)
+
+**Real-time Listener** (đã được implement):
+- Sau khi init(), store tự động listen changes từ Firestore
+- Khi có thay đổi từ máy khác → tự động update `_data` và localStorage
+- Sử dụng `_isListening` flag để tránh infinite loop (không save lại Firestore khi đang nhận updates)
+- Gọi `destroy()` khi unload page để cleanup listener
+
+```javascript
+// Real-time listener pattern
+_setupRealtimeListener() {
+    this._unsubscribe = this._getDocRef()
+        .onSnapshot((doc) => {
+            this._isListening = true;
+            // Update _data từ Firestore
+            // Update localStorage cache
+            this._isListening = false;
+        });
+}
+
+destroy() {
+    if (this._unsubscribe) {
+        this._unsubscribe();
+        this._unsubscribe = null;
+    }
+}
+```
 
 **Nhược điểm**:
-- Không real-time (cần refresh để thấy thay đổi từ máy khác)
 - Khi offline sẽ dùng cache cũ
-
-**Giải quyết stale data**:
-- User refresh trang = lấy dữ liệu mới nhất từ Firestore
-- Có thể thêm nút "Làm mới" thủ công
-- Hoặc thêm polling nhẹ (mỗi 30-60s)
 
 ---
 
@@ -118,20 +137,38 @@ const Store = {
 
 ### 1. Real-time Listener
 
-> ⚠️ **ĐÃ BỊ XÓA** khỏi project do gây nhiều bug và xung đột dữ liệu
+> ✅ **ĐÃ ĐƯỢC THÊM LẠI** với pattern an toàn (sử dụng `_isListening` flag)
 
-**Lý do không dùng**:
-- Logic phức tạp, khó debug
-- Gây xung đột khi nhiều người dùng cùng lúc
-- Data bị đè tùm lum
-- Chi phí Firebase cao hơn
+**Pattern hiện tại**:
+- Init: Load từ Firestore FIRST (source of truth)
+- Setup real-time listener sau khi init
+- Khi nhận update từ Firestore → set `_isListening = true` → update local → set `_isListening = false`
+- Khi save local changes → check `_isListening` → nếu true thì skip Firestore save (tránh infinite loop)
 
 ```javascript
-// KHÔNG DÙNG NỮA
-firebase.firestore().collection('data').doc(userId)
-    .onSnapshot((doc) => {
-        // Có thể gây conflict
-    });
+// Pattern an toàn - đã implement trong project
+const Store = {
+    _isListening: false,
+    _unsubscribe: null,
+
+    _setupRealtimeListener() {
+        this._unsubscribe = this._getDocRef()
+            .onSnapshot((doc) => {
+                this._isListening = true;
+                // Update _data từ Firestore (newer timestamp wins)
+                // Update localStorage cache
+                this._isListening = false;
+            });
+    },
+
+    save() {
+        this._saveToLocalStorage();
+        // Skip Firestore save khi đang nhận real-time updates
+        if (!this._isListening) {
+            this._saveToFirestore();
+        }
+    }
+};
 ```
 
 ---
