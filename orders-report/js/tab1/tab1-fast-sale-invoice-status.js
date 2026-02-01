@@ -89,33 +89,34 @@
         _syncTimeout: null,
 
         /**
-         * Initialize store from localStorage + Firestore
-         * Không sử dụng real-time listener - chỉ load/save đơn giản
+         * Initialize store from Firestore (source of truth)
+         * Firebase là source of truth - localStorage chỉ là cache
          */
         async init() {
             if (this._initialized) return;
 
             try {
-                // 1. Load from localStorage first (fast)
-                const saved = localStorage.getItem(STORAGE_KEY);
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    // Support both old array format and new object format
-                    if (parsed.data) {
-                        if (Array.isArray(parsed.data)) {
-                            this._data = new Map(parsed.data);
-                        } else {
-                            this._data = new Map(Object.entries(parsed.data));
+                // 1. Load from Firestore FIRST (source of truth)
+                const loadedFromFirestore = await this._loadFromFirestore();
+
+                // 2. Nếu không load được từ Firestore, fallback to localStorage (offline mode)
+                if (!loadedFromFirestore) {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.data) {
+                            if (Array.isArray(parsed.data)) {
+                                this._data = new Map(parsed.data);
+                            } else {
+                                this._data = new Map(Object.entries(parsed.data));
+                            }
+                        }
+                        if (Array.isArray(parsed.sentBills)) {
+                            this._sentBills = new Set(parsed.sentBills);
                         }
                     }
-                    if (Array.isArray(parsed.sentBills)) {
-                        this._sentBills = new Set(parsed.sentBills);
-                    }
+                    console.log(`[INVOICE-STATUS] Offline mode - loaded ${this._data.size} entries from localStorage cache`);
                 }
-                console.log(`[INVOICE-STATUS] Loaded ${this._data.size} entries from localStorage`);
-
-                // 2. Load from Firestore and merge
-                await this._loadFromFirestore();
 
                 // 3. Cleanup old entries
                 await this.cleanup();
@@ -148,16 +149,21 @@
         },
 
         /**
-         * Load from Firestore and merge with localStorage
+         * Load from Firestore (source of truth) - THAY THẾ toàn bộ _data
          * Admin loads ALL users' data, normal users load only their own
+         * @returns {boolean} true nếu load thành công từ Firestore
          */
         async _loadFromFirestore() {
             try {
                 const isAdmin = this._isAdmin();
 
+                // CLEAR old data - Firestore là source of truth
+                this._data.clear();
+                this._sentBills.clear();
+
                 if (isAdmin) {
                     // Admin: load ALL documents from invoice_status collection
-                    console.log('[INVOICE-STATUS] Admin detected, loading ALL users data...');
+                    console.log('[INVOICE-STATUS] Admin detected, loading ALL users data from Firestore...');
                     const db = firebase.firestore();
                     const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
 
@@ -165,57 +171,54 @@
                     snapshot.forEach(doc => {
                         const firestoreData = doc.data();
 
-                        // Merge data (newer timestamp wins)
+                        // Load data từ Firestore (REPLACE, not merge)
                         if (firestoreData.data) {
                             const entries = Array.isArray(firestoreData.data)
                                 ? firestoreData.data
                                 : Object.entries(firestoreData.data);
                             entries.forEach(([key, value]) => {
-                                const localValue = this._data.get(key);
-                                if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
-                                    this._data.set(key, value);
-                                    totalEntries++;
-                                }
+                                this._data.set(key, value);
+                                totalEntries++;
                             });
                         }
 
-                        // Merge sent bills
+                        // Load sent bills
                         if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
                             firestoreData.sentBills.forEach(id => this._sentBills.add(id));
                         }
                     });
 
-                    console.log(`[INVOICE-STATUS] Admin loaded ${totalEntries} entries from ${snapshot.size} users`);
+                    console.log(`[INVOICE-STATUS] Admin loaded ${totalEntries} entries from ${snapshot.size} users (Firestore = source of truth)`);
                 } else {
                     // Normal user: load only their own document
                     const doc = await this._getDocRef().get();
-                    if (!doc.exists) return;
+                    if (doc.exists) {
+                        const firestoreData = doc.data();
 
-                    const firestoreData = doc.data();
-
-                    // Merge data (newer timestamp wins)
-                    if (firestoreData.data) {
-                        const entries = Array.isArray(firestoreData.data)
-                            ? firestoreData.data
-                            : Object.entries(firestoreData.data);
-                        entries.forEach(([key, value]) => {
-                            const localValue = this._data.get(key);
-                            if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
+                        // Load data từ Firestore (REPLACE, not merge)
+                        if (firestoreData.data) {
+                            const entries = Array.isArray(firestoreData.data)
+                                ? firestoreData.data
+                                : Object.entries(firestoreData.data);
+                            entries.forEach(([key, value]) => {
                                 this._data.set(key, value);
-                            }
-                        });
-                    }
+                            });
+                        }
 
-                    // Merge sent bills
-                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                        firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                        // Load sent bills
+                        if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                            firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                        }
                     }
+                    console.log(`[INVOICE-STATUS] Loaded ${this._data.size} entries from Firestore (source of truth)`);
                 }
 
-                console.log(`[INVOICE-STATUS] Merged from Firestore, total ${this._data.size} entries`);
+                // Cache to localStorage
                 this._saveToLocalStorage();
+                return true;
             } catch (e) {
                 console.error('[INVOICE-STATUS] Firestore load error:', e);
+                return false; // Signal để fallback về localStorage
             }
         },
 

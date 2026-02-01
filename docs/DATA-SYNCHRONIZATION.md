@@ -39,23 +39,46 @@ localStorage: {empty}
 
 ## Giải pháp hiện tại
 
-### Load-on-Init / Save-on-Change (Recommended)
+### Firebase as Source of Truth (Recommended)
 
-**Mô tả**: Pattern đơn giản - load dữ liệu khi khởi tạo, save khi có thay đổi.
+**Mô tả**: Firebase là nguồn dữ liệu chính xác. localStorage chỉ là cache để hiển thị khi offline.
 
 ```javascript
 const Store = {
     _data: new Map(),
 
     async init() {
-        // 1. Load từ localStorage (nhanh)
-        this._loadFromLocalStorage();
+        // 1. Load từ Firestore TRƯỚC (source of truth)
+        const loaded = await this._loadFromFirestore();
 
-        // 2. Load từ Firestore và merge (timestamp mới hơn thắng)
-        await this._loadFromFirestore();
+        // 2. Nếu offline, fallback to localStorage cache
+        if (!loaded) {
+            this._loadFromLocalStorage();
+        }
 
         // 3. Cleanup dữ liệu cũ
         await this.cleanup();
+    },
+
+    async _loadFromFirestore() {
+        try {
+            // CLEAR dữ liệu cũ - Firestore là source of truth
+            this._data.clear();
+
+            const doc = await this._getDocRef().get();
+            if (doc.exists) {
+                // REPLACE (không merge) với data từ Firestore
+                Object.entries(doc.data().data || {}).forEach(([k, v]) => {
+                    this._data.set(k, v);
+                });
+            }
+
+            // Cache to localStorage
+            this._saveToLocalStorage();
+            return true;
+        } catch (e) {
+            return false; // Trigger fallback to localStorage
+        }
     },
 
     async add(id, data) {
@@ -67,24 +90,25 @@ const Store = {
     },
 
     save() {
-        this._saveToLocalStorage();
-        this._saveToFirestore(); // debounced
+        this._saveToLocalStorage(); // Cache locally
+        this._saveToFirestore();    // Sync to source of truth
     }
 };
 ```
 
 **Ưu điểm**:
+- Firebase là single source of truth - không bị conflict
+- localStorage chỉ là cache, không gây stale data
 - Đơn giản, dễ hiểu và debug
 - Ít bug hơn real-time listener
 - Chi phí Firebase thấp (ít reads)
-- Không cần xử lý connection liên tục
 
 **Nhược điểm**:
 - Không real-time (cần refresh để thấy thay đổi từ máy khác)
-- Có thể có stale data trong thời gian ngắn
+- Khi offline sẽ dùng cache cũ
 
 **Giải quyết stale data**:
-- User refresh trang = lấy dữ liệu mới nhất
+- User refresh trang = lấy dữ liệu mới nhất từ Firestore
 - Có thể thêm nút "Làm mới" thủ công
 - Hoặc thêm polling nhẹ (mỗi 30-60s)
 
@@ -200,59 +224,65 @@ const Store = {
     _syncTimeout: null,
 
     /**
-     * Initialize - load từ localStorage + Firestore
+     * Initialize - Firestore là source of truth
      */
     async init() {
-        // 1. Load từ localStorage (nhanh)
-        this._loadFromLocalStorage();
+        // 1. Load từ Firestore TRƯỚC (source of truth)
+        const loaded = await this._loadFromFirestore();
 
-        // 2. Load từ Firestore và merge
-        await this._loadFromFirestore();
+        // 2. Nếu offline, fallback to localStorage cache
+        if (!loaded) {
+            this._loadFromLocalStorage();
+        }
 
         // 3. Cleanup dữ liệu cũ (>14 ngày)
         await this.cleanup();
     },
 
     /**
-     * Load từ Firestore và merge với localStorage
+     * Load từ Firestore - REPLACE (không merge)
      * Admin: load tất cả users
      * Normal user: chỉ load document của mình
+     * @returns {boolean} true nếu load thành công
      */
     async _loadFromFirestore() {
-        const isAdmin = this._isAdmin();
+        try {
+            // CLEAR dữ liệu cũ - Firestore là source of truth
+            this._data.clear();
 
-        if (isAdmin) {
-            const snapshot = await db.collection('my_collection').get();
-            snapshot.forEach(doc => {
-                this._mergeData(doc.data());
-            });
-        } else {
-            const doc = await this._getDocRef().get();
-            if (doc.exists) {
-                this._mergeData(doc.data());
+            const isAdmin = this._isAdmin();
+
+            if (isAdmin) {
+                const snapshot = await db.collection('my_collection').get();
+                snapshot.forEach(doc => {
+                    // REPLACE - không merge
+                    Object.entries(doc.data().data || {}).forEach(([k, v]) => {
+                        this._data.set(k, v);
+                    });
+                });
+            } else {
+                const doc = await this._getDocRef().get();
+                if (doc.exists) {
+                    Object.entries(doc.data().data || {}).forEach(([k, v]) => {
+                        this._data.set(k, v);
+                    });
+                }
             }
+
+            // Cache to localStorage
+            this._saveToLocalStorage();
+            return true;
+        } catch (e) {
+            return false; // Trigger fallback to localStorage
         }
     },
 
     /**
-     * Merge data - timestamp mới hơn thắng
-     */
-    _mergeData(serverData) {
-        Object.entries(serverData.data || {}).forEach(([key, value]) => {
-            const local = this._data.get(key);
-            if (!local || value.timestamp > local.timestamp) {
-                this._data.set(key, value);
-            }
-        });
-        this._saveToLocalStorage();
-    },
-
-    /**
-     * Save to both localStorage and Firestore
+     * Save to both localStorage (cache) and Firestore (source of truth)
      */
     save() {
-        this._saveToLocalStorage();
-        this._saveToFirestore(); // debounced 2s
+        this._saveToLocalStorage(); // Cache locally
+        this._saveToFirestore();    // Sync to source of truth (debounced 2s)
     },
 
     /**
@@ -275,6 +305,8 @@ const Store = {
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   User A    │     │  Firebase   │     │   User B    │
+│             │     │(SOURCE OF   │     │             │
+│             │     │   TRUTH)    │     │             │
 └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
        │                   │                   │
        │  1. Add entry     │                   │
@@ -287,33 +319,48 @@ const Store = {
        │                   │  3. User B refresh│
        │                   │◄──────────────────│
        │                   │                   │
-       │                   │  4. Load & merge  │
+       │                   │  4. REPLACE data  │
+       │                   │  (not merge)      │
        │                   │──────────────────►│
        │                   │                   │
-       │                   │            localStorage
-       │                   │              updated
+       │                   │           localStorage
+       │                   │            = CACHE only
+```
+
+**QUAN TRỌNG**: User B nhận được CHÍNH XÁC dữ liệu từ Firebase, không merge với localStorage cũ.
 ```
 
 ### Admin vs Normal User
 
 ```javascript
 async _loadFromFirestore() {
+    // CLEAR trước - Firestore là source of truth
+    this._data.clear();
+
     const isAdmin = this._isAdmin();
 
     if (isAdmin) {
         // Admin: Load TẤT CẢ documents trong collection
         const snapshot = await db.collection('invoice_status').get();
         snapshot.forEach(doc => {
-            this._mergeData(doc.data());
+            // REPLACE - không merge
+            Object.entries(doc.data().data || {}).forEach(([k, v]) => {
+                this._data.set(k, v);
+            });
         });
     } else {
         // Normal user: Chỉ load document của mình
         const doc = await db.collection('invoice_status')
             .doc(username).get();
         if (doc.exists) {
-            this._mergeData(doc.data());
+            Object.entries(doc.data().data || {}).forEach(([k, v]) => {
+                this._data.set(k, v);
+            });
         }
     }
+
+    // Cache to localStorage
+    this._saveToLocalStorage();
 }
 ```
 
@@ -387,10 +434,12 @@ async _saveToFirestore() {
 
 | Strategy | Khi nào dùng |
 |----------|-------------|
-| **Last Write Wins** | Data không critical (hiện tại đang dùng) |
+| **Firebase Wins** | **HIỆN TẠI ĐANG DÙNG** - Firebase là source of truth |
+| **Last Write Wins** | Data không critical |
 | **Merge** | Có thể combine changes |
 | **Ask User** | Data critical, cần user quyết định |
-| **Server Wins** | Server là source of truth |
+
+> **Note**: Hiện tại project sử dụng **Firebase Wins** - localStorage chỉ là cache. Khi init(), dữ liệu từ Firebase sẽ THAY THẾ hoàn toàn localStorage.
 
 ---
 

@@ -26,31 +26,33 @@
         _initialized: false,
 
         /**
-         * Initialize store from localStorage + Firestore
-         * Không sử dụng real-time listener - chỉ load/save đơn giản
+         * Initialize store from Firestore (source of truth)
+         * Firebase là source of truth - localStorage chỉ là cache
          */
         async init() {
             if (this._initialized) return;
 
             try {
-                // Load from localStorage
-                const saved = localStorage.getItem(DELETE_STORAGE_KEY);
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    if (parsed.data) {
-                        if (Array.isArray(parsed.data)) {
-                            this._data = new Map(parsed.data);
-                        } else {
-                            this._data = new Map(Object.entries(parsed.data));
+                // 1. Load from Firestore FIRST (source of truth)
+                const loadedFromFirestore = await this._loadFromFirestore();
+
+                // 2. Nếu không load được từ Firestore, fallback to localStorage (offline mode)
+                if (!loadedFromFirestore) {
+                    const saved = localStorage.getItem(DELETE_STORAGE_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.data) {
+                            if (Array.isArray(parsed.data)) {
+                                this._data = new Map(parsed.data);
+                            } else {
+                                this._data = new Map(Object.entries(parsed.data));
+                            }
                         }
                     }
+                    console.log(`[INVOICE-DELETE] Offline mode - loaded ${this._data.size} entries from localStorage cache`);
                 }
-                console.log(`[INVOICE-DELETE] Loaded ${this._data.size} entries from localStorage`);
 
-                // Load from Firestore
-                await this._loadFromFirestore();
-
-                // Cleanup old entries (>14 days)
+                // 3. Cleanup old entries (>14 days)
                 await this.cleanup();
 
                 this._initialized = true;
@@ -86,36 +88,34 @@
         },
 
         /**
-         * Load from Firestore
+         * Load from Firestore (source of truth) - THAY THẾ toàn bộ _data
+         * @returns {boolean} true nếu load thành công từ Firestore
          */
         async _loadFromFirestore() {
             try {
                 const docRef = this._getDocRef();
                 const doc = await docRef.get();
 
+                // CLEAR old data - Firestore là source of truth
+                this._data.clear();
+
                 if (doc.exists) {
                     const firestoreData = doc.data();
                     if (firestoreData.data) {
                         const entries = Object.entries(firestoreData.data);
-                        let mergedCount = 0;
                         entries.forEach(([key, value]) => {
-                            // Merge: Firestore wins for newer data
-                            const existing = this._data.get(key);
-                            if (!existing || (value.deletedAt > (existing.deletedAt || 0))) {
-                                this._data.set(key, value);
-                                mergedCount++;
-                            }
+                            this._data.set(key, value);
                         });
-                        console.log(`[INVOICE-DELETE] Merged ${mergedCount} new entries from Firestore, total: ${this._data.size}`);
-
-                        // Save merged data back to localStorage
-                        if (mergedCount > 0) {
-                            this._saveToLocalStorage();
-                        }
                     }
                 }
+
+                console.log(`[INVOICE-DELETE] Loaded ${this._data.size} entries from Firestore (source of truth)`);
+                // Cache to localStorage
+                this._saveToLocalStorage();
+                return true;
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error loading from Firestore:', e);
+                return false; // Signal để fallback về localStorage
             }
         },
 

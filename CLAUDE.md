@@ -124,7 +124,7 @@ Use environment variables or `.pgpass` file for PostgreSQL credentials. Never ha
 
 ## Data Synchronization
 
-Project sử dụng pattern **localStorage + Firestore Load/Save** để đồng bộ dữ liệu giữa nhiều thiết bị.
+Project sử dụng pattern **Firebase as Source of Truth** - localStorage chỉ là cache.
 
 > ⚠️ **KHÔNG DÙNG Real-time Listener** - đã bị xóa do gây xung đột dữ liệu khi nhiều người dùng cùng lúc.
 
@@ -134,36 +134,50 @@ Project sử dụng pattern **localStorage + Firestore Load/Save** để đồng
 | `InvoiceStatusStore` | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` | `invoice_status` |
 | `InvoiceStatusDeleteStore` | `orders-report/js/tab1/tab1-fast-sale-workflow.js` | `invoice_status_delete` |
 
-### Pattern chuẩn (Load-on-Init / Save-on-Change):
+### Pattern chuẩn (Firebase = Source of Truth):
 ```javascript
 const Store = {
     _data: new Map(),
-    _syncTimeout: null,
 
     async init() {
-        this._loadFromLocalStorage();      // 1. Load local (fast)
-        await this._loadFromFirestore();   // 2. Merge from server
-        await this.cleanup();              // 3. Cleanup old entries
+        // 1. Load từ Firestore TRƯỚC (source of truth)
+        const loaded = await this._loadFromFirestore();
+
+        // 2. Nếu offline, fallback to localStorage cache
+        if (!loaded) {
+            this._loadFromLocalStorage();
+        }
+
+        // 3. Cleanup old entries
+        await this.cleanup();
     },
 
-    async add(id, data) {
-        this._data.set(id, {
-            ...data,
-            timestamp: Date.now()
-        });
-        this.save(); // Save cả localStorage và Firestore
+    async _loadFromFirestore() {
+        // CLEAR trước - Firebase là source of truth
+        this._data.clear();
+
+        const doc = await this._getDocRef().get();
+        if (doc.exists) {
+            // REPLACE (không merge) với data từ Firestore
+            Object.entries(doc.data().data || {}).forEach(([k, v]) => {
+                this._data.set(k, v);
+            });
+        }
+
+        this._saveToLocalStorage(); // Cache to localStorage
+        return true;
     },
 
     save() {
-        this._saveToLocalStorage();
-        this._saveToFirestore(); // debounced 2s
+        this._saveToLocalStorage(); // Cache locally
+        this._saveToFirestore();    // Sync to source of truth
     }
 };
 ```
 
 ### Tài liệu chi tiết:
 Xem `docs/DATA-SYNCHRONIZATION.md` để hiểu thêm về:
-- Giải pháp Load/Save hiện tại
+- Firebase as Source of Truth pattern
 - Các giải pháp khác (Polling, Timestamp-based, CRDT)
 - Best practices
 - Conflict resolution strategies
