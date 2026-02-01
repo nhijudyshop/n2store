@@ -656,7 +656,6 @@
                             <div class="acc-customer-info">
                                 <span class="customer-name">${tx.customer_name || 'Chưa có tên'}</span>
                                 <span class="customer-phone">${tx.linked_customer_phone}</span>
-                                ${canChange ? `<span class="btn-change" onclick="AccountantModule.showChangeModal(${tx.id}, '${escapedPhone}', '${escapedName}')">Thay đổi</span>` : ''}
                             </div>
                         ` : `<span class="acc-text-muted">Chưa gán KH</span>`}
                     </td>
