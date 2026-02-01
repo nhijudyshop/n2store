@@ -321,6 +321,27 @@
 
             let hasChanges = false;
             const changedKeys = [];
+            const deletedKeys = [];
+
+            // Build a set of all keys currently in Firestore (across all docs)
+            const allServerKeys = new Set();
+            snapshot.docs.forEach(doc => {
+                const firestoreData = doc.data();
+                if (firestoreData.data) {
+                    Object.keys(firestoreData.data).forEach(key => allServerKeys.add(key));
+                }
+            });
+
+            // Check for deleted entries (in local but not in any server doc)
+            this._data.forEach((value, key) => {
+                if (!allServerKeys.has(key)) {
+                    this._data.delete(key);
+                    this._sentBills.delete(key);
+                    hasChanges = true;
+                    deletedKeys.push(key);
+                    console.log(`[INVOICE-STATUS] Real-time: Entry ${key} deleted (not in server)`);
+                }
+            });
 
             snapshot.docChanges().forEach((change) => {
                 const doc = change.doc;
@@ -360,8 +381,10 @@
             if (hasChanges) {
                 this._saveToLocalStorage();
                 console.log('[INVOICE-STATUS] Real-time: localStorage cache updated');
-                // Update UI for changed entries
+                // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
+                // Update UI for deleted entries (show "-")
+                this._refreshDeletedInvoiceStatusUI(deletedKeys);
             }
 
             // Reset flag
@@ -381,9 +404,22 @@
 
             let hasChanges = false;
             const changedKeys = [];
+            const deletedKeys = [];
 
             if (doc.exists) {
                 const firestoreData = doc.data();
+                const serverDataKeys = new Set(Object.keys(firestoreData.data || {}));
+
+                // Check for deleted entries (in local but not in server)
+                this._data.forEach((value, key) => {
+                    if (!serverDataKeys.has(key)) {
+                        this._data.delete(key);
+                        this._sentBills.delete(key);
+                        hasChanges = true;
+                        deletedKeys.push(key);
+                        console.log(`[INVOICE-STATUS] Real-time: Entry ${key} deleted (not in server)`);
+                    }
+                });
 
                 // Update entries from Firestore
                 if (firestoreData.data) {
@@ -417,8 +453,10 @@
             if (hasChanges) {
                 this._saveToLocalStorage();
                 console.log('[INVOICE-STATUS] Real-time: localStorage cache updated');
-                // Update UI for changed entries
+                // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
+                // Update UI for deleted entries (show "-")
+                this._refreshDeletedInvoiceStatusUI(deletedKeys);
             }
 
             // Reset flag
@@ -447,6 +485,26 @@
                             cell.innerHTML = window.renderInvoiceStatusCell(orderData);
                             console.log(`[INVOICE-STATUS] Real-time: Updated UI for order ${saleOnlineId}`);
                         }
+                    }
+                }
+            });
+        },
+
+        /**
+         * Refresh UI for deleted invoice status entries (show "-")
+         * @param {string[]} deletedKeys - Array of saleOnlineIds that were deleted
+         */
+        _refreshDeletedInvoiceStatusUI(deletedKeys) {
+            if (!deletedKeys || deletedKeys.length === 0) return;
+
+            deletedKeys.forEach(saleOnlineId => {
+                // Find the row with this order ID
+                const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+                if (row) {
+                    const cell = row.querySelector('td[data-column="invoice-status"]');
+                    if (cell) {
+                        cell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+                        console.log(`[INVOICE-STATUS] Real-time: Cleared UI for deleted order ${saleOnlineId}`);
                     }
                 }
             });
