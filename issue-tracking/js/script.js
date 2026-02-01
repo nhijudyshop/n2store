@@ -679,6 +679,11 @@ function handleIssueTypeChange(e) {
             if (trackingGroup) trackingGroup.classList.remove('hidden');
         } else if (issueType === 'RETURN_SHIPPER') {
             if (shipperGroup) shipperGroup.classList.remove('hidden');
+        } else if (issueType === 'BOOM') {
+            // Show BOOM sub-reason dropdown
+            const boomReasonGroup = dynamicFields.querySelector('[data-type="BOOM_REASON"]');
+            if (boomReasonGroup) boomReasonGroup.classList.remove('hidden');
+            onBoomReasonChange(); // Show initial hint
         }
     }
 
@@ -760,6 +765,20 @@ window.onFixCodReasonChange = function() {
         checkboxes.forEach(cb => cb.checked = true);
     }
 }
+
+// Handle BOOM reason change
+window.onBoomReasonChange = function() {
+    const reason = document.getElementById('boom-reason')?.value;
+    const hintEl = document.getElementById('boom-reason-hint');
+    if (!hintEl) return;
+
+    const hints = {
+        'BOOM_HANG': '<span style="color:#ef4444;">⚠️ Khách boom - Lưu ý đơn sau</span>',
+        'TRUNG_DON': '<span style="color:#3b82f6;">ℹ️ Xả đơn cũ, nhập kho, đi đơn mới</span>',
+        'DOI_DIA_CHI': '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho, đi lại đơn mới</span>'
+    };
+    hintEl.innerHTML = hints[reason] || '';
+};
 
 // Toggle COD Reduce edit mode (for REJECT_PARTIAL)
 window.toggleCodReduceEdit = function() {
@@ -977,6 +996,7 @@ async function handleSubmitTicket() {
 
     // Lấy thông tin đơn cũ cho RETURN_OLD_ORDER
     const fixCodReason = type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null;
+    const boomReason = type === 'BOOM' ? document.getElementById('boom-reason')?.value : null;
     const isReturnOldOrder = type === 'FIX_COD' && fixCodReason === 'RETURN_OLD_ORDER';
 
     const ticketData = {
@@ -987,6 +1007,7 @@ async function handleSubmitTicket() {
         address: orderAddress,
         type: type,
         fixCodReason: fixCodReason,
+        boomReason: boomReason,
         channel: channel,
         status: status,
         orderState: orderStatus || 'open', // Trạng thái đơn TPOS: open, paid
@@ -1751,7 +1772,7 @@ function renderDashboard(tabName, searchTerm = '') {
                 ${customerTier ? `<div style="font-size:11px;color:#64748b;">${customerTier}</div>` : ''}
             </td>
             <td>
-                ${renderTypeBadge(t.type, t.fixCodReason)}
+                ${renderTypeBadge(t.type, t.fixCodReason, t.boomReason)}
                 <div style="font-size:12px;margin-top:4px;color:#64748b;">${t.channel || 'TPOS'}</div>
             </td>
             <td>
@@ -1801,9 +1822,9 @@ function renderProductsList(ticket) {
     return `${noteDisplay}${oldOrderRef}<ul style="list-style:none;padding:0;margin:0;">${productItems}</ul>`;
 }
 
-function renderTypeBadge(type, fixCodReason) {
+function renderTypeBadge(type, fixCodReason, boomReason) {
     const map = {
-        'BOOM': { text: 'Boom Hàng', class: 'type-boom' },
+        'BOOM': { text: 'Không Nhận Hàng', class: 'type-boom' },
         'FIX_COD': { text: 'Sửa COD', class: 'type-fix' },
         'RETURN_CLIENT': { text: 'Khách Gửi', class: 'type-return' },
         'RETURN_SHIPPER': { text: 'Thu Về', class: 'type-return' },
@@ -1822,6 +1843,16 @@ function renderTypeBadge(type, fixCodReason) {
             'RETURN_OLD_ORDER': 'Trả đơn cũ'
         };
         reasonText = `<div style="font-size:10px;color:#64748b;margin-top:2px;">${reasonMap[fixCodReason] || fixCodReason}</div>`;
+    }
+
+    // Add reason detail for BOOM if available
+    if (type === 'BOOM' && boomReason) {
+        const boomReasonMap = {
+            'BOOM_HANG': 'Boom Hàng',
+            'TRUNG_DON': 'Trùng Đơn',
+            'DOI_DIA_CHI': 'Đổi Địa Chỉ'
+        };
+        reasonText = `<div style="font-size:10px;color:#64748b;margin-top:2px;">${boomReasonMap[boomReason] || boomReason}</div>`;
     }
 
     return `<span class="type-label ${conf.class}">● ${conf.text}</span>${reasonText}`;
@@ -2087,6 +2118,12 @@ function resetCreateForm() {
     if (oldOrderSearchInput) {
         oldOrderSearchInput.value = ''; // Reset SĐT cache
     }
+
+    // Reset BOOM reason dropdown
+    const boomReasonEl = document.getElementById('boom-reason');
+    if (boomReasonEl) boomReasonEl.value = 'BOOM_HANG';
+    const boomReasonGroup = document.querySelector('[data-type="BOOM_REASON"]');
+    if (boomReasonGroup) boomReasonGroup.classList.add('hidden');
 }
 
 function translateStatus(s) {
