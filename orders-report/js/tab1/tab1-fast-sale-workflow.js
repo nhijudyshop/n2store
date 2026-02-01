@@ -24,10 +24,10 @@
     const InvoiceStatusDeleteStore = {
         _data: new Map(),
         _initialized: false,
-        _unsubscribe: null, // Real-time listener unsubscribe function
 
         /**
          * Initialize store from localStorage + Firestore
+         * Không sử dụng real-time listener - chỉ load/save đơn giản
          */
         async init() {
             if (this._initialized) return;
@@ -52,9 +52,6 @@
 
                 // Cleanup old entries (>14 days)
                 await this.cleanup();
-
-                // Setup real-time listener for cross-device sync
-                this._setupRealtimeListener();
 
                 this._initialized = true;
             } catch (e) {
@@ -119,135 +116,6 @@
                 }
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error loading from Firestore:', e);
-            }
-        },
-
-        /**
-         * Setup real-time listener for cross-device sync
-         */
-        _setupRealtimeListener() {
-            if (this._unsubscribe) return;
-            if (typeof firebase === 'undefined' || !firebase.firestore) {
-                console.warn('[INVOICE-DELETE] Firebase not available');
-                return;
-            }
-
-            try {
-                const db = firebase.firestore();
-                const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
-                const isAdmin = authData?.userType === 'admin-admin@@' || authData?.username === 'admin';
-
-                if (isAdmin) {
-                    // Admin: listen to entire collection for changes from all users
-                    this._unsubscribe = db.collection(DELETE_FIRESTORE_COLLECTION)
-                        .onSnapshot((snapshot) => {
-                            let hasChanges = false;
-
-                            // Collect all keys from Firestore
-                            const allFirestoreKeys = new Set();
-                            snapshot.docs.forEach(doc => {
-                                const data = doc.data();
-                                if (data.data) {
-                                    Object.keys(data.data).forEach(key => allFirestoreKeys.add(key));
-                                }
-                            });
-
-                            // Check for deleted entries (exist locally but not in Firestore)
-                            for (const [key] of this._data) {
-                                if (!allFirestoreKeys.has(key)) {
-                                    this._data.delete(key);
-                                    hasChanges = true;
-                                    console.log(`[INVOICE-DELETE] Real-time: entry ${key} deleted from another device`);
-                                }
-                            }
-
-                            // Merge new/updated entries
-                            snapshot.docChanges().forEach((change) => {
-                                if (change.type === 'modified' || change.type === 'added') {
-                                    const username = change.doc.id;
-                                    const data = change.doc.data();
-                                    console.log(`[INVOICE-DELETE] Real-time: ${change.type} from ${username}`);
-
-                                    if (data.data) {
-                                        Object.entries(data.data).forEach(([key, value]) => {
-                                            const localValue = this._data.get(key);
-                                            // Merge if new entry OR newer deletedAt OR hidden changed
-                                            if (!localValue ||
-                                                (value.deletedAt > (localValue.deletedAt || 0)) ||
-                                                (value.hidden !== localValue.hidden && value.deletedAt === localValue.deletedAt)) {
-                                                this._data.set(key, value);
-                                                hasChanges = true;
-                                            }
-                                        });
-                                    }
-                                }
-                            });
-
-                            if (hasChanges) {
-                                this._saveToLocalStorage();
-                                console.log(`[INVOICE-DELETE] Real-time sync complete, ${this._data.size} entries`);
-                            }
-                        }, (error) => {
-                            console.error('[INVOICE-DELETE] Real-time listener error:', error);
-                        });
-
-                    console.log('[INVOICE-DELETE] Real-time listener active (admin - all users)');
-                } else {
-                    // Normal user: listen to own document only
-                    this._unsubscribe = this._getDocRef()
-                        .onSnapshot((doc) => {
-                            if (doc.exists) {
-                                const data = doc.data();
-                                let hasChanges = false;
-
-                                // Check for deleted entries (exist locally but not in Firestore)
-                                const firestoreKeys = new Set(Object.keys(data.data || {}));
-                                for (const [key] of this._data) {
-                                    if (!firestoreKeys.has(key)) {
-                                        this._data.delete(key);
-                                        hasChanges = true;
-                                        console.log(`[INVOICE-DELETE] Real-time: entry ${key} deleted from another device`);
-                                    }
-                                }
-
-                                // Merge new/updated entries
-                                if (data.data) {
-                                    Object.entries(data.data).forEach(([key, value]) => {
-                                        const localValue = this._data.get(key);
-                                        // Merge if new entry OR newer deletedAt OR hidden changed
-                                        if (!localValue ||
-                                            (value.deletedAt > (localValue.deletedAt || 0)) ||
-                                            (value.hidden !== localValue.hidden && value.deletedAt === localValue.deletedAt)) {
-                                            this._data.set(key, value);
-                                            hasChanges = true;
-                                        }
-                                    });
-                                }
-
-                                if (hasChanges) {
-                                    this._saveToLocalStorage();
-                                    console.log(`[INVOICE-DELETE] Real-time sync complete, ${this._data.size} entries`);
-                                }
-                            }
-                        }, (error) => {
-                            console.error('[INVOICE-DELETE] Real-time listener error:', error);
-                        });
-
-                    console.log('[INVOICE-DELETE] Real-time listener active (user doc)');
-                }
-            } catch (e) {
-                console.error('[INVOICE-DELETE] Error setting up real-time listener:', e);
-            }
-        },
-
-        /**
-         * Stop real-time listener (call when logging out or cleanup)
-         */
-        destroy() {
-            if (this._unsubscribe) {
-                this._unsubscribe();
-                this._unsubscribe = null;
-                console.log('[INVOICE-DELETE] Real-time listener stopped');
             }
         },
 
