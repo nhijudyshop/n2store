@@ -774,9 +774,6 @@
             const existed = !!entry;
 
             if (existed) {
-                // Get UserName from entry to find correct Firestore doc
-                const ownerUsername = entry.UserName;
-
                 // SOFT DELETE: Đánh dấu deleted thay vì xóa thật
                 // Điều này ngăn code cũ revive entry khi merge
                 const tombstone = {
@@ -787,28 +784,9 @@
                 };
                 this._data.set(key, tombstone);
                 this._sentBills.delete(key);
-                this._saveToLocalStorage();
 
-                // Update Firestore with tombstone
-                if (ownerUsername) {
-                    try {
-                        const db = firebase.firestore();
-                        const ownerDocRef = db.collection(FIRESTORE_COLLECTION).doc(ownerUsername);
-                        const ownerDoc = await ownerDocRef.get();
-
-                        if (ownerDoc.exists) {
-                            const ownerData = ownerDoc.data();
-                            if (ownerData.data) {
-                                // Set tombstone instead of deleting
-                                ownerData.data[key] = tombstone;
-                                await ownerDocRef.set(ownerData);
-                                console.log(`[INVOICE-STATUS] Soft-deleted (tombstone) in Firestore doc "${ownerUsername}"`);
-                            }
-                        }
-                    } catch (e) {
-                        console.error(`[INVOICE-STATUS] Error soft-deleting from Firestore:`, e);
-                    }
-                }
+                // Save to localStorage AND Firestore (sync tombstone to cloud)
+                this.save();
 
                 console.log(`[INVOICE-STATUS] Soft-deleted invoice for order ${saleOnlineId}`);
             }
