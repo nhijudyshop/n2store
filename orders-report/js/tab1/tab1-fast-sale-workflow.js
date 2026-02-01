@@ -142,6 +142,26 @@
                     this._unsubscribe = db.collection(DELETE_FIRESTORE_COLLECTION)
                         .onSnapshot((snapshot) => {
                             let hasChanges = false;
+
+                            // Collect all keys from Firestore
+                            const allFirestoreKeys = new Set();
+                            snapshot.docs.forEach(doc => {
+                                const data = doc.data();
+                                if (data.data) {
+                                    Object.keys(data.data).forEach(key => allFirestoreKeys.add(key));
+                                }
+                            });
+
+                            // Check for deleted entries (exist locally but not in Firestore)
+                            for (const [key] of this._data) {
+                                if (!allFirestoreKeys.has(key)) {
+                                    this._data.delete(key);
+                                    hasChanges = true;
+                                    console.log(`[INVOICE-DELETE] Real-time: entry ${key} deleted from another device`);
+                                }
+                            }
+
+                            // Merge new/updated entries
                             snapshot.docChanges().forEach((change) => {
                                 if (change.type === 'modified' || change.type === 'added') {
                                     const username = change.doc.id;
@@ -179,6 +199,16 @@
                             if (doc.exists) {
                                 const data = doc.data();
                                 let hasChanges = false;
+
+                                // Check for deleted entries (exist locally but not in Firestore)
+                                const firestoreKeys = new Set(Object.keys(data.data || {}));
+                                for (const [key] of this._data) {
+                                    if (!firestoreKeys.has(key)) {
+                                        this._data.delete(key);
+                                        hasChanges = true;
+                                        console.log(`[INVOICE-DELETE] Real-time: entry ${key} deleted from another device`);
+                                    }
+                                }
 
                                 // Merge new/updated entries
                                 if (data.data) {
@@ -318,6 +348,22 @@
 
             console.log(`[INVOICE-DELETE] Toggled hidden for ${key}: ${entry.hidden}`);
             return entry.hidden;
+        },
+
+        /**
+         * Delete an entry from the store
+         * @param {string} key - Entry key (saleOnlineId_timestamp)
+         */
+        async delete(key) {
+            if (!this._data.has(key)) {
+                console.warn(`[INVOICE-DELETE] Entry not found for deletion: ${key}`);
+                return false;
+            }
+
+            this._data.delete(key);
+            await this._save();
+            console.log(`[INVOICE-DELETE] Deleted entry: ${key}`);
+            return true;
         },
 
         /**

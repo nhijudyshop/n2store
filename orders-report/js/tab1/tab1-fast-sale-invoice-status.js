@@ -170,19 +170,39 @@
                     this._unsubscribe = db.collection(FIRESTORE_COLLECTION)
                         .onSnapshot((snapshot) => {
                             let hasChanges = false;
+
+                            // Collect all keys from Firestore
+                            const allFirestoreKeys = new Set();
+                            snapshot.docs.forEach(doc => {
+                                const data = doc.data();
+                                if (data.data) {
+                                    Object.keys(data.data).forEach(key => allFirestoreKeys.add(key));
+                                }
+                            });
+
+                            // Check for deleted entries (exist locally but not in Firestore)
+                            for (const [key] of this._data) {
+                                if (!allFirestoreKeys.has(key)) {
+                                    this._data.delete(key);
+                                    this._sentBills.delete(key);
+                                    hasChanges = true;
+                                    console.log(`[INVOICE-STATUS] Real-time: entry ${key} deleted from another device`);
+                                }
+                            }
+
+                            // Merge new/updated entries
                             snapshot.docChanges().forEach((change) => {
                                 if (change.type === 'modified' || change.type === 'added') {
-                                    hasChanges = true;
                                     const username = change.doc.id;
                                     const data = change.doc.data();
                                     console.log(`[INVOICE-STATUS] Real-time: ${change.type} from ${username}`);
 
-                                    // Merge changes (newer timestamp wins)
                                     if (data.data) {
                                         Object.entries(data.data).forEach(([key, value]) => {
                                             const localValue = this._data.get(key);
                                             if (!localValue || (value.timestamp > (localValue.timestamp || 0))) {
                                                 this._data.set(key, value);
+                                                hasChanges = true;
                                             }
                                         });
                                     }
