@@ -17,8 +17,8 @@
     // Stores mapping: SaleOnlineId -> FastSaleOrder data
     // =====================================================
 
-    const STORAGE_KEY = 'invoiceStatusStore';
-    const FIRESTORE_COLLECTION = 'invoice_status';
+    const STORAGE_KEY = 'invoiceStatusStore_v2';
+    const FIRESTORE_COLLECTION = 'invoice_status_v2';
     const MAX_AGE_DAYS = 14; // Auto cleanup after 14 days
 
     // =====================================================
