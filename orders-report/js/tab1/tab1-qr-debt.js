@@ -1172,6 +1172,13 @@ async function openSaleButtonModal() {
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
 
+    // Reset confirm button state (in case it was disabled from previous session)
+    const confirmBtn = document.querySelector('.sale-btn-teal');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Xác nhận và in (F9)';
+    }
+
     // Restore bill type preference from localStorage (default: 'web')
     const savedBillType = localStorage.getItem('saleBillTypePreference') || 'web';
     const billTypeWeb = document.getElementById('saleBillTypeWeb');

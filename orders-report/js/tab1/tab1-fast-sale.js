@@ -288,10 +288,17 @@ async function showFastSaleModal() {
     fastSaleOrdersData = [];
     window.fastSaleOrdersData = fastSaleOrdersData;
     fastSaleWalletBalances = {};
+    isSavingFastSale = false; // Reset submission flag
 
     // Show modal with loading state
     modal.classList.add('show');
     clearFastSaleStatus();  // Clear any previous status messages
+
+    // Reset confirm buttons state (in case they were disabled from previous session)
+    const saveBtn = document.getElementById('confirmFastSaleBtn');
+    const confirmBtn = document.getElementById('confirmAndCheckFastSaleBtn');
+    if (saveBtn) saveBtn.disabled = false;
+    if (confirmBtn) confirmBtn.disabled = false;
     modalBody.innerHTML = `
         <div class="merge-loading">
             <i class="fas fa-spinner fa-spin"></i>

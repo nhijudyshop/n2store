@@ -996,6 +996,13 @@
      * Confirm cancel order from main table
      */
     async function confirmCancelOrderFromMain() {
+        // Block double-click: check if button is already disabled
+        const cancelBtn = document.querySelector('#cancelOrderModal button[onclick*="confirmCancelOrderFromMain"]');
+        if (cancelBtn?.disabled) {
+            console.warn('[WORKFLOW] ⚠️ Cancel button already disabled, ignoring duplicate click');
+            return;
+        }
+
         const reason = document.getElementById('cancelReasonInput')?.value?.trim();
         if (!reason) {
             window.notificationManager?.warning('Vui lòng nhập lý do hủy đơn');
@@ -1016,6 +1023,13 @@
             window.notificationManager?.error('Không tìm thấy dữ liệu phiếu bán hàng');
             closeCancelOrderModal();
             return;
+        }
+
+        // Disable button to prevent double-click
+        const originalBtnText = cancelBtn?.innerHTML;
+        if (cancelBtn) {
+            cancelBtn.disabled = true;
+            cancelBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
         }
 
         try {
@@ -1091,6 +1105,12 @@
         } catch (error) {
             console.error('[WORKFLOW] Error saving cancel order:', error);
             window.notificationManager?.error('Lỗi lưu yêu cầu hủy đơn');
+
+            // Re-enable button on error
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.innerHTML = originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
+            }
         }
     }
 

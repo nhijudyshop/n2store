@@ -597,6 +597,13 @@ async function updateSaleOrderWithAPI() {
  * Flow: FastSaleOrder POST -> print1 GET -> ODataService.DefaultGet POST -> Open print popup
  */
 async function confirmAndPrintSale() {
+    // Block double-click: check if button is already disabled
+    const confirmBtn = document.querySelector('.sale-btn-teal');
+    if (confirmBtn?.disabled) {
+        console.warn('[SALE-CONFIRM] ⚠️ Button already disabled, ignoring duplicate click');
+        return;
+    }
+
     console.log('[SALE-CONFIRM] Starting confirm and print via InsertListOrderModel...');
 
     // Validate we have order data
@@ -607,8 +614,7 @@ async function confirmAndPrintSale() {
         return;
     }
 
-    // Show loading state
-    const confirmBtn = document.querySelector('.sale-btn-teal');
+    // Show loading state - disable button immediately
     const originalText = confirmBtn?.textContent;
     if (confirmBtn) {
         confirmBtn.disabled = true;
