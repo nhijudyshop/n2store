@@ -336,22 +336,28 @@
 
         /**
          * Get invoice data for a SaleOnlineOrder
+         * Trả về null nếu entry đã bị xóa (tombstone)
          * @param {string} saleOnlineId
          * @returns {Object|null}
          */
         get(saleOnlineId) {
             if (!saleOnlineId) return null;
-            return this._data.get(String(saleOnlineId)) || null;
+            const entry = this._data.get(String(saleOnlineId));
+            // Filter out deleted entries (tombstones)
+            if (entry?._deleted) return null;
+            return entry || null;
         },
 
         /**
-         * Check if order has invoice
+         * Check if order has invoice (not deleted)
          * @param {string} saleOnlineId
          * @returns {boolean}
          */
         has(saleOnlineId) {
             if (!saleOnlineId) return false;
-            return this._data.has(String(saleOnlineId));
+            const entry = this._data.get(String(saleOnlineId));
+            // Filter out deleted entries (tombstones)
+            return entry && !entry._deleted;
         },
 
         /**
@@ -522,17 +528,25 @@
         },
 
         /**
-         * Clear old entries (older than 7 days)
-         * Also cleans sentBills for deleted entries
+         * Clear old entries (older than 14 days)
+         * Also permanently deletes tombstones older than 7 days
          */
         async cleanup() {
             const now = Date.now();
             const maxAge = MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+            const tombstoneMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days for tombstones
 
             let removed = 0;
             const keysToRemove = [];
 
             this._data.forEach((value, key) => {
+                // Permanently delete old tombstones (sau 7 ngày, tất cả máy đã update code)
+                if (value._deleted && value._deletedAt && (now - value._deletedAt) > tombstoneMaxAge) {
+                    keysToRemove.push(key);
+                    removed++;
+                    return;
+                }
+                // Delete old normal entries
                 if (value.timestamp && (now - value.timestamp) > maxAge) {
                     keysToRemove.push(key);
                     removed++;
@@ -546,7 +560,7 @@
             });
 
             if (removed > 0) {
-                console.log(`[INVOICE-STATUS] Cleaned up ${removed} old entries (>${MAX_AGE_DAYS} days)`);
+                console.log(`[INVOICE-STATUS] Cleaned up ${removed} old entries (>${MAX_AGE_DAYS} days or tombstones >7 days)`);
                 this.save(); // Save to both localStorage and Firestore
             }
         },
@@ -573,7 +587,8 @@
         },
 
         /**
-         * Delete a single invoice entry
+         * Delete a single invoice entry (soft delete with tombstone)
+         * Sử dụng soft delete để tránh code cũ revive entry đã xóa
          * @param {string} saleOnlineId - The SaleOnline order ID to delete
          * @returns {boolean} True if deleted, false if not found
          */
@@ -588,11 +603,19 @@
                 // Get UserName from entry to find correct Firestore doc
                 const ownerUsername = entry.UserName;
 
-                this._data.delete(key);
+                // SOFT DELETE: Đánh dấu deleted thay vì xóa thật
+                // Điều này ngăn code cũ revive entry khi merge
+                const tombstone = {
+                    ...entry,
+                    _deleted: true,
+                    _deletedAt: Date.now(),
+                    _deletedBy: window.authManager?.getAuthState()?.username || 'unknown'
+                };
+                this._data.set(key, tombstone);
                 this._sentBills.delete(key);
                 this._saveToLocalStorage();
 
-                // Delete from owner's Firestore document using UserName
+                // Update Firestore with tombstone
                 if (ownerUsername) {
                     try {
                         const db = firebase.firestore();
@@ -601,21 +624,30 @@
 
                         if (ownerDoc.exists) {
                             const ownerData = ownerDoc.data();
-                            if (ownerData.data && ownerData.data[key]) {
-                                delete ownerData.data[key];
+                            if (ownerData.data) {
+                                // Set tombstone instead of deleting
+                                ownerData.data[key] = tombstone;
                                 await ownerDocRef.set(ownerData);
-                                console.log(`[INVOICE-STATUS] Deleted from Firestore doc "${ownerUsername}"`);
+                                console.log(`[INVOICE-STATUS] Soft-deleted (tombstone) in Firestore doc "${ownerUsername}"`);
                             }
                         }
                     } catch (e) {
-                        console.error(`[INVOICE-STATUS] Error deleting from Firestore:`, e);
+                        console.error(`[INVOICE-STATUS] Error soft-deleting from Firestore:`, e);
                     }
                 }
 
-                console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId}`);
+                console.log(`[INVOICE-STATUS] Soft-deleted invoice for order ${saleOnlineId}`);
             }
 
             return existed;
+        },
+
+        /**
+         * Check if entry is deleted (tombstone)
+         */
+        isDeleted(saleOnlineId) {
+            const entry = this._data.get(String(saleOnlineId));
+            return entry?._deleted === true;
         },
 
         /**
