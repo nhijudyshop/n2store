@@ -3979,6 +3979,7 @@
 
                             uploadHistoryRecordsV2.push({
                                 uploadId: record.uploadId || uploadKey,
+                                firebaseKey: uploadKey, // Key thực sự trong Firebase để query
                                 timestamp: record.timestamp || 0,
                                 uploadStatus: record.uploadStatus || 'unknown',
                                 totalSTTs: record.totalSTTs || 0,
@@ -4263,10 +4264,10 @@
                 </div>
 
                 <div class="history-actions">
-                    <button class="btn btn-sm btn-info" onclick="compareCartHistoryV2('${record.uploadId}', '${record.userId || ''}')">
+                    <button class="btn btn-sm btn-info" onclick="compareCartHistoryV2('${record.firebaseKey || record.uploadId}', '${record.userId || ''}')">
                         <i class="fas fa-balance-scale"></i> So Sánh Giỏ
                     </button>
-                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetailV2('${record.uploadId}', '${record.userId || ''}')">
+                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetailV2('${record.firebaseKey || record.uploadId}', '${record.userId || ''}')">
                         <i class="fas fa-eye"></i> Xem Chi Tiết
                     </button>
                 </div>
@@ -4594,8 +4595,8 @@
     /**
      * View upload history detail V2
      */
-    window.viewUploadHistoryDetailV2 = async function (uploadId, userId = '') {
-        console.log('[HISTORY-V2] 👁️ Viewing detail for:', uploadId, 'userId:', userId);
+    window.viewUploadHistoryDetailV2 = async function (firebaseKey, userId = '') {
+        console.log('[HISTORY-V2] 👁️ Viewing detail for firebaseKey:', firebaseKey, 'userId:', userId);
 
         try {
             const detailModal = new bootstrap.Modal(document.getElementById('uploadHistoryV2DetailModal'));
@@ -4621,14 +4622,14 @@
                 historyPath = getUserFirebasePathV2('productAssignments_v2_history');
             }
             console.log('[HISTORY-V2] Loading detail from path:', historyPath);
-            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
+            const snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
             const record = snapshot.val();
 
             if (!record) {
                 throw new Error('Không tìm thấy record');
             }
 
-            const shortId = uploadId.slice(-8);
+            const shortId = firebaseKey.slice(-8);
             titleEl.innerHTML = `<i class="fas fa-info-circle"></i> Chi Tiết Upload #${shortId}`;
 
             bodyEl.innerHTML = renderUploadHistoryDetailV2(record);
@@ -5086,8 +5087,8 @@
     /**
      * Compare Cart History V2
      */
-    window.compareCartHistoryV2 = async function (uploadId, userId = '') {
-        console.log('[HISTORY-V2-COMPARE] 🔍 Comparing cart for uploadId:', uploadId, 'userId:', userId);
+    window.compareCartHistoryV2 = async function (firebaseKey, userId = '') {
+        console.log('[HISTORY-V2-COMPARE] 🔍 Comparing cart for firebaseKey:', firebaseKey, 'userId:', userId);
 
         try {
             const compareModal = new bootstrap.Modal(document.getElementById('compareCartHistoryV2Modal'));
@@ -5110,7 +5111,7 @@
                 historyPath = getUserFirebasePathV2('productAssignments_v2_history');
             }
             console.log('[HISTORY-V2-COMPARE] Loading from path:', historyPath);
-            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
+            const snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
             const record = snapshot.val();
 
             if (!record || !record.beforeSnapshot) {
