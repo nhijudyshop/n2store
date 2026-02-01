@@ -54,7 +54,7 @@
                 await this.cleanup();
 
                 // Setup real-time listener for cross-device sync
-                this._setupRealtimeListener();
+                await this._setupRealtimeListener();
 
                 this._initialized = true;
             } catch (e) {
@@ -123,42 +123,118 @@
         },
 
         /**
+         * Wait for Firebase to be ready
+         * @param {number} maxRetries - Maximum number of retries
+         * @param {number} delay - Delay between retries in ms
+         */
+        async _waitForFirebase(maxRetries = 10, delay = 500) {
+            for (let i = 0; i < maxRetries; i++) {
+                // Check if Firebase is available
+                if (typeof firebase !== 'undefined' && firebase.firestore) {
+                    // Check if authManager has valid username
+                    const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+                    const username = authData?.username || authData?.userType?.split('-')?.[0];
+                    if (username && username !== 'default' && username !== 'undefined') {
+                        console.log(`[INVOICE-DELETE] Firebase ready, username: ${username}`);
+                        return true;
+                    }
+                }
+                console.log(`[INVOICE-DELETE] Waiting for Firebase/Auth... (${i + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            console.warn('[INVOICE-DELETE] Firebase/Auth not ready after max retries');
+            return false;
+        },
+
+        /**
          * Setup real-time listener for cross-device sync
          */
-        _setupRealtimeListener() {
+        async _setupRealtimeListener() {
             if (this._unsubscribe) {
                 console.log('[INVOICE-DELETE] Real-time listener already active');
                 return;
             }
 
-            try {
-                this._unsubscribe = this._getDocRef()
-                    .onSnapshot((doc) => {
-                        if (doc.exists) {
-                            const data = doc.data();
-                            let hasChanges = false;
+            // Wait for Firebase to be ready
+            const isReady = await this._waitForFirebase();
+            if (!isReady) {
+                console.warn('[INVOICE-DELETE] Skipping real-time listener setup - Firebase not ready');
+                return;
+            }
 
-                            // Merge new/updated entries (newer deletedAt wins)
-                            if (data.data) {
-                                Object.entries(data.data).forEach(([key, value]) => {
-                                    const localValue = this._data.get(key);
-                                    if (!localValue || (value.deletedAt > (localValue.deletedAt || 0))) {
-                                        this._data.set(key, value);
-                                        hasChanges = true;
+            try {
+                const db = firebase.firestore();
+                const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+                const isAdmin = authData?.userType === 'admin-admin@@' || authData?.username === 'admin';
+
+                if (isAdmin) {
+                    // Admin: listen to entire collection for changes from all users
+                    this._unsubscribe = db.collection(DELETE_FIRESTORE_COLLECTION)
+                        .onSnapshot((snapshot) => {
+                            let hasChanges = false;
+                            snapshot.docChanges().forEach((change) => {
+                                if (change.type === 'modified' || change.type === 'added') {
+                                    const username = change.doc.id;
+                                    const data = change.doc.data();
+                                    console.log(`[INVOICE-DELETE] Real-time: ${change.type} from ${username}`);
+
+                                    if (data.data) {
+                                        Object.entries(data.data).forEach(([key, value]) => {
+                                            const localValue = this._data.get(key);
+                                            // Merge if new entry OR newer deletedAt OR hidden changed
+                                            if (!localValue ||
+                                                (value.deletedAt > (localValue.deletedAt || 0)) ||
+                                                (value.hidden !== localValue.hidden && value.deletedAt === localValue.deletedAt)) {
+                                                this._data.set(key, value);
+                                                hasChanges = true;
+                                            }
+                                        });
                                     }
-                                });
-                            }
+                                }
+                            });
 
                             if (hasChanges) {
                                 this._saveToLocalStorage();
                                 console.log(`[INVOICE-DELETE] Real-time sync complete, ${this._data.size} entries`);
                             }
-                        }
-                    }, (error) => {
-                        console.error('[INVOICE-DELETE] Real-time listener error:', error);
-                    });
+                        }, (error) => {
+                            console.error('[INVOICE-DELETE] Real-time listener error:', error);
+                        });
 
-                console.log('[INVOICE-DELETE] Real-time listener active');
+                    console.log('[INVOICE-DELETE] Real-time listener active (admin - all users)');
+                } else {
+                    // Normal user: listen to own document only
+                    this._unsubscribe = this._getDocRef()
+                        .onSnapshot((doc) => {
+                            if (doc.exists) {
+                                const data = doc.data();
+                                let hasChanges = false;
+
+                                // Merge new/updated entries
+                                if (data.data) {
+                                    Object.entries(data.data).forEach(([key, value]) => {
+                                        const localValue = this._data.get(key);
+                                        // Merge if new entry OR newer deletedAt OR hidden changed
+                                        if (!localValue ||
+                                            (value.deletedAt > (localValue.deletedAt || 0)) ||
+                                            (value.hidden !== localValue.hidden && value.deletedAt === localValue.deletedAt)) {
+                                            this._data.set(key, value);
+                                            hasChanges = true;
+                                        }
+                                    });
+                                }
+
+                                if (hasChanges) {
+                                    this._saveToLocalStorage();
+                                    console.log(`[INVOICE-DELETE] Real-time sync complete, ${this._data.size} entries`);
+                                }
+                            }
+                        }, (error) => {
+                            console.error('[INVOICE-DELETE] Real-time listener error:', error);
+                        });
+
+                    console.log('[INVOICE-DELETE] Real-time listener active (user doc)');
+                }
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error setting up real-time listener:', e);
             }
