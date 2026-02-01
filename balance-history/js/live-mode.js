@@ -303,6 +303,7 @@ const LiveModeModule = (function() {
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
                         <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
                         <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
+                        <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
                         <select class="customer-dropdown" data-id="${tx.id}">
                             <option value="">-- Chọn KH --</option>
                             ${options}
@@ -317,6 +318,7 @@ const LiveModeModule = (function() {
                         <span class="card-time">${formatTime(tx.transaction_date)}</span>
                         <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
                         <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
+                        <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
                         <div class="card-phone-input-group">
                             <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
                             <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
@@ -354,7 +356,7 @@ const LiveModeModule = (function() {
                         <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
                         <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
                     </div>
-                    <span class="card-method ${methodClass}">${methodLabel}</span>
+                    <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
                     <button class="btn-confirm" data-id="${tx.id}">Xác nhận</button>
                 </div>
             `;
@@ -551,7 +553,9 @@ const LiveModeModule = (function() {
     async function assignManual(txId) {
         const phoneInput = document.getElementById(`phone-${txId}`);
         const btn = document.getElementById(`btn-${txId}`);
+        const noteInput = document.getElementById(`note-${txId}`);
         const phone = phoneInput?.value.replace(/\D/g, '');
+        const staffNote = noteInput?.value?.trim() || '';
 
         if (!phone || phone.length < 10) {
             showNotification('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
@@ -574,7 +578,8 @@ const LiveModeModule = (function() {
                     phone: phone,
                     name: customerName,
                     is_manual_entry: true,  // Nhập tay từ Live Mode → chờ kế toán duyệt
-                    entered_by: window.authManager?.getUserInfo()?.username || 'staff'
+                    entered_by: window.authManager?.getUserInfo()?.username || 'staff',
+                    staff_note: staffNote
                 })
             });
 
@@ -586,7 +591,7 @@ const LiveModeModule = (function() {
             const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true })
+                body: JSON.stringify({ hidden: true, staff_note: staffNote })
             });
 
             if (!hideResponse.ok) {
@@ -606,6 +611,7 @@ const LiveModeModule = (function() {
                 tx.customer_phone = phone;
                 tx.customer_name = customerName;  // Lấy tên từ gợi ý TPOS
                 tx.match_method = 'manual_entry';
+                tx.staff_note = staffNote;
                 state.manualItems.splice(txIndex, 1);
                 state.confirmedItems.unshift(tx);
             }
@@ -626,8 +632,10 @@ const LiveModeModule = (function() {
         const card = document.querySelector(`.kanban-card[data-id="${txId}"]`);
         const dropdown = document.querySelector(`.customer-dropdown[data-id="${txId}"]`);
         const btn = card?.querySelector('.btn-assign');
+        const noteInput = document.getElementById(`note-${txId}`);
         const pendingMatchId = card?.dataset.pendingId;
         const customerId = dropdown?.value;
+        const staffNote = noteInput?.value?.trim() || '';
 
         if (!customerId) {
             showNotification('Vui lòng chọn khách hàng', 'error');
@@ -649,7 +657,8 @@ const LiveModeModule = (function() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     customer_id: customerId.startsWith('LOCAL_') ? customerId : parseInt(customerId),
-                    resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin'
+                    resolved_by: JSON.parse(localStorage.getItem('n2shop_current_user') || '{}').username || 'admin',
+                    staff_note: staffNote
                 })
             });
 
@@ -662,7 +671,7 @@ const LiveModeModule = (function() {
             const hideResponse = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true })
+                body: JSON.stringify({ hidden: true, staff_note: staffNote })
             });
 
             if (!hideResponse.ok) {
@@ -681,6 +690,7 @@ const LiveModeModule = (function() {
                 tx.customer_phone = customerPhone;
                 tx.customer_name = customerName;
                 tx.match_method = 'manual_entry';
+                tx.staff_note = staffNote;
                 state.manualItems.splice(txIndex, 1);
                 state.confirmedItems.unshift(tx);
             }
@@ -699,6 +709,8 @@ const LiveModeModule = (function() {
 
     async function confirmAutoMatched(txId) {
         const btn = document.querySelector(`.kanban-card[data-id="${txId}"] .btn-confirm`);
+        const noteInput = document.getElementById(`note-${txId}`);
+        const staffNote = noteInput?.value?.trim() || '';
 
         setButtonLoading(btn, true);
         setCardProcessing(txId, true);
@@ -707,7 +719,7 @@ const LiveModeModule = (function() {
             const response = await fetch(`${API_BASE}/api/sepay/transaction/${txId}/hidden`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hidden: true })
+                body: JSON.stringify({ hidden: true, staff_note: staffNote })
             });
 
             if (!response.ok) throw new Error('Xác nhận thất bại');
@@ -717,6 +729,7 @@ const LiveModeModule = (function() {
             if (txIndex !== -1) {
                 const tx = state.autoMatchedItems[txIndex];
                 tx.is_hidden = true;  // Mark as confirmed
+                tx.staff_note = staffNote;
                 state.autoMatchedItems.splice(txIndex, 1);
                 state.confirmedItems.unshift(tx);  // Add to top of confirmed list
             }

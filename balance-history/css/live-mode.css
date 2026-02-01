@@ -356,7 +356,7 @@
 /* Row columns */
 .kanban-card .card-time {
     flex-shrink: 0;
-    width: 70px;
+    width: 55px;
     font-size: 11px;
     color: #64748b;
     font-weight: 500;
@@ -364,7 +364,7 @@
 
 .kanban-card .card-amount {
     flex-shrink: 0;
-    width: 80px;
+    width: 70px;
     font-weight: 700;
     font-size: 13px;
     color: #10b981;
@@ -446,6 +446,28 @@
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+/* Staff note input */
+.kanban-card .card-note-input {
+    flex-shrink: 0;
+    width: 80px;
+    padding: 4px 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 11px;
+    background: #fffbeb;
+}
+
+.kanban-card .card-note-input:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.1);
+}
+
+.kanban-card .card-note-input::placeholder {
+    color: #d97706;
+    opacity: 0.6;
 }
 
 /* TPOS suggest inline - for manual column */
