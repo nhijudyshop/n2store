@@ -246,16 +246,19 @@
 
         /**
          * Save to Firestore (debounced 2s)
+         * Uses set() WITHOUT merge to ensure deleted entries are removed
          */
         _saveToFirestore() {
             clearTimeout(this._syncTimeout);
             this._syncTimeout = setTimeout(async () => {
                 try {
+                    // set() without merge = REPLACE entire document
+                    // This ensures deleted entries are removed from Firestore
                     await this._getDocRef().set({
                         data: Object.fromEntries(this._data),
                         sentBills: Array.from(this._sentBills),
                         lastUpdated: Date.now()
-                    }, { merge: true });
+                    });
                     console.log('[INVOICE-STATUS] Synced to Firestore');
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore save error:', e);

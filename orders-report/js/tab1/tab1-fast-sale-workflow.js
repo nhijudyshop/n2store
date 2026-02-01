@@ -159,12 +159,13 @@
                 }
 
                 // Sync to Firestore (if Firebase is available)
+                // set() without merge = REPLACE entire document (ensures deleted entries are removed)
                 if (typeof firebase !== 'undefined' && firebase.firestore) {
                     const docRef = this._getDocRef();
                     console.log(`[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`);
                     // Clean data to remove undefined values (Firestore doesn't accept them)
                     const cleanedData = this._cleanForFirestore(dataObj);
-                    await docRef.set({ data: cleanedData }, { merge: true });
+                    await docRef.set({ data: cleanedData, lastUpdated: Date.now() });
                     console.log(`[INVOICE-DELETE] Synced to Firestore successfully`);
                 } else {
                     console.warn('[INVOICE-DELETE] Firebase not available, skipping Firestore sync');
