@@ -2819,11 +2819,12 @@ router.get('/pending-matches', async (req, res) => {
  * Body:
  *   - customer_id: The selected customer ID
  *   - resolved_by: Admin username (optional)
+ *   - staff_note: Note from staff when resolving (optional)
  */
 router.post('/pending-matches/:id/resolve', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { customer_id, resolved_by = 'admin' } = req.body;
+    const { customer_id, resolved_by = 'admin', staff_note } = req.body;
 
     if (!customer_id) {
         return res.status(400).json({
@@ -2977,12 +2978,13 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
                  customer_id = COALESCE($3, customer_id),
                  verification_status = 'PENDING_VERIFICATION',
                  match_method = 'pending_match',
-                 verification_note = 'Chờ kế toán duyệt (NV chọn từ dropdown)'
+                 verification_note = 'Chờ kế toán duyệt (NV chọn từ dropdown)',
+                 staff_note = COALESCE($4, staff_note)
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [match.transaction_id, selectedCustomer.phone, customerId]
+            [match.transaction_id, selectedCustomer.phone, customerId, staff_note || null]
         );
 
-        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId);
+        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId, staff_note ? `staff_note: "${staff_note}"` : '');
 
         // 5. DO NOT process wallet immediately - needs accountant approval first
         // According to verification workflow: NV chọn từ dropdown → PENDING_VERIFICATION → Kế toán duyệt → mới process wallet
@@ -3383,6 +3385,7 @@ router.put('/customer-info/:unique_code', async (req, res) => {
  *   is_accountant_correction?: boolean - If true, this is an accountant correction with note + image
  *   note?: string - Custom note from accountant
  *   verification_image_url?: string - Image URL for verification
+ *   staff_note?: string - Note from staff when assigning phone in Live Mode
  * }
  */
 router.put('/transaction/:id/phone', async (req, res) => {
@@ -3396,7 +3399,8 @@ router.put('/transaction/:id/phone', async (req, res) => {
         entered_by = 'staff',
         is_accountant_correction = false,
         note,
-        verification_image_url
+        verification_image_url,
+        staff_note
     } = req.body;
 
     try {
@@ -3461,11 +3465,12 @@ router.put('/transaction/:id/phone', async (req, res) => {
                     match_method = 'manual_entry',
                     verification_status = 'PENDING_VERIFICATION',
                     verification_note = $3,
-                    wallet_processed = FALSE
+                    wallet_processed = FALSE,
+                    staff_note = COALESCE($4, staff_note)
                 WHERE id = $2
                 RETURNING *`;
-            updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`];
-            console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval`);
+            updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`, staff_note || null];
+            console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval${staff_note ? `, staff_note: "${staff_note}"` : ''}`);
         } else if (is_accountant_correction) {
             // Accountant correction with custom note and optional image
             const finalNote = note || `Thay đổi SĐT bởi ${entered_by}`;
@@ -3660,12 +3665,12 @@ router.put('/transaction/:id/phone', async (req, res) => {
 /**
  * PUT /api/sepay/transaction/:id/hidden
  * Toggle hidden status of a transaction
- * Body: { hidden: boolean }
+ * Body: { hidden: boolean, staff_note?: string }
  */
 router.put('/transaction/:id/hidden', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { hidden } = req.body;
+    const { hidden, staff_note } = req.body;
 
     try {
         // Validate inputs
@@ -3683,11 +3688,17 @@ router.put('/transaction/:id/hidden', async (req, res) => {
             });
         }
 
-        // Update the transaction's hidden status
-        const updateResult = await db.query(
-            'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden',
-            [hidden, id]
-        );
+        // Update the transaction's hidden status and staff_note if provided
+        let query, params;
+        if (staff_note !== undefined) {
+            query = 'UPDATE balance_history SET is_hidden = $1, staff_note = $2 WHERE id = $3 RETURNING id, is_hidden, staff_note';
+            params = [hidden, staff_note, id];
+        } else {
+            query = 'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden, staff_note';
+            params = [hidden, id];
+        }
+
+        const updateResult = await db.query(query, params);
 
         if (updateResult.rows.length === 0) {
             return res.status(404).json({
@@ -3696,7 +3707,7 @@ router.put('/transaction/:id/hidden', async (req, res) => {
             });
         }
 
-        console.log(`[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}`);
+        console.log(`[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}${staff_note ? `, staff_note = "${staff_note}"` : ''}`);
 
         res.json({
             success: true,
