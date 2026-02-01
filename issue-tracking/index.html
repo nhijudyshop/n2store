@@ -141,7 +141,7 @@
                     <input type="text" id="search-ticket" placeholder="Tìm theo SĐT, Mã đơn..." class="search-input">
                     <select id="filter-type" class="select-input">
                         <option value="all">Tất cả loại</option>
-                        <option value="BOOM">Boom hàng</option>
+                        <option value="BOOM">Không Nhận Hàng</option>
                         <option value="RETURN_SHIPPER">Thu về (Shipper)</option>
                         <option value="RETURN_CLIENT">Khách gửi</option>
                         <option value="FIX_COD">Sửa COD</option>
@@ -261,7 +261,7 @@
                         <option value="FIX_COD">Sửa COD (Shipper gọi)</option>
                         <option value="RETURN_CLIENT">Khách Gửi (Tỉnh/Bưu cục)</option>
                         <option value="RETURN_SHIPPER">Thu Về (Shipper/TP)</option>
-                        <option value="BOOM">Boom Hàng (Khách không nhận)</option>
+                        <option value="BOOM">Không Nhận Hàng</option>
                         <option value="OTHER">CSKH / Vấn đề khác</option>
                     </select>
                 </div>
@@ -317,6 +317,21 @@
                         <div class="form-group hidden" id="shipper-input-group">
                             <label>Shipper / Đội giao hàng</label>
                             <input type="text" id="return-shipper-name" placeholder="Tên shipper mang về">
+                        </div>
+                    </div>
+
+                    <!-- BOOM Sub-reason Fields -->
+                    <div class="field-group hidden" data-type="BOOM_REASON">
+                        <div class="form-group">
+                            <label>Lý do không nhận hàng</label>
+                            <select id="boom-reason" class="select-input" onchange="onBoomReasonChange()">
+                                <option value="BOOM_HANG">Boom Hàng (Khách boom)</option>
+                                <option value="TRUNG_DON">Trùng Đơn</option>
+                                <option value="DOI_DIA_CHI">Đổi Địa Chỉ</option>
+                            </select>
+                            <p class="calc-hint" style="margin-top:8px;">
+                                <span id="boom-reason-hint"></span>
+                            </p>
                         </div>
                     </div>
 

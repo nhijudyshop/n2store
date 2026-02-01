@@ -213,6 +213,7 @@ const ApiService = {
                         new_cod: ticketData.newCod,
                         refund_amount: ticketData.money,
                         fix_cod_reason: ticketData.fixCodReason || ticketData.fixReason,
+                        boom_reason: ticketData.boomReason,
                         internal_note: ticketData.note,
                         created_by: ticketData.createdBy || 'system'
                     })
@@ -413,6 +414,7 @@ const ApiService = {
                             money: ticket.refund_amount,
                             fixReason: ticket.fix_cod_reason,
                             fixCodReason: ticket.fix_cod_reason,  // For renderProductsList and renderTypeBadge
+                            boomReason: ticket.boom_reason,  // For renderTypeBadge
                             note: ticket.internal_note,
                             virtualCreditId: ticket.virtual_credit_id,  // For UI to show correct button
                             virtual_credit_id: ticket.virtual_credit_id,
