@@ -72,9 +72,10 @@
          */
         _getDocRef() {
             const db = firebase.firestore();
-            // Get username from authManager - use getAuthData() and extract from userType
+            // Get username from authManager or fallback to localStorage
             const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
-            const username = authData?.username || (authData?.userType ? authData.userType.split('-')[0] : 'default');
+            const userType = authData?.userType || localStorage.getItem('userType') || '';
+            const username = authData?.username || userType.split('-')[0] || 'default';
             console.log(`[INVOICE-DELETE] Using Firestore doc: ${DELETE_FIRESTORE_COLLECTION}/${username}`);
             return db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
         },

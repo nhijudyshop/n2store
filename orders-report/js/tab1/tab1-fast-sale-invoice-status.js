@@ -139,9 +139,10 @@
          */
         _getDocRef() {
             const db = firebase.firestore();
-            // Use actual username (not random user_xxx) for cross-device sync
+            // Get username from authManager or fallback to localStorage
             const authState = window.authManager?.getAuthState();
-            const username = authState?.username || authState?.userType?.split('-')[0] || 'default';
+            const userType = authState?.userType || localStorage.getItem('userType') || '';
+            const username = authState?.username || userType.split('-')[0] || 'default';
             return db.collection(FIRESTORE_COLLECTION).doc(username);
         },
 
@@ -150,7 +151,8 @@
          */
         _isAdmin() {
             const authState = window.authManager?.getAuthState();
-            return authState?.userType === 'admin-admin@@' || authState?.username === 'admin';
+            const userType = authState?.userType || localStorage.getItem('userType') || '';
+            return userType === 'admin-admin@@' || userType.split('-')[0] === 'admin';
         },
 
         /**
