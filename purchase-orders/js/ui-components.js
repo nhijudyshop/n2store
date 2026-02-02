@@ -625,17 +625,44 @@ class PurchaseOrderUIComponents {
     }
 
     // ========================================
-    // TOAST NOTIFICATIONS
+    // TOAST NOTIFICATIONS (uses shared notificationManager)
     // ========================================
 
     /**
      * Show toast notification
+     * Uses shared notificationManager if available, fallback to custom implementation
      * @param {string} message - Message to display
      * @param {string} type - Toast type: 'success', 'error', 'warning', 'info'
      * @param {number} duration - Duration in milliseconds
      */
     showToast(message, type = 'info', duration = 3000) {
-        // Create toast container if not exists
+        // Use shared notificationManager if available
+        if (window.notificationManager) {
+            switch (type) {
+                case 'success':
+                    window.notificationManager.success(message, duration);
+                    break;
+                case 'error':
+                    window.notificationManager.error(message, duration);
+                    break;
+                case 'warning':
+                    window.notificationManager.warning(message, duration);
+                    break;
+                default:
+                    window.notificationManager.info(message, duration);
+            }
+            return;
+        }
+
+        // Fallback: Create custom toast
+        this._showCustomToast(message, type, duration);
+    }
+
+    /**
+     * Custom toast implementation (fallback)
+     * @private
+     */
+    _showCustomToast(message, type, duration) {
         let toastContainer = document.getElementById('toastContainer');
         if (!toastContainer) {
             toastContainer = document.createElement('div');
@@ -644,7 +671,6 @@ class PurchaseOrderUIComponents {
             document.body.appendChild(toastContainer);
         }
 
-        // Get icon based on type
         const icons = {
             success: 'check-circle',
             error: 'x-circle',
@@ -652,7 +678,6 @@ class PurchaseOrderUIComponents {
             info: 'info'
         };
 
-        // Create toast element
         const toast = document.createElement('div');
         toast.className = `toast toast--${type}`;
         toast.innerHTML = `
@@ -663,47 +688,55 @@ class PurchaseOrderUIComponents {
             </button>
         `;
 
-        // Add to container
         toastContainer.appendChild(toast);
 
-        // Re-initialize Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
 
-        // Bind close handler
         const closeBtn = toast.querySelector('.toast__close');
-        closeBtn.addEventListener('click', () => {
-            this.removeToast(toast);
-        });
+        closeBtn.addEventListener('click', () => this._removeToast(toast));
 
-        // Auto remove
-        setTimeout(() => {
-            this.removeToast(toast);
-        }, duration);
+        setTimeout(() => this._removeToast(toast), duration);
     }
 
     /**
      * Remove toast with animation
-     * @param {HTMLElement} toast
+     * @private
      */
-    removeToast(toast) {
+    _removeToast(toast) {
+        if (!toast) return;
         toast.classList.add('toast--exit');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
+        setTimeout(() => toast.remove(), 300);
     }
 
     // ========================================
-    // CONFIRMATION DIALOG
+    // CONFIRMATION DIALOG (uses shared notificationManager)
     // ========================================
 
     /**
      * Show confirmation dialog
+     * Uses shared notificationManager.confirm if available
      * @param {Object} options - Dialog options
      * @returns {Promise<boolean>}
      */
-    showConfirmDialog(options) {
+    async showConfirmDialog(options) {
+        const { title = 'Xác nhận', message = 'Bạn có chắc chắn?' } = options;
+
+        // Use shared notificationManager.confirm if available
+        if (window.notificationManager?.confirm) {
+            return window.notificationManager.confirm(message, title);
+        }
+
+        // Fallback: Custom dialog
+        return this._showCustomConfirmDialog(options);
+    }
+
+    /**
+     * Custom confirm dialog implementation (fallback)
+     * @private
+     */
+    _showCustomConfirmDialog(options) {
         return new Promise((resolve) => {
             const {
                 title = 'Xác nhận',
@@ -713,16 +746,10 @@ class PurchaseOrderUIComponents {
                 type = 'warning'
             } = options;
 
-            // Create overlay
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay';
 
-            // Get icon based on type
-            const icons = {
-                warning: 'alert-triangle',
-                danger: 'alert-octagon',
-                info: 'info'
-            };
+            const icons = { warning: 'alert-triangle', danger: 'alert-octagon', info: 'info' };
 
             overlay.innerHTML = `
                 <div class="confirm-dialog confirm-dialog--${type}">
@@ -740,12 +767,10 @@ class PurchaseOrderUIComponents {
 
             document.body.appendChild(overlay);
 
-            // Re-initialize Lucide icons
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
 
-            // Bind handlers
             const confirmBtn = overlay.querySelector('#btnDialogConfirm');
             const cancelBtn = overlay.querySelector('#btnDialogCancel');
 
@@ -754,25 +779,10 @@ class PurchaseOrderUIComponents {
                 setTimeout(() => overlay.remove(), 200);
             };
 
-            confirmBtn.addEventListener('click', () => {
-                cleanup();
-                resolve(true);
-            });
+            confirmBtn.addEventListener('click', () => { cleanup(); resolve(true); });
+            cancelBtn.addEventListener('click', () => { cleanup(); resolve(false); });
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) { cleanup(); resolve(false); } });
 
-            cancelBtn.addEventListener('click', () => {
-                cleanup();
-                resolve(false);
-            });
-
-            // Close on overlay click
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                    cleanup();
-                    resolve(false);
-                }
-            });
-
-            // Close on Escape key
             const handleEscape = (e) => {
                 if (e.key === 'Escape') {
                     cleanup();

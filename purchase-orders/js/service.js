@@ -47,9 +47,16 @@ class PurchaseOrderService {
             this.db = firebase.firestore();
             this.storage = firebase.storage();
 
-            // Get current user from auth manager if available
-            if (window.sharedAuthManager) {
-                this.currentUser = await window.sharedAuthManager.getCurrentUser();
+            // Get current user from shared authManager
+            if (window.authManager) {
+                const authState = window.authManager.getAuthState?.() || window.authManager.getUserInfo?.();
+                if (authState) {
+                    this.currentUser = {
+                        uid: authState.userId || authState.userType || 'anonymous',
+                        displayName: authState.userName || authState.userType?.split('-')[0] || 'User',
+                        email: authState.email || ''
+                    };
+                }
             }
 
             this.initialized = true;
