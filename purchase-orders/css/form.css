@@ -80,6 +80,37 @@
     font-family: monospace;
 }
 
+/* Price input with red border for required fields (like React app) */
+.price-input {
+    border-color: var(--color-danger);
+    background-color: hsl(0, 84%, 98%);
+}
+
+.price-input:focus {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Input with icon (calendar, search) */
+.input-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon svg {
+    position: absolute;
+    left: 12px;
+    width: 16px;
+    height: 16px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+}
+
+.input-icon .form-input {
+    padding-left: 36px;
+}
+
 .input-with-icon {
     display: flex;
     gap: 4px;
@@ -277,6 +308,27 @@
     height: 50px;
     object-fit: cover;
     border-radius: var(--radius-sm);
+}
+
+.thumb-count {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+
+/* Form group settings button alignment */
+.form-group--settings {
+    align-self: flex-end;
+}
+
+.form-group--settings .btn {
+    height: 40px;
+    width: 40px;
 }
 
 /* Form Footer */
