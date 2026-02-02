@@ -1119,6 +1119,10 @@ router.get('/approved-today', async (req, res) => {
                 bh.verification_note,
                 bh.verification_image_url,
                 bh.match_method,
+                bh.manager_reviewed,
+                bh.manager_review_note,
+                bh.reviewed_by,
+                bh.reviewed_at,
                 c.name as customer_name
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
@@ -1146,6 +1150,10 @@ router.get('/approved-today', async (req, res) => {
                         bh.verified_by,
                         bh.verification_note,
                         bh.match_method,
+                        bh.manager_reviewed,
+                        bh.manager_review_note,
+                        bh.reviewed_by,
+                        bh.reviewed_at,
                         c.name as customer_name
                     FROM balance_history bh
                     LEFT JOIN customers c ON bh.customer_id = c.id
@@ -1398,6 +1406,92 @@ router.put('/settings/auto-approve', async (req, res) => {
         });
     } catch (error) {
         handleError(res, error, 'Failed to update auto-approve setting');
+    }
+});
+
+// =====================================================
+// MANAGER REVIEW ENDPOINTS - Quản lý kiểm tra lần cuối
+// =====================================================
+
+/**
+ * POST /api/v2/balance-history/:id/manager-review
+ * Manager marks a transaction as reviewed with optional notes
+ * Used for final verification by management
+ */
+router.post('/:id/manager-review', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { manager_review_note, reviewed_by } = req.body;
+
+    if (!reviewed_by) {
+        return res.status(400).json({ success: false, error: 'reviewed_by is required' });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        // 1. Get transaction and verify it exists and is approved
+        const txResult = await db.query(
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            [parseInt(id)]
+        );
+
+        if (txResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Transaction not found' });
+        }
+
+        const tx = txResult.rows[0];
+
+        // Only allow review on approved transactions
+        if (tx.verification_status !== 'APPROVED') {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: `Chỉ có thể kiểm tra giao dịch đã được duyệt. Trạng thái hiện tại: ${tx.verification_status}`
+            });
+        }
+
+        // Check if already reviewed
+        if (tx.manager_reviewed) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'Giao dịch này đã được kiểm tra trước đó',
+                reviewed_by: tx.reviewed_by,
+                reviewed_at: tx.reviewed_at
+            });
+        }
+
+        // 2. Update transaction with manager review info
+        await db.query(`
+            UPDATE balance_history
+            SET manager_reviewed = TRUE,
+                manager_review_note = $2,
+                reviewed_by = $3,
+                reviewed_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+            WHERE id = $1
+        `, [id, manager_review_note || '', reviewed_by]);
+
+        await db.query('COMMIT');
+
+        console.log(`[MANAGER REVIEW] Transaction ${id} reviewed by ${reviewed_by}`);
+
+        res.json({
+            success: true,
+            message: 'Đã kiểm tra giao dịch thành công',
+            data: {
+                id: parseInt(id),
+                manager_reviewed: true,
+                manager_review_note: manager_review_note || '',
+                reviewed_by,
+                reviewed_at: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to mark transaction as reviewed');
     }
 });
 

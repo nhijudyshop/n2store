@@ -1780,3 +1780,62 @@
     margin: 4px 0;
     font-size: 14px;
 }
+
+/* =====================================================
+   MANAGER REVIEW STYLES
+   ===================================================== */
+
+/* Review button in actions column */
+.acc-review-btn {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid #10b981;
+    background: transparent;
+    color: #059669;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-right: 4px;
+}
+
+.acc-review-btn:hover {
+    background: #d1fae5;
+    border-color: #059669;
+}
+
+.acc-review-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Reviewed row - light pink background */
+.acc-approved-table tbody tr.acc-row-reviewed {
+    background: #fff0f0 !important;
+}
+
+.acc-approved-table tbody tr.acc-row-reviewed:hover {
+    background: #fee2e2 !important;
+}
+
+/* Reviewed label/badge */
+.acc-reviewed-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: #fce7f3;
+    border: 1px solid #f9a8d4;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #be185d;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Review note display in table */
+.acc-review-note-text {
+    font-size: 12px;
+    color: #be185d;
+    font-style: italic;
+    margin-top: 4px;
+}

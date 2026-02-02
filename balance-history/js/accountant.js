@@ -383,6 +383,14 @@
                     const name = adjustBtn.dataset.name;
                     await openAdjustmentModal(txId, amount, phone, name);
                 }
+
+                // Manager Review button handler
+                const reviewBtn = e.target.closest('.acc-review-btn');
+                if (reviewBtn) {
+                    e.preventDefault();
+                    const txId = reviewBtn.dataset.id;
+                    openManagerReviewModal(txId);
+                }
             });
         }
     }
@@ -1582,6 +1590,15 @@
             const verifiedAt = formatDateTime(tx.verified_at);
             const txDate = formatDateTime(tx.transaction_date);
 
+            // Check if transaction has been manager reviewed
+            const isReviewed = tx.manager_reviewed || false;
+            const reviewNote = tx.manager_review_note || '';
+            const reviewedBy = tx.reviewed_by || '';
+            const reviewedAt = tx.reviewed_at ? formatDateTime(tx.reviewed_at) : '';
+
+            // Row class - add reviewed class if applicable
+            const rowClass = isReviewed ? 'acc-row-reviewed' : '';
+
             // Dịch ghi chú
             let note = tx.verification_note || '';
             let hasAdjustment = false;
@@ -1608,7 +1625,18 @@
                     </div>
                 `;
             }
-            noteHtml += `<span class="acc-approve-note">${note}</span></div>`;
+            noteHtml += `<span class="acc-approve-note">${note}</span>`;
+
+            // Add review note if reviewed
+            if (isReviewed && reviewNote) {
+                noteHtml += `<div class="acc-review-note-text" title="Kiểm tra bởi ${reviewedBy} lúc ${reviewedAt}">${reviewNote}</div>`;
+            }
+            noteHtml += '</div>';
+
+            // Review button - show different state based on reviewed status
+            const reviewBtnHtml = isReviewed
+                ? `<span class="acc-reviewed-label" title="Đã kiểm tra bởi ${reviewedBy} lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
+                : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
 
             // Nút Điều chỉnh - disable nếu đã có adjustment
             const adjustBtnHtml = hasAdjustment
@@ -1616,7 +1644,7 @@
                 : `<button class="btn btn-sm btn-outline-warning acc-adjust-btn" data-id="${tx.id}" data-amount="${tx.amount}" data-phone="${tx.linked_customer_phone || ''}" data-name="${tx.customer_name || ''}" title="Điều chỉnh nếu phát hiện sai">⚠️ Điều chỉnh</button>`;
 
             return `
-                <tr>
+                <tr class="${rowClass}">
                     <td>${verifiedAt}</td>
                     <td>${txDate}</td>
                     <td class="amount-in">${amount}</td>
@@ -1629,7 +1657,7 @@
                     <td>${getMatchMethodBadge(tx.match_method)}</td>
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
                     <td>${noteHtml}</td>
-                    <td class="acc-action-cell">${adjustBtnHtml}</td>
+                    <td class="acc-action-cell">${reviewBtnHtml} ${adjustBtnHtml}</td>
                 </tr>
             `;
         }).join('');
@@ -2139,6 +2167,128 @@
     }
 
     // =====================================================
+    // MANAGER REVIEW FUNCTIONS
+    // =====================================================
+
+    let currentReviewTxId = null;
+
+    /**
+     * Open the manager review modal
+     * @param {string|number} txId - Transaction ID
+     */
+    function openManagerReviewModal(txId) {
+        currentReviewTxId = txId;
+
+        // Find transaction in state
+        const tx = state.approvedToday.find(t => t.id == txId);
+        if (!tx) {
+            showNotification('Không tìm thấy giao dịch', 'error');
+            return;
+        }
+
+        // Populate summary
+        const summaryEl = document.getElementById('accReviewSummary');
+        if (summaryEl) {
+            const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
+            summaryEl.innerHTML = `
+                <div class="summary-row">
+                    <span class="summary-label">Số tiền:</span>
+                    <span class="summary-value amount-in">${amount}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Khách hàng:</span>
+                    <span class="summary-value">${tx.customer_name || 'N/A'} - ${tx.linked_customer_phone || ''}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Nội dung CK:</span>
+                    <span class="summary-value">${tx.content || ''}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Ngày GD:</span>
+                    <span class="summary-value">${formatDateTime(tx.transaction_date)}</span>
+                </div>
+            `;
+        }
+
+        // Clear previous note
+        const noteEl = document.getElementById('accReviewNote');
+        if (noteEl) noteEl.value = '';
+
+        // Show modal
+        const modal = document.getElementById('accManagerReviewModal');
+        if (modal) {
+            modal.classList.add('visible');
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    /**
+     * Confirm manager review
+     */
+    async function confirmManagerReview() {
+        if (!currentReviewTxId) return;
+
+        const noteEl = document.getElementById('accReviewNote');
+        const reviewNote = noteEl?.value?.trim() || '';
+        const confirmBtn = document.getElementById('accReviewConfirmBtn');
+
+        // Get current user info
+        const userInfo = window.authManager?.getAuthState() || {};
+        const reviewedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        // Disable button while processing
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Đang xử lý...';
+        }
+
+        try {
+            // API call to backend
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${currentReviewTxId}/manager-review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    manager_review_note: reviewNote,
+                    reviewed_by: reviewedBy
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to save review');
+            }
+
+            // Update local state
+            const txIndex = state.approvedToday.findIndex(t => t.id == currentReviewTxId);
+            if (txIndex !== -1) {
+                state.approvedToday[txIndex].manager_reviewed = true;
+                state.approvedToday[txIndex].manager_review_note = reviewNote;
+                state.approvedToday[txIndex].reviewed_by = reviewedBy;
+                state.approvedToday[txIndex].reviewed_at = new Date().toISOString();
+            }
+
+            // Close modal and re-render
+            document.getElementById('accManagerReviewModal')?.classList.remove('visible');
+            renderApprovedToday();
+
+            showNotification('Đã kiểm tra giao dịch thành công', 'success');
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Manager review error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        } finally {
+            // Re-enable button
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i> Xác nhận đã kiểm tra';
+                if (window.lucide) lucide.createIcons();
+            }
+            currentReviewTxId = null;
+        }
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -2173,7 +2323,10 @@
         // Adjustment functions (điều chỉnh GD đã duyệt)
         openAdjustmentModal,
         confirmAdjustment,
-        closeAdjustmentModal
+        closeAdjustmentModal,
+        // Manager Review functions (quản lý kiểm tra)
+        openManagerReviewModal,
+        confirmManagerReview
     };
 
     // Auto-initialize when DOM is ready

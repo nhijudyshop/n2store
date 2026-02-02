@@ -900,6 +900,38 @@
                 </div>
             </div>
 
+            <!-- Manager Review Modal -->
+            <div class="acc-modal-overlay" id="accManagerReviewModal">
+                <div class="acc-modal" style="max-width: 450px;">
+                    <div class="acc-modal-header">
+                        <h3>✓ Kiểm tra giao dịch</h3>
+                        <button class="acc-modal-close">&times;</button>
+                    </div>
+                    <div class="acc-modal-body">
+                        <!-- Transaction Summary -->
+                        <div class="acc-approve-summary" id="accReviewSummary">
+                            <!-- Dynamically filled: amount, customer, date -->
+                        </div>
+
+                        <!-- Review Note Input -->
+                        <div class="acc-form-group">
+                            <label for="accReviewNote">Ghi chú kiểm tra (đơn hàng đã sử dụng)</label>
+                            <textarea id="accReviewNote"
+                                placeholder="VD: Đã dùng cho đơn hàng #12345, khách Nguyễn Văn A..."></textarea>
+                        </div>
+                    </div>
+                    <div class="acc-modal-footer">
+                        <button class="acc-btn acc-btn-secondary"
+                            onclick="document.getElementById('accManagerReviewModal').classList.remove('visible')">Hủy</button>
+                        <button class="acc-btn acc-btn-approve" id="accReviewConfirmBtn"
+                            onclick="AccountantModule.confirmManagerReview()">
+                            <i data-lucide="check" style="width:14px;height:14px"></i>
+                            Xác nhận đã kiểm tra
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
