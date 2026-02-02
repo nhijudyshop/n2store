@@ -1,14 +1,20 @@
 /**
  * TABLE
  * File: table.css
- * Purpose: Purchase order table styles
+ * Purpose: Purchase order table styles (matching React app design)
  */
 
 .table-wrapper {
     background: var(--color-bg-card);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
     overflow: hidden;
+}
+
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .po-table {
@@ -18,17 +24,26 @@
 }
 
 .po-table thead {
-    background: var(--color-bg);
+    background: var(--color-muted);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .po-table th {
     padding: var(--spacing-sm) var(--spacing-md);
+    font-size: 12px;
     font-weight: 600;
     color: var(--color-text-secondary);
     text-align: left;
     border-bottom: 1px solid var(--color-border);
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
+
+.po-table th.text-center { text-align: center; }
+.po-table th.text-right { text-align: right; }
 
 .po-table td {
     padding: var(--spacing-sm) var(--spacing-md);
@@ -36,51 +51,68 @@
     vertical-align: middle;
 }
 
-.po-table tr:last-child td {
+.po-table tbody tr:last-child td {
     border-bottom: none;
 }
 
-.po-table .order-row.selected {
-    background: var(--color-primary-light);
+/* Row states */
+.po-table tbody tr:hover {
+    background: var(--color-muted);
 }
 
+.po-table tbody tr.selected {
+    background: hsl(217, 91%, 97%);
+}
+
+.po-table tbody tr.processing {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Row spanning - order grouping */
 .po-table .order-row--first td {
     border-top: 1px solid var(--color-border);
 }
 
-.po-table .order-row--first:first-child td {
+.po-table tbody tr:first-child.order-row--first td {
     border-top: none;
 }
 
-/* Column widths */
-.col-date { width: 100px; }
-.col-supplier { width: 130px; }
-.col-invoice { width: 120px; }
-.col-product { min-width: 200px; }
-.col-code { width: 80px; }
-.col-variant { width: 70px; text-align: center; }
-.col-qty { width: 50px; text-align: center; }
-.col-purchase-price,
-.col-selling-price { width: 100px; text-align: right; }
-.col-notes { width: 120px; }
-.col-status { width: 90px; text-align: center; }
-.col-actions { width: 140px; text-align: center; }
-
-/* Cell content */
-.cell-date {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+.po-table .order-row--last td {
+    border-bottom: 1px solid var(--color-border);
 }
 
-.cell-icon {
-    width: 16px;
-    height: 16px;
-    color: var(--color-text-muted);
+/* Spanned cells vertical alignment */
+.po-table td[rowspan] {
+    vertical-align: top;
+    padding-top: var(--spacing-md);
+}
+
+/* Column widths */
+.col-checkbox { width: 40px; text-align: center; }
+.col-date { width: 110px; }
+.col-supplier { width: 140px; }
+.col-invoice { width: 130px; }
+.col-product { min-width: 180px; }
+.col-code { width: 100px; }
+.col-variant { width: 100px; text-align: center; }
+.col-qty { width: 60px; text-align: center; }
+.col-purchase-price { width: 110px; text-align: right; }
+.col-selling-price { width: 110px; text-align: right; }
+.col-notes { width: 140px; }
+.col-status { width: 120px; text-align: center; }
+.col-actions { width: 120px; text-align: center; }
+
+/* Cell content - Date */
+.cell-date {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .date-main {
     font-weight: 600;
+    color: var(--color-text-primary);
 }
 
 .date-time {
@@ -88,97 +120,231 @@
     color: var(--color-text-muted);
 }
 
-.cell-supplier .supplier-code {
+/* Cell content - Supplier */
+.cell-supplier {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.supplier-name {
     font-weight: 600;
+    color: var(--color-text-primary);
 }
 
-.cell-supplier .supplier-badge {
-    margin-top: 4px;
+.supplier-qty {
+    font-size: 12px;
+    color: var(--color-text-secondary);
 }
 
-.cell-invoice .invoice-thumb {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-sm);
+.supplier-qty span {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+/* Cell content - Invoice */
+.cell-invoice {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.invoice-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
     overflow: hidden;
     cursor: pointer;
     position: relative;
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
 }
 
-.cell-invoice .invoice-thumb img {
+.invoice-thumb:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-medium);
+}
+
+.invoice-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
-.cell-invoice .invoice-thumb--empty {
+.invoice-thumb--empty {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-bg);
+    background: var(--color-muted);
     color: var(--color-text-muted);
+}
+
+.invoice-thumb--empty svg {
+    width: 20px;
+    height: 20px;
 }
 
 .invoice-amount {
     font-weight: 600;
-    color: var(--color-success);
-    margin-top: 4px;
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+}
+
+.invoice-amount--mismatch {
+    color: var(--color-danger);
 }
 
 .thumb-count {
     position: absolute;
     bottom: 2px;
     right: 2px;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.75);
     color: white;
     font-size: 10px;
+    font-weight: 600;
     padding: 1px 4px;
     border-radius: var(--radius-sm);
 }
 
+/* Cell content - Product */
+.cell-product {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .product-name {
     color: var(--color-text-primary);
+    font-weight: 500;
+}
+
+.product-name--deleted {
+    color: var(--color-text-muted);
+    font-style: italic;
 }
 
 .product-code {
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--color-text-secondary);
 }
 
+/* Cell content - Variant */
 .variant-badge {
     display: inline-block;
     padding: 2px 8px;
-    background: var(--color-bg);
+    background: var(--color-muted);
     border-radius: var(--radius-sm);
     font-size: 12px;
+    color: var(--color-text-secondary);
 }
 
+/* Cell content - Quantity */
 .qty-value {
     font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
 }
 
+/* Cell content - Price */
 .price-value {
-    font-family: monospace;
+    font-family: var(--font-mono);
+    font-weight: 500;
 }
 
+.price-image {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+    margin-top: 4px;
+    border: 1px solid var(--color-border);
+}
+
+.price-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Cell content - Notes */
 .notes-text {
     color: var(--color-text-secondary);
     font-size: 12px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.text-muted {
-    color: var(--color-text-muted);
+.notes-text--full {
+    white-space: normal;
+    word-break: break-word;
 }
 
-/* Status badge */
+/* Status badges */
 .status-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 4px 10px;
     font-size: 11px;
     font-weight: 600;
     border-radius: var(--radius-full);
     text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.status-badge--draft {
+    background: var(--color-warning-light);
+    color: hsl(38, 92%, 40%);
+}
+
+.status-badge--awaiting_purchase {
+    background: var(--color-info-light);
+    color: hsl(217, 91%, 50%);
+}
+
+.status-badge--awaiting_delivery {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+.status-badge--received {
+    background: var(--color-success-light);
+    color: var(--color-success);
+}
+
+.status-badge--completed {
+    background: var(--color-muted);
+    color: var(--color-text-secondary);
+}
+
+.status-badge--cancelled {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+/* Sync status indicator */
+.sync-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    font-size: 11px;
+}
+
+.sync-indicator--synced {
+    color: var(--color-success);
+}
+
+.sync-indicator--pending {
+    color: var(--color-warning);
+}
+
+.sync-indicator--error {
+    color: var(--color-danger);
 }
 
 /* Action buttons */
@@ -189,19 +355,71 @@
     justify-content: center;
 }
 
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+    background: var(--color-muted);
+    color: var(--color-text-primary);
+}
+
+.action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.action-btn--edit:hover {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+.action-btn--export:hover {
+    background: var(--color-success-light);
+    color: var(--color-success);
+}
+
+.action-btn--copy:hover {
+    background: var(--color-info-light);
+    color: var(--color-info);
+}
+
+.action-btn--delete:hover {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+.action-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Checkbox */
 .checkbox-wrapper {
     display: inline-flex;
     align-items: center;
-    cursor: pointer;
+    justify-content: center;
 }
 
-.checkbox-wrapper input {
+.checkbox-wrapper input[type="checkbox"] {
     width: 16px;
     height: 16px;
     cursor: pointer;
+    accent-color: var(--color-primary);
 }
 
-/* Badge */
+/* Generic badge */
 .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -213,4 +431,48 @@
 .badge-info {
     background: var(--color-info-light);
     color: var(--color-info);
+}
+
+.badge-success {
+    background: var(--color-success-light);
+    color: var(--color-success);
+}
+
+.badge-warning {
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+}
+
+.badge-danger {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+/* Text utilities */
+.text-muted {
+    color: var(--color-text-muted);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+/* Hover card for notes */
+.hover-card {
+    position: absolute;
+    z-index: 100;
+    max-width: 300px;
+    padding: var(--spacing-md);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-strong);
+    font-size: 13px;
+    color: var(--color-text-primary);
+    white-space: normal;
+    word-break: break-word;
 }
