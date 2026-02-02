@@ -41,18 +41,27 @@ class PurchaseOrderFormModal {
      * @param {Object} options - Modal options
      */
     openCreate(options = {}) {
-        this.isEdit = false;
-        this.order = null;
-        this.resetFormData();
+        console.log('[FormModal] openCreate called');
+        try {
+            this.isEdit = false;
+            this.order = null;
+            this.resetFormData();
 
-        // Add one empty item by default
-        this.addItem();
+            // Add one empty item by default
+            this.addItem();
 
-        this.render();
-        this.show();
+            console.log('[FormModal] Calling render()');
+            this.render();
+            console.log('[FormModal] Calling show()');
+            this.show();
 
-        this.onSubmit = options.onSubmit;
-        this.onCancel = options.onCancel;
+            this.onSubmit = options.onSubmit;
+            this.onCancel = options.onCancel;
+            console.log('[FormModal] Modal should be visible now');
+        } catch (error) {
+            console.error('[FormModal] Error in openCreate:', error);
+            window.purchaseOrderUI?.showToast('Không thể mở form: ' + error.message, 'error');
+        }
     }
 
     /**
@@ -260,6 +269,8 @@ class PurchaseOrderFormModal {
      * Render modal
      */
     render() {
+        console.log('[FormModal] render() starting');
+
         // Remove existing modal
         if (this.modalElement) {
             this.modalElement.remove();
@@ -272,6 +283,14 @@ class PurchaseOrderFormModal {
 
         const title = this.isEdit ? 'Chỉnh sửa đơn hàng' : 'Tạo đơn đặt hàng';
 
+        console.log('[FormModal] Building HTML...');
+        const headerHTML = this.renderFormHeader();
+        console.log('[FormModal] Header rendered');
+        const tableHTML = this.renderItemsTable();
+        console.log('[FormModal] Table rendered');
+        const footerHTML = this.renderFormFooter();
+        console.log('[FormModal] Footer rendered');
+
         this.modalElement.innerHTML = `
             <div class="modal modal--xl">
                 <div class="modal__header">
@@ -281,14 +300,16 @@ class PurchaseOrderFormModal {
                     </button>
                 </div>
                 <form id="purchaseOrderForm" class="modal__body">
-                    ${this.renderFormHeader()}
-                    ${this.renderItemsTable()}
-                    ${this.renderFormFooter()}
+                    ${headerHTML}
+                    ${tableHTML}
+                    ${footerHTML}
                 </form>
             </div>
         `;
 
         document.body.appendChild(this.modalElement);
+        console.log('[FormModal] Modal appended to body');
+
         this.formElement = this.modalElement.querySelector('#purchaseOrderForm');
 
         // Re-initialize Lucide icons
@@ -298,6 +319,7 @@ class PurchaseOrderFormModal {
 
         // Bind events
         this.bindEvents();
+        console.log('[FormModal] render() complete');
     }
 
     /**
