@@ -614,10 +614,10 @@
                     <i class="fas fa-trash-alt"></i>
                     Bill Đã Xóa
                 </h1>
-                <span class="page-subtitle">Danh sách đơn hàng đang chờ xử lý hủy</span>
+                <span class="page-subtitle">Danh sách đơn hàng đã xử lý hủy</span>
             </div>
             <div class="stats-badge" id="totalCount">
-                <i class="fas fa-clock"></i> 0 đơn chờ xóa
+                <i class="fas fa-clock"></i> 0 đơn đã xóa
             </div>
         </div>
 
@@ -1012,7 +1012,7 @@
             // Clear bill preview cache when re-rendering
             billPreviewCache.clear();
 
-            totalCount.innerHTML = `<i class="fas fa-clock"></i> ${filteredData.length} đơn chờ xóa`;
+            totalCount.innerHTML = `<i class="fas fa-clock"></i> ${filteredData.length} đơn đã xóa`;
 
             if (filteredData.length === 0) {
                 tableBody.innerHTML = `
@@ -1020,7 +1020,7 @@
                             <td colspan="8">
                                 <div class="empty-state">
                                     <i class="fas fa-inbox"></i>
-                                    <h3>Không có đơn chờ xóa</h3>
+                                    <h3>Không có đơn đã xóa</h3>
                                     <p>Chưa có yêu cầu hủy đơn nào được ghi nhận</p>
                                 </div>
                             </td>
