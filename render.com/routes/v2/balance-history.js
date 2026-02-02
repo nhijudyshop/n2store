@@ -1464,14 +1464,18 @@ router.post('/:id/manager-review', async (req, res) => {
         }
 
         // 2. Update transaction with manager review info
+        // Append manager note to verification_note with marker for frontend styling
+        const managerNoteText = manager_review_note ? `\n[QL: ${manager_review_note}]` : '\n[QL: Đã kiểm tra]';
+
         await db.query(`
             UPDATE balance_history
             SET manager_reviewed = TRUE,
                 manager_review_note = $2,
                 reviewed_by = $3,
-                reviewed_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                reviewed_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+                verification_note = COALESCE(verification_note, '') || $4
             WHERE id = $1
-        `, [id, manager_review_note || '', reviewed_by]);
+        `, [id, manager_review_note || '', reviewed_by, managerNoteText]);
 
         await db.query('COMMIT');
 

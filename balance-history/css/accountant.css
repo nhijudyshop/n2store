@@ -1839,3 +1839,11 @@
     font-style: italic;
     margin-top: 4px;
 }
+
+/* Manager note (orange color) - appended to verification note */
+.acc-manager-note {
+    color: #ea580c;
+    font-weight: 500;
+    display: block;
+    margin-top: 4px;
+}

@@ -1602,6 +1602,16 @@
             // Dịch ghi chú
             let note = tx.verification_note || '';
             let hasAdjustment = false;
+            let managerNote = '';
+
+            // Extract manager note [QL: ...] if exists
+            const managerNoteMatch = note.match(/\[QL:\s*([^\]]*)\]/);
+            if (managerNoteMatch) {
+                managerNote = managerNoteMatch[1] || 'Đã kiểm tra';
+                // Remove manager note from main note
+                note = note.replace(/\n?\[QL:[^\]]*\]/, '').trim();
+            }
+
             if (note.includes('[Đã điều chỉnh:')) {
                 hasAdjustment = true;
             }
@@ -1627,9 +1637,9 @@
             }
             noteHtml += `<span class="acc-approve-note">${note}</span>`;
 
-            // Add review note if reviewed
-            if (isReviewed && reviewNote) {
-                noteHtml += `<div class="acc-review-note-text" title="Kiểm tra bởi ${reviewedBy} lúc ${reviewedAt}">${reviewNote}</div>`;
+            // Add manager note with orange styling if exists
+            if (managerNote) {
+                noteHtml += `<span class="acc-manager-note" title="Quản lý: ${reviewedBy} lúc ${reviewedAt}">QL: ${managerNote}</span>`;
             }
             noteHtml += '</div>';
 
