@@ -195,6 +195,7 @@ router.post('/', async (req, res) => {
         new_cod,
         refund_amount,
         fix_cod_reason,
+        boom_reason,  // For BOOM type: BOOM_HANG, TRUNG_DON, DOI_DIA_CHI
         internal_note,
         created_by,
         return_from_order_id,  // For RETURN_OLD_ORDER
@@ -252,16 +253,16 @@ router.post('/', async (req, res) => {
             INSERT INTO customer_tickets (
                 phone, customer_id, customer_name, order_id, tpos_order_id, tracking_code, carrier,
                 type, status, priority, subject, description, products, original_cod, new_cod,
-                refund_amount, fix_cod_reason, internal_note, created_by,
+                refund_amount, fix_cod_reason, boom_reason, internal_note, created_by,
                 return_from_order_id, return_from_tpos_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
             RETURNING *
         `, [
             normalizedPhone, customerId, customer_name, order_id, tpos_order_id || null,
             tracking_code, carrier, type, status || 'PENDING', priority || 'normal',
             subject, description, JSON.stringify(products || []),
-            original_cod, new_cod, refund_amount, fix_cod_reason, internal_note, created_by,
+            original_cod, new_cod, refund_amount, fix_cod_reason, boom_reason || null, internal_note, created_by,
             return_from_order_id || null, return_from_tpos_id || null
         ]);
 
