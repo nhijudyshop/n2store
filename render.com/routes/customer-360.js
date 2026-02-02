@@ -1069,7 +1069,7 @@ router.get('/ticket', async (req, res) => {
             order_id, tpos_order_id, tracking_code, carrier, type, status, priority,
             subject, description, products, original_cod, new_cod, refund_amount,
             wallet_credited, wallet_transaction_id, virtual_credit_id, virtual_credit_amount,
-            fix_cod_reason, return_from_order_id, return_from_tpos_id,
+            fix_cod_reason, boom_reason, return_from_order_id, return_from_tpos_id,
             (deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as deadline,
             (carrier_deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as carrier_deadline,
             (received_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as received_at,
