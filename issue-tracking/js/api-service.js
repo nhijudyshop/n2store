@@ -606,12 +606,15 @@ const ApiService = {
             // Filter and update quantities based on productsToRefund
             const filteredOrderLines = originalOrderLines.filter(line => {
                 // Match by ProductId, productId, code, or ProductBarcode
-                const productMatch = productsToRefund.find(p =>
-                    (p.productId && p.productId === line.ProductId) ||
-                    (p.id && p.id === line.Id) ||  // OrderLine ID
-                    (p.code && p.code === line.ProductBarcode) ||
-                    (p.ProductCode && p.ProductCode === line.ProductBarcode)
-                );
+                const productMatch = productsToRefund.find(p => {
+                    // p.id from ticket is ProductId (not OrderLine.Id)
+                    const pId = parseInt(p.productId || p.id);
+                    const lineProductId = parseInt(line.ProductId);
+
+                    return (pId && lineProductId && pId === lineProductId) ||
+                        (p.code && p.code === line.ProductBarcode) ||
+                        (p.ProductCode && p.ProductCode === line.ProductBarcode);
+                });
 
                 if (productMatch) {
                     // Update quantity to returnQuantity if specified
