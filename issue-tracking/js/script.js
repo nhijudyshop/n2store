@@ -2370,8 +2370,8 @@ function renderOldOrderProducts(order) {
                        value="${product.id || idx}"
                        data-product-id="${product.productId || ''}"
                        data-code="${product.code || ''}"
-                       data-price="${product.price}"
-                       data-unit-price="${Math.round(product.price / product.quantity)}"
+                       data-total="${product.total || product.price * product.quantity}"
+                       data-unit-price="${product.price}"
                        data-name="${product.name}"
                        data-quantity="${product.quantity}"
                        onchange="updateCodReduceFromOldOrderProducts()"
@@ -2379,7 +2379,7 @@ function renderOldOrderProducts(order) {
                 <div style="flex:1;">
                     <div style="font-weight:500;">${product.name}</div>
                     <div style="font-size:12px;color:#64748b;">
-                        Đã mua: x${product.quantity} - ${formatCurrency(product.price)}
+                        Đã mua: x${product.quantity} - ${formatCurrency(product.total || product.price * product.quantity)}
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:5px;">
