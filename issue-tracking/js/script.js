@@ -1773,7 +1773,7 @@ function renderDashboard(tabName, searchTerm = '') {
             </td>
             <td>
                 ${renderTypeBadge(t.type, t.fixCodReason, t.boomReason)}
-                <div style="font-size:12px;margin-top:4px;color:#64748b;">${t.channel || 'TPOS'}</div>
+                ${(t.type === 'BOOM' && t.boomReason) ? '' : `<div style="font-size:12px;margin-top:4px;color:#64748b;">${t.channel || 'TPOS'}</div>`}
             </td>
             <td>
                 ${renderProductsList(t)}
@@ -1823,6 +1823,17 @@ function renderProductsList(ticket) {
 }
 
 function renderTypeBadge(type, fixCodReason, boomReason) {
+    // Special handling for BOOM type - show only the specific reason as the main label
+    if (type === 'BOOM' && boomReason) {
+        const boomReasonMap = {
+            'BOOM_HANG': 'Boom Hàng',
+            'TRUNG_DON': 'Trùng Đơn',
+            'DOI_DIA_CHI': 'Sai Địa Chỉ'
+        };
+        const reasonLabel = boomReasonMap[boomReason] || boomReason;
+        return `<span class="type-label type-boom">● ${reasonLabel}</span>`;
+    }
+
     const map = {
         'BOOM': { text: 'Không Nhận Hàng', class: 'type-boom' },
         'FIX_COD': { text: 'Sửa COD', class: 'type-fix' },
@@ -1843,16 +1854,6 @@ function renderTypeBadge(type, fixCodReason, boomReason) {
             'RETURN_OLD_ORDER': 'Trả đơn cũ'
         };
         reasonText = `<div style="font-size:10px;color:#64748b;margin-top:2px;">${reasonMap[fixCodReason] || fixCodReason}</div>`;
-    }
-
-    // Add reason detail for BOOM if available
-    if (type === 'BOOM' && boomReason) {
-        const boomReasonMap = {
-            'BOOM_HANG': 'Boom Hàng',
-            'TRUNG_DON': 'Trùng Đơn',
-            'DOI_DIA_CHI': 'Đổi Địa Chỉ'
-        };
-        reasonText = `<div style="font-size:10px;color:#64748b;margin-top:2px;">${boomReasonMap[boomReason] || boomReason}</div>`;
     }
 
     return `<span class="type-label ${conf.class}">● ${conf.text}</span>${reasonText}`;
