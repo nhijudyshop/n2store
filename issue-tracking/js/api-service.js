@@ -425,6 +425,9 @@ const ApiService = {
                                 amount: ticket.virtual_credit_amount,
                                 status: 'ACTIVE'
                             } : null,
+                            // RETURN_OLD_ORDER: Reference to old order for refund processing
+                            returnFromOrderId: ticket.return_from_order_id,
+                            returnFromTposId: ticket.return_from_tpos_id,
                             createdAt: new Date(ticket.created_at).getTime(),
                             updatedAt: ticket.updated_at ? new Date(ticket.updated_at).getTime() : null,
                             completedAt: ticket.completed_at ? new Date(ticket.completed_at).getTime() : null
