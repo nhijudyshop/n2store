@@ -318,22 +318,25 @@ class PurchaseOrderFormModal {
 
                     <!-- Row 2: Search, Notes, Settings, Add buttons -->
                     <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
-                        <div style="flex: 2; min-width: 200px;">
+                        <div style="flex: 0 0 auto;">
                             <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
                                 Danh sách sản phẩm
                             </label>
-                            <input type="text" id="inputProductSearch" placeholder="Tìm kiếm sản phẩm theo tên..." style="
-                                width: 100%;
-                                height: 40px;
-                                padding: 0 12px 0 36px;
-                                border: 1px solid #d1d5db;
-                                border-radius: 8px;
-                                font-size: 14px;
-                                box-sizing: border-box;
-                                background-image: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%239ca3af\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"></circle><line x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"></line></svg>');
-                                background-repeat: no-repeat;
-                                background-position: 12px center;
-                            ">
+                            <div style="position: relative; display: flex; align-items: center;">
+                                <svg style="position: absolute; left: 12px; width: 16px; height: 16px; color: #9ca3af; pointer-events: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                <input type="text" id="inputProductSearch" placeholder="Tìm kiếm sản phẩm theo tên..." style="
+                                    width: 280px;
+                                    height: 40px;
+                                    padding: 0 12px 0 36px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                    box-sizing: border-box;
+                                ">
+                            </div>
                         </div>
                         <div style="flex: 1; min-width: 200px;">
                             <input type="text" id="inputNotes" value="${this.formData.notes}" placeholder="Ghi chú thêm cho đơn hàng..." style="
@@ -693,7 +696,7 @@ class PurchaseOrderFormModal {
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
                         <div style="display: flex; gap: 4px; justify-content: center;">
-                            <button type="button" data-action="save" title="Lưu" style="
+                            <button type="button" data-action="inventory" title="Chọn từ kho" style="
                                 width: 32px;
                                 height: 32px;
                                 border: 1px solid #d1d5db;
@@ -705,9 +708,9 @@ class PurchaseOrderFormModal {
                                 justify-content: center;
                             ">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                                    <polyline points="17,21 17,13 7,13 7,21"></polyline>
-                                    <polyline points="7,3 7,8 15,8"></polyline>
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                    <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
+                                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
                                 </svg>
                             </button>
                             <button type="button" data-action="copy" title="Sao chép" style="
@@ -729,16 +732,16 @@ class PurchaseOrderFormModal {
                             <button type="button" data-action="delete" title="Xóa" style="
                                 width: 32px;
                                 height: 32px;
-                                border: 1px solid #fecaca;
+                                border: none;
                                 border-radius: 6px;
-                                background: #fef2f2;
+                                background: transparent;
                                 cursor: pointer;
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
                                 color: #ef4444;
                             ">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="18" y1="6" x2="6" y2="18"></line>
                                     <line x1="6" y1="6" x2="18" y2="18"></line>
                                 </svg>
