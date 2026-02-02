@@ -924,9 +924,11 @@ async function handleSubmitTicket() {
             // Status: PENDING_GOODS (chờ hàng cũ về kho)
             status = 'PENDING_GOODS';
 
-            // Lấy sản phẩm được chọn từ đơn cũ
+            // Lấy sản phẩm được chọn từ đơn cũ (include productId và code for matching)
             selectedProducts = Array.from(checkedOldOrderInputs).map(input => ({
                 id: input.value,
+                productId: input.dataset.productId || '',
+                code: input.dataset.code || '',
                 name: input.dataset.name,
                 price: parseInt(input.dataset.price) || 0,
                 quantity: parseInt(input.dataset.quantity) || 1,
@@ -2358,6 +2360,8 @@ function renderOldOrderProducts(order) {
             <label style="display:flex;align-items:center;cursor:pointer;">
                 <input type="checkbox" name="old-order-product"
                        value="${product.id || idx}"
+                       data-product-id="${product.productId || ''}"
+                       data-code="${product.code || ''}"
                        data-price="${product.price}"
                        data-name="${product.name}"
                        data-quantity="${product.quantity}"

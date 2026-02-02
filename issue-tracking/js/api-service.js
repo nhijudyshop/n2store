@@ -603,17 +603,39 @@ const ApiService = {
             const originalOrderLines = refundDetails.OrderLines || [];
             console.log('[API] Original OrderLines count:', originalOrderLines.length);
 
+            // Debug: Log OrderLine details and products to match
+            console.log('[API] Products to match:', productsToRefund.map(p => ({
+                id: p.id,
+                productId: p.productId,
+                code: p.code
+            })));
+            originalOrderLines.forEach(line => {
+                console.log('[API] OrderLine:', {
+                    Id: line.Id,
+                    ProductId: line.ProductId,
+                    ProductBarcode: line.ProductBarcode,
+                    ProductName: line.ProductName
+                });
+            });
+
             // Filter and update quantities based on productsToRefund
             const filteredOrderLines = originalOrderLines.filter(line => {
                 // Match by ProductId, productId, code, or ProductBarcode
                 const productMatch = productsToRefund.find(p => {
-                    // p.id from ticket is ProductId (not OrderLine.Id)
+                    // p.id from ticket is OrderLine.Id, p.productId is ProductId
                     const pId = parseInt(p.productId || p.id);
+                    const pCode = p.code || '';
                     const lineProductId = parseInt(line.ProductId);
+                    const lineBarcode = line.ProductBarcode || '';
 
-                    return (pId && lineProductId && pId === lineProductId) ||
-                        (p.code && p.code === line.ProductBarcode) ||
-                        (p.ProductCode && p.ProductCode === line.ProductBarcode);
+                    const matchById = pId && lineProductId && pId === lineProductId;
+                    const matchByCode = pCode && lineBarcode && pCode === lineBarcode;
+
+                    if (matchById || matchByCode) {
+                        console.log(`[API] ✅ Matched: pId=${pId}, pCode=${pCode}, lineProductId=${lineProductId}, lineBarcode=${lineBarcode}`);
+                    }
+
+                    return matchById || matchByCode;
                 });
 
                 if (productMatch) {
