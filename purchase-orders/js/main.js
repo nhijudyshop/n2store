@@ -54,16 +54,21 @@ class PurchaseOrderController {
             // Initialize service
             await this.service.initialize();
 
-            // Initialize table renderer
+            // Initialize table renderer with all handlers (matches React app)
             this.tableRenderer.init(this.elements.tableContainer, {
                 onEdit: (orderId) => this.handleEditOrder(orderId),
                 onExport: (orderId) => this.handleExportOrder(orderId),
                 onCopy: (orderId) => this.handleCopyOrder(orderId),
                 onDelete: (orderId) => this.handleDeleteOrder(orderId),
                 onSelect: (orderId, selected) => this.handleSelectOrder(orderId, selected),
+                onSelectAll: (selected) => this.handleSelectAll(selected),
                 onRowClick: (orderId) => this.handleRowClick(orderId),
                 onViewInvoice: (images) => this.handleViewInvoice(images),
-                onViewImages: (itemId) => this.handleViewImages(itemId)
+                onViewImages: (itemId) => this.handleViewImages(itemId),
+                onViewDetail: (orderId) => this.handleViewDetail(orderId),
+                onBulkExport: () => this.handleBulkExport(),
+                onBulkDelete: () => this.handleBulkDelete(),
+                onClearSelection: () => this.handleClearSelection()
             });
 
             // Subscribe to data manager events
@@ -513,12 +518,131 @@ class PurchaseOrderController {
     }
 
     /**
+     * Handle select all
+     * @param {boolean} selected
+     */
+    handleSelectAll(selected) {
+        if (selected) {
+            // Select all current orders
+            const orders = this.dataManager.getCurrentPageOrders();
+            orders.forEach(order => {
+                if (!this.dataManager.selectedIds.has(order.id)) {
+                    this.dataManager.toggleSelection(order.id);
+                }
+            });
+        } else {
+            // Deselect all
+            this.dataManager.clearSelection();
+        }
+        this.renderTableForCurrentPage();
+    }
+
+    /**
+     * Handle clear selection
+     */
+    handleClearSelection() {
+        this.dataManager.clearSelection();
+        this.renderTableForCurrentPage();
+    }
+
+    /**
+     * Handle bulk export
+     */
+    async handleBulkExport() {
+        const selectedIds = Array.from(this.dataManager.selectedIds);
+        if (selectedIds.length === 0) return;
+
+        try {
+            // Export each selected order
+            for (const orderId of selectedIds) {
+                const order = await this.dataManager.getOrder(orderId);
+                if (order) {
+                    this.exportOrderToExcel(order);
+                }
+            }
+            this.ui.showToast(`Đã xuất ${selectedIds.length} đơn hàng`, 'success');
+        } catch (error) {
+            console.error('Bulk export failed:', error);
+            this.ui.showToast('Không thể xuất đơn hàng', 'error');
+        }
+    }
+
+    /**
+     * Handle bulk delete
+     */
+    async handleBulkDelete() {
+        const selectedIds = Array.from(this.dataManager.selectedIds);
+        if (selectedIds.length === 0) return;
+
+        const confirmed = await this.ui.showConfirmDialog({
+            title: 'Xóa nhiều đơn hàng',
+            message: `Bạn có chắc muốn xóa ${selectedIds.length} đơn hàng? Hành động này không thể hoàn tác.`,
+            confirmText: `Xóa ${selectedIds.length} đơn`,
+            type: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            let deletedCount = 0;
+            let skippedCount = 0;
+
+            for (const orderId of selectedIds) {
+                const order = await this.dataManager.getOrder(orderId);
+                if (order && this.config.canDeleteOrder(order.status)) {
+                    await this.dataManager.deleteOrder(orderId);
+                    deletedCount++;
+                } else {
+                    skippedCount++;
+                }
+            }
+
+            this.dataManager.clearSelection();
+
+            if (skippedCount > 0) {
+                this.ui.showToast(`Đã xóa ${deletedCount} đơn, bỏ qua ${skippedCount} đơn không thể xóa`, 'warning');
+            } else {
+                this.ui.showToast(`Đã xóa ${deletedCount} đơn hàng`, 'success');
+            }
+        } catch (error) {
+            console.error('Bulk delete failed:', error);
+            this.ui.showToast('Không thể xóa đơn hàng', 'error');
+        }
+    }
+
+    /**
      * Handle row click
      * @param {string} orderId
      */
     handleRowClick(orderId) {
         // Could open detail view or quick edit
         console.log('Row clicked:', orderId);
+    }
+
+    /**
+     * Handle view order detail (double click)
+     * @param {string} orderId
+     */
+    async handleViewDetail(orderId) {
+        const order = await this.dataManager.getOrder(orderId);
+
+        if (!order) {
+            this.ui.showToast('Không tìm thấy đơn hàng', 'error');
+            return;
+        }
+
+        // Open detail dialog
+        window.orderDetailDialog.open(order, {
+            onRetry: async (id) => {
+                try {
+                    // Reset sync status for failed items and trigger re-sync
+                    await this.dataManager.retrySyncFailedItems(id);
+                    this.ui.showToast('Đang thử lại đồng bộ...', 'info');
+                } catch (error) {
+                    this.ui.showToast('Không thể thử lại đồng bộ', 'error');
+                }
+            }
+        });
     }
 
     /**

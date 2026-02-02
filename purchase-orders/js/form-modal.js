@@ -671,6 +671,24 @@ class PurchaseOrderFormModal {
             this.refreshItemsTable();
         });
 
+        // Settings button
+        this.modalElement.querySelector('#btnSettings')?.addEventListener('click', () => {
+            this.openSettings();
+        });
+
+        // Choose from inventory button
+        this.modalElement.querySelector('#btnChooseFromInventory')?.addEventListener('click', () => {
+            this.openInventoryPicker();
+        });
+
+        // Shipping fee button
+        this.modalElement.querySelector('#btnAddShipping')?.addEventListener('click', () => {
+            this.openShippingFeeDialog();
+        });
+
+        // Setup image paste handler
+        this.setupImagePasteHandler();
+
         // Item table events (delegation)
         const itemsBody = this.modalElement.querySelector('#itemsTableBody');
         if (itemsBody) {
@@ -726,6 +744,11 @@ class PurchaseOrderFormModal {
                         // Save feedback
                         button.classList.add('btn-success');
                         setTimeout(() => button.classList.remove('btn-success'), 500);
+                        break;
+                    case 'edit-variant':
+                        if (itemId) {
+                            this.openVariantGenerator(itemId);
+                        }
                         break;
                 }
             });
@@ -789,6 +812,228 @@ class PurchaseOrderFormModal {
         if (e.key === 'Escape' && this.modalElement) {
             this.close();
         }
+    }
+
+    /**
+     * Setup image paste handler (Ctrl+V)
+     */
+    setupImagePasteHandler() {
+        document.addEventListener('paste', this.handlePaste.bind(this));
+    }
+
+    /**
+     * Handle paste event for images
+     * @param {ClipboardEvent} e
+     */
+    async handlePaste(e) {
+        if (!this.modalElement) return;
+
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        // Find image in clipboard
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+
+                const blob = item.getAsFile();
+                if (!blob) continue;
+
+                // Determine which image field is focused
+                const focusedElement = document.activeElement;
+                const imageUploadArea = focusedElement?.closest('.image-upload-area, .image-upload-mini');
+
+                try {
+                    const imageUrl = await this.uploadImage(blob);
+
+                    if (imageUploadArea) {
+                        const type = imageUploadArea.dataset.type;
+                        const itemId = imageUploadArea.dataset.itemId;
+
+                        if (type === 'invoice' || imageUploadArea.id === 'invoiceImageUpload') {
+                            this.formData.invoiceImages.push(imageUrl);
+                            this.refreshInvoiceImages();
+                        } else if (type === 'product' && itemId) {
+                            const item = this.formData.items.find(i => i.id === itemId);
+                            if (item) {
+                                item.productImages = item.productImages || [];
+                                item.productImages.push(imageUrl);
+                                this.refreshItemImages(itemId, 'product');
+                            }
+                        } else if (type === 'price' && itemId) {
+                            const item = this.formData.items.find(i => i.id === itemId);
+                            if (item) {
+                                item.priceImages = item.priceImages || [];
+                                item.priceImages.push(imageUrl);
+                                this.refreshItemImages(itemId, 'price');
+                            }
+                        }
+                    } else {
+                        // Default: add to invoice images
+                        this.formData.invoiceImages.push(imageUrl);
+                        this.refreshInvoiceImages();
+                    }
+
+                    window.purchaseOrderUI?.showToast('Đã thêm hình ảnh', 'success');
+                } catch (error) {
+                    console.error('Error uploading pasted image:', error);
+                    window.purchaseOrderUI?.showToast('Không thể tải lên hình ảnh', 'error');
+                }
+
+                break;
+            }
+        }
+    }
+
+    /**
+     * Upload image to Firebase Storage
+     * @param {Blob} blob - Image blob
+     * @returns {Promise<string>} Image URL
+     */
+    async uploadImage(blob) {
+        const storage = firebase.storage();
+        const fileName = `purchase-orders/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+        const ref = storage.ref(fileName);
+
+        await ref.put(blob);
+        return await ref.getDownloadURL();
+    }
+
+    /**
+     * Refresh invoice images display
+     */
+    refreshInvoiceImages() {
+        const container = this.modalElement?.querySelector('#invoiceImageUpload');
+        if (!container) return;
+
+        // Keep the upload button and add thumbnails
+        const uploadBtn = container.querySelector('.btn-upload');
+        container.innerHTML = this.renderImageThumbnails(this.formData.invoiceImages, 'invoice');
+        if (uploadBtn) {
+            container.appendChild(uploadBtn.cloneNode(true));
+        } else {
+            container.innerHTML += `
+                <button type="button" class="btn-upload" id="btnUploadInvoice">
+                    <i data-lucide="image-plus"></i>
+                    <span>Ctrl+V</span>
+                </button>
+            `;
+        }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Refresh item images display
+     * @param {string} itemId
+     * @param {string} type - 'product' or 'price'
+     */
+    refreshItemImages(itemId, type) {
+        const item = this.formData.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        const container = this.modalElement?.querySelector(
+            `.image-upload-mini[data-type="${type}"][data-item-id="${itemId}"]`
+        );
+        if (!container) return;
+
+        const images = type === 'product' ? item.productImages : item.priceImages;
+        container.innerHTML = this.renderMiniImageUpload(images, type, itemId);
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Open variant generator dialog
+     * @param {string} itemId
+     */
+    openVariantGenerator(itemId) {
+        const item = this.formData.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        window.variantGeneratorDialog.open({
+            baseProduct: {
+                productName: item.productName,
+                productCode: item.productCode,
+                purchasePrice: item.purchasePrice,
+                sellingPrice: item.sellingPrice,
+                productImages: item.productImages,
+                priceImages: item.priceImages
+            },
+            onGenerate: (variants, baseProduct) => {
+                // Remove original item
+                this.removeItem(itemId);
+
+                // Add variant items
+                variants.forEach(variant => {
+                    const newItem = this.addItem();
+                    newItem.productName = baseProduct.productName;
+                    newItem.productCode = baseProduct.productCode;
+                    newItem.variant = variant;
+                    newItem.purchasePrice = baseProduct.purchasePrice;
+                    newItem.sellingPrice = baseProduct.sellingPrice;
+                    newItem.productImages = [...(baseProduct.productImages || [])];
+                    newItem.priceImages = [...(baseProduct.priceImages || [])];
+                    newItem.subtotal = (newItem.purchasePrice || 0) * (newItem.quantity || 1);
+                });
+
+                this.refreshItemsTable();
+                this.updateTotals();
+
+                window.purchaseOrderUI?.showToast(`Đã tạo ${variants.length} biến thể`, 'success');
+            }
+        });
+    }
+
+    /**
+     * Open settings dialog
+     */
+    openSettings() {
+        window.settingsDialog.open({
+            settings: this.validationSettings || {},
+            onSave: (settings) => {
+                this.validationSettings = settings;
+                window.purchaseOrderUI?.showToast('Đã lưu cài đặt', 'success');
+            }
+        });
+    }
+
+    /**
+     * Open inventory picker dialog
+     */
+    openInventoryPicker() {
+        window.inventoryPickerDialog.open({
+            onSelect: (products) => {
+                products.forEach(product => {
+                    const newItem = this.addItem();
+                    newItem.productName = product.name;
+                    newItem.productCode = product.code || product.sku;
+                    newItem.sellingPrice = product.price || 0;
+                    newItem.productImages = product.images || [];
+                });
+
+                this.refreshItemsTable();
+
+                window.purchaseOrderUI?.showToast(`Đã thêm ${products.length} sản phẩm`, 'success');
+            }
+        });
+    }
+
+    /**
+     * Open shipping fee dialog
+     */
+    openShippingFeeDialog() {
+        window.shippingFeeDialog.open({
+            currentFee: this.formData.shippingFee || 0,
+            onSave: (fee) => {
+                this.formData.shippingFee = fee;
+                this.updateTotals();
+            }
+        });
     }
 
     // ========================================
