@@ -361,6 +361,44 @@ async function searchCustomerByPhone(phone) {
 async function selectOrder(order) {
     selectedOrder = order;
     currentCustomer = null; // Reset current customer when an order is selected
+    selectedOldOrder = null; // Reset old order selection for RETURN_OLD_ORDER
+
+    // Reset issue type and related UI when selecting a new order
+    document.getElementById('issue-type-select').value = '';
+    document.getElementById('ticket-note').value = '';
+
+    // Reset RETURN_OLD_ORDER UI section
+    const oldOrdersList = document.getElementById('old-orders-list');
+    const oldOrderProductsSection = document.getElementById('old-order-products-section');
+    const oldOrderSearchInput = document.getElementById('old-order-search-input');
+    if (oldOrdersList) {
+        oldOrdersList.innerHTML = '';
+        oldOrdersList.classList.add('hidden');
+        delete oldOrdersList.dataset.orders;
+    }
+    if (oldOrderProductsSection) {
+        oldOrderProductsSection.classList.add('hidden');
+        const checklist = document.getElementById('old-order-product-checklist');
+        if (checklist) checklist.innerHTML = '';
+    }
+    if (oldOrderSearchInput) {
+        oldOrderSearchInput.value = '';
+    }
+
+    // Reset FIX_COD fields
+    const fixCodReason = document.getElementById('fix-cod-reason');
+    const codReduceAmount = document.getElementById('cod-reduce-amount');
+    if (fixCodReason) fixCodReason.value = '';
+    if (codReduceAmount) codReduceAmount.value = '';
+
+    // Reset BOOM reason
+    const boomReasonEl = document.getElementById('boom-reason');
+    if (boomReasonEl) boomReasonEl.value = 'BOOM_HANG';
+
+    // Hide all dynamic field groups
+    document.querySelectorAll('[data-type]').forEach(group => {
+        group.classList.add('hidden');
+    });
 
     document.getElementById('order-result').classList.remove('hidden');
     document.getElementById('issue-details-form').classList.remove('hidden');
