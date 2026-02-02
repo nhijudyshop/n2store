@@ -14,18 +14,19 @@
     <!-- Styles -->
     <link rel="stylesheet" href="css/styles.css">
 
-    <!-- Core Loader -->
-    <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js"></script>
-
-    <!-- Lucide Icons CDN -->
-    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-
-    <!-- Firebase SDKs (load before auth) -->
+    <!-- Firebase SDKs (load before firebase-config) -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+
+    <!-- Shared Library: Core Loader (loads auth, cache, firebase-config, etc.) -->
+    <script src="../shared/js/core-loader.js"></script>
+    <script src="../shared/js/common-utils.js"></script>
+    <script src="../shared/js/notification-system.js"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
     <!-- XLSX for Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
