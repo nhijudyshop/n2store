@@ -925,15 +925,22 @@ async function handleSubmitTicket() {
             status = 'PENDING_GOODS';
 
             // Lấy sản phẩm được chọn từ đơn cũ (include productId và code for matching)
-            selectedProducts = Array.from(checkedOldOrderInputs).map(input => ({
-                id: input.value,
-                productId: input.dataset.productId || '',
-                code: input.dataset.code || '',
-                name: input.dataset.name,
-                price: parseInt(input.dataset.price) || 0,
-                quantity: parseInt(input.dataset.quantity) || 1,
-                returnQuantity: parseInt(input.dataset.quantity) || 1
-            }));
+            selectedProducts = Array.from(checkedOldOrderInputs).map(input => {
+                const productId = input.value;
+                const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
+                const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+                const unitPrice = parseInt(input.dataset.unitPrice) || 0;
+
+                return {
+                    id: productId,
+                    productId: input.dataset.productId || '',
+                    code: input.dataset.code || '',
+                    name: input.dataset.name,
+                    price: unitPrice * returnQty,  // Tổng giá theo số lượng trả
+                    quantity: parseInt(input.dataset.quantity) || 1,
+                    returnQuantity: returnQty
+                };
+            });
 
         } else {
             // Các lý do khác - không có hàng trả, chỉ đối soát tiền
@@ -2359,10 +2366,12 @@ function renderOldOrderProducts(order) {
         <div class="product-check-item" style="padding:8px;border:1px solid #e2e8f0;border-radius:6px;margin-bottom:6px;">
             <label style="display:flex;align-items:center;cursor:pointer;">
                 <input type="checkbox" name="old-order-product"
+                       id="old-prod-${product.id || idx}"
                        value="${product.id || idx}"
                        data-product-id="${product.productId || ''}"
                        data-code="${product.code || ''}"
                        data-price="${product.price}"
+                       data-unit-price="${Math.round(product.price / product.quantity)}"
                        data-name="${product.name}"
                        data-quantity="${product.quantity}"
                        onchange="updateCodReduceFromOldOrderProducts()"
@@ -2370,8 +2379,15 @@ function renderOldOrderProducts(order) {
                 <div style="flex:1;">
                     <div style="font-weight:500;">${product.name}</div>
                     <div style="font-size:12px;color:#64748b;">
-                        x${product.quantity} - ${formatCurrency(product.price)}
+                        Đã mua: x${product.quantity} - ${formatCurrency(product.price)}
                     </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;">
+                    <span style="font-size:12px;color:#64748b;">SL trả:</span>
+                    <input type="number" id="old-prod-qty-${product.id || idx}"
+                           min="1" max="${product.quantity}" value="${product.quantity}"
+                           onchange="updateCodReduceFromOldOrderProducts()"
+                           style="width:50px;padding:4px;border:1px solid #e2e8f0;border-radius:4px;text-align:center;">
                 </div>
             </label>
         </div>
@@ -2381,15 +2397,18 @@ function renderOldOrderProducts(order) {
 }
 
 /**
- * Tính COD giảm từ sản phẩm đơn cũ được chọn
+ * Tính COD giảm từ sản phẩm đơn cũ được chọn (theo số lượng trả)
  */
 window.updateCodReduceFromOldOrderProducts = function() {
     const checkedInputs = document.querySelectorAll('#old-order-product-checklist input[type="checkbox"]:checked');
     let totalReduce = 0;
 
     checkedInputs.forEach(input => {
-        const price = parseInt(input.dataset.price) || 0;
-        totalReduce += price;
+        const unitPrice = parseInt(input.dataset.unitPrice) || 0;
+        const productId = input.value;
+        const qtyInput = document.getElementById(`old-prod-qty-${productId}`);
+        const returnQty = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+        totalReduce += unitPrice * returnQty;
     });
 
     // Cập nhật COD giảm
