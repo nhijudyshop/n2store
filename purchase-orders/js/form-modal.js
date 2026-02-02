@@ -2,11 +2,9 @@
  * PURCHASE ORDERS MODULE - FORM MODAL
  * File: form-modal.js
  * Purpose: Modal for creating and editing purchase orders
+ * Matches React app: CreatePurchaseOrderDialog.tsx
  */
 
-// ========================================
-// FORM MODAL CLASS
-// ========================================
 class PurchaseOrderFormModal {
     constructor() {
         this.modalElement = null;
@@ -18,67 +16,46 @@ class PurchaseOrderFormModal {
 
         // Form state
         this.formData = {
-            supplier: null,
-            orderDate: new Date(),
-            invoiceAmount: 0,
+            supplier: '',
+            orderDate: new Date().toISOString().split('T')[0],
+            invoiceAmount: '',
             invoiceImages: [],
             notes: '',
-            discountAmount: 0,
-            shippingFee: 0,
+            discountAmount: '',
+            shippingFee: '',
             items: []
         };
 
-        // Item counter for unique IDs
         this.itemCounter = 0;
     }
 
-    // ========================================
-    // MODAL LIFECYCLE
-    // ========================================
-
     /**
      * Open modal for creating new order
-     * @param {Object} options - Modal options
      */
     openCreate(options = {}) {
-        console.log('[FormModal] openCreate called');
-        try {
-            this.isEdit = false;
-            this.order = null;
-            this.resetFormData();
+        this.isEdit = false;
+        this.order = null;
+        this.resetFormData();
+        this.addItem(); // Add one empty item by default
 
-            // Add one empty item by default
-            this.addItem();
+        this.onSubmit = options.onSubmit;
+        this.onCancel = options.onCancel;
 
-            console.log('[FormModal] Calling render()');
-            this.render();
-            console.log('[FormModal] Calling show()');
-            this.show();
-
-            this.onSubmit = options.onSubmit;
-            this.onCancel = options.onCancel;
-            console.log('[FormModal] Modal should be visible now');
-        } catch (error) {
-            console.error('[FormModal] Error in openCreate:', error);
-            window.purchaseOrderUI?.showToast('Không thể mở form: ' + error.message, 'error');
-        }
+        this.render();
     }
 
     /**
      * Open modal for editing existing order
-     * @param {Object} order - Order to edit
-     * @param {Object} options - Modal options
      */
     openEdit(order, options = {}) {
         this.isEdit = true;
         this.order = order;
         this.loadOrderData(order);
 
-        this.render();
-        this.show();
-
         this.onSubmit = options.onSubmit;
         this.onCancel = options.onCancel;
+
+        this.render();
     }
 
     /**
@@ -86,45 +63,24 @@ class PurchaseOrderFormModal {
      */
     close() {
         if (this.modalElement) {
-            this.modalElement.classList.add('modal-overlay--exit');
-            setTimeout(() => {
-                this.modalElement.remove();
-                this.modalElement = null;
-                this.formElement = null;
-            }, 200);
+            this.modalElement.remove();
+            this.modalElement = null;
+            this.formElement = null;
         }
     }
 
     /**
-     * Show modal
-     */
-    show() {
-        if (this.modalElement) {
-            this.modalElement.style.display = 'flex';
-            // Focus first input
-            setTimeout(() => {
-                const firstInput = this.formElement?.querySelector('input:not([type="hidden"])');
-                firstInput?.focus();
-            }, 100);
-        }
-    }
-
-    // ========================================
-    // DATA MANAGEMENT
-    // ========================================
-
-    /**
-     * Reset form data to defaults
+     * Reset form data
      */
     resetFormData() {
         this.formData = {
-            supplier: null,
-            orderDate: new Date(),
-            invoiceAmount: 0,
+            supplier: '',
+            orderDate: new Date().toISOString().split('T')[0],
+            invoiceAmount: '',
             invoiceImages: [],
             notes: '',
-            discountAmount: 0,
-            shippingFee: 0,
+            discountAmount: '',
+            shippingFee: '',
             items: []
         };
         this.itemCounter = 0;
@@ -132,17 +88,17 @@ class PurchaseOrderFormModal {
 
     /**
      * Load order data into form
-     * @param {Object} order - Order data
      */
     loadOrderData(order) {
+        const orderDate = order.orderDate?.toDate ? order.orderDate.toDate() : new Date(order.orderDate);
         this.formData = {
-            supplier: order.supplier || null,
-            orderDate: order.orderDate?.toDate ? order.orderDate.toDate() : new Date(order.orderDate),
-            invoiceAmount: order.invoiceAmount || 0,
+            supplier: order.supplier?.name || '',
+            orderDate: orderDate.toISOString().split('T')[0],
+            invoiceAmount: order.invoiceAmount || '',
             invoiceImages: order.invoiceImages || [],
             notes: order.notes || '',
-            discountAmount: order.discountAmount || 0,
-            shippingFee: order.shippingFee || 0,
+            discountAmount: order.discountAmount || '',
+            shippingFee: order.shippingFee || '',
             items: (order.items || []).map((item, index) => ({
                 ...item,
                 id: item.id || `item_${index}`
@@ -152,516 +108,687 @@ class PurchaseOrderFormModal {
     }
 
     /**
-     * Get form data for submission
-     * @returns {Object}
-     */
-    getFormData() {
-        return {
-            ...this.formData,
-            orderDate: firebase.firestore.Timestamp.fromDate(this.formData.orderDate)
-        };
-    }
-
-    // ========================================
-    // ITEM MANAGEMENT
-    // ========================================
-
-    /**
-     * Add new empty item
+     * Add new item
      */
     addItem() {
-        const config = window.PurchaseOrderConfig;
         const newItem = {
-            id: config.generateUUID(),
-            position: this.formData.items.length + 1,
-            productCode: '',
+            id: `item_${Date.now()}_${this.itemCounter++}`,
             productName: '',
             variant: '',
-            productImages: [],
-            priceImages: [],
-            purchasePrice: 0,
-            sellingPrice: 0,
+            productCode: '',
             quantity: 1,
-            subtotal: 0,
-            notes: ''
+            purchasePrice: '',
+            sellingPrice: '',
+            productImages: [],
+            priceImages: []
         };
-
         this.formData.items.push(newItem);
-        this.itemCounter++;
-
         return newItem;
     }
 
     /**
-     * Remove item by ID
-     * @param {string} itemId
+     * Remove item
      */
     removeItem(itemId) {
         this.formData.items = this.formData.items.filter(item => item.id !== itemId);
-        // Re-calculate positions
-        this.formData.items.forEach((item, index) => {
-            item.position = index + 1;
-        });
     }
 
     /**
      * Copy item
-     * @param {string} itemId
      */
     copyItem(itemId) {
-        const config = window.PurchaseOrderConfig;
         const sourceItem = this.formData.items.find(item => item.id === itemId);
         if (!sourceItem) return;
 
         const newItem = {
             ...sourceItem,
-            id: config.generateUUID(),
-            position: this.formData.items.length + 1
+            id: `item_${Date.now()}_${this.itemCounter++}`,
+            productImages: [...(sourceItem.productImages || [])],
+            priceImages: [...(sourceItem.priceImages || [])]
         };
-
         this.formData.items.push(newItem);
-        this.itemCounter++;
     }
-
-    /**
-     * Update item field
-     * @param {string} itemId
-     * @param {string} field
-     * @param {*} value
-     */
-    updateItem(itemId, field, value) {
-        const item = this.formData.items.find(i => i.id === itemId);
-        if (!item) return;
-
-        item[field] = value;
-
-        // Recalculate subtotal
-        if (field === 'purchasePrice' || field === 'quantity') {
-            item.subtotal = (item.purchasePrice || 0) * (item.quantity || 0);
-        }
-    }
-
-    // ========================================
-    // CALCULATIONS
-    // ========================================
 
     /**
      * Calculate totals
-     * @returns {Object}
      */
     calculateTotals() {
-        const totalQuantity = this.formData.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
-        const totalAmount = this.formData.items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-        const finalAmount = totalAmount - (this.formData.discountAmount || 0) + (this.formData.shippingFee || 0);
+        const totalQuantity = this.formData.items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+        const totalAmount = this.formData.items.reduce((sum, item) => {
+            const price = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+            const qty = parseInt(item.quantity) || 0;
+            return sum + (price * qty);
+        }, 0);
+        const discount = parseFloat(String(this.formData.discountAmount).replace(/[,.]/g, '')) || 0;
+        const shipping = parseFloat(String(this.formData.shippingFee).replace(/[,.]/g, '')) || 0;
+        const finalAmount = totalAmount - discount + shipping;
 
-        return {
-            totalQuantity,
-            totalAmount,
-            finalAmount
-        };
+        return { totalQuantity, totalAmount, discount, shipping, finalAmount };
     }
 
-    // ========================================
-    // RENDER FUNCTIONS
-    // ========================================
+    /**
+     * Format number for display
+     */
+    formatNumber(value) {
+        if (!value && value !== 0) return '';
+        const num = parseFloat(String(value).replace(/[,.]/g, ''));
+        if (isNaN(num)) return '';
+        return num.toLocaleString('vi-VN');
+    }
 
     /**
-     * Render modal
+     * Render the modal
      */
     render() {
-        console.log('[FormModal] render() starting');
-
         // Remove existing modal
         if (this.modalElement) {
             this.modalElement.remove();
         }
 
-        // Create modal element
-        this.modalElement = document.createElement('div');
-        this.modalElement.className = 'modal-overlay';
-        this.modalElement.id = 'purchaseOrderModal';
-
         const title = this.isEdit ? 'Chỉnh sửa đơn hàng' : 'Tạo đơn đặt hàng';
+        const totals = this.calculateTotals();
 
-        console.log('[FormModal] Building HTML...');
-        const headerHTML = this.renderFormHeader();
-        console.log('[FormModal] Header rendered');
-        const tableHTML = this.renderItemsTable();
-        console.log('[FormModal] Table rendered');
-        const footerHTML = this.renderFormFooter();
-        console.log('[FormModal] Footer rendered');
+        // Create modal with INLINE STYLES to ensure visibility
+        this.modalElement = document.createElement('div');
+        this.modalElement.id = 'purchaseOrderModal';
+        this.modalElement.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            padding: 20px;
+        `;
 
         this.modalElement.innerHTML = `
-            <div class="modal modal--xl">
-                <div class="modal__header">
-                    <h2 class="modal__title">${title}</h2>
-                    <button type="button" class="modal__close" id="btnModalClose">
-                        <i data-lucide="x"></i>
+            <div style="
+                background: white;
+                border-radius: 12px;
+                width: 100%;
+                max-width: 1400px;
+                max-height: 95vh;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            ">
+                <!-- Header -->
+                <div style="
+                    padding: 20px 24px;
+                    border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 600;">${title}</h2>
+                    <button type="button" id="btnCloseModal" style="
+                        background: none;
+                        border: none;
+                        padding: 8px;
+                        cursor: pointer;
+                        border-radius: 6px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
-                <form id="purchaseOrderForm" class="modal__body">
-                    ${headerHTML}
-                    ${tableHTML}
-                    ${footerHTML}
-                </form>
+
+                <!-- Form Body -->
+                <div style="flex: 1; overflow-y: auto; padding: 24px;">
+                    <!-- Row 1: Supplier, Date, Invoice Amount, Invoice Image -->
+                    <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                                Nhà cung cấp <span style="color: #ef4444;">*</span>
+                            </label>
+                            <input type="text" id="inputSupplier" value="${this.formData.supplier}" placeholder="Nhập tên nhà cung cấp" style="
+                                width: 100%;
+                                height: 40px;
+                                padding: 0 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            ">
+                        </div>
+                        <div style="min-width: 160px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                                Ngày đặt hàng
+                            </label>
+                            <input type="date" id="inputOrderDate" value="${this.formData.orderDate}" style="
+                                width: 100%;
+                                height: 40px;
+                                padding: 0 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            ">
+                        </div>
+                        <div style="min-width: 180px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                                Số tiền hóa đơn (VND)
+                            </label>
+                            <input type="text" id="inputInvoiceAmount" value="${this.formatNumber(this.formData.invoiceAmount)}" placeholder="Nhập số tiền VND" style="
+                                width: 100%;
+                                height: 40px;
+                                padding: 0 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                text-align: right;
+                                box-sizing: border-box;
+                            ">
+                        </div>
+                        <div style="min-width: 100px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                                Ảnh hóa đơn
+                            </label>
+                            <div id="invoiceImageArea" style="
+                                width: 60px;
+                                height: 60px;
+                                border: 2px dashed #d1d5db;
+                                border-radius: 8px;
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                justify-content: center;
+                                cursor: pointer;
+                                color: #9ca3af;
+                                font-size: 10px;
+                            ">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21,15 16,10 5,21"></polyline>
+                                </svg>
+                                <span>Ctrl+V</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Search, Notes, Settings, Add buttons -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
+                        <div style="flex: 2; min-width: 200px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                                Danh sách sản phẩm
+                            </label>
+                            <input type="text" id="inputProductSearch" placeholder="Tìm kiếm sản phẩm theo tên..." style="
+                                width: 100%;
+                                height: 40px;
+                                padding: 0 12px 0 36px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                                background-image: url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%239ca3af\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"></circle><line x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"></line></svg>');
+                                background-repeat: no-repeat;
+                                background-position: 12px center;
+                            ">
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <input type="text" id="inputNotes" value="${this.formData.notes}" placeholder="Ghi chú thêm cho đơn hàng..." style="
+                                width: 100%;
+                                height: 40px;
+                                padding: 0 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            ">
+                        </div>
+                        <button type="button" id="btnSettings" style="
+                            height: 40px;
+                            width: 40px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </button>
+                        <button type="button" id="btnAddProduct" style="
+                            height: 40px;
+                            padding: 0 16px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            font-size: 14px;
+                        ">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Thêm sản phẩm
+                        </button>
+                        <button type="button" id="btnChooseInventory" style="
+                            height: 40px;
+                            padding: 0 16px;
+                            border: none;
+                            border-radius: 8px;
+                            background: #3b82f6;
+                            color: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            font-size: 14px;
+                        ">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            Chọn từ Kho SP
+                        </button>
+                    </div>
+
+                    <!-- Products Table -->
+                    <div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: #f9fafb;">
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">STT</th>
+                                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; min-width: 150px;">Tên sản phẩm</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Biến thể</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Mã sản phẩm</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">SL</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Giá mua (VND)</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Giá bán (VND)</th>
+                                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Thành tiền (VND)</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Hình ảnh sản phẩm</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Hình ảnh Giá mua</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsTableBody">
+                                    ${this.renderItemRows()}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div style="
+                    padding: 16px 24px;
+                    border-top: 1px solid #e5e7eb;
+                    display: flex;
+                    flex-wrap: wrap;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 16px;
+                    background: #f9fafb;
+                ">
+                    <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13px; color: #6b7280;">Tổng số lượng:</span>
+                            <span style="font-weight: 600;" id="totalQuantity">${totals.totalQuantity}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13px; color: #6b7280;">Tổng tiền:</span>
+                            <span style="font-weight: 600;" id="totalAmount">${this.formatNumber(totals.totalAmount)} đ</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 13px; color: #6b7280;">Giảm giá:</span>
+                            <input type="text" id="inputDiscount" value="${this.formatNumber(this.formData.discountAmount)}" placeholder="0" style="
+                                width: 100px;
+                                height: 32px;
+                                padding: 0 8px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                text-align: right;
+                            ">
+                        </div>
+                        <button type="button" id="btnAddShipping" style="
+                            height: 32px;
+                            padding: 0 12px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 6px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            font-size: 13px;
+                        ">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="1" y="3" width="15" height="13"></rect>
+                                <polygon points="16,8 20,8 23,11 23,16 16,16 16,8"></polygon>
+                                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                            </svg>
+                            Thêm tiền ship
+                        </button>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 14px; font-weight: 600; color: #6b7280;">THÀNH TIỀN:</span>
+                            <span style="font-size: 20px; font-weight: 700; color: #3b82f6;" id="finalAmount">${this.formatNumber(totals.finalAmount)} đ</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" id="btnCancel" style="
+                                height: 40px;
+                                padding: 0 20px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 8px;
+                                background: white;
+                                cursor: pointer;
+                                font-size: 14px;
+                            ">Hủy</button>
+                            <button type="button" id="btnSaveDraft" style="
+                                height: 40px;
+                                padding: 0 20px;
+                                border: 1px solid #3b82f6;
+                                border-radius: 8px;
+                                background: white;
+                                color: #3b82f6;
+                                cursor: pointer;
+                                font-size: 14px;
+                            ">Lưu nháp</button>
+                            <button type="button" id="btnSubmit" style="
+                                height: 40px;
+                                padding: 0 20px;
+                                border: none;
+                                border-radius: 8px;
+                                background: #3b82f6;
+                                color: white;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 500;
+                            ">${this.isEdit ? 'Cập nhật' : 'Tạo đơn hàng'}</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
 
         document.body.appendChild(this.modalElement);
-        console.log('[FormModal] Modal appended to body');
-
-        this.formElement = this.modalElement.querySelector('#purchaseOrderForm');
-
-        // Re-initialize Lucide icons
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-
-        // Bind events
         this.bindEvents();
-        console.log('[FormModal] render() complete');
-    }
-
-    /**
-     * Render form header (supplier, date, invoice)
-     * @returns {string} HTML string
-     */
-    renderFormHeader() {
-        const config = window.PurchaseOrderConfig;
-
-        return `
-            <div class="form-header">
-                <div class="form-row">
-                    <div class="form-group form-group--supplier">
-                        <label class="form-label form-label--required">Nhà cung cấp</label>
-                        <input type="text" id="supplierInput" class="form-input"
-                               placeholder="Nhập tên nhà cung cấp"
-                               value="${this.formData.supplier?.name || ''}"
-                               data-supplier-id="${this.formData.supplier?.id || ''}"
-                               data-supplier-code="${this.formData.supplier?.code || ''}">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Ngày đặt hàng</label>
-                        <div class="input-icon">
-                            <i data-lucide="calendar"></i>
-                            <input type="date" id="orderDateInput" class="form-input"
-                                   value="${this.formatDateForInput(this.formData.orderDate)}">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Số tiền hóa đơn (VND)</label>
-                        <input type="text" id="invoiceAmountInput" class="form-input form-input--number"
-                               placeholder="Nhập số tiền VND"
-                               value="${this.formatNumberInput(this.formData.invoiceAmount)}">
-                    </div>
-
-                    <div class="form-group form-group--image">
-                        <label class="form-label">Ảnh hóa đơn</label>
-                        <div class="image-upload-area" id="invoiceImageUpload">
-                            ${this.renderImageThumbnails(this.formData.invoiceImages, 'invoice')}
-                            <button type="button" class="btn-upload" id="btnUploadInvoice">
-                                <i data-lucide="image-plus"></i>
-                                <span>Ctrl+V</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group form-group--search">
-                        <label class="form-label">Danh sách sản phẩm</label>
-                        <div class="input-icon">
-                            <i data-lucide="search"></i>
-                            <input type="text" id="productSearchInput" class="form-input"
-                                   placeholder="Tìm kiếm sản phẩm theo tên...">
-                        </div>
-                    </div>
-
-                    <div class="form-group form-group--notes">
-                        <label class="form-label">Ghi chú thêm cho đơn hàng...</label>
-                        <input type="text" id="orderNotesInput" class="form-input"
-                               placeholder="Ghi chú thêm cho đơn hàng..."
-                               value="${this.formData.notes || ''}">
-                    </div>
-
-                    <div class="form-group form-group--settings">
-                        <button type="button" class="btn btn-icon" id="btnSettings" title="Cài đặt">
-                            <i data-lucide="settings"></i>
-                        </button>
-                    </div>
-
-                    <div class="form-group">
-                        <button type="button" class="btn btn-outline" id="btnAddProduct">
-                            <i data-lucide="plus"></i>
-                            <span>Thêm sản phẩm</span>
-                        </button>
-                    </div>
-
-                    <div class="form-group">
-                        <button type="button" class="btn btn-primary" id="btnChooseFromInventory">
-                            <i data-lucide="package"></i>
-                            <span>Chọn từ Kho SP</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    /**
-     * Render items table
-     * @returns {string} HTML string
-     */
-    renderItemsTable() {
-        return `
-            <div class="items-table-wrapper">
-                <table class="items-table">
-                    <thead>
-                        <tr>
-                            <th class="col-stt">STT</th>
-                            <th class="col-product">Tên sản phẩm</th>
-                            <th class="col-variant">Biến thể</th>
-                            <th class="col-code">Mã sản phẩm</th>
-                            <th class="col-qty">SL</th>
-                            <th class="col-purchase">Giá mua (VND)</th>
-                            <th class="col-selling">Giá bán (VND)</th>
-                            <th class="col-subtotal">Thành tiền (VND)</th>
-                            <th class="col-image">Hình ảnh sản phẩm</th>
-                            <th class="col-price-image">Hình ảnh Giá mua</th>
-                            <th class="col-actions">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody id="itemsTableBody">
-                        ${this.renderItemRows()}
-                    </tbody>
-                </table>
-            </div>
-        `;
     }
 
     /**
      * Render item rows
-     * @returns {string} HTML string
      */
     renderItemRows() {
         if (this.formData.items.length === 0) {
             return `
-                <tr class="items-table__empty">
-                    <td colspan="11">
-                        <div class="empty-items">
-                            <i data-lucide="package-open"></i>
-                            <p>Chưa có sản phẩm nào. Nhấn "Thêm sản phẩm" để bắt đầu.</p>
+                <tr>
+                    <td colspan="11" style="padding: 40px; text-align: center; color: #9ca3af;">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                            <p style="margin: 0;">Chưa có sản phẩm nào. Nhấn "Thêm sản phẩm" để bắt đầu.</p>
                         </div>
                     </td>
                 </tr>
             `;
         }
 
-        return this.formData.items.map((item, index) => this.renderItemRow(item, index)).join('');
-    }
+        return this.formData.items.map((item, index) => {
+            const subtotal = (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 0);
 
-    /**
-     * Render single item row
-     * @param {Object} item - Item data
-     * @param {number} index - Item index
-     * @returns {string} HTML string
-     */
-    renderItemRow(item, index) {
-        const config = window.PurchaseOrderConfig;
-
-        return `
-            <tr class="item-row" data-item-id="${item.id}">
-                <td class="col-stt">${index + 1}</td>
-
-                <td class="col-product">
-                    <input type="text" class="form-input item-input"
-                           data-field="productName"
-                           placeholder="Nhập tên sản phẩm"
-                           value="${item.productName || ''}">
-                </td>
-
-                <td class="col-variant">
-                    <button type="button" class="btn btn-sm btn-outline btn-variant" data-action="edit-variant">
-                        ${item.variant || 'Nhấn để tạo biến thể'}
-                    </button>
-                </td>
-
-                <td class="col-code">
-                    <div class="input-with-icon">
-                        <input type="text" class="form-input form-input--sm item-input"
-                               data-field="productCode"
-                               placeholder="Mã SP"
-                               value="${item.productCode || ''}">
-                        <button type="button" class="btn-icon btn-sm" title="Chọn sản phẩm">
-                            <i data-lucide="edit"></i>
-                        </button>
-                    </div>
-                </td>
-
-                <td class="col-qty">
-                    <input type="number" class="form-input form-input--number form-input--sm item-input"
-                           data-field="quantity"
-                           min="1" max="9999"
-                           value="${item.quantity || 1}">
-                </td>
-
-                <td class="col-purchase">
-                    <input type="text" class="form-input form-input--number form-input--sm item-input price-input"
-                           data-field="purchasePrice"
-                           placeholder="0"
-                           value="${this.formatNumberInput(item.purchasePrice)}">
-                </td>
-
-                <td class="col-selling">
-                    <input type="text" class="form-input form-input--number form-input--sm item-input price-input"
-                           data-field="sellingPrice"
-                           placeholder="0"
-                           value="${this.formatNumberInput(item.sellingPrice)}">
-                </td>
-
-                <td class="col-subtotal">
-                    <span class="subtotal-value">${config.formatVND(item.subtotal || 0)}</span>
-                </td>
-
-                <td class="col-image">
-                    <div class="image-upload-mini" data-type="product" data-item-id="${item.id}">
-                        ${this.renderMiniImageUpload(item.productImages, 'product', item.id)}
-                    </div>
-                </td>
-
-                <td class="col-price-image">
-                    <div class="image-upload-mini" data-type="price" data-item-id="${item.id}">
-                        ${this.renderMiniImageUpload(item.priceImages, 'price', item.id)}
-                    </div>
-                </td>
-
-                <td class="col-actions">
-                    <div class="item-actions">
-                        <button type="button" class="btn-icon btn-sm" title="Lưu" data-action="save-item">
-                            <i data-lucide="save"></i>
-                        </button>
-                        <button type="button" class="btn-icon btn-sm" title="Sao chép" data-action="copy-item">
-                            <i data-lucide="copy"></i>
-                        </button>
-                        <button type="button" class="btn-icon btn-sm btn-danger" title="Xóa" data-action="delete-item">
-                            <i data-lucide="x"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }
-
-    /**
-     * Render mini image upload
-     * @param {Array} images - Array of image URLs
-     * @param {string} type - Image type (product/price)
-     * @param {string} itemId - Item ID
-     * @returns {string} HTML string
-     */
-    renderMiniImageUpload(images, type, itemId) {
-        if (!images || images.length === 0) {
             return `
-                <button type="button" class="btn-upload-mini" data-action="upload-${type}" data-item-id="${itemId}">
-                    <i data-lucide="image-plus"></i>
-                    <span>Ctrl+V</span>
-                </button>
+                <tr data-item-id="${item.id}">
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">${index + 1}</td>
+                    <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
+                        <input type="text" data-field="productName" value="${item.productName || ''}" placeholder="Nhập tên sản phẩm" style="
+                            width: 100%;
+                            height: 36px;
+                            padding: 0 8px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 6px;
+                            font-size: 13px;
+                            box-sizing: border-box;
+                        ">
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+                        <button type="button" data-action="variant" style="
+                            height: 32px;
+                            padding: 0 12px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 6px;
+                            background: white;
+                            cursor: pointer;
+                            font-size: 12px;
+                            white-space: nowrap;
+                        ">${item.variant || 'Nhấn để tạo biến thể'}</button>
+                    </td>
+                    <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
+                        <div style="display: flex; gap: 4px;">
+                            <input type="text" data-field="productCode" value="${item.productCode || ''}" placeholder="Mã SP" style="
+                                width: 80px;
+                                height: 36px;
+                                padding: 0 8px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                box-sizing: border-box;
+                            ">
+                            <button type="button" style="
+                                width: 32px;
+                                height: 36px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                background: white;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+                        <input type="number" data-field="quantity" value="${item.quantity || 1}" min="1" style="
+                            width: 60px;
+                            height: 36px;
+                            padding: 0 8px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 6px;
+                            font-size: 13px;
+                            text-align: center;
+                            box-sizing: border-box;
+                        ">
+                    </td>
+                    <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
+                        <input type="text" data-field="purchasePrice" value="${this.formatNumber(item.purchasePrice)}" placeholder="0" style="
+                            width: 100px;
+                            height: 36px;
+                            padding: 0 8px;
+                            border: 2px solid #ef4444;
+                            border-radius: 6px;
+                            font-size: 13px;
+                            text-align: right;
+                            background: #fef2f2;
+                            box-sizing: border-box;
+                        ">
+                    </td>
+                    <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
+                        <input type="text" data-field="sellingPrice" value="${this.formatNumber(item.sellingPrice)}" placeholder="0" style="
+                            width: 100px;
+                            height: 36px;
+                            padding: 0 8px;
+                            border: 2px solid #ef4444;
+                            border-radius: 6px;
+                            font-size: 13px;
+                            text-align: right;
+                            background: #fef2f2;
+                            box-sizing: border-box;
+                        ">
+                    </td>
+                    <td style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #f3f4f6; font-weight: 600;">
+                        ${this.formatNumber(subtotal)} đ
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+                        <div data-type="product" style="
+                            width: 50px;
+                            height: 50px;
+                            border: 1px dashed #d1d5db;
+                            border-radius: 6px;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            cursor: pointer;
+                            color: #9ca3af;
+                            font-size: 9px;
+                            margin: 0 auto;
+                        ">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21,15 16,10 5,21"></polyline>
+                            </svg>
+                            <span>Ctrl+V</span>
+                        </div>
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+                        <div data-type="price" style="
+                            width: 50px;
+                            height: 50px;
+                            border: 1px dashed #d1d5db;
+                            border-radius: 6px;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            cursor: pointer;
+                            color: #9ca3af;
+                            font-size: 9px;
+                            margin: 0 auto;
+                        ">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21,15 16,10 5,21"></polyline>
+                            </svg>
+                            <span>Ctrl+V</span>
+                        </div>
+                    </td>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" data-action="save" title="Lưu" style="
+                                width: 32px;
+                                height: 32px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                background: white;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17,21 17,13 7,13 7,21"></polyline>
+                                    <polyline points="7,3 7,8 15,8"></polyline>
+                                </svg>
+                            </button>
+                            <button type="button" data-action="copy" title="Sao chép" style="
+                                width: 32px;
+                                height: 32px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                background: white;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                            ">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                            <button type="button" data-action="delete" title="Xóa" style="
+                                width: 32px;
+                                height: 32px;
+                                border: 1px solid #fecaca;
+                                border-radius: 6px;
+                                background: #fef2f2;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: #ef4444;
+                            ">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
             `;
+        }).join('');
+    }
+
+    /**
+     * Refresh items table
+     */
+    refreshItemsTable() {
+        const tbody = this.modalElement?.querySelector('#itemsTableBody');
+        if (tbody) {
+            tbody.innerHTML = this.renderItemRows();
+            this.bindItemEvents();
         }
-
-        return `
-            <div class="mini-thumbnails">
-                <img src="${images[0]}" alt="${type}" class="mini-thumb">
-                ${images.length > 1 ? `<span class="thumb-count">+${images.length - 1}</span>` : ''}
-            </div>
-        `;
+        this.updateTotals();
     }
 
     /**
-     * Render image thumbnails
-     * @param {Array} images - Array of image URLs
-     * @param {string} type - Image type
-     * @returns {string} HTML string
+     * Update totals display
      */
-    renderImageThumbnails(images, type) {
-        if (!images || images.length === 0) return '';
-
-        return images.map((url, index) => `
-            <div class="thumb-item" data-index="${index}">
-                <img src="${url}" alt="${type}">
-                <button type="button" class="thumb-remove" data-action="remove-image" data-type="${type}" data-index="${index}">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
-        `).join('');
-    }
-
-    /**
-     * Render form footer (totals and buttons)
-     * @returns {string} HTML string
-     */
-    renderFormFooter() {
-        const config = window.PurchaseOrderConfig;
+    updateTotals() {
         const totals = this.calculateTotals();
 
-        return `
-            <div class="form-footer">
-                <div class="form-totals">
-                    <div class="total-item">
-                        <span class="total-label">Tổng số lượng:</span>
-                        <span class="total-value" id="totalQuantity">${totals.totalQuantity}</span>
-                    </div>
+        const totalQtyEl = this.modalElement?.querySelector('#totalQuantity');
+        const totalAmountEl = this.modalElement?.querySelector('#totalAmount');
+        const finalAmountEl = this.modalElement?.querySelector('#finalAmount');
 
-                    <div class="total-item">
-                        <span class="total-label">Tổng tiền:</span>
-                        <span class="total-value" id="totalAmount">${config.formatVND(totals.totalAmount)}</span>
-                    </div>
-
-                    <div class="total-item total-item--input">
-                        <span class="total-label">Giảm giá:</span>
-                        <input type="text" id="discountInput" class="form-input form-input--sm form-input--number"
-                               value="${this.formatNumberInput(this.formData.discountAmount)}"
-                               placeholder="0">
-                    </div>
-
-                    <div class="total-item">
-                        <button type="button" class="btn btn-sm btn-outline" id="btnAddShipping">
-                            <i data-lucide="truck"></i>
-                            <span>Thêm tiền ship</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="form-final">
-                    <span class="final-label">THÀNH TIỀN:</span>
-                    <span class="final-value" id="finalAmount">${config.formatVND(totals.finalAmount)}</span>
-                </div>
-
-                <div class="form-actions">
-                    <button type="button" class="btn btn-outline" id="btnCancel">Hủy</button>
-                    <button type="button" class="btn btn-secondary" id="btnSaveDraft">Lưu nháp</button>
-                    <button type="submit" class="btn btn-primary" id="btnSubmit">
-                        ${this.isEdit ? 'Cập nhật' : 'Tạo đơn hàng'}
-                    </button>
-                </div>
-            </div>
-        `;
+        if (totalQtyEl) totalQtyEl.textContent = totals.totalQuantity;
+        if (totalAmountEl) totalAmountEl.textContent = this.formatNumber(totals.totalAmount) + ' đ';
+        if (finalAmountEl) finalAmountEl.textContent = this.formatNumber(totals.finalAmount) + ' đ';
     }
 
-    // ========================================
-    // EVENT BINDING
-    // ========================================
-
     /**
-     * Bind all event handlers
+     * Bind all events
      */
     bindEvents() {
-        if (!this.modalElement || !this.formElement) return;
+        if (!this.modalElement) return;
 
         // Close button
-        this.modalElement.querySelector('#btnModalClose')?.addEventListener('click', () => this.close());
+        this.modalElement.querySelector('#btnCloseModal')?.addEventListener('click', () => this.close());
+        this.modalElement.querySelector('#btnCancel')?.addEventListener('click', () => {
+            this.onCancel?.();
+            this.close();
+        });
 
         // Close on overlay click
         this.modalElement.addEventListener('click', (e) => {
@@ -670,446 +797,90 @@ class PurchaseOrderFormModal {
             }
         });
 
-        // Cancel button
-        this.modalElement.querySelector('#btnCancel')?.addEventListener('click', () => {
-            this.onCancel?.();
-            this.close();
-        });
-
-        // Save draft button
-        this.modalElement.querySelector('#btnSaveDraft')?.addEventListener('click', () => {
-            this.handleSaveDraft();
-        });
-
-        // Submit form
-        this.formElement.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleSubmit();
-        });
-
         // Add product button
         this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', () => {
             this.addItem();
             this.refreshItemsTable();
         });
 
-        // Settings button
-        this.modalElement.querySelector('#btnSettings')?.addEventListener('click', () => {
-            this.openSettings();
+        // Discount input
+        this.modalElement.querySelector('#inputDiscount')?.addEventListener('input', (e) => {
+            this.formData.discountAmount = e.target.value;
+            this.updateTotals();
         });
 
-        // Choose from inventory button
-        this.modalElement.querySelector('#btnChooseFromInventory')?.addEventListener('click', () => {
-            this.openInventoryPicker();
+        // Save draft
+        this.modalElement.querySelector('#btnSaveDraft')?.addEventListener('click', () => {
+            this.handleSaveDraft();
         });
 
-        // Shipping fee button
-        this.modalElement.querySelector('#btnAddShipping')?.addEventListener('click', () => {
-            this.openShippingFeeDialog();
+        // Submit
+        this.modalElement.querySelector('#btnSubmit')?.addEventListener('click', () => {
+            this.handleSubmit();
         });
 
-        // Setup image paste handler
-        this.setupImagePasteHandler();
+        // Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.modalElement) {
+                this.close();
+            }
+        });
 
-        // Item table events (delegation)
-        const itemsBody = this.modalElement.querySelector('#itemsTableBody');
-        if (itemsBody) {
-            // Input changes
-            itemsBody.addEventListener('input', (e) => {
-                const input = e.target.closest('.item-input');
-                if (!input) return;
+        // Bind item events
+        this.bindItemEvents();
+    }
 
-                const row = input.closest('.item-row');
+    /**
+     * Bind item-specific events
+     */
+    bindItemEvents() {
+        const tbody = this.modalElement?.querySelector('#itemsTableBody');
+        if (!tbody) return;
+
+        // Input changes
+        tbody.querySelectorAll('input[data-field]').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const row = e.target.closest('tr');
                 const itemId = row?.dataset.itemId;
-                const field = input.dataset.field;
+                const field = e.target.dataset.field;
+                const item = this.formData.items.find(i => i.id === itemId);
 
-                if (itemId && field) {
-                    let value = input.value;
-
-                    // Parse numbers
-                    if (input.classList.contains('price-input')) {
-                        value = this.parseNumberInput(value);
-                    } else if (field === 'quantity') {
-                        value = parseInt(value, 10) || 1;
-                    }
-
-                    this.updateItem(itemId, field, value);
-                    this.updateSubtotal(row);
+                if (item && field) {
+                    item[field] = e.target.value;
                     this.updateTotals();
                 }
             });
+        });
 
-            // Action buttons
-            itemsBody.addEventListener('click', (e) => {
-                const button = e.target.closest('[data-action]');
-                if (!button) return;
-
-                const row = button.closest('.item-row');
+        // Action buttons
+        tbody.querySelectorAll('button[data-action]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const row = e.target.closest('tr');
                 const itemId = row?.dataset.itemId;
-                const action = button.dataset.action;
+                const action = e.target.closest('button').dataset.action;
 
-                switch (action) {
-                    case 'delete-item':
-                        if (itemId) {
-                            this.removeItem(itemId);
-                            this.refreshItemsTable();
-                            this.updateTotals();
-                        }
-                        break;
-                    case 'copy-item':
-                        if (itemId) {
-                            this.copyItem(itemId);
-                            this.refreshItemsTable();
-                        }
-                        break;
-                    case 'save-item':
-                        // Save feedback
-                        button.classList.add('btn-success');
-                        setTimeout(() => button.classList.remove('btn-success'), 500);
-                        break;
-                    case 'edit-variant':
-                        if (itemId) {
-                            this.openVariantGenerator(itemId);
-                        }
-                        break;
+                if (action === 'delete' && itemId) {
+                    this.removeItem(itemId);
+                    this.refreshItemsTable();
+                } else if (action === 'copy' && itemId) {
+                    this.copyItem(itemId);
+                    this.refreshItemsTable();
                 }
             });
-        }
-
-        // Discount input
-        const discountInput = this.modalElement.querySelector('#discountInput');
-        if (discountInput) {
-            discountInput.addEventListener('input', (e) => {
-                this.formData.discountAmount = this.parseNumberInput(e.target.value);
-                this.updateTotals();
-            });
-        }
-
-        // Order date input
-        const orderDateInput = this.modalElement.querySelector('#orderDateInput');
-        if (orderDateInput) {
-            orderDateInput.addEventListener('change', (e) => {
-                this.formData.orderDate = new Date(e.target.value);
-            });
-        }
-
-        // Supplier input
-        const supplierInput = this.modalElement.querySelector('#supplierInput');
-        if (supplierInput) {
-            supplierInput.addEventListener('change', (e) => {
-                // Simple text-based supplier for now
-                this.formData.supplier = {
-                    id: e.target.dataset.supplierId || window.PurchaseOrderConfig.generateUUID(),
-                    code: e.target.dataset.supplierCode || e.target.value.substring(0, 3).toUpperCase(),
-                    name: e.target.value
-                };
-            });
-        }
-
-        // Notes input
-        const notesInput = this.modalElement.querySelector('#orderNotesInput');
-        if (notesInput) {
-            notesInput.addEventListener('input', (e) => {
-                this.formData.notes = e.target.value;
-            });
-        }
-
-        // Invoice amount input
-        const invoiceAmountInput = this.modalElement.querySelector('#invoiceAmountInput');
-        if (invoiceAmountInput) {
-            invoiceAmountInput.addEventListener('input', (e) => {
-                this.formData.invoiceAmount = this.parseNumberInput(e.target.value);
-            });
-        }
-
-        // Escape key to close
-        document.addEventListener('keydown', this.handleKeydown.bind(this));
-    }
-
-    /**
-     * Handle keydown events
-     * @param {KeyboardEvent} e
-     */
-    handleKeydown(e) {
-        if (e.key === 'Escape' && this.modalElement) {
-            this.close();
-        }
-    }
-
-    /**
-     * Setup image paste handler (Ctrl+V)
-     */
-    setupImagePasteHandler() {
-        document.addEventListener('paste', this.handlePaste.bind(this));
-    }
-
-    /**
-     * Handle paste event for images
-     * @param {ClipboardEvent} e
-     */
-    async handlePaste(e) {
-        if (!this.modalElement) return;
-
-        const items = e.clipboardData?.items;
-        if (!items) return;
-
-        // Find image in clipboard
-        for (const item of items) {
-            if (item.type.startsWith('image/')) {
-                e.preventDefault();
-
-                const blob = item.getAsFile();
-                if (!blob) continue;
-
-                // Determine which image field is focused
-                const focusedElement = document.activeElement;
-                const imageUploadArea = focusedElement?.closest('.image-upload-area, .image-upload-mini');
-
-                try {
-                    const imageUrl = await this.uploadImage(blob);
-
-                    if (imageUploadArea) {
-                        const type = imageUploadArea.dataset.type;
-                        const itemId = imageUploadArea.dataset.itemId;
-
-                        if (type === 'invoice' || imageUploadArea.id === 'invoiceImageUpload') {
-                            this.formData.invoiceImages.push(imageUrl);
-                            this.refreshInvoiceImages();
-                        } else if (type === 'product' && itemId) {
-                            const item = this.formData.items.find(i => i.id === itemId);
-                            if (item) {
-                                item.productImages = item.productImages || [];
-                                item.productImages.push(imageUrl);
-                                this.refreshItemImages(itemId, 'product');
-                            }
-                        } else if (type === 'price' && itemId) {
-                            const item = this.formData.items.find(i => i.id === itemId);
-                            if (item) {
-                                item.priceImages = item.priceImages || [];
-                                item.priceImages.push(imageUrl);
-                                this.refreshItemImages(itemId, 'price');
-                            }
-                        }
-                    } else {
-                        // Default: add to invoice images
-                        this.formData.invoiceImages.push(imageUrl);
-                        this.refreshInvoiceImages();
-                    }
-
-                    window.purchaseOrderUI?.showToast('Đã thêm hình ảnh', 'success');
-                } catch (error) {
-                    console.error('Error uploading pasted image:', error);
-                    window.purchaseOrderUI?.showToast('Không thể tải lên hình ảnh', 'error');
-                }
-
-                break;
-            }
-        }
-    }
-
-    /**
-     * Upload image to Firebase Storage
-     * @param {Blob} blob - Image blob
-     * @returns {Promise<string>} Image URL
-     */
-    async uploadImage(blob) {
-        const storage = firebase.storage();
-        const fileName = `purchase-orders/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
-        const ref = storage.ref(fileName);
-
-        await ref.put(blob);
-        return await ref.getDownloadURL();
-    }
-
-    /**
-     * Refresh invoice images display
-     */
-    refreshInvoiceImages() {
-        const container = this.modalElement?.querySelector('#invoiceImageUpload');
-        if (!container) return;
-
-        // Keep the upload button and add thumbnails
-        const uploadBtn = container.querySelector('.btn-upload');
-        container.innerHTML = this.renderImageThumbnails(this.formData.invoiceImages, 'invoice');
-        if (uploadBtn) {
-            container.appendChild(uploadBtn.cloneNode(true));
-        } else {
-            container.innerHTML += `
-                <button type="button" class="btn-upload" id="btnUploadInvoice">
-                    <i data-lucide="image-plus"></i>
-                    <span>Ctrl+V</span>
-                </button>
-            `;
-        }
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    }
-
-    /**
-     * Refresh item images display
-     * @param {string} itemId
-     * @param {string} type - 'product' or 'price'
-     */
-    refreshItemImages(itemId, type) {
-        const item = this.formData.items.find(i => i.id === itemId);
-        if (!item) return;
-
-        const container = this.modalElement?.querySelector(
-            `.image-upload-mini[data-type="${type}"][data-item-id="${itemId}"]`
-        );
-        if (!container) return;
-
-        const images = type === 'product' ? item.productImages : item.priceImages;
-        container.innerHTML = this.renderMiniImageUpload(images, type, itemId);
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    }
-
-    /**
-     * Open variant generator dialog
-     * @param {string} itemId
-     */
-    openVariantGenerator(itemId) {
-        const item = this.formData.items.find(i => i.id === itemId);
-        if (!item) return;
-
-        window.variantGeneratorDialog.open({
-            baseProduct: {
-                productName: item.productName,
-                productCode: item.productCode,
-                purchasePrice: item.purchasePrice,
-                sellingPrice: item.sellingPrice,
-                productImages: item.productImages,
-                priceImages: item.priceImages
-            },
-            onGenerate: (variants, baseProduct) => {
-                // Remove original item
-                this.removeItem(itemId);
-
-                // Add variant items
-                variants.forEach(variant => {
-                    const newItem = this.addItem();
-                    newItem.productName = baseProduct.productName;
-                    newItem.productCode = baseProduct.productCode;
-                    newItem.variant = variant;
-                    newItem.purchasePrice = baseProduct.purchasePrice;
-                    newItem.sellingPrice = baseProduct.sellingPrice;
-                    newItem.productImages = [...(baseProduct.productImages || [])];
-                    newItem.priceImages = [...(baseProduct.priceImages || [])];
-                    newItem.subtotal = (newItem.purchasePrice || 0) * (newItem.quantity || 1);
-                });
-
-                this.refreshItemsTable();
-                this.updateTotals();
-
-                window.purchaseOrderUI?.showToast(`Đã tạo ${variants.length} biến thể`, 'success');
-            }
         });
     }
 
     /**
-     * Open settings dialog
-     */
-    openSettings() {
-        window.settingsDialog.open({
-            settings: this.validationSettings || {},
-            onSave: (settings) => {
-                this.validationSettings = settings;
-                window.purchaseOrderUI?.showToast('Đã lưu cài đặt', 'success');
-            }
-        });
-    }
-
-    /**
-     * Open inventory picker dialog
-     */
-    openInventoryPicker() {
-        window.inventoryPickerDialog.open({
-            onSelect: (products) => {
-                products.forEach(product => {
-                    const newItem = this.addItem();
-                    newItem.productName = product.name;
-                    newItem.productCode = product.code || product.sku;
-                    newItem.sellingPrice = product.price || 0;
-                    newItem.productImages = product.images || [];
-                });
-
-                this.refreshItemsTable();
-
-                window.purchaseOrderUI?.showToast(`Đã thêm ${products.length} sản phẩm`, 'success');
-            }
-        });
-    }
-
-    /**
-     * Open shipping fee dialog
-     */
-    openShippingFeeDialog() {
-        window.shippingFeeDialog.open({
-            currentFee: this.formData.shippingFee || 0,
-            onSave: (fee) => {
-                this.formData.shippingFee = fee;
-                this.updateTotals();
-            }
-        });
-    }
-
-    // ========================================
-    // FORM HANDLERS
-    // ========================================
-
-    /**
-     * Handle form submission
-     */
-    async handleSubmit() {
-        const config = window.PurchaseOrderConfig;
-        const validation = window.PurchaseOrderValidation;
-        const ui = window.purchaseOrderUI;
-
-        // Collect form data
-        this.collectFormData();
-
-        // Validate
-        const orderData = this.getFormData();
-        orderData.status = config.OrderStatus.AWAITING_PURCHASE;
-
-        const result = validation.validateOrder(orderData);
-
-        if (!result.isValid) {
-            // Show validation errors
-            ui.showToast(result.errors[0]?.message || 'Vui lòng kiểm tra lại thông tin', 'error');
-            this.highlightErrors(result.errors);
-            return;
-        }
-
-        try {
-            await this.onSubmit?.(orderData);
-            this.close();
-        } catch (error) {
-            ui.showToast(error.userMessage || 'Không thể lưu đơn hàng', 'error');
-        }
-    }
-
-    /**
-     * Handle save as draft
+     * Handle save draft
      */
     async handleSaveDraft() {
-        const config = window.PurchaseOrderConfig;
-        const ui = window.purchaseOrderUI;
-
-        // Collect form data
         this.collectFormData();
 
         const orderData = this.getFormData();
-        orderData.status = config.OrderStatus.DRAFT;
+        orderData.status = 'DRAFT';
 
-        // Skip validation for draft (minimal check)
-        if (!this.formData.supplier?.name) {
-            ui.showToast('Vui lòng nhập tên nhà cung cấp', 'warning');
+        if (!this.formData.supplier) {
+            alert('Vui lòng nhập tên nhà cung cấp');
             return;
         }
 
@@ -1117,7 +888,36 @@ class PurchaseOrderFormModal {
             await this.onSubmit?.(orderData);
             this.close();
         } catch (error) {
-            ui.showToast(error.userMessage || 'Không thể lưu nháp', 'error');
+            console.error('Save draft failed:', error);
+            alert('Không thể lưu nháp: ' + error.message);
+        }
+    }
+
+    /**
+     * Handle submit
+     */
+    async handleSubmit() {
+        this.collectFormData();
+
+        const orderData = this.getFormData();
+        orderData.status = 'AWAITING_PURCHASE';
+
+        if (!this.formData.supplier) {
+            alert('Vui lòng nhập tên nhà cung cấp');
+            return;
+        }
+
+        if (this.formData.items.length === 0) {
+            alert('Vui lòng thêm ít nhất một sản phẩm');
+            return;
+        }
+
+        try {
+            await this.onSubmit?.(orderData);
+            this.close();
+        } catch (error) {
+            console.error('Submit failed:', error);
+            alert('Không thể tạo đơn hàng: ' + error.message);
         }
     }
 
@@ -1125,174 +925,44 @@ class PurchaseOrderFormModal {
      * Collect form data from inputs
      */
     collectFormData() {
-        // Supplier
-        const supplierInput = this.modalElement?.querySelector('#supplierInput');
-        if (supplierInput && supplierInput.value) {
-            this.formData.supplier = {
-                id: supplierInput.dataset.supplierId || window.PurchaseOrderConfig.generateUUID(),
-                code: supplierInput.dataset.supplierCode || supplierInput.value.substring(0, 3).toUpperCase(),
-                name: supplierInput.value
-            };
-        }
-
-        // Order date
-        const orderDateInput = this.modalElement?.querySelector('#orderDateInput');
-        if (orderDateInput?.value) {
-            this.formData.orderDate = new Date(orderDateInput.value);
-        }
-
-        // Invoice amount
-        const invoiceAmountInput = this.modalElement?.querySelector('#invoiceAmountInput');
-        if (invoiceAmountInput) {
-            this.formData.invoiceAmount = this.parseNumberInput(invoiceAmountInput.value);
-        }
-
-        // Notes
-        const notesInput = this.modalElement?.querySelector('#orderNotesInput');
-        if (notesInput) {
-            this.formData.notes = notesInput.value;
-        }
-
-        // Discount
-        const discountInput = this.modalElement?.querySelector('#discountInput');
-        if (discountInput) {
-            this.formData.discountAmount = this.parseNumberInput(discountInput.value);
-        }
-
-        // Items (already collected via input events)
+        this.formData.supplier = this.modalElement?.querySelector('#inputSupplier')?.value || '';
+        this.formData.orderDate = this.modalElement?.querySelector('#inputOrderDate')?.value || '';
+        this.formData.invoiceAmount = this.modalElement?.querySelector('#inputInvoiceAmount')?.value || '';
+        this.formData.notes = this.modalElement?.querySelector('#inputNotes')?.value || '';
+        this.formData.discountAmount = this.modalElement?.querySelector('#inputDiscount')?.value || '';
     }
 
     /**
-     * Highlight validation errors
-     * @param {Array} errors
+     * Get form data for submission
      */
-    highlightErrors(errors) {
-        // Clear previous errors
-        this.modalElement?.querySelectorAll('.is-invalid').forEach(el => {
-            el.classList.remove('is-invalid');
-        });
-
-        // Highlight fields with errors
-        errors.forEach(error => {
-            const field = error.field;
-
-            // Handle item field errors
-            if (field.startsWith('items[')) {
-                const match = field.match(/items\[(\d+)\]\.(\w+)/);
-                if (match) {
-                    const itemIndex = parseInt(match[1], 10);
-                    const itemField = match[2];
-                    const item = this.formData.items[itemIndex];
-                    if (item) {
-                        const input = this.modalElement?.querySelector(
-                            `.item-row[data-item-id="${item.id}"] .item-input[data-field="${itemField}"]`
-                        );
-                        input?.classList.add('is-invalid');
-                    }
-                }
-            } else {
-                // Handle header field errors
-                const input = this.modalElement?.querySelector(`#${field}Input, [name="${field}"]`);
-                input?.classList.add('is-invalid');
-            }
-        });
-    }
-
-    // ========================================
-    // UI UPDATE FUNCTIONS
-    // ========================================
-
-    /**
-     * Refresh items table
-     */
-    refreshItemsTable() {
-        const tbody = this.modalElement?.querySelector('#itemsTableBody');
-        if (!tbody) return;
-
-        tbody.innerHTML = this.renderItemRows();
-
-        // Re-initialize Lucide icons
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    }
-
-    /**
-     * Update subtotal display for a row
-     * @param {HTMLElement} row
-     */
-    updateSubtotal(row) {
-        const config = window.PurchaseOrderConfig;
-        const itemId = row?.dataset.itemId;
-        const item = this.formData.items.find(i => i.id === itemId);
-
-        if (item) {
-            const subtotalEl = row.querySelector('.subtotal-value');
-            if (subtotalEl) {
-                subtotalEl.textContent = config.formatVND(item.subtotal);
-            }
-        }
-    }
-
-    /**
-     * Update totals display
-     */
-    updateTotals() {
-        const config = window.PurchaseOrderConfig;
+    getFormData() {
         const totals = this.calculateTotals();
 
-        const totalQtyEl = this.modalElement?.querySelector('#totalQuantity');
-        const totalAmountEl = this.modalElement?.querySelector('#totalAmount');
-        const finalAmountEl = this.modalElement?.querySelector('#finalAmount');
-
-        if (totalQtyEl) totalQtyEl.textContent = totals.totalQuantity;
-        if (totalAmountEl) totalAmountEl.textContent = config.formatVND(totals.totalAmount);
-        if (finalAmountEl) finalAmountEl.textContent = config.formatVND(totals.finalAmount);
-    }
-
-    // ========================================
-    // UTILITY FUNCTIONS
-    // ========================================
-
-    /**
-     * Format date for input field
-     * @param {Date} date
-     * @returns {string}
-     */
-    formatDateForInput(date) {
-        if (!date) return '';
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    /**
-     * Format number for input field
-     * @param {number} value
-     * @returns {string}
-     */
-    formatNumberInput(value) {
-        if (!value || value === 0) return '';
-        return value.toLocaleString('vi-VN');
-    }
-
-    /**
-     * Parse number from input
-     * @param {string} value
-     * @returns {number}
-     */
-    parseNumberInput(value) {
-        if (!value) return 0;
-        // Remove all non-numeric characters except minus
-        const cleaned = value.toString().replace(/[^\d-]/g, '');
-        return parseInt(cleaned, 10) || 0;
+        return {
+            supplier: {
+                name: this.formData.supplier,
+                id: this.formData.supplier.substring(0, 3).toUpperCase()
+            },
+            orderDate: new Date(this.formData.orderDate),
+            invoiceAmount: parseFloat(String(this.formData.invoiceAmount).replace(/[,.]/g, '')) || 0,
+            invoiceImages: this.formData.invoiceImages,
+            notes: this.formData.notes,
+            discountAmount: totals.discount,
+            shippingFee: totals.shipping,
+            totalAmount: totals.totalAmount,
+            finalAmount: totals.finalAmount,
+            items: this.formData.items.map(item => ({
+                ...item,
+                purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
+                sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
+                quantity: parseInt(item.quantity) || 1,
+                subtotal: (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 1)
+            }))
+        };
     }
 }
 
-// ========================================
-// EXPORT SINGLETON INSTANCE
-// ========================================
+// Export singleton
 window.purchaseOrderFormModal = new PurchaseOrderFormModal();
 
 console.log('[Purchase Orders] Form modal loaded successfully');

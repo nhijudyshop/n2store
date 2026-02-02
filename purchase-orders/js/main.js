@@ -339,11 +339,7 @@ class PurchaseOrderController {
      * Handle create order
      */
     handleCreateOrder() {
-        console.log('[PurchaseOrderController] handleCreateOrder called');
-        console.log('[PurchaseOrderController] formModal:', this.formModal);
-
         if (!this.formModal) {
-            console.error('[PurchaseOrderController] formModal is not available!');
             this.ui.showToast('Form modal chưa sẵn sàng. Vui lòng tải lại trang.', 'error');
             return;
         }
