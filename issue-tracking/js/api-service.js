@@ -215,7 +215,10 @@ const ApiService = {
                         fix_cod_reason: ticketData.fixCodReason || ticketData.fixReason,
                         boom_reason: ticketData.boomReason,
                         internal_note: ticketData.note,
-                        created_by: ticketData.createdBy || 'system'
+                        created_by: ticketData.createdBy || 'system',
+                        // RETURN_OLD_ORDER: Reference to old order
+                        return_from_order_id: ticketData.returnFromOrderId,
+                        return_from_tpos_id: ticketData.returnFromTposId
                     })
                 });
 

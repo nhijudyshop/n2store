@@ -329,7 +329,7 @@ router.get('/customer/:phone/tickets', async (req, res) => {
                 order_id, tpos_order_id, tracking_code, carrier, type, status, priority,
                 subject, description, products, original_cod, new_cod, refund_amount,
                 wallet_credited, wallet_transaction_id, virtual_credit_id, virtual_credit_amount,
-                fix_cod_reason,
+                fix_cod_reason, return_from_order_id, return_from_tpos_id,
                 (deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as deadline,
                 (carrier_deadline AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as carrier_deadline,
                 (received_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as received_at,
@@ -1199,6 +1199,7 @@ router.post('/ticket', async (req, res) => {
         phone, customer_name, order_id, tpos_order_id, tracking_code, carrier,
         type, status, priority, products, original_cod, new_cod,
         refund_amount, fix_cod_reason, internal_note, created_by,
+        return_from_order_id, return_from_tpos_id,  // For RETURN_OLD_ORDER
     } = req.body;
 
     const normalizedPhone = normalizePhone(phone);
@@ -1214,14 +1215,16 @@ router.post('/ticket', async (req, res) => {
             INSERT INTO customer_tickets (
                 phone, customer_id, customer_name, order_id, tpos_order_id, tracking_code, carrier,
                 type, status, priority, products, original_cod, new_cod,
-                refund_amount, fix_cod_reason, internal_note, created_by
+                refund_amount, fix_cod_reason, internal_note, created_by,
+                return_from_order_id, return_from_tpos_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
             RETURNING *
         `, [
             normalizedPhone, customerId, customer_name, order_id, tpos_order_id || null, tracking_code, carrier,
             type, status || 'PENDING', priority || 'normal', JSON.stringify(products || []),
             original_cod, new_cod, refund_amount, fix_cod_reason, internal_note, created_by,
+            return_from_order_id || null, return_from_tpos_id || null,
         ]);
 
         // Log activity

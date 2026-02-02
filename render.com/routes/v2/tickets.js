@@ -196,7 +196,9 @@ router.post('/', async (req, res) => {
         refund_amount,
         fix_cod_reason,
         internal_note,
-        created_by
+        created_by,
+        return_from_order_id,  // For RETURN_OLD_ORDER
+        return_from_tpos_id    // For RETURN_OLD_ORDER
     } = req.body;
 
     const normalizedPhone = normalizePhone(phone);
@@ -250,15 +252,17 @@ router.post('/', async (req, res) => {
             INSERT INTO customer_tickets (
                 phone, customer_id, customer_name, order_id, tpos_order_id, tracking_code, carrier,
                 type, status, priority, subject, description, products, original_cod, new_cod,
-                refund_amount, fix_cod_reason, internal_note, created_by
+                refund_amount, fix_cod_reason, internal_note, created_by,
+                return_from_order_id, return_from_tpos_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
             RETURNING *
         `, [
             normalizedPhone, customerId, customer_name, order_id, tpos_order_id || null,
             tracking_code, carrier, type, status || 'PENDING', priority || 'normal',
             subject, description, JSON.stringify(products || []),
-            original_cod, new_cod, refund_amount, fix_cod_reason, internal_note, created_by
+            original_cod, new_cod, refund_amount, fix_cod_reason, internal_note, created_by,
+            return_from_order_id || null, return_from_tpos_id || null
         ]);
 
         // Log activity
