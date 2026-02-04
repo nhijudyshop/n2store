@@ -1904,6 +1904,80 @@ class MessageTemplateManager {
         }
     }
 
+    /**
+     * Calculate shipping fee from address using carrier mapping logic
+     * @param {string} address - Customer address
+     * @param {object} extraAddress - Extra address data from TPOS (optional)
+     * @returns {number} - Shipping fee (20000, 30000, or 35000)
+     */
+    getShippingFeeFromAddress(address, extraAddress = null) {
+        // Use global extractDistrictFromAddress if available (from tab1-qr-debt.js)
+        if (!window.extractDistrictFromAddress) {
+            this.log('⚠️ extractDistrictFromAddress not available, using default 35k');
+            return 35000;
+        }
+
+        const districtInfo = window.extractDistrictFromAddress(address, extraAddress);
+        this.log('📍 District info for shipping:', districtInfo);
+
+        // Define carrier groups (same as tab1-qr-debt.js)
+        const CARRIER_20K = ['1', '3', '4', '5', '6', '7', '8', '10', '11'];
+        const CARRIER_20K_NAMED = ['phu nhuan', 'binh thanh', 'tan phu', 'tan binh', 'go vap'];
+
+        const CARRIER_30K = ['2', '12'];
+        const CARRIER_30K_NAMED = ['binh tan', 'thu duc'];
+
+        const CARRIER_35K_TP = ['9'];
+        const CARRIER_35K_TP_NAMED = ['binh chanh', 'nha be', 'hoc mon'];
+
+        // Province → 35k
+        if (districtInfo.isProvince) {
+            this.log('📍 Province detected → 35k');
+            return 35000;
+        }
+
+        const districtNum = districtInfo.districtNumber;
+        const districtName = (districtInfo.districtName || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        // Check by district number first
+        if (districtNum) {
+            if (CARRIER_20K.includes(districtNum)) {
+                this.log('📍 District Q' + districtNum + ' → 20k');
+                return 20000;
+            }
+            if (CARRIER_30K.includes(districtNum)) {
+                this.log('📍 District Q' + districtNum + ' → 30k');
+                return 30000;
+            }
+            if (CARRIER_35K_TP.includes(districtNum)) {
+                this.log('📍 District Q' + districtNum + ' → 35k');
+                return 35000;
+            }
+        }
+
+        // Check by district name
+        if (districtName) {
+            if (CARRIER_20K_NAMED.some(d => districtName.includes(d))) {
+                this.log('📍 District ' + districtInfo.districtName + ' → 20k');
+                return 20000;
+            }
+            if (CARRIER_30K_NAMED.some(d => districtName.includes(d))) {
+                this.log('📍 District ' + districtInfo.districtName + ' → 30k');
+                return 30000;
+            }
+            if (CARRIER_35K_TP_NAMED.some(d => districtName.includes(d))) {
+                this.log('📍 District ' + districtInfo.districtName + ' → 35k');
+                return 35000;
+            }
+        }
+
+        // Default to 35k (ship tỉnh)
+        this.log('📍 No match found → default 35k');
+        return 35000;
+    }
+
     replacePlaceholders(content, orderData) {
         let result = content;
 
@@ -1950,20 +2024,32 @@ class MessageTemplateManager {
 
             const productList = formattedProducts.map(fp => fp.line).join('\n');
 
+            // Calculate shipping fee from address
+            const shippingFee = this.getShippingFeeFromAddress(orderData.address, orderData.extraAddress);
+            this.log('📦 Shipping fee calculated:', shippingFee);
+
             // Format total section based on whether discounts exist
             let totalSection;
             if (hasAnyDiscount) {
                 const originalTotal = orderData.totalAmount || 0;
-                const finalTotal = originalTotal - totalDiscountAmount;
+                const afterDiscount = originalTotal - totalDiscountAmount;
+                const finalTotal = afterDiscount + shippingFee;
 
                 totalSection = [
                     `Tổng : ${this.formatCurrency(originalTotal)}`,
                     `Giảm giá: ${this.formatCurrency(totalDiscountAmount)}`,
-                    `Tổng tiền: ${this.formatCurrency(finalTotal)}`
+                    `Tổng tiền: ${this.formatCurrency(afterDiscount)}`,
+                    `Phí ship: ${this.formatCurrency(shippingFee)}`,
+                    `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
                 ].join('\n');
             } else {
-                const totalAmount = orderData.totalAmount ? this.formatCurrency(orderData.totalAmount) : '0đ';
-                totalSection = `Tổng tiền: ${totalAmount}`;
+                const totalAmount = orderData.totalAmount || 0;
+                const finalTotal = totalAmount + shippingFee;
+                totalSection = [
+                    `Tổng tiền: ${this.formatCurrency(totalAmount)}`,
+                    `Phí ship: ${this.formatCurrency(shippingFee)}`,
+                    `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
+                ].join('\n');
             }
 
             const productListWithTotal = `${productList}\n\n${totalSection}`;
