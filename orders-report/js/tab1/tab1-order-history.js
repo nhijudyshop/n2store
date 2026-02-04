@@ -357,7 +357,7 @@
                     record.carrierName,
                     record.liveCampaignName,
                     record.createdBy,
-                    record.sessionIndex // STT search
+                    String(record.sessionIndex || '') // STT search (convert to string)
                 ].map(f => (f || '').toLowerCase());
 
                 if (!searchFields.some(f => f.includes(searchTerm))) {
