@@ -896,19 +896,30 @@ function extractDistrictFromAddress(address, extraAddress) {
         const normalizedAddress = cleanedAddress.toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics
 
-        // List of provinces (excluding HCM and Hanoi which need district matching)
+        // List of 61 provinces (excluding HCM and Hanoi which need district matching)
+        // Full Vietnam administrative divisions
         const provinces = [
-            'an giang', 'ba ria', 'vung tau', 'bac giang', 'bac kan', 'bac lieu',
-            'bac ninh', 'ben tre', 'binh dinh', 'binh duong', 'binh phuoc', 'binh thuan',
-            'ca mau', 'can tho', 'cao bang', 'da nang', 'dak lak', 'dak nong',
-            'dien bien', 'dong nai', 'dong thap', 'gia lai', 'ha giang', 'ha nam',
-            'ha tinh', 'hai duong', 'hai phong', 'hau giang', 'hoa binh', 'hung yen',
-            'khanh hoa', 'kien giang', 'kon tum', 'lai chau', 'lam dong', 'lang son',
-            'lao cai', 'long an', 'nam dinh', 'nghe an', 'ninh binh', 'ninh thuan',
-            'phu tho', 'phu yen', 'quang binh', 'quang nam', 'quang ngai', 'quang ninh',
-            'quang tri', 'soc trang', 'son la', 'tay ninh', 'thai binh', 'thai nguyen',
-            'thanh hoa', 'thua thien hue', 'tien giang', 'tra vinh', 'tuyen quang',
-            'vinh long', 'vinh phuc', 'yen bai'
+            // 5 thành phố trực thuộc TW (trừ HCM, Hà Nội)
+            'hai phong', 'da nang', 'can tho',
+            // Miền Bắc
+            'ha giang', 'cao bang', 'bac kan', 'tuyen quang', 'lao cai',
+            'dien bien', 'lai chau', 'son la', 'yen bai', 'hoa binh',
+            'thai nguyen', 'lang son', 'quang ninh', 'bac giang', 'phu tho',
+            'vinh phuc', 'bac ninh', 'hai duong', 'hung yen', 'thai binh',
+            'ha nam', 'nam dinh', 'ninh binh',
+            // Miền Trung
+            'thanh hoa', 'nghe an', 'ha tinh', 'quang binh', 'quang tri',
+            'thua thien hue', 'quang nam', 'quang ngai', 'binh dinh', 'phu yen',
+            'khanh hoa', 'ninh thuan', 'binh thuan',
+            // Tây Nguyên
+            'kon tum', 'gia lai', 'dak lak', 'dac lak', 'dak nong', 'dac nong', 'lam dong',
+            // Đông Nam Bộ (trừ HCM)
+            'binh phuoc', 'tay ninh', 'binh duong', 'dong nai',
+            'ba ria', 'vung tau', 'ba ria vung tau',
+            // Tây Nam Bộ
+            'long an', 'tien giang', 'ben tre', 'tra vinh', 'vinh long',
+            'dong thap', 'an giang', 'kien giang', 'hau giang', 'soc trang',
+            'bac lieu', 'ca mau'
         ];
 
         // Split address into parts and check FROM END
@@ -950,21 +961,28 @@ function extractDistrictFromAddress(address, extraAddress) {
         }
 
         // =====================================================
-        // STEP 3: Match named districts (HCM districts only)
+        // STEP 3: Match named districts (HCM - 22 quận/huyện)
+        // Quận số: 1, 3, 4, 5, 6, 7, 8, 10, 11, 12 (handled by districtPatterns above)
+        // Quận tên + TP Thủ Đức + Huyện: listed below
         // =====================================================
         const namedDistricts = [
-            { normalized: 'binh chanh', original: 'Bình Chánh' },
+            // 6 Quận có tên
             { normalized: 'binh tan', original: 'Bình Tân' },
             { normalized: 'binh thanh', original: 'Bình Thạnh' },
             { normalized: 'go vap', original: 'Gò Vấp' },
             { normalized: 'phu nhuan', original: 'Phú Nhuận' },
             { normalized: 'tan binh', original: 'Tân Bình' },
             { normalized: 'tan phu', original: 'Tân Phú' },
+            // TP Thủ Đức (merged from Q2, Q9, Thủ Đức cũ)
             { normalized: 'thu duc', original: 'Thủ Đức' },
-            { normalized: 'nha be', original: 'Nhà Bè' },
-            { normalized: 'hoc mon', original: 'Hóc Môn' },
+            { normalized: 'tp thu duc', original: 'Thủ Đức' },
+            { normalized: 'thanh pho thu duc', original: 'Thủ Đức' },
+            // 5 Huyện ngoại thành
+            { normalized: 'binh chanh', original: 'Bình Chánh' },
+            { normalized: 'can gio', original: 'Cần Giờ' },
             { normalized: 'cu chi', original: 'Củ Chi' },
-            { normalized: 'can gio', original: 'Cần Giờ' }
+            { normalized: 'hoc mon', original: 'Hóc Môn' },
+            { normalized: 'nha be', original: 'Nhà Bè' }
         ];
 
         // Only match named districts if they appear AFTER common address prefixes
