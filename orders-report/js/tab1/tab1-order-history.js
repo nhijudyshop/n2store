@@ -70,6 +70,9 @@
             // Create date string for efficient querying (YYYY-MM-DD)
             const dateStr = now.toISOString().split('T')[0];
 
+            // Get user campaign name from campaignManager (user-defined, not TPOS)
+            const userCampaignName = window.campaignManager?.activeCampaign?.name || '';
+
             const historyRecord = {
                 createdAt: firebase.firestore.Timestamp.fromDate(now),
                 expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
@@ -80,6 +83,7 @@
                 fastSaleOrderId: orderData.fastSaleOrderId || orderData.Id || null,
                 liveCampaignId: orderData.liveCampaignId || orderData.LiveCampaignId || null,
                 liveCampaignName: orderData.liveCampaignName || orderData.LiveCampaignName || '',
+                userCampaignName: userCampaignName, // User-defined campaign name (from modalUserCampaignSelect)
                 customerName: orderData.customerName || orderData.PartnerDisplayName || orderData.ReceiverName || '',
                 customerPhone: orderData.customerPhone || orderData.Phone || orderData.ReceiverPhone || '',
                 address: orderData.address || orderData.ReceiverAddress || orderData.Address || '',
@@ -125,6 +129,9 @@
                                window.tokenManager?.getUsername?.() ||
                                'unknown';
 
+            // Get user campaign name from campaignManager (user-defined, not TPOS)
+            const userCampaignName = window.campaignManager?.activeCampaign?.name || '';
+
             for (const orderData of ordersData) {
                 const docRef = collection.doc();
                 const customerName = orderData.PartnerDisplayName || orderData.ReceiverName || '';
@@ -139,6 +146,7 @@
                     fastSaleOrderId: orderData.Id || null,
                     liveCampaignId: orderData.LiveCampaignId || null,
                     liveCampaignName: orderData.LiveCampaignName || '',
+                    userCampaignName: userCampaignName, // User-defined campaign name
                     customerName: customerName,
                     customerPhone: customerPhone,
                     address: orderData.ReceiverAddress || orderData.Address || '',
