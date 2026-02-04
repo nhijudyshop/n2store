@@ -1043,24 +1043,59 @@
         window._cancelOrderFromMain = order;
 
         // Auto-detect carrier from address if CarrierName is empty
+        // Maps to correct fee tier based on CARRIER-AUTO-SELECTION.md
         let carrierName = invoiceData.CarrierName;
         if (!carrierName && invoiceData.ReceiverAddress) {
+            const normalized = invoiceData.ReceiverAddress.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            // District mappings
+            const districts20k = ['1', '3', '4', '5', '6', '7', '8', '10', '11'];
+            const named20k = ['phu nhuan', 'binh thanh', 'tan phu', 'tan binh', 'go vap'];
+            const districts30k = ['2', '12'];
+            const named30k = ['binh tan', 'thu duc'];
+            const districts35kTP = ['9'];
+            const named35kTP = ['binh chanh', 'nha be', 'hoc mon'];
+            const shipTinh = ['cu chi', 'can gio'];
+            const provinceKeywords = ['tinh', 'province', 'binh duong', 'dong nai', 'long an', 'tay ninh', 'ba ria', 'can tho'];
+
             // Use extractDistrictFromAddress if available
             if (typeof window.extractDistrictFromAddress === 'function') {
                 const districtInfo = window.extractDistrictFromAddress(invoiceData.ReceiverAddress, null);
                 if (districtInfo.isProvince) {
                     carrierName = 'SHIP TỈNH';
-                } else if (districtInfo.districtName || districtInfo.districtNumber) {
-                    carrierName = 'THÀNH PHỐ';
+                } else if (districtInfo.districtNumber) {
+                    const num = districtInfo.districtNumber;
+                    if (districts20k.includes(num)) carrierName = 'THÀNH PHỐ (20.000 đ)';
+                    else if (districts30k.includes(num)) carrierName = 'THÀNH PHỐ (30.000 đ)';
+                    else if (districts35kTP.includes(num)) carrierName = 'THÀNH PHỐ (35.000 đ)';
                 }
             }
-            // Fallback pattern matching
+
+            // Fallback pattern matching if not detected yet
             if (!carrierName) {
-                const normalized = invoiceData.ReceiverAddress.toLowerCase()
-                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                const hcmPatterns = [/q\s*\d+/, /quan\s*\d+/, /tan binh/, /tan phu/, /go vap/, /binh thanh/, /phu nhuan/, /binh tan/, /thu duc/];
-                carrierName = hcmPatterns.some(p => p.test(normalized)) ? 'THÀNH PHỐ' : 'SHIP TỈNH';
+                if (shipTinh.some(kw => normalized.includes(kw)) || provinceKeywords.some(kw => normalized.includes(kw))) {
+                    carrierName = 'SHIP TỈNH';
+                } else if (named35kTP.some(kw => normalized.includes(kw))) {
+                    carrierName = 'THÀNH PHỐ (35.000 đ)';
+                } else if (named30k.some(kw => normalized.includes(kw))) {
+                    carrierName = 'THÀNH PHỐ (30.000 đ)';
+                } else if (named20k.some(kw => normalized.includes(kw))) {
+                    carrierName = 'THÀNH PHỐ (20.000 đ)';
+                } else {
+                    // Check district number pattern
+                    const distMatch = normalized.match(/(?:q|quan|quận)\s*\.?\s*(\d+)/);
+                    if (distMatch) {
+                        const num = distMatch[1];
+                        if (districts20k.includes(num)) carrierName = 'THÀNH PHỐ (20.000 đ)';
+                        else if (districts30k.includes(num)) carrierName = 'THÀNH PHỐ (30.000 đ)';
+                        else if (districts35kTP.includes(num)) carrierName = 'THÀNH PHỐ (35.000 đ)';
+                    }
+                }
             }
+
+            // Default
+            if (!carrierName) carrierName = 'SHIP TỈNH';
         }
 
         // Create enriched order for bill generation

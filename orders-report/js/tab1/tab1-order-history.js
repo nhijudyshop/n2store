@@ -753,45 +753,70 @@
     /**
      * Detect carrier name from address when CarrierName is empty
      * Uses extractDistrictFromAddress from tab1-qr-debt.js
+     * Maps to correct fee tier based on CARRIER-AUTO-SELECTION.md
      * @param {string} address - Receiver address
-     * @returns {string} Carrier name (THÀNH PHỐ or SHIP TỈNH)
+     * @returns {string} Carrier name with fee (e.g., "THÀNH PHỐ (20.000 đ)")
      */
     function detectCarrierFromAddress(address) {
         if (!address) return 'SHIP TỈNH';
+
+        const normalized = address.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        // District mappings based on CARRIER-AUTO-SELECTION.md
+        // 20k: Q1, Q3, Q4, Q5, Q6, Q7, Q8, Q10, Q11, Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp
+        const districts20k = ['1', '3', '4', '5', '6', '7', '8', '10', '11'];
+        const named20k = ['phu nhuan', 'binh thanh', 'tan phu', 'tan binh', 'go vap'];
+
+        // 30k: Q2, Q12, Bình Tân, Thủ Đức
+        const districts30k = ['2', '12'];
+        const named30k = ['binh tan', 'thu duc'];
+
+        // 35k THÀNH PHỐ: Q9, Bình Chánh, Nhà Bè, Hóc Môn
+        const districts35kTP = ['9'];
+        const named35kTP = ['binh chanh', 'nha be', 'hoc mon'];
+
+        // SHIP TỈNH: Củ Chi, Cần Giờ, provinces
+        const shipTinh = ['cu chi', 'can gio'];
 
         // Use extractDistrictFromAddress if available
         if (typeof window.extractDistrictFromAddress === 'function') {
             const districtInfo = window.extractDistrictFromAddress(address, null);
 
-            // If it's a province, return SHIP TỈNH
+            // Province -> SHIP TỈNH
             if (districtInfo.isProvince) {
                 return 'SHIP TỈNH';
             }
 
-            // If we found a district, it's THÀNH PHỐ
-            if (districtInfo.districtName || districtInfo.districtNumber) {
-                return 'THÀNH PHỐ';
+            // Check district number
+            const distNum = districtInfo.districtNumber;
+            if (distNum) {
+                if (districts20k.includes(distNum)) return 'THÀNH PHỐ (20.000 đ)';
+                if (districts30k.includes(distNum)) return 'THÀNH PHỐ (30.000 đ)';
+                if (districts35kTP.includes(distNum)) return 'THÀNH PHỐ (35.000 đ)';
             }
         }
 
-        // Fallback: simple check for common HCM district patterns
-        const normalized = address.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        // Fallback pattern matching
+        // Check for SHIP TỈNH first
+        if (shipTinh.some(kw => normalized.includes(kw))) return 'SHIP TỈNH';
 
-        // Check for province keywords
+        // Check province keywords
         const provinceKeywords = ['tinh', 'province', 'binh duong', 'dong nai', 'long an', 'tay ninh', 'ba ria', 'can tho'];
-        if (provinceKeywords.some(kw => normalized.includes(kw))) {
-            return 'SHIP TỈNH';
-        }
+        if (provinceKeywords.some(kw => normalized.includes(kw))) return 'SHIP TỈNH';
 
-        // Check for HCM district patterns
-        const hcmPatterns = [
-            /q\s*\d+/, /quan\s*\d+/, /q\.\s*\d+/,  // Q1, Quận 5, Q.10
-            /tan binh/, /tan phu/, /go vap/, /binh thanh/,
-            /phu nhuan/, /binh tan/, /thu duc/
-        ];
-        if (hcmPatterns.some(pattern => pattern.test(normalized))) {
-            return 'THÀNH PHỐ';
+        // Check named districts (order matters: 35k -> 30k -> 20k)
+        if (named35kTP.some(kw => normalized.includes(kw))) return 'THÀNH PHỐ (35.000 đ)';
+        if (named30k.some(kw => normalized.includes(kw))) return 'THÀNH PHỐ (30.000 đ)';
+        if (named20k.some(kw => normalized.includes(kw))) return 'THÀNH PHỐ (20.000 đ)';
+
+        // Check district number pattern (Q1, Quận 5, etc.)
+        const distMatch = normalized.match(/(?:q|quan|quận)\s*\.?\s*(\d+)/);
+        if (distMatch) {
+            const num = distMatch[1];
+            if (districts20k.includes(num)) return 'THÀNH PHỐ (20.000 đ)';
+            if (districts30k.includes(num)) return 'THÀNH PHỐ (30.000 đ)';
+            if (districts35kTP.includes(num)) return 'THÀNH PHỐ (35.000 đ)';
         }
 
         // Default to SHIP TỈNH if unsure
