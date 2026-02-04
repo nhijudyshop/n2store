@@ -333,6 +333,32 @@
     // FILTER & SEARCH (Client-side for text search)
     // =====================================================
 
+    /**
+     * Check if current user is admin
+     * Admin: checkLogin === 1 OR userType starts with "admin" (case-insensitive)
+     */
+    function isAdmin() {
+        // Check authManager first
+        if (typeof window.authManager !== 'undefined') {
+            const authState = window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
+            if (authState) {
+                // checkLogin === 1 means admin level
+                if (authState.checkLogin === 1) return true;
+                // userType starts with "admin" (case-insensitive)
+                if (authState.userType?.toLowerCase().startsWith('admin')) return true;
+            }
+        }
+
+        // Fallback to localStorage
+        const storedUserType = localStorage.getItem('userType');
+        if (storedUserType?.toLowerCase().startsWith('admin')) return true;
+
+        const storedCheckLogin = localStorage.getItem('checkLogin');
+        if (storedCheckLogin === '1') return true;
+
+        return false;
+    }
+
     function applyFilters() {
         const searchInput = document.getElementById('orderHistorySearch');
         const sourceSelect = document.getElementById('orderHistorySource');
@@ -340,8 +366,17 @@
         const searchTerm = (searchInput?.value || '').toLowerCase().trim();
         const sourceFilter = sourceSelect?.value || '';
 
-        // Client-side filtering for search and source
+        // Get current username and admin status for permission filtering
+        const currentUsername = getCurrentUsername();
+        const userIsAdmin = isAdmin();
+
+        // Client-side filtering for search, source, and permission
         filteredData = historyData.filter(record => {
+            // Permission filter: non-admin can only see their own records
+            if (!userIsAdmin && record.createdBy !== currentUsername) {
+                return false;
+            }
+
             // Source filter
             if (sourceFilter && record.source !== sourceFilter) {
                 return false;
