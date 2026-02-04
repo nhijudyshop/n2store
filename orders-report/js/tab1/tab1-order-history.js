@@ -724,6 +724,7 @@
 
     /**
      * Show bill preview on hover (positioned to the left of button)
+     * Uses generateCustomBillHTML for consistent bill format
      * @param {HTMLElement} button - The button element
      * @param {string} saleOnlineId - SaleOnline ID
      */
@@ -734,7 +735,13 @@
         const orderData = getOrderFromLocalStorage(saleOnlineId);
         if (!orderData) return;
 
-        // Create preview element
+        // Check if generateCustomBillHTML is available
+        if (typeof window.generateCustomBillHTML !== 'function') {
+            console.warn('[ORDER-HISTORY] generateCustomBillHTML not available');
+            return;
+        }
+
+        // Create preview container
         const preview = document.createElement('div');
         preview.id = 'billPreviewPopover';
         preview.style.cssText = `
@@ -743,60 +750,69 @@
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            padding: 12px;
-            width: 280px;
-            font-size: 12px;
+            width: 320px;
             z-index: 10002;
             pointer-events: none;
+            overflow: hidden;
         `;
 
-        // Build mini bill preview (like thermal printer receipt)
-        const discount = orderData.DecreaseAmount || orderData.DiscountAmount || 0;
-        const total = orderData.AmountUntaxed || orderData.AmountTotal || 0;
-        const ship = orderData.DeliveryPrice || 0;
-        const finalTotal = total + ship;
+        // Generate bill HTML using the official function
+        // Transform localStorage data to match orderResult format
+        const orderResult = {
+            Number: orderData.Number || orderData.Reference,
+            Reference: orderData.Reference,
+            CarrierName: orderData.CarrierName,
+            SessionIndex: orderData.SessionIndex,
+            PartnerDisplayName: orderData.ReceiverName || orderData.PartnerName,
+            ReceiverName: orderData.ReceiverName,
+            ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
+            ReceiverAddress: orderData.ReceiverAddress,
+            DeliveryPrice: orderData.DeliveryPrice || 0,
+            DecreaseAmount: orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+            AmountUntaxed: orderData.AmountUntaxed || orderData.AmountTotal || 0,
+            AmountTotal: orderData.AmountTotal || 0,
+            Comment: orderData.Comment,
+            OrderLines: orderData.OrderLines || [],
+            Partner: {
+                Name: orderData.ReceiverName || orderData.PartnerName,
+                Phone: orderData.ReceiverPhone || orderData.Phone,
+                Street: orderData.ReceiverAddress
+            }
+        };
 
-        preview.innerHTML = `
-            <div style="text-align:center; font-weight:600; margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed #d1d5db;">
-                PHIẾU BÁN HÀNG
-            </div>
-            <div style="font-size:11px; color:#6b7280; margin-bottom:4px;">Số: ${orderData.Reference || orderData.Number || '-'}</div>
-            <div style="border-bottom:1px dashed #d1d5db; padding-bottom:6px; margin-bottom:6px;">
-                <div><strong>${escapeHtml(orderData.ReceiverName || orderData.PartnerName || '-')}</strong></div>
-                <div style="color:#6b7280;">${escapeHtml(orderData.ReceiverPhone || orderData.Phone || '-')}</div>
-                <div style="color:#6b7280; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(orderData.ReceiverAddress || '-')}</div>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                <span>STT:</span>
-                <span style="font-weight:600; color:#6366f1;">${orderData.SessionIndex || '-'}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                <span>Vận chuyển:</span>
-                <span>${escapeHtml(orderData.CarrierName || '-')}</span>
-            </div>
-            ${discount > 0 ? `<div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                <span>Giảm giá:</span>
-                <span style="color:#10b981;">-${formatCurrency(discount)}</span>
-            </div>` : ''}
-            <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
-                <span>Tiền ship:</span>
-                <span>${formatCurrency(ship)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-weight:600; padding-top:6px; border-top:1px dashed #d1d5db; margin-top:4px;">
-                <span>Tổng tiền:</span>
-                <span style="color:#ef4444;">${formatCurrency(finalTotal)}</span>
-            </div>
-            ${orderData.Comment ? `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed #d1d5db; font-size:11px; color:#6b7280;">
-                <strong>Ghi chú:</strong> ${escapeHtml(orderData.Comment)}
-            </div>` : ''}
-        `;
+        const billHtml = window.generateCustomBillHTML(orderResult, {});
+
+        // Use iframe to render bill HTML (preserves CSS)
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'width:100%; height:400px; border:none; pointer-events:none;';
+        preview.appendChild(iframe);
 
         document.body.appendChild(preview);
 
+        // Write bill HTML to iframe
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(billHtml);
+        doc.close();
+
+        // Scale down the bill to fit preview (bill is 80mm wide)
+        iframe.onload = function() {
+            try {
+                const body = doc.body;
+                if (body) {
+                    body.style.transform = 'scale(0.85)';
+                    body.style.transformOrigin = 'top left';
+                    body.style.width = '80mm';
+                }
+            } catch (e) {
+                // Cross-origin issues, ignore
+            }
+        };
+
         // Position to the LEFT of button (so button is still clickable)
         const rect = button.getBoundingClientRect();
-        const previewWidth = 280;
-        const gap = 8;
+        const previewWidth = 320;
+        const gap = 10;
 
         // Try left side first
         let left = rect.left - previewWidth - gap;
@@ -805,10 +821,10 @@
             left = rect.right + gap;
         }
 
-        let top = rect.top - 50;
+        let top = rect.top - 100;
         // Keep within viewport
         if (top < 10) top = 10;
-        if (top + 300 > window.innerHeight) top = window.innerHeight - 310;
+        if (top + 420 > window.innerHeight) top = window.innerHeight - 430;
 
         preview.style.left = left + 'px';
         preview.style.top = top + 'px';
@@ -824,6 +840,7 @@
 
     /**
      * Show order details modal/popup (on click)
+     * Uses generateCustomBillHTML for exact bill preview
      * @param {string} saleOnlineId - SaleOnline ID
      */
     function showOrderDetails(saleOnlineId) {
@@ -836,61 +853,80 @@
             return;
         }
 
-        // Build details HTML - more detailed than hover preview
-        const discount = orderData.DecreaseAmount || orderData.DiscountAmount || 0;
-        const total = orderData.AmountUntaxed || orderData.AmountTotal || 0;
-        const ship = orderData.DeliveryPrice || 0;
-
-        const detailsHtml = `
-            <div style="padding: 20px; max-width: 450px; font-family: system-ui, sans-serif;">
-                <div style="text-align:center; margin-bottom:16px; padding-bottom:12px; border-bottom:2px dashed #e5e7eb;">
-                    <h3 style="margin:0; font-size:18px;">PHIẾU BÁN HÀNG</h3>
-                    <div style="color:#6b7280; font-size:13px; margin-top:4px;">${orderData.Reference || orderData.Number || '-'}</div>
-                </div>
-
-                <div style="margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid #f3f4f6;">
-                    <div style="font-weight:600; font-size:15px; margin-bottom:4px;">${escapeHtml(orderData.ReceiverName || orderData.PartnerName || '-')}</div>
-                    <div style="color:#6b7280;">${escapeHtml(orderData.ReceiverPhone || orderData.Phone || '-')}</div>
-                    <div style="color:#6b7280; font-size:13px; margin-top:4px;">${escapeHtml(orderData.ReceiverAddress || '-')}</div>
-                </div>
-
-                <table style="width:100%; font-size:13px; border-collapse:collapse;">
-                    <tr><td style="padding:6px 0; color:#6b7280;">STT:</td><td style="padding:6px 0; text-align:right; font-weight:600; color:#6366f1;">${orderData.SessionIndex || '-'}</td></tr>
-                    <tr><td style="padding:6px 0; color:#6b7280;">Vận chuyển:</td><td style="padding:6px 0; text-align:right;">${escapeHtml(orderData.CarrierName || '-')}</td></tr>
-                    <tr><td style="padding:6px 0; color:#6b7280;">Trạng thái:</td><td style="padding:6px 0; text-align:right;"><span style="padding:2px 8px; border-radius:4px; background:${orderData.State === 'open' ? '#dcfce7' : '#fef3c7'}; color:${orderData.State === 'open' ? '#166534' : '#92400e'}; font-size:12px;">${orderData.State || '-'}</span></td></tr>
-                </table>
-
-                <div style="margin-top:12px; padding-top:12px; border-top:2px dashed #e5e7eb;">
-                    <table style="width:100%; font-size:13px;">
-                        <tr><td style="padding:4px 0;">Tổng tiền hàng:</td><td style="text-align:right;">${formatCurrency(total)}</td></tr>
-                        ${discount > 0 ? `<tr><td style="padding:4px 0; color:#10b981;">Giảm giá:</td><td style="text-align:right; color:#10b981;">-${formatCurrency(discount)}</td></tr>` : ''}
-                        <tr><td style="padding:4px 0;">Phí ship:</td><td style="text-align:right;">${formatCurrency(ship)}</td></tr>
-                        <tr style="font-weight:600; font-size:15px;"><td style="padding:8px 0; border-top:1px solid #e5e7eb;">TỔNG CỘNG:</td><td style="text-align:right; color:#ef4444; padding:8px 0; border-top:1px solid #e5e7eb;">${formatCurrency(total - discount + ship)}</td></tr>
-                    </table>
-                </div>
-
-                ${orderData.Comment ? `<div style="margin-top:12px; padding:10px; background:#f9fafb; border-radius:6px; font-size:13px;">
-                    <strong style="color:#374151;">Ghi chú:</strong>
-                    <div style="color:#6b7280; margin-top:4px;">${escapeHtml(orderData.Comment)}</div>
-                </div>` : ''}
-            </div>
-        `;
-
-        // Create modal
+        // Create modal overlay
         const overlay = document.createElement('div');
         overlay.id = 'orderDetailModal';
         overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
 
+        // Create modal container
         const modal = document.createElement('div');
-        modal.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);max-height:90vh;overflow:auto;';
-        modal.innerHTML = detailsHtml + '<div style="padding:0 20px 16px; text-align:right;"><button onclick="document.getElementById(\'orderDetailModal\').remove()" style="padding:10px 20px; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:500;">Đóng</button></div>';
+        modal.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
 
-        overlay.appendChild(modal);
+        // Check if generateCustomBillHTML is available
+        if (typeof window.generateCustomBillHTML === 'function') {
+            // Transform localStorage data to match orderResult format
+            const orderResult = {
+                Number: orderData.Number || orderData.Reference,
+                Reference: orderData.Reference,
+                CarrierName: orderData.CarrierName,
+                SessionIndex: orderData.SessionIndex,
+                PartnerDisplayName: orderData.ReceiverName || orderData.PartnerName,
+                ReceiverName: orderData.ReceiverName,
+                ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
+                ReceiverAddress: orderData.ReceiverAddress,
+                DeliveryPrice: orderData.DeliveryPrice || 0,
+                DecreaseAmount: orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+                AmountUntaxed: orderData.AmountUntaxed || orderData.AmountTotal || 0,
+                AmountTotal: orderData.AmountTotal || 0,
+                Comment: orderData.Comment,
+                OrderLines: orderData.OrderLines || [],
+                Partner: {
+                    Name: orderData.ReceiverName || orderData.PartnerName,
+                    Phone: orderData.ReceiverPhone || orderData.Phone,
+                    Street: orderData.ReceiverAddress
+                }
+            };
+
+            const billHtml = window.generateCustomBillHTML(orderResult, {});
+
+            // Use iframe to render bill HTML (preserves CSS)
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = 'width:350px; height:70vh; border:none;';
+            modal.appendChild(iframe);
+
+            // Close button
+            const closeBtn = document.createElement('div');
+            closeBtn.style.cssText = 'padding:12px 16px; text-align:center; border-top:1px solid #e5e7eb;';
+            closeBtn.innerHTML = '<button onclick="document.getElementById(\'orderDetailModal\').remove()" style="padding:10px 24px; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:500;">Đóng</button>';
+            modal.appendChild(closeBtn);
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            // Write bill HTML to iframe after appending to DOM
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            doc.open();
+            doc.write(billHtml);
+            doc.close();
+        } else {
+            // Fallback if generateCustomBillHTML not available
+            const fallbackHtml = `
+                <div style="padding:20px; text-align:center;">
+                    <p style="color:#6b7280;">Không thể hiển thị bill. Vui lòng thử lại.</p>
+                </div>
+                <div style="padding:12px 16px; text-align:center; border-top:1px solid #e5e7eb;">
+                    <button onclick="document.getElementById('orderDetailModal').remove()" style="padding:10px 24px; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer;">Đóng</button>
+                </div>
+            `;
+            modal.innerHTML = fallbackHtml;
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+        }
+
+        // Close on overlay click
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) overlay.remove();
         });
-
-        document.body.appendChild(overlay);
     }
 
     function escapeHtml(text) {
