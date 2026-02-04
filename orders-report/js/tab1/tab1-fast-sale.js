@@ -372,6 +372,19 @@ async function showFastSaleModal() {
         // Fetch FastSaleOrder data using batch API
         let fetchedOrders = await fetchFastSaleOrdersData(selectedIds);
 
+        // DEDUPE: Remove duplicates by SaleOnlineIds[0] (source of truth)
+        const seenIds = new Set();
+        fetchedOrders = fetchedOrders.filter(order => {
+            const key = order.SaleOnlineIds?.[0];
+            if (!key) return true; // Keep orders without SaleOnlineIds
+            if (seenIds.has(key)) {
+                console.warn(`[FAST-SALE] Removed duplicate order: ${order.Reference} (SaleOnlineId: ${key})`);
+                return false;
+            }
+            seenIds.add(key);
+            return true;
+        });
+
         if (fetchedOrders.length === 0) {
             showFastSaleStatus('Không thể tải dữ liệu đơn hàng từ API', 'error');
             modalBody.innerHTML = `
@@ -1902,17 +1915,17 @@ async function saveFastSaleOrders(isApprove = false) {
         }
 
         // =====================================================
-        // DEDUPE: Remove duplicate orders by Reference
+        // DEDUPE: Remove duplicate orders by SaleOnlineIds[0]
         // =====================================================
-        const seenRefs = new Set();
+        const seenIds = new Set();
         const uniqueModels = [];
         for (const model of models) {
-            const key = model.Reference || JSON.stringify(model.SaleOnlineIds) || JSON.stringify(model.Partner?.Phone);
-            if (!seenRefs.has(key)) {
-                seenRefs.add(key);
+            const key = model.SaleOnlineIds?.[0];
+            if (!key || !seenIds.has(key)) {
+                if (key) seenIds.add(key);
                 uniqueModels.push(model);
             } else {
-                console.warn(`[FAST-SALE] ⚠️ Duplicate order removed: ${key}`);
+                console.warn(`[FAST-SALE] ⚠️ Duplicate removed: ${model.Reference} (SaleOnlineId: ${key})`);
             }
         }
 
