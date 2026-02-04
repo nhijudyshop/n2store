@@ -1671,8 +1671,10 @@
 
     /**
      * Send bill manually from results modal
+     * @param {number} index - Index in success results
+     * @param {boolean} skipPreview - If true, skip preview modal and send directly (for auto-send)
      */
-    async function sendBillManually(index) {
+    async function sendBillManually(index, skipPreview = false) {
         const resultsData = window.fastSaleResultsData;
         if (!resultsData || !resultsData.success[index]) {
             window.notificationManager?.error('Không tìm thấy đơn hàng');
@@ -1750,14 +1752,16 @@
                 SessionIndex: saleOnlineOrder?.SessionIndex || originalOrder?.SessionIndex || '', // STT
             };
 
-            // Check if preview is enabled
-            if (isPreviewBeforeSendEnabled()) {
+            // Check if preview is enabled (skip preview for auto-send)
+            if (!skipPreview && isPreviewBeforeSendEnabled()) {
                 // Show preview modal
                 await showBillPreviewModal(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index, false, walletBalance);
             } else {
-                // Direct send with confirm
-                const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${orderNumber}?`);
-                if (!confirmed) return;
+                // Direct send (skip confirm for auto-send)
+                if (!skipPreview) {
+                    const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${orderNumber}?`);
+                    if (!confirmed) return;
+                }
 
                 const button = document.querySelector(`button.btn-send-bill-messenger[data-index="${index}"]`);
                 if (button) {

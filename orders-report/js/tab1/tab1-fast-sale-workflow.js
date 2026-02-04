@@ -982,7 +982,8 @@
 
             try {
                 if (typeof window.sendBillManually === 'function') {
-                    await window.sendBillManually(originalIndex);
+                    // Pass skipPreview=true for auto-send to bypass preview modal
+                    await window.sendBillManually(originalIndex, true);
                     sentCount++;
                 }
             } catch (e) {
