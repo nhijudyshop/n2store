@@ -63,9 +63,8 @@
             const now = new Date();
             const expiresAt = new Date(now.getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
-            const currentUser = window.billTokenManager?.getUsername?.() ||
-                               window.tokenManager?.getUsername?.() ||
-                               'unknown';
+            // Get current user from multiple sources (authManager preferred)
+            const currentUser = getCurrentUsername();
 
             // Create date string for efficient querying (YYYY-MM-DD)
             const dateStr = now.toISOString().split('T')[0];
@@ -125,9 +124,8 @@
             const now = new Date();
             const expiresAt = new Date(now.getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
             const dateStr = now.toISOString().split('T')[0];
-            const currentUser = window.billTokenManager?.getUsername?.() ||
-                               window.tokenManager?.getUsername?.() ||
-                               'unknown';
+            // Get current user from multiple sources (authManager preferred)
+            const currentUser = getCurrentUsername();
 
             // Get user campaign name from campaignManager (user-defined, not TPOS)
             const userCampaignName = window.campaignManager?.activeCampaign?.name || '';
@@ -507,7 +505,7 @@
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="order-history-loading">
                             <i class="fas fa-spinner fa-spin"></i>
                             <p>Đang tải lịch sử...</p>
@@ -523,7 +521,7 @@
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8">
+                    <td colspan="9">
                         <div class="order-history-empty">
                             <i class="fas fa-history"></i>
                             <p>${message}</p>
@@ -555,8 +553,14 @@
             const productsCount = record.products?.length || 0;
             const totalQty = record.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0;
 
+            // Check if order details available in localStorage
+            const hasLocalData = record.saleOnlineId && getOrderFromLocalStorage(record.saleOnlineId);
+
             return `
                 <tr>
+                    <td class="cell-stt" style="text-align:center; font-weight:500; color:#6366f1;">
+                        ${escapeHtml(record.sessionIndex || '-')}
+                    </td>
                     <td class="cell-time">
                         <div class="date">${dateStr}</div>
                         <div>${timeStr}</div>
@@ -574,10 +578,6 @@
                     <td class="cell-amount">
                         ${formatCurrency(record.totalAmount)}
                     </td>
-                    <td class="cell-carrier">
-                        <span class="carrier-name">${escapeHtml(record.carrierName || '-')}</span>
-                        <div style="font-size:11px;color:#9ca3af;">Ship: ${formatCurrency(record.shippingFee)}</div>
-                    </td>
                     <td class="cell-source">
                         <span class="badge ${record.source === 'fast-sale' ? 'fast-sale' : 'sale-modal'}">
                             ${record.source === 'fast-sale' ? 'Tạo nhanh' : 'Phiếu BH'}
@@ -585,6 +585,13 @@
                     </td>
                     <td class="cell-user">
                         ${escapeHtml(record.createdBy || '-')}
+                    </td>
+                    <td class="cell-action">
+                        ${hasLocalData ? `
+                            <button class="btn-view-details" onclick="window.OrderHistoryManager.showOrderDetails('${record.saleOnlineId}')" title="Xem chi tiết">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        ` : '-'}
                     </td>
                 </tr>
             `;
@@ -642,6 +649,108 @@
     // =====================================================
     // UTILITIES
     // =====================================================
+
+    /**
+     * Get current username from multiple sources (authManager preferred)
+     * Order: authManager -> billTokenManager -> tokenManager -> 'unknown'
+     */
+    function getCurrentUsername() {
+        // Try authManager first (shared auth system)
+        if (typeof window.authManager !== 'undefined') {
+            const authState = window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
+            if (authState?.userType) {
+                // userType format: "Admin-Store" or "nv20" - extract name
+                const userType = authState.userType;
+                // If contains "-", take the part after "-"
+                if (userType.includes('-')) {
+                    return userType.split('-').pop();
+                }
+                return userType;
+            }
+        }
+
+        // Try getUserName function (legacy)
+        if (typeof window.getUserName === 'function') {
+            const name = window.getUserName();
+            if (name && name !== 'unknown') return name;
+        }
+
+        // Fallback to tokenManagers
+        return window.billTokenManager?.getUsername?.() ||
+               window.tokenManager?.getUsername?.() ||
+               'unknown';
+    }
+
+    /**
+     * Get order details from invoiceStatusStore_v2 localStorage
+     * @param {string} saleOnlineId - SaleOnline ID to lookup
+     * @returns {object|null} Order data or null if not found
+     */
+    function getOrderFromLocalStorage(saleOnlineId) {
+        if (!saleOnlineId) return null;
+
+        try {
+            const stored = localStorage.getItem('invoiceStatusStore_v2');
+            if (!stored) return null;
+
+            const parsed = JSON.parse(stored);
+            const data = parsed.data || parsed;
+
+            // Find the order by saleOnlineId
+            for (const [key, value] of Object.entries(data)) {
+                if (value && (value.SaleOnlineId === saleOnlineId || key.includes(saleOnlineId))) {
+                    return value;
+                }
+            }
+            return null;
+        } catch (e) {
+            console.warn('[ORDER-HISTORY] Error reading localStorage:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Show order details modal/popup
+     * @param {string} saleOnlineId - SaleOnline ID
+     */
+    function showOrderDetails(saleOnlineId) {
+        const orderData = getOrderFromLocalStorage(saleOnlineId);
+
+        if (!orderData) {
+            window.notificationManager?.warning('Không tìm thấy chi tiết đơn hàng trong cache');
+            return;
+        }
+
+        // Build details HTML
+        const detailsHtml = `
+            <div style="padding: 16px; max-width: 500px;">
+                <h4 style="margin:0 0 12px 0; color:#374151;">Chi tiết đơn hàng</h4>
+                <table style="width:100%; font-size:13px; border-collapse:collapse;">
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Mã đơn:</td><td style="padding:4px 8px; font-weight:500;">${orderData.Reference || orderData.Number || '-'}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Khách hàng:</td><td style="padding:4px 8px;">${orderData.ReceiverName || orderData.PartnerName || '-'}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">SĐT:</td><td style="padding:4px 8px;">${orderData.ReceiverPhone || orderData.Phone || '-'}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Địa chỉ:</td><td style="padding:4px 8px;">${orderData.ReceiverAddress || '-'}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Tổng tiền:</td><td style="padding:4px 8px; color:#ef4444; font-weight:600;">${formatCurrency(orderData.AmountUntaxed || orderData.AmountTotal || 0)}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Ship:</td><td style="padding:4px 8px;">${formatCurrency(orderData.DeliveryPrice || 0)}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Vận chuyển:</td><td style="padding:4px 8px;">${orderData.CarrierName || '-'}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Trạng thái:</td><td style="padding:4px 8px;"><span style="padding:2px 8px; border-radius:4px; background:${orderData.State === 'open' ? '#dcfce7' : '#fef3c7'}; color:${orderData.State === 'open' ? '#166534' : '#92400e'};">${orderData.State || '-'}</span></td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">Ghi chú:</td><td style="padding:4px 8px;">${orderData.Comment || '-'}</td></tr>
+                    <tr><td style="padding:4px 8px; color:#6b7280;">SessionIndex:</td><td style="padding:4px 8px;">${orderData.SessionIndex || '-'}</td></tr>
+                </table>
+            </div>
+        `;
+
+        // Show in a simple alert or use notification if available
+        if (window.notificationManager?.showModal) {
+            window.notificationManager.showModal(detailsHtml);
+        } else {
+            // Fallback: show in a simple popup
+            const popup = document.createElement('div');
+            popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);z-index:10001;';
+            popup.innerHTML = detailsHtml + '<div style="padding:0 16px 16px; text-align:right;"><button onclick="this.closest(\'div\').parentElement.remove()" style="padding:8px 16px; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer;">Đóng</button></div>';
+            document.body.appendChild(popup);
+        }
+    }
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -711,7 +820,9 @@
         saveOrderHistoryBatch,
         showModal,
         hideModal,
-        loadHistory
+        loadHistory,
+        showOrderDetails,
+        getOrderFromLocalStorage
     };
 
     if (document.readyState === 'loading') {
