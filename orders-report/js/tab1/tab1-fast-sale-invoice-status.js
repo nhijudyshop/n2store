@@ -721,6 +721,30 @@
                 return order;
             };
 
+            // Helper: get CarrierName from request model (user selected in form dropdown)
+            const enrichWithCarrier = (order) => {
+                const matchedModel = requestModels.find(m => {
+                    if (m.Reference && order.Reference && m.Reference === order.Reference) return true;
+                    if (m.SaleOnlineIds?.length && order.SaleOnlineIds?.length) {
+                        return JSON.stringify(m.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds);
+                    }
+                    return false;
+                });
+                if (matchedModel) {
+                    // Get CarrierName from request model
+                    const carrierName = matchedModel.CarrierName || matchedModel.Carrier?.Name || '';
+                    if (carrierName) {
+                        order.CarrierName = carrierName;
+                        if (!order.Carrier) {
+                            order.Carrier = {};
+                        }
+                        order.Carrier.Name = carrierName;
+                        console.log('[INVOICE-STATUS] Enriched carrier from request:', carrierName);
+                    }
+                }
+                return order;
+            };
+
             // Store successful orders
             if (apiResult.OrdersSucessed && Array.isArray(apiResult.OrdersSucessed)) {
                 apiResult.OrdersSucessed.forEach(order => {
@@ -728,6 +752,7 @@
                     enrichWithOrderLines(order);
                     enrichWithPaymentData(order);
                     enrichWithAddress(order);
+                    enrichWithCarrier(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             // Get original SaleOnlineOrder for enrichment
@@ -758,6 +783,7 @@
                     enrichWithOrderLines(order);
                     enrichWithPaymentData(order);
                     enrichWithAddress(order);
+                    enrichWithCarrier(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                         order.SaleOnlineIds.forEach(soId => {
                             // Get original SaleOnlineOrder for enrichment
