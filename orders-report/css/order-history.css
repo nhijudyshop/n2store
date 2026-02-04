@@ -434,6 +434,81 @@
 }
 
 /* =====================================================
+   PAGINATION BAR
+   ===================================================== */
+.order-history-modal .pagination-bar {
+    padding: 10px 20px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+
+.order-history-modal .pagination-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.order-history-modal .page-size-select {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+    background: white;
+    cursor: pointer;
+}
+
+.order-history-modal .page-size-select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.order-history-modal .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.order-history-modal .page-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid #d1d5db;
+    background: white;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.order-history-modal .page-btn:hover:not(:disabled) {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+}
+
+.order-history-modal .page-btn.active {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
+.order-history-modal .page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.order-history-modal .page-ellipsis {
+    padding: 0 4px;
+    color: #9ca3af;
+}
+
+/* =====================================================
    RESPONSIVE
    ===================================================== */
 @media (max-width: 768px) {
