@@ -172,7 +172,7 @@
     }
 
     // =====================================================
-    // LOAD CAMPAIGNS LIST
+    // LOAD CAMPAIGNS LIST (by campaign NAME, not ID)
     // =====================================================
 
     let campaignsList = []; // Cache campaigns for dropdown
@@ -182,7 +182,7 @@
             const collection = getCollection();
             if (!collection) return;
 
-            // Get distinct campaigns from recent records
+            // Get distinct campaigns from recent records (grouped by NAME)
             const snapshot = await collection
                 .orderBy('createdAt', 'desc')
                 .limit(2000)
@@ -191,11 +191,10 @@
             const campaignsMap = new Map();
             snapshot.forEach(doc => {
                 const data = doc.data();
-                const id = data.liveCampaignId;
-                const name = data.liveCampaignName || id;
-                if (id && !campaignsMap.has(id)) {
-                    campaignsMap.set(id, {
-                        id: id,
+                const name = data.liveCampaignName;
+                // Group by campaign NAME (not ID) because there are 2 pages
+                if (name && !campaignsMap.has(name)) {
+                    campaignsMap.set(name, {
                         name: name,
                         date: data.createdAt?.toDate?.() || new Date()
                     });
@@ -206,7 +205,7 @@
             campaignsList = Array.from(campaignsMap.values())
                 .sort((a, b) => b.date - a.date);
 
-            console.log(`[ORDER-HISTORY] Found ${campaignsList.length} campaigns`);
+            console.log(`[ORDER-HISTORY] Found ${campaignsList.length} campaigns (by name)`);
             renderCampaignDropdown();
 
         } catch (error) {
@@ -223,7 +222,7 @@
         select.innerHTML = `
             <option value="">-- Chọn chiến dịch --</option>
             ${campaignsList.map(c => `
-                <option value="${c.id}" ${c.id === currentValue ? 'selected' : ''}>
+                <option value="${escapeHtml(c.name)}" ${c.name === currentValue ? 'selected' : ''}>
                     ${escapeHtml(c.name)}
                 </option>
             `).join('')}
@@ -231,7 +230,7 @@
     }
 
     // =====================================================
-    // LOAD HISTORY (By Campaign)
+    // LOAD HISTORY (By Campaign NAME)
     // =====================================================
 
     async function loadHistory() {
@@ -246,20 +245,20 @@
                 return;
             }
 
-            // Get selected campaign
-            const campaignId = document.getElementById('orderHistoryCampaign')?.value;
+            // Get selected campaign NAME (not ID)
+            const campaignName = document.getElementById('orderHistoryCampaign')?.value;
 
-            if (!campaignId) {
+            if (!campaignName) {
                 historyData = [];
                 renderEmpty('Vui lòng chọn chiến dịch để xem lịch sử');
                 return;
             }
 
-            console.log(`[ORDER-HISTORY] Loading history for campaign: ${campaignId}`);
+            console.log(`[ORDER-HISTORY] Loading history for campaign: ${campaignName}`);
 
-            // Query by campaign ID
+            // Query by campaign NAME (not ID) - works across both pages
             const snapshot = await collection
-                .where('liveCampaignId', '==', campaignId)
+                .where('liveCampaignName', '==', campaignName)
                 .orderBy('createdAt', 'desc')
                 .limit(5000)
                 .get();
@@ -280,7 +279,7 @@
                 }
             });
 
-            console.log(`[ORDER-HISTORY] Loaded ${historyData.length} records for campaign ${campaignId}`);
+            console.log(`[ORDER-HISTORY] Loaded ${historyData.length} records for campaign "${campaignName}"`);
 
             // Reset to page 1 when loading new data
             currentPage = 1;
@@ -616,8 +615,8 @@
             loadCampaigns();
 
             // If a campaign is already selected, load its data
-            const campaignId = document.getElementById('orderHistoryCampaign')?.value;
-            if (campaignId) {
+            const campaignName = document.getElementById('orderHistoryCampaign')?.value;
+            if (campaignName) {
                 loadHistory();
             } else {
                 renderEmpty('Vui lòng chọn chiến dịch để xem lịch sử');
