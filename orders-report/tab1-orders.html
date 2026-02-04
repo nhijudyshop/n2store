@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/tab1-chat-modal.css" />
     <link rel="stylesheet" href="css/tab1-sale-modal.css" />
     <link rel="stylesheet" href="css/tab1-bill-settings.css" />
+    <link rel="stylesheet" href="css/order-history.css" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils/decoding-utility.js"></script>
@@ -3471,6 +3472,83 @@
             </div>
         </div>
     </div>
+
+    <!-- Order History Button (Fixed in header) -->
+    <button class="order-history-btn" id="orderHistoryBtn" title="Lịch sử ra đơn">
+        <i class="fas fa-history"></i>
+        <span class="badge" style="display: none;">0</span>
+    </button>
+
+    <!-- Order History Modal -->
+    <div class="order-history-modal" id="orderHistoryModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <div>
+                    <h3><i class="fas fa-history"></i> Lịch sử Ra đơn</h3>
+                    <div class="subtitle">Tự động xóa sau 14 ngày</div>
+                </div>
+                <button class="close-btn"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" id="orderHistorySearch" placeholder="Tìm tên, SĐT, mã đơn..." />
+                <select id="orderHistorySource">
+                    <option value="">Tất cả nguồn</option>
+                    <option value="fast-sale">Tạo nhanh PBH</option>
+                    <option value="sale-modal">Phiếu bán hàng</option>
+                </select>
+                <input type="date" id="orderHistoryDateFrom" title="Từ ngày" />
+                <input type="date" id="orderHistoryDateTo" title="Đến ngày" />
+                <span class="filter-stats" id="orderHistoryFilterStats">0 bản ghi</span>
+            </div>
+
+            <div class="modal-body">
+                <table class="order-history-table">
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Khách hàng</th>
+                            <th>Địa chỉ</th>
+                            <th>SP</th>
+                            <th>Tổng tiền</th>
+                            <th>Vận chuyển</th>
+                            <th>Nguồn</th>
+                            <th>User</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderHistoryTableBody">
+                        <tr>
+                            <td colspan="8">
+                                <div class="order-history-empty">
+                                    <i class="fas fa-history"></i>
+                                    <p>Nhấn để tải lịch sử...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-footer">
+                <div class="info">
+                    <i class="fas fa-info-circle"></i>
+                    Dữ liệu được lưu trữ tối đa 14 ngày
+                </div>
+                <div class="actions">
+                    <button class="btn-refresh" id="orderHistoryRefreshBtn">
+                        <i class="fas fa-sync-alt"></i> Tải lại
+                    </button>
+                    <button class="btn-close" id="orderHistoryCloseBtn">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order History JS -->
+    <script src="js/tab1/tab1-order-history.js"></script>
 
 </body>
 

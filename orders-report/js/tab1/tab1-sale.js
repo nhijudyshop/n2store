@@ -721,6 +721,27 @@ async function confirmAndPrintSale() {
 
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
+        // Save to order history (Firebase)
+        if (window.OrderHistoryManager && createResult) {
+            const historyData = {
+                saleOnlineId: currentSaleOrderData?.Id,
+                reference: currentSaleOrderData?.Code || createResult.Reference,
+                fastSaleOrderId: orderId,
+                liveCampaignId: currentSaleOrderData?.LiveCampaignId,
+                liveCampaignName: currentSaleOrderData?.LiveCampaignName || '',
+                customerName: document.getElementById('saleReceiverName')?.value || '',
+                customerPhone: document.getElementById('saleReceiverPhone')?.value || '',
+                address: document.getElementById('saleReceiverAddress')?.value || '',
+                products: (createResult.OrderLines || []),
+                totalAmount: createResult.AmountTotal || 0,
+                shippingFee: parseFloat(document.getElementById('saleShippingFee')?.value) || 0,
+                carrierId: parseInt(document.getElementById('saleDeliveryPartner')?.value) || 0,
+                carrierName: document.getElementById('saleDeliveryPartner')?.selectedOptions[0]?.text || '',
+                sessionIndex: currentSaleOrderData?.SessionIndex || ''
+            };
+            window.OrderHistoryManager.saveOrderHistory(historyData, 'sale-modal');
+        }
+
         // IMPORTANT: Save form values BEFORE debt update and BEFORE storing
         // (debt update changes salePrepaidAmount to remainingDebt)
         const savedWalletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;

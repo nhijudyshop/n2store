@@ -1985,6 +1985,25 @@ async function saveFastSaleOrders(isApprove = false) {
         // Show results modal
         showFastSaleResultsModal(result);
 
+        // Save to order history (Firebase)
+        if (result.OrdersSucessed && result.OrdersSucessed.length > 0) {
+            const historyData = result.OrdersSucessed.map(order => {
+                // Find original order data for additional info
+                const originalOrder = fastSaleOrdersData.find(o =>
+                    (o.SaleOnlineIds && order.SaleOnlineIds &&
+                        JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                    (o.Reference && o.Reference === order.Reference)
+                );
+                return {
+                    ...order,
+                    SessionIndex: originalOrder?.SessionIndex || '',
+                    LiveCampaignId: originalOrder?.LiveCampaignId || order.LiveCampaignId,
+                    LiveCampaignName: originalOrder?.LiveCampaignName || order.LiveCampaignName
+                };
+            });
+            window.OrderHistoryManager?.saveOrderHistoryBatch(historyData, 'fast-sale');
+        }
+
         // Note: Bill sending is handled manually via "In hóa đơn" button in printSuccessOrders()
         // Success: reset flag but don't re-enable buttons (modal will close)
         isSavingFastSale = false;
