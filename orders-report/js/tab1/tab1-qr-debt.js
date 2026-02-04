@@ -897,29 +897,45 @@ function extractDistrictFromAddress(address, extraAddress) {
             .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics
 
         // List of 61 provinces (excluding HCM and Hanoi which need district matching)
-        // Full Vietnam administrative divisions
+        // Include both "có space" và "không space" variants (e.g., "an giang" và "angiang")
         const provinces = [
             // 5 thành phố trực thuộc TW (trừ HCM, Hà Nội)
-            'hai phong', 'da nang', 'can tho',
+            'hai phong', 'haiphong', 'da nang', 'danang', 'can tho', 'cantho',
             // Miền Bắc
-            'ha giang', 'cao bang', 'bac kan', 'tuyen quang', 'lao cai',
-            'dien bien', 'lai chau', 'son la', 'yen bai', 'hoa binh',
-            'thai nguyen', 'lang son', 'quang ninh', 'bac giang', 'phu tho',
-            'vinh phuc', 'bac ninh', 'hai duong', 'hung yen', 'thai binh',
-            'ha nam', 'nam dinh', 'ninh binh',
+            'ha giang', 'hagiang', 'cao bang', 'caobang', 'bac kan', 'backan',
+            'tuyen quang', 'tuyenquang', 'lao cai', 'laocai',
+            'dien bien', 'dienbien', 'lai chau', 'laichau', 'son la', 'sonla',
+            'yen bai', 'yenbai', 'hoa binh', 'hoabinh',
+            'thai nguyen', 'thainguyen', 'lang son', 'langson',
+            'quang ninh', 'quangninh', 'bac giang', 'bacgiang',
+            'phu tho', 'phutho', 'vinh phuc', 'vinhphuc',
+            'bac ninh', 'bacninh', 'hai duong', 'haiduong',
+            'hung yen', 'hungyen', 'thai binh', 'thaibinh',
+            'ha nam', 'hanam', 'nam dinh', 'namdinh', 'ninh binh', 'ninhbinh',
             // Miền Trung
-            'thanh hoa', 'nghe an', 'ha tinh', 'quang binh', 'quang tri',
-            'thua thien hue', 'quang nam', 'quang ngai', 'binh dinh', 'phu yen',
-            'khanh hoa', 'ninh thuan', 'binh thuan',
+            'thanh hoa', 'thanhhoa', 'nghe an', 'nghean',
+            'ha tinh', 'hatinh', 'quang binh', 'quangbinh',
+            'quang tri', 'quangtri', 'thua thien hue', 'thuathienhue',
+            'quang nam', 'quangnam', 'quang ngai', 'quangngai',
+            'binh dinh', 'binhdinh', 'phu yen', 'phuyen',
+            'khanh hoa', 'khanhhoa', 'ninh thuan', 'ninhthuan',
+            'binh thuan', 'binhthuan',
             // Tây Nguyên
-            'kon tum', 'gia lai', 'dak lak', 'dac lak', 'dak nong', 'dac nong', 'lam dong',
+            'kon tum', 'kontum', 'gia lai', 'gialai',
+            'dak lak', 'daklak', 'dac lak', 'daclak',
+            'dak nong', 'daknong', 'dac nong', 'dacnong',
+            'lam dong', 'lamdong',
             // Đông Nam Bộ (trừ HCM)
-            'binh phuoc', 'tay ninh', 'binh duong', 'dong nai',
-            'ba ria', 'vung tau', 'ba ria vung tau',
+            'binh phuoc', 'binhphuoc', 'tay ninh', 'tayninh',
+            'binh duong', 'binhduong', 'dong nai', 'dongnai',
+            'ba ria', 'baria', 'vung tau', 'vungtau', 'ba ria vung tau', 'bariavungtau',
             // Tây Nam Bộ
-            'long an', 'tien giang', 'ben tre', 'tra vinh', 'vinh long',
-            'dong thap', 'an giang', 'kien giang', 'hau giang', 'soc trang',
-            'bac lieu', 'ca mau'
+            'long an', 'longan', 'tien giang', 'tiengiang',
+            'ben tre', 'bentre', 'tra vinh', 'travinh',
+            'vinh long', 'vinhlong', 'dong thap', 'dongthap',
+            'an giang', 'angiang', 'kien giang', 'kiengiang',
+            'hau giang', 'haugiang', 'soc trang', 'soctrang',
+            'bac lieu', 'baclieu', 'ca mau', 'camau'
         ];
 
         // Split address into parts and check FROM END
