@@ -1042,6 +1042,27 @@
         // Store in a temporary global for confirmCancelOrder to access
         window._cancelOrderFromMain = order;
 
+        // Auto-detect carrier from address if CarrierName is empty
+        let carrierName = invoiceData.CarrierName;
+        if (!carrierName && invoiceData.ReceiverAddress) {
+            // Use extractDistrictFromAddress if available
+            if (typeof window.extractDistrictFromAddress === 'function') {
+                const districtInfo = window.extractDistrictFromAddress(invoiceData.ReceiverAddress, null);
+                if (districtInfo.isProvince) {
+                    carrierName = 'SHIP TỈNH';
+                } else if (districtInfo.districtName || districtInfo.districtNumber) {
+                    carrierName = 'THÀNH PHỐ';
+                }
+            }
+            // Fallback pattern matching
+            if (!carrierName) {
+                const normalized = invoiceData.ReceiverAddress.toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const hcmPatterns = [/q\s*\d+/, /quan\s*\d+/, /tan binh/, /tan phu/, /go vap/, /binh thanh/, /phu nhuan/, /binh tan/, /thu duc/];
+                carrierName = hcmPatterns.some(p => p.test(normalized)) ? 'THÀNH PHỐ' : 'SHIP TỈNH';
+            }
+        }
+
         // Create enriched order for bill generation
         const enrichedOrder = {
             Id: invoiceData.Id,
@@ -1054,7 +1075,7 @@
             Discount: invoiceData.Discount,
             AmountTotal: invoiceData.AmountTotal,
             AmountUntaxed: invoiceData.AmountUntaxed,
-            CarrierName: invoiceData.CarrierName,
+            CarrierName: carrierName,
             UserName: invoiceData.UserName,
             SessionIndex: invoiceData.SessionIndex,
             Comment: invoiceData.Comment,
