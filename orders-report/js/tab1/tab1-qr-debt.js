@@ -1022,7 +1022,11 @@ function extractDistrictFromAddress(address, extraAddress) {
 
 /**
  * Find matching carrier based on district information
- * Parses carrier names to find coverage areas in parentheses
+ * Mapping based on actual carrier options:
+ * - 20k: Q1,3,4,5,6,7,8,10,11 + Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp
+ * - 30k: Q2,12 + Bình Tân, Thủ Đức
+ * - 35k THÀNH PHỐ: Bình Chánh, Q9, Nhà Bè, Hóc Môn
+ * - 35k SHIP TỈNH: Củ Chi, Cần Giờ + all provinces
  * @param {HTMLSelectElement} select - The delivery partner dropdown
  * @param {object} districtInfo - Extracted district information
  * @returns {object|null} - { id, name } of matching carrier
@@ -1030,79 +1034,88 @@ function extractDistrictFromAddress(address, extraAddress) {
 function findMatchingCarrier(select, districtInfo) {
     console.log('[SMART-DELIVERY] Searching for carrier matching:', districtInfo);
 
-    let bestMatch = null;
-    let bestMatchScore = 0;
+    // Define carrier groups based on coverage
+    const CARRIER_20K = ['1', '3', '4', '5', '6', '7', '8', '10', '11']; // Q numbers
+    const CARRIER_20K_NAMED = ['phu nhuan', 'binh thanh', 'tan phu', 'tan binh', 'go vap'];
 
-    for (let i = 0; i < select.options.length; i++) {
-        const option = select.options[i];
-        if (!option.value) continue; // Skip placeholder
+    const CARRIER_30K = ['2', '12']; // Q numbers
+    const CARRIER_30K_NAMED = ['binh tan', 'thu duc'];
 
-        const carrierName = option.dataset.name || option.text;
+    const CARRIER_35K_TP = ['9']; // Q9
+    const CARRIER_35K_TP_NAMED = ['binh chanh', 'nha be', 'hoc mon'];
 
-        // Skip non-matching carriers (GỘP, BÁN HÀNG SHOP)
-        if (carrierName.includes('GỘP') || carrierName === 'BÁN HÀNG SHOP') {
-            continue;
-        }
+    // Củ Chi, Cần Giờ → SHIP TỈNH (not in any THÀNH PHỐ carrier)
+    const SHIP_TINH_NAMED = ['cu chi', 'can gio'];
 
-        // Extract coverage area from carrier name (text in parentheses)
-        const coverageMatch = carrierName.match(/\(([^)]+)\)/);
-        if (!coverageMatch) continue;
+    // Determine which carrier group to match
+    let targetGroup = null;
+    const districtNum = districtInfo.districtNumber;
+    const districtName = districtInfo.districtName?.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
 
-        const coverageArea = coverageMatch[1].toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-        let matchScore = 0;
-
-        // Check if district number matches
-        if (districtInfo.districtNumber) {
-            // Look for the number in coverage area
-            // Need to be careful: "1" shouldn't match "10" or "11"
-            const districtNum = districtInfo.districtNumber;
-
-            // Pattern to match standalone numbers or numbers at word boundaries
-            // For coverage like "1 3 4 5 6 7 8 10 11" or "Q2-12-Bình Tân"
-            const numPatterns = [
-                new RegExp(`\\b${districtNum}\\b`),           // Word boundary
-                new RegExp(`^${districtNum}\\s`),             // Start of string
-                new RegExp(`\\s${districtNum}\\s`),           // Space surrounded
-                new RegExp(`\\s${districtNum}$`),             // End of string
-                new RegExp(`-${districtNum}-`),               // Dash surrounded
-                new RegExp(`^${districtNum}-`),               // Start with dash
-                new RegExp(`-${districtNum}$`),               // End with dash
-                new RegExp(`q${districtNum}\\b`, 'i'),        // Q prefix (Q9, Q2)
-            ];
-
-            for (const pattern of numPatterns) {
-                if (pattern.test(coverageArea) || pattern.test(carrierName)) {
-                    matchScore = 10;
-                    console.log(`[SMART-DELIVERY] District number ${districtNum} matched in: ${carrierName}`);
-                    break;
-                }
-            }
-        }
-
-        // Check if district name matches
-        if (districtInfo.districtName && matchScore === 0) {
-            const normalizedDistrictName = districtInfo.districtName.toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-            if (coverageArea.includes(normalizedDistrictName)) {
-                matchScore = 8;
-                console.log(`[SMART-DELIVERY] District name "${districtInfo.districtName}" matched in: ${carrierName}`);
-            }
-        }
-
-        // Update best match
-        if (matchScore > bestMatchScore) {
-            bestMatchScore = matchScore;
-            bestMatch = {
-                id: option.value,
-                name: carrierName
-            };
+    // Check by district number first
+    if (districtNum) {
+        if (CARRIER_20K.includes(districtNum)) {
+            targetGroup = '20k';
+        } else if (CARRIER_30K.includes(districtNum)) {
+            targetGroup = '30k';
+        } else if (CARRIER_35K_TP.includes(districtNum)) {
+            targetGroup = '35k_tp';
         }
     }
 
-    return bestMatch;
+    // Check by district name if not matched by number
+    if (!targetGroup && districtName) {
+        if (CARRIER_20K_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = '20k';
+        } else if (CARRIER_30K_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = '30k';
+        } else if (CARRIER_35K_TP_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = '35k_tp';
+        } else if (SHIP_TINH_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = 'ship_tinh'; // Củ Chi, Cần Giờ → SHIP TỈNH
+        }
+    }
+
+    console.log('[SMART-DELIVERY] Target carrier group:', targetGroup);
+
+    if (!targetGroup) {
+        return null; // Will fall back to SHIP TỈNH
+    }
+
+    // Find the matching carrier option
+    for (let i = 0; i < select.options.length; i++) {
+        const option = select.options[i];
+        if (!option.value) continue;
+
+        const carrierName = option.dataset.name || option.text;
+        const carrierNorm = carrierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        // Skip GỘP and BÁN HÀNG SHOP
+        if (carrierNorm.includes('gop') || carrierName === 'BÁN HÀNG SHOP') {
+            continue;
+        }
+
+        // Match by price in carrier name
+        if (targetGroup === '20k' && carrierNorm.includes('20.000')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 20k carrier:', carrierName);
+            return { id: option.value, name: carrierName };
+        }
+        if (targetGroup === '30k' && carrierNorm.includes('30.000')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 30k carrier:', carrierName);
+            return { id: option.value, name: carrierName };
+        }
+        if (targetGroup === '35k_tp' && carrierNorm.includes('35.000') && carrierNorm.includes('thanh pho')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 35k THÀNH PHỐ carrier:', carrierName);
+            return { id: option.value, name: carrierName };
+        }
+        if (targetGroup === 'ship_tinh' && carrierNorm.includes('ship tinh')) {
+            console.log('[SMART-DELIVERY] ✅ Matched SHIP TỈNH carrier:', carrierName);
+            return { id: option.value, name: carrierName };
+        }
+    }
+
+    return null;
 }
 
 /**
