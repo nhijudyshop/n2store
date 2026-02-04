@@ -659,15 +659,24 @@
      * Order: authManager -> billTokenManager -> tokenManager -> 'unknown'
      */
     function getCurrentUsername() {
-        // Try authManager first (shared auth system)
+        // Try localStorage userType first (most reliable)
+        const storedUserType = localStorage.getItem('userType');
+        if (storedUserType) {
+            // userType format: "admin-admin@@" -> take part BEFORE "-"
+            if (storedUserType.includes('-')) {
+                return storedUserType.split('-')[0];
+            }
+            return storedUserType;
+        }
+
+        // Try authManager (shared auth system)
         if (typeof window.authManager !== 'undefined') {
             const authState = window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
             if (authState?.userType) {
-                // userType format: "Admin-Store" or "nv20" - extract name
                 const userType = authState.userType;
-                // If contains "-", take the part after "-"
+                // userType format: "admin-admin@@" -> take part BEFORE "-"
                 if (userType.includes('-')) {
-                    return userType.split('-').pop();
+                    return userType.split('-')[0];
                 }
                 return userType;
             }
