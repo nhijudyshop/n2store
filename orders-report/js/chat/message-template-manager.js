@@ -1908,13 +1908,13 @@ class MessageTemplateManager {
      * Calculate shipping fee from address using carrier mapping logic
      * @param {string} address - Customer address
      * @param {object} extraAddress - Extra address data from TPOS (optional)
-     * @returns {number} - Shipping fee (20000, 30000, or 35000)
+     * @returns {{fee: number, isProvince: boolean}} - Shipping fee and province flag
      */
     getShippingFeeFromAddress(address, extraAddress = null) {
         // Use global extractDistrictFromAddress if available (from tab1-qr-debt.js)
         if (!window.extractDistrictFromAddress) {
             this.log('⚠️ extractDistrictFromAddress not available, using default 35k');
-            return 35000;
+            return { fee: 35000, isProvince: true };
         }
 
         const districtInfo = window.extractDistrictFromAddress(address, extraAddress);
@@ -1930,10 +1930,10 @@ class MessageTemplateManager {
         const CARRIER_35K_TP = ['9'];
         const CARRIER_35K_TP_NAMED = ['binh chanh', 'nha be', 'hoc mon'];
 
-        // Province → 35k
+        // Province → 35k + isProvince = true
         if (districtInfo.isProvince) {
-            this.log('📍 Province detected → 35k');
-            return 35000;
+            this.log('📍 Province detected → 35k (TỈNH)');
+            return { fee: 35000, isProvince: true };
         }
 
         const districtNum = districtInfo.districtNumber;
@@ -1944,38 +1944,38 @@ class MessageTemplateManager {
         // Check by district number first
         if (districtNum) {
             if (CARRIER_20K.includes(districtNum)) {
-                this.log('📍 District Q' + districtNum + ' → 20k');
-                return 20000;
+                this.log('📍 District Q' + districtNum + ' → 20k (THÀNH PHỐ)');
+                return { fee: 20000, isProvince: false };
             }
             if (CARRIER_30K.includes(districtNum)) {
-                this.log('📍 District Q' + districtNum + ' → 30k');
-                return 30000;
+                this.log('📍 District Q' + districtNum + ' → 30k (THÀNH PHỐ)');
+                return { fee: 30000, isProvince: false };
             }
             if (CARRIER_35K_TP.includes(districtNum)) {
-                this.log('📍 District Q' + districtNum + ' → 35k');
-                return 35000;
+                this.log('📍 District Q' + districtNum + ' → 35k (THÀNH PHỐ)');
+                return { fee: 35000, isProvince: false };
             }
         }
 
         // Check by district name
         if (districtName) {
             if (CARRIER_20K_NAMED.some(d => districtName.includes(d))) {
-                this.log('📍 District ' + districtInfo.districtName + ' → 20k');
-                return 20000;
+                this.log('📍 District ' + districtInfo.districtName + ' → 20k (THÀNH PHỐ)');
+                return { fee: 20000, isProvince: false };
             }
             if (CARRIER_30K_NAMED.some(d => districtName.includes(d))) {
-                this.log('📍 District ' + districtInfo.districtName + ' → 30k');
-                return 30000;
+                this.log('📍 District ' + districtInfo.districtName + ' → 30k (THÀNH PHỐ)');
+                return { fee: 30000, isProvince: false };
             }
             if (CARRIER_35K_TP_NAMED.some(d => districtName.includes(d))) {
-                this.log('📍 District ' + districtInfo.districtName + ' → 35k');
-                return 35000;
+                this.log('📍 District ' + districtInfo.districtName + ' → 35k (THÀNH PHỐ)');
+                return { fee: 35000, isProvince: false };
             }
         }
 
         // Default to 35k (ship tỉnh)
-        this.log('📍 No match found → default 35k');
-        return 35000;
+        this.log('📍 No match found → default 35k (TỈNH)');
+        return { fee: 35000, isProvince: true };
     }
 
     replacePlaceholders(content, orderData) {
@@ -2025,8 +2025,33 @@ class MessageTemplateManager {
             const productList = formattedProducts.map(fp => fp.line).join('\n');
 
             // Calculate shipping fee from address
-            const shippingFee = this.getShippingFeeFromAddress(orderData.address, orderData.extraAddress);
-            this.log('📦 Shipping fee calculated:', shippingFee);
+            const { fee: baseShippingFee, isProvince } = this.getShippingFeeFromAddress(orderData.address, orderData.extraAddress);
+
+            // Calculate order total (after discount if any)
+            const orderTotal = hasAnyDiscount
+                ? (orderData.totalAmount || 0) - totalDiscountAmount
+                : (orderData.totalAmount || 0);
+
+            // Check freeship conditions:
+            // 1. THÀNH PHỐ (20k/30k/35k) + total > 1.500.000đ → freeship
+            // 2. TỈNH + total > 3.000.000đ → freeship
+            let shippingFee = baseShippingFee;
+            let isFreeship = false;
+            if (!isProvince && orderTotal > 1500000) {
+                shippingFee = 0;
+                isFreeship = true;
+                this.log('🎁 FREESHIP: THÀNH PHỐ + total > 1.5tr');
+            } else if (isProvince && orderTotal > 3000000) {
+                shippingFee = 0;
+                isFreeship = true;
+                this.log('🎁 FREESHIP: TỈNH + total > 3tr');
+            }
+            this.log('📦 Shipping fee:', shippingFee, isFreeship ? '(FREESHIP)' : '');
+
+            // Format shipping line
+            const shipLine = isFreeship
+                ? `Phí ship: FREESHIP 🎁`
+                : `Phí ship: ${this.formatCurrency(shippingFee)}`;
 
             // Format total section based on whether discounts exist
             let totalSection;
@@ -2039,7 +2064,7 @@ class MessageTemplateManager {
                     `Tổng : ${this.formatCurrency(originalTotal)}`,
                     `Giảm giá: ${this.formatCurrency(totalDiscountAmount)}`,
                     `Tổng tiền: ${this.formatCurrency(afterDiscount)}`,
-                    `Phí ship: ${this.formatCurrency(shippingFee)}`,
+                    shipLine,
                     `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
                 ].join('\n');
             } else {
@@ -2047,7 +2072,7 @@ class MessageTemplateManager {
                 const finalTotal = totalAmount + shippingFee;
                 totalSection = [
                     `Tổng tiền: ${this.formatCurrency(totalAmount)}`,
-                    `Phí ship: ${this.formatCurrency(shippingFee)}`,
+                    shipLine,
                     `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
                 ].join('\n');
             }
