@@ -356,7 +356,8 @@
                     record.address,
                     record.carrierName,
                     record.liveCampaignName,
-                    record.createdBy
+                    record.createdBy,
+                    record.sessionIndex // STT search
                 ].map(f => (f || '').toLowerCase());
 
                 if (!searchFields.some(f => f.includes(searchTerm))) {
