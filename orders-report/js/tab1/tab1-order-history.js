@@ -751,6 +751,54 @@
     }
 
     /**
+     * Detect carrier name from address when CarrierName is empty
+     * Uses extractDistrictFromAddress from tab1-qr-debt.js
+     * @param {string} address - Receiver address
+     * @returns {string} Carrier name (THÀNH PHỐ or SHIP TỈNH)
+     */
+    function detectCarrierFromAddress(address) {
+        if (!address) return 'SHIP TỈNH';
+
+        // Use extractDistrictFromAddress if available
+        if (typeof window.extractDistrictFromAddress === 'function') {
+            const districtInfo = window.extractDistrictFromAddress(address, null);
+
+            // If it's a province, return SHIP TỈNH
+            if (districtInfo.isProvince) {
+                return 'SHIP TỈNH';
+            }
+
+            // If we found a district, it's THÀNH PHỐ
+            if (districtInfo.districtName || districtInfo.districtNumber) {
+                return 'THÀNH PHỐ';
+            }
+        }
+
+        // Fallback: simple check for common HCM district patterns
+        const normalized = address.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        // Check for province keywords
+        const provinceKeywords = ['tinh', 'province', 'binh duong', 'dong nai', 'long an', 'tay ninh', 'ba ria', 'can tho'];
+        if (provinceKeywords.some(kw => normalized.includes(kw))) {
+            return 'SHIP TỈNH';
+        }
+
+        // Check for HCM district patterns
+        const hcmPatterns = [
+            /q\s*\d+/, /quan\s*\d+/, /q\.\s*\d+/,  // Q1, Quận 5, Q.10
+            /tan binh/, /tan phu/, /go vap/, /binh thanh/,
+            /phu nhuan/, /binh tan/, /thu duc/
+        ];
+        if (hcmPatterns.some(pattern => pattern.test(normalized))) {
+            return 'THÀNH PHỐ';
+        }
+
+        // Default to SHIP TỈNH if unsure
+        return 'SHIP TỈNH';
+    }
+
+    /**
      * Show bill preview on hover (positioned to the left of button)
      * Uses generateCustomBillHTML for consistent bill format
      * @param {HTMLElement} button - The button element
@@ -786,10 +834,13 @@
 
         // Generate bill HTML using the official function
         // Transform localStorage data to match orderResult format
+        // Auto-detect carrier from address if CarrierName is empty
+        const carrierName = orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
+
         const orderResult = {
             Number: orderData.Number || orderData.Reference,
             Reference: orderData.Reference,
-            CarrierName: orderData.CarrierName,
+            CarrierName: carrierName,
             SessionIndex: orderData.SessionIndex,
             PartnerDisplayName: orderData.ReceiverName || orderData.PartnerName,
             ReceiverName: orderData.ReceiverName,
@@ -892,11 +943,14 @@
 
         // Check if generateCustomBillHTML is available
         if (typeof window.generateCustomBillHTML === 'function') {
+            // Auto-detect carrier from address if CarrierName is empty
+            const carrierName = orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
+
             // Transform localStorage data to match orderResult format
             const orderResult = {
                 Number: orderData.Number || orderData.Reference,
                 Reference: orderData.Reference,
-                CarrierName: orderData.CarrierName,
+                CarrierName: carrierName,
                 SessionIndex: orderData.SessionIndex,
                 PartnerDisplayName: orderData.ReceiverName || orderData.PartnerName,
                 ReceiverName: orderData.ReceiverName,
