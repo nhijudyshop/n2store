@@ -1100,33 +1100,39 @@ function findMatchingCarrier(select, districtInfo) {
     }
 
     // Find the matching carrier option
+    // Use fee value (from data-fee attribute) for reliable matching instead of price in name
     for (let i = 0; i < select.options.length; i++) {
         const option = select.options[i];
         if (!option.value) continue;
 
         const carrierName = option.dataset.name || option.text;
         const carrierNorm = carrierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const carrierFee = parseFloat(option.dataset.fee) || 0;
 
         // Skip GỘP and BÁN HÀNG SHOP
         if (carrierNorm.includes('gop') || carrierName === 'BÁN HÀNG SHOP') {
             continue;
         }
 
-        // Match by price in carrier name
-        if (targetGroup === '20k' && carrierNorm.includes('20.000')) {
-            console.log('[SMART-DELIVERY] ✅ Matched 20k carrier:', carrierName);
+        // Match by fee value AND carrier type (THÀNH PHỐ vs SHIP TỈNH)
+        // 20k: Inner city districts
+        if (targetGroup === '20k' && carrierFee === 20000 && carrierNorm.includes('thanh pho')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 20k carrier:', carrierName, '(fee:', carrierFee, ')');
             return { id: option.value, name: carrierName };
         }
-        if (targetGroup === '30k' && carrierNorm.includes('30.000')) {
-            console.log('[SMART-DELIVERY] ✅ Matched 30k carrier:', carrierName);
+        // 30k: Q2, Q12, Bình Tân, Thủ Đức
+        if (targetGroup === '30k' && carrierFee === 30000 && carrierNorm.includes('thanh pho')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 30k carrier:', carrierName, '(fee:', carrierFee, ')');
             return { id: option.value, name: carrierName };
         }
-        if (targetGroup === '35k_tp' && carrierNorm.includes('35.000') && carrierNorm.includes('thanh pho')) {
-            console.log('[SMART-DELIVERY] ✅ Matched 35k THÀNH PHỐ carrier:', carrierName);
+        // 35k THÀNH PHỐ: Q9, Bình Chánh, Nhà Bè, Hóc Môn
+        if (targetGroup === '35k_tp' && carrierFee === 35000 && carrierNorm.includes('thanh pho')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 35k THÀNH PHỐ carrier:', carrierName, '(fee:', carrierFee, ')');
             return { id: option.value, name: carrierName };
         }
+        // SHIP TỈNH: Củ Chi, Cần Giờ, all provinces
         if (targetGroup === 'ship_tinh' && carrierNorm.includes('ship tinh')) {
-            console.log('[SMART-DELIVERY] ✅ Matched SHIP TỈNH carrier:', carrierName);
+            console.log('[SMART-DELIVERY] ✅ Matched SHIP TỈNH carrier:', carrierName, '(fee:', carrierFee, ')');
             return { id: option.value, name: carrierName };
         }
     }
