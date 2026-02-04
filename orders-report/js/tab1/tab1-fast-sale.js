@@ -2540,6 +2540,10 @@ function renderSuccessOrdersTable() {
     container.innerHTML = html;
 
     // Trigger auto send bills if enabled
+    console.log('[FAST-SALE] Checking auto send bills:', {
+        functionExists: !!window.autoSendBillsIfEnabled,
+        successCount: fastSaleResultsData.success.length
+    });
     if (window.autoSendBillsIfEnabled && fastSaleResultsData.success.length > 0) {
         window.autoSendBillsIfEnabled(fastSaleResultsData.success);
     }

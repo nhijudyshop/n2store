@@ -952,8 +952,12 @@
      * @param {array} successOrders - Array of success order data
      */
     async function autoSendBillsIfEnabled(successOrders) {
+        console.log('[WORKFLOW] autoSendBillsIfEnabled called with', successOrders?.length, 'orders');
+
         // Check setting from Bill Template Settings
         const billSettings = window.getBillTemplateSettings ? window.getBillTemplateSettings() : {};
+        console.log('[WORKFLOW] autoSendOnSuccess setting:', billSettings.autoSendOnSuccess);
+
         if (!billSettings.autoSendOnSuccess) {
             console.log('[WORKFLOW] Auto send bill is disabled');
             return;
@@ -965,6 +969,7 @@
         const ordersToSend = successOrders.filter(order =>
             order.ShowState === 'Đã thanh toán' || order.ShowState === 'Đã xác nhận'
         );
+        console.log('[WORKFLOW] Orders eligible (Đã thanh toán/Đã xác nhận):', ordersToSend.length, 'ShowStates:', successOrders.map(o => o.ShowState));
 
         if (ordersToSend.length === 0) {
             console.log('[WORKFLOW] No orders eligible for auto bill sending');
