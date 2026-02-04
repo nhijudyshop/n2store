@@ -91,6 +91,7 @@
     flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: slideUp 0.3s ease;
+    overflow: hidden;
 }
 
 @keyframes fadeIn {
@@ -381,16 +382,21 @@
     justify-content: space-between;
     background: #f9fafb;
     border-radius: 0 0 12px 12px;
+    flex-shrink: 0;
+    overflow: visible;
 }
 
 .order-history-modal .modal-footer .info {
     font-size: 12px;
     color: #9ca3af;
+    flex-shrink: 1;
+    min-width: 0;
 }
 
 .order-history-modal .modal-footer .actions {
     display: flex;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .order-history-modal .modal-footer button {
@@ -408,6 +414,7 @@
     background: white;
     border: 1px solid #d1d5db;
     color: #374151;
+    white-space: nowrap;
 }
 
 .order-history-modal .modal-footer .btn-refresh:hover {
@@ -418,6 +425,8 @@
     background: #667eea;
     border: none;
     color: white;
+    white-space: nowrap;
+    min-width: 80px;
 }
 
 .order-history-modal .modal-footer .btn-close:hover {
