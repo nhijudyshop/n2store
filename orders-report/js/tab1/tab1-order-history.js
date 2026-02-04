@@ -172,7 +172,66 @@
     }
 
     // =====================================================
-    // LOAD HISTORY (Optimized with date range)
+    // LOAD CAMPAIGNS LIST
+    // =====================================================
+
+    let campaignsList = []; // Cache campaigns for dropdown
+
+    async function loadCampaigns() {
+        try {
+            const collection = getCollection();
+            if (!collection) return;
+
+            // Get distinct campaigns from recent records
+            const snapshot = await collection
+                .orderBy('createdAt', 'desc')
+                .limit(2000)
+                .get();
+
+            const campaignsMap = new Map();
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const id = data.liveCampaignId;
+                const name = data.liveCampaignName || id;
+                if (id && !campaignsMap.has(id)) {
+                    campaignsMap.set(id, {
+                        id: id,
+                        name: name,
+                        date: data.createdAt?.toDate?.() || new Date()
+                    });
+                }
+            });
+
+            // Sort by date descending (most recent first)
+            campaignsList = Array.from(campaignsMap.values())
+                .sort((a, b) => b.date - a.date);
+
+            console.log(`[ORDER-HISTORY] Found ${campaignsList.length} campaigns`);
+            renderCampaignDropdown();
+
+        } catch (error) {
+            console.error('[ORDER-HISTORY] Error loading campaigns:', error);
+        }
+    }
+
+    function renderCampaignDropdown() {
+        const select = document.getElementById('orderHistoryCampaign');
+        if (!select) return;
+
+        const currentValue = select.value;
+
+        select.innerHTML = `
+            <option value="">-- Chọn chiến dịch --</option>
+            ${campaignsList.map(c => `
+                <option value="${c.id}" ${c.id === currentValue ? 'selected' : ''}>
+                    ${escapeHtml(c.name)}
+                </option>
+            `).join('')}
+        `;
+    }
+
+    // =====================================================
+    // LOAD HISTORY (By Campaign)
     // =====================================================
 
     async function loadHistory() {
@@ -187,43 +246,23 @@
                 return;
             }
 
-            // Get date range from filter (default: last 3 days for performance)
-            const dateFrom = document.getElementById('orderHistoryDateFrom')?.value;
-            const dateTo = document.getElementById('orderHistoryDateTo')?.value;
+            // Get selected campaign
+            const campaignId = document.getElementById('orderHistoryCampaign')?.value;
 
-            let query = collection.orderBy('createdAt', 'desc');
-
-            // Apply server-side date filtering for better performance
-            if (dateFrom) {
-                const fromDate = new Date(dateFrom);
-                fromDate.setHours(0, 0, 0, 0);
-                query = query.where('createdAt', '>=', firebase.firestore.Timestamp.fromDate(fromDate));
+            if (!campaignId) {
+                historyData = [];
+                renderEmpty('Vui lòng chọn chiến dịch để xem lịch sử');
+                return;
             }
 
-            if (dateTo) {
-                const toDate = new Date(dateTo);
-                toDate.setHours(23, 59, 59, 999);
-                query = query.where('createdAt', '<=', firebase.firestore.Timestamp.fromDate(toDate));
-            }
+            console.log(`[ORDER-HISTORY] Loading history for campaign: ${campaignId}`);
 
-            // If no date filter, default to last 3 days
-            if (!dateFrom && !dateTo) {
-                const threeDaysAgo = new Date();
-                threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                threeDaysAgo.setHours(0, 0, 0, 0);
-                query = query.where('createdAt', '>=', firebase.firestore.Timestamp.fromDate(threeDaysAgo));
-
-                // Auto-fill date filter UI
-                const dateFromInput = document.getElementById('orderHistoryDateFrom');
-                if (dateFromInput && !dateFromInput.value) {
-                    dateFromInput.value = threeDaysAgo.toISOString().split('T')[0];
-                }
-            }
-
-            // Limit to prevent loading too much data
-            query = query.limit(5000);
-
-            const snapshot = await query.get();
+            // Query by campaign ID
+            const snapshot = await collection
+                .where('liveCampaignId', '==', campaignId)
+                .orderBy('createdAt', 'desc')
+                .limit(5000)
+                .get();
 
             historyData = [];
             const now = new Date();
@@ -241,7 +280,7 @@
                 }
             });
 
-            console.log(`[ORDER-HISTORY] Loaded ${historyData.length} records`);
+            console.log(`[ORDER-HISTORY] Loaded ${historyData.length} records for campaign ${campaignId}`);
 
             // Reset to page 1 when loading new data
             currentPage = 1;
@@ -573,21 +612,16 @@
         if (modal) {
             modal.classList.add('show');
 
-            // Set default date range (last 3 days) if not set
-            const dateFromInput = document.getElementById('orderHistoryDateFrom');
-            const dateToInput = document.getElementById('orderHistoryDateTo');
+            // Load campaigns list first
+            loadCampaigns();
 
-            if (dateFromInput && !dateFromInput.value) {
-                const threeDaysAgo = new Date();
-                threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                dateFromInput.value = threeDaysAgo.toISOString().split('T')[0];
+            // If a campaign is already selected, load its data
+            const campaignId = document.getElementById('orderHistoryCampaign')?.value;
+            if (campaignId) {
+                loadHistory();
+            } else {
+                renderEmpty('Vui lòng chọn chiến dịch để xem lịch sử');
             }
-
-            if (dateToInput && !dateToInput.value) {
-                dateToInput.value = new Date().toISOString().split('T')[0];
-            }
-
-            loadHistory();
         }
     }
 
@@ -640,15 +674,14 @@
 
         document.getElementById('orderHistoryBtn')?.addEventListener('click', showModal);
 
-        // Search with debounce (300ms)
+        // Campaign filter triggers reload from Firebase
+        document.getElementById('orderHistoryCampaign')?.addEventListener('change', loadHistory);
+
+        // Search with debounce (300ms) - client-side on loaded data
         document.getElementById('orderHistorySearch')?.addEventListener('input', debounce(applyFilters, 300));
 
-        // Source filter (immediate)
+        // Source filter (immediate) - client-side
         document.getElementById('orderHistorySource')?.addEventListener('change', applyFilters);
-
-        // Date filters trigger reload from Firebase
-        document.getElementById('orderHistoryDateFrom')?.addEventListener('change', loadHistory);
-        document.getElementById('orderHistoryDateTo')?.addEventListener('change', loadHistory);
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && modal?.classList.contains('show')) {

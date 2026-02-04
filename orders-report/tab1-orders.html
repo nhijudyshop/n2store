@@ -3492,14 +3492,15 @@
             </div>
 
             <div class="filter-bar">
-                <input type="text" id="orderHistorySearch" placeholder="Tìm tên, SĐT, mã đơn..." />
+                <select id="orderHistoryCampaign" style="min-width: 200px;">
+                    <option value="">-- Chọn chiến dịch --</option>
+                </select>
+                <input type="text" id="orderHistorySearch" placeholder="Tìm tên, SĐT, địa chỉ..." />
                 <select id="orderHistorySource">
                     <option value="">Tất cả nguồn</option>
                     <option value="fast-sale">Tạo nhanh PBH</option>
                     <option value="sale-modal">Phiếu bán hàng</option>
                 </select>
-                <input type="date" id="orderHistoryDateFrom" title="Từ ngày" />
-                <input type="date" id="orderHistoryDateTo" title="Đến ngày" />
                 <span class="filter-stats" id="orderHistoryFilterStats">0 bản ghi</span>
             </div>
 
@@ -3522,7 +3523,7 @@
                             <td colspan="8">
                                 <div class="order-history-empty">
                                     <i class="fas fa-history"></i>
-                                    <p>Nhấn để tải lịch sử...</p>
+                                    <p>Chọn chiến dịch để xem lịch sử ra đơn</p>
                                 </div>
                             </td>
                         </tr>
@@ -3536,7 +3537,7 @@
             <div class="modal-footer">
                 <div class="info">
                     <i class="fas fa-info-circle"></i>
-                    Mặc định tải 3 ngày gần nhất • Chọn ngày để tải thêm
+                    Dữ liệu lưu tối đa 14 ngày • Chọn chiến dịch để xem
                 </div>
                 <div class="actions">
                     <button class="btn-refresh" id="orderHistoryRefreshBtn">
