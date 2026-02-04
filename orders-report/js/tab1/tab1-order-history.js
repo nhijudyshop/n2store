@@ -642,18 +642,10 @@
     }
 
     function updateBadgeCount() {
+        // Badge disabled - always hide
         const badge = document.querySelector('.order-history-btn .badge');
         if (badge) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayCount = historyData.filter(r => r.createdAt >= today).length;
-
-            if (todayCount > 0) {
-                badge.textContent = todayCount > 99 ? '99+' : todayCount;
-                badge.style.display = 'flex';
-            } else {
-                badge.style.display = 'none';
-            }
+            badge.style.display = 'none';
         }
     }
 
