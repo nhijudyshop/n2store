@@ -813,7 +813,8 @@ window.onBoomReasonChange = function() {
     const hints = {
         'BOOM_HANG': '<span style="color:#ef4444;">⚠️ Khách boom - Lưu ý đơn sau</span>',
         'TRUNG_DON': '<span style="color:#3b82f6;">ℹ️ Xả đơn cũ, nhập kho, đi đơn mới</span>',
-        'DOI_DIA_CHI': '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho, đi lại đơn mới</span>'
+        'DOI_DIA_CHI': '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho, đi lại đơn mới</span>',
+        'KHAC': '<span style="color:#3b82f6;">ℹ️ Hoàn về, nhập kho</span>'
     };
     hintEl.innerHTML = hints[reason] || '';
 };
@@ -1875,7 +1876,8 @@ function renderTypeBadge(type, fixCodReason, boomReason) {
         const boomReasonMap = {
             'BOOM_HANG': 'Boom Hàng',
             'TRUNG_DON': 'Trùng Đơn',
-            'DOI_DIA_CHI': 'Sai Địa Chỉ'
+            'DOI_DIA_CHI': 'Sai Địa Chỉ',
+            'KHAC': 'Không Nhận Hàng'
         };
         const reasonLabel = boomReasonMap[boomReason] || boomReason;
         return `<span class="type-label type-boom">● ${reasonLabel}</span>`;
