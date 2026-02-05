@@ -19,11 +19,18 @@ class PurchaseOrderFormModal {
             supplier: '',
             orderDate: new Date().toISOString().split('T')[0],
             invoiceAmount: '',
-            invoiceImages: [],
+            invoiceImages: [],  // Will store data URLs (local) or Firebase URLs (uploaded)
             notes: '',
             discountAmount: '',
             shippingFee: '',
             items: []
+        };
+
+        // Pending images - store File objects for upload on submit
+        this.pendingImages = {
+            invoice: [],  // Array of {file: File, dataUrl: string}
+            products: {}, // itemId -> Array of {file: File, dataUrl: string}
+            prices: {}    // itemId -> Array of {file: File, dataUrl: string}
         };
 
         this.itemCounter = 0;
@@ -45,7 +52,7 @@ class PurchaseOrderFormModal {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        await this.uploadAndAddImages(Array.from(files), type, itemId);
+        await this.addLocalImages(Array.from(files), type, itemId);
         e.target.value = ''; // Reset input
     }
 
@@ -69,25 +76,36 @@ class PurchaseOrderFormModal {
 
         if (files.length > 0) {
             e.preventDefault();
-            await this.uploadAndAddImages(files, type, itemId);
+            await this.addLocalImages(files, type, itemId);
         }
     }
 
     /**
-     * Upload files and add to form data
-     * @param {File[]} files - Files to upload
+     * Convert file to data URL
+     * @param {File} file
+     * @returns {Promise<string>}
+     */
+    fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /**
+     * Add images locally (not upload yet) - will upload on submit
+     * @param {File[]} files - Files to add
      * @param {string} type - 'invoice' | 'product' | 'price'
      * @param {string} itemId - Item ID (for product/price images)
      */
-    async uploadAndAddImages(files, type, itemId = null) {
-        if (this.isUploading) return;
-        this.isUploading = true;
-
+    async addLocalImages(files, type, itemId = null) {
         try {
-            // Show loading state
+            // Show loading state briefly
             this.showUploadingState(type, itemId, true);
 
-            // Compress images before upload using ImageUtils
+            // Compress images using ImageUtils
             let processedFiles = files;
             if (window.ImageUtils && window.ImageUtils.compressImage) {
                 processedFiles = await Promise.all(
@@ -95,19 +113,44 @@ class PurchaseOrderFormModal {
                 );
             }
 
-            const folder = type === 'invoice' ? 'invoices' : 'products';
-            const urls = await window.purchaseOrderService.uploadImages(processedFiles, `purchase-orders/${folder}`);
+            // Convert to data URLs for preview
+            const imageData = await Promise.all(
+                processedFiles.map(async (file) => ({
+                    file: file,
+                    dataUrl: await this.fileToDataUrl(file)
+                }))
+            );
 
+            // Store locally based on type
             if (type === 'invoice') {
-                this.formData.invoiceImages = [...this.formData.invoiceImages, ...urls];
+                this.pendingImages.invoice.push(...imageData);
+                // Add data URLs to formData for preview
+                this.formData.invoiceImages = [
+                    ...this.formData.invoiceImages,
+                    ...imageData.map(d => d.dataUrl)
+                ];
                 this.refreshInvoiceImages();
             } else {
                 const item = this.formData.items.find(i => i.id === itemId);
                 if (item) {
                     if (type === 'product') {
-                        item.productImages = [...(item.productImages || []), ...urls];
+                        if (!this.pendingImages.products[itemId]) {
+                            this.pendingImages.products[itemId] = [];
+                        }
+                        this.pendingImages.products[itemId].push(...imageData);
+                        item.productImages = [
+                            ...(item.productImages || []),
+                            ...imageData.map(d => d.dataUrl)
+                        ];
                     } else if (type === 'price') {
-                        item.priceImages = [...(item.priceImages || []), ...urls];
+                        if (!this.pendingImages.prices[itemId]) {
+                            this.pendingImages.prices[itemId] = [];
+                        }
+                        this.pendingImages.prices[itemId].push(...imageData);
+                        item.priceImages = [
+                            ...(item.priceImages || []),
+                            ...imageData.map(d => d.dataUrl)
+                        ];
                     }
                     this.refreshItemImages(itemId);
                 }
@@ -115,19 +158,93 @@ class PurchaseOrderFormModal {
 
             // Show success notification
             if (window.notificationManager) {
-                window.notificationManager.show(`Đã tải lên ${urls.length} ảnh`, 'success');
+                window.notificationManager.show(`Đã thêm ${imageData.length} ảnh (sẽ tải lên khi tạo đơn)`, 'success');
             }
         } catch (error) {
-            console.error('[FormModal] Upload failed:', error);
+            console.error('[FormModal] Add image failed:', error);
             if (window.notificationManager) {
-                window.notificationManager.show('Lỗi tải ảnh: ' + error.message, 'error');
-            } else {
-                alert('Lỗi tải ảnh: ' + error.message);
+                window.notificationManager.show('Lỗi thêm ảnh: ' + error.message, 'error');
             }
         } finally {
-            this.isUploading = false;
             this.showUploadingState(type, itemId, false);
         }
+    }
+
+    /**
+     * Upload all pending images to Firebase
+     * Called when submitting the order
+     * @returns {Promise<void>}
+     */
+    async uploadPendingImages() {
+        const uploadTasks = [];
+
+        // Upload invoice images
+        if (this.pendingImages.invoice.length > 0) {
+            const files = this.pendingImages.invoice.map(d => d.file);
+            uploadTasks.push(
+                window.purchaseOrderService.uploadImages(files, 'purchase-orders/invoices')
+                    .then(urls => {
+                        // Replace data URLs with Firebase URLs
+                        const dataUrls = this.pendingImages.invoice.map(d => d.dataUrl);
+                        this.formData.invoiceImages = this.formData.invoiceImages.map(url => {
+                            const idx = dataUrls.indexOf(url);
+                            return idx >= 0 && urls[idx] ? urls[idx] : url;
+                        });
+                    })
+            );
+        }
+
+        // Upload product images
+        for (const [itemId, imageData] of Object.entries(this.pendingImages.products)) {
+            if (imageData.length > 0) {
+                const item = this.formData.items.find(i => i.id === itemId);
+                if (item) {
+                    const files = imageData.map(d => d.file);
+                    uploadTasks.push(
+                        window.purchaseOrderService.uploadImages(files, 'purchase-orders/products')
+                            .then(urls => {
+                                const dataUrls = imageData.map(d => d.dataUrl);
+                                item.productImages = (item.productImages || []).map(url => {
+                                    const idx = dataUrls.indexOf(url);
+                                    return idx >= 0 && urls[idx] ? urls[idx] : url;
+                                });
+                            })
+                    );
+                }
+            }
+        }
+
+        // Upload price images
+        for (const [itemId, imageData] of Object.entries(this.pendingImages.prices)) {
+            if (imageData.length > 0) {
+                const item = this.formData.items.find(i => i.id === itemId);
+                if (item) {
+                    const files = imageData.map(d => d.file);
+                    uploadTasks.push(
+                        window.purchaseOrderService.uploadImages(files, 'purchase-orders/products')
+                            .then(urls => {
+                                const dataUrls = imageData.map(d => d.dataUrl);
+                                item.priceImages = (item.priceImages || []).map(url => {
+                                    const idx = dataUrls.indexOf(url);
+                                    return idx >= 0 && urls[idx] ? urls[idx] : url;
+                                });
+                            })
+                    );
+                }
+            }
+        }
+
+        // Wait for all uploads
+        if (uploadTasks.length > 0) {
+            await Promise.all(uploadTasks);
+        }
+
+        // Clear pending images
+        this.pendingImages = {
+            invoice: [],
+            products: {},
+            prices: {}
+        };
     }
 
     /**
@@ -538,6 +655,11 @@ class PurchaseOrderFormModal {
             discountAmount: '',
             shippingFee: '',
             items: []
+        };
+        this.pendingImages = {
+            invoice: [],
+            products: {},
+            prices: {}
         };
         this.itemCounter = 0;
     }
@@ -1495,21 +1617,52 @@ class PurchaseOrderFormModal {
     async handleSaveDraft() {
         this.collectFormData();
 
-        const orderData = this.getFormData();
-        orderData.status = 'DRAFT';
-
         if (!this.formData.supplier) {
             alert('Vui lòng nhập tên nhà cung cấp');
             return;
         }
 
+        // Show loading
+        const btn = this.modalElement?.querySelector('#btnSaveDraft');
+        const originalText = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = 'Đang lưu...';
+        }
+
         try {
+            // Upload pending images before saving
+            if (this.hasPendingImages()) {
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đang tải ảnh lên...', 'info');
+                }
+                await this.uploadPendingImages();
+            }
+
+            const orderData = this.getFormData();
+            orderData.status = 'DRAFT';
+
             await this.onSubmit?.(orderData);
             this.close();
         } catch (error) {
             console.error('Save draft failed:', error);
             alert('Không thể lưu nháp: ' + error.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
+    }
+
+    /**
+     * Check if there are pending images to upload
+     */
+    hasPendingImages() {
+        if (this.pendingImages.invoice.length > 0) return true;
+        if (Object.keys(this.pendingImages.products).some(k => this.pendingImages.products[k].length > 0)) return true;
+        if (Object.keys(this.pendingImages.prices).some(k => this.pendingImages.prices[k].length > 0)) return true;
+        return false;
     }
 
     /**
@@ -1517,9 +1670,6 @@ class PurchaseOrderFormModal {
      */
     async handleSubmit() {
         this.collectFormData();
-
-        const orderData = this.getFormData();
-        orderData.status = 'AWAITING_PURCHASE';
 
         if (!this.formData.supplier) {
             alert('Vui lòng nhập tên nhà cung cấp');
@@ -1531,12 +1681,39 @@ class PurchaseOrderFormModal {
             return;
         }
 
+        // Show loading
+        const btn = this.modalElement?.querySelector('#btnSubmit');
+        const originalText = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = 'Đang tạo đơn...';
+        }
+
         try {
+            // Upload pending images before submitting
+            if (this.hasPendingImages()) {
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đang tải ảnh lên Firebase...', 'info');
+                }
+                await this.uploadPendingImages();
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đã tải ảnh lên thành công!', 'success');
+                }
+            }
+
+            const orderData = this.getFormData();
+            orderData.status = 'AWAITING_PURCHASE';
+
             await this.onSubmit?.(orderData);
             this.close();
         } catch (error) {
             console.error('Submit failed:', error);
             alert('Không thể tạo đơn hàng: ' + error.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
     }
 
