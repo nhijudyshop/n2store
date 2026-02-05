@@ -1818,7 +1818,10 @@ class MessageTemplateManager {
 
     /**
      * Parse discount price from product note
-     * Patterns: 100, 200 (số đứng một mình) or 100k, 200k (số + k)
+     * Patterns:
+     * - "150k" hoặc "150K" ở BẤT KỲ vị trí nào → LUÔN là giá sale
+     * - "hồng 150k", "150k hồng", "màu đỏ 200K size M" → đều detect được
+     * - Số đứng đầu không có k (e.g., "150 hồng") → cũng là giá sale
      * @returns {Object|null} - { discountPrice, displayText, remainingNote }
      */
     parseDiscountPrice(note) {
@@ -1827,25 +1830,23 @@ class MessageTemplateManager {
         const trimmedNote = note.trim();
         if (!trimmedNote) return null;
 
-        // Pattern 1: number followed by k (e.g., 100k, 150k)
-        const kPattern = /^(\d+)k\b\s*(.*)/i;
-        // Pattern 2: number alone at the start (e.g., 100, 150)
-        const numPattern = /^(\d+)\b\s*(.*)/;
-
-        let match = null;
         let priceValue = null;
         let remainingNote = '';
 
-        // Try k pattern first (more specific)
-        match = trimmedNote.match(kPattern);
+        // Pattern 1: số + k/K ở BẤT KỲ vị trí nào (e.g., "hồng 150k", "150K đỏ")
+        // Đây là pattern ưu tiên cao nhất vì "số + k" LUÔN là giá sale
+        const kAnywherePattern = /(\d+)k/i;
+        let match = trimmedNote.match(kAnywherePattern);
         if (match) {
             priceValue = parseInt(match[1], 10);
-            remainingNote = match[2] ? match[2].trim() : '';
+            // Loại bỏ phần "số + k" khỏi note để lấy remaining
+            remainingNote = trimmedNote.replace(/\d+k/i, '').trim();
         }
 
-        // Try number pattern
+        // Pattern 2: số đứng đầu không có k (e.g., "150", "150 hồng")
         if (!priceValue) {
-            match = trimmedNote.match(numPattern);
+            const numStartPattern = /^(\d+)\b\s*(.*)/;
+            match = trimmedNote.match(numStartPattern);
             if (match) {
                 priceValue = parseInt(match[1], 10);
                 remainingNote = match[2] ? match[2].trim() : '';
