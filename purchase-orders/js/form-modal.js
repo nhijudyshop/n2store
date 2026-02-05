@@ -87,8 +87,16 @@ class PurchaseOrderFormModal {
             // Show loading state
             this.showUploadingState(type, itemId, true);
 
+            // Compress images before upload using ImageUtils
+            let processedFiles = files;
+            if (window.ImageUtils && window.ImageUtils.compressImage) {
+                processedFiles = await Promise.all(
+                    files.map(file => window.ImageUtils.compressImage(file, 1, 1920, 1920))
+                );
+            }
+
             const folder = type === 'invoice' ? 'invoices' : 'products';
-            const urls = await window.purchaseOrderService.uploadImages(files, `purchase-orders/${folder}`);
+            const urls = await window.purchaseOrderService.uploadImages(processedFiles, `purchase-orders/${folder}`);
 
             if (type === 'invoice') {
                 this.formData.invoiceImages = [...this.formData.invoiceImages, ...urls];
@@ -1299,11 +1307,70 @@ class PurchaseOrderFormModal {
     }
 
     /**
+     * Auto-generate product code for item
+     * @param {Object} item - The item to generate code for
+     */
+    async autoGenerateProductCode(item) {
+        if (!item || !item.productName || item._manualCodeEdit) return;
+
+        // Skip if code already exists
+        if (item.productCode && item.productCode.trim()) return;
+
+        // Use ProductCodeGenerator if available
+        if (window.ProductCodeGenerator) {
+            try {
+                const code = await window.ProductCodeGenerator.generateProductCodeFromMax(
+                    item.productName,
+                    this.formData.items
+                );
+                if (code) {
+                    item.productCode = code;
+
+                    // Update input field
+                    const row = this.modalElement?.querySelector(`tr[data-item-id="${item.id}"]`);
+                    const codeInput = row?.querySelector('input[data-field="productCode"]');
+                    if (codeInput) {
+                        codeInput.value = code;
+                    }
+                }
+            } catch (error) {
+                console.error('Auto-generate code failed:', error);
+            }
+        }
+    }
+
+    /**
+     * Auto-detect supplier from product name
+     * @param {string} productName - Product name to extract supplier from
+     */
+    autoDetectSupplier(productName) {
+        // Only auto-detect if supplier field is empty
+        if (this.formData.supplier && this.formData.supplier.trim()) return;
+
+        if (window.SupplierDetector) {
+            const result = window.SupplierDetector.detectSupplierWithConfidence(productName);
+
+            if (result.supplierName && (result.confidence === 'high' || result.confidence === 'medium')) {
+                this.formData.supplier = result.supplierName;
+
+                // Update supplier input field
+                const supplierInput = this.modalElement?.querySelector('#inputSupplier');
+                if (supplierInput) {
+                    supplierInput.value = result.supplierName;
+                }
+            }
+        }
+    }
+
+    /**
      * Bind item-specific events
      */
     bindItemEvents() {
         const tbody = this.modalElement?.querySelector('#itemsTableBody');
         if (!tbody) return;
+
+        // Debounce timer for auto code generation
+        let codeGenTimer = null;
 
         // Input changes
         tbody.querySelectorAll('input[data-field]').forEach(input => {
@@ -1316,6 +1383,25 @@ class PurchaseOrderFormModal {
                 if (item && field) {
                     item[field] = e.target.value;
                     this.updateTotals();
+
+                    // Auto-generate product code when product name changes
+                    if (field === 'productName' && e.target.value.trim()) {
+                        // Auto-detect supplier from first product
+                        if (this.formData.items.indexOf(item) === 0) {
+                            this.autoDetectSupplier(e.target.value);
+                        }
+
+                        // Debounce code generation
+                        clearTimeout(codeGenTimer);
+                        codeGenTimer = setTimeout(() => {
+                            this.autoGenerateProductCode(item);
+                        }, 800);
+                    }
+
+                    // Mark as manual edit if user changes product code
+                    if (field === 'productCode') {
+                        item._manualCodeEdit = true;
+                    }
                 }
             });
         });

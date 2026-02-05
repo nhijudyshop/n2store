@@ -1082,6 +1082,325 @@ class ShippingFeeDialog {
 }
 
 // ========================================
+// VARIANT DROPDOWN SELECTOR
+// Matches: VariantDropdownSelector.tsx
+// ========================================
+
+class VariantDropdownSelector {
+    constructor() {
+        this.element = null;
+        this.isOpen = false;
+        this.variants = [];
+        this.baseProductCode = null;
+        this.currentValue = '';
+        this.onSelect = null;
+        this.onChange = null;
+        this.disabled = false;
+        this.targetInput = null;
+    }
+
+    /**
+     * Attach to input element
+     * @param {HTMLInputElement} inputElement - The variant input field
+     * @param {Object} options - { baseProductCode, onSelect, onChange, disabled }
+     */
+    attach(inputElement, options = {}) {
+        this.targetInput = inputElement;
+        this.baseProductCode = options.baseProductCode;
+        this.onSelect = options.onSelect;
+        this.onChange = options.onChange;
+        this.disabled = options.disabled || false;
+        this.currentValue = inputElement.value || '';
+
+        // Create dropdown wrapper
+        this.createDropdown();
+
+        // Bind events
+        this.bindEvents();
+
+        // Load variants if we have a base code
+        if (this.baseProductCode) {
+            this.loadVariants();
+        }
+    }
+
+    /**
+     * Update base product code and reload variants
+     * @param {string} baseCode
+     */
+    updateBaseCode(baseCode) {
+        this.baseProductCode = baseCode;
+        if (baseCode) {
+            this.loadVariants();
+        } else {
+            this.variants = [];
+            this.updateDropdownContent();
+        }
+    }
+
+    /**
+     * Load variants from Firestore
+     */
+    async loadVariants() {
+        if (!this.baseProductCode) {
+            this.variants = [];
+            this.updateDropdownContent();
+            return;
+        }
+
+        try {
+            const db = firebase.firestore();
+
+            // Query products where base_product_code matches and has variant
+            const snapshot = await db.collection('products')
+                .where('base_product_code', '==', this.baseProductCode)
+                .get();
+
+            this.variants = snapshot.docs
+                .map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }))
+                .filter(p =>
+                    p.variant &&
+                    p.product_code !== this.baseProductCode
+                );
+
+            // Sort variants
+            if (window.VariantUtils) {
+                this.variants = window.VariantUtils.sortAttributeValues(this.variants);
+            }
+
+            this.updateDropdownContent();
+        } catch (error) {
+            console.error('Error loading variants:', error);
+            this.variants = [];
+            this.updateDropdownContent();
+        }
+    }
+
+    /**
+     * Create dropdown element
+     */
+    createDropdown() {
+        // Create wrapper if input is not already wrapped
+        const wrapper = document.createElement('div');
+        wrapper.className = 'variant-dropdown-wrapper';
+
+        // Insert wrapper and move input inside
+        if (this.targetInput.parentNode) {
+            this.targetInput.parentNode.insertBefore(wrapper, this.targetInput);
+            wrapper.appendChild(this.targetInput);
+        }
+
+        // Create dropdown button
+        const triggerBtn = document.createElement('button');
+        triggerBtn.type = 'button';
+        triggerBtn.className = 'variant-dropdown-trigger';
+        triggerBtn.innerHTML = '<i data-lucide="chevron-down"></i>';
+        triggerBtn.disabled = this.disabled;
+        wrapper.appendChild(triggerBtn);
+
+        // Create dropdown content
+        const dropdown = document.createElement('div');
+        dropdown.className = 'variant-dropdown-content';
+        dropdown.style.display = 'none';
+        wrapper.appendChild(dropdown);
+
+        this.element = wrapper;
+        this.triggerBtn = triggerBtn;
+        this.dropdown = dropdown;
+
+        // Initialize icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Update dropdown content
+     */
+    updateDropdownContent() {
+        if (!this.dropdown) return;
+
+        if (this.variants.length === 0) {
+            this.dropdown.innerHTML = `
+                <div class="variant-dropdown-empty">
+                    <p class="text-muted">Không có biến thể</p>
+                </div>
+            `;
+            return;
+        }
+
+        this.dropdown.innerHTML = `
+            <div class="variant-dropdown-list">
+                ${this.variants.map(v => `
+                    <button type="button" class="variant-dropdown-item"
+                            data-variant="${this.escapeHtml(v.variant || '')}"
+                            data-code="${this.escapeHtml(v.product_code || '')}"
+                            data-id="${v.id}">
+                        <span class="variant-name">${v.variant || '-'}</span>
+                        <span class="variant-code text-muted">${v.product_code || ''}</span>
+                    </button>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    /**
+     * Escape HTML
+     */
+    escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    /**
+     * Toggle dropdown
+     */
+    toggle() {
+        if (this.isOpen) {
+            this.close();
+        } else {
+            this.open();
+        }
+    }
+
+    /**
+     * Open dropdown
+     */
+    open() {
+        if (this.disabled || !this.dropdown) return;
+
+        this.isOpen = true;
+        this.dropdown.style.display = 'block';
+        this.triggerBtn?.classList.add('active');
+
+        // Position dropdown
+        this.positionDropdown();
+    }
+
+    /**
+     * Close dropdown
+     */
+    close() {
+        if (!this.dropdown) return;
+
+        this.isOpen = false;
+        this.dropdown.style.display = 'none';
+        this.triggerBtn?.classList.remove('active');
+    }
+
+    /**
+     * Position dropdown below input
+     */
+    positionDropdown() {
+        if (!this.element || !this.dropdown) return;
+
+        const rect = this.element.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+
+        // Check if there's space below
+        const spaceBelow = viewportHeight - rect.bottom;
+        const dropdownHeight = Math.min(this.dropdown.scrollHeight, 200);
+
+        if (spaceBelow < dropdownHeight && rect.top > dropdownHeight) {
+            // Show above
+            this.dropdown.style.bottom = '100%';
+            this.dropdown.style.top = 'auto';
+        } else {
+            // Show below
+            this.dropdown.style.top = '100%';
+            this.dropdown.style.bottom = 'auto';
+        }
+    }
+
+    /**
+     * Select a variant
+     * @param {Object} variant
+     */
+    selectVariant(variant) {
+        if (this.targetInput) {
+            this.targetInput.value = variant.variant || '';
+            this.currentValue = variant.variant || '';
+
+            // Trigger input event
+            this.targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        if (this.onChange) {
+            this.onChange(variant.variant || '');
+        }
+
+        if (this.onSelect) {
+            this.onSelect(variant);
+        }
+
+        this.close();
+    }
+
+    /**
+     * Bind events
+     */
+    bindEvents() {
+        // Toggle on button click
+        this.triggerBtn?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggle();
+        });
+
+        // Select variant on item click
+        this.dropdown?.addEventListener('click', (e) => {
+            const item = e.target.closest('.variant-dropdown-item');
+            if (!item) return;
+
+            const variantData = {
+                variant: item.dataset.variant,
+                product_code: item.dataset.code,
+                id: item.dataset.id
+            };
+
+            this.selectVariant(variantData);
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (this.isOpen && this.element && !this.element.contains(e.target)) {
+                this.close();
+            }
+        });
+
+        // Close on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.isOpen) {
+                this.close();
+            }
+        });
+    }
+
+    /**
+     * Destroy and cleanup
+     */
+    destroy() {
+        if (this.element && this.targetInput) {
+            // Move input back out of wrapper
+            if (this.element.parentNode) {
+                this.element.parentNode.insertBefore(this.targetInput, this.element);
+                this.element.remove();
+            }
+        }
+
+        this.element = null;
+        this.dropdown = null;
+        this.triggerBtn = null;
+        this.targetInput = null;
+    }
+}
+
+// ========================================
 // EXPORT DIALOG INSTANCES
 // ========================================
 
@@ -1090,5 +1409,6 @@ window.variantGeneratorDialog = new VariantGeneratorDialog();
 window.settingsDialog = new SettingsDialog();
 window.inventoryPickerDialog = new InventoryPickerDialog();
 window.shippingFeeDialog = new ShippingFeeDialog();
+window.VariantDropdownSelector = VariantDropdownSelector;
 
 console.log('[Purchase Orders] Dialogs loaded successfully');
