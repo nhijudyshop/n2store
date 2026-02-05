@@ -872,10 +872,13 @@
             ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
             ReceiverAddress: orderData.ReceiverAddress,
             DeliveryPrice: orderData.DeliveryPrice || 0,
-            DecreaseAmount: orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+            Discount: orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+            PaymentAmount: orderData.PaymentAmount || 0,
+            UserName: orderData.UserName || '',
             AmountUntaxed: orderData.AmountUntaxed || orderData.AmountTotal || 0,
             AmountTotal: orderData.AmountTotal || 0,
             Comment: orderData.Comment,
+            DateInvoice: orderData.DateInvoice,
             OrderLines: orderData.OrderLines || [],
             Partner: {
                 Name: orderData.ReceiverName || orderData.PartnerName,
@@ -884,7 +887,7 @@
             }
         };
 
-        const billHtml = window.generateCustomBillHTML(orderResult, {});
+        const billHtml = window.generateCustomBillHTML(orderResult, { walletBalance: orderData.PaymentAmount || 0 });
 
         // Use iframe to render bill HTML (preserves CSS)
         const iframe = document.createElement('iframe');
@@ -982,10 +985,13 @@
                 ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
                 ReceiverAddress: orderData.ReceiverAddress,
                 DeliveryPrice: orderData.DeliveryPrice || 0,
-                DecreaseAmount: orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+                Discount: orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+                PaymentAmount: orderData.PaymentAmount || 0,
+                UserName: orderData.UserName || '',
                 AmountUntaxed: orderData.AmountUntaxed || orderData.AmountTotal || 0,
                 AmountTotal: orderData.AmountTotal || 0,
                 Comment: orderData.Comment,
+                DateInvoice: orderData.DateInvoice,
                 OrderLines: orderData.OrderLines || [],
                 Partner: {
                     Name: orderData.ReceiverName || orderData.PartnerName,
@@ -994,7 +1000,7 @@
                 }
             };
 
-            const billHtml = window.generateCustomBillHTML(orderResult, {});
+            const billHtml = window.generateCustomBillHTML(orderResult, { walletBalance: orderData.PaymentAmount || 0 });
 
             // Use iframe to render bill HTML (preserves CSS)
             const iframe = document.createElement('iframe');
