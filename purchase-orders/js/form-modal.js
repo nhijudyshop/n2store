@@ -1737,7 +1737,7 @@ class PurchaseOrderFormModal {
         return {
             supplier: {
                 name: this.formData.supplier,
-                id: this.formData.supplier.substring(0, 3).toUpperCase()
+                code: this.formData.supplier.substring(0, 3).toUpperCase()
             },
             orderDate: new Date(this.formData.orderDate),
             invoiceAmount: parseFloat(String(this.formData.invoiceAmount).replace(/[,.]/g, '')) || 0,
