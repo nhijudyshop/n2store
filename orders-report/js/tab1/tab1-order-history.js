@@ -862,6 +862,15 @@
         // Auto-detect carrier from address if CarrierName is empty
         const carrierName = orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
 
+        // Freeship conditions:
+        // - THÀNH PHỐ: Tổng tiền hàng > 1,500,000đ
+        // - TỈNH: Tổng tiền hàng > 3,000,000đ
+        const productTotal = orderData.AmountUntaxed || orderData.AmountTotal || 0;
+        const isCity = carrierName && carrierName.includes('THÀNH PHỐ');
+        const isProvince = carrierName && carrierName.includes('SHIP TỈNH');
+        const qualifiesForFreeship = (isCity && productTotal > 1500000) || (isProvince && productTotal > 3000000);
+        const shippingFee = qualifiesForFreeship ? 0 : (orderData.DeliveryPrice || 0);
+
         const orderResult = {
             Number: orderData.Number || orderData.Reference,
             Reference: orderData.Reference,
@@ -871,7 +880,7 @@
             ReceiverName: orderData.ReceiverName,
             ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
             ReceiverAddress: orderData.ReceiverAddress,
-            DeliveryPrice: orderData.DeliveryPrice || 0,
+            DeliveryPrice: shippingFee,
             Discount: orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
             PaymentAmount: orderData.PaymentAmount || 0,
             UserName: orderData.UserName || '',
@@ -974,6 +983,15 @@
             // Auto-detect carrier from address if CarrierName is empty
             const carrierName = orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
 
+            // Freeship conditions:
+            // - THÀNH PHỐ: Tổng tiền hàng > 1,500,000đ
+            // - TỈNH: Tổng tiền hàng > 3,000,000đ
+            const productTotal = orderData.AmountUntaxed || orderData.AmountTotal || 0;
+            const isCity = carrierName && carrierName.includes('THÀNH PHỐ');
+            const isProvince = carrierName && carrierName.includes('SHIP TỈNH');
+            const qualifiesForFreeship = (isCity && productTotal > 1500000) || (isProvince && productTotal > 3000000);
+            const shippingFee = qualifiesForFreeship ? 0 : (orderData.DeliveryPrice || 0);
+
             // Transform localStorage data to match orderResult format
             const orderResult = {
                 Number: orderData.Number || orderData.Reference,
@@ -984,7 +1002,7 @@
                 ReceiverName: orderData.ReceiverName,
                 ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
                 ReceiverAddress: orderData.ReceiverAddress,
-                DeliveryPrice: orderData.DeliveryPrice || 0,
+                DeliveryPrice: shippingFee,
                 Discount: orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
                 PaymentAmount: orderData.PaymentAmount || 0,
                 UserName: orderData.UserName || '',
