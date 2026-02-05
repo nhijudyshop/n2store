@@ -278,14 +278,44 @@ class OrderDetailDialog {
 
 // ========================================
 // VARIANT GENERATOR DIALOG
-// Matches: VariantGeneratorDialog.tsx
+// Matches: VariantGeneratorDialog.tsx - Checkbox-based attribute selection
 // ========================================
 
 class VariantGeneratorDialog {
     constructor() {
         this.modalElement = null;
-        this.attributes = [];
         this.onGenerate = null;
+        this.baseProduct = null;
+
+        // Predefined attribute options
+        this.attributeConfig = {
+            color: {
+                name: 'Màu',
+                values: ['Trắng', 'Đen', 'Đỏ', 'Xanh', 'Xám', 'Nude', 'Vàng', 'Hồng', 'Nâu', 'Cam', 'Tím', 'Be', 'Kem']
+            },
+            sizeNumber: {
+                name: 'Size Số',
+                values: ['1', '2', '3', '4', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40']
+            },
+            sizeLetter: {
+                name: 'Size Chữ',
+                values: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize']
+            }
+        };
+
+        // Selected values for each attribute
+        this.selected = {
+            color: [],
+            sizeNumber: [],
+            sizeLetter: []
+        };
+
+        // Search filters
+        this.searchFilters = {
+            color: '',
+            sizeNumber: '',
+            sizeLetter: ''
+        };
     }
 
     /**
@@ -295,29 +325,81 @@ class VariantGeneratorDialog {
     open(options = {}) {
         this.baseProduct = options.baseProduct || {};
         this.onGenerate = options.onGenerate;
-        this.attributes = [
-            { name: 'Size', values: [] },
-            { name: 'Màu', values: [] }
-        ];
+
+        // Reset selections
+        this.selected = {
+            color: [],
+            sizeNumber: [],
+            sizeLetter: []
+        };
+        this.searchFilters = {
+            color: '',
+            sizeNumber: '',
+            sizeLetter: ''
+        };
 
         this.render();
-        this.show();
     }
 
     close() {
         if (this.modalElement) {
-            this.modalElement.classList.add('modal-overlay--exit');
-            setTimeout(() => {
-                this.modalElement.remove();
-                this.modalElement = null;
-            }, 200);
+            this.modalElement.remove();
+            this.modalElement = null;
         }
     }
 
-    show() {
-        if (this.modalElement) {
-            this.modalElement.style.display = 'flex';
+    /**
+     * Generate all variant combinations from selected values
+     * @returns {Array} Array of variant strings
+     */
+    generateCombinations() {
+        const selectedArrays = [];
+
+        if (this.selected.color.length > 0) {
+            selectedArrays.push(this.selected.color);
         }
+        if (this.selected.sizeNumber.length > 0) {
+            selectedArrays.push(this.selected.sizeNumber);
+        }
+        if (this.selected.sizeLetter.length > 0) {
+            selectedArrays.push(this.selected.sizeLetter);
+        }
+
+        if (selectedArrays.length === 0) return [];
+
+        // Cartesian product
+        const combine = (arrays) => {
+            if (arrays.length === 0) return [[]];
+            const [first, ...rest] = arrays;
+            const restCombinations = combine(rest);
+            const result = [];
+            for (const value of first) {
+                for (const combo of restCombinations) {
+                    result.push([value, ...combo]);
+                }
+            }
+            return result;
+        };
+
+        const combinations = combine(selectedArrays);
+        return combinations.map(combo => combo.join(' / '));
+    }
+
+    /**
+     * Get selected values summary for header display
+     */
+    getSelectedSummary() {
+        const parts = [];
+        if (this.selected.color.length > 0) {
+            parts.push(this.selected.color.join(', '));
+        }
+        if (this.selected.sizeNumber.length > 0) {
+            parts.push(this.selected.sizeNumber.join(', '));
+        }
+        if (this.selected.sizeLetter.length > 0) {
+            parts.push(this.selected.sizeLetter.join(', '));
+        }
+        return parts.length > 0 ? parts.join(' | ') : 'Chưa chọn giá trị nào';
     }
 
     render() {
@@ -325,122 +407,243 @@ class VariantGeneratorDialog {
             this.modalElement.remove();
         }
 
+        const combinations = this.generateCombinations();
+
         this.modalElement = document.createElement('div');
-        this.modalElement.className = 'modal-overlay';
-        // Use higher z-index to appear above the form modal (which uses 99999)
-        this.modalElement.style.zIndex = '999999';
+        this.modalElement.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000000;
+            padding: 20px;
+        `;
+
         this.modalElement.innerHTML = `
-            <div class="modal modal--md">
-                <div class="modal__header">
-                    <h2 class="modal__title">Tạo biến thể sản phẩm</h2>
-                    <button type="button" class="modal__close" id="btnCloseVariant">
-                        <i data-lucide="x"></i>
+            <div style="
+                background: white;
+                border-radius: 12px;
+                width: 100%;
+                max-width: 1100px;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            ">
+                <!-- Header -->
+                <div style="
+                    padding: 16px 20px;
+                    border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Tạo biến thể từ thuộc tính</h2>
+                    <button type="button" id="btnCloseVariant" style="
+                        background: none;
+                        border: none;
+                        padding: 8px;
+                        cursor: pointer;
+                        border-radius: 6px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #6b7280;
+                    ">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
 
-                <div class="modal__body">
-                    <p class="variant-help-text">Nhập các thuộc tính để tạo biến thể. Mỗi giá trị cách nhau bằng dấu phẩy.</p>
+                <!-- Selected Summary -->
+                <div style="
+                    padding: 12px 20px;
+                    background: #f9fafb;
+                    border-bottom: 1px solid #e5e7eb;
+                    font-size: 14px;
+                    color: #6b7280;
+                " id="selectedSummary">
+                    ${this.getSelectedSummary()}
+                </div>
 
-                    <div class="variant-attributes" id="variantAttributes">
-                        ${this.renderAttributeInputs()}
-                    </div>
+                <!-- Body -->
+                <div style="flex: 1; overflow-y: auto; padding: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; height: 100%;">
+                        <!-- Màu Column -->
+                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
+                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Màu</div>
+                            <div style="padding: 8px;">
+                                <input type="text" placeholder="Tìm kiếm..." data-search="color" style="
+                                    width: 100%;
+                                    padding: 8px 12px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    font-size: 14px;
+                                    box-sizing: border-box;
+                                ">
+                            </div>
+                            <div style="flex: 1; overflow-y: auto; padding: 8px; max-height: 300px;" id="colorList">
+                                ${this.renderCheckboxList('color')}
+                            </div>
+                        </div>
 
-                    <button class="btn btn-outline btn-sm" id="btnAddAttribute">
-                        <i data-lucide="plus"></i>
-                        <span>Thêm thuộc tính</span>
-                    </button>
+                        <!-- Size Số Column -->
+                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
+                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Size Số</div>
+                            <div style="padding: 8px;">
+                                <input type="text" placeholder="Tìm kiếm..." data-search="sizeNumber" style="
+                                    width: 100%;
+                                    padding: 8px 12px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    font-size: 14px;
+                                    box-sizing: border-box;
+                                ">
+                            </div>
+                            <div style="flex: 1; overflow-y: auto; padding: 8px; max-height: 300px;" id="sizeNumberList">
+                                ${this.renderCheckboxList('sizeNumber')}
+                            </div>
+                        </div>
 
-                    <div class="variant-preview" id="variantPreview">
-                        <h4>Xem trước biến thể:</h4>
-                        <div class="variant-preview-list" id="variantPreviewList">
-                            <p class="text-muted">Nhập thuộc tính để xem trước...</p>
+                        <!-- Size Chữ Column -->
+                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
+                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Size Chữ</div>
+                            <div style="padding: 8px;">
+                                <input type="text" placeholder="Tìm kiếm..." data-search="sizeLetter" style="
+                                    width: 100%;
+                                    padding: 8px 12px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    font-size: 14px;
+                                    box-sizing: border-box;
+                                ">
+                            </div>
+                            <div style="flex: 1; overflow-y: auto; padding: 8px; max-height: 300px;" id="sizeLetterList">
+                                ${this.renderCheckboxList('sizeLetter')}
+                            </div>
+                        </div>
+
+                        <!-- Variant Preview Column -->
+                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
+                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Danh sách Biến Thể</div>
+                            <div style="flex: 1; overflow-y: auto; padding: 12px; max-height: 350px;" id="variantPreviewList">
+                                ${combinations.length > 0
+                                    ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v}</div>`).join('')
+                                    : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>'
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="modal__footer">
-                    <button class="btn btn-outline" id="btnCancelVariant">Hủy</button>
-                    <button class="btn btn-primary" id="btnGenerateVariants">
-                        <i data-lucide="layers"></i>
-                        <span>Tạo biến thể</span>
-                    </button>
+                <!-- Footer -->
+                <div style="
+                    padding: 16px 20px;
+                    border-top: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 12px;
+                    background: #f9fafb;
+                ">
+                    <button type="button" id="btnCancelVariant" style="
+                        padding: 10px 20px;
+                        border: 1px solid #d1d5db;
+                        border-radius: 8px;
+                        background: white;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">Hủy</button>
+                    <button type="button" id="btnGenerateVariants" style="
+                        padding: 10px 20px;
+                        border: none;
+                        border-radius: 8px;
+                        background: ${combinations.length > 0 ? '#3b82f6' : '#9ca3af'};
+                        color: white;
+                        cursor: ${combinations.length > 0 ? 'pointer' : 'not-allowed'};
+                        font-size: 14px;
+                        font-weight: 500;
+                    " ${combinations.length === 0 ? 'disabled' : ''}>Tạo ${combinations.length} biến thể</button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(this.modalElement);
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-
         this.bindEvents();
     }
 
-    renderAttributeInputs() {
-        return this.attributes.map((attr, index) => `
-            <div class="variant-attribute-row" data-index="${index}">
-                <input type="text" class="form-input" placeholder="Tên thuộc tính (VD: Size)"
-                       value="${attr.name}" data-field="name">
-                <input type="text" class="form-input form-input--lg" placeholder="Giá trị (VD: S, M, L, XL)"
-                       value="${attr.values.join(', ')}" data-field="values">
-                <button class="btn-icon btn-danger" data-action="remove-attribute" ${this.attributes.length <= 1 ? 'disabled' : ''}>
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
+    renderCheckboxList(attributeKey) {
+        const config = this.attributeConfig[attributeKey];
+        const selected = this.selected[attributeKey];
+        const filter = this.searchFilters[attributeKey].toLowerCase();
+
+        const filteredValues = config.values.filter(v =>
+            !filter || v.toLowerCase().includes(filter)
+        );
+
+        return filteredValues.map(value => `
+            <label style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px;
+                cursor: pointer;
+                border-radius: 4px;
+                transition: background 0.15s;
+            " onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                <input type="checkbox"
+                       data-attribute="${attributeKey}"
+                       value="${value}"
+                       ${selected.includes(value) ? 'checked' : ''}
+                       style="width: 16px; height: 16px; accent-color: #3b82f6;">
+                <span style="font-size: 14px;">${value}</span>
+            </label>
         `).join('');
     }
 
-    /**
-     * Generate all variant combinations
-     * @returns {Array} Array of variant strings
-     */
-    generateCombinations() {
-        const validAttrs = this.attributes.filter(attr =>
-            attr.name.trim() && attr.values.length > 0);
-
-        if (validAttrs.length === 0) return [];
-
-        const valueSets = validAttrs.map(attr => attr.values);
-
-        const combine = (arrays, prefix = '') => {
-            if (arrays.length === 0) return [prefix];
-
-            const [first, ...rest] = arrays;
-            const results = [];
-
-            for (const value of first) {
-                const newPrefix = prefix ? `${prefix} / ${value}` : value;
-                results.push(...combine(rest, newPrefix));
-            }
-
-            return results;
-        };
-
-        return combine(valueSets);
-    }
-
-    updatePreview() {
-        const previewList = this.modalElement?.querySelector('#variantPreviewList');
-        if (!previewList) return;
-
-        const combinations = this.generateCombinations();
-
-        if (combinations.length === 0) {
-            previewList.innerHTML = '<p class="text-muted">Nhập thuộc tính để xem trước...</p>';
-            return;
+    updateUI() {
+        // Update summary
+        const summaryEl = this.modalElement?.querySelector('#selectedSummary');
+        if (summaryEl) {
+            summaryEl.textContent = this.getSelectedSummary();
         }
 
-        previewList.innerHTML = `
-            <p class="text-muted">Sẽ tạo ${combinations.length} biến thể:</p>
-            <ul class="variant-preview-items">
-                ${combinations.slice(0, 10).map(v => `<li>${v}</li>`).join('')}
-                ${combinations.length > 10 ? `<li class="text-muted">... và ${combinations.length - 10} biến thể khác</li>` : ''}
-            </ul>
-        `;
+        // Update checkbox lists
+        ['color', 'sizeNumber', 'sizeLetter'].forEach(key => {
+            const listEl = this.modalElement?.querySelector(`#${key}List`);
+            if (listEl) {
+                listEl.innerHTML = this.renderCheckboxList(key);
+            }
+        });
+
+        // Update preview
+        const combinations = this.generateCombinations();
+        const previewEl = this.modalElement?.querySelector('#variantPreviewList');
+        if (previewEl) {
+            previewEl.innerHTML = combinations.length > 0
+                ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v}</div>`).join('')
+                : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>';
+        }
+
+        // Update button
+        const btnGenerate = this.modalElement?.querySelector('#btnGenerateVariants');
+        if (btnGenerate) {
+            btnGenerate.textContent = `Tạo ${combinations.length} biến thể`;
+            btnGenerate.disabled = combinations.length === 0;
+            btnGenerate.style.background = combinations.length > 0 ? '#3b82f6' : '#9ca3af';
+            btnGenerate.style.cursor = combinations.length > 0 ? 'pointer' : 'not-allowed';
+        }
     }
 
     bindEvents() {
+        if (!this.modalElement) return;
+
         // Close buttons
         this.modalElement.querySelector('#btnCloseVariant')?.addEventListener('click', () => this.close());
         this.modalElement.querySelector('#btnCancelVariant')?.addEventListener('click', () => this.close());
@@ -450,43 +653,45 @@ class VariantGeneratorDialog {
             if (e.target === this.modalElement) this.close();
         });
 
-        // Add attribute
-        this.modalElement.querySelector('#btnAddAttribute')?.addEventListener('click', () => {
-            this.attributes.push({ name: '', values: [] });
-            const container = this.modalElement.querySelector('#variantAttributes');
-            container.innerHTML = this.renderAttributeInputs();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        });
-
-        // Input changes and remove buttons
-        this.modalElement.querySelector('#variantAttributes')?.addEventListener('input', (e) => {
-            const row = e.target.closest('.variant-attribute-row');
-            if (!row) return;
-
-            const index = parseInt(row.dataset.index, 10);
-            const field = e.target.dataset.field;
-
-            if (field === 'name') {
-                this.attributes[index].name = e.target.value;
-            } else if (field === 'values') {
-                this.attributes[index].values = e.target.value.split(',').map(v => v.trim()).filter(Boolean);
+        // Escape key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.close();
+                document.removeEventListener('keydown', escHandler);
             }
+        };
+        document.addEventListener('keydown', escHandler);
 
-            this.updatePreview();
+        // Checkbox changes
+        this.modalElement.addEventListener('change', (e) => {
+            if (e.target.type === 'checkbox' && e.target.dataset.attribute) {
+                const attr = e.target.dataset.attribute;
+                const value = e.target.value;
+
+                if (e.target.checked) {
+                    if (!this.selected[attr].includes(value)) {
+                        this.selected[attr].push(value);
+                    }
+                } else {
+                    this.selected[attr] = this.selected[attr].filter(v => v !== value);
+                }
+
+                this.updateUI();
+            }
         });
 
-        this.modalElement.querySelector('#variantAttributes')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-action="remove-attribute"]');
-            if (!btn) return;
+        // Search inputs
+        this.modalElement.addEventListener('input', (e) => {
+            if (e.target.dataset.search) {
+                const attr = e.target.dataset.search;
+                this.searchFilters[attr] = e.target.value;
 
-            const row = btn.closest('.variant-attribute-row');
-            const index = parseInt(row.dataset.index, 10);
-
-            this.attributes.splice(index, 1);
-            const container = this.modalElement.querySelector('#variantAttributes');
-            container.innerHTML = this.renderAttributeInputs();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            this.updatePreview();
+                // Update only this column's list
+                const listEl = this.modalElement?.querySelector(`#${attr}List`);
+                if (listEl) {
+                    listEl.innerHTML = this.renderCheckboxList(attr);
+                }
+            }
         });
 
         // Generate variants
