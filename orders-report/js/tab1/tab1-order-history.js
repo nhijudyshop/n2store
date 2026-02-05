@@ -586,11 +586,14 @@
             const dateStr = createdAt.toLocaleDateString('vi-VN');
             const timeStr = createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-            const productsCount = record.products?.length || 0;
-            const totalQty = record.products?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0;
+            // Check if order details available in localStorage (use for products count)
+            const localOrderData = record.saleOnlineId ? getOrderFromLocalStorage(record.saleOnlineId) : null;
+            const hasLocalData = !!localOrderData;
 
-            // Check if order details available in localStorage
-            const hasLocalData = record.saleOnlineId && getOrderFromLocalStorage(record.saleOnlineId);
+            // Use localStorage data for products count (more accurate), fallback to Firebase
+            const products = localOrderData?.OrderLines || record.products || [];
+            const productsCount = products.length;
+            const totalQty = products.reduce((sum, p) => sum + (p.ProductUOMQty || p.quantity || 0), 0) || 0;
 
             return `
                 <tr>
