@@ -327,6 +327,8 @@ class VariantGeneratorDialog {
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
+        // Use higher z-index to appear above the form modal (which uses 99999)
+        this.modalElement.style.zIndex = '100000';
         this.modalElement.innerHTML = `
             <div class="modal modal--md">
                 <div class="modal__header">
@@ -551,6 +553,8 @@ class SettingsDialog {
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
+        // Use higher z-index to appear above the form modal (which uses 99999)
+        this.modalElement.style.zIndex = '100000';
         this.modalElement.innerHTML = `
             <div class="modal modal--sm">
                 <div class="modal__header">
@@ -730,6 +734,8 @@ class InventoryPickerDialog {
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
+        // Use higher z-index to appear above the form modal (which uses 99999)
+        this.modalElement.style.zIndex = '100000';
         this.modalElement.innerHTML = `
             <div class="modal modal--lg">
                 <div class="modal__header">
@@ -981,6 +987,8 @@ class ShippingFeeDialog {
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
+        // Use higher z-index to appear above the form modal (which uses 99999)
+        this.modalElement.style.zIndex = '100000';
         this.modalElement.innerHTML = `
             <div class="modal modal--xs">
                 <div class="modal__header">
