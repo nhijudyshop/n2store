@@ -396,61 +396,395 @@ class PurchaseOrderController {
             return;
         }
 
-        try {
-            this.exportOrderToExcel(order);
-            this.ui.showToast('Xuất Excel thành công!', 'success');
-        } catch (error) {
-            console.error('Export failed:', error);
-            this.ui.showToast('Không thể xuất Excel', 'error');
-        }
+        // Show export format dialog
+        this.showExportFormatDialog(order);
     }
 
     /**
-     * Export order to Excel using XLSX library
-     * @param {Object} order
+     * Show export format selection dialog
+     * @param {Object} order - Order to export (or array of orders for bulk)
      */
-    exportOrderToExcel(order) {
+    showExportFormatDialog(order) {
+        const isMultiple = Array.isArray(order);
+        const orders = isMultiple ? order : [order];
+        const title = isMultiple ? `Xuất ${orders.length} đơn hàng` : `Xuất đơn hàng ${order.orderNumber}`;
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+        `;
+
+        overlay.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                max-width: 400px;
+                width: 90%;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            ">
+                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">${title}</h3>
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">Chọn định dạng xuất Excel:</p>
+
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                    <label style="
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 16px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    " id="optionMH">
+                        <input type="radio" name="exportFormat" value="MH" checked style="width: 18px; height: 18px;">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">📋 Mua Hàng (MH)</div>
+                            <div style="font-size: 12px; color: #6b7280;">4 cột: STT, Tên SP, Biến thể, SL</div>
+                        </div>
+                    </label>
+
+                    <label style="
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 16px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    " id="optionTSP">
+                        <input type="radio" name="exportFormat" value="TSP" style="width: 18px; height: 18px;">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">📦 Thêm SP (TSP)</div>
+                            <div style="font-size: 12px; color: #6b7280;">17 cột: Mã SP, Tên, Mô tả, Giá, Tồn kho...</div>
+                        </div>
+                    </label>
+
+                    <label style="
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        padding: 16px;
+                        border: 2px solid #e5e7eb;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    " id="optionFull">
+                        <input type="radio" name="exportFormat" value="FULL" style="width: 18px; height: 18px;">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 4px;">📊 Đầy đủ</div>
+                            <div style="font-size: 12px; color: #6b7280;">Tất cả thông tin đơn hàng và sản phẩm</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button type="button" id="btnCancelExport" style="
+                        padding: 10px 20px;
+                        border: 1px solid #d1d5db;
+                        border-radius: 8px;
+                        background: white;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">Hủy</button>
+                    <button type="button" id="btnConfirmExport" style="
+                        padding: 10px 20px;
+                        border: none;
+                        border-radius: 8px;
+                        background: #3b82f6;
+                        color: white;
+                        cursor: pointer;
+                        font-size: 14px;
+                        font-weight: 500;
+                    ">Xuất Excel</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Hover effects
+        ['optionMH', 'optionTSP', 'optionFull'].forEach(id => {
+            const el = overlay.querySelector(`#${id}`);
+            el.addEventListener('mouseenter', () => el.style.borderColor = '#3b82f6');
+            el.addEventListener('mouseleave', () => {
+                const input = el.querySelector('input');
+                el.style.borderColor = input.checked ? '#3b82f6' : '#e5e7eb';
+            });
+            el.querySelector('input').addEventListener('change', () => {
+                ['optionMH', 'optionTSP', 'optionFull'].forEach(i => {
+                    overlay.querySelector(`#${i}`).style.borderColor = '#e5e7eb';
+                });
+                el.style.borderColor = '#3b82f6';
+            });
+        });
+
+        // Cancel button
+        overlay.querySelector('#btnCancelExport').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        // Overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Confirm button
+        overlay.querySelector('#btnConfirmExport').addEventListener('click', () => {
+            const format = overlay.querySelector('input[name="exportFormat"]:checked').value;
+            overlay.remove();
+
+            try {
+                if (format === 'MH') {
+                    this.exportMuaHang(orders);
+                } else if (format === 'TSP') {
+                    this.exportThemSP(orders);
+                } else {
+                    this.exportOrderToExcelFull(orders);
+                }
+                this.ui.showToast(`Xuất Excel (${format}) thành công!`, 'success');
+            } catch (error) {
+                console.error('Export failed:', error);
+                this.ui.showToast('Không thể xuất Excel: ' + error.message, 'error');
+            }
+        });
+    }
+
+    /**
+     * Export "Mua Hàng" format - 4 columns for purchasing
+     * Columns: STT, Tên sản phẩm, Biến thể, SL
+     * @param {Array} orders - Orders to export
+     */
+    exportMuaHang(orders) {
         if (typeof XLSX === 'undefined') {
             throw new Error('XLSX library not loaded');
         }
 
-        // Prepare data
-        const data = [
-            ['ĐƠN ĐẶT HÀNG', '', '', '', '', ''],
-            ['Mã đơn:', order.orderNumber, '', 'Ngày đặt:', this.config.formatDate(order.orderDate)],
-            ['Nhà cung cấp:', order.supplier?.name || '', '', 'Trạng thái:', this.config.STATUS_LABELS[order.status]],
-            [''],
-            ['STT', 'Tên sản phẩm', 'Mã SP', 'Biến thể', 'SL', 'Giá mua', 'Giá bán', 'Thành tiền']
-        ];
+        const data = [];
 
-        // Add items
-        (order.items || []).forEach((item, index) => {
-            data.push([
-                index + 1,
-                item.productName,
-                item.productCode,
-                item.variant,
-                item.quantity,
-                item.purchasePrice,
-                item.sellingPrice,
-                item.subtotal
-            ]);
+        // Header row
+        data.push(['STT', 'Tên sản phẩm', 'Biến thể', 'SL']);
+
+        let stt = 1;
+        orders.forEach(order => {
+            // Add supplier header for each order if multiple
+            if (orders.length > 1) {
+                data.push([`--- ${order.supplier?.name || 'Không rõ NCC'} (${order.orderNumber}) ---`, '', '', '']);
+            }
+
+            // Add items
+            (order.items || []).forEach((item) => {
+                data.push([
+                    stt++,
+                    item.productName || '',
+                    item.variant || '',
+                    item.quantity || 0
+                ]);
+            });
         });
 
-        // Add totals
+        // Total row
+        const totalQty = orders.reduce((sum, order) =>
+            sum + (order.items || []).reduce((s, item) => s + (item.quantity || 0), 0), 0);
         data.push(['']);
-        data.push(['', '', '', '', '', '', 'Tổng tiền:', order.totalAmount]);
-        data.push(['', '', '', '', '', '', 'Giảm giá:', order.discountAmount]);
-        data.push(['', '', '', '', '', '', 'Phí ship:', order.shippingFee]);
-        data.push(['', '', '', '', '', '', 'THÀNH TIỀN:', order.finalAmount]);
+        data.push(['TỔNG CỘNG', '', '', totalQty]);
 
         // Create workbook
         const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 5 },   // STT
+            { wch: 40 },  // Tên sản phẩm
+            { wch: 20 },  // Biến thể
+            { wch: 8 }    // SL
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Mua Hàng');
+
+        // Filename
+        const filename = orders.length === 1
+            ? `MH_${orders[0].orderNumber}.xlsx`
+            : `MH_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+
+        XLSX.writeFile(wb, filename);
+    }
+
+    /**
+     * Export "Thêm SP" format - 17 columns for adding products to TPOS
+     * @param {Array} orders - Orders to export
+     */
+    exportThemSP(orders) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('XLSX library not loaded');
+        }
+
+        const data = [];
+
+        // Header row - 17 columns matching TPOS import template
+        data.push([
+            'Mã sản phẩm',      // 1
+            'Tên sản phẩm',     // 2
+            'Mô tả',            // 3
+            'Danh mục',         // 4
+            'Giá bán',          // 5
+            'Giá vốn',          // 6
+            'Tồn kho',          // 7
+            'Đơn vị tính',      // 8
+            'Barcode',          // 9
+            'Trọng lượng (g)',  // 10
+            'Dài (cm)',         // 11
+            'Rộng (cm)',        // 12
+            'Cao (cm)',         // 13
+            'Thương hiệu',      // 14
+            'Xuất xứ',          // 15
+            'Ghi chú',          // 16
+            'Hình ảnh URL'      // 17
+        ]);
+
+        orders.forEach(order => {
+            (order.items || []).forEach((item) => {
+                const productName = item.variant
+                    ? `${item.productName} - ${item.variant}`
+                    : item.productName;
+
+                data.push([
+                    item.productCode || '',           // Mã sản phẩm
+                    productName || '',                // Tên sản phẩm
+                    '',                               // Mô tả
+                    '',                               // Danh mục
+                    item.sellingPrice || 0,           // Giá bán
+                    item.purchasePrice || 0,          // Giá vốn
+                    item.quantity || 0,               // Tồn kho
+                    'Cái',                            // Đơn vị tính
+                    '',                               // Barcode
+                    '',                               // Trọng lượng
+                    '',                               // Dài
+                    '',                               // Rộng
+                    '',                               // Cao
+                    order.supplier?.name || '',       // Thương hiệu (using supplier)
+                    '',                               // Xuất xứ
+                    `Đơn hàng: ${order.orderNumber}`, // Ghi chú
+                    (item.productImages || [])[0] || '' // Hình ảnh URL
+                ]);
+            });
+        });
+
+        // Create workbook
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 15 },  // Mã SP
+            { wch: 40 },  // Tên SP
+            { wch: 30 },  // Mô tả
+            { wch: 15 },  // Danh mục
+            { wch: 12 },  // Giá bán
+            { wch: 12 },  // Giá vốn
+            { wch: 10 },  // Tồn kho
+            { wch: 10 },  // Đơn vị
+            { wch: 15 },  // Barcode
+            { wch: 12 },  // Trọng lượng
+            { wch: 8 },   // Dài
+            { wch: 8 },   // Rộng
+            { wch: 8 },   // Cao
+            { wch: 20 },  // Thương hiệu
+            { wch: 15 },  // Xuất xứ
+            { wch: 25 },  // Ghi chú
+            { wch: 50 }   // Hình ảnh URL
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Thêm SP');
+
+        // Filename
+        const filename = orders.length === 1
+            ? `TSP_${orders[0].orderNumber}.xlsx`
+            : `TSP_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+
+        XLSX.writeFile(wb, filename);
+    }
+
+    /**
+     * Export full order details to Excel
+     * @param {Array} orders - Orders to export
+     */
+    exportOrderToExcelFull(orders) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('XLSX library not loaded');
+        }
+
+        const data = [];
+
+        orders.forEach((order, orderIndex) => {
+            if (orderIndex > 0) {
+                data.push(['']); // Separator between orders
+            }
+
+            // Order header
+            data.push(['ĐƠN ĐẶT HÀNG', '', '', '', '', '', '', '']);
+            data.push(['Mã đơn:', order.orderNumber, '', 'Ngày đặt:', this.config.formatDate(order.orderDate), '', '', '']);
+            data.push(['Nhà cung cấp:', order.supplier?.name || '', '', 'Trạng thái:', this.config.STATUS_LABELS[order.status] || order.status, '', '', '']);
+            data.push(['Ghi chú:', order.notes || '', '', '', '', '', '', '']);
+            data.push(['']);
+
+            // Items header
+            data.push(['STT', 'Tên sản phẩm', 'Mã SP', 'Biến thể', 'SL', 'Giá mua', 'Giá bán', 'Thành tiền']);
+
+            // Add items
+            (order.items || []).forEach((item, index) => {
+                data.push([
+                    index + 1,
+                    item.productName || '',
+                    item.productCode || '',
+                    item.variant || '',
+                    item.quantity || 0,
+                    item.purchasePrice || 0,
+                    item.sellingPrice || 0,
+                    item.subtotal || ((item.purchasePrice || 0) * (item.quantity || 0))
+                ]);
+            });
+
+            // Add totals
+            data.push(['']);
+            data.push(['', '', '', '', '', '', 'Tổng tiền:', order.totalAmount || 0]);
+            data.push(['', '', '', '', '', '', 'Giảm giá:', order.discountAmount || 0]);
+            data.push(['', '', '', '', '', '', 'Phí ship:', order.shippingFee || 0]);
+            data.push(['', '', '', '', '', '', 'THÀNH TIỀN:', order.finalAmount || 0]);
+        });
+
+        // Create workbook
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 5 },   // STT
+            { wch: 35 },  // Tên SP
+            { wch: 12 },  // Mã SP
+            { wch: 15 },  // Biến thể
+            { wch: 6 },   // SL
+            { wch: 12 },  // Giá mua
+            { wch: 12 },  // Giá bán
+            { wch: 15 }   // Thành tiền
+        ];
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng');
 
-        // Download
-        XLSX.writeFile(wb, `${order.orderNumber}.xlsx`);
+        // Filename
+        const filename = orders.length === 1
+            ? `${orders[0].orderNumber}.xlsx`
+            : `DonHang_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+
+        XLSX.writeFile(wb, filename);
     }
 
     /**
@@ -558,14 +892,22 @@ class PurchaseOrderController {
         if (selectedIds.length === 0) return;
 
         try {
-            // Export each selected order
+            // Gather all selected orders
+            const orders = [];
             for (const orderId of selectedIds) {
                 const order = await this.dataManager.getOrder(orderId);
                 if (order) {
-                    this.exportOrderToExcel(order);
+                    orders.push(order);
                 }
             }
-            this.ui.showToast(`Đã xuất ${selectedIds.length} đơn hàng`, 'success');
+
+            if (orders.length === 0) {
+                this.ui.showToast('Không tìm thấy đơn hàng nào', 'error');
+                return;
+            }
+
+            // Show export format dialog
+            this.showExportFormatDialog(orders);
         } catch (error) {
             console.error('Bulk export failed:', error);
             this.ui.showToast('Không thể xuất đơn hàng', 'error');

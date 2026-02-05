@@ -27,6 +27,454 @@ class PurchaseOrderFormModal {
         };
 
         this.itemCounter = 0;
+        this.isUploading = false;
+        this.activeImageUpload = null; // Track which area is focused for paste
+    }
+
+    // ========================================
+    // IMAGE UPLOAD METHODS
+    // ========================================
+
+    /**
+     * Handle file input change
+     * @param {Event} e - Input change event
+     * @param {string} type - 'invoice' | 'product' | 'price'
+     * @param {string} itemId - Item ID (for product/price images)
+     */
+    async handleFileSelect(e, type, itemId = null) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        await this.uploadAndAddImages(Array.from(files), type, itemId);
+        e.target.value = ''; // Reset input
+    }
+
+    /**
+     * Handle paste event for images
+     * @param {ClipboardEvent} e - Paste event
+     * @param {string} type - 'invoice' | 'product' | 'price'
+     * @param {string} itemId - Item ID (for product/price images)
+     */
+    async handlePaste(e, type, itemId = null) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        const files = [];
+        for (const item of items) {
+            if (item.type.indexOf('image') !== -1) {
+                const file = item.getAsFile();
+                if (file) files.push(file);
+            }
+        }
+
+        if (files.length > 0) {
+            e.preventDefault();
+            await this.uploadAndAddImages(files, type, itemId);
+        }
+    }
+
+    /**
+     * Upload files and add to form data
+     * @param {File[]} files - Files to upload
+     * @param {string} type - 'invoice' | 'product' | 'price'
+     * @param {string} itemId - Item ID (for product/price images)
+     */
+    async uploadAndAddImages(files, type, itemId = null) {
+        if (this.isUploading) return;
+        this.isUploading = true;
+
+        try {
+            // Show loading state
+            this.showUploadingState(type, itemId, true);
+
+            const folder = type === 'invoice' ? 'invoices' : 'products';
+            const urls = await window.purchaseOrderService.uploadImages(files, `purchase-orders/${folder}`);
+
+            if (type === 'invoice') {
+                this.formData.invoiceImages = [...this.formData.invoiceImages, ...urls];
+                this.refreshInvoiceImages();
+            } else {
+                const item = this.formData.items.find(i => i.id === itemId);
+                if (item) {
+                    if (type === 'product') {
+                        item.productImages = [...(item.productImages || []), ...urls];
+                    } else if (type === 'price') {
+                        item.priceImages = [...(item.priceImages || []), ...urls];
+                    }
+                    this.refreshItemImages(itemId);
+                }
+            }
+
+            // Show success notification
+            if (window.notificationManager) {
+                window.notificationManager.show(`Đã tải lên ${urls.length} ảnh`, 'success');
+            }
+        } catch (error) {
+            console.error('[FormModal] Upload failed:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show('Lỗi tải ảnh: ' + error.message, 'error');
+            } else {
+                alert('Lỗi tải ảnh: ' + error.message);
+            }
+        } finally {
+            this.isUploading = false;
+            this.showUploadingState(type, itemId, false);
+        }
+    }
+
+    /**
+     * Remove image from form data
+     * @param {string} type - 'invoice' | 'product' | 'price'
+     * @param {number} imageIndex - Index of image to remove
+     * @param {string} itemId - Item ID (for product/price images)
+     */
+    removeImage(type, imageIndex, itemId = null) {
+        if (type === 'invoice') {
+            this.formData.invoiceImages.splice(imageIndex, 1);
+            this.refreshInvoiceImages();
+        } else {
+            const item = this.formData.items.find(i => i.id === itemId);
+            if (item) {
+                if (type === 'product') {
+                    item.productImages.splice(imageIndex, 1);
+                } else if (type === 'price') {
+                    item.priceImages.splice(imageIndex, 1);
+                }
+                this.refreshItemImages(itemId);
+            }
+        }
+    }
+
+    /**
+     * Show/hide uploading state
+     */
+    showUploadingState(type, itemId, isLoading) {
+        let selector;
+        if (type === 'invoice') {
+            selector = '#invoiceImageArea';
+        } else {
+            selector = `tr[data-item-id="${itemId}"] [data-type="${type}"]`;
+        }
+
+        const area = this.modalElement?.querySelector(selector);
+        if (area) {
+            if (isLoading) {
+                area.style.opacity = '0.5';
+                area.style.pointerEvents = 'none';
+            } else {
+                area.style.opacity = '1';
+                area.style.pointerEvents = 'auto';
+            }
+        }
+    }
+
+    /**
+     * Refresh invoice images display
+     */
+    refreshInvoiceImages() {
+        const container = this.modalElement?.querySelector('#invoiceImageContainer');
+        if (!container) return;
+
+        container.innerHTML = this.renderInvoiceImages();
+        this.bindInvoiceImageEvents();
+    }
+
+    /**
+     * Refresh item images display
+     */
+    refreshItemImages(itemId) {
+        const row = this.modalElement?.querySelector(`tr[data-item-id="${itemId}"]`);
+        if (!row) return;
+
+        const item = this.formData.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        // Update product images cell
+        const productCell = row.querySelector('[data-image-type="product"]');
+        if (productCell) {
+            productCell.innerHTML = this.renderItemImageCell(item, 'product');
+            this.bindItemImageCellEvents(productCell, item.id, 'product');
+        }
+
+        // Update price images cell
+        const priceCell = row.querySelector('[data-image-type="price"]');
+        if (priceCell) {
+            priceCell.innerHTML = this.renderItemImageCell(item, 'price');
+            this.bindItemImageCellEvents(priceCell, item.id, 'price');
+        }
+    }
+
+    /**
+     * Render invoice images HTML
+     */
+    renderInvoiceImages() {
+        const images = this.formData.invoiceImages || [];
+
+        if (images.length === 0) {
+            return `
+                <div id="invoiceImageArea" style="
+                    width: 60px;
+                    height: 60px;
+                    border: 2px dashed #d1d5db;
+                    border-radius: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    color: #9ca3af;
+                    font-size: 10px;
+                    transition: all 0.2s;
+                " tabindex="0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21,15 16,10 5,21"></polyline>
+                    </svg>
+                    <span>Ctrl+V</span>
+                </div>
+                <input type="file" id="invoiceFileInput" accept="image/*" multiple style="display: none;">
+            `;
+        }
+
+        return `
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                ${images.map((url, index) => `
+                    <div style="position: relative; width: 60px; height: 60px;">
+                        <img src="${url}" alt="Invoice ${index + 1}" style="
+                            width: 100%;
+                            height: 100%;
+                            object-fit: cover;
+                            border-radius: 8px;
+                            cursor: pointer;
+                        " onclick="window.purchaseOrderFormModal.viewImage('${url}')">
+                        <button type="button" data-remove-invoice="${index}" style="
+                            position: absolute;
+                            top: -6px;
+                            right: -6px;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%;
+                            background: #ef4444;
+                            color: white;
+                            border: none;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 14px;
+                            line-height: 1;
+                        ">&times;</button>
+                    </div>
+                `).join('')}
+                <div id="invoiceImageArea" style="
+                    width: 60px;
+                    height: 60px;
+                    border: 2px dashed #d1d5db;
+                    border-radius: 8px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    color: #9ca3af;
+                    font-size: 10px;
+                " tabindex="0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </div>
+            </div>
+            <input type="file" id="invoiceFileInput" accept="image/*" multiple style="display: none;">
+        `;
+    }
+
+    /**
+     * Render item image cell HTML
+     */
+    renderItemImageCell(item, type) {
+        const images = type === 'product' ? (item.productImages || []) : (item.priceImages || []);
+
+        if (images.length === 0) {
+            return `
+                <div data-type="${type}" style="
+                    width: 50px;
+                    height: 50px;
+                    border: 1px dashed #d1d5db;
+                    border-radius: 6px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    color: #9ca3af;
+                    font-size: 9px;
+                    margin: 0 auto;
+                    transition: all 0.2s;
+                " tabindex="0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21,15 16,10 5,21"></polyline>
+                    </svg>
+                    <span>Ctrl+V</span>
+                </div>
+                <input type="file" data-file-type="${type}" accept="image/*" multiple style="display: none;">
+            `;
+        }
+
+        return `
+            <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+                <div style="position: relative;">
+                    <img src="${images[0]}" alt="${type}" style="
+                        width: 50px;
+                        height: 50px;
+                        object-fit: cover;
+                        border-radius: 6px;
+                        cursor: pointer;
+                    " onclick="window.purchaseOrderFormModal.viewImage('${images[0]}')">
+                    ${images.length > 1 ? `
+                        <span style="
+                            position: absolute;
+                            bottom: 2px;
+                            right: 2px;
+                            background: rgba(0,0,0,0.7);
+                            color: white;
+                            font-size: 10px;
+                            padding: 1px 4px;
+                            border-radius: 3px;
+                        ">+${images.length - 1}</span>
+                    ` : ''}
+                    <button type="button" data-remove-image="${type}" style="
+                        position: absolute;
+                        top: -4px;
+                        right: -4px;
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 50%;
+                        background: #ef4444;
+                        color: white;
+                        border: none;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 12px;
+                        line-height: 1;
+                    ">&times;</button>
+                </div>
+                <div data-type="${type}" style="
+                    width: 30px;
+                    height: 50px;
+                    border: 1px dashed #d1d5db;
+                    border-radius: 4px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    color: #9ca3af;
+                " tabindex="0">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </div>
+            </div>
+            <input type="file" data-file-type="${type}" accept="image/*" multiple style="display: none;">
+        `;
+    }
+
+    /**
+     * View image in full size
+     */
+    viewImage(url) {
+        // Simple image viewer - can be enhanced later
+        window.open(url, '_blank');
+    }
+
+    /**
+     * Bind events for invoice image area
+     */
+    bindInvoiceImageEvents() {
+        const container = this.modalElement?.querySelector('#invoiceImageContainer');
+        if (!container) return;
+
+        const area = container.querySelector('#invoiceImageArea');
+        const fileInput = container.querySelector('#invoiceFileInput');
+
+        if (area && fileInput) {
+            // Click to upload
+            area.addEventListener('click', () => fileInput.click());
+
+            // Hover effect
+            area.addEventListener('mouseenter', () => {
+                area.style.borderColor = '#3b82f6';
+                area.style.color = '#3b82f6';
+            });
+            area.addEventListener('mouseleave', () => {
+                area.style.borderColor = '#d1d5db';
+                area.style.color = '#9ca3af';
+            });
+
+            // Paste on focus
+            area.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'v') {
+                    // Will be handled by paste event
+                }
+            });
+            area.addEventListener('paste', (e) => this.handlePaste(e, 'invoice'));
+
+            // File input change
+            fileInput.addEventListener('change', (e) => this.handleFileSelect(e, 'invoice'));
+        }
+
+        // Remove buttons
+        container.querySelectorAll('[data-remove-invoice]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(btn.dataset.removeInvoice);
+                this.removeImage('invoice', index);
+            });
+        });
+    }
+
+    /**
+     * Bind events for item image cell
+     */
+    bindItemImageCellEvents(cell, itemId, type) {
+        const area = cell.querySelector(`[data-type="${type}"]`);
+        const fileInput = cell.querySelector(`[data-file-type="${type}"]`);
+
+        if (area && fileInput) {
+            // Click to upload
+            area.addEventListener('click', () => fileInput.click());
+
+            // Hover effect
+            area.addEventListener('mouseenter', () => {
+                area.style.borderColor = '#3b82f6';
+                area.style.color = '#3b82f6';
+            });
+            area.addEventListener('mouseleave', () => {
+                area.style.borderColor = '#d1d5db';
+                area.style.color = '#9ca3af';
+            });
+
+            // Paste on focus
+            area.addEventListener('paste', (e) => this.handlePaste(e, type, itemId));
+
+            // File input change
+            fileInput.addEventListener('change', (e) => this.handleFileSelect(e, type, itemId));
+        }
+
+        // Remove button
+        const removeBtn = cell.querySelector(`[data-remove-image="${type}"]`);
+        if (removeBtn) {
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeImage(type, 0, itemId); // Remove first image (shown)
+            });
+        }
     }
 
     /**
@@ -293,25 +741,8 @@ class PurchaseOrderFormModal {
                             <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
                                 Ảnh hóa đơn
                             </label>
-                            <div id="invoiceImageArea" style="
-                                width: 60px;
-                                height: 60px;
-                                border: 2px dashed #d1d5db;
-                                border-radius: 8px;
-                                display: flex;
-                                flex-direction: column;
-                                align-items: center;
-                                justify-content: center;
-                                cursor: pointer;
-                                color: #9ca3af;
-                                font-size: 10px;
-                            ">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                    <polyline points="21,15 16,10 5,21"></polyline>
-                                </svg>
-                                <span>Ctrl+V</span>
+                            <div id="invoiceImageContainer">
+                                ${this.renderInvoiceImages()}
                             </div>
                         </div>
                     </div>
@@ -648,51 +1079,11 @@ class PurchaseOrderFormModal {
                     <td style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #f3f4f6; font-weight: 600;">
                         ${this.formatNumber(subtotal)} đ
                     </td>
-                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
-                        <div data-type="product" style="
-                            width: 50px;
-                            height: 50px;
-                            border: 1px dashed #d1d5db;
-                            border-radius: 6px;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            cursor: pointer;
-                            color: #9ca3af;
-                            font-size: 9px;
-                            margin: 0 auto;
-                        ">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                <polyline points="21,15 16,10 5,21"></polyline>
-                            </svg>
-                            <span>Ctrl+V</span>
-                        </div>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;" data-image-type="product">
+                        ${this.renderItemImageCell(item, 'product')}
                     </td>
-                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
-                        <div data-type="price" style="
-                            width: 50px;
-                            height: 50px;
-                            border: 1px dashed #d1d5db;
-                            border-radius: 6px;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            cursor: pointer;
-                            color: #9ca3af;
-                            font-size: 9px;
-                            margin: 0 auto;
-                        ">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                <polyline points="21,15 16,10 5,21"></polyline>
-                            </svg>
-                            <span>Ctrl+V</span>
-                        </div>
+                    <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;" data-image-type="price">
+                        ${this.renderItemImageCell(item, 'price')}
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
                         <div style="display: flex; gap: 4px; justify-content: center;">
@@ -806,6 +1197,66 @@ class PurchaseOrderFormModal {
             this.refreshItemsTable();
         });
 
+        // Choose from inventory button
+        this.modalElement.querySelector('#btnChooseInventory')?.addEventListener('click', () => {
+            if (window.inventoryPickerDialog) {
+                window.inventoryPickerDialog.open({
+                    onSelect: (products) => {
+                        products.forEach(product => {
+                            const item = this.addItem();
+                            item.productName = product.name || '';
+                            item.productCode = product.code || product.sku || '';
+                            item.sellingPrice = product.price || '';
+                            item.productImages = product.images || [];
+                        });
+                        this.refreshItemsTable();
+                    }
+                });
+            }
+        });
+
+        // Settings button
+        this.modalElement.querySelector('#btnSettings')?.addEventListener('click', () => {
+            if (window.settingsDialog) {
+                window.settingsDialog.open({
+                    settings: this.validationSettings || {},
+                    onSave: (settings) => {
+                        this.validationSettings = settings;
+                        if (window.notificationManager) {
+                            window.notificationManager.success('Đã lưu cài đặt');
+                        }
+                    }
+                });
+            }
+        });
+
+        // Add shipping fee button
+        this.modalElement.querySelector('#btnAddShipping')?.addEventListener('click', () => {
+            if (window.shippingFeeDialog) {
+                const currentFee = parseFloat(String(this.formData.shippingFee).replace(/[,.]/g, '')) || 0;
+                window.shippingFeeDialog.open({
+                    currentFee: currentFee,
+                    onSave: (fee) => {
+                        this.formData.shippingFee = fee;
+                        this.updateTotals();
+                        // Update shipping button to show current fee
+                        const btn = this.modalElement.querySelector('#btnAddShipping');
+                        if (btn && fee > 0) {
+                            btn.innerHTML = `
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="1" y="3" width="15" height="13"></rect>
+                                    <polygon points="16,8 20,8 23,11 23,16 16,16 16,8"></polygon>
+                                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                                </svg>
+                                Ship: ${this.formatNumber(fee)} đ
+                            `;
+                        }
+                    }
+                });
+            }
+        });
+
         // Discount input
         this.modalElement.querySelector('#inputDiscount')?.addEventListener('input', (e) => {
             this.formData.discountAmount = e.target.value;
@@ -828,6 +1279,20 @@ class PurchaseOrderFormModal {
                 this.close();
             }
         });
+
+        // Global paste handler - paste to last focused image area
+        document.addEventListener('paste', (e) => {
+            // Only handle if modal is open and no input is focused
+            if (!this.modalElement) return;
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+
+            // Default to invoice if no specific area focused
+            this.handlePaste(e, 'invoice');
+        });
+
+        // Bind invoice image events
+        this.bindInvoiceImageEvents();
 
         // Bind item events
         this.bindItemEvents();
@@ -868,8 +1333,73 @@ class PurchaseOrderFormModal {
                 } else if (action === 'copy' && itemId) {
                     this.copyItem(itemId);
                     this.refreshItemsTable();
+                } else if (action === 'variant' && itemId) {
+                    // Open variant generator dialog
+                    const item = this.formData.items.find(i => i.id === itemId);
+                    if (item && window.variantGeneratorDialog) {
+                        window.variantGeneratorDialog.open({
+                            baseProduct: item,
+                            onGenerate: (variants, baseProduct) => {
+                                // Update the current item with first variant
+                                if (variants.length > 0) {
+                                    item.variant = variants[0];
+
+                                    // Add remaining variants as new items
+                                    for (let i = 1; i < variants.length; i++) {
+                                        const newItem = this.addItem();
+                                        newItem.productName = baseProduct.productName;
+                                        newItem.productCode = baseProduct.productCode;
+                                        newItem.variant = variants[i];
+                                        newItem.purchasePrice = baseProduct.purchasePrice;
+                                        newItem.sellingPrice = baseProduct.sellingPrice;
+                                        newItem.quantity = baseProduct.quantity || 1;
+                                    }
+
+                                    this.refreshItemsTable();
+
+                                    if (window.notificationManager) {
+                                        window.notificationManager.success(`Đã tạo ${variants.length} biến thể`);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } else if (action === 'inventory' && itemId) {
+                    // Open inventory picker for this item
+                    const item = this.formData.items.find(i => i.id === itemId);
+                    if (item && window.inventoryPickerDialog) {
+                        window.inventoryPickerDialog.open({
+                            onSelect: (products) => {
+                                if (products.length > 0) {
+                                    const product = products[0];
+                                    item.productName = product.name || '';
+                                    item.productCode = product.code || product.sku || '';
+                                    item.sellingPrice = product.price || '';
+                                    item.productImages = product.images || [];
+                                    this.refreshItemsTable();
+                                }
+                            }
+                        });
+                    }
                 }
             });
+        });
+
+        // Bind image events for each row
+        tbody.querySelectorAll('tr[data-item-id]').forEach(row => {
+            const itemId = row.dataset.itemId;
+
+            // Product images cell
+            const productCell = row.querySelector('[data-image-type="product"]');
+            if (productCell) {
+                this.bindItemImageCellEvents(productCell, itemId, 'product');
+            }
+
+            // Price images cell
+            const priceCell = row.querySelector('[data-image-type="price"]');
+            if (priceCell) {
+                this.bindItemImageCellEvents(priceCell, itemId, 'price');
+            }
         });
     }
 
