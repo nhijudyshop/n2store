@@ -13,18 +13,32 @@ const db = firebase.firestore();
 // Each document represents one day: { date, isHoliday, orders: [] }
 const orderLogsCollectionRef = db.collection("order-logs");
 
+// Return logs collection - for tracking returned items
+// Same structure as order-logs
+const returnLogsCollectionRef = db.collection("return-logs");
+
 // NCC names collection - stores supplier names with Ax codes
 // Each document: { code: "A1", name: "A1 Tên gợi nhớ" }
 const nccNamesCollectionRef = db.collection("ncc-names");
 
 // Global state
 window.SoOrderState = {
+    // Tab state
+    currentTab: 'orders', // 'orders' | 'returns'
+
     currentDate: new Date(),
     currentDateString: "",
     currentDayData: null, // { date, isHoliday, orders }
     editingOrderId: null,
     deleteOrderId: null,
     differenceNoteOrderId: null, // Order ID for difference note modal
+
+    // Returns tab state (mirrors order state)
+    currentReturnDayData: null,
+    editingReturnId: null,
+    deleteReturnId: null,
+    differenceNoteReturnId: null,
+    returnsRangeData: [], // Array of day data for returns range
 
     // Date range state
     isRangeMode: false, // Whether we're viewing a date range
@@ -159,5 +173,6 @@ window.SoOrderConfig = {
     app,
     db,
     orderLogsCollectionRef,
+    returnLogsCollectionRef,
     nccNamesCollectionRef,
 };

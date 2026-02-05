@@ -8,37 +8,45 @@ window.SoOrderCRUD = {
     // LOAD DAY DATA
     // =====================================================
 
-    async loadDayData(dateString) {
+    async loadDayData(dateString, mode = null) {
         const config = window.SoOrderConfig;
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
-        utils.showLoading(true);
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const collectionRef = currentMode === 'returns'
+            ? config.returnLogsCollectionRef
+            : config.orderLogsCollectionRef;
+
+        utils.showLoading(true, currentMode);
 
         try {
             // Get document for this day
-            const docRef = config.orderLogsCollectionRef.doc(dateString);
+            const docRef = collectionRef.doc(dateString);
             const doc = await docRef.get();
 
-            if (doc.exists) {
-                state.currentDayData = doc.data();
+            const dayData = doc.exists ? doc.data() : {
+                date: dateString,
+                isHoliday: false,
+                orders: [],
+            };
+
+            // Store in appropriate state property
+            if (currentMode === 'returns') {
+                state.currentReturnDayData = dayData;
             } else {
-                // Initialize empty day data
-                state.currentDayData = {
-                    date: dateString,
-                    isHoliday: false,
-                    orders: [],
-                };
+                state.currentDayData = dayData;
             }
 
             // Render UI
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.toggleHolidayColumnsVisibility();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.toggleHolidayColumnsVisibility(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
 
-            utils.showLoading(false);
+            utils.showLoading(false, currentMode);
         } catch (error) {
-            utils.showLoading(false);
+            utils.showLoading(false, currentMode);
             console.error("Error loading day data:", error);
             utils.showToast("Lỗi khi tải dữ liệu: " + error.message, "error");
         }
@@ -48,16 +56,25 @@ window.SoOrderCRUD = {
     // SAVE DAY DATA
     // =====================================================
 
-    async saveDayData() {
+    async saveDayData(mode = null) {
         const config = window.SoOrderConfig;
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const collectionRef = currentMode === 'returns'
+            ? config.returnLogsCollectionRef
+            : config.orderLogsCollectionRef;
+        const dayData = currentMode === 'returns'
+            ? state.currentReturnDayData
+            : state.currentDayData;
+
         try {
             const dateString = state.currentDateString;
-            const docRef = config.orderLogsCollectionRef.doc(dateString);
+            const docRef = collectionRef.doc(dateString);
 
-            await docRef.set(state.currentDayData);
+            await docRef.set(dayData);
 
             return true;
         } catch (error) {
@@ -71,22 +88,34 @@ window.SoOrderCRUD = {
     // ADD ORDER
     // =====================================================
 
-    async addOrder(orderData) {
+    async addOrder(orderData, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
 
         // Validate
         if (!utils.validateOrder(orderData)) {
             return false;
         }
 
-        // Initialize currentDayData if null
-        if (!state.currentDayData) {
-            state.currentDayData = {
+        // Get appropriate day data
+        let dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+
+        // Initialize if null
+        if (!dayData) {
+            dayData = {
                 date: state.currentDateString,
                 isHoliday: false,
                 orders: [],
             };
+            if (isReturns) {
+                state.currentReturnDayData = dayData;
+            } else {
+                state.currentDayData = dayData;
+            }
         }
 
         // Create new order
@@ -104,20 +133,21 @@ window.SoOrderCRUD = {
         };
 
         // Add to current day data
-        if (!state.currentDayData.orders) {
-            state.currentDayData.orders = [];
+        if (!dayData.orders) {
+            dayData.orders = [];
         }
-        state.currentDayData.orders.push(newOrder);
+        dayData.orders.push(newOrder);
 
         // Save to Firebase
-        const success = await this.saveDayData();
+        const success = await this.saveDayData(currentMode);
 
         if (success) {
-            utils.showToast("Đã thêm đơn hàng thành công", "success");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Đã thêm ${label} thành công`, "success");
             // Re-render
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.toggleHolidayColumnsVisibility();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.toggleHolidayColumnsVisibility(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
             return true;
         }
 
@@ -128,34 +158,40 @@ window.SoOrderCRUD = {
     // UPDATE ORDER
     // =====================================================
 
-    async updateOrder(orderId, updatedData) {
+    async updateOrder(orderId, updatedData, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
 
         // Validate
         if (!utils.validateOrder(updatedData)) {
             return false;
         }
 
-        // Check if currentDayData exists
-        if (!state.currentDayData || !state.currentDayData.orders) {
+        // Check if dayData exists
+        if (!dayData || !dayData.orders) {
             utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
         }
 
         // Find and update order
-        const orderIndex = state.currentDayData.orders.findIndex(
+        const orderIndex = dayData.orders.findIndex(
             (o) => o.id === orderId
         );
 
         if (orderIndex === -1) {
-            utils.showToast("Không tìm thấy đơn hàng", "error");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Không tìm thấy ${label}`, "error");
             return false;
         }
 
         // Update order data
-        const existingOrder = state.currentDayData.orders[orderIndex];
-        state.currentDayData.orders[orderIndex] = {
+        const existingOrder = dayData.orders[orderIndex];
+        dayData.orders[orderIndex] = {
             ...existingOrder,
             supplier: updatedData.supplier.trim(),
             amount: Number(updatedData.amount) || 0,
@@ -167,14 +203,15 @@ window.SoOrderCRUD = {
         };
 
         // Save to Firebase
-        const success = await this.saveDayData();
+        const success = await this.saveDayData(currentMode);
 
         if (success) {
-            utils.showToast("Đã cập nhật đơn hàng thành công", "success");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Đã cập nhật ${label} thành công`, "success");
             // Re-render
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.toggleHolidayColumnsVisibility();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.toggleHolidayColumnsVisibility(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
             return true;
         }
 
@@ -185,38 +222,45 @@ window.SoOrderCRUD = {
     // DELETE ORDER
     // =====================================================
 
-    async deleteOrder(orderId) {
+    async deleteOrder(orderId, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
-        // Check if currentDayData exists
-        if (!state.currentDayData || !state.currentDayData.orders) {
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+
+        // Check if dayData exists
+        if (!dayData || !dayData.orders) {
             utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
         }
 
         // Find order
-        const orderIndex = state.currentDayData.orders.findIndex(
+        const orderIndex = dayData.orders.findIndex(
             (o) => o.id === orderId
         );
 
         if (orderIndex === -1) {
-            utils.showToast("Không tìm thấy đơn hàng", "error");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Không tìm thấy ${label}`, "error");
             return false;
         }
 
         // Remove order
-        state.currentDayData.orders.splice(orderIndex, 1);
+        dayData.orders.splice(orderIndex, 1);
 
         // Save to Firebase
-        const success = await this.saveDayData();
+        const success = await this.saveDayData(currentMode);
 
         if (success) {
-            utils.showToast("Đã xóa đơn hàng thành công", "success");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Đã xóa ${label} thành công`, "success");
             // Re-render
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.toggleHolidayColumnsVisibility();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.toggleHolidayColumnsVisibility(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
             return true;
         }
 
@@ -227,21 +271,27 @@ window.SoOrderCRUD = {
     // TOGGLE PAID STATUS
     // =====================================================
 
-    async togglePaidStatus(orderId) {
+    async togglePaidStatus(orderId, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
-        // Check if currentDayData exists
-        if (!state.currentDayData || !state.currentDayData.orders) {
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+
+        // Check if dayData exists
+        if (!dayData || !dayData.orders) {
             utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
         }
 
         // Find order
-        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+        const order = dayData.orders.find((o) => o.id === orderId);
 
         if (!order) {
-            utils.showToast("Không tìm thấy đơn hàng", "error");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Không tìm thấy ${label}`, "error");
             return false;
         }
 
@@ -250,13 +300,13 @@ window.SoOrderCRUD = {
         order.updatedAt = firebase.firestore.Timestamp.now();
 
         // Save to Firebase
-        const success = await this.saveDayData();
+        const success = await this.saveDayData(currentMode);
 
         if (success) {
             // Re-render
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.toggleHolidayColumnsVisibility();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.toggleHolidayColumnsVisibility(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
             return true;
         }
 
@@ -267,21 +317,27 @@ window.SoOrderCRUD = {
     // TOGGLE RECONCILED STATUS
     // =====================================================
 
-    async toggleReconciledStatus(orderId) {
+    async toggleReconciledStatus(orderId, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
-        // Check if currentDayData exists
-        if (!state.currentDayData || !state.currentDayData.orders) {
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+
+        // Check if dayData exists
+        if (!dayData || !dayData.orders) {
             utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
         }
 
         // Find order
-        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+        const order = dayData.orders.find((o) => o.id === orderId);
 
         if (!order) {
-            utils.showToast("Không tìm thấy đơn hàng", "error");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Không tìm thấy ${label}`, "error");
             return false;
         }
 
@@ -290,13 +346,13 @@ window.SoOrderCRUD = {
         order.updatedAt = firebase.firestore.Timestamp.now();
 
         // Save to Firebase
-        const success = await this.saveDayData();
+        const success = await this.saveDayData(currentMode);
 
         if (success) {
             // Re-render
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.toggleHolidayColumnsVisibility();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.toggleHolidayColumnsVisibility(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
             return true;
         }
 
@@ -307,21 +363,27 @@ window.SoOrderCRUD = {
     // UPDATE ORDER FIELD
     // =====================================================
 
-    async updateOrderField(orderId, fieldName, value) {
+    async updateOrderField(orderId, fieldName, value, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
-        // Check if currentDayData exists
-        if (!state.currentDayData || !state.currentDayData.orders) {
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+
+        // Check if dayData exists
+        if (!dayData || !dayData.orders) {
             utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
         }
 
         // Find order
-        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+        const order = dayData.orders.find((o) => o.id === orderId);
 
         if (!order) {
-            utils.showToast("Không tìm thấy đơn hàng", "error");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Không tìm thấy ${label}`, "error");
             return false;
         }
 
@@ -330,7 +392,7 @@ window.SoOrderCRUD = {
         order.updatedAt = firebase.firestore.Timestamp.now();
 
         // Save to Firebase
-        const success = await this.saveDayData();
+        const success = await this.saveDayData(currentMode);
 
         if (success) {
             return true;
@@ -343,22 +405,31 @@ window.SoOrderCRUD = {
     // UPDATE DIFFERENCE RESOLVED STATUS
     // =====================================================
 
-    async updateDifferenceResolved(orderId, resolved, note) {
+    async updateDifferenceResolved(orderId, resolved, note, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
         const config = window.SoOrderConfig;
 
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const collectionRef = isReturns
+            ? config.returnLogsCollectionRef
+            : config.orderLogsCollectionRef;
+        const rangeData = isReturns ? state.returnsRangeData : state.rangeData;
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+
         // Handle range mode - find order in rangeData
-        if (state.isRangeMode && state.rangeData && state.rangeData.length > 0) {
+        if (state.isRangeMode && rangeData && rangeData.length > 0) {
             // Find the day and order in rangeData
             let foundDayData = null;
             let foundOrder = null;
 
-            for (const dayData of state.rangeData) {
-                if (dayData.orders) {
-                    const order = dayData.orders.find((o) => o.id === orderId);
+            for (const data of rangeData) {
+                if (data.orders) {
+                    const order = data.orders.find((o) => o.id === orderId);
                     if (order) {
-                        foundDayData = dayData;
+                        foundDayData = data;
                         foundOrder = order;
                         break;
                     }
@@ -366,7 +437,8 @@ window.SoOrderCRUD = {
             }
 
             if (!foundOrder || !foundDayData) {
-                utils.showToast("Không tìm thấy đơn hàng", "error");
+                const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+                utils.showToast(`Không tìm thấy ${label}`, "error");
                 return false;
             }
 
@@ -377,12 +449,12 @@ window.SoOrderCRUD = {
 
             // Save to Firebase for the specific day
             try {
-                const docRef = config.orderLogsCollectionRef.doc(foundDayData.date);
+                const docRef = collectionRef.doc(foundDayData.date);
                 await docRef.set(foundDayData);
 
                 // Re-render
-                window.SoOrderUI.renderTable();
-                window.SoOrderUI.updateFooterSummary();
+                window.SoOrderUI.renderTable(currentMode);
+                window.SoOrderUI.updateFooterSummary(currentMode);
                 return true;
             } catch (error) {
                 console.error("Error saving day data:", error);
@@ -392,16 +464,17 @@ window.SoOrderCRUD = {
         }
 
         // Handle single day mode
-        if (!state.currentDayData || !state.currentDayData.orders) {
+        if (!dayData || !dayData.orders) {
             utils.showToast("Không tìm thấy dữ liệu ngày", "error");
             return false;
         }
 
         // Find order
-        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+        const order = dayData.orders.find((o) => o.id === orderId);
 
         if (!order) {
-            utils.showToast("Không tìm thấy đơn hàng", "error");
+            const label = isReturns ? "đơn trả hàng" : "đơn hàng";
+            utils.showToast(`Không tìm thấy ${label}`, "error");
             return false;
         }
 
@@ -411,13 +484,13 @@ window.SoOrderCRUD = {
         order.updatedAt = firebase.firestore.Timestamp.now();
 
         // Save to Firebase
-        const success = await this.saveDayData();
+        const success = await this.saveDayData(currentMode);
 
         if (success) {
             // Re-render
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.toggleHolidayColumnsVisibility();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.toggleHolidayColumnsVisibility(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
             return true;
         }
 
@@ -497,12 +570,19 @@ window.SoOrderCRUD = {
     // LOAD DATE RANGE DATA
     // =====================================================
 
-    async loadDateRangeData(startDateStr, endDateStr) {
+    async loadDateRangeData(startDateStr, endDateStr, mode = null) {
         const config = window.SoOrderConfig;
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
 
-        utils.showLoading(true);
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const collectionRef = isReturns
+            ? config.returnLogsCollectionRef
+            : config.orderLogsCollectionRef;
+
+        utils.showLoading(true, currentMode);
 
         try {
             // Parse dates
@@ -520,7 +600,7 @@ window.SoOrderCRUD = {
 
             // Load all documents in PARALLEL using Promise.all
             const promises = dateStrings.map(dateString => {
-                const docRef = config.orderLogsCollectionRef.doc(dateString);
+                const docRef = collectionRef.doc(dateString);
                 return docRef.get();
             });
 
@@ -543,17 +623,25 @@ window.SoOrderCRUD = {
             state.isRangeMode = true;
             state.rangeStartDate = startDateStr;
             state.rangeEndDate = endDateStr;
-            state.rangeData = rangeData;
+            if (isReturns) {
+                state.returnsRangeData = rangeData;
+            } else {
+                state.rangeData = rangeData;
+            }
 
             // Update date selector display
             const elements = window.SoOrderElements;
-            if (elements.dateSelector) {
+            const dateSelector = isReturns
+                ? document.getElementById('returnDateSelector')
+                : elements.dateSelector;
+
+            if (dateSelector) {
                 const today = new Date();
                 const todayStr = utils.formatDate(today);
                 const numDays = dateStrings.length;
 
                 // Update the first option text to show range
-                const currentOption = elements.dateSelector.querySelector('option[value="current"]');
+                const currentOption = dateSelector.querySelector('option[value="current"]');
                 if (currentOption) {
                     const startDateObj = utils.parseDate(startDateStr);
                     const endDateObj = utils.parseDate(endDateStr);
@@ -565,26 +653,26 @@ window.SoOrderCRUD = {
                 // Set the correct dropdown value based on range
                 if (endDateStr === todayStr) {
                     if (numDays === 3) {
-                        elements.dateSelector.value = "3days";
+                        dateSelector.value = "3days";
                     } else if (numDays === 7) {
-                        elements.dateSelector.value = "7days";
+                        dateSelector.value = "7days";
                     } else if (numDays === 10) {
-                        elements.dateSelector.value = "10days";
+                        dateSelector.value = "10days";
                     } else {
-                        elements.dateSelector.value = "current";
+                        dateSelector.value = "current";
                     }
                 } else {
-                    elements.dateSelector.value = "current";
+                    dateSelector.value = "current";
                 }
             }
 
             // Render UI
-            window.SoOrderUI.renderTable();
-            window.SoOrderUI.updateFooterSummary();
+            window.SoOrderUI.renderTable(currentMode);
+            window.SoOrderUI.updateFooterSummary(currentMode);
 
-            utils.showLoading(false);
+            utils.showLoading(false, currentMode);
         } catch (error) {
-            utils.showLoading(false);
+            utils.showLoading(false, currentMode);
             console.error("Error loading date range data:", error);
             utils.showToast("Lỗi khi tải dữ liệu: " + error.message, "error");
         }

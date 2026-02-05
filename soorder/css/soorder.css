@@ -1779,3 +1779,87 @@ textarea.form-control {
     width: 14px;
     height: 14px;
 }
+
+/* =====================================================
+   TAB HEADER NAVIGATION STYLES
+   ===================================================== */
+
+/* Tab Header Navigation */
+.tab-header-navigation {
+    display: flex;
+    gap: 0;
+    align-items: center;
+}
+
+.tab-header-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    background: transparent;
+    border: none;
+    color: var(--order-text-secondary);
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+    border-radius: 8px 8px 0 0;
+}
+
+.tab-header-btn:hover {
+    color: var(--order-primary);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.tab-header-btn.active {
+    color: var(--order-primary);
+    background: white;
+}
+
+.tab-header-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--order-gradient);
+    border-radius: 3px 3px 0 0;
+}
+
+.tab-header-btn i {
+    width: 18px;
+    height: 18px;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Returns tab accent color */
+.returns-mode .order-table thead {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.returns-mode .btn-primary {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.returns-mode .btn-primary:hover {
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+.returns-mode .tab-header-btn.active {
+    color: #ef4444;
+}
+
+.returns-mode .tab-header-btn.active::after {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}

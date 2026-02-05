@@ -158,6 +158,17 @@ function setupEventListeners() {
     console.log("Setting up event listeners...");
 
     // =====================================================
+    // TAB NAVIGATION
+    // =====================================================
+
+    // Tab buttons
+    document.querySelectorAll('.tab-header-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            ui.switchTab(btn.dataset.tab);
+        });
+    });
+
+    // =====================================================
     // DATE NAVIGATION
     // =====================================================
 
@@ -751,6 +762,261 @@ function setupEventListeners() {
             ui.hideNCCSuggestions();
         }
     });
+
+    // =====================================================
+    // RETURNS TAB EVENT LISTENERS
+    // =====================================================
+
+    // Returns tab quick date buttons (7N, 15N, 30N)
+    const btnReturn7Days = document.getElementById("btnReturn7Days");
+    const btnReturn15Days = document.getElementById("btnReturn15Days");
+    const btnReturn30Days = document.getElementById("btnReturn30Days");
+
+    const handleReturnQuickDateClick = async (days, clickedBtn) => {
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - (days - 1));
+        const startDateStr = utils.formatDate(startDate);
+        const endDateStr = utils.formatDate(today);
+
+        // Remove active class from all buttons
+        [btnReturn7Days, btnReturn15Days, btnReturn30Days].forEach((btn) => {
+            if (btn) btn.classList.remove("active");
+        });
+
+        // Add active class to clicked button
+        if (clickedBtn) clickedBtn.classList.add("active");
+
+        await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr, 'returns');
+    };
+
+    if (btnReturn7Days) {
+        btnReturn7Days.addEventListener("click", () => handleReturnQuickDateClick(7, btnReturn7Days));
+    }
+    if (btnReturn15Days) {
+        btnReturn15Days.addEventListener("click", () => handleReturnQuickDateClick(15, btnReturn15Days));
+    }
+    if (btnReturn30Days) {
+        btnReturn30Days.addEventListener("click", () => handleReturnQuickDateClick(30, btnReturn30Days));
+    }
+
+    // Returns tab date navigation buttons
+    const btnReturnPrevDay = document.getElementById("btnReturnPrevDay");
+    const btnReturnNextDay = document.getElementById("btnReturnNextDay");
+
+    if (btnReturnPrevDay) {
+        btnReturnPrevDay.addEventListener("click", () => {
+            utils.gotoPrevDay('returns');
+        });
+    }
+
+    if (btnReturnNextDay) {
+        btnReturnNextDay.addEventListener("click", () => {
+            utils.gotoNextDay('returns');
+        });
+    }
+
+    // Returns tab date selector
+    const returnDateSelector = document.getElementById("returnDateSelector");
+    const returnDateInput = document.getElementById("returnDateInput");
+
+    if (returnDateSelector) {
+        returnDateSelector.addEventListener("change", async (e) => {
+            const value = e.target.value;
+
+            switch (value) {
+                case "current":
+                    break;
+                case "today":
+                    utils.navigateToDate(new Date(), 'returns');
+                    break;
+                case "3days": {
+                    const today = new Date();
+                    const startDate = new Date(today);
+                    startDate.setDate(startDate.getDate() - 2);
+                    const startDateStr = utils.formatDate(startDate);
+                    const endDateStr = utils.formatDate(today);
+                    await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr, 'returns');
+                    break;
+                }
+                case "7days": {
+                    const today = new Date();
+                    const startDate = new Date(today);
+                    startDate.setDate(startDate.getDate() - 6);
+                    const startDateStr = utils.formatDate(startDate);
+                    const endDateStr = utils.formatDate(today);
+                    await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr, 'returns');
+                    break;
+                }
+                case "10days": {
+                    const today = new Date();
+                    const startDate = new Date(today);
+                    startDate.setDate(startDate.getDate() - 9);
+                    const startDateStr = utils.formatDate(startDate);
+                    const endDateStr = utils.formatDate(today);
+                    await window.SoOrderCRUD.loadDateRangeData(startDateStr, endDateStr, 'returns');
+                    break;
+                }
+                case "single":
+                    if (returnDateInput) {
+                        returnDateInput.showPicker();
+                    }
+                    e.target.value = "current";
+                    break;
+                case "custom":
+                    ui.showDateRangeModal();
+                    e.target.value = "current";
+                    break;
+            }
+        });
+    }
+
+    if (returnDateInput) {
+        returnDateInput.addEventListener("change", (e) => {
+            const dateString = e.target.value;
+            if (dateString) {
+                const date = utils.parseDate(dateString);
+                utils.navigateToDate(date, 'returns');
+            }
+        });
+    }
+
+    // Returns tab filter checkboxes
+    const returnUnpaidFilterCheckbox = document.getElementById("returnUnpaidFilterCheckbox");
+    const returnDiscrepancyFilterCheckbox = document.getElementById("returnDiscrepancyFilterCheckbox");
+
+    if (returnUnpaidFilterCheckbox) {
+        returnUnpaidFilterCheckbox.addEventListener("change", (e) => {
+            const state = window.SoOrderState;
+            state.showOnlyUnpaid = e.target.checked;
+            ui.renderTable('returns');
+            ui.updateFooterSummary('returns');
+        });
+    }
+
+    if (returnDiscrepancyFilterCheckbox) {
+        returnDiscrepancyFilterCheckbox.addEventListener("change", (e) => {
+            const state = window.SoOrderState;
+            state.showOnlyWithDiscrepancy = e.target.checked;
+            ui.renderTable('returns');
+            ui.updateFooterSummary('returns');
+        });
+    }
+
+    // Returns tab NCC filter
+    const returnNccFilterInput = document.getElementById("returnNccFilterInput");
+    const btnReturnClearNCCFilter = document.getElementById("btnReturnClearNCCFilter");
+
+    if (returnNccFilterInput) {
+        returnNccFilterInput.addEventListener("input", (e) => {
+            const state = window.SoOrderState;
+            state.nccFilter = e.target.value.trim();
+
+            if (btnReturnClearNCCFilter) {
+                btnReturnClearNCCFilter.style.display = state.nccFilter ? "flex" : "none";
+            }
+
+            if (state.nccFilter) {
+                returnNccFilterInput.classList.add("has-value");
+            } else {
+                returnNccFilterInput.classList.remove("has-value");
+            }
+
+            ui.renderTable('returns');
+            ui.updateFooterSummary('returns');
+        });
+    }
+
+    if (btnReturnClearNCCFilter) {
+        btnReturnClearNCCFilter.addEventListener("click", () => {
+            const state = window.SoOrderState;
+            state.nccFilter = "";
+
+            if (returnNccFilterInput) {
+                returnNccFilterInput.value = "";
+                returnNccFilterInput.classList.remove("has-value");
+            }
+            btnReturnClearNCCFilter.style.display = "none";
+
+            ui.renderTable('returns');
+            ui.updateFooterSummary('returns');
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        });
+    }
+
+    // Returns tab add form
+    const btnToggleReturnAddForm = document.getElementById("btnToggleReturnAddForm");
+    const btnCloseReturnAddForm = document.getElementById("btnCloseReturnAddForm");
+    const btnCancelReturnAdd = document.getElementById("btnCancelReturnAdd");
+    const btnSubmitReturnAdd = document.getElementById("btnSubmitReturnAdd");
+
+    if (btnToggleReturnAddForm) {
+        btnToggleReturnAddForm.addEventListener("click", () => {
+            ui.showAddForm('returns');
+        });
+    }
+
+    if (btnCloseReturnAddForm) {
+        btnCloseReturnAddForm.addEventListener("click", () => {
+            ui.hideAddForm('returns');
+        });
+    }
+
+    if (btnCancelReturnAdd) {
+        btnCancelReturnAdd.addEventListener("click", () => {
+            ui.hideAddForm('returns');
+        });
+    }
+
+    if (btnSubmitReturnAdd) {
+        btnSubmitReturnAdd.addEventListener("click", () => {
+            ui.handleAddOrder('returns');
+        });
+    }
+
+    // Returns tab add form enter key handling
+    const returnAddInputs = [
+        document.getElementById("addReturnSupplier"),
+        document.getElementById("addReturnAmount"),
+        document.getElementById("addReturnDifference"),
+        document.getElementById("addReturnNote"),
+    ];
+
+    returnAddInputs.forEach((input) => {
+        if (input) {
+            input.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    ui.handleAddOrder('returns');
+                }
+            });
+        }
+    });
+
+    // Returns tab NCC suggestions
+    const addReturnSupplier = document.getElementById("addReturnSupplier");
+    const addReturnSupplierSuggestions = document.getElementById("addReturnSupplierSuggestions");
+
+    if (addReturnSupplier) {
+        addReturnSupplier.addEventListener("input", () => {
+            ui.showNCCSuggestions(addReturnSupplier, addReturnSupplierSuggestions);
+        });
+        addReturnSupplier.addEventListener("focus", () => {
+            if (addReturnSupplier.value.trim()) {
+                ui.showNCCSuggestions(addReturnSupplier, addReturnSupplierSuggestions);
+            }
+        });
+        addReturnSupplier.addEventListener("keydown", (e) => {
+            if (e.key === "Tab" && !e.shiftKey) {
+                if (ui.selectExactMatchNCC(addReturnSupplier, addReturnSupplierSuggestions)) {
+                    // Focus will naturally move to next input
+                }
+            }
+        });
+    }
 
     console.log("Event listeners setup complete!");
 }
