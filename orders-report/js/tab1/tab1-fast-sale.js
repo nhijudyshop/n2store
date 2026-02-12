@@ -209,7 +209,7 @@ async function fetchWalletBalancesForFastSale(phones) {
     console.log(`[FAST-SALE] Fetching wallet balances for ${uniquePhones.length} phones...`);
 
     try {
-        const response = await fetch(`${QR_API_URL}/api/wallet/batch-summary`, {
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phones: uniquePhones })
