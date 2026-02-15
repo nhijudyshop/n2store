@@ -88,7 +88,7 @@ const WalletIntegration = (function() {
         }
 
         try {
-            const response = await fetch(`${CONFIG.API_URL}/wallet/${normalizedPhone}`);
+            const response = await fetch(`${CONFIG.API_URL}/v2/wallets/${normalizedPhone}`);
             if (!response.ok) {
                 if (response.status === 404) {
                     // No wallet found - return zero balance
@@ -137,7 +137,7 @@ const WalletIntegration = (function() {
 
         if (phonesToFetch.length > 0) {
             try {
-                const response = await fetch(`${CONFIG.API_URL}/wallet/batch-summary`, {
+                const response = await fetch(`${CONFIG.API_URL}/v2/wallets/batch-summary`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ phones: phonesToFetch })
@@ -186,7 +186,7 @@ const WalletIntegration = (function() {
         const normalizedPhone = normalizePhone(phone);
         if (!normalizedPhone) throw new Error('Invalid phone number');
 
-        const response = await fetch(`${CONFIG.API_URL}/wallet/${normalizedPhone}/withdraw`, {
+        const response = await fetch(`${CONFIG.API_URL}/v2/wallets/${normalizedPhone}/withdraw`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

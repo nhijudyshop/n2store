@@ -1,6 +1,14 @@
-// api-service.js
-// Abstraction layer for API calls (TPOS, Firebase, PostgreSQL)
-// Phase 4: Updated to support PostgreSQL Customer 360° API
+// api-service.js (SHARED)
+// =====================================================
+// Unified API service for customer-hub, issue-tracking, balance-history
+// ALL endpoints point to V2 API (single source of truth)
+//
+// Replaces:
+//   - customer-hub/js/api-service.js
+//   - issue-tracking/js/api-service.js
+//
+// Consolidation date: 2026-02-11
+// =====================================================
 
 const ApiService = {
     // API mode: 'FIREBASE' (legacy) or 'POSTGRESQL' (new Customer 360°)
@@ -13,11 +21,15 @@ const ApiService = {
     // Direct Render.com URL for SSE (bypasses Cloudflare Worker to avoid timeout)
     RENDER_SSE_URL: 'https://n2store-fallback.onrender.com',
 
+    // =====================================================
+    // TPOS ORDER METHODS
+    // =====================================================
+
     /**
      * Search orders from TPOS via TPOS OData Proxy
      * Uses tokenManager.authenticatedFetch() for proper auth handling
      * @param {string} query - Phone number (5-11 digits supported)
-     * @returns {Promise<Array>} List of mapped orders
+     * @returns {Promise<{orders: Array, totalFound: number, allCancelled: boolean}>}
      */
     async searchOrders(query) {
         if (!query) return [];
@@ -184,6 +196,10 @@ const ApiService = {
         }
     },
 
+    // =====================================================
+    // TICKET METHODS (V2 API)
+    // =====================================================
+
     /**
      * Create a new ticket
      * @param {Object} ticketData
@@ -192,7 +208,7 @@ const ApiService = {
         // Use PostgreSQL API
         if (this.mode === 'POSTGRESQL') {
             try {
-                const response = await fetch(`${this.RENDER_API_URL}/ticket`, {
+                const response = await fetch(`${this.RENDER_API_URL}/v2/tickets`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -200,9 +216,9 @@ const ApiService = {
                     body: JSON.stringify({
                         phone: ticketData.phone,
                         customer_name: ticketData.customer,
-                        customer_address: ticketData.address,  // NEW: Sync address to customer
+                        customer_address: ticketData.address,
                         order_id: ticketData.orderId,
-                        tpos_order_id: ticketData.tposId,  // TPOS internal ID (số)
+                        tpos_order_id: ticketData.tposId,
                         tracking_code: ticketData.trackingCode,
                         carrier: ticketData.carrier || '',
                         type: ticketData.type,
@@ -216,7 +232,6 @@ const ApiService = {
                         boom_reason: ticketData.boomReason,
                         internal_note: ticketData.note,
                         created_by: ticketData.createdBy || 'system',
-                        // RETURN_OLD_ORDER: Reference to old order
                         return_from_order_id: ticketData.returnFromOrderId,
                         return_from_tpos_id: ticketData.returnFromTposId
                     })
@@ -228,18 +243,18 @@ const ApiService = {
                 }
 
                 const result = await response.json();
-                console.log('[API-PG] Ticket created:', result.data.ticket_code);
+                console.log('[API-V2] Ticket created:', result.data.ticket_code);
 
                 // Return in Firebase-compatible format for backwards compatibility
                 return {
                     ...ticketData,
-                    firebaseId: result.data.ticket_code,  // Use ticket_code as ID
+                    firebaseId: result.data.ticket_code,
                     ticketCode: result.data.ticket_code,
                     id: result.data.id,
                     createdAt: new Date(result.data.created_at).getTime()
                 };
             } catch (error) {
-                console.error('[API-PG] Create ticket failed:', error);
+                console.error('[API-V2] Create ticket failed:', error);
                 throw error;
             }
         }
@@ -303,10 +318,10 @@ const ApiService = {
                 }
 
                 const result = await response.json();
-                console.log('[API-PG] Ticket updated:', firebaseId);
+                console.log('[API-V2] Ticket updated:', firebaseId);
                 return result.data;
             } catch (error) {
-                console.error('[API-PG] Update ticket failed:', error);
+                console.error('[API-V2] Update ticket failed:', error);
                 throw error;
             }
         }
@@ -335,7 +350,6 @@ const ApiService = {
     async deleteTicket(ticketCode, hard = false) {
         if (this.mode === 'POSTGRESQL') {
             try {
-                // Use V2 endpoint which includes virtual credit cancellation logic
                 const url = `${this.RENDER_API_URL}/v2/tickets/${ticketCode}${hard ? '?hard=true' : ''}`;
                 const response = await fetch(url, {
                     method: 'DELETE',
@@ -350,10 +364,10 @@ const ApiService = {
                 }
 
                 const result = await response.json();
-                console.log('[API-PG] Ticket deleted:', ticketCode, hard ? '(hard)' : '(soft)');
+                console.log('[API-V2] Ticket deleted:', ticketCode, hard ? '(hard)' : '(soft)');
                 return result;
             } catch (error) {
-                console.error('[API-PG] Delete ticket failed:', error);
+                console.error('[API-V2] Delete ticket failed:', error);
                 throw error;
             }
         }
@@ -392,11 +406,11 @@ const ApiService = {
                     if (filters.phone) params.append('phone', filters.phone);
                     params.append('limit', '100');
 
-                    const url = `${this.RENDER_API_URL}/ticket${params.toString() ? '?' + params.toString() : ''}`;
+                    const url = `${this.RENDER_API_URL}/v2/tickets${params.toString() ? '?' + params.toString() : ''}`;
                     const response = await fetch(url);
 
                     if (!response.ok) {
-                        console.error('[API-PG] Fetch tickets failed:', response.status);
+                        console.error('[API-V2] Fetch tickets failed:', response.status);
                         return;
                     }
 
@@ -406,26 +420,25 @@ const ApiService = {
                         // Transform to Firebase-compatible format
                         const tickets = result.data.map(ticket => ({
                             ...ticket,
-                            firebaseId: ticket.ticket_code,  // For backwards compatibility
-                            ticketCode: ticket.ticket_code,  // Used by ISSUE_CREDIT action
+                            firebaseId: ticket.ticket_code,
+                            ticketCode: ticket.ticket_code,
                             orderId: ticket.order_id,
-                tposId: ticket.tpos_order_id,  // TPOS internal ID for refund processing
+                            tposId: ticket.tpos_order_id,
                             trackingCode: ticket.tracking_code,
                             customer: ticket.customer_name,
                             originalCod: ticket.original_cod,
                             newCod: ticket.new_cod,
                             money: ticket.refund_amount,
                             fixReason: ticket.fix_cod_reason,
-                            fixCodReason: ticket.fix_cod_reason,  // For renderProductsList and renderTypeBadge
-                            boomReason: ticket.boom_reason,  // For renderTypeBadge
+                            fixCodReason: ticket.fix_cod_reason,
+                            boomReason: ticket.boom_reason,
                             note: ticket.internal_note,
-                            virtualCreditId: ticket.virtual_credit_id,  // For UI to show correct button
+                            virtualCreditId: ticket.virtual_credit_id,
                             virtual_credit_id: ticket.virtual_credit_id,
                             virtualCredit: ticket.virtual_credit_amount ? {
                                 amount: ticket.virtual_credit_amount,
                                 status: 'ACTIVE'
                             } : null,
-                            // RETURN_OLD_ORDER: Reference to old order for refund processing
                             returnFromOrderId: ticket.return_from_order_id,
                             returnFromTposId: ticket.return_from_tpos_id,
                             createdAt: new Date(ticket.created_at).getTime(),
@@ -437,7 +450,7 @@ const ApiService = {
                         callback(tickets);
                     }
                 } catch (error) {
-                    console.error('[API-PG] Subscribe to tickets error:', error);
+                    console.error('[API-V2] Subscribe to tickets error:', error);
                 }
             };
 
@@ -458,7 +471,7 @@ const ApiService = {
                 try {
                     const { data } = JSON.parse(event.data);
                     console.log('[API-SSE] Ticket created:', data);
-                    fetchTickets(); // Refresh list
+                    fetchTickets();
                 } catch (e) {
                     console.error('[API-SSE] Error parsing created event:', e);
                 }
@@ -468,7 +481,7 @@ const ApiService = {
                 try {
                     const { data } = JSON.parse(event.data);
                     console.log('[API-SSE] Ticket updated:', data);
-                    fetchTickets(); // Refresh list
+                    fetchTickets();
                 } catch (e) {
                     console.error('[API-SSE] Error parsing update event:', e);
                 }
@@ -478,7 +491,7 @@ const ApiService = {
                 try {
                     const { data } = JSON.parse(event.data);
                     console.log('[API-SSE] Ticket deleted:', data);
-                    fetchTickets(); // Refresh list
+                    fetchTickets();
                 } catch (e) {
                     console.error('[API-SSE] Error parsing deleted event:', e);
                 }
@@ -496,7 +509,7 @@ const ApiService = {
                     eventSource.close();
                     console.log('[API-SSE] Disconnected from SSE');
                 }
-                console.log('[API-PG] Unsubscribed from tickets');
+                console.log('[API-V2] Unsubscribed from tickets');
             };
         }
 
@@ -516,6 +529,156 @@ const ApiService = {
 
         return () => ref.off('value', listener);
     },
+
+    /**
+     * Perform action on ticket (receive_goods, settle, complete, cancel)
+     * @param {string} ticketCode - Ticket code (TV-YYYY-NNNNN)
+     * @param {string} action - Action name
+     * @param {Object} options - { note, performed_by }
+     */
+    async ticketAction(ticketCode, action, options = {}) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketCode}/resolve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action,
+                    note: options.note,
+                    performed_by: options.performed_by || 'system'
+                })
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to perform ticket action');
+            }
+            const result = await response.json();
+            console.log('[API-V2] Ticket action:', ticketCode, action);
+            return result.data;
+        } catch (error) {
+            console.error('[API-V2] Ticket action failed:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get ticket statistics
+     */
+    async getTicketStats() {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/stats`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ticket stats: ${response.status}`);
+            }
+            const result = await response.json();
+            return result.data;
+        } catch (error) {
+            console.error('[API-V2] Get ticket stats failed:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get single ticket by code
+     * @param {string} ticketCode - Ticket code (TV-YYYY-NNNNN) or Firebase ID
+     */
+    async getTicket(ticketCode) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketCode}`);
+            if (!response.ok) {
+                if (response.status === 404) return null;
+                throw new Error(`Failed to fetch ticket: ${response.status}`);
+            }
+            const result = await response.json();
+
+            // Transform to Firebase-compatible format
+            const ticket = result.data;
+            return {
+                ...ticket,
+                firebaseId: ticket.ticket_code,
+                ticketCode: ticket.ticket_code,
+                orderId: ticket.order_id,
+                tposId: ticket.tpos_order_id,
+                trackingCode: ticket.tracking_code,
+                customer: ticket.customer_name,
+                originalCod: ticket.original_cod,
+                newCod: ticket.new_cod,
+                money: ticket.refund_amount,
+                fixReason: ticket.fix_cod_reason,
+                note: ticket.internal_note,
+                createdAt: new Date(ticket.created_at).getTime()
+            };
+        } catch (error) {
+            console.error('[API-V2] Get ticket failed:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Check if a ticket can be deleted
+     * @param {string} ticketId - Ticket code or ID
+     */
+    async canDeleteTicket(ticketId) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketId}/can-delete`);
+            if (!response.ok) {
+                throw new Error(`Failed to check can-delete: ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('[API-V2] Can delete ticket check failed:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Resolve ticket with optional compensation
+     * @param {string} ticketId - Ticket code or ID
+     * @param {Object} resolveData - Resolution data
+     */
+    async resolveTicket(ticketId, resolveData) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketId}/resolve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(resolveData)
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to resolve ticket');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('[API-V2] Resolve ticket failed:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Issue virtual credit for ticket (RETURN_SHIPPER)
+     * @param {string} ticketId - Ticket code or ID
+     * @param {Object} creditData - { amount, expiry_days, note }
+     */
+    async resolveTicketCredit(ticketId, creditData) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketId}/resolve-credit`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(creditData)
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to resolve ticket credit');
+            }
+            return await response.json();
+        } catch (error) {
+            console.error('[API-V2] Resolve ticket credit failed:', error);
+            throw error;
+        }
+    },
+
+    // =====================================================
+    // TPOS REFUND METHODS
+    // =====================================================
 
     /**
      * Process refund (Nhận hàng) - TPOS Refund Flow
@@ -603,7 +766,6 @@ const ApiService = {
             const originalOrderLines = refundDetails.OrderLines || [];
             console.log('[API] Original OrderLines count:', originalOrderLines.length);
 
-            // Debug: Log OrderLine details and products to match
             console.log('[API] Products to match:', productsToRefund.map(p => ({
                 id: p.id,
                 productId: p.productId,
@@ -620,9 +782,7 @@ const ApiService = {
 
             // Filter and update quantities based on productsToRefund
             const filteredOrderLines = originalOrderLines.filter(line => {
-                // Match by ProductId, productId, code, or ProductBarcode
                 const productMatch = productsToRefund.find(p => {
-                    // p.id from ticket is OrderLine.Id, p.productId is ProductId
                     const pId = parseInt(p.productId || p.id);
                     const pCode = p.code || '';
                     const lineProductId = parseInt(line.ProductId);
@@ -632,40 +792,36 @@ const ApiService = {
                     const matchByCode = pCode && lineBarcode && pCode === lineBarcode;
 
                     if (matchById || matchByCode) {
-                        console.log(`[API] ✅ Matched: pId=${pId}, pCode=${pCode}, lineProductId=${lineProductId}, lineBarcode=${lineBarcode}`);
+                        console.log(`[API] Matched: pId=${pId}, pCode=${pCode}, lineProductId=${lineProductId}, lineBarcode=${lineBarcode}`);
                     }
 
                     return matchById || matchByCode;
                 });
 
                 if (productMatch) {
-                    // Update quantity to returnQuantity if specified
                     if (productMatch.returnQuantity && productMatch.returnQuantity > 0) {
                         console.log(`[API] Updating line ${line.ProductBarcode}: qty ${line.ProductUOMQty} -> ${productMatch.returnQuantity}`);
                         line.ProductUOMQty = productMatch.returnQuantity;
-                        // Recalculate price total
                         line.PriceTotal = line.PriceUnit * line.ProductUOMQty;
                         line.PriceSubTotal = line.PriceTotal;
                     }
-                    return true; // Include this line
+                    return true;
                 }
                 console.log(`[API] Excluding line ${line.ProductBarcode} - not in products to refund`);
-                return false; // Exclude this line
+                return false;
             });
 
             console.log('[API] Filtered OrderLines count:', filteredOrderLines.length);
 
-            // Update refundDetails with filtered OrderLines
             refundDetails.OrderLines = filteredOrderLines;
 
-            // Recalculate totals
             const newTotalQuantity = filteredOrderLines.reduce((sum, line) => sum + line.ProductUOMQty, 0);
             const newAmountTotal = filteredOrderLines.reduce((sum, line) => sum + (line.PriceUnit * line.ProductUOMQty), 0);
 
             refundDetails.TotalQuantity = newTotalQuantity;
             refundDetails.AmountTotal = newAmountTotal;
             refundDetails.AmountUntaxed = newAmountTotal;
-            refundDetails.AmountTotalSigned = -newAmountTotal; // Refund is negative
+            refundDetails.AmountTotalSigned = -newAmountTotal;
 
             console.log('[API] Recalculated totals - Qty:', newTotalQuantity, 'Amount:', newAmountTotal);
         }
@@ -674,7 +830,6 @@ const ApiService = {
         console.log('[API] Step 3: PUT update with SaveAndPrint');
         reportProgress(3, 'Lưu phiếu hoàn...');
 
-        // Prepare the payload - copy most fields and add FormAction
         const updatePayload = this._prepareRefundUpdatePayload(refundDetails);
 
         const updateResponse = await window.tokenManager.authenticatedFetch(
@@ -727,14 +882,11 @@ const ApiService = {
         console.log('[API] Step 5: PrintRefund');
         reportProgress(5, 'Lấy phiếu in...');
 
-        // PrintRefund endpoint must go directly to TPOS (not through proxy)
-        // because it returns HTML content and proxy doesn't have this route
         const TPOS_DIRECT_URL = 'https://tomato.tpos.vn';
         const printUrl = `${TPOS_DIRECT_URL}/fastsaleorder/PrintRefund/${refundOrderId}`;
 
         console.log('[API] PrintRefund URL:', printUrl);
 
-        // Get token for authorization header (use getToken() per SHARED_TPOS.md)
         const token = await window.tokenManager.getToken();
 
         const printResponse = await fetch(printUrl, {
@@ -757,10 +909,8 @@ const ApiService = {
         // ========== Extract "Tổng tiền" from HTML for validation ==========
         let refundAmountFromHtml = null;
         try {
-            // Pattern: <strong>Tổng tiền:</strong> ... <td class="text-right">180.000</td>
             const totalMatch = printHtml.match(/Tổng tiền:.*?<td[^>]*class="text-right"[^>]*>([0-9.,]+)<\/td>/is);
             if (totalMatch && totalMatch[1]) {
-                // Convert "180.000" -> 180000
                 const amountStr = totalMatch[1].replace(/\./g, '').replace(/,/g, '');
                 refundAmountFromHtml = parseInt(amountStr, 10);
                 console.log('[API] Extracted refund amount from HTML:', refundAmountFromHtml);
@@ -775,7 +925,7 @@ const ApiService = {
             refundOrderId: refundOrderId,
             printHtml: printHtml,
             confirmResult: confirmResult,
-            refundAmountFromHtml: refundAmountFromHtml  // For validation before wallet credit
+            refundAmountFromHtml: refundAmountFromHtml
         };
     },
 
@@ -784,7 +934,6 @@ const ApiService = {
      * @private
      */
     _prepareRefundUpdatePayload(details) {
-        // Clone the details and add FormAction
         const payload = {
             Id: details.Id,
             Name: details.Name,
@@ -925,7 +1074,7 @@ const ApiService = {
             WiInvoiceStatus: details.WiInvoiceStatus,
             WiInvoiceTrackingUrl: details.WiInvoiceTrackingUrl || '',
             WiInvoiceIsReplate: details.WiInvoiceIsReplate,
-            FormAction: 'SaveAndPrint',  // KEY: This triggers save and print
+            FormAction: 'SaveAndPrint',
             Ship_Receiver: details.Ship_Receiver,
             Ship_Extras: details.Ship_Extras,
             PaymentInfo: details.PaymentInfo || [],
@@ -940,7 +1089,6 @@ const ApiService = {
             Billing: details.Billing,
             PackageInfo: details.PackageInfo || { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 },
             Error: details.Error,
-            // Include nested objects
             Partner: details.Partner,
             User: details.User,
             Warehouse: details.Warehouse,
@@ -967,7 +1115,7 @@ const ApiService = {
     },
 
     // =====================================================
-    // CUSTOMER 360° API METHODS (PostgreSQL)
+    // CUSTOMER 360° API METHODS (V2)
     // =====================================================
 
     /**
@@ -977,16 +1125,35 @@ const ApiService = {
      */
     async getCustomer360(phone) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/customer/${phone}`);
+            const response = await fetch(`${this.RENDER_API_URL}/v2/customers/${phone}`);
             if (!response.ok) {
                 if (response.status === 404) return null;
                 throw new Error(`Failed to fetch customer: ${response.status}`);
             }
             const result = await response.json();
-            console.log('[API-PG] Customer 360 loaded:', phone);
+            console.log('[API-V2] Customer 360 loaded:', phone);
             return result.data;
         } catch (error) {
-            console.error('[API-PG] Get Customer 360 failed:', error);
+            console.error('[API-V2] Get Customer 360 failed:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get quick customer info for modals
+     * @param {string} phone - Customer phone number
+     */
+    async getCustomerQuickView(phone) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/customers/${phone}/quick-view`);
+            if (!response.ok) {
+                if (response.status === 404) return null;
+                throw new Error(`Failed to fetch customer quick-view: ${response.status}`);
+            }
+            const result = await response.json();
+            return result.data;
+        } catch (error) {
+            console.error('[API-V2] Get customer quick-view failed:', error);
             throw error;
         }
     },
@@ -997,7 +1164,7 @@ const ApiService = {
      */
     async upsertCustomer(customerData) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/customer`, {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/customers`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(customerData)
@@ -1007,16 +1174,87 @@ const ApiService = {
                 throw new Error(error.error || 'Failed to create customer');
             }
             const result = await response.json();
-            console.log('[API-PG] Customer upserted:', customerData.phone);
+            console.log('[API-V2] Customer upserted:', customerData.phone);
             return result.data;
         } catch (error) {
-            console.error('[API-PG] Upsert customer failed:', error);
+            console.error('[API-V2] Upsert customer failed:', error);
             throw error;
         }
     },
 
+    /**
+     * Search customers
+     * @param {string} query - Search query (phone or name)
+     * @param {number} page - Page number (unused, kept for backwards compat)
+     * @param {number} limit - Results limit
+     * @param {Object} options - { searchType, status }
+     */
+    async searchCustomers(query, page = 1, limit = 50, options = {}) {
+        return fetchJson(`${this.RENDER_API_URL}/v2/customers/search`, {
+            method: 'POST',
+            body: JSON.stringify({
+                query,
+                limit,
+                search_type: options.searchType || '',
+                status: options.status || ''
+            })
+        });
+    },
+
+    /**
+     * Get recently active customers
+     * @param {number} page
+     * @param {number} limit
+     */
+    async getRecentCustomers(page = 1, limit = 20) {
+        return fetchJson(`${this.RENDER_API_URL}/v2/customers/recent?page=${page}&limit=${limit}`);
+    },
+
+    /**
+     * Add note to customer
+     * @param {string} phone
+     * @param {string} content
+     * @param {Object} options - { category, is_pinned, created_by }
+     */
+    async addCustomerNote(phone, content, options = {}) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/customers/${phone}/notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content,
+                    category: options.category || 'general',
+                    is_pinned: options.is_pinned || false,
+                    created_by: options.created_by || 'system'
+                })
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to add note');
+            }
+            const result = await response.json();
+            console.log('[API-V2] Customer note added:', phone);
+            return result.data;
+        } catch (error) {
+            console.error('[API-V2] Add customer note failed:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get consolidated transactions for customer
+     * @param {string} phone - Customer phone
+     * @param {number} page
+     * @param {number} limit
+     * @param {Object} filters - { startDate, endDate, type }
+     */
+    async getConsolidatedTransactions(phone, page = 1, limit = 10, filters = {}) {
+        const queryParams = new URLSearchParams({ page, limit, ...filters }).toString();
+        return fetchJson(`${this.RENDER_API_URL}/v2/customers/${phone}/transactions?${queryParams}`);
+    },
+
     // =====================================================
-    // WALLET API METHODS (PostgreSQL)
+    // WALLET API METHODS (V2)
     // =====================================================
 
     /**
@@ -1025,14 +1263,14 @@ const ApiService = {
      */
     async getWallet(phone) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/wallet/${phone}`);
+            const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/${phone}`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch wallet: ${response.status}`);
             }
             const result = await response.json();
             return result.data;
         } catch (error) {
-            console.error('[API-PG] Get wallet failed:', error);
+            console.error('[API-V2] Get wallet failed:', error);
             throw error;
         }
     },
@@ -1045,7 +1283,7 @@ const ApiService = {
      */
     async walletDeposit(phone, amount, options = {}) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/wallet/${phone}/deposit`, {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/${phone}/deposit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1061,10 +1299,10 @@ const ApiService = {
                 throw new Error(error.error || 'Failed to deposit');
             }
             const result = await response.json();
-            console.log('[API-PG] Wallet deposit:', phone, amount);
+            console.log('[API-V2] Wallet deposit:', phone, amount);
             return result.data;
         } catch (error) {
-            console.error('[API-PG] Wallet deposit failed:', error);
+            console.error('[API-V2] Wallet deposit failed:', error);
             throw error;
         }
     },
@@ -1078,7 +1316,7 @@ const ApiService = {
      */
     async walletWithdraw(phone, amount, orderId, note) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/wallet/${phone}/withdraw`, {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/${phone}/withdraw`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ amount, order_id: orderId, note })
@@ -1088,10 +1326,10 @@ const ApiService = {
                 throw new Error(error.error || 'Failed to withdraw');
             }
             const result = await response.json();
-            console.log('[API-PG] Wallet withdraw:', phone, amount);
+            console.log('[API-V2] Wallet withdraw:', phone, amount);
             return result.data;
         } catch (error) {
-            console.error('[API-PG] Wallet withdraw failed:', error);
+            console.error('[API-V2] Wallet withdraw failed:', error);
             throw error;
         }
     },
@@ -1104,7 +1342,7 @@ const ApiService = {
      */
     async issueVirtualCredit(phone, amount, options = {}) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/wallet/${phone}/virtual-credit`, {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/${phone}/credit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1121,10 +1359,10 @@ const ApiService = {
                 throw new Error(error.error || 'Failed to issue virtual credit');
             }
             const result = await response.json();
-            console.log('[API-PG] Virtual credit issued:', phone, amount);
+            console.log('[API-V2] Virtual credit issued:', phone, amount);
             return result.data;
         } catch (error) {
-            console.error('[API-PG] Issue virtual credit failed:', error);
+            console.error('[API-V2] Issue virtual credit failed:', error);
             throw error;
         }
     },
@@ -1135,7 +1373,7 @@ const ApiService = {
      */
     async getWalletBatch(phones) {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/wallet/batch-summary`, {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phones })
@@ -1146,126 +1384,84 @@ const ApiService = {
             const result = await response.json();
             return result.data;
         } catch (error) {
-            console.error('[API-PG] Get wallet batch failed:', error);
+            console.error('[API-V2] Get wallet batch failed:', error);
             throw error;
         }
     },
 
     // =====================================================
-    // TICKET ACTION API METHODS (PostgreSQL)
+    // BALANCE HISTORY API METHODS (V2)
     // =====================================================
 
     /**
-     * Perform action on ticket (receive_goods, settle, complete, cancel)
-     * @param {string} ticketCode - Ticket code (TV-YYYY-NNNNN)
-     * @param {string} action - Action name
-     * @param {Object} options - { note, performed_by }
+     * Get unlinked bank transactions
+     * @param {number} page
+     * @param {number} limit
      */
-    async ticketAction(ticketCode, action, options = {}) {
-        try {
-            const response = await fetch(`${this.RENDER_API_URL}/ticket/${ticketCode}/action`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action,
-                    note: options.note,
-                    performed_by: options.performed_by || 'system'
-                })
-            });
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to perform ticket action');
-            }
-            const result = await response.json();
-            console.log('[API-PG] Ticket action:', ticketCode, action);
-            return result.data;
-        } catch (error) {
-            console.error('[API-PG] Ticket action failed:', error);
-            throw error;
-        }
+    async getUnlinkedBankTransactions(page = 1, limit = 10) {
+        return fetchJson(`${this.RENDER_API_URL}/v2/balance-history?linked=false&page=${page}&limit=${limit}`);
     },
 
     /**
-     * Get ticket statistics
+     * Get count of unlinked bank transactions
      */
-    async getTicketStats() {
+    async getUnlinkedTransactionsCount() {
         try {
-            const response = await fetch(`${this.RENDER_API_URL}/ticket/stats`);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch ticket stats: ${response.status}`);
-            }
-            const result = await response.json();
-            return result.data;
-        } catch (error) {
-            console.error('[API-PG] Get ticket stats failed:', error);
-            throw error;
-        }
-    },
-
-    /**
-     * Get single ticket by code
-     * @param {string} ticketCode - Ticket code (TV-YYYY-NNNNN) or Firebase ID
-     */
-    async getTicket(ticketCode) {
-        try {
-            const response = await fetch(`${this.RENDER_API_URL}/ticket/${ticketCode}`);
-            if (!response.ok) {
-                if (response.status === 404) return null;
-                throw new Error(`Failed to fetch ticket: ${response.status}`);
-            }
-            const result = await response.json();
-
-            // Transform to Firebase-compatible format
-            const ticket = result.data;
+            const response = await fetchJson(`${this.RENDER_API_URL}/v2/balance-history?linked=false&page=1&limit=1`);
             return {
-                ...ticket,
-                firebaseId: ticket.ticket_code,
-                ticketCode: ticket.ticket_code,  // Used by ISSUE_CREDIT action
-                orderId: ticket.order_id,
-                tposId: ticket.tpos_order_id,  // TPOS internal ID for refund processing
-                trackingCode: ticket.tracking_code,
-                customer: ticket.customer_name,
-                originalCod: ticket.original_cod,
-                newCod: ticket.new_cod,
-                money: ticket.refund_amount,
-                fixReason: ticket.fix_cod_reason,
-                note: ticket.internal_note,
-                createdAt: new Date(ticket.created_at).getTime()
+                success: response.success,
+                count: response.pagination?.total || response.data?.length || 0
             };
         } catch (error) {
-            console.error('[API-PG] Get ticket failed:', error);
-            throw error;
+            console.error('[API] getUnlinkedTransactionsCount failed:', error);
+            return { success: false, count: 0 };
         }
     },
 
     /**
-     * Add note to customer
+     * Link a bank transaction to a customer
+     * @param {number} transaction_id
      * @param {string} phone
-     * @param {string} content
-     * @param {Object} options - { category, is_pinned, created_by }
+     * @param {boolean} auto_deposit
      */
-    async addCustomerNote(phone, content, options = {}) {
-        try {
-            const response = await fetch(`${this.RENDER_API_URL}/customer/${phone}/note`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    content,
-                    category: options.category || 'general',
-                    is_pinned: options.is_pinned || false,
-                    created_by: options.created_by || 'system'
-                })
-            });
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to add note');
-            }
-            const result = await response.json();
-            console.log('[API-PG] Customer note added:', phone);
-            return result.data;
-        } catch (error) {
-            console.error('[API-PG] Add customer note failed:', error);
-            throw error;
-        }
+    async linkBankTransaction(transaction_id, phone, auto_deposit = true) {
+        return fetchJson(`${this.RENDER_API_URL}/v2/balance-history/${transaction_id}/link`, {
+            method: 'POST',
+            body: JSON.stringify({ phone, auto_deposit })
+        });
     }
 };
+
+// =====================================================
+// HELPER FUNCTIONS
+// =====================================================
+
+async function fetchJson(url, options = {}) {
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers,
+            },
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(errorData.error || errorData.message || `API error: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('API Service Error:', error);
+        throw error;
+    }
+}
+
+// Helper to get Firebase tickets reference (for legacy mode)
+function getTicketsRef() {
+    if (typeof firebase !== 'undefined') {
+        return firebase.database().ref('issue_tracking/tickets');
+    }
+    return null;
+}

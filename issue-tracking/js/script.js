@@ -1204,18 +1204,12 @@ async function handleConfirmAction() {
                         // RETURN_CLIENT: luôn dùng deposit (tiền thật)
                         const compensationType = 'deposit';
 
-                        const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${pendingActionTicketId}/resolve`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
+                        const resolveData = await ApiService.resolveTicket(pendingActionTicketId, {
                                 compensation_amount: compensationAmount,
                                 compensation_type: compensationType,
                                 performed_by: window.authManager?.getUserInfo()?.username || 'warehouse_staff',
                                 note: `Hoàn tiền từ ticket ${ticket.ticketCode || ticket.orderId} - Refund: ${result.refundOrderId}`
-                            })
                         });
-
-                        const resolveData = await resolveResult.json();
 
                         if (resolveData.success) {
                             console.log('[APP] Wallet credited successfully:', resolveData);
@@ -1296,19 +1290,13 @@ async function handleConfirmAction() {
 
             loadingId = notificationManager.loading('Đang cấp công nợ ảo...', 'Xử lý');
 
-            const resolveResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${pendingActionTicketId}/resolve-credit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const resolveData = await ApiService.resolveTicketCredit(pendingActionTicketId, {
                     phone: customerPhone,
                     amount: money,
                     ticket_code: ticketCode,
                     note: `Công nợ ảo - Thu về đơn ${ticket.orderId}`,
                     expires_in_days: 15
-                })
             });
-
-            const resolveData = await resolveResult.json();
 
             notificationManager.remove(loadingId);
             loadingId = null;
@@ -2226,8 +2214,7 @@ window.deleteTicket = async function (firebaseId) {
     // =====================================================
     if (ticket.type === 'RETURN_SHIPPER') {
         try {
-            const checkResult = await fetch(`${ApiService.RENDER_API_URL}/v2/tickets/${ticketIdentifier}/can-delete`);
-            const checkData = await checkResult.json();
+            const checkData = await ApiService.canDeleteTicket(ticketIdentifier);
 
             if (!checkData.canDelete) {
                 notificationManager.error(
