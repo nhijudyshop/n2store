@@ -1242,15 +1242,14 @@ const ApiService = {
     },
 
     /**
-     * Get consolidated transactions for customer
-     * @param {string} phone - Customer phone
+     * Get consolidated activity feed (all customers)
      * @param {number} page
      * @param {number} limit
-     * @param {Object} filters - { startDate, endDate, type }
+     * @param {Object} filters - { startDate, endDate, type, phone, query }
      */
-    async getConsolidatedTransactions(phone, page = 1, limit = 10, filters = {}) {
+    async getConsolidatedTransactions(page = 1, limit = 10, filters = {}) {
         const queryParams = new URLSearchParams({ page, limit, ...filters }).toString();
-        return fetchJson(`${this.RENDER_API_URL}/v2/customers/${phone}/transactions?${queryParams}`);
+        return fetchJson(`${this.RENDER_API_URL}/v2/analytics/activity-feed?${queryParams}`);
     },
 
     // =====================================================
