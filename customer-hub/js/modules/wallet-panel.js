@@ -236,7 +236,7 @@ export class WalletPanelModule {
         if (!this.customerPhone) return alert('Không có số điện thoại khách hàng.');
 
         try {
-            const response = await fetch(`${apiService.RENDER_API_URL}/customer/${this.customerPhone}/transactions?limit=50`);
+            const response = await fetch(`${apiService.RENDER_API_URL}/v2/customers/${this.customerPhone}/transactions?limit=50`);
             if (!response.ok) throw new Error('Không thể tải lịch sử giao dịch');
             const { data: transactions = [] } = await response.json();
 

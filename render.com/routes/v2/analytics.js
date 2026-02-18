@@ -11,6 +11,7 @@
  *   GET    /ticket-metrics  - Ticket resolution metrics
  *   GET    /wallet-summary  - Wallet statistics
  *   GET    /daily-summary   - Daily transaction summary
+ *   GET    /activity-feed   - Consolidated activity feed (all customers)
  *   POST   /rfm/recalculate - Recalculate all RFM scores
  *
  * Created: 2026-01-12
@@ -19,6 +20,7 @@
 
 const express = require('express');
 const router = express.Router();
+const { normalizePhone } = require('../../utils/customer-helpers');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -430,6 +432,141 @@ router.post('/rfm/config', async (req, res) => {
         });
     } catch (error) {
         handleError(res, error, 'Failed to update RFM config');
+    }
+});
+
+/**
+ * GET /api/v2/analytics/activity-feed
+ * Consolidated activity feed across all customers (paginated)
+ * Combines: wallet_transactions, customer_activities, customer_tickets
+ * Query params: page, limit, startDate, endDate, phone, type, query
+ */
+router.get('/activity-feed', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { page = 1, limit = 10, startDate, endDate, phone, type, query: searchQuery } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const params = [];
+    let paramIndex = 1;
+
+    // Build WHERE conditions for each table
+    let walletWhereConditions = [];
+    let activityWhereConditions = [];
+    let ticketWhereConditions = [];
+
+    if (phone) {
+        const normalizedPhone = normalizePhone(phone);
+        walletWhereConditions.push(`wt.phone = $${paramIndex}`);
+        activityWhereConditions.push(`ca.phone = $${paramIndex}`);
+        ticketWhereConditions.push(`ct.phone = $${paramIndex}`);
+        params.push(normalizedPhone);
+        paramIndex++;
+    }
+    if (startDate) {
+        walletWhereConditions.push(`wt.created_at >= $${paramIndex}`);
+        activityWhereConditions.push(`ca.created_at >= $${paramIndex}`);
+        ticketWhereConditions.push(`ct.created_at >= $${paramIndex}`);
+        params.push(startDate);
+        paramIndex++;
+    }
+    if (endDate) {
+        walletWhereConditions.push(`wt.created_at < ($${paramIndex}::date + interval '1 day')`);
+        activityWhereConditions.push(`ca.created_at < ($${paramIndex}::date + interval '1 day')`);
+        ticketWhereConditions.push(`ct.created_at < ($${paramIndex}::date + interval '1 day')`);
+        params.push(endDate);
+        paramIndex++;
+    }
+
+    const walletWhere = walletWhereConditions.length > 0 ? 'WHERE ' + walletWhereConditions.join(' AND ') : '';
+    const activityWhere = activityWhereConditions.length > 0 ? 'WHERE ' + activityWhereConditions.join(' AND ') : '';
+    const ticketWhere = ticketWhereConditions.length > 0 ? 'WHERE ' + ticketWhereConditions.join(' AND ') : '';
+
+    const nullQuery = `SELECT NULL::int as id, NULL as source_type, NULL as type, NULL::timestamp as created_at, NULL::bigint as amount, NULL as description, NULL as customer_name, NULL as customer_phone, NULL as icon, NULL as color WHERE false`;
+
+    let walletQuery = `
+        SELECT wt.id, 'wallet_transaction' as source_type, wt.type as type,
+            (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+            wt.amount, wt.note as description, c.name as customer_name, wt.phone as customer_phone,
+            'dollar-sign' as icon,
+            CASE WHEN wt.type IN ('DEPOSIT','VIRTUAL_CREDIT') THEN 'green'
+                 WHEN wt.type IN ('WITHDRAW','VIRTUAL_DEBIT') THEN 'red' ELSE 'blue' END as color
+        FROM wallet_transactions wt LEFT JOIN customers c ON c.phone = wt.phone
+        ${walletWhere}
+    `;
+
+    let activityQuery = `
+        SELECT ca.id, 'customer_activity' as source_type, ca.activity_type as type,
+            (ca.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+            NULL::bigint as amount,
+            COALESCE(ca.title, '') || CASE WHEN ca.description IS NOT NULL THEN ' - ' || ca.description ELSE '' END as description,
+            c.name as customer_name, ca.phone as customer_phone,
+            COALESCE(ca.icon, 'event') as icon, COALESCE(ca.color, 'blue') as color
+        FROM customer_activities ca LEFT JOIN customers c ON c.phone = ca.phone
+        ${activityWhere}
+    `;
+
+    let ticketQuery = `
+        SELECT ct.id, 'customer_ticket' as source_type, ct.type as type,
+            (ct.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
+            ct.refund_amount as amount,
+            'Sự vụ ' || ct.type || ' - ' || COALESCE(ct.ticket_code, '') as description,
+            c.name as customer_name, ct.phone as customer_phone,
+            'confirmation_number' as icon,
+            CASE WHEN ct.status = 'pending' THEN 'yellow'
+                 WHEN ct.status = 'completed' THEN 'green'
+                 WHEN ct.status = 'cancelled' THEN 'red' ELSE 'blue' END as color
+        FROM customer_tickets ct LEFT JOIN customers c ON c.phone = ct.phone
+        ${ticketWhere}
+    `;
+
+    // Apply type filter
+    if (type && type !== 'all' && type !== '') {
+        const walletTypes = ['DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT'];
+        const ticketTypes = ['RETURN_CLIENT', 'RETURN_SHIPPER', 'OTHER', 'COD_ADJUSTMENT', 'BOOM'];
+
+        if (walletTypes.includes(type)) {
+            walletQuery += ` AND wt.type = '${type}'`;
+            activityQuery = nullQuery;
+            ticketQuery = nullQuery;
+        } else if (ticketTypes.includes(type)) {
+            walletQuery = nullQuery;
+            activityQuery = nullQuery;
+            ticketQuery += (ticketWhere ? ' AND ' : ' WHERE ') + `ct.type = '${type}'`;
+        } else {
+            walletQuery = nullQuery;
+            activityQuery += (activityWhere ? ' AND ' : ' WHERE ') + `ca.activity_type = '${type}'`;
+            ticketQuery = nullQuery;
+        }
+    }
+
+    try {
+        const countQuery = `
+            SELECT COUNT(*) FROM (
+                ${walletQuery} UNION ALL ${activityQuery} UNION ALL ${ticketQuery}
+            ) as combined_counts
+        `;
+        const countResult = await db.query(countQuery, params);
+        const total = parseInt(countResult.rows[0].count);
+
+        const combinedQuery = `
+            ${walletQuery} UNION ALL ${activityQuery} UNION ALL ${ticketQuery}
+            ORDER BY created_at DESC
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+        const result = await db.query(combinedQuery, [...params, parseInt(limit), offset]);
+
+        res.json({
+            success: true,
+            data: result.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch activity feed');
     }
 });
 
