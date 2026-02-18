@@ -1264,7 +1264,7 @@ async function loadChatDebt(phone) {
 
     // Always fetch fresh from wallet API (same source as salePrepaidAmount in fetchDebtForSaleModal)
     try {
-        const response = await fetch(`${QR_API_URL}/api/wallet/${encodeURIComponent(normalizedPhone)}`);
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
         if (result.success && result.data) {

@@ -3273,7 +3273,7 @@ async function showCustomerQuickView(phone) {
     if (window.lucide) lucide.createIcons();
 
     try {
-        const response = await fetch(`${CUSTOMER_API_URL}/api/customer/${phone}/quick-view`);
+        const response = await fetch(`${CUSTOMER_API_URL}/api/v2/customers/${phone}/quick-view`);
         const result = await response.json();
 
         loadingEl.style.display = 'none';

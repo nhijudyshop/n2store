@@ -237,7 +237,7 @@ async function batchFetchDebts(phones) {
         const requestBody = JSON.stringify({ phones: uncachedPhones });
         console.log('[WALLET-BATCH] Request body:', requestBody);
 
-        const response = await fetch(`${QR_API_URL}/api/wallet/batch-summary`, {
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: requestBody
@@ -1681,7 +1681,7 @@ async function fetchDebtForSaleModal(phone) {
 
     try {
         // Use wallet API to get customer's available balance
-        const response = await fetch(`${QR_API_URL}/api/wallet/${encodeURIComponent(normalizedPhone)}`);
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
         if (result.success && result.data) {
