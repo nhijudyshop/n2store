@@ -312,7 +312,8 @@ const PAGES_REGISTRY = {
             export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo" },
             compare: { name: "So sánh", icon: "git-compare", description: "So sánh các kỳ báo cáo" },
             viewAnalysis: { name: "Xem Phân tích hiệu quả", icon: "trending-up", description: "Truy cập tab Phân tích hiệu quả" },
-            editAnalysis: { name: "Chỉnh sửa Phân tích", icon: "edit", description: "Chỉnh sửa thông số trong tab Phân tích" }
+            editAnalysis: { name: "Chỉnh sửa Phân tích", icon: "edit", description: "Chỉnh sửa thông số trong tab Phân tích" },
+            managePancake: { name: "Quản lý Pancake", icon: "settings", description: "Thêm/xóa tài khoản Pancake và Page Token" }
         }
     },
 

@@ -327,9 +327,8 @@ function renderTable() {
         return;
     }
 
-    // Check if user has admin access via checkLogin level (0 = admin)
-    // hasPermission(0) returns true only if checkLogin === 0
-    let isAdmin = window.authManager?.hasPermission(0) || false;
+    // Check if user has viewRevenue permission to see all orders
+    let isAdmin = window.authManager?.hasDetailedPermission('baocaosaleonline', 'viewRevenue') || false;
 
     // Group by employee if ranges are configured AND user is NOT admin
     if (!isAdmin && employeeRanges.length > 0) {

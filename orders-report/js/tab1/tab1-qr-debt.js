@@ -1245,8 +1245,8 @@ async function openSaleButtonModal() {
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
     const confirmDebtBtn = document.getElementById('confirmDebtBtn');
 
-    // Check admin access via checkLogin level (0 = admin)
-    let isAdmin = window.authManager?.hasPermission(0) || false;
+    // Check if user has viewRevenue permission for debt field access
+    let isAdmin = window.authManager?.hasDetailedPermission('baocaosaleonline', 'viewRevenue') || false;
 
     if (prepaidAmountField) {
         if (isAdmin) {

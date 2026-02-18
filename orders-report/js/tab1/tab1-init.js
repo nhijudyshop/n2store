@@ -259,8 +259,8 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Load employee table from Firestore
     // loadAndRenderEmployeeTable(); // Moved to syncEmployeeRanges
 
-    // Check admin permission
-    checkAdminPermission();
+    // Initialize employee settings button visibility
+    initEmployeeSettingsButton();
 
     // ⚠️ DISABLED: syncEmployeeRanges() - No longer needed!
     // Employee ranges are now loaded per-campaign in handleCampaignChange()
