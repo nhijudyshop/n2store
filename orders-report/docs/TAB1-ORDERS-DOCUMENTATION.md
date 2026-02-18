@@ -106,7 +106,7 @@
 | 1530 | `populateEmployeeCampaignSelector()` | Populate selector campaign cho employee |
 | 1559 | `toggleEmployeeDrawer()` | Đóng/mở drawer nhân viên |
 | 1580 | `toggleControlBar()` | Đóng/mở control bar |
-| 1601 | `checkAdminPermission()` | Kiểm tra quyền admin |
+| 1601 | `initEmployeeSettingsButton()` | Hiển thị nút cài đặt nhân viên |
 | 1617 | `normalizeEmployeeRanges(data)` | Normalize employee ranges data |
 | 1640 | `loadEmployeeRangesForCampaign(campaignName)` | Tải employee ranges cho campaign |
 | 1700 | `syncEmployeeRanges()` | Sync employee ranges |

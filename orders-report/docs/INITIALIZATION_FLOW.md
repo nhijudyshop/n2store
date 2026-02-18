@@ -325,9 +325,9 @@ window.addEventListener("DOMContentLoaded", async function () {
     });
 
     // ========================================
-    // STEP 12: Check Admin Permission
+    // STEP 12: Init Employee Settings Button
     // ========================================
-    checkAdminPermission();
+    initEmployeeSettingsButton();
 
     // ========================================
     // STEP 13: Modal Close Handlers

@@ -265,21 +265,19 @@ window.refreshAccountsList = async function() {
     }
 };
 
-// Helper function to check if user is admin
+// Helper function to check if user has Pancake management permission
 function isUserAdmin() {
-    // Check via authManager first
-    if (window.authManager?.hasPermission) {
-        return window.authManager.hasPermission(0);
+    // Use detailedPermissions system
+    if (window.authManager?.hasDetailedPermission) {
+        return window.authManager.hasDetailedPermission('baocaosaleonline', 'managePancake');
     }
-    // Fallback: check localStorage directly (checkLogin: 0 = Admin)
-    const checkLogin = parseInt(localStorage.getItem('checkLogin'));
-    return checkLogin === 0;
+    return false;
 }
 
-// Helper function to check admin permission
+// Helper function to check admin permission for Pancake operations
 function checkAdminPermission(action = 'thực hiện thao tác này') {
     if (!isUserAdmin()) {
-        const message = `⛔ Chỉ Admin mới có quyền ${action}`;
+        const message = `⛔ Bạn không có quyền ${action}`;
         if (window.notificationManager) {
             window.notificationManager.show(message, 'error');
         } else {

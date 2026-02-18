@@ -199,9 +199,8 @@ function performTableSearch() {
         : [...allData];
 
     // Apply Employee STT Range Filter
-    // Check if user has admin access via checkLogin level (0 = admin)
     const auth = window.authManager ? window.authManager.getAuthState() : null;
-    let isAdmin = window.authManager?.hasPermission(0) || false;
+    let isAdmin = window.authManager?.hasDetailedPermission('baocaosaleonline', 'viewRevenue') || false;
 
     const currentUserType = auth && auth.userType ? auth.userType : null;
     const currentDisplayName = auth && auth.displayName ? auth.displayName : null;

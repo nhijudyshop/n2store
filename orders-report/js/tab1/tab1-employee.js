@@ -283,11 +283,10 @@ function toggleControlBar() {
     }
 }
 
-function checkAdminPermission() {
+function initEmployeeSettingsButton() {
     const btn = document.getElementById('employeeSettingsBtn');
     if (btn) {
-        // ✅ REMOVED PERMISSION CHECK - All users can now access employee settings
-        // Previously: Only admin or users with 'viewRevenue' permission could access
+        // All users can access employee settings
         btn.style.display = 'inline-flex';
     }
 }
