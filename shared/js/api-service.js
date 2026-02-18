@@ -1465,3 +1465,6 @@ function getTicketsRef() {
     }
     return null;
 }
+
+// Expose to global scope for ES module wrappers (customer-hub, issue-tracking)
+window.ApiService = ApiService;
