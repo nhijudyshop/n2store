@@ -703,10 +703,10 @@ async function confirmAndPrintSale() {
         if (errorOrders.length > 0 || dataErrorFast.length > 0) {
             const errorMessages = [];
             errorOrders.forEach(o => {
-                if (o.Error) errorMessages.push(o.Error);
+                if (o.Error) errorMessages.push(typeof o.Error === 'string' ? o.Error : (o.Error.Message || o.Error.message || JSON.stringify(o.Error)));
             });
             dataErrorFast.forEach(o => {
-                if (o.Error) errorMessages.push(o.Error);
+                if (o.Error) errorMessages.push(typeof o.Error === 'string' ? o.Error : (o.Error.Message || o.Error.message || JSON.stringify(o.Error)));
             });
             throw new Error(errorMessages.join('; ') || 'Có lỗi khi tạo đơn hàng');
         }
