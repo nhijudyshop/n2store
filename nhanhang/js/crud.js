@@ -221,6 +221,16 @@ async function updateReceipt(event) {
         data.data[index].soKg = soKg;
         data.data[index].soKien = soKien;
 
+        // Update datetime if provided – convert "YYYY-MM-DDTHH:MM" → "DD/MM/YYYY, HH:MM"
+        const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");
+        if (editThoiGianNhanInput && editThoiGianNhanInput.value) {
+            const dt = new Date(editThoiGianNhanInput.value);
+            if (!isNaN(dt.getTime())) {
+                const pad = (n) => String(n).padStart(2, "0");
+                data.data[index].thoiGianNhan = `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()}, ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+            }
+        }
+
         // Handle image update
         if (editCapturedImageBlob) {
             // Có ảnh mới được chụp - upload ảnh mới
@@ -408,6 +418,19 @@ function openEditModal(event) {
     editSoKgInput.value = receiptData.soKg || 0;
     editSoKienInput.value = receiptData.soKien || 0;
 
+    // Populate datetime field – convert "DD/MM/YYYY, HH:MM" → "YYYY-MM-DDTHH:MM"
+    const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");
+    if (editThoiGianNhanInput && receiptData.thoiGianNhan) {
+        const parsed = parseVietnameseDate(receiptData.thoiGianNhan);
+        if (parsed) {
+            const pad = (n) => String(n).padStart(2, "0");
+            const localValue = `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+            editThoiGianNhanInput.value = localValue;
+        } else {
+            editThoiGianNhanInput.value = "";
+        }
+    }
+
     // Handle current image
     editCurrentImageUrl = receiptData.anhNhanHang || null;
     console.log("Setting current image URL:", editCurrentImageUrl);
@@ -473,4 +496,7 @@ function closeEditModalFunction() {
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
     editCurrentImageUrl = null;
+
+    const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");
+    if (editThoiGianNhanInput) editThoiGianNhanInput.value = "";
 }
