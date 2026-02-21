@@ -592,16 +592,19 @@ function renderTable() {
                 <span class="supplier-code">${escapeHtml(item.Code || '')}</span>
                 <span class="action-buttons">
                     <button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">
-                        <i data-lucide="credit-card"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
                     </button>
                     <button class="btn-action btn-action-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'congno')" title="Công nợ">
-                        <i data-lucide="file-text"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
                     </button>
                     <button class="btn-action btn-action-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'invoice')" title="Hóa đơn">
-                        <i data-lucide="receipt"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17V7"/></svg>
                     </button>
                     <button class="btn-action btn-action-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'debt')" title="Nợ chi tiết">
-                        <i data-lucide="list"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+                    </button>
+                    <button class="btn-action btn-action-delete" onclick="handleDeleteLastPayment(${partnerId}, '${escapeHtmlAttr(item.Code || '')}')" title="Xóa thanh toán gần nhất">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     </button>
                 </span>
             </td>
@@ -628,10 +631,12 @@ function renderTable() {
         tbody.appendChild(detailTr);
     });
 
-    // Re-render Lucide icons
-    if (window.lucide) {
-        window.lucide.createIcons();
-    }
+    // Re-render Lucide icons with delay to ensure DOM is ready
+    setTimeout(() => {
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    }, 10);
 
     // Apply column visibility
     applyColumnVisibility();
@@ -1044,7 +1049,7 @@ function renderCongNoTab(partnerId) {
                         data-web="${escapedWebNote}"
                         onclick="handleNoteEditClick(this)"
                         title="Chỉnh sửa ghi chú web">
-                        <i data-lucide="pencil"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </button>
                 </td>
                 <td>${escapeHtml(moveName)}</td>
@@ -1057,7 +1062,7 @@ function renderCongNoTab(partnerId) {
                         <button class="btn-delete-row"
                             onclick="handleDeletePayment(${moveId}, '${escapedMoveName}', ${partnerId})"
                             title="Xóa thanh toán">
-                            <i data-lucide="trash-2"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                         </button>
                     ` : ''}
                 </td>
@@ -1074,11 +1079,11 @@ function renderCongNoTab(partnerId) {
     tableHtml += `
         <div class="detail-pagination">
             <div class="detail-pagination-nav">
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, 1)"><i data-lucide="chevrons-left"></i></button>
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, 1)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page - 1})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
                 ${renderDetailPageNumbers(page, totalPages, partnerId, 'congno')}
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right"></i></button>
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page + 1})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${totalPages})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></button>
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeCongNoPageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
@@ -1087,7 +1092,7 @@ function renderCongNoTab(partnerId) {
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
             <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
-            <button class="btn-refresh" onclick="refreshCongNo(${partnerId})"><i data-lucide="refresh-cw"></i></button>
+            <button class="btn-refresh" onclick="refreshCongNo(${partnerId})"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>
         </div>
     `;
 
@@ -1115,7 +1120,7 @@ function renderInfoTab(partnerId) {
 
     return `
         <button class="btn-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})">
-            <i data-lucide="credit-card"></i>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
             Thanh toán
         </button>
         <div class="info-grid">
@@ -1230,7 +1235,7 @@ function renderInvoiceTab(partnerId) {
                 <td></td>
                 <td><span class="status-badge ${statusClass}">${escapeHtml(inv.ShowStateFast || '')}</span></td>
                 <td class="col-number">${formatNumber(inv.AmountTotal)}</td>
-                <td><button class="btn-view" title="Xem chi tiết"><i data-lucide="external-link"></i></button></td>
+                <td><button class="btn-view" title="Xem chi tiết"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg></button></td>
             </tr>
         `;
     });
@@ -1244,11 +1249,11 @@ function renderInvoiceTab(partnerId) {
     tableHtml += `
         <div class="detail-pagination">
             <div class="detail-pagination-nav">
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, 1)"><i data-lucide="chevrons-left" ></i></button>
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" ></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, 1)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page - 1})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
                 ${renderDetailPageNumbers(page, totalPages, partnerId, 'invoice')}
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" ></i></button>
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" ></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page + 1})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${totalPages})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></button>
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeInvoicePageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
@@ -1257,7 +1262,7 @@ function renderInvoiceTab(partnerId) {
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
             <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
-            <button class="btn-refresh" onclick="refreshInvoices(${partnerId})"><i data-lucide="refresh-cw" ></i></button>
+            <button class="btn-refresh" onclick="refreshInvoices(${partnerId})"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>
         </div>
     `;
 
@@ -1316,11 +1321,11 @@ function renderDebtTab(partnerId) {
     tableHtml += `
         <div class="detail-pagination">
             <div class="detail-pagination-nav">
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, 1)"><i data-lucide="chevrons-left" ></i></button>
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" ></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, 1)"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/></svg></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page - 1})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
                 ${renderDetailPageNumbers(page, totalPages, partnerId, 'debt')}
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" ></i></button>
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" ></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page + 1})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${totalPages})"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg></button>
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeDebtPageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
@@ -1329,7 +1334,7 @@ function renderDebtTab(partnerId) {
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
             <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
-            <button class="btn-refresh" onclick="refreshDebtDetails(${partnerId})"><i data-lucide="refresh-cw" ></i></button>
+            <button class="btn-refresh" onclick="refreshDebtDetails(${partnerId})"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg></button>
         </div>
     `;
 
@@ -2062,6 +2067,72 @@ function handleNoteEditClick(btn) {
 // =====================================================
 // DELETE PAYMENT
 // =====================================================
+
+async function handleDeleteLastPayment(partnerId, supplierCode) {
+    // Find the most recent payment for this supplier
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+
+        // Get partner data
+        const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
+        if (!partnerData) {
+            if (window.notificationManager) {
+                window.notificationManager.warning('Không tìm thấy thông tin nhà cung cấp');
+            }
+            return;
+        }
+
+        // Fetch recent payments for this partner
+        const url = `${CONFIG.API_BASE}/AccountPayment?$filter=PartnerId eq ${partnerId} and State eq 'posted'&$orderby=PaymentDate desc&$top=1&$format=json`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Không thể lấy danh sách thanh toán');
+        }
+
+        const data = await response.json();
+        if (!data.value || data.value.length === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.warning('Không tìm thấy thanh toán nào để xóa');
+            }
+            return;
+        }
+
+        const lastPayment = data.value[0];
+        const paymentId = lastPayment.Id;
+        const paymentName = lastPayment.Name || `#${paymentId}`;
+
+        // Show confirm dialog
+        if (window.notificationManager && window.notificationManager.confirm) {
+            const confirmed = await window.notificationManager.confirm(
+                `Bạn có chắc chắn muốn xóa thanh toán gần nhất "${paymentName}" của nhà cung cấp [${supplierCode}]?`,
+                'Xác nhận xóa'
+            );
+
+            if (confirmed) {
+                await deletePayment(paymentId, partnerId);
+            }
+        } else {
+            if (confirm(`Bạn có chắc chắn muốn xóa thanh toán gần nhất "${paymentName}"?`)) {
+                await deletePayment(paymentId, partnerId);
+            }
+        }
+
+    } catch (error) {
+        console.error('[SupplierDebt] Error in handleDeleteLastPayment:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi: ${error.message}`);
+        }
+    }
+}
 
 async function handleDeletePayment(moveId, moveName, partnerId) {
     if (!moveId) {
