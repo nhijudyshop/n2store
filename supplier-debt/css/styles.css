@@ -1196,6 +1196,19 @@
     color: white;
 }
 
+/* Button multi-edit (2+ edits) - red color */
+.btn-edit-note.multi-edit {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #dc2626;
+}
+
+.btn-edit-note.multi-edit:hover {
+    background: #ef4444;
+    border-color: #dc2626;
+    color: white;
+}
+
 .btn-edit-note svg,
 .btn-edit-note i {
     width: 12px;

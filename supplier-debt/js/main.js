@@ -1054,6 +1054,9 @@ function renderCongNoTab(partnerId) {
         const tposNote = item.Ref || '';
         const moveName = item.MoveName || '';
         const webNote = WebNotesStore.get(supplierCode, moveName);
+        const noteHistory = WebNotesStore.getHistory(supplierCode, moveName);
+        // Determine note button class: multi-edit (red) if 2+ edits, has-note (green) if 1 edit
+        const noteButtonClass = noteHistory.length >= 1 ? 'multi-edit' : (webNote ? 'has-note' : '');
 
         // Escape for HTML attributes
         const escapedSupplierCode = escapeHtmlAttr(supplierCode);
@@ -1087,7 +1090,7 @@ function renderCongNoTab(partnerId) {
                         ${tposNote ? `<span class="note-tpos" title="Dữ liệu TPOS (không thể sửa)">${escapeHtml(tposNote)}</span>` : ''}
                         ${webNote ? `<span class="note-web" title="Ghi chú web">${escapeHtml(webNote)}</span>` : ''}
                     </div>
-                    <button class="btn-edit-note ${webNote ? 'has-note' : ''}"
+                    <button class="btn-edit-note ${noteButtonClass}"
                         data-supplier="${escapedSupplierCode}"
                         data-movename="${escapedMoveName}"
                         data-tpos="${escapedTposNote}"
