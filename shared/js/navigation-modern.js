@@ -1736,7 +1736,7 @@ class UnifiedNavigationManager {
             /* Edit Controls */
             .menu-edit-controls {
                 padding: 8px 12px;
-                border-bottom: 1px solid rgba(255,255,255,0.1);
+                border-bottom: 1px solid var(--border, rgba(0,0,0,0.1));
                 margin-bottom: 8px;
             }
             .menu-edit-toggle {
@@ -1748,18 +1748,13 @@ class UnifiedNavigationManager {
                 background: rgba(99, 102, 241, 0.1);
                 border: 1px solid rgba(99, 102, 241, 0.3);
                 border-radius: 8px;
-                color: #a5b4fc;
+                color: #6366f1;
                 cursor: pointer;
                 font-size: 13px;
                 transition: all 0.2s;
             }
             .menu-edit-toggle:hover {
                 background: rgba(99, 102, 241, 0.2);
-            }
-            .menu-edit-toggle.active {
-                background: rgba(34, 197, 94, 0.2);
-                border-color: rgba(34, 197, 94, 0.5);
-                color: #86efac;
             }
             .menu-edit-toggle i {
                 width: 16px;
@@ -1783,13 +1778,15 @@ class UnifiedNavigationManager {
                 align-items: center;
                 gap: 8px;
                 padding: 10px 12px;
-                background: rgba(255,255,255,0.05);
+                background: var(--gray-100, rgba(0,0,0,0.03));
                 cursor: pointer;
                 user-select: none;
                 transition: background 0.2s;
+                border-radius: 8px;
+                margin-bottom: 2px;
             }
             .menu-group-header:hover {
-                background: rgba(255,255,255,0.08);
+                background: var(--gray-200, rgba(0,0,0,0.06));
             }
             .group-collapse-icon {
                 width: 16px;
@@ -1797,7 +1794,7 @@ class UnifiedNavigationManager {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: rgba(255,255,255,0.5);
+                color: var(--text-secondary, #64748b);
             }
             .group-collapse-icon i {
                 width: 14px;
@@ -1806,51 +1803,22 @@ class UnifiedNavigationManager {
             .group-icon {
                 width: 16px;
                 height: 16px;
-                color: #a5b4fc;
+                color: #6366f1;
             }
             .group-name {
                 flex: 1;
-                font-size: 12px;
+                font-size: 11px;
                 font-weight: 600;
-                color: rgba(255,255,255,0.9);
+                color: var(--text-secondary, #64748b);
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
             .group-count {
-                font-size: 11px;
-                color: rgba(255,255,255,0.4);
-                background: rgba(255,255,255,0.1);
+                font-size: 10px;
+                color: var(--text-secondary, #64748b);
+                background: var(--gray-200, rgba(0,0,0,0.06));
                 padding: 2px 6px;
                 border-radius: 10px;
-            }
-
-            /* Group Actions (Edit Mode) */
-            .group-actions {
-                display: none;
-                gap: 4px;
-            }
-            .sidebar.edit-mode .group-actions {
-                display: flex;
-            }
-            .group-action-btn {
-                padding: 4px;
-                background: transparent;
-                border: none;
-                color: rgba(255,255,255,0.5);
-                cursor: pointer;
-                border-radius: 4px;
-                transition: all 0.2s;
-            }
-            .group-action-btn:hover {
-                background: rgba(255,255,255,0.1);
-                color: white;
-            }
-            .group-action-btn i {
-                width: 14px;
-                height: 14px;
-            }
-            .delete-group-btn:hover {
-                color: #f87171;
             }
 
             /* Group Items */
@@ -1863,79 +1831,10 @@ class UnifiedNavigationManager {
                 display: none;
             }
             .menu-group-items .nav-item {
-                padding-left: 24px;
-            }
-
-            /* Drag Handles */
-            .group-drag-handle,
-            .item-drag-handle {
-                display: none;
-                align-items: center;
-                justify-content: center;
-                color: rgba(255,255,255,0.3);
-                cursor: grab;
-                padding: 4px;
-            }
-            .group-drag-handle i,
-            .item-drag-handle i {
-                width: 14px;
-                height: 14px;
-            }
-            .sidebar.edit-mode .group-drag-handle,
-            .sidebar.edit-mode .item-drag-handle {
-                display: flex;
-            }
-            .group-drag-handle:hover,
-            .item-drag-handle:hover {
-                color: rgba(255,255,255,0.6);
-            }
-
-            /* Add Group Button */
-            .add-group-btn {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                width: 100%;
-                padding: 12px 16px;
-                margin-top: 8px;
-                background: rgba(34, 197, 94, 0.1);
-                border: 1px dashed rgba(34, 197, 94, 0.3);
-                border-radius: 8px;
-                color: #86efac;
-                cursor: pointer;
+                padding-left: 20px;
                 font-size: 13px;
-                transition: all 0.2s;
-            }
-            .add-group-btn:hover {
-                background: rgba(34, 197, 94, 0.2);
-                border-color: rgba(34, 197, 94, 0.5);
-            }
-            .add-group-btn i {
-                width: 16px;
-                height: 16px;
             }
 
-            /* Sortable Ghost/Chosen */
-            .sortable-ghost {
-                opacity: 0.4;
-                background: rgba(99, 102, 241, 0.3);
-            }
-            .sortable-chosen {
-                background: rgba(99, 102, 241, 0.2);
-            }
-            .sortable-drag {
-                background: rgba(30, 41, 59, 0.95);
-                border-radius: 8px;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            }
-
-            /* Edit Mode State */
-            .sidebar.edit-mode .nav-item {
-                cursor: grab;
-            }
-            .sidebar.edit-mode .nav-item:active {
-                cursor: grabbing;
-            }
         `;
         document.head.appendChild(style);
     }
@@ -1944,7 +1843,7 @@ class UnifiedNavigationManager {
         const divider = document.createElement("div");
         divider.className = "nav-divider";
         divider.innerHTML =
-            '<hr style="border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0;">';
+            '<hr style="border: none; border-top: 1px solid var(--border, rgba(0,0,0,0.1)); margin: 16px 0;">';
         sidebarNav.appendChild(divider);
 
         const settingsBtn = document.createElement("button");
