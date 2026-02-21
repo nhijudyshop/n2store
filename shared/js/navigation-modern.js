@@ -831,8 +831,10 @@ class UnifiedNavigationManager {
             const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
             const authData = JSON.parse(authDataStr);
             // isAdminTemplate is for UI display only (role badge, etc.), NOT for bypass
-            this.isAdminTemplate = authData.roleTemplate === 'admin';
-            console.log("[Unified Nav] Role Template:", authData.roleTemplate, "| Source:", localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage");
+            // Check userType in localStorage - if starts with "admin" then is admin
+            const userType = localStorage.getItem("userType") || "";
+            this.isAdminTemplate = userType.startsWith("admin") || authData.roleTemplate === 'admin';
+            console.log("[Unified Nav] userType:", userType, "| isAdmin:", this.isAdminTemplate);
 
             // Load permissions
             await this.loadUserPermissions();
