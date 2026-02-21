@@ -787,6 +787,7 @@
     font-size: 13px;
 }
 
-.detail-loading i {
+.detail-loading i,
+.spin {
     animation: spin 1s linear infinite;
 }

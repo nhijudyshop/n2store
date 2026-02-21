@@ -33,7 +33,7 @@ const State = {
     display: 'all',
     selectedSupplier: '',
     // Expanded row state
-    expandedRows: new Map(), // partnerId -> { info, invoices, debtDetails, activeTab, invoicePage, debtPage }
+    expandedRows: new Map(), // partnerId -> { congNo, info, invoices, debtDetails, activeTab, ... }
 };
 
 // =====================================================
@@ -445,10 +445,14 @@ async function toggleRowExpand(partnerId, expandCell) {
         expandIcon.classList.remove('expanded');
         detailPanel.innerHTML = '';
     } else {
-        // Expand
+        // Expand - only set up state, don't fetch all data
         const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
         State.expandedRows.set(partnerId, {
             partnerData,
+            // Tab data (null = not loaded yet)
+            congNo: null,
+            congNoPage: 1,
+            congNoTotal: 0,
             info: null,
             invoices: null,
             invoicePage: 1,
@@ -456,31 +460,19 @@ async function toggleRowExpand(partnerId, expandCell) {
             debtDetails: null,
             debtPage: 1,
             debtTotal: 0,
-            activeTab: 'info'
+            activeTab: 'congno', // Default to first tab
+            isLoading: {} // Track which tabs are loading
         });
 
         detailRow.classList.add('expanded');
         expandIcon.classList.add('expanded');
 
-        // Render loading state
-        detailPanel.innerHTML = `
-            <div class="detail-loading">
-                <i data-lucide="loader-2" style="width: 20px; height: 20px;"></i>
-                Đang tải dữ liệu...
-            </div>
-        `;
-        if (window.lucide) window.lucide.createIcons();
-
-        // Fetch data for all tabs
-        await Promise.all([
-            fetchPartnerInfo(partnerId),
-            fetchPartnerInvoices(partnerId, 1),
-            fetchPartnerDebtDetails(partnerId, 1)
-        ]);
-
-        // Render detail panel
+        // Render panel with first tab selected
         detailPanel.innerHTML = renderDetailPanel(partnerId);
         if (window.lucide) window.lucide.createIcons();
+
+        // Fetch data for the default tab (congno)
+        await loadTabData(partnerId, 'congno');
     }
 }
 
@@ -488,13 +480,17 @@ function renderDetailPanel(partnerId) {
     const rowState = State.expandedRows.get(partnerId);
     if (!rowState) return '';
 
-    const activeTab = rowState.activeTab || 'info';
+    const activeTab = rowState.activeTab || 'congno';
 
     return `
         <div class="detail-tabs">
+            <button class="detail-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'congno')">Công nợ</button>
             <button class="detail-tab ${activeTab === 'info' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'info')">Thông tin</button>
             <button class="detail-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'invoice')">Hóa đơn</button>
             <button class="detail-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'debt')">Chi tiết nợ</button>
+        </div>
+        <div class="detail-tab-content ${activeTab === 'congno' ? 'active' : ''}" id="tab-congno-${partnerId}">
+            ${renderCongNoTab(partnerId)}
         </div>
         <div class="detail-tab-content ${activeTab === 'info' ? 'active' : ''}" id="tab-info-${partnerId}">
             ${renderInfoTab(partnerId)}
@@ -508,7 +504,7 @@ function renderDetailPanel(partnerId) {
     `;
 }
 
-function switchDetailTab(partnerId, tabName) {
+async function switchDetailTab(partnerId, tabName) {
     const rowState = State.expandedRows.get(partnerId);
     if (!rowState) return;
 
@@ -518,23 +514,192 @@ function switchDetailTab(partnerId, tabName) {
     document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab`).forEach(tab => {
         tab.classList.remove('active');
     });
-    document.querySelector(`#detail-panel-${partnerId} .detail-tab:nth-child(${tabName === 'info' ? 1 : tabName === 'invoice' ? 2 : 3})`).classList.add('active');
+    const tabIndex = { congno: 1, info: 2, invoice: 3, debt: 4 }[tabName] || 1;
+    document.querySelector(`#detail-panel-${partnerId} .detail-tab:nth-child(${tabIndex})`).classList.add('active');
 
     // Update tab content
     document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab-content`).forEach(content => {
         content.classList.remove('active');
     });
     document.getElementById(`tab-${tabName}-${partnerId}`).classList.add('active');
+
+    // Lazy load data for this tab if not already loaded
+    await loadTabData(partnerId, tabName);
+}
+
+// Load data for a specific tab (lazy loading)
+async function loadTabData(partnerId, tabName) {
+    const rowState = State.expandedRows.get(partnerId);
+    if (!rowState) return;
+
+    // Check if already loaded or loading
+    const dataKey = {
+        congno: 'congNo',
+        info: 'info',
+        invoice: 'invoices',
+        debt: 'debtDetails'
+    }[tabName];
+
+    if (rowState[dataKey] !== null || rowState.isLoading[tabName]) {
+        return; // Already loaded or loading
+    }
+
+    // Mark as loading
+    rowState.isLoading[tabName] = true;
+
+    // Show loading state in the tab content
+    const tabContent = document.getElementById(`tab-${tabName}-${partnerId}`);
+    if (tabContent) {
+        tabContent.innerHTML = `
+            <div class="detail-loading">
+                <i data-lucide="loader-2" class="spin" style="width: 20px; height: 20px;"></i>
+                Đang tải dữ liệu...
+            </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Fetch data based on tab
+    switch (tabName) {
+        case 'congno':
+            await fetchPartnerCongNo(partnerId, 1);
+            break;
+        case 'info':
+            await fetchPartnerInfo(partnerId);
+            break;
+        case 'invoice':
+            await fetchPartnerInvoices(partnerId, 1);
+            break;
+        case 'debt':
+            await fetchPartnerDebtDetails(partnerId, 1);
+            break;
+    }
+
+    // Mark as loaded
+    rowState.isLoading[tabName] = false;
+
+    // Re-render the tab content
+    if (tabContent) {
+        switch (tabName) {
+            case 'congno':
+                tabContent.innerHTML = renderCongNoTab(partnerId);
+                break;
+            case 'info':
+                tabContent.innerHTML = renderInfoTab(partnerId);
+                break;
+            case 'invoice':
+                tabContent.innerHTML = renderInvoiceTab(partnerId);
+                break;
+            case 'debt':
+                tabContent.innerHTML = renderDebtTab(partnerId);
+                break;
+        }
+        if (window.lucide) window.lucide.createIcons();
+    }
 }
 
 // =====================================================
 // DETAIL TAB RENDERERS
 // =====================================================
 
+function renderCongNoTab(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    const congNo = rowState?.congNo || [];
+    const page = rowState?.congNoPage || 1;
+    const total = rowState?.congNoTotal || 0;
+    const totalPages = Math.ceil(total / CONFIG.DETAIL_PAGE_SIZE);
+
+    // Check if not loaded yet
+    if (rowState?.congNo === null) {
+        return `
+            <div class="detail-loading">
+                <i data-lucide="loader-2" class="spin" style="width: 20px; height: 20px;"></i>
+                Đang tải dữ liệu...
+            </div>
+        `;
+    }
+
+    if (congNo.length === 0) {
+        return '<div class="detail-loading">Không có dữ liệu công nợ</div>';
+    }
+
+    let tableHtml = `
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>Ngày</th>
+                    <th>Nhập diễn giải</th>
+                    <th>Tham chiếu</th>
+                    <th>Bút toán</th>
+                    <th class="col-number">Nợ đầu kỳ</th>
+                    <th class="col-number">Phát sinh</th>
+                    <th class="col-number">Thanh toán</th>
+                    <th class="col-number">Nợ cuối kỳ</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    congNo.forEach(item => {
+        tableHtml += `
+            <tr>
+                <td>${formatDateFromISO(item.Date)}</td>
+                <td>${escapeHtml(item.Name || '')}</td>
+                <td>${escapeHtml(item.Ref || '')}</td>
+                <td>${escapeHtml(item.MoveName || '')}</td>
+                <td class="col-number">${formatNumber(item.Begin)}</td>
+                <td class="col-number">${formatNumber(item.Debit)}</td>
+                <td class="col-number">${formatNumber(item.Credit)}</td>
+                <td class="col-number">${formatNumber(item.End)}</td>
+            </tr>
+        `;
+    });
+
+    tableHtml += '</tbody></table>';
+
+    // Pagination
+    const start = total > 0 ? (page - 1) * CONFIG.DETAIL_PAGE_SIZE + 1 : 0;
+    const end = Math.min(page * CONFIG.DETAIL_PAGE_SIZE, total);
+
+    tableHtml += `
+        <div class="detail-pagination">
+            <div class="detail-pagination-nav">
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, 1)"><i data-lucide="chevrons-left" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" style="width:12px;height:12px"></i></button>
+                ${renderDetailPageNumbers(page, totalPages, partnerId, 'congno')}
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" style="width:12px;height:12px"></i></button>
+            </div>
+            <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeCongNoPageSize(${partnerId}, this.value)">
+                <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+            <span class="detail-pagination-info">Số dòng trên trang</span>
+            <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
+            <button class="btn-refresh" onclick="refreshCongNo(${partnerId})"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+        </div>
+    `;
+
+    return tableHtml;
+}
+
 function renderInfoTab(partnerId) {
     const rowState = State.expandedRows.get(partnerId);
     const partnerData = rowState?.partnerData || {};
-    const info = rowState?.info || {};
+    const info = rowState?.info;
+
+    // Check if not loaded yet
+    if (info === null) {
+        return `
+            <div class="detail-loading">
+                <i data-lucide="loader-2" class="spin" style="width: 20px; height: 20px;"></i>
+                Đang tải dữ liệu...
+            </div>
+        `;
+    }
+
+    const infoData = info || {};
 
     return `
         <button class="btn-payment">
@@ -590,15 +755,15 @@ function renderInfoTab(partnerId) {
         <div class="revenue-summary">
             <div class="revenue-row">
                 <span class="revenue-label">Doanh số đầu kỳ:</span>
-                <span class="revenue-value">${formatNumber(info.RevenueBegan || 0)}</span>
+                <span class="revenue-value">${formatNumber(infoData.RevenueBegan || 0)}</span>
             </div>
             <div class="revenue-row">
                 <span class="revenue-label">Doanh số :</span>
-                <span class="revenue-value">${formatNumber(info.Revenue || 0)}</span>
+                <span class="revenue-value">${formatNumber(infoData.Revenue || 0)}</span>
             </div>
             <div class="revenue-row">
                 <span class="revenue-label">Tổng doanh số :</span>
-                <span class="revenue-value">${formatNumber(info.RevenueTotal || 0)}</span>
+                <span class="revenue-value">${formatNumber(infoData.RevenueTotal || 0)}</span>
             </div>
         </div>
     `;
@@ -606,12 +771,22 @@ function renderInfoTab(partnerId) {
 
 function renderInvoiceTab(partnerId) {
     const rowState = State.expandedRows.get(partnerId);
-    const invoices = rowState?.invoices || [];
+    const invoices = rowState?.invoices;
     const page = rowState?.invoicePage || 1;
     const total = rowState?.invoiceTotal || 0;
     const totalPages = Math.ceil(total / CONFIG.DETAIL_PAGE_SIZE);
 
-    if (invoices.length === 0) {
+    // Check if not loaded yet
+    if (invoices === null) {
+        return `
+            <div class="detail-loading">
+                <i data-lucide="loader-2" class="spin" style="width: 20px; height: 20px;"></i>
+                Đang tải dữ liệu...
+            </div>
+        `;
+    }
+
+    if (!invoices || invoices.length === 0) {
         return '<div class="detail-loading">Không có hóa đơn</div>';
     }
 
@@ -679,12 +854,22 @@ function renderInvoiceTab(partnerId) {
 
 function renderDebtTab(partnerId) {
     const rowState = State.expandedRows.get(partnerId);
-    const debtDetails = rowState?.debtDetails || [];
+    const debtDetails = rowState?.debtDetails;
     const page = rowState?.debtPage || 1;
     const total = rowState?.debtTotal || 0;
     const totalPages = Math.ceil(total / CONFIG.DETAIL_PAGE_SIZE);
 
-    if (debtDetails.length === 0) {
+    // Check if not loaded yet
+    if (debtDetails === null) {
+        return `
+            <div class="detail-loading">
+                <i data-lucide="loader-2" class="spin" style="width: 20px; height: 20px;"></i>
+                Đang tải dữ liệu...
+            </div>
+        `;
+    }
+
+    if (!debtDetails || debtDetails.length === 0) {
         return '<div class="detail-loading">Không có chi tiết nợ</div>';
     }
 
@@ -750,7 +935,20 @@ function renderDetailPageNumbers(currentPage, totalPages, partnerId, type) {
     }
 
     for (let i = start; i <= end; i++) {
-        const onclick = type === 'invoice' ? `changeInvoicePage(${partnerId}, ${i})` : `changeDebtPage(${partnerId}, ${i})`;
+        let onclick;
+        switch (type) {
+            case 'congno':
+                onclick = `changeCongNoPage(${partnerId}, ${i})`;
+                break;
+            case 'invoice':
+                onclick = `changeInvoicePage(${partnerId}, ${i})`;
+                break;
+            case 'debt':
+                onclick = `changeDebtPage(${partnerId}, ${i})`;
+                break;
+            default:
+                onclick = '';
+        }
         html += `<button class="btn-page ${i === currentPage ? 'active' : ''}" onclick="${onclick}">${i}</button>`;
     }
 
@@ -760,6 +958,55 @@ function renderDetailPageNumbers(currentPage, totalPages, partnerId, type) {
 // =====================================================
 // DETAIL API CALLS
 // =====================================================
+
+async function fetchPartnerCongNo(partnerId, page) {
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const skip = (page - 1) * CONFIG.DETAIL_PAGE_SIZE;
+
+        // Build date params from current filter state
+        const dateFrom = toISODateString(State.dateFrom, false);
+        const dateTo = toISODateString(State.dateTo, true);
+
+        const params = new URLSearchParams();
+        params.set('ResultSelection', 'supplier');
+        params.set('PartnerId', partnerId);
+        params.set('DateFrom', dateFrom);
+        params.set('DateTo', dateTo);
+        params.set('CompanyId', '');
+        params.set('$format', 'json');
+        params.set('$top', CONFIG.DETAIL_PAGE_SIZE);
+        params.set('$skip', skip);
+        params.set('$count', 'true');
+
+        const url = `${CONFIG.API_BASE}/Report/PartnerDebtReportDetail?${params.toString()}`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const rowState = State.expandedRows.get(partnerId);
+            if (rowState) {
+                rowState.congNo = data.value || [];
+                rowState.congNoTotal = data['@odata.count'] || 0;
+                rowState.congNoPage = page;
+            }
+        }
+    } catch (error) {
+        console.error('[SupplierDebt] Error fetching cong no:', error);
+        const rowState = State.expandedRows.get(partnerId);
+        if (rowState) {
+            rowState.congNo = []; // Set empty array on error
+        }
+    }
+}
 
 async function fetchPartnerInfo(partnerId) {
     try {
@@ -848,6 +1095,25 @@ async function fetchPartnerDebtDetails(partnerId, page) {
 // =====================================================
 // DETAIL PAGINATION HANDLERS
 // =====================================================
+
+async function changeCongNoPage(partnerId, page) {
+    await fetchPartnerCongNo(partnerId, page);
+    const tabContent = document.getElementById(`tab-congno-${partnerId}`);
+    if (tabContent) {
+        tabContent.innerHTML = renderCongNoTab(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+async function refreshCongNo(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    await fetchPartnerCongNo(partnerId, rowState?.congNoPage || 1);
+    const tabContent = document.getElementById(`tab-congno-${partnerId}`);
+    if (tabContent) {
+        tabContent.innerHTML = renderCongNoTab(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
 
 async function changeInvoicePage(partnerId, page) {
     await fetchPartnerInvoices(partnerId, page);
