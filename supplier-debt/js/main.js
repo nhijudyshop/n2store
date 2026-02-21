@@ -341,6 +341,33 @@ function formatNumber(num) {
     return Math.round(num).toLocaleString('vi-VN');
 }
 
+function formatNumberWithDots(num) {
+    if (num === null || num === undefined || num === 0) return '0';
+    return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function formatPaymentAmountInput(input) {
+    // Get cursor position
+    const cursorPos = input.selectionStart;
+    const oldLength = input.value.length;
+
+    // Remove all non-digit characters
+    let value = input.value.replace(/\D/g, '');
+
+    // Format with dots as thousand separators
+    if (value) {
+        value = parseInt(value, 10).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+
+    input.value = value;
+
+    // Adjust cursor position
+    const newLength = input.value.length;
+    const diff = newLength - oldLength;
+    const newPos = cursorPos + diff;
+    input.setSelectionRange(newPos, newPos);
+}
+
 function formatDate(date) {
     const d = new Date(date);
     const day = String(d.getDate()).padStart(2, '0');
@@ -1571,8 +1598,8 @@ function openPaymentModal(partnerId, supplierName, amount) {
     // Set supplier name
     document.getElementById('paymentSupplierName').textContent = supplierName;
 
-    // Set amount (Nợ cuối kỳ)
-    document.getElementById('paymentAmount').value = amount;
+    // Set amount (Nợ cuối kỳ) with thousand separators
+    document.getElementById('paymentAmount').value = formatNumberWithDots(amount);
 
     // Set current datetime
     const now = new Date();
@@ -1688,9 +1715,10 @@ function onPaymentMethodChange() {
 async function submitPayment() {
     const partnerId = currentPaymentPartnerId;
     const select = document.getElementById('paymentMethod');
-    const selectedOption = select.options[select.selectedIndex];
     let journalId = select.value;
-    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+    // Remove dots from formatted amount before parsing
+    const amountStr = document.getElementById('paymentAmount').value.replace(/\./g, '');
+    const amount = parseFloat(amountStr) || 0;
     const paymentDateValue = document.getElementById('paymentDate').value;
     const content = document.getElementById('paymentContent').value;
 
