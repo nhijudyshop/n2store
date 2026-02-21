@@ -188,3 +188,9 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 console.log('[Firebase Config] Module loaded');
+
+// Auto-initialize Firebase when script loads
+if (typeof firebase !== 'undefined') {
+    initializeFirebaseApp();
+    initializeFirestore();
+}
