@@ -371,6 +371,392 @@ window.MenuNameUtils = {
     CUSTOM_MENU_NAMES_KEY
 };
 
+// =====================================================
+// MENU LAYOUT STORE - Drag-Drop Groups with Firebase Sync
+// =====================================================
+
+const MENU_LAYOUT_STORAGE_KEY = 'n2shop_menu_layout';
+const MENU_LAYOUT_TIMESTAMP_KEY = 'n2shop_menu_layout_timestamp';
+const MENU_LAYOUT_FIREBASE_DOC = 'settings/menu_layout';
+
+// Default groups configuration by icon type
+const DEFAULT_GROUPS_CONFIG = [
+    {
+        name: "Live & Streaming",
+        icon: "video",
+        items: ["live", "livestream", "soluong-live", "order-live-tracking"]
+    },
+    {
+        name: "Đơn Hàng",
+        icon: "shopping-cart",
+        items: ["orders-report", "order-management", "soorder", "tpos-pancake"]
+    },
+    {
+        name: "Kho & Nhập Hàng",
+        icon: "package",
+        items: ["inventory-tracking", "purchase-orders", "nhanhang"]
+    },
+    {
+        name: "Khách Hàng",
+        icon: "users",
+        items: ["customer-hub", "ib", "ck"]
+    },
+    {
+        name: "Hoàn & CSKH",
+        icon: "corner-up-left",
+        items: ["hanghoan", "issue-tracking", "hangrotxa"]
+    },
+    {
+        name: "Quản Trị",
+        icon: "settings",
+        items: ["user-management", "balance-history", "invoice-compare", "lichsuchinhsua"]
+    },
+    {
+        name: "Khác",
+        icon: "grid",
+        items: ["sanphamlive", "gemini-ai", "supplier-debt"]
+    }
+];
+
+const MenuLayoutStore = {
+    _layout: null,
+    _unsubscribe: null,
+    _isListening: false,
+    _saveTimeout: null,
+    _isEditing: false,
+
+    /**
+     * Initialize the store - load from Firebase or localStorage
+     */
+    async init() {
+        console.log('[MenuLayout] Initializing...');
+
+        // Try to load from localStorage cache first
+        const cachedLayout = this._loadFromLocalStorage();
+        if (cachedLayout && this._isCacheValid()) {
+            this._layout = cachedLayout;
+            console.log('[MenuLayout] Loaded from cache');
+        }
+
+        // Load from Firebase (async)
+        await this._loadFromFirestore();
+
+        // Setup real-time listener
+        this._setupRealtimeListener();
+
+        return this._layout;
+    },
+
+    /**
+     * Check if localStorage cache is still valid
+     */
+    _isCacheValid() {
+        try {
+            const timestamp = localStorage.getItem(MENU_LAYOUT_TIMESTAMP_KEY);
+            if (!timestamp) return false;
+            const cacheTime = parseInt(timestamp, 10);
+            return (Date.now() - cacheTime) < CACHE_EXPIRY_MS;
+        } catch (e) {
+            return false;
+        }
+    },
+
+    /**
+     * Load layout from localStorage
+     */
+    _loadFromLocalStorage() {
+        try {
+            const stored = localStorage.getItem(MENU_LAYOUT_STORAGE_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch (e) {
+            console.error('[MenuLayout] Error loading from localStorage:', e);
+            return null;
+        }
+    },
+
+    /**
+     * Save layout to localStorage
+     */
+    _saveToLocalStorage() {
+        try {
+            localStorage.setItem(MENU_LAYOUT_STORAGE_KEY, JSON.stringify(this._layout));
+            localStorage.setItem(MENU_LAYOUT_TIMESTAMP_KEY, Date.now().toString());
+        } catch (e) {
+            console.error('[MenuLayout] Error saving to localStorage:', e);
+        }
+    },
+
+    /**
+     * Load layout from Firestore
+     */
+    async _loadFromFirestore() {
+        try {
+            if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
+                console.log('[MenuLayout] Firebase not available, using default layout');
+                if (!this._layout) {
+                    this._layout = this.getDefaultLayout();
+                }
+                return;
+            }
+
+            const db = firebase.firestore();
+            const doc = await db.doc(MENU_LAYOUT_FIREBASE_DOC).get();
+
+            if (doc.exists) {
+                this._layout = doc.data();
+                this._saveToLocalStorage();
+                console.log('[MenuLayout] Loaded from Firebase:', this._layout.groups?.length, 'groups');
+            } else {
+                // No layout saved yet - create default
+                this._layout = this.getDefaultLayout();
+                console.log('[MenuLayout] No saved layout, using default');
+            }
+        } catch (e) {
+            console.error('[MenuLayout] Error loading from Firestore:', e);
+            if (!this._layout) {
+                this._layout = this.getDefaultLayout();
+            }
+        }
+    },
+
+    /**
+     * Setup real-time listener for cross-device sync
+     */
+    _setupRealtimeListener() {
+        if (this._unsubscribe) return;
+
+        try {
+            if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
+                return;
+            }
+
+            const db = firebase.firestore();
+            this._unsubscribe = db.doc(MENU_LAYOUT_FIREBASE_DOC)
+                .onSnapshot((doc) => {
+                    // Prevent save loops
+                    if (this._isEditing) {
+                        console.log('[MenuLayout] Ignoring snapshot during edit');
+                        return;
+                    }
+
+                    this._isListening = true;
+
+                    if (doc.exists) {
+                        const newLayout = doc.data();
+                        // Check if layout actually changed
+                        const currentVersion = this._layout?.lastUpdated?.seconds || 0;
+                        const newVersion = newLayout.lastUpdated?.seconds || 0;
+
+                        if (newVersion > currentVersion) {
+                            this._layout = newLayout;
+                            this._saveToLocalStorage();
+                            console.log('[MenuLayout] Updated from Firebase listener');
+
+                            // Re-render navigation if not in edit mode
+                            if (window.navigationManager && !this._isEditing) {
+                                window.navigationManager.renderNavigation();
+                            }
+                        }
+                    }
+
+                    this._isListening = false;
+                }, (error) => {
+                    console.error('[MenuLayout] Listener error:', error);
+                    this._isListening = false;
+                });
+
+            console.log('[MenuLayout] Real-time listener setup');
+        } catch (e) {
+            console.error('[MenuLayout] Error setting up listener:', e);
+        }
+    },
+
+    /**
+     * Generate default layout from MENU_CONFIG grouped by icon
+     */
+    getDefaultLayout() {
+        const allPageIds = new Set(MENU_CONFIG.map(m => m.pageIdentifier));
+        const assignedPageIds = new Set();
+
+        const groups = DEFAULT_GROUPS_CONFIG.map((groupConfig, index) => {
+            // Filter items that exist in MENU_CONFIG
+            const validItems = groupConfig.items.filter(pageId => {
+                if (allPageIds.has(pageId)) {
+                    assignedPageIds.add(pageId);
+                    return true;
+                }
+                return false;
+            });
+
+            return {
+                id: `group_${Date.now()}_${index}`,
+                name: groupConfig.name,
+                icon: groupConfig.icon,
+                collapsed: false,
+                items: validItems
+            };
+        }).filter(g => g.items.length > 0);
+
+        // Find unassigned items
+        const ungroupedItems = MENU_CONFIG
+            .filter(m => !assignedPageIds.has(m.pageIdentifier))
+            .map(m => m.pageIdentifier);
+
+        return {
+            version: 1,
+            groups: groups,
+            ungroupedItems: ungroupedItems
+        };
+    },
+
+    /**
+     * Get current layout
+     */
+    getLayout() {
+        if (!this._layout) {
+            this._layout = this.getDefaultLayout();
+        }
+        return this._layout;
+    },
+
+    /**
+     * Get layout filtered by user permissions
+     * @param {Array} accessiblePageIds - Array of pageIdentifiers user can access
+     */
+    getFilteredLayout(accessiblePageIds) {
+        const layout = this.getLayout();
+
+        // Ensure we have latest items from MENU_CONFIG
+        const layoutWithNewItems = this._addNewMenuItems(layout);
+
+        const filteredGroups = layoutWithNewItems.groups.map(group => ({
+            ...group,
+            items: group.items
+                .filter(pageId => this._canAccessPage(pageId, accessiblePageIds))
+                .map(pageId => this._getMenuItemByPageId(pageId))
+                .filter(item => item !== null)
+        })).filter(group => group.items.length > 0);
+
+        const filteredUngrouped = (layoutWithNewItems.ungroupedItems || [])
+            .filter(pageId => this._canAccessPage(pageId, accessiblePageIds))
+            .map(pageId => this._getMenuItemByPageId(pageId))
+            .filter(item => item !== null);
+
+        return {
+            groups: filteredGroups,
+            ungroupedItems: filteredUngrouped
+        };
+    },
+
+    /**
+     * Add any new MENU_CONFIG items not in saved layout
+     */
+    _addNewMenuItems(layout) {
+        const layoutPageIds = new Set([
+            ...layout.groups.flatMap(g => g.items),
+            ...(layout.ungroupedItems || [])
+        ]);
+
+        const newItems = MENU_CONFIG
+            .filter(item => !layoutPageIds.has(item.pageIdentifier))
+            .map(item => item.pageIdentifier);
+
+        if (newItems.length > 0) {
+            console.log('[MenuLayout] Found new menu items:', newItems);
+            return {
+                ...layout,
+                ungroupedItems: [...(layout.ungroupedItems || []), ...newItems]
+            };
+        }
+
+        return layout;
+    },
+
+    /**
+     * Check if user can access a page
+     */
+    _canAccessPage(pageId, accessiblePageIds) {
+        const menuItem = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
+        if (!menuItem) return false;
+        if (!menuItem.permissionRequired) return true; // Public pages
+        if (menuItem.publicAccess) return true;
+        return accessiblePageIds.includes(menuItem.permissionRequired);
+    },
+
+    /**
+     * Get full menu item object by pageIdentifier
+     */
+    _getMenuItemByPageId(pageId) {
+        const item = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
+        if (!item) return null;
+
+        // Apply custom display names
+        const displayName = getMenuDisplayName(item);
+        return {
+            ...item,
+            text: displayName.text,
+            shortText: displayName.shortText
+        };
+    },
+
+    /**
+     * Save layout to Firebase (debounced)
+     */
+    async saveLayout(layout) {
+        this._layout = layout;
+        this._saveToLocalStorage();
+
+        // Debounce Firebase save
+        clearTimeout(this._saveTimeout);
+        this._saveTimeout = setTimeout(async () => {
+            if (this._isListening) return;
+
+            try {
+                if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
+                    console.log('[MenuLayout] Firebase not available, saved to localStorage only');
+                    return;
+                }
+
+                const db = firebase.firestore();
+                const username = localStorage.getItem('currentUser') ||
+                    JSON.parse(localStorage.getItem('loginindex_auth') || '{}').username ||
+                    'admin';
+
+                await db.doc(MENU_LAYOUT_FIREBASE_DOC).set({
+                    ...layout,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: username
+                });
+
+                console.log('[MenuLayout] Saved to Firebase');
+            } catch (e) {
+                console.error('[MenuLayout] Error saving to Firebase:', e);
+            }
+        }, 1500);
+    },
+
+    /**
+     * Set editing state (prevents listener updates during drag)
+     */
+    setEditing(isEditing) {
+        this._isEditing = isEditing;
+    },
+
+    /**
+     * Cleanup listener
+     */
+    destroy() {
+        if (this._unsubscribe) {
+            this._unsubscribe();
+            this._unsubscribe = null;
+        }
+        clearTimeout(this._saveTimeout);
+    }
+};
+
+// Export for external use
+window.MenuLayoutStore = MenuLayoutStore;
+
 /**
  * Generate default admin permissions for all pages
  * Used to auto-fill missing permissions for admin template users
@@ -416,6 +802,9 @@ class UnifiedNavigationManager {
         this.userPermissions = [];
         this.isAdminTemplate = false; // For UI display only, NOT for bypass
         this.isMobile = window.innerWidth <= 768;
+        this.isEditMode = false; // Menu edit mode (admin only)
+        this.groupSortable = null; // SortableJS instance for groups
+        this.itemSortables = []; // SortableJS instances for items
         this.init();
     }
 
@@ -470,6 +859,9 @@ class UnifiedNavigationManager {
 
             // Load custom menu names from Firebase before rendering
             await loadCustomMenuNamesFromFirebase();
+
+            // Initialize menu layout store (for grouped menus)
+            await MenuLayoutStore.init();
 
             // Build UI based on device
             this.renderNavigation();
@@ -909,7 +1301,62 @@ class UnifiedNavigationManager {
         const menu = document.createElement("div");
         menu.className = "mobile-menu-panel";
 
-        const accessiblePages = this.getAccessiblePages();
+        // Get filtered layout based on user permissions
+        const filteredLayout = MenuLayoutStore.getFilteredLayout(this.userPermissions);
+        const mobileGroupState = this.getMobileGroupCollapsedState();
+
+        // Inject mobile group styles
+        this.injectMobileGroupStyles();
+
+        // Build grouped menu HTML
+        let menuContentHtml = '';
+
+        filteredLayout.groups.forEach((group) => {
+            const isCollapsed = mobileGroupState[group.id] ?? false;
+            menuContentHtml += `
+                <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="${group.id}">
+                    <div class="mobile-group-header">
+                        <span class="mobile-group-collapse-icon"><i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}"></i></span>
+                        <i data-lucide="${group.icon}" class="mobile-group-icon"></i>
+                        <span class="mobile-group-name">${group.name}</span>
+                        <span class="mobile-group-count">${group.items.length}</span>
+                    </div>
+                    <div class="mobile-group-items">
+                        ${group.items.map(item => `
+                            <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? 'active' : ''}">
+                                <i data-lucide="${item.icon}"></i>
+                                <span>${item.text}</span>
+                                ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ''}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        // Add ungrouped items if any
+        if (filteredLayout.ungroupedItems && filteredLayout.ungroupedItems.length > 0) {
+            const isCollapsed = mobileGroupState['ungrouped'] ?? false;
+            menuContentHtml += `
+                <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="ungrouped">
+                    <div class="mobile-group-header">
+                        <span class="mobile-group-collapse-icon"><i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}"></i></span>
+                        <i data-lucide="more-horizontal" class="mobile-group-icon"></i>
+                        <span class="mobile-group-name">Khác</span>
+                        <span class="mobile-group-count">${filteredLayout.ungroupedItems.length}</span>
+                    </div>
+                    <div class="mobile-group-items">
+                        ${filteredLayout.ungroupedItems.map(item => `
+                            <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? 'active' : ''}">
+                                <i data-lucide="${item.icon}"></i>
+                                <span>${item.text}</span>
+                                ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ''}
+                            </a>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
         menu.innerHTML = `
             <div class="mobile-menu-header">
@@ -919,20 +1366,7 @@ class UnifiedNavigationManager {
                 </button>
             </div>
             <div class="mobile-menu-content">
-                ${accessiblePages
-                .map(
-                    (item) => {
-                        const displayName = getMenuDisplayName(item);
-                        return `
-                    <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? "active" : ""}">
-                        <i data-lucide="${item.icon}"></i>
-                        <span>${displayName.text}</span>
-                        ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ""}
-                    </a>
-                `;
-                    }
-                )
-                .join("")}
+                ${menuContentHtml}
             </div>
             <div class="mobile-menu-footer">
                 <button class="mobile-menu-action" id="mobileSettingsBtn">
@@ -959,6 +1393,23 @@ class UnifiedNavigationManager {
             if (e.target === overlay) overlay.remove();
         });
 
+        // Mobile group collapse/expand handlers
+        menu.querySelectorAll('.mobile-group-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const groupEl = header.closest('.mobile-menu-group');
+                const groupId = groupEl.dataset.groupId;
+                const isCollapsed = groupEl.classList.toggle('collapsed');
+                this.saveMobileGroupCollapsedState(groupId, isCollapsed);
+
+                // Update icon
+                const icon = header.querySelector('.mobile-group-collapse-icon i');
+                if (icon) {
+                    icon.setAttribute('data-lucide', isCollapsed ? 'chevron-right' : 'chevron-down');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+            });
+        });
+
         const settingsBtn = menu.querySelector("#mobileSettingsBtn");
         settingsBtn.addEventListener("click", () => {
             overlay.remove();
@@ -970,6 +1421,103 @@ class UnifiedNavigationManager {
             overlay.remove();
             this.showLogoutConfirmDialog();
         });
+    }
+
+    /**
+     * Get mobile group collapsed state from localStorage
+     */
+    getMobileGroupCollapsedState() {
+        try {
+            const state = localStorage.getItem('n2shop_mobile_group_collapsed');
+            return state ? JSON.parse(state) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    /**
+     * Save mobile group collapsed state to localStorage
+     */
+    saveMobileGroupCollapsedState(groupId, isCollapsed) {
+        try {
+            const state = this.getMobileGroupCollapsedState();
+            state[groupId] = isCollapsed;
+            localStorage.setItem('n2shop_mobile_group_collapsed', JSON.stringify(state));
+        } catch (e) {
+            console.error('[Mobile Menu] Error saving collapsed state:', e);
+        }
+    }
+
+    /**
+     * Inject CSS styles for mobile grouped menu
+     */
+    injectMobileGroupStyles() {
+        if (document.getElementById('mobileGroupStyles')) return;
+
+        const style = document.createElement('style');
+        style.id = 'mobileGroupStyles';
+        style.textContent = `
+            /* Mobile Menu Groups */
+            .mobile-menu-group {
+                margin-bottom: 8px;
+            }
+            .mobile-group-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                background: rgba(255,255,255,0.05);
+                border-radius: 8px;
+                cursor: pointer;
+                user-select: none;
+            }
+            .mobile-group-header:active {
+                background: rgba(255,255,255,0.1);
+            }
+            .mobile-group-collapse-icon {
+                width: 18px;
+                height: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: rgba(255,255,255,0.5);
+            }
+            .mobile-group-collapse-icon i {
+                width: 16px;
+                height: 16px;
+            }
+            .mobile-group-icon {
+                width: 18px;
+                height: 18px;
+                color: #a5b4fc;
+            }
+            .mobile-group-name {
+                flex: 1;
+                font-size: 13px;
+                font-weight: 600;
+                color: rgba(255,255,255,0.9);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .mobile-group-count {
+                font-size: 11px;
+                color: rgba(255,255,255,0.4);
+                background: rgba(255,255,255,0.1);
+                padding: 2px 8px;
+                border-radius: 10px;
+            }
+            .mobile-group-items {
+                padding-left: 16px;
+                margin-top: 4px;
+            }
+            .mobile-menu-group.collapsed .mobile-group-items {
+                display: none;
+            }
+            .mobile-group-items .mobile-menu-item {
+                padding-left: 32px;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     // =====================================================
@@ -1010,41 +1558,68 @@ class UnifiedNavigationManager {
 
         sidebarNav.innerHTML = "";
 
+        // Inject grouped menu styles
+        this.injectGroupedMenuStyles();
+
+        // Get filtered layout based on user permissions
+        const filteredLayout = MenuLayoutStore.getFilteredLayout(this.userPermissions);
         let renderedCount = 0;
 
-        MENU_CONFIG.forEach((menuItem) => {
-            // ALL users check detailedPermissions - NO admin bypass
-            // Items without permissionRequired are shown to everyone
-            const hasPermission = !menuItem.permissionRequired ||
-                this.userPermissions.includes(menuItem.permissionRequired);
-
-            if (!hasPermission) {
-                console.log(
-                    `[Unified Nav] Skipping: ${menuItem.text} (no permission)`,
-                );
-                return;
-            }
-
-            const navItem = document.createElement("a");
-            navItem.href = menuItem.href;
-            navItem.className = "nav-item";
-
-            if (menuItem.pageIdentifier === this.currentPage) {
-                navItem.classList.add("active");
-            }
-
-            const displayName = getMenuDisplayName(menuItem);
-            navItem.innerHTML = `
-                <i data-lucide="${menuItem.icon}"></i>
-                <span>${displayName.text}</span>
+        // Add edit button for admins at the top
+        if (this.isAdminTemplate) {
+            const editControls = document.createElement("div");
+            editControls.className = "menu-edit-controls";
+            editControls.innerHTML = `
+                <button class="menu-edit-toggle ${this.isEditMode ? 'active' : ''}" id="menuEditToggle" title="${this.isEditMode ? 'Lưu' : 'Chỉnh sửa menu'}">
+                    <i data-lucide="${this.isEditMode ? 'check' : 'grip-vertical'}"></i>
+                    <span>${this.isEditMode ? 'Lưu' : 'Sửa Menu'}</span>
+                </button>
             `;
+            sidebarNav.appendChild(editControls);
+        }
 
-            sidebarNav.appendChild(navItem);
-            renderedCount++;
+        // Create groups container
+        const groupsContainer = document.createElement("div");
+        groupsContainer.className = "menu-groups-container";
+        groupsContainer.id = "menuGroupsContainer";
+
+        // Render each group
+        filteredLayout.groups.forEach((group) => {
+            const groupEl = this.createGroupElement(group);
+            groupsContainer.appendChild(groupEl);
+            renderedCount += group.items.length;
         });
 
+        // Render ungrouped items if any
+        if (filteredLayout.ungroupedItems && filteredLayout.ungroupedItems.length > 0) {
+            const ungroupedGroup = {
+                id: 'ungrouped',
+                name: 'Chưa phân nhóm',
+                icon: 'more-horizontal',
+                collapsed: false,
+                items: filteredLayout.ungroupedItems
+            };
+            const ungroupedEl = this.createGroupElement(ungroupedGroup, true);
+            groupsContainer.appendChild(ungroupedEl);
+            renderedCount += filteredLayout.ungroupedItems.length;
+        }
+
+        sidebarNav.appendChild(groupsContainer);
+
+        // Add "Add Group" button in edit mode
+        if (this.isEditMode && this.isAdminTemplate) {
+            const addGroupBtn = document.createElement("button");
+            addGroupBtn.className = "add-group-btn";
+            addGroupBtn.id = "addGroupBtn";
+            addGroupBtn.innerHTML = `
+                <i data-lucide="plus"></i>
+                <span>Thêm Nhóm Mới</span>
+            `;
+            sidebarNav.appendChild(addGroupBtn);
+        }
+
         console.log(
-            `[Unified Nav] Rendered ${renderedCount} desktop menu items`,
+            `[Unified Nav] Rendered ${renderedCount} desktop menu items in ${filteredLayout.groups.length} groups`,
         );
 
         this.addSettingsToNavigation(sidebarNav);
@@ -1053,6 +1628,373 @@ class UnifiedNavigationManager {
             lucide.createIcons();
             console.log("[Unified Nav] Lucide icons initialized");
         }
+
+        // Setup edit mode event listeners
+        this.setupEditModeListeners();
+    }
+
+    /**
+     * Create a group element with header and items
+     */
+    createGroupElement(group, isUngrouped = false) {
+        const groupEl = document.createElement("div");
+        groupEl.className = `menu-group ${group.collapsed ? 'collapsed' : ''}`;
+        groupEl.dataset.groupId = group.id;
+
+        // Get stored collapsed state
+        const collapsedState = this.getGroupCollapsedState();
+        const isCollapsed = collapsedState[group.id] ?? group.collapsed;
+        if (isCollapsed) groupEl.classList.add('collapsed');
+
+        // Group header
+        const header = document.createElement("div");
+        header.className = "menu-group-header";
+        header.innerHTML = `
+            ${this.isEditMode && !isUngrouped ? '<span class="group-drag-handle"><i data-lucide="grip-vertical"></i></span>' : ''}
+            <span class="group-collapse-icon"><i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}"></i></span>
+            <i data-lucide="${group.icon}" class="group-icon"></i>
+            <span class="group-name">${group.name}</span>
+            <span class="group-count">${group.items.length}</span>
+            ${this.isEditMode && !isUngrouped ? `
+                <div class="group-actions">
+                    <button class="group-action-btn rename-group-btn" data-group-id="${group.id}" title="Đổi tên">
+                        <i data-lucide="pencil"></i>
+                    </button>
+                    <button class="group-action-btn delete-group-btn" data-group-id="${group.id}" title="Xóa nhóm">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>
+            ` : ''}
+        `;
+        groupEl.appendChild(header);
+
+        // Group items container
+        const itemsContainer = document.createElement("div");
+        itemsContainer.className = "menu-group-items";
+        itemsContainer.dataset.groupId = group.id;
+
+        group.items.forEach((menuItem) => {
+            const navItem = document.createElement("a");
+            navItem.href = menuItem.href;
+            navItem.className = "nav-item";
+            navItem.dataset.pageId = menuItem.pageIdentifier;
+
+            if (menuItem.pageIdentifier === this.currentPage) {
+                navItem.classList.add("active");
+            }
+
+            navItem.innerHTML = `
+                ${this.isEditMode ? '<span class="item-drag-handle"><i data-lucide="grip-vertical"></i></span>' : ''}
+                <i data-lucide="${menuItem.icon}"></i>
+                <span>${menuItem.text}</span>
+            `;
+
+            itemsContainer.appendChild(navItem);
+        });
+
+        groupEl.appendChild(itemsContainer);
+        return groupEl;
+    }
+
+    /**
+     * Get group collapsed state from localStorage
+     */
+    getGroupCollapsedState() {
+        try {
+            const state = localStorage.getItem('n2shop_menu_group_collapsed');
+            return state ? JSON.parse(state) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    /**
+     * Save group collapsed state to localStorage
+     */
+    saveGroupCollapsedState(groupId, isCollapsed) {
+        try {
+            const state = this.getGroupCollapsedState();
+            state[groupId] = isCollapsed;
+            localStorage.setItem('n2shop_menu_group_collapsed', JSON.stringify(state));
+        } catch (e) {
+            console.error('[Menu] Error saving collapsed state:', e);
+        }
+    }
+
+    /**
+     * Setup edit mode event listeners
+     */
+    setupEditModeListeners() {
+        // Edit toggle button
+        const editToggle = document.getElementById('menuEditToggle');
+        if (editToggle) {
+            editToggle.addEventListener('click', () => this.toggleEditMode());
+        }
+
+        // Add group button
+        const addGroupBtn = document.getElementById('addGroupBtn');
+        if (addGroupBtn) {
+            addGroupBtn.addEventListener('click', () => this.showAddGroupModal());
+        }
+
+        // Group header click (collapse/expand)
+        document.querySelectorAll('.menu-group-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                // Don't collapse if clicking action buttons
+                if (e.target.closest('.group-actions') || e.target.closest('.group-drag-handle')) return;
+
+                const groupEl = header.closest('.menu-group');
+                const groupId = groupEl.dataset.groupId;
+                const isCollapsed = groupEl.classList.toggle('collapsed');
+                this.saveGroupCollapsedState(groupId, isCollapsed);
+
+                // Update icon
+                const icon = header.querySelector('.group-collapse-icon i');
+                if (icon) {
+                    icon.setAttribute('data-lucide', isCollapsed ? 'chevron-right' : 'chevron-down');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+            });
+        });
+
+        // Rename group buttons
+        document.querySelectorAll('.rename-group-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const groupId = btn.dataset.groupId;
+                this.showRenameGroupModal(groupId);
+            });
+        });
+
+        // Delete group buttons
+        document.querySelectorAll('.delete-group-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const groupId = btn.dataset.groupId;
+                this.deleteGroup(groupId);
+            });
+        });
+
+        // Initialize SortableJS if in edit mode
+        if (this.isEditMode) {
+            this.initializeSortable();
+        }
+    }
+
+    /**
+     * Inject CSS styles for grouped menus
+     */
+    injectGroupedMenuStyles() {
+        if (document.getElementById('groupedMenuStyles')) return;
+
+        const style = document.createElement('style');
+        style.id = 'groupedMenuStyles';
+        style.textContent = `
+            /* Edit Controls */
+            .menu-edit-controls {
+                padding: 8px 12px;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+                margin-bottom: 8px;
+            }
+            .menu-edit-toggle {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                width: 100%;
+                padding: 8px 12px;
+                background: rgba(99, 102, 241, 0.1);
+                border: 1px solid rgba(99, 102, 241, 0.3);
+                border-radius: 8px;
+                color: #a5b4fc;
+                cursor: pointer;
+                font-size: 13px;
+                transition: all 0.2s;
+            }
+            .menu-edit-toggle:hover {
+                background: rgba(99, 102, 241, 0.2);
+            }
+            .menu-edit-toggle.active {
+                background: rgba(34, 197, 94, 0.2);
+                border-color: rgba(34, 197, 94, 0.5);
+                color: #86efac;
+            }
+            .menu-edit-toggle i {
+                width: 16px;
+                height: 16px;
+            }
+
+            /* Groups Container */
+            .menu-groups-container {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            /* Group */
+            .menu-group {
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .menu-group-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 12px;
+                background: rgba(255,255,255,0.05);
+                cursor: pointer;
+                user-select: none;
+                transition: background 0.2s;
+            }
+            .menu-group-header:hover {
+                background: rgba(255,255,255,0.08);
+            }
+            .group-collapse-icon {
+                width: 16px;
+                height: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: rgba(255,255,255,0.5);
+            }
+            .group-collapse-icon i {
+                width: 14px;
+                height: 14px;
+            }
+            .group-icon {
+                width: 16px;
+                height: 16px;
+                color: #a5b4fc;
+            }
+            .group-name {
+                flex: 1;
+                font-size: 12px;
+                font-weight: 600;
+                color: rgba(255,255,255,0.9);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .group-count {
+                font-size: 11px;
+                color: rgba(255,255,255,0.4);
+                background: rgba(255,255,255,0.1);
+                padding: 2px 6px;
+                border-radius: 10px;
+            }
+
+            /* Group Actions (Edit Mode) */
+            .group-actions {
+                display: none;
+                gap: 4px;
+            }
+            .sidebar.edit-mode .group-actions {
+                display: flex;
+            }
+            .group-action-btn {
+                padding: 4px;
+                background: transparent;
+                border: none;
+                color: rgba(255,255,255,0.5);
+                cursor: pointer;
+                border-radius: 4px;
+                transition: all 0.2s;
+            }
+            .group-action-btn:hover {
+                background: rgba(255,255,255,0.1);
+                color: white;
+            }
+            .group-action-btn i {
+                width: 14px;
+                height: 14px;
+            }
+            .delete-group-btn:hover {
+                color: #f87171;
+            }
+
+            /* Group Items */
+            .menu-group-items {
+                padding-left: 8px;
+                overflow: hidden;
+                transition: max-height 0.3s ease;
+            }
+            .menu-group.collapsed .menu-group-items {
+                display: none;
+            }
+            .menu-group-items .nav-item {
+                padding-left: 24px;
+            }
+
+            /* Drag Handles */
+            .group-drag-handle,
+            .item-drag-handle {
+                display: none;
+                align-items: center;
+                justify-content: center;
+                color: rgba(255,255,255,0.3);
+                cursor: grab;
+                padding: 4px;
+            }
+            .group-drag-handle i,
+            .item-drag-handle i {
+                width: 14px;
+                height: 14px;
+            }
+            .sidebar.edit-mode .group-drag-handle,
+            .sidebar.edit-mode .item-drag-handle {
+                display: flex;
+            }
+            .group-drag-handle:hover,
+            .item-drag-handle:hover {
+                color: rgba(255,255,255,0.6);
+            }
+
+            /* Add Group Button */
+            .add-group-btn {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                width: 100%;
+                padding: 12px 16px;
+                margin-top: 8px;
+                background: rgba(34, 197, 94, 0.1);
+                border: 1px dashed rgba(34, 197, 94, 0.3);
+                border-radius: 8px;
+                color: #86efac;
+                cursor: pointer;
+                font-size: 13px;
+                transition: all 0.2s;
+            }
+            .add-group-btn:hover {
+                background: rgba(34, 197, 94, 0.2);
+                border-color: rgba(34, 197, 94, 0.5);
+            }
+            .add-group-btn i {
+                width: 16px;
+                height: 16px;
+            }
+
+            /* Sortable Ghost/Chosen */
+            .sortable-ghost {
+                opacity: 0.4;
+                background: rgba(99, 102, 241, 0.3);
+            }
+            .sortable-chosen {
+                background: rgba(99, 102, 241, 0.2);
+            }
+            .sortable-drag {
+                background: rgba(30, 41, 59, 0.95);
+                border-radius: 8px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            }
+
+            /* Edit Mode State */
+            .sidebar.edit-mode .nav-item {
+                cursor: grab;
+            }
+            .sidebar.edit-mode .nav-item:active {
+                cursor: grabbing;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     addSettingsToNavigation(sidebarNav) {
@@ -1094,6 +2036,428 @@ class UnifiedNavigationManager {
         }
 
         console.log("[Unified Nav] Settings button added");
+    }
+
+    // =====================================================
+    // MENU EDIT MODE (Admin Only)
+    // =====================================================
+
+    /**
+     * Toggle edit mode on/off
+     */
+    async toggleEditMode() {
+        if (!this.isAdminTemplate) {
+            console.warn('[Menu Edit] Only admins can edit menu');
+            return;
+        }
+
+        if (this.isEditMode) {
+            // Exit edit mode - save changes
+            await this.exitEditMode();
+        } else {
+            // Enter edit mode
+            await this.enterEditMode();
+        }
+    }
+
+    /**
+     * Enter edit mode
+     */
+    async enterEditMode() {
+        console.log('[Menu Edit] Entering edit mode...');
+
+        // Load SortableJS if not loaded
+        await this.loadSortableJS();
+
+        this.isEditMode = true;
+        MenuLayoutStore.setEditing(true);
+
+        // Add edit-mode class to sidebar
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.add('edit-mode');
+
+        // Re-render to show edit controls
+        this.renderDesktopSidebar();
+
+        console.log('[Menu Edit] Edit mode enabled');
+    }
+
+    /**
+     * Exit edit mode and save changes
+     */
+    async exitEditMode() {
+        console.log('[Menu Edit] Exiting edit mode, saving changes...');
+
+        this.isEditMode = false;
+        MenuLayoutStore.setEditing(false);
+
+        // Remove edit-mode class
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) sidebar.classList.remove('edit-mode');
+
+        // Destroy sortable instances
+        this.destroySortables();
+
+        // Re-render without edit controls
+        this.renderDesktopSidebar();
+
+        console.log('[Menu Edit] Edit mode disabled, changes saved');
+    }
+
+    /**
+     * Load SortableJS library dynamically
+     */
+    async loadSortableJS() {
+        if (window.Sortable) {
+            console.log('[SortableJS] Already loaded');
+            return true;
+        }
+
+        return new Promise((resolve, reject) => {
+            console.log('[SortableJS] Loading from CDN...');
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js';
+            script.onload = () => {
+                console.log('[SortableJS] Loaded successfully');
+                resolve(true);
+            };
+            script.onerror = () => {
+                console.error('[SortableJS] Failed to load');
+                reject(new Error('Failed to load SortableJS'));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    /**
+     * Initialize SortableJS for drag-drop
+     */
+    initializeSortable() {
+        if (!window.Sortable) {
+            console.warn('[SortableJS] Library not loaded');
+            return;
+        }
+
+        // Destroy existing instances
+        this.destroySortables();
+
+        // Make groups sortable
+        const groupsContainer = document.getElementById('menuGroupsContainer');
+        if (groupsContainer) {
+            this.groupSortable = new Sortable(groupsContainer, {
+                animation: 150,
+                handle: '.group-drag-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                filter: '[data-group-id="ungrouped"]', // Don't allow dragging ungrouped section
+                onEnd: (evt) => this.handleGroupReorder(evt)
+            });
+        }
+
+        // Make items within each group sortable
+        this.itemSortables = [];
+        document.querySelectorAll('.menu-group-items').forEach(itemsContainer => {
+            const sortable = new Sortable(itemsContainer, {
+                group: 'menu-items', // Allow dragging between groups
+                animation: 150,
+                handle: '.item-drag-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                onEnd: (evt) => this.handleItemMove(evt)
+            });
+            this.itemSortables.push(sortable);
+        });
+
+        console.log('[SortableJS] Initialized', this.itemSortables.length, 'item sortables');
+    }
+
+    /**
+     * Destroy sortable instances
+     */
+    destroySortables() {
+        if (this.groupSortable) {
+            this.groupSortable.destroy();
+            this.groupSortable = null;
+        }
+        this.itemSortables.forEach(s => s.destroy());
+        this.itemSortables = [];
+    }
+
+    /**
+     * Handle group reorder event
+     */
+    handleGroupReorder(evt) {
+        console.log('[Menu Edit] Group reordered:', evt.oldIndex, '->', evt.newIndex);
+
+        const layout = MenuLayoutStore.getLayout();
+        const groups = [...layout.groups];
+
+        // Move group in array
+        const [moved] = groups.splice(evt.oldIndex, 1);
+        groups.splice(evt.newIndex, 0, moved);
+
+        // Save updated layout
+        MenuLayoutStore.saveLayout({
+            ...layout,
+            groups: groups
+        });
+    }
+
+    /**
+     * Handle item move event (within or between groups)
+     */
+    handleItemMove(evt) {
+        const fromGroupId = evt.from.dataset.groupId;
+        const toGroupId = evt.to.dataset.groupId;
+        const pageId = evt.item.dataset.pageId;
+
+        console.log('[Menu Edit] Item moved:', pageId, 'from', fromGroupId, 'to', toGroupId, 'at index', evt.newIndex);
+
+        const layout = MenuLayoutStore.getLayout();
+        const newLayout = { ...layout };
+
+        // Remove from source group
+        if (fromGroupId === 'ungrouped') {
+            newLayout.ungroupedItems = newLayout.ungroupedItems.filter(id => id !== pageId);
+        } else {
+            const fromGroup = newLayout.groups.find(g => g.id === fromGroupId);
+            if (fromGroup) {
+                fromGroup.items = fromGroup.items.filter(id => id !== pageId);
+            }
+        }
+
+        // Add to target group
+        if (toGroupId === 'ungrouped') {
+            newLayout.ungroupedItems = newLayout.ungroupedItems || [];
+            newLayout.ungroupedItems.splice(evt.newIndex, 0, pageId);
+        } else {
+            const toGroup = newLayout.groups.find(g => g.id === toGroupId);
+            if (toGroup) {
+                toGroup.items.splice(evt.newIndex, 0, pageId);
+            }
+        }
+
+        // Save updated layout
+        MenuLayoutStore.saveLayout(newLayout);
+    }
+
+    // =====================================================
+    // GROUP CRUD OPERATIONS
+    // =====================================================
+
+    /**
+     * Show modal to add a new group
+     */
+    showAddGroupModal() {
+        const modal = document.createElement('div');
+        modal.className = 'settings-modal-overlay';
+        modal.innerHTML = `
+            <div class="settings-modal" style="max-width: 400px;">
+                <div class="settings-header">
+                    <h2>
+                        <i data-lucide="folder-plus"></i>
+                        Thêm Nhóm Mới
+                    </h2>
+                    <button class="settings-close" id="closeAddGroupModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label class="setting-label">Tên nhóm</label>
+                        <input type="text" id="newGroupName" class="setting-input" placeholder="Nhập tên nhóm..." autofocus>
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-label">Icon (Lucide)</label>
+                        <select id="newGroupIcon" class="setting-input">
+                            <option value="folder">Folder</option>
+                            <option value="shopping-cart">Shopping Cart</option>
+                            <option value="package">Package</option>
+                            <option value="users">Users</option>
+                            <option value="video">Video</option>
+                            <option value="settings">Settings</option>
+                            <option value="grid">Grid</option>
+                            <option value="layers">Layers</option>
+                            <option value="star">Star</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-footer" style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button id="cancelAddGroup" class="btn-secondary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer;">Hủy</button>
+                    <button id="confirmAddGroup" class="btn-primary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer; background: #6366f1; color: white; border: none;">Thêm</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Focus input
+        setTimeout(() => document.getElementById('newGroupName')?.focus(), 100);
+
+        // Event listeners
+        const close = () => modal.remove();
+        modal.querySelector('#closeAddGroupModal').addEventListener('click', close);
+        modal.querySelector('#cancelAddGroup').addEventListener('click', close);
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+        modal.querySelector('#confirmAddGroup').addEventListener('click', () => {
+            const name = document.getElementById('newGroupName').value.trim();
+            const icon = document.getElementById('newGroupIcon').value;
+
+            if (!name) {
+                alert('Vui lòng nhập tên nhóm');
+                return;
+            }
+
+            this.addGroup(name, icon);
+            close();
+        });
+
+        // Enter key to submit
+        document.getElementById('newGroupName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                modal.querySelector('#confirmAddGroup').click();
+            }
+        });
+    }
+
+    /**
+     * Add a new group
+     */
+    addGroup(name, icon = 'folder') {
+        const layout = MenuLayoutStore.getLayout();
+        const newGroup = {
+            id: `group_${Date.now()}`,
+            name: name,
+            icon: icon,
+            collapsed: false,
+            items: []
+        };
+
+        layout.groups.push(newGroup);
+        MenuLayoutStore.saveLayout(layout);
+
+        // Re-render
+        this.renderDesktopSidebar();
+
+        console.log('[Menu Edit] Added new group:', name);
+    }
+
+    /**
+     * Show modal to rename a group
+     */
+    showRenameGroupModal(groupId) {
+        const layout = MenuLayoutStore.getLayout();
+        const group = layout.groups.find(g => g.id === groupId);
+        if (!group) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'settings-modal-overlay';
+        modal.innerHTML = `
+            <div class="settings-modal" style="max-width: 400px;">
+                <div class="settings-header">
+                    <h2>
+                        <i data-lucide="pencil"></i>
+                        Đổi Tên Nhóm
+                    </h2>
+                    <button class="settings-close" id="closeRenameModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="settings-content">
+                    <div class="setting-group">
+                        <label class="setting-label">Tên nhóm mới</label>
+                        <input type="text" id="renameGroupName" class="setting-input" value="${group.name}" autofocus>
+                    </div>
+                </div>
+                <div class="settings-footer" style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <button id="cancelRename" class="btn-secondary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer;">Hủy</button>
+                    <button id="confirmRename" class="btn-primary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer; background: #6366f1; color: white; border: none;">Lưu</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Select all text in input
+        const input = document.getElementById('renameGroupName');
+        setTimeout(() => {
+            input?.focus();
+            input?.select();
+        }, 100);
+
+        // Event listeners
+        const close = () => modal.remove();
+        modal.querySelector('#closeRenameModal').addEventListener('click', close);
+        modal.querySelector('#cancelRename').addEventListener('click', close);
+        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+
+        modal.querySelector('#confirmRename').addEventListener('click', () => {
+            const newName = input.value.trim();
+            if (!newName) {
+                alert('Vui lòng nhập tên nhóm');
+                return;
+            }
+
+            this.renameGroup(groupId, newName);
+            close();
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                modal.querySelector('#confirmRename').click();
+            }
+        });
+    }
+
+    /**
+     * Rename a group
+     */
+    renameGroup(groupId, newName) {
+        const layout = MenuLayoutStore.getLayout();
+        const group = layout.groups.find(g => g.id === groupId);
+        if (!group) return;
+
+        group.name = newName;
+        MenuLayoutStore.saveLayout(layout);
+
+        // Re-render
+        this.renderDesktopSidebar();
+
+        console.log('[Menu Edit] Renamed group:', groupId, 'to', newName);
+    }
+
+    /**
+     * Delete a group (move items to ungrouped)
+     */
+    deleteGroup(groupId) {
+        if (!confirm('Xóa nhóm này? Các menu trong nhóm sẽ được chuyển sang "Chưa phân nhóm".')) {
+            return;
+        }
+
+        const layout = MenuLayoutStore.getLayout();
+        const groupIndex = layout.groups.findIndex(g => g.id === groupId);
+        if (groupIndex === -1) return;
+
+        const group = layout.groups[groupIndex];
+
+        // Move items to ungrouped
+        layout.ungroupedItems = layout.ungroupedItems || [];
+        layout.ungroupedItems.push(...group.items);
+
+        // Remove group
+        layout.groups.splice(groupIndex, 1);
+
+        MenuLayoutStore.saveLayout(layout);
+
+        // Re-render
+        this.renderDesktopSidebar();
+
+        console.log('[Menu Edit] Deleted group:', groupId, 'moved', group.items.length, 'items to ungrouped');
     }
 
     // =====================================================
