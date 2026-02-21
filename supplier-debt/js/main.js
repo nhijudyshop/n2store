@@ -35,11 +35,13 @@ const WebNotesStore = {
 
     // Get Firestore document reference
     _getDocRef() {
-        if (!window.firebaseDb) {
+        // Use window.db (set by firebase-config.js) or try getFirestore()
+        const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : null);
+        if (!db) {
             console.error('[WebNotesStore] Firebase not initialized');
             return null;
         }
-        return window.firebaseDb.collection(CONFIG.FIREBASE_COLLECTION).doc('notes');
+        return db.collection(CONFIG.FIREBASE_COLLECTION).doc('notes');
     },
 
     // Initialize store
