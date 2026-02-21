@@ -591,21 +591,11 @@ function renderTable() {
             <td data-col="code" class="col-code-actions">
                 <span class="supplier-code">${escapeHtml(item.Code || '')}</span>
                 <span class="action-buttons">
-                    <button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                    </button>
-                    <button class="btn-action btn-action-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'congno')" title="Công nợ">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>
-                    </button>
-                    <button class="btn-action btn-action-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'invoice')" title="Hóa đơn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17V7"/></svg>
-                    </button>
-                    <button class="btn-action btn-action-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'debt')" title="Nợ chi tiết">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
-                    </button>
-                    <button class="btn-action btn-action-delete" onclick="handleDeleteLastPayment(${partnerId}, '${escapeHtmlAttr(item.Code || '')}')" title="Xóa thanh toán gần nhất">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-                    </button>
+                    <button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">💳</button>
+                    <button class="btn-action btn-action-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'congno')" title="Công nợ">📋</button>
+                    <button class="btn-action btn-action-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'invoice')" title="Hóa đơn">🧾</button>
+                    <button class="btn-action btn-action-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'debt')" title="Nợ chi tiết">📊</button>
+                    <button class="btn-action btn-action-delete" onclick="handleDeleteLastPayment(${partnerId}, '${escapeHtmlAttr(item.Code || '')}')" title="Xóa thanh toán gần nhất">🗑️</button>
                 </span>
             </td>
             <td data-col="name">${escapeHtml(item.PartnerName || '')}</td>

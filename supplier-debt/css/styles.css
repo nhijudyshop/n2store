@@ -459,20 +459,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border: 1px solid #d1d5db;
     border-radius: 4px;
     background: #f8fafc;
     color: #6b7280;
     cursor: pointer;
     transition: all 0.15s;
-}
-
-.btn-action svg,
-.btn-action i {
-    width: 14px;
-    height: 14px;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
 }
 
 .btn-action:hover {
