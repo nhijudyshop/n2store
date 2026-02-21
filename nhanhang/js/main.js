@@ -26,6 +26,10 @@ function applyFiltersToData(dataArray) {
     });
     console.log("Total records:", dataArray.length);
 
+    // Dùng getVietnamDate() để đảm bảo đúng múi giờ GMT+7
+    const vnNow = getVietnamDate();
+    const todayStart = new Date(vnNow.getFullYear(), vnNow.getMonth(), vnNow.getDate(), 0, 0, 0, 0);
+
     return dataArray.filter((receipt) => {
         const matchUser =
             filterUser === "all" || receipt.tenNguoiNhan === filterUser;
@@ -34,82 +38,50 @@ function applyFiltersToData(dataArray) {
         if (filterDate !== "all") {
             const receiptDate = parseVietnameseDate(receipt.thoiGianNhan);
 
-            // DEBUG: Log first 3 records
-            if (dataArray.indexOf(receipt) < 3) {
-                console.log("Receipt:", {
-                    tenNguoiNhan: receipt.tenNguoiNhan,
-                    thoiGianNhan: receipt.thoiGianNhan,
-                    parsedDate: receiptDate,
-                    dateType: receiptDate
-                        ? receiptDate.constructor.name
-                        : "null",
-                });
-            }
-
-            if (receiptDate) {
-                const today = new Date();
-                const todayStart = new Date(
-                    today.getFullYear(),
-                    today.getMonth(),
-                    today.getDate(),
+            if (!receiptDate) {
+                // Không parse được ngày → không khớp bộ lọc ngày
+                matchDate = false;
+            } else {
+                const receiptDateStart = new Date(
+                    receiptDate.getFullYear(),
+                    receiptDate.getMonth(),
+                    receiptDate.getDate(),
+                    0, 0, 0, 0,
                 );
 
                 if (filterDate === "today") {
-                    const receiptDateStart = new Date(
-                        receiptDate.getFullYear(),
-                        receiptDate.getMonth(),
-                        receiptDate.getDate(),
-                    );
-                    matchDate =
-                        receiptDateStart.getTime() === todayStart.getTime();
+                    matchDate = receiptDateStart.getTime() === todayStart.getTime();
                 } else if (filterDate === "yesterday") {
-                    const yesterday = new Date(
-                        todayStart.getTime() - 24 * 60 * 60 * 1000,
-                    );
-                    const receiptDateStart = new Date(
-                        receiptDate.getFullYear(),
-                        receiptDate.getMonth(),
-                        receiptDate.getDate(),
-                    );
-                    matchDate =
-                        receiptDateStart.getTime() === yesterday.getTime();
+                    const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
+                    matchDate = receiptDateStart.getTime() === yesterday.getTime();
                 } else if (filterDate === "week") {
-                    const vnNow = getVietnamDate();
-                    const dayOfWeek = vnNow.getDay();
-
-                    // Tính từ Thứ 2 đến Chủ nhật
-                    const monday = new Date(today);
+                    const dayOfWeek = vnNow.getDay(); // 0=CN, 1=T2...
                     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                    const monday = new Date(todayStart);
                     monday.setDate(monday.getDate() - daysToMonday);
-
                     const sunday = new Date(monday);
                     sunday.setDate(sunday.getDate() + 6);
                     sunday.setHours(23, 59, 59, 999);
-
-                    matchDate = receiptDate >= monday && receiptDate <= sunday;
+                    matchDate = receiptDateStart >= monday && receiptDateStart <= sunday;
                 } else if (filterDate === "month") {
                     const monthAgo = new Date(
                         todayStart.getFullYear(),
                         todayStart.getMonth() - 1,
                         todayStart.getDate(),
+                        0, 0, 0, 0,
                     );
-                    matchDate = receiptDate >= monthAgo;
+                    matchDate = receiptDateStart >= monthAgo;
                 } else if (
                     filterDate === "custom" &&
                     customDateRange.start &&
                     customDateRange.end
                 ) {
-                    const receiptDateStart = new Date(
-                        receiptDate.getFullYear(),
-                        receiptDate.getMonth(),
-                        receiptDate.getDate(),
-                    );
-                    const startDate = new Date(customDateRange.start);
-                    const endDate = new Date(customDateRange.end);
-                    endDate.setHours(23, 59, 59, 999); // Include end date fully
-                    matchDate =
-                        receiptDateStart >= startDate &&
-                        receiptDateStart <= endDate;
+                    // Parse "YYYY-MM-DD" thành local time (không phải UTC)
+                    const [sy, sm, sd] = customDateRange.start.split("-").map(Number);
+                    const [ey, em, ed] = customDateRange.end.split("-").map(Number);
+                    const startDate = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+                    const endDate   = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+                    matchDate = receiptDateStart >= startDate && receiptDateStart <= endDate;
                 }
             }
         }
