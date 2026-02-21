@@ -527,13 +527,14 @@ const MenuLayoutStore = {
 
         try {
             if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
+                console.log('[MenuLayout] Firebase not available, skipping listener setup');
                 return;
             }
 
             const db = firebase.firestore();
             this._unsubscribe = db.doc(MENU_LAYOUT_FIREBASE_DOC)
                 .onSnapshot((doc) => {
-                    // Prevent save loops
+                    // Prevent processing during save
                     if (this._isEditing) {
                         console.log('[MenuLayout] Ignoring snapshot during edit');
                         return;
@@ -543,17 +544,24 @@ const MenuLayoutStore = {
 
                     if (doc.exists) {
                         const newLayout = doc.data();
-                        // Check if layout actually changed
-                        const currentVersion = this._layout?.lastUpdated?.seconds || 0;
-                        const newVersion = newLayout.lastUpdated?.seconds || 0;
 
-                        if (newVersion > currentVersion) {
+                        // Get timestamps for comparison
+                        const currentTime = this._layout?.lastUpdated?.toMillis?.() ||
+                                          this._layout?.lastUpdated?.seconds * 1000 || 0;
+                        const newTime = newLayout.lastUpdated?.toMillis?.() ||
+                                       newLayout.lastUpdated?.seconds * 1000 || 0;
+
+                        console.log('[MenuLayout] Snapshot received - current:', currentTime, 'new:', newTime);
+
+                        // Update if newer or if we don't have a timestamp yet
+                        if (newTime > currentTime || !this._layout?.lastUpdated) {
                             this._layout = newLayout;
                             this._saveToLocalStorage();
-                            console.log('[MenuLayout] Updated from Firebase listener');
+                            console.log('[MenuLayout] Updated from Firebase - groups:', newLayout.groups?.length);
 
-                            // Re-render navigation if not in edit mode
+                            // Re-render navigation for other users
                             if (window.navigationManager && !this._isEditing) {
+                                console.log('[MenuLayout] Re-rendering navigation...');
                                 window.navigationManager.renderNavigation();
                             }
                         }
@@ -565,7 +573,7 @@ const MenuLayoutStore = {
                     this._isListening = false;
                 });
 
-            console.log('[MenuLayout] Real-time listener setup');
+            console.log('[MenuLayout] Real-time listener setup successfully');
         } catch (e) {
             console.error('[MenuLayout] Error setting up listener:', e);
         }
@@ -703,13 +711,20 @@ const MenuLayoutStore = {
      * Save layout to Firebase (debounced)
      */
     async saveLayout(layout) {
-        this._layout = layout;
+        // Create a deep copy to avoid reference issues
+        const layoutCopy = JSON.parse(JSON.stringify(layout));
+        this._layout = layoutCopy;
         this._saveToLocalStorage();
+
+        console.log('[MenuLayout] Layout updated locally - groups:', layoutCopy.groups?.length);
 
         // Debounce Firebase save
         clearTimeout(this._saveTimeout);
         this._saveTimeout = setTimeout(async () => {
-            if (this._isListening) return;
+            if (this._isListening) {
+                console.log('[MenuLayout] Skipping Firebase save - listener active');
+                return;
+            }
 
             try {
                 if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
@@ -722,17 +737,20 @@ const MenuLayoutStore = {
                     JSON.parse(localStorage.getItem('loginindex_auth') || '{}').username ||
                     'admin';
 
+                // Save without lastUpdated from local copy (let Firebase set it)
+                const { lastUpdated, ...layoutWithoutTimestamp } = this._layout;
+
                 await db.doc(MENU_LAYOUT_FIREBASE_DOC).set({
-                    ...layout,
+                    ...layoutWithoutTimestamp,
                     lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedBy: username
                 });
 
-                console.log('[MenuLayout] Saved to Firebase');
+                console.log('[MenuLayout] Saved to Firebase successfully');
             } catch (e) {
                 console.error('[MenuLayout] Error saving to Firebase:', e);
             }
-        }, 1500);
+        }, 1000); // Reduced to 1 second for faster sync
     },
 
     /**
