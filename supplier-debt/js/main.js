@@ -1334,17 +1334,63 @@ function populatePaymentMethods() {
     const select = document.getElementById('paymentMethod');
     select.innerHTML = '<option value="">-- Chọn phương thức --</option>';
 
+    // Deduplicate by Name and rename "Ngân hàng" to "Chuyển khoản"
+    const uniqueMethods = new Map();
+    let defaultMethodId = null;
+
     paymentMethods.forEach(method => {
+        let displayName = method.Name;
+
+        // Rename "Ngân hàng" to "Chuyển khoản"
+        if (method.Type === 'bank' || method.Name.toLowerCase().includes('ngân hàng')) {
+            displayName = 'Chuyển khoản';
+        }
+
+        // Only add if not already exists (dedupe by displayName)
+        if (!uniqueMethods.has(displayName)) {
+            uniqueMethods.set(displayName, { id: method.Id, name: displayName, type: method.Type });
+
+            // Set "Chuyển khoản" as default
+            if (displayName === 'Chuyển khoản' && !defaultMethodId) {
+                defaultMethodId = method.Id;
+            }
+        }
+    });
+
+    // Add unique methods to select
+    uniqueMethods.forEach((method) => {
         const option = document.createElement('option');
-        option.value = method.Id;
-        option.textContent = method.Name;
+        option.value = method.id;
+        option.textContent = method.name;
+        option.dataset.type = method.type || '';
+        if (method.id === defaultMethodId) {
+            option.selected = true;
+        }
         select.appendChild(option);
     });
+
+    // Add "Khuyến mãi" option
+    const promoOption = document.createElement('option');
+    promoOption.value = 'promotion';
+    promoOption.textContent = 'Khuyến mãi';
+    promoOption.dataset.type = 'promotion';
+    select.appendChild(promoOption);
+}
+
+function onPaymentMethodChange() {
+    const select = document.getElementById('paymentMethod');
+    const contentInput = document.getElementById('paymentContent');
+    const selectedOption = select.options[select.selectedIndex];
+
+    // If "Khuyến mãi" is selected, auto-fill content
+    if (selectedOption && selectedOption.dataset.type === 'promotion') {
+        contentInput.value = 'Khuyến mãi';
+    }
 }
 
 async function submitPayment() {
     const partnerId = currentPaymentPartnerId;
-    const journalId = document.getElementById('paymentMethod').value;
+    let journalId = document.getElementById('paymentMethod').value;
     const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
     const paymentDateValue = document.getElementById('paymentDate').value;
     const content = document.getElementById('paymentContent').value;
@@ -1355,6 +1401,19 @@ async function submitPayment() {
             window.notificationManager.warning('Vui lòng chọn phương thức thanh toán');
         }
         return;
+    }
+
+    // Handle "Khuyến mãi" - use first available cash method
+    if (journalId === 'promotion') {
+        const cashMethod = paymentMethods.find(m => m.Type === 'cash');
+        if (cashMethod) {
+            journalId = cashMethod.Id;
+        } else {
+            if (window.notificationManager) {
+                window.notificationManager.warning('Không tìm thấy phương thức tiền mặt');
+            }
+            return;
+        }
     }
 
     if (amount <= 0) {
@@ -1416,6 +1475,9 @@ function initPaymentModal() {
 
     // Submit payment handler
     document.getElementById('btnSubmitPayment')?.addEventListener('click', submitPayment);
+
+    // Payment method change handler (for "Khuyến mãi" auto-fill)
+    document.getElementById('paymentMethod')?.addEventListener('change', onPaymentMethodChange);
 
     // Close on overlay click
     document.getElementById('paymentModal')?.addEventListener('click', (e) => {
