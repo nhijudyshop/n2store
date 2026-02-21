@@ -495,15 +495,23 @@
     color: white;
 }
 
-.btn-action-delete {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #dc2626;
+.btn-action-expand {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #475569;
+    font-size: 10px;
 }
 
-.btn-action-delete:hover {
-    background: #ef4444;
-    border-color: #ef4444;
+.btn-action-expand:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+    color: #1e293b;
+}
+
+.btn-action-expand.expanded {
+    transform: rotate(90deg);
+    background: #6366f1;
+    border-color: #6366f1;
     color: white;
 }
 

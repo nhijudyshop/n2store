@@ -592,10 +592,7 @@ function renderTable() {
                 <span class="supplier-code">${escapeHtml(item.Code || '')}</span>
                 <span class="action-buttons">
                     <button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">💳</button>
-                    <button class="btn-action btn-action-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'congno')" title="Công nợ">📋</button>
-                    <button class="btn-action btn-action-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'invoice')" title="Hóa đơn">🧾</button>
-                    <button class="btn-action btn-action-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'debt')" title="Nợ chi tiết">📊</button>
-                    <button class="btn-action btn-action-delete" onclick="handleDeleteLastPayment(${partnerId}, '${escapeHtmlAttr(item.Code || '')}')" title="Xóa thanh toán gần nhất">🗑️</button>
+                    <button class="btn-action btn-action-expand ${isExpanded ? 'expanded' : ''}" onclick="toggleRowExpand(${partnerId}, this)" title="Mở rộng">▶</button>
                 </span>
             </td>
             <td data-col="name">${escapeHtml(item.PartnerName || '')}</td>
@@ -776,17 +773,16 @@ function updateActionButtonsState(partnerId, activeTab) {
     }
 }
 
-// Legacy function - kept for compatibility
-async function toggleRowExpand(partnerId, expandCell) {
+// Toggle row expand with arrow button
+async function toggleRowExpand(partnerId, expandBtn) {
     const detailRow = document.getElementById(`detail-row-${partnerId}`);
     const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
-    const expandIcon = expandCell?.querySelector('.expand-icon');
 
     if (State.expandedRows.has(partnerId)) {
         // Collapse
         State.expandedRows.delete(partnerId);
         detailRow.classList.remove('expanded');
-        if (expandIcon) expandIcon.classList.remove('expanded');
+        if (expandBtn) expandBtn.classList.remove('expanded');
         detailPanel.innerHTML = '';
     } else {
         // Expand - only set up state, don't fetch all data
@@ -809,11 +805,10 @@ async function toggleRowExpand(partnerId, expandCell) {
         });
 
         detailRow.classList.add('expanded');
-        expandIcon.classList.add('expanded');
+        if (expandBtn) expandBtn.classList.add('expanded');
 
         // Render panel with first tab selected
         detailPanel.innerHTML = renderDetailPanel(partnerId);
-        if (window.lucide) window.lucide.createIcons();
 
         // Fetch data for the default tab (congno)
         await loadTabData(partnerId, 'congno');
