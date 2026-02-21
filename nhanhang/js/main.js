@@ -18,17 +18,26 @@ function applyFiltersToData(dataArray) {
     const filterUser = filterUserSelect.value;
     const filterDate = dateFilterSelect.value;
 
-    console.log("=== FILTER DEBUG ===");
-    console.log("Filter settings:", {
-        filterUser,
-        filterDate,
-        customDateRange,
-    });
-    console.log("Total records:", dataArray.length);
+    // Helper: chuyển Date thành "YYYY-MM-DD" string - so sánh chuỗi tránh mọi vấn đề timezone
+    function toDateStr(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    }
 
-    // Dùng getVietnamDate() để đảm bảo đúng múi giờ GMT+7
+    // Tính các mốc ngày theo giờ Việt Nam
     const vnNow = getVietnamDate();
-    const todayStart = new Date(vnNow.getFullYear(), vnNow.getMonth(), vnNow.getDate(), 0, 0, 0, 0);
+    const vnY = vnNow.getFullYear(), vnM = vnNow.getMonth(), vnD = vnNow.getDate();
+
+    const todayStr     = toDateStr(new Date(vnY, vnM, vnD));
+    const yesterdayStr = toDateStr(new Date(vnY, vnM, vnD - 1));
+
+    const dayOfWeek    = vnNow.getDay(); // 0=CN
+    const daysToMon    = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const mondayStr    = toDateStr(new Date(vnY, vnM, vnD - daysToMon));
+    const sundayStr    = toDateStr(new Date(vnY, vnM, vnD - daysToMon + 6));
+    const monthAgoStr  = toDateStr(new Date(vnY, vnM - 1, vnD));
 
     return dataArray.filter((receipt) => {
         const matchUser =
@@ -39,49 +48,29 @@ function applyFiltersToData(dataArray) {
             const receiptDate = parseVietnameseDate(receipt.thoiGianNhan);
 
             if (!receiptDate) {
-                // Không parse được ngày → không khớp bộ lọc ngày
                 matchDate = false;
             } else {
-                const receiptDateStart = new Date(
-                    receiptDate.getFullYear(),
-                    receiptDate.getMonth(),
-                    receiptDate.getDate(),
-                    0, 0, 0, 0,
-                );
+                // So sánh chuỗi YYYY-MM-DD: không bị ảnh hưởng timezone
+                const receiptStr = toDateStr(receiptDate);
 
                 if (filterDate === "today") {
-                    matchDate = receiptDateStart.getTime() === todayStart.getTime();
+                    matchDate = receiptStr === todayStr;
                 } else if (filterDate === "yesterday") {
-                    const yesterday = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
-                    matchDate = receiptDateStart.getTime() === yesterday.getTime();
+                    matchDate = receiptStr === yesterdayStr;
                 } else if (filterDate === "week") {
-                    const dayOfWeek = vnNow.getDay(); // 0=CN, 1=T2...
-                    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                    const monday = new Date(todayStart);
-                    monday.setDate(monday.getDate() - daysToMonday);
-                    const sunday = new Date(monday);
-                    sunday.setDate(sunday.getDate() + 6);
-                    sunday.setHours(23, 59, 59, 999);
-                    matchDate = receiptDateStart >= monday && receiptDateStart <= sunday;
+                    matchDate = receiptStr >= mondayStr && receiptStr <= sundayStr;
                 } else if (filterDate === "month") {
-                    const monthAgo = new Date(
-                        todayStart.getFullYear(),
-                        todayStart.getMonth() - 1,
-                        todayStart.getDate(),
-                        0, 0, 0, 0,
-                    );
-                    matchDate = receiptDateStart >= monthAgo;
+                    matchDate = receiptStr >= monthAgoStr;
                 } else if (
                     filterDate === "custom" &&
                     customDateRange.start &&
                     customDateRange.end
                 ) {
-                    // Parse "YYYY-MM-DD" thành local time (không phải UTC)
-                    const [sy, sm, sd] = customDateRange.start.split("-").map(Number);
-                    const [ey, em, ed] = customDateRange.end.split("-").map(Number);
-                    const startDate = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
-                    const endDate   = new Date(ey, em - 1, ed, 23, 59, 59, 999);
-                    matchDate = receiptDateStart >= startDate && receiptDateStart <= endDate;
+                    // customDateRange.start/end là "YYYY-MM-DD" từ input type="date"
+                    // So sánh chuỗi trực tiếp - chính xác 100%
+                    matchDate =
+                        receiptStr >= customDateRange.start &&
+                        receiptStr <= customDateRange.end;
                 }
             }
         }
@@ -467,10 +456,8 @@ function applyDateRangeFilter() {
         return;
     }
 
-    const startDate = new Date(startDateInput.value);
-    const endDate = new Date(endDateInput.value);
-
-    if (startDate > endDate) {
+    // So sánh chuỗi YYYY-MM-DD trực tiếp
+    if (startDateInput.value > endDateInput.value) {
         notificationManager.warning(
             "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc",
             3000,
@@ -481,9 +468,13 @@ function applyDateRangeFilter() {
     customDateRange.start = startDateInput.value;
     customDateRange.end = endDateInput.value;
 
+    // Hiển thị thông báo dạng DD/MM/YYYY
+    const [sy, sm, sd] = startDateInput.value.split("-");
+    const [ey, em, ed] = endDateInput.value.split("-");
+
     applyFilters();
     notificationManager.success(
-        `Đã lọc từ ${formatDate(startDate)} đến ${formatDate(endDate)}`,
+        `Đã lọc từ ${sd}/${sm}/${sy} đến ${ed}/${em}/${ey}`,
         2500,
     );
 }
@@ -581,17 +572,34 @@ function initializeFilterEvents() {
         applyDateRangeBtn.addEventListener("click", applyDateRangeFilter);
     }
 
-    // Allow Enter key in date inputs
+    // Allow Enter key in date inputs + hiển thị ngày DD/MM/YYYY
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
 
+    function updateDateDisplay(input, displayId) {
+        const display = document.getElementById(displayId);
+        if (!display) return;
+        if (input.value) {
+            const [y, m, d] = input.value.split("-");
+            display.textContent = `${d}/${m}/${y}`;
+        } else {
+            display.textContent = "";
+        }
+    }
+
     if (startDateInput) {
+        startDateInput.addEventListener("change", () =>
+            updateDateDisplay(startDateInput, "startDateDisplay"),
+        );
         startDateInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter") applyDateRangeFilter();
         });
     }
 
     if (endDateInput) {
+        endDateInput.addEventListener("change", () =>
+            updateDateDisplay(endDateInput, "endDateDisplay"),
+        );
         endDateInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter") applyDateRangeFilter();
         });
