@@ -160,26 +160,46 @@ const WebNotesStore = {
         const oldNote = typeof existingData === 'string' ? existingData : (existingData?.note || '');
         const oldHistory = typeof existingData === 'string' ? [] : (existingData?.history || []);
 
+        const newHistory = [...oldHistory];
+
         if (note && note.trim()) {
             // Add old note to history if it exists and is different
-            const newHistory = [...oldHistory];
             if (oldNote && oldNote !== note.trim()) {
                 newHistory.unshift({
                     text: oldNote,
                     timestamp: Date.now()
                 });
-                // Keep only last 10 history items
-                if (newHistory.length > 10) {
-                    newHistory.pop();
-                }
+            }
+
+            // Keep only last 10 history items
+            if (newHistory.length > 10) {
+                newHistory.pop();
             }
 
             this._data.set(key, {
                 note: note.trim(),
                 history: newHistory
             });
+        } else if (oldNote) {
+            // Note is being deleted - add "Xóa ghi chú" to history
+            newHistory.unshift({
+                text: `Xóa ghi chú "${oldNote}"`,
+                timestamp: Date.now(),
+                isDeleted: true
+            });
+
+            // Keep only last 10 history items
+            if (newHistory.length > 10) {
+                newHistory.pop();
+            }
+
+            this._data.set(key, {
+                note: '',
+                history: newHistory
+            });
         } else {
-            this._data.delete(key);
+            // No old note and no new note - nothing to do
+            return;
         }
 
         this._saveToLocalStorage();
@@ -1055,8 +1075,9 @@ function renderCongNoTab(partnerId) {
         const moveName = item.MoveName || '';
         const webNote = WebNotesStore.get(supplierCode, moveName);
         const noteHistory = WebNotesStore.getHistory(supplierCode, moveName);
-        // Determine note button class: multi-edit (red) if 2+ edits, has-note (green) if 1 edit
-        const noteButtonClass = noteHistory.length >= 1 ? 'multi-edit' : (webNote ? 'has-note' : '');
+        // Determine note button class: only show color if there's an active note
+        // multi-edit (red) if 2+ edits, has-note (green) if 1 edit, no color if no note
+        const noteButtonClass = webNote ? (noteHistory.length >= 1 ? 'multi-edit' : 'has-note') : '';
 
         // Escape for HTML attributes
         const escapedSupplierCode = escapeHtmlAttr(supplierCode);
