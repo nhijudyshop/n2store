@@ -1032,6 +1032,7 @@ function renderCongNoTab(partnerId) {
                     <th class="col-number">Nợ đầu kỳ</th>
                     <th class="col-number">Phát sinh</th>
                     <th class="col-number">Thanh toán</th>
+                    <th>Cách tính</th>
                     <th class="col-number">Nợ cuối kỳ</th>
                     <th style="width: 40px;"></th>
                 </tr>
@@ -1091,6 +1092,7 @@ function renderCongNoTab(partnerId) {
                 <td class="col-number">${formatNumber(item.Begin)}</td>
                 <td class="col-number">${formatNumber(debit)}</td>
                 <td class="col-number">${formatNumber(credit)}</td>
+                <td class="col-calc">${formatNumber(item.Begin)} + ${formatNumber(debit)} - ${formatNumber(credit)}</td>
                 <td class="col-number">${formatNumber(currentEnd)}</td>
                 <td style="text-align: center;">
                     ${isPayment ? `
