@@ -1196,16 +1196,16 @@
     color: white;
 }
 
-/* Button multi-edit (2+ edits) - red color */
+/* Button multi-edit (2+ edits) - solid red background */
 .btn-edit-note.multi-edit {
-    background: #fee2e2;
-    border-color: #ef4444;
-    color: #dc2626;
+    background: #ef4444;
+    border-color: #dc2626;
+    color: white;
 }
 
 .btn-edit-note.multi-edit:hover {
-    background: #ef4444;
-    border-color: #dc2626;
+    background: #dc2626;
+    border-color: #b91c1c;
     color: white;
 }
 
