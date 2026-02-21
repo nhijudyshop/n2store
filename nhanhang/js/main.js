@@ -48,8 +48,8 @@ function applyFiltersToData(dataArray) {
             const receiptDate = parseVietnameseDate(receipt.thoiGianNhan);
 
             if (!receiptDate) {
-                // Records cũ không có thoiGianNhan → hiển thị luôn
-                matchDate = true;
+                // Không parse được ngày → không khớp bộ lọc ngày
+                matchDate = false;
             } else {
                 // So sánh chuỗi YYYY-MM-DD: không bị ảnh hưởng timezone
                 const receiptStr = toDateStr(receiptDate);
