@@ -1039,9 +1039,6 @@ function renderCongNoTab(partnerId) {
             <tbody>
     `;
 
-    // Calculate running balance for each row
-    let runningBalance = 0;
-
     congNo.forEach((item, index) => {
         const dateStr = formatDateFromISO(item.Date);
         const tposNote = item.Ref || '';
@@ -1057,18 +1054,9 @@ function renderCongNoTab(partnerId) {
         const debit = item.Debit || 0;
         const credit = item.Credit || 0;
 
-        // Calculate running balance
-        let currentEnd = 0;
-
-        if (index === 0) {
-            // First row: use Begin + Debit - Credit
-            currentEnd = (item.Begin || 0) + debit - credit;
-            runningBalance = currentEnd;
-        } else {
-            // Subsequent rows: prevRunningBalance + Debit - Credit
-            currentEnd = runningBalance + debit - credit;
-            runningBalance = currentEnd;
-        }
+        // Calculate end balance: use each row's own Begin value from API
+        // This ensures correct calculation across pagination
+        const currentEnd = (item.Begin || 0) + debit - credit;
 
         // Check if this is a payment entry (can be deleted)
         // Payments typically have Credit > 0 and MoveName starts with CSH, BANK, etc.
