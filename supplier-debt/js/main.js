@@ -590,20 +590,20 @@ function renderTable() {
         tr.innerHTML = `
             <td data-col="code" class="col-code-actions">
                 <span class="supplier-code">${escapeHtml(item.Code || '')}</span>
-                <div class="action-buttons">
+                <span class="action-buttons">
                     <button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">
-                        <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i>
+                        <i data-lucide="credit-card"></i>
                     </button>
                     <button class="btn-action btn-action-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'congno')" title="Công nợ">
-                        <i data-lucide="file-text" style="width: 14px; height: 14px;"></i>
+                        <i data-lucide="file-text"></i>
                     </button>
                     <button class="btn-action btn-action-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'invoice')" title="Hóa đơn">
-                        <i data-lucide="receipt" style="width: 14px; height: 14px;"></i>
+                        <i data-lucide="receipt"></i>
                     </button>
                     <button class="btn-action btn-action-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'debt')" title="Nợ chi tiết">
-                        <i data-lucide="list" style="width: 14px; height: 14px;"></i>
+                        <i data-lucide="list"></i>
                     </button>
-                </div>
+                </span>
             </td>
             <td data-col="name">${escapeHtml(item.PartnerName || '')}</td>
             <td data-col="phone">${escapeHtml(item.PartnerPhone || '')}</td>
@@ -986,6 +986,7 @@ function renderCongNoTab(partnerId) {
                     <th class="col-number">Phát sinh</th>
                     <th class="col-number">Thanh toán</th>
                     <th class="col-number">Nợ cuối kỳ</th>
+                    <th style="width: 40px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -1022,6 +1023,11 @@ function renderCongNoTab(partnerId) {
             runningBalance = currentEnd;
         }
 
+        // Check if this is a payment entry (can be deleted)
+        // Payments typically have Credit > 0 and MoveName starts with CSH, BANK, etc.
+        const isPayment = credit > 0 && /^(CSH|BANK|TK)/.test(moveName);
+        const moveId = item.MoveId || item.Id || 0;
+
         tableHtml += `
             <tr>
                 <td>${dateStr}</td>
@@ -1038,7 +1044,7 @@ function renderCongNoTab(partnerId) {
                         data-web="${escapedWebNote}"
                         onclick="handleNoteEditClick(this)"
                         title="Chỉnh sửa ghi chú web">
-                        <i data-lucide="pencil" style="width: 12px; height: 12px;"></i>
+                        <i data-lucide="pencil"></i>
                     </button>
                 </td>
                 <td>${escapeHtml(moveName)}</td>
@@ -1046,6 +1052,15 @@ function renderCongNoTab(partnerId) {
                 <td class="col-number">${formatNumber(debit)}</td>
                 <td class="col-number">${formatNumber(credit)}</td>
                 <td class="col-number">${formatNumber(currentEnd)}</td>
+                <td style="text-align: center;">
+                    ${isPayment ? `
+                        <button class="btn-delete-row"
+                            onclick="handleDeletePayment(${moveId}, '${escapedMoveName}', ${partnerId})"
+                            title="Xóa thanh toán">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                    ` : ''}
+                </td>
             </tr>
         `;
     });
@@ -1059,11 +1074,11 @@ function renderCongNoTab(partnerId) {
     tableHtml += `
         <div class="detail-pagination">
             <div class="detail-pagination-nav">
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, 1)"><i data-lucide="chevrons-left" style="width:12px;height:12px"></i></button>
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, 1)"><i data-lucide="chevrons-left"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left"></i></button>
                 ${renderDetailPageNumbers(page, totalPages, partnerId, 'congno')}
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" style="width:12px;height:12px"></i></button>
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeCongNoPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right"></i></button>
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeCongNoPageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
@@ -1072,7 +1087,7 @@ function renderCongNoTab(partnerId) {
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
             <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
-            <button class="btn-refresh" onclick="refreshCongNo(${partnerId})"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+            <button class="btn-refresh" onclick="refreshCongNo(${partnerId})"><i data-lucide="refresh-cw"></i></button>
         </div>
     `;
 
@@ -1100,7 +1115,7 @@ function renderInfoTab(partnerId) {
 
     return `
         <button class="btn-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})">
-            <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i>
+            <i data-lucide="credit-card"></i>
             Thanh toán
         </button>
         <div class="info-grid">
@@ -1215,7 +1230,7 @@ function renderInvoiceTab(partnerId) {
                 <td></td>
                 <td><span class="status-badge ${statusClass}">${escapeHtml(inv.ShowStateFast || '')}</span></td>
                 <td class="col-number">${formatNumber(inv.AmountTotal)}</td>
-                <td><button class="btn-view" title="Xem chi tiết"><i data-lucide="external-link" style="width: 14px; height: 14px;"></i></button></td>
+                <td><button class="btn-view" title="Xem chi tiết"><i data-lucide="external-link"></i></button></td>
             </tr>
         `;
     });
@@ -1229,11 +1244,11 @@ function renderInvoiceTab(partnerId) {
     tableHtml += `
         <div class="detail-pagination">
             <div class="detail-pagination-nav">
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, 1)"><i data-lucide="chevrons-left" style="width:12px;height:12px"></i></button>
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, 1)"><i data-lucide="chevrons-left" ></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" ></i></button>
                 ${renderDetailPageNumbers(page, totalPages, partnerId, 'invoice')}
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" style="width:12px;height:12px"></i></button>
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" ></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" ></i></button>
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeInvoicePageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
@@ -1242,7 +1257,7 @@ function renderInvoiceTab(partnerId) {
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
             <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
-            <button class="btn-refresh" onclick="refreshInvoices(${partnerId})"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+            <button class="btn-refresh" onclick="refreshInvoices(${partnerId})"><i data-lucide="refresh-cw" ></i></button>
         </div>
     `;
 
@@ -1301,11 +1316,11 @@ function renderDebtTab(partnerId) {
     tableHtml += `
         <div class="detail-pagination">
             <div class="detail-pagination-nav">
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, 1)"><i data-lucide="chevrons-left" style="width:12px;height:12px"></i></button>
-                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, 1)"><i data-lucide="chevrons-left" ></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" ></i></button>
                 ${renderDetailPageNumbers(page, totalPages, partnerId, 'debt')}
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" style="width:12px;height:12px"></i></button>
-                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" ></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" ></i></button>
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeDebtPageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
@@ -1314,7 +1329,7 @@ function renderDebtTab(partnerId) {
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
             <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
-            <button class="btn-refresh" onclick="refreshDebtDetails(${partnerId})"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+            <button class="btn-refresh" onclick="refreshDebtDetails(${partnerId})"><i data-lucide="refresh-cw" ></i></button>
         </div>
     `;
 
@@ -2042,6 +2057,128 @@ function handleNoteEditClick(btn) {
     const tposNote = btn.dataset.tpos || '';
     const webNote = btn.dataset.web || '';
     openNoteEditModal(supplierCode, moveName, tposNote, webNote);
+}
+
+// =====================================================
+// DELETE PAYMENT
+// =====================================================
+
+async function handleDeletePayment(moveId, moveName, partnerId) {
+    if (!moveId) {
+        // If no moveId, try to lookup by moveName
+        const paymentId = await lookupPaymentId(moveName);
+        if (!paymentId) {
+            if (window.notificationManager) {
+                window.notificationManager.warning('Không tìm thấy ID thanh toán để xóa');
+            }
+            return;
+        }
+        moveId = paymentId;
+    }
+
+    // Show custom confirm dialog
+    if (window.notificationManager && window.notificationManager.confirm) {
+        const confirmed = await window.notificationManager.confirm(
+            `Bạn có chắc chắn muốn xóa thanh toán "${moveName}"?`,
+            'Xác nhận xóa'
+        );
+
+        if (confirmed) {
+            await deletePayment(moveId, partnerId);
+        }
+    } else {
+        // Fallback to browser confirm
+        if (confirm(`Bạn có chắc chắn muốn xóa thanh toán "${moveName}"?`)) {
+            await deletePayment(moveId, partnerId);
+        }
+    }
+}
+
+async function lookupPaymentId(moveName) {
+    // Try to find the payment ID by moveName
+    // This searches AccountPayment by Name/Number
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const encodedName = encodeURIComponent(moveName);
+        const url = `${CONFIG.API_BASE}/AccountPayment?$filter=Name eq '${encodedName}'&$top=1&$format=json`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.value && data.value.length > 0) {
+                return data.value[0].Id;
+            }
+        }
+    } catch (error) {
+        console.error('[SupplierDebt] Error looking up payment ID:', error);
+    }
+    return null;
+}
+
+async function deletePayment(paymentId, partnerId) {
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+
+        // Step 1: Call ActionCancel to cancel the payment
+        const cancelUrl = `${CONFIG.API_BASE}/AccountPayment/ODataService.ActionCancel`;
+        const cancelResponse = await fetch(cancelUrl, {
+            method: 'POST',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json;charset=UTF-8',
+                'feature-version': '2',
+                'tposappversion': '6.2.6.1',
+                'x-tpos-lang': 'vi'
+            },
+            body: JSON.stringify({ id: paymentId })
+        });
+
+        if (!cancelResponse.ok) {
+            const errorData = await cancelResponse.json().catch(() => ({}));
+            throw new Error(errorData.error?.message || 'Lỗi hủy thanh toán');
+        }
+
+        // Step 2: DELETE the payment
+        const deleteUrl = `${CONFIG.API_BASE}/AccountPayment(${paymentId})`;
+        const deleteResponse = await fetch(deleteUrl, {
+            method: 'DELETE',
+            headers: {
+                ...authHeader,
+                'feature-version': '2',
+                'tposappversion': '6.2.6.1',
+                'x-tpos-lang': 'vi'
+            }
+        });
+
+        if (!deleteResponse.ok) {
+            const errorData = await deleteResponse.json().catch(() => ({}));
+            throw new Error(errorData.error?.message || 'Lỗi xóa thanh toán');
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.success('Đã xóa thanh toán thành công');
+        }
+
+        // Refresh the congNo tab
+        await refreshCongNo(partnerId);
+
+        // Refresh main data
+        await fetchData();
+
+    } catch (error) {
+        console.error('[SupplierDebt] Delete payment error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi: ${error.message}`);
+        }
+    }
 }
 
 // =====================================================

@@ -444,14 +444,15 @@
 }
 
 .col-code-actions .supplier-code {
-    display: block;
+    display: inline;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-right: 8px;
 }
 
 .action-buttons {
-    display: flex;
+    display: inline-flex;
     gap: 4px;
+    vertical-align: middle;
 }
 
 .btn-action {
@@ -466,6 +467,12 @@
     color: #6b7280;
     cursor: pointer;
     transition: all 0.15s;
+}
+
+.btn-action svg,
+.btn-action i {
+    width: 14px;
+    height: 14px;
 }
 
 .btn-action:hover {
@@ -488,6 +495,39 @@
 .btn-action-tab.active {
     background: #6366f1;
     border-color: #6366f1;
+    color: white;
+}
+
+.btn-action-delete {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.btn-action-delete:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: white;
+}
+
+/* Delete button in detail table */
+.btn-delete-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 4px;
+    color: #dc2626;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-delete-row:hover {
+    background: #ef4444;
+    border-color: #ef4444;
     color: white;
 }
 
@@ -537,9 +577,16 @@
     color: white;
 }
 
-.btn-page i {
+.btn-page i,
+.btn-page svg {
     width: 16px;
     height: 16px;
+}
+
+.detail-pagination-nav .btn-page i,
+.detail-pagination-nav .btn-page svg {
+    width: 12px;
+    height: 12px;
 }
 
 .page-numbers {
@@ -588,9 +635,16 @@
     color: #374151;
 }
 
-.btn-refresh i {
+.btn-refresh i,
+.btn-refresh svg {
     width: 16px;
     height: 16px;
+}
+
+.detail-pagination .btn-refresh i,
+.detail-pagination .btn-refresh svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* Empty State */
@@ -842,6 +896,18 @@
 
 .btn-view:hover {
     background: #16a34a;
+}
+
+.btn-view i,
+.btn-view svg {
+    width: 14px;
+    height: 14px;
+}
+
+.btn-payment i,
+.btn-payment svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* Status badges */
@@ -1110,6 +1176,18 @@
     background: #6366f1;
     border-color: #6366f1;
     color: white;
+}
+
+.btn-edit-note svg,
+.btn-edit-note i {
+    width: 12px;
+    height: 12px;
+}
+
+.btn-delete-row svg,
+.btn-delete-row i {
+    width: 14px;
+    height: 14px;
 }
 
 /* Note Edit Modal */
