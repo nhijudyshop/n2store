@@ -123,6 +123,41 @@
                         <button class="btn btn-success" id="btnExport">
                             <i data-lucide="file-spreadsheet"></i> Xuất excel
                         </button>
+                        <div class="column-toggle-wrapper">
+                            <button class="btn btn-secondary" id="btnColumnToggle">
+                                <i data-lucide="columns"></i> Ẩn/Hiện cột
+                            </button>
+                            <div class="column-toggle-dropdown" id="columnToggleDropdown">
+                                <div class="column-toggle-item">
+                                    <input type="checkbox" id="col-code" checked>
+                                    <label for="col-code">Mã khách hàng</label>
+                                </div>
+                                <div class="column-toggle-item">
+                                    <input type="checkbox" id="col-name" checked>
+                                    <label for="col-name">Tên KH/Facebook</label>
+                                </div>
+                                <div class="column-toggle-item">
+                                    <input type="checkbox" id="col-phone" checked>
+                                    <label for="col-phone">Điện thoại</label>
+                                </div>
+                                <div class="column-toggle-item">
+                                    <input type="checkbox" id="col-begin" checked>
+                                    <label for="col-begin">Nợ đầu kỳ</label>
+                                </div>
+                                <div class="column-toggle-item">
+                                    <input type="checkbox" id="col-debit" checked>
+                                    <label for="col-debit">Phát sinh</label>
+                                </div>
+                                <div class="column-toggle-item">
+                                    <input type="checkbox" id="col-credit" checked>
+                                    <label for="col-credit">Thanh toán</label>
+                                </div>
+                                <div class="column-toggle-item">
+                                    <input type="checkbox" id="col-end" checked>
+                                    <label for="col-end">Nợ cuối kỳ</label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -138,43 +173,43 @@
                     <thead>
                         <tr>
                             <th class="col-expand"></th>
-                            <th class="col-code">
+                            <th class="col-code" data-col="code">
                                 Mã khách hàng
                                 <button class="filter-btn" data-column="code">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-name">
+                            <th class="col-name" data-col="name">
                                 Tên KH/Facebook
                                 <button class="filter-btn" data-column="name">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-phone">
+                            <th class="col-phone" data-col="phone">
                                 Điện thoại
                                 <button class="filter-btn" data-column="phone">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-number">
+                            <th class="col-number" data-col="begin">
                                 Nợ đầu kỳ
                                 <button class="filter-btn" data-column="begin">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-number">
+                            <th class="col-number" data-col="debit">
                                 Phát sinh
                                 <button class="filter-btn" data-column="debit">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-number">
+                            <th class="col-number" data-col="credit">
                                 Thanh toán
                                 <button class="filter-btn" data-column="credit">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-number">
+                            <th class="col-number" data-col="end">
                                 Nợ cuối kỳ
                                 <button class="filter-btn" data-column="end">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
@@ -187,11 +222,14 @@
                     </tbody>
                     <tfoot id="tableFoot">
                         <tr class="total-row">
-                            <td colspan="4"><strong>Tổng</strong></td>
-                            <td class="col-number" id="totalBegin">0</td>
-                            <td class="col-number" id="totalDebit">0</td>
-                            <td class="col-number" id="totalCredit">0</td>
-                            <td class="col-number" id="totalEnd">0</td>
+                            <td></td>
+                            <td data-col="code"><strong>Tổng</strong></td>
+                            <td data-col="name"></td>
+                            <td data-col="phone"></td>
+                            <td data-col="begin" class="col-number" id="totalBegin">0</td>
+                            <td data-col="debit" class="col-number" id="totalDebit">0</td>
+                            <td data-col="credit" class="col-number" id="totalCredit">0</td>
+                            <td data-col="end" class="col-number" id="totalEnd">0</td>
                         </tr>
                     </tfoot>
                 </table>

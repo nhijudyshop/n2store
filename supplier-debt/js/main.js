@@ -13,8 +13,20 @@ const CONFIG = {
     ENDPOINT: 'Report/PartnerDebtReport',
     RESULT_SELECTION: 'supplier',
     DEFAULT_PAGE_SIZE: 20,
-    DETAIL_PAGE_SIZE: 10
+    DETAIL_PAGE_SIZE: 10,
+    COLUMN_VISIBILITY_KEY: 'supplierDebt_columnVisibility'
 };
+
+// Column definitions for visibility toggle
+const COLUMNS = [
+    { id: 'code', index: 1, label: 'Mã khách hàng' },
+    { id: 'name', index: 2, label: 'Tên KH/Facebook' },
+    { id: 'phone', index: 3, label: 'Điện thoại' },
+    { id: 'begin', index: 4, label: 'Nợ đầu kỳ' },
+    { id: 'debit', index: 5, label: 'Phát sinh' },
+    { id: 'credit', index: 6, label: 'Thanh toán' },
+    { id: 'end', index: 7, label: 'Nợ cuối kỳ' }
+];
 
 // =====================================================
 // STATE
@@ -34,6 +46,16 @@ const State = {
     selectedSupplier: '',
     // Expanded row state
     expandedRows: new Map(), // partnerId -> { congNo, info, invoices, debtDetails, activeTab, ... }
+    // Column visibility state
+    columnVisibility: {
+        code: true,
+        name: true,
+        phone: true,
+        begin: true,
+        debit: true,
+        credit: true,
+        end: true
+    }
 };
 
 // =====================================================
@@ -63,8 +85,94 @@ const DOM = {
     get btnFirst() { return document.getElementById('btnFirst'); },
     get btnPrev() { return document.getElementById('btnPrev'); },
     get btnNext() { return document.getElementById('btnNext'); },
-    get btnLast() { return document.getElementById('btnLast'); }
+    get btnLast() { return document.getElementById('btnLast'); },
+    get btnColumnToggle() { return document.getElementById('btnColumnToggle'); },
+    get columnToggleDropdown() { return document.getElementById('columnToggleDropdown'); },
+    get dataTable() { return document.getElementById('dataTable'); }
 };
+
+// =====================================================
+// COLUMN VISIBILITY
+// =====================================================
+
+function loadColumnVisibility() {
+    try {
+        const saved = localStorage.getItem(CONFIG.COLUMN_VISIBILITY_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            State.columnVisibility = { ...State.columnVisibility, ...parsed };
+        }
+    } catch (e) {
+        console.error('[SupplierDebt] Error loading column visibility:', e);
+    }
+}
+
+function saveColumnVisibility() {
+    try {
+        localStorage.setItem(CONFIG.COLUMN_VISIBILITY_KEY, JSON.stringify(State.columnVisibility));
+    } catch (e) {
+        console.error('[SupplierDebt] Error saving column visibility:', e);
+    }
+}
+
+function applyColumnVisibility() {
+    const table = DOM.dataTable;
+    if (!table) return;
+
+    COLUMNS.forEach(col => {
+        const isVisible = State.columnVisibility[col.id];
+
+        // Update all cells with this data-col attribute (header, body, footer)
+        const cells = table.querySelectorAll(`[data-col="${col.id}"]`);
+        cells.forEach(cell => {
+            cell.classList.toggle('col-hidden', !isVisible);
+        });
+
+        // Update checkbox in dropdown
+        const checkbox = document.getElementById(`col-${col.id}`);
+        if (checkbox) {
+            checkbox.checked = isVisible;
+        }
+    });
+}
+
+function toggleColumn(colId, isVisible) {
+    State.columnVisibility[colId] = isVisible;
+    saveColumnVisibility();
+    applyColumnVisibility();
+}
+
+function initColumnToggle() {
+    // Load saved visibility
+    loadColumnVisibility();
+
+    // Toggle dropdown visibility
+    DOM.btnColumnToggle?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        DOM.columnToggleDropdown?.classList.toggle('show');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.column-toggle-wrapper')) {
+            DOM.columnToggleDropdown?.classList.remove('show');
+        }
+    });
+
+    // Handle checkbox changes
+    COLUMNS.forEach(col => {
+        const checkbox = document.getElementById(`col-${col.id}`);
+        if (checkbox) {
+            checkbox.checked = State.columnVisibility[col.id];
+            checkbox.addEventListener('change', (e) => {
+                toggleColumn(col.id, e.target.checked);
+            });
+        }
+    });
+
+    // Apply initial visibility
+    applyColumnVisibility();
+}
 
 // =====================================================
 // UTILITIES
@@ -321,13 +429,13 @@ function renderTable() {
             <td class="col-expand" onclick="toggleRowExpand(${partnerId}, this)">
                 <i data-lucide="chevron-right" class="expand-icon ${isExpanded ? 'expanded' : ''}" style="width: 14px; height: 14px;"></i>
             </td>
-            <td>${escapeHtml(item.Code || '')}</td>
-            <td>${escapeHtml(item.PartnerName || '')}</td>
-            <td>${escapeHtml(item.PartnerPhone || '')}</td>
-            <td class="col-number">${formatNumber(item.Begin)}</td>
-            <td class="col-number">${formatNumber(item.Debit)}</td>
-            <td class="col-number">${formatNumber(item.Credit)}</td>
-            <td class="col-number">${formatNumber(item.End)}</td>
+            <td data-col="code">${escapeHtml(item.Code || '')}</td>
+            <td data-col="name">${escapeHtml(item.PartnerName || '')}</td>
+            <td data-col="phone">${escapeHtml(item.PartnerPhone || '')}</td>
+            <td data-col="begin" class="col-number">${formatNumber(item.Begin)}</td>
+            <td data-col="debit" class="col-number">${formatNumber(item.Debit)}</td>
+            <td data-col="credit" class="col-number">${formatNumber(item.Credit)}</td>
+            <td data-col="end" class="col-number">${formatNumber(item.End)}</td>
         `;
         tbody.appendChild(tr);
 
@@ -349,6 +457,9 @@ function renderTable() {
     if (window.lucide) {
         window.lucide.createIcons();
     }
+
+    // Apply column visibility
+    applyColumnVisibility();
 }
 
 function renderEmptyState() {
@@ -629,7 +740,7 @@ function renderCongNoTab(partnerId) {
                 <tr>
                     <th>Ngày</th>
                     <th>Nhập diễn giải</th>
-                    <th>Tham chiếu</th>
+                    <th>Ghi chú</th>
                     <th>Bút toán</th>
                     <th class="col-number">Nợ đầu kỳ</th>
                     <th class="col-number">Phát sinh</th>
@@ -1349,6 +1460,9 @@ async function init() {
 
     // Initialize event handlers
     initEventHandlers();
+
+    // Initialize column toggle
+    initColumnToggle();
 
     // Load initial data
     await fetchData();
