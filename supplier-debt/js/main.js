@@ -1210,7 +1210,8 @@ function renderInvoiceTab(partnerId) {
     `;
 
     invoices.forEach(inv => {
-        const statusClass = inv.StateFast === 'open' ? 'status-open' : inv.StateFast === 'cancel' ? 'status-cancel' : 'status-draft';
+        const statusClass = inv.StateFast === 'open' ? 'status-open' : inv.StateFast === 'cancel' ? 'status-cancel' : inv.StateFast === 'paid' ? 'status-paid' : 'status-draft';
+        const invoiceId = inv.Id;
         tableHtml += `
             <tr>
                 <td>${escapeHtml(inv.Number || inv.MoveName || '')}</td>
@@ -1220,7 +1221,7 @@ function renderInvoiceTab(partnerId) {
                 <td></td>
                 <td><span class="status-badge ${statusClass}">${escapeHtml(inv.ShowStateFast || '')}</span></td>
                 <td class="col-number">${formatNumber(inv.AmountTotal)}</td>
-                <td><button class="btn-view" title="Xem chi tiết"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg></button></td>
+                <td><button class="btn-view" onclick="openInvoiceDetailModal(${invoiceId})" title="Xem chi tiết"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg></button></td>
             </tr>
         `;
     });
@@ -1906,6 +1907,193 @@ function initPaymentModal() {
 }
 
 // =====================================================
+// INVOICE DETAIL MODAL
+// =====================================================
+
+let currentInvoiceDetail = null;
+
+async function openInvoiceDetailModal(invoiceId) {
+    if (!invoiceId) {
+        console.error('[SupplierDebt] No invoice ID provided');
+        return;
+    }
+
+    // Show loading state
+    const modal = document.getElementById('invoiceDetailModal');
+    const modalBody = document.getElementById('invoiceDetailBody');
+
+    if (!modal || !modalBody) {
+        console.error('[SupplierDebt] Invoice detail modal not found');
+        return;
+    }
+
+    modal.classList.add('show');
+    modalBody.innerHTML = `
+        <div class="detail-loading">
+            <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            Đang tải chi tiết hóa đơn...
+        </div>
+    `;
+
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const url = `${CONFIG.API_BASE}/FastPurchaseOrder(${invoiceId})?$expand=Partner,PickingType,Company,Journal,Account,User,RefundOrder,PaymentJournal,Tax,OrderLines($expand=Product,ProductUOM,Account),DestConvertCurrencyUnit`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'feature-version': '2',
+                'tposappversion': '6.2.6.1',
+                'x-tpos-lang': 'vi'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Không thể tải chi tiết hóa đơn');
+        }
+
+        const data = await response.json();
+        currentInvoiceDetail = data;
+        renderInvoiceDetailModal(data);
+
+    } catch (error) {
+        console.error('[SupplierDebt] Error fetching invoice detail:', error);
+        modalBody.innerHTML = `
+            <div class="detail-loading" style="color: #dc2626;">
+                Lỗi tải chi tiết hóa đơn: ${error.message}
+            </div>
+        `;
+    }
+}
+
+function renderInvoiceDetailModal(data) {
+    const modalBody = document.getElementById('invoiceDetailBody');
+    if (!modalBody) return;
+
+    const partnerDisplay = data.PartnerDisplayName || `[${data.Partner?.Ref || ''}] ${data.Partner?.Name || ''}`;
+    const dateInvoice = formatDateTimeFromISO(data.DateInvoice);
+    const paymentMethod = data.PaymentJournal?.Name || 'Không xác định';
+    const paymentAmount = data.PaymentAmount || 0;
+    const amountTotal = data.AmountTotal || 0;
+    const residual = data.Residual || 0;
+    const totalQuantity = data.TotalQuantity || 0;
+
+    // Build order lines table
+    let orderLinesHtml = '';
+    if (data.OrderLines && data.OrderLines.length > 0) {
+        data.OrderLines.forEach((line, index) => {
+            const productName = line.Name || line.ProductName || '';
+            const note = line.Note || '';
+            orderLinesHtml += `
+                <tr>
+                    <td class="col-stt">${index + 1}</td>
+                    <td class="col-product">
+                        <div class="product-name">${escapeHtml(productName)}</div>
+                        ${note ? `<div class="product-note">${escapeHtml(note)}</div>` : '<div class="product-note text-muted">Ghi chú</div>'}
+                    </td>
+                    <td class="col-number">${formatNumber(line.ProductQty)}</td>
+                    <td class="col-number">${formatNumber(line.PriceUnit)}</td>
+                    <td class="col-number">${formatNumber(line.PriceSubTotal)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    modalBody.innerHTML = `
+        <div class="invoice-detail-header">
+            <div class="invoice-header-row">
+                <div class="invoice-header-item">
+                    <span class="label">Nhà cung cấp:</span>
+                    <span class="value"><em>${escapeHtml(partnerDisplay)}</em></span>
+                </div>
+                <div class="invoice-header-item">
+                    <span class="label">Ngày đơn hàng:</span>
+                    <span class="value"><u>${dateInvoice}</u></span>
+                </div>
+                <div class="invoice-header-item">
+                    <span class="label">Phương thức thanh toán:</span>
+                    <span class="value"><em>${escapeHtml(paymentMethod)}</em></span>
+                </div>
+            </div>
+            <div class="invoice-header-row">
+                <div class="invoice-header-item">
+                    <span class="label">Số tiền thanh toán:</span>
+                    <span class="value"><em>${formatNumber(paymentAmount)}</em></span>
+                </div>
+            </div>
+        </div>
+
+        <table class="invoice-detail-table">
+            <thead>
+                <tr>
+                    <th class="col-stt">STT</th>
+                    <th class="col-product">Sản phẩm</th>
+                    <th class="col-number">Số lượng</th>
+                    <th class="col-number">Đơn giá</th>
+                    <th class="col-number">Tổng</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orderLinesHtml}
+            </tbody>
+        </table>
+
+        <div class="invoice-detail-footer">
+            <div class="footer-row">
+                <span class="label">Tổng số lượng:</span>
+                <span class="value">${formatNumber(totalQuantity)}</span>
+            </div>
+            <div class="footer-row">
+                <span class="label">Tổng tiền:</span>
+                <span class="value total">${formatNumber(amountTotal)}</span>
+            </div>
+            <div class="footer-row">
+                <span class="label">Còn nợ:</span>
+                <span class="value debt">${formatNumber(residual)}</span>
+            </div>
+        </div>
+    `;
+}
+
+function formatDateTimeFromISO(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
+function closeInvoiceDetailModal() {
+    document.getElementById('invoiceDetailModal')?.classList.remove('show');
+    currentInvoiceDetail = null;
+}
+
+function initInvoiceDetailModal() {
+    // Close handlers
+    document.getElementById('btnCloseInvoiceDetail')?.addEventListener('click', closeInvoiceDetailModal);
+    document.getElementById('btnCloseInvoiceDetailFooter')?.addEventListener('click', closeInvoiceDetailModal);
+
+    // Close on overlay click
+    document.getElementById('invoiceDetailModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'invoiceDetailModal') {
+            closeInvoiceDetailModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('invoiceDetailModal')?.classList.contains('show')) {
+            closeInvoiceDetailModal();
+        }
+    });
+}
+
+// =====================================================
 // NOTE EDIT MODAL
 // =====================================================
 
@@ -2460,6 +2648,9 @@ async function init() {
 
     // Initialize note edit modal
     initNoteEditModal();
+
+    // Initialize invoice detail modal
+    initInvoiceDetailModal();
 
     // Initialize web notes store
     await WebNotesStore.init();
