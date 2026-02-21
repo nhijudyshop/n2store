@@ -811,9 +811,11 @@ function renderInfoTab(partnerId) {
     }
 
     const infoData = info || {};
+    const supplierDisplay = `[${escapeHtml(partnerData.Code || '')}] ${escapeHtml(partnerData.PartnerName || '')}`;
+    const endAmount = partnerData.End || 0;
 
     return `
-        <button class="btn-payment">
+        <button class="btn-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})">
             <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i>
             Thanh toán
         </button>
@@ -1265,6 +1267,172 @@ async function refreshDebtDetails(partnerId) {
 }
 
 // =====================================================
+// PAYMENT MODAL
+// =====================================================
+
+let currentPaymentPartnerId = null;
+let paymentMethods = [];
+
+function openPaymentModal(partnerId, supplierName, amount) {
+    currentPaymentPartnerId = partnerId;
+
+    // Set supplier name
+    document.getElementById('paymentSupplierName').textContent = supplierName;
+
+    // Set amount (Nợ cuối kỳ)
+    document.getElementById('paymentAmount').value = amount;
+
+    // Set current datetime
+    const now = new Date();
+    const localDatetime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
+    document.getElementById('paymentDate').value = localDatetime;
+
+    // Clear content field
+    document.getElementById('paymentContent').value = '';
+
+    // Load payment methods if not loaded
+    if (paymentMethods.length === 0) {
+        loadPaymentMethods();
+    }
+
+    // Show modal
+    document.getElementById('paymentModal').classList.add('show');
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentModal').classList.remove('show');
+    currentPaymentPartnerId = null;
+}
+
+async function loadPaymentMethods() {
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const url = `${CONFIG.API_BASE}/AccountJournal?$filter=Type eq 'cash' or Type eq 'bank'&$format=json`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            paymentMethods = data.value || [];
+            populatePaymentMethods();
+        }
+    } catch (error) {
+        console.error('[SupplierDebt] Error loading payment methods:', error);
+    }
+}
+
+function populatePaymentMethods() {
+    const select = document.getElementById('paymentMethod');
+    select.innerHTML = '<option value="">-- Chọn phương thức --</option>';
+
+    paymentMethods.forEach(method => {
+        const option = document.createElement('option');
+        option.value = method.Id;
+        option.textContent = method.Name;
+        select.appendChild(option);
+    });
+}
+
+async function submitPayment() {
+    const partnerId = currentPaymentPartnerId;
+    const journalId = document.getElementById('paymentMethod').value;
+    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+    const paymentDateValue = document.getElementById('paymentDate').value;
+    const content = document.getElementById('paymentContent').value;
+
+    // Validation
+    if (!journalId) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Vui lòng chọn phương thức thanh toán');
+        }
+        return;
+    }
+
+    if (amount <= 0) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Số tiền phải lớn hơn 0');
+        }
+        return;
+    }
+
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const paymentDate = new Date(paymentDateValue).toISOString();
+
+        const payload = {
+            PartnerId: partnerId,
+            JournalId: parseInt(journalId),
+            Amount: amount,
+            PaymentDate: paymentDate,
+            Ref: content,
+            Communication: content,
+            PartnerType: 'supplier'
+        };
+
+        const url = `${CONFIG.API_BASE_PARTNER}/AccountVoucher/RegisterSupplierPayment`;
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            if (window.notificationManager) {
+                window.notificationManager.success('Thanh toán thành công');
+            }
+            closePaymentModal();
+            // Refresh data
+            await fetchData();
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || 'Lỗi thanh toán');
+        }
+    } catch (error) {
+        console.error('[SupplierDebt] Payment error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error(`Lỗi: ${error.message}`);
+        }
+    }
+}
+
+function initPaymentModal() {
+    // Close modal handlers
+    document.getElementById('btnCloseModal')?.addEventListener('click', closePaymentModal);
+    document.getElementById('btnCancelPayment')?.addEventListener('click', closePaymentModal);
+
+    // Submit payment handler
+    document.getElementById('btnSubmitPayment')?.addEventListener('click', submitPayment);
+
+    // Close on overlay click
+    document.getElementById('paymentModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'paymentModal') {
+            closePaymentModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('paymentModal')?.classList.contains('show')) {
+            closePaymentModal();
+        }
+    });
+}
+
+// =====================================================
 // DATE FORMATTING HELPERS
 // =====================================================
 
@@ -1463,6 +1631,9 @@ async function init() {
 
     // Initialize column toggle
     initColumnToggle();
+
+    // Initialize payment modal
+    initPaymentModal();
 
     // Load initial data
     await fetchData();

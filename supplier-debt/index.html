@@ -272,6 +272,53 @@
         </div>
     </div>
 
+    <!-- Payment Modal -->
+    <div class="modal-overlay" id="paymentModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Đăng ký thanh toán</h3>
+                <button class="modal-close" id="btnCloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nhà cung cấp</label>
+                            <div class="form-value" id="paymentSupplierName"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Ngày thanh toán</label>
+                            <input type="datetime-local" id="paymentDate" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Phương thức</label>
+                            <select id="paymentMethod" class="form-select">
+                                <option value="">-- Chọn phương thức --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nội dung</label>
+                            <input type="text" id="paymentContent" class="form-input" placeholder="Nhập nội dung">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Số tiền</label>
+                            <input type="number" id="paymentAmount" class="form-input" step="1000">
+                        </div>
+                        <div class="form-group"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnSubmitPayment">Thanh toán</button>
+                <button class="btn btn-secondary" id="btnCancelPayment">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
