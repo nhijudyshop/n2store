@@ -906,6 +906,7 @@ function renderCongNoTab(partnerId) {
                     <th class="col-number">Phát sinh</th>
                     <th class="col-number">Thanh toán</th>
                     <th class="col-number">Nợ cuối kỳ</th>
+                    <th>Cách tính</th>
                 </tr>
             </thead>
             <tbody>
@@ -922,6 +923,20 @@ function renderCongNoTab(partnerId) {
         const escapedMoveName = escapeHtmlAttr(moveName);
         const escapedTposNote = escapeHtmlAttr(tposNote);
         const escapedWebNote = escapeHtmlAttr(webNote);
+
+        // Calculate the formula explanation
+        let calcExplanation = '';
+        if (index > 0) {
+            const prevEnd = congNo[index - 1].End || 0;
+            const debit = item.Debit || 0;
+            const credit = item.Credit || 0;
+
+            if (credit > 0) {
+                calcExplanation = `${formatNumber(prevEnd)} - ${formatNumber(credit)}`;
+            } else if (debit > 0) {
+                calcExplanation = `${formatNumber(prevEnd)} + ${formatNumber(debit)}`;
+            }
+        }
 
         tableHtml += `
             <tr>
@@ -947,6 +962,7 @@ function renderCongNoTab(partnerId) {
                 <td class="col-number">${formatNumber(item.Debit)}</td>
                 <td class="col-number">${formatNumber(item.Credit)}</td>
                 <td class="col-number">${formatNumber(item.End)}</td>
+                <td class="col-calc">${calcExplanation}</td>
             </tr>
         `;
     });
@@ -1276,6 +1292,7 @@ async function fetchPartnerCongNo(partnerId, page) {
         params.set('$top', CONFIG.DETAIL_PAGE_SIZE);
         params.set('$skip', skip);
         params.set('$count', 'true');
+        params.set('$orderby', 'Date asc');
 
         const url = `${CONFIG.API_BASE}/Report/PartnerDebtReportDetail?${params.toString()}`;
 
