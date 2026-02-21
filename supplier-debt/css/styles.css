@@ -1195,6 +1195,37 @@
     height: 14px;
 }
 
+/* View Invoice Button in CongNo Tab */
+.move-name-cell {
+    position: relative;
+}
+
+.btn-view-invoice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: #22c55e;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.btn-view-invoice:hover {
+    background: #16a34a;
+}
+
+.btn-view-invoice svg,
+.btn-view-invoice i {
+    width: 12px;
+    height: 12px;
+}
+
 /* Note Edit Modal */
 .modal-note {
     max-width: 500px;

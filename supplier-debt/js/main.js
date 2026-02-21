@@ -1016,6 +1016,8 @@ function renderCongNoTab(partnerId) {
         // Check if this is a payment entry (can be deleted)
         // Payments typically have Credit > 0 and MoveName starts with CSH, BANK, etc.
         const isPayment = credit > 0 && /^(CSH|BANK|TK)/.test(moveName);
+        // Check if this is an invoice entry (can view details)
+        const isInvoice = /^BILL\//.test(moveName);
         const moveId = item.MoveId || item.Id || 0;
 
         tableHtml += `
@@ -1037,7 +1039,10 @@ function renderCongNoTab(partnerId) {
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </button>
                 </td>
-                <td>${escapeHtml(moveName)}</td>
+                <td class="move-name-cell">
+                    ${isInvoice ? `<button class="btn-view-invoice" onclick="openInvoiceDetailByMoveName('${escapedMoveName}', ${partnerId})" title="Xem chi tiết hóa đơn"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg></button>` : ''}
+                    ${escapeHtml(moveName)}
+                </td>
                 <td class="col-number">${formatNumber(item.Begin)}</td>
                 <td class="col-number">${formatNumber(debit)}</td>
                 <td class="col-number">${formatNumber(credit)}</td>
@@ -2066,6 +2071,71 @@ function formatDateTimeFromISO(isoString) {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
+async function openInvoiceDetailByMoveName(moveName, partnerId) {
+    if (!moveName) {
+        console.error('[SupplierDebt] No moveName provided');
+        return;
+    }
+
+    // Show loading state
+    const modal = document.getElementById('invoiceDetailModal');
+    const modalBody = document.getElementById('invoiceDetailBody');
+
+    if (!modal || !modalBody) {
+        console.error('[SupplierDebt] Invoice detail modal not found');
+        return;
+    }
+
+    modal.classList.add('show');
+    modalBody.innerHTML = `
+        <div class="detail-loading">
+            <svg class="spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            Đang tìm hóa đơn...
+        </div>
+    `;
+
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+
+        // First, search for the invoice by MoveName (Number) using GetInvoicePartner
+        const searchUrl = `${CONFIG.API_BASE}/AccountInvoice/ODataService.GetInvoicePartner?partnerId=${partnerId}&$format=json&$top=100&$orderby=DateInvoice+desc&$filter=PartnerId+eq+${partnerId}&$count=true`;
+
+        const searchResponse = await fetch(searchUrl, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (!searchResponse.ok) {
+            throw new Error('Không thể tìm kiếm hóa đơn');
+        }
+
+        const searchData = await searchResponse.json();
+        const invoices = searchData.value || [];
+
+        // Find invoice by Number or MoveName
+        const invoice = invoices.find(inv => inv.Number === moveName || inv.MoveName === moveName);
+
+        if (!invoice) {
+            throw new Error(`Không tìm thấy hóa đơn "${moveName}"`);
+        }
+
+        // Now fetch the full invoice details
+        await openInvoiceDetailModal(invoice.Id);
+
+    } catch (error) {
+        console.error('[SupplierDebt] Error finding invoice by moveName:', error);
+        modalBody.innerHTML = `
+            <div class="detail-loading" style="color: #dc2626;">
+                Lỗi: ${error.message}
+            </div>
+        `;
+    }
 }
 
 function closeInvoiceDetailModal() {
