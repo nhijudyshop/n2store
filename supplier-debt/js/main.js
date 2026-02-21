@@ -13,7 +13,7 @@ const CONFIG = {
     ENDPOINT: 'Report/PartnerDebtReport',
     RESULT_SELECTION: 'supplier',
     DEFAULT_PAGE_SIZE: 20,
-    DETAIL_PAGE_SIZE: 10,
+    DETAIL_PAGE_SIZE: 20,
     COLUMN_VISIBILITY_KEY: 'supplierDebt_columnVisibility',
     FIREBASE_COLLECTION: 'supplier_debt_notes'
 };
@@ -1140,7 +1140,7 @@ function renderCongNoTab(partnerId) {
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeCongNoPageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
-                <option value="20">20</option>
+                <option value="20" ${CONFIG.DETAIL_PAGE_SIZE === 20 ? 'selected' : ''}>20</option>
                 <option value="50">50</option>
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
@@ -1311,7 +1311,7 @@ function renderInvoiceTab(partnerId) {
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeInvoicePageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
-                <option value="20">20</option>
+                <option value="20" ${CONFIG.DETAIL_PAGE_SIZE === 20 ? 'selected' : ''}>20</option>
                 <option value="50">50</option>
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
@@ -1383,7 +1383,7 @@ function renderDebtTab(partnerId) {
             </div>
             <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeDebtPageSize(${partnerId}, this.value)">
                 <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
-                <option value="20">20</option>
+                <option value="20" ${CONFIG.DETAIL_PAGE_SIZE === 20 ? 'selected' : ''}>20</option>
                 <option value="50">50</option>
             </select>
             <span class="detail-pagination-info">Số dòng trên trang</span>
