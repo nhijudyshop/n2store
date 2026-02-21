@@ -1549,12 +1549,34 @@ async function submitPayment() {
         });
 
         if (response.ok) {
-            if (window.notificationManager) {
-                window.notificationManager.success('Thanh toán thành công');
+            const paymentData = await response.json();
+            const paymentId = paymentData.Id;
+
+            // Step 2: Call ActionPost to confirm the payment
+            const actionPostUrl = `${CONFIG.API_BASE}/AccountPayment/ODataService.ActionPost`;
+            const actionPostResponse = await fetch(actionPostUrl, {
+                method: 'POST',
+                headers: {
+                    ...authHeader,
+                    'Content-Type': 'application/json;charset=UTF-8',
+                    'feature-version': '2',
+                    'tposappversion': '6.2.6.1',
+                    'x-tpos-lang': 'vi'
+                },
+                body: JSON.stringify({ id: paymentId })
+            });
+
+            if (actionPostResponse.ok) {
+                if (window.notificationManager) {
+                    window.notificationManager.success('Thanh toán thành công');
+                }
+                closePaymentModal();
+                // Refresh data
+                await fetchData();
+            } else {
+                const actionError = await actionPostResponse.json();
+                throw new Error(actionError.error?.message || 'Lỗi xác nhận thanh toán');
             }
-            closePaymentModal();
-            // Refresh data
-            await fetchData();
         } else {
             const errorData = await response.json();
             throw new Error(errorData.error?.message || 'Lỗi thanh toán');
