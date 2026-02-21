@@ -27,10 +27,10 @@ const WebNotesStore = {
     _isListening: false,
     _unsubscribe: null,
 
-    // Generate key from supplier code and date
-    _makeKey(supplierCode, dateStr) {
-        // dateStr format: dd/mm/yyyy
-        return `${supplierCode}_${dateStr.replace(/\//g, '-')}`;
+    // Generate key from supplier code and MoveName (Bút toán)
+    _makeKey(supplierCode, moveName) {
+        // moveName is unique (e.g., BILL/2026/0485, CSH2/2026/0018)
+        return `${supplierCode}_${moveName.replace(/\//g, '-')}`;
     },
 
     // Get Firestore document reference
@@ -132,15 +132,15 @@ const WebNotesStore = {
         });
     },
 
-    // Get note for a supplier code and date
-    get(supplierCode, dateStr) {
-        const key = this._makeKey(supplierCode, dateStr);
+    // Get note for a supplier code and moveName (Bút toán)
+    get(supplierCode, moveName) {
+        const key = this._makeKey(supplierCode, moveName);
         return this._data.get(key) || '';
     },
 
-    // Set note for a supplier code and date
-    async set(supplierCode, dateStr, note) {
-        const key = this._makeKey(supplierCode, dateStr);
+    // Set note for a supplier code and moveName (Bút toán)
+    async set(supplierCode, moveName, note) {
+        const key = this._makeKey(supplierCode, moveName);
 
         if (note && note.trim()) {
             this._data.set(key, note.trim());
@@ -156,8 +156,8 @@ const WebNotesStore = {
     },
 
     // Delete note
-    async delete(supplierCode, dateStr) {
-        const key = this._makeKey(supplierCode, dateStr);
+    async delete(supplierCode, moveName) {
+        const key = this._makeKey(supplierCode, moveName);
         this._data.delete(key);
         this._saveToLocalStorage();
 
@@ -914,11 +914,12 @@ function renderCongNoTab(partnerId) {
     congNo.forEach((item, index) => {
         const dateStr = formatDateFromISO(item.Date);
         const tposNote = item.Ref || '';
-        const webNote = WebNotesStore.get(supplierCode, dateStr);
+        const moveName = item.MoveName || '';
+        const webNote = WebNotesStore.get(supplierCode, moveName);
 
         // Escape for HTML attributes
         const escapedSupplierCode = escapeHtmlAttr(supplierCode);
-        const escapedDateStr = escapeHtmlAttr(dateStr);
+        const escapedMoveName = escapeHtmlAttr(moveName);
         const escapedTposNote = escapeHtmlAttr(tposNote);
         const escapedWebNote = escapeHtmlAttr(webNote);
 
@@ -933,7 +934,7 @@ function renderCongNoTab(partnerId) {
                     </div>
                     <button class="btn-edit-note"
                         data-supplier="${escapedSupplierCode}"
-                        data-date="${escapedDateStr}"
+                        data-movename="${escapedMoveName}"
                         data-tpos="${escapedTposNote}"
                         data-web="${escapedWebNote}"
                         onclick="handleNoteEditClick(this)"
@@ -941,7 +942,7 @@ function renderCongNoTab(partnerId) {
                         <i data-lucide="pencil" style="width: 12px; height: 12px;"></i>
                     </button>
                 </td>
-                <td>${escapeHtml(item.MoveName || '')}</td>
+                <td>${escapeHtml(moveName)}</td>
                 <td class="col-number">${formatNumber(item.Begin)}</td>
                 <td class="col-number">${formatNumber(item.Debit)}</td>
                 <td class="col-number">${formatNumber(item.Credit)}</td>
@@ -1805,15 +1806,15 @@ function initPaymentModal() {
 
 let currentNoteEdit = {
     supplierCode: null,
-    dateStr: null
+    moveName: null
 };
 
-function openNoteEditModal(supplierCode, dateStr, tposNote, webNote) {
+function openNoteEditModal(supplierCode, moveName, tposNote, webNote) {
     currentNoteEdit.supplierCode = supplierCode;
-    currentNoteEdit.dateStr = dateStr;
+    currentNoteEdit.moveName = moveName;
 
     // Set modal content
-    document.getElementById('noteEditSupplier').textContent = `[${supplierCode}] - ${dateStr}`;
+    document.getElementById('noteEditSupplier').textContent = `[${supplierCode}] - ${moveName}`;
     document.getElementById('noteEditTpos').textContent = tposNote || '(Không có)';
     document.getElementById('noteEditWeb').value = webNote || '';
 
@@ -1827,20 +1828,20 @@ function openNoteEditModal(supplierCode, dateStr, tposNote, webNote) {
 function closeNoteEditModal() {
     document.getElementById('noteEditModal').classList.remove('show');
     currentNoteEdit.supplierCode = null;
-    currentNoteEdit.dateStr = null;
+    currentNoteEdit.moveName = null;
 }
 
 async function saveNoteEdit() {
-    const { supplierCode, dateStr } = currentNoteEdit;
+    const { supplierCode, moveName } = currentNoteEdit;
     const webNote = document.getElementById('noteEditWeb').value;
 
-    if (!supplierCode || !dateStr) {
-        console.error('[NoteEdit] No supplier code or date');
+    if (!supplierCode || !moveName) {
+        console.error('[NoteEdit] No supplier code or moveName');
         return;
     }
 
     try {
-        await WebNotesStore.set(supplierCode, dateStr, webNote);
+        await WebNotesStore.set(supplierCode, moveName, webNote);
 
         if (window.notificationManager) {
             window.notificationManager.success('Đã lưu ghi chú');
@@ -1937,10 +1938,10 @@ function escapeHtmlAttr(text) {
 
 function handleNoteEditClick(btn) {
     const supplierCode = btn.dataset.supplier || '';
-    const dateStr = btn.dataset.date || '';
+    const moveName = btn.dataset.movename || '';
     const tposNote = btn.dataset.tpos || '';
     const webNote = btn.dataset.web || '';
-    openNoteEditModal(supplierCode, dateStr, tposNote, webNote);
+    openNoteEditModal(supplierCode, moveName, tposNote, webNote);
 }
 
 // =====================================================
