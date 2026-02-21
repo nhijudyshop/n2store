@@ -19,6 +19,25 @@ const CONFIG = {
 };
 
 // =====================================================
+// PERMISSION HELPERS
+// =====================================================
+
+function hasSupplierDebtPermission(action) {
+    return window.authManager?.hasDetailedPermission?.('supplier-debt', action) ?? true;
+}
+
+function canEditNoteForMoveName(moveName) {
+    if (/^BILL\//.test(moveName)) {
+        return hasSupplierDebtPermission('editNoteBill');
+    }
+    if (/^(CSH2|CSH|BANK|TK)\//.test(moveName)) {
+        return hasSupplierDebtPermission('editNotePayment');
+    }
+    // Other move types: allow if user has either permission
+    return hasSupplierDebtPermission('editNoteBill') || hasSupplierDebtPermission('editNotePayment');
+}
+
+// =====================================================
 // WEB NOTES STORAGE (Firebase)
 // =====================================================
 
@@ -672,7 +691,7 @@ function renderTable() {
             <td data-col="code" class="col-code-actions">
                 <span class="supplier-code">${escapeHtml(item.Code || '')}</span>
                 <span class="action-buttons">
-                    <button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">💳</button>
+                    ${hasSupplierDebtPermission('payment') ? `<button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">💳</button>` : ''}
                     <button class="btn-action btn-action-expand ${isExpanded ? 'expanded' : ''}" onclick="toggleRowExpand(${partnerId}, this)" title="Mở rộng">▶</button>
                 </span>
             </td>
@@ -1113,7 +1132,7 @@ function renderCongNoTab(partnerId) {
                         ${tposNote ? `<span class="note-tpos" title="Dữ liệu TPOS (không thể sửa)">${escapeHtml(tposNote)}</span>` : ''}
                         ${webNote ? `<span class="note-web" title="Ghi chú web">${escapeHtml(webNote)}</span>` : ''}
                     </div>
-                    <button class="btn-edit-note ${noteButtonClass}"
+                    ${canEditNoteForMoveName(moveName) ? `<button class="btn-edit-note ${noteButtonClass}"
                         data-supplier="${escapedSupplierCode}"
                         data-movename="${escapedMoveName}"
                         data-tpos="${escapedTposNote}"
@@ -1121,7 +1140,7 @@ function renderCongNoTab(partnerId) {
                         onclick="handleNoteEditClick(this)"
                         title="${webNote ? 'Đã có ghi chú - Bấm để sửa' : 'Thêm ghi chú web'}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-                    </button>
+                    </button>` : ''}
                 </td>
                 <td class="move-name-cell">
                     ${isInvoice ? `<button class="btn-view-invoice" onclick="openInvoiceDetailByMoveName('${escapedMoveName}', ${partnerId})" title="Xem chi tiết hóa đơn"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg></button>` : ''}
@@ -1132,7 +1151,7 @@ function renderCongNoTab(partnerId) {
                 <td class="col-number">${formatNumber(credit)}</td>
                 <td class="col-number">${formatNumber(currentEnd)}</td>
                 <td style="text-align: center;">
-                    ${isPayment ? `
+                    ${isPayment && hasSupplierDebtPermission('deletePayment') ? `
                         <button class="btn-delete-row"
                             onclick="handleDeletePayment('${escapeHtmlAttr(item.Date || '')}', '${escapedMoveName}', ${partnerId})"
                             title="Xóa thanh toán">
@@ -1779,6 +1798,11 @@ function onPaymentMethodChange() {
 }
 
 async function submitPayment() {
+    if (!hasSupplierDebtPermission('payment')) {
+        window.notificationManager?.error('Bạn không có quyền đăng ký thanh toán');
+        return;
+    }
+
     const partnerId = currentPaymentPartnerId;
     const select = document.getElementById('paymentMethod');
     let journalId = select.value;
@@ -2321,6 +2345,11 @@ async function saveNoteEdit() {
         return;
     }
 
+    if (!canEditNoteForMoveName(moveName)) {
+        window.notificationManager?.error('Bạn không có quyền sửa ghi chú cho bút toán này');
+        return;
+    }
+
     try {
         await WebNotesStore.set(supplierCode, moveName, webNote);
 
@@ -2496,6 +2525,11 @@ async function handleDeleteLastPayment(partnerId, supplierCode) {
 }
 
 async function handleDeletePayment(paymentDate, moveName, partnerId) {
+    if (!hasSupplierDebtPermission('deletePayment')) {
+        window.notificationManager?.error('Bạn không có quyền xóa thanh toán');
+        return;
+    }
+
     // Show custom confirm dialog first
     let confirmed = false;
     if (window.notificationManager && window.notificationManager.confirm) {

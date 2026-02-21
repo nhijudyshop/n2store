@@ -463,6 +463,23 @@ const PAGES_REGISTRY = {
             restore: { name: "Khôi phục", icon: "rotate-ccw", description: "Khôi phục dữ liệu cũ" },
             delete: { name: "Xóa lịch sử", icon: "trash-2", description: "Xóa log lịch sử" }
         }
+    },
+
+    "supplier-debt": {
+        id: "supplier-debt",
+        name: "Công Nợ Nhà Cung Cấp",
+        shortName: "CN NCC",
+        icon: "receipt",
+        href: "../supplier-debt/index.html",
+        description: "Quản lý công nợ nhà cung cấp",
+        adminOnly: false,
+        category: "admin",
+        detailedPermissions: {
+            payment: { name: "Đăng ký thanh toán", icon: "credit-card", description: "Tạo phiếu thanh toán cho NCC" },
+            deletePayment: { name: "Xóa thanh toán", icon: "trash-2", description: "Xóa phiếu thanh toán đã tạo" },
+            editNoteBill: { name: "Sửa ghi chú hóa đơn", icon: "edit", description: "Sửa ghi chú web cho bút toán BILL (mua hàng phát sinh)" },
+            editNotePayment: { name: "Sửa ghi chú thanh toán", icon: "edit-3", description: "Sửa ghi chú web cho bút toán CSH2 (thanh toán NCC)" }
+        }
     }
 };
 
