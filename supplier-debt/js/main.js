@@ -906,7 +906,6 @@ function renderCongNoTab(partnerId) {
                     <th class="col-number">Phát sinh</th>
                     <th class="col-number">Thanh toán</th>
                     <th class="col-number">Nợ cuối kỳ</th>
-                    <th>Cách tính</th>
                 </tr>
             </thead>
             <tbody>
@@ -930,8 +929,7 @@ function renderCongNoTab(partnerId) {
         const debit = item.Debit || 0;
         const credit = item.Credit || 0;
 
-        // Calculate the formula explanation and running balance
-        let calcExplanation = '';
+        // Calculate running balance
         let currentEnd = 0;
 
         if (index === 0) {
@@ -940,16 +938,8 @@ function renderCongNoTab(partnerId) {
             runningBalance = currentEnd;
         } else {
             // Subsequent rows: prevRunningBalance + Debit - Credit
-            const prevBalance = runningBalance;
-            currentEnd = prevBalance + debit - credit;
+            currentEnd = runningBalance + debit - credit;
             runningBalance = currentEnd;
-
-            // Show formula
-            if (credit > 0) {
-                calcExplanation = `${formatNumber(prevBalance)} - ${formatNumber(credit)}`;
-            } else if (debit > 0) {
-                calcExplanation = `${formatNumber(prevBalance)} + ${formatNumber(debit)}`;
-            }
         }
 
         tableHtml += `
@@ -976,7 +966,6 @@ function renderCongNoTab(partnerId) {
                 <td class="col-number">${formatNumber(debit)}</td>
                 <td class="col-number">${formatNumber(credit)}</td>
                 <td class="col-number">${formatNumber(currentEnd)}</td>
-                <td class="col-calc">${calcExplanation}</td>
             </tr>
         `;
     });
