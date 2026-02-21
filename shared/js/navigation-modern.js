@@ -1567,14 +1567,14 @@ class UnifiedNavigationManager {
         const filteredLayout = MenuLayoutStore.getFilteredLayout(this.userPermissions);
         let renderedCount = 0;
 
-        // Add edit button for admins at the top
+        // Add edit button for admins at the top (opens modal)
         if (this.isAdminTemplate) {
             const editControls = document.createElement("div");
             editControls.className = "menu-edit-controls";
             editControls.innerHTML = `
-                <button class="menu-edit-toggle ${this.isEditMode ? 'active' : ''}" id="menuEditToggle" title="${this.isEditMode ? 'Lưu' : 'Chỉnh sửa menu'}">
-                    <i data-lucide="${this.isEditMode ? 'check' : 'grip-vertical'}"></i>
-                    <span>${this.isEditMode ? 'Lưu' : 'Sửa Menu'}</span>
+                <button class="menu-edit-toggle" id="menuEditToggle" title="Chỉnh sửa menu">
+                    <i data-lucide="grip-vertical"></i>
+                    <span>Sửa Menu</span>
                 </button>
             `;
             sidebarNav.appendChild(editControls);
@@ -1608,18 +1608,6 @@ class UnifiedNavigationManager {
 
         sidebarNav.appendChild(groupsContainer);
 
-        // Add "Add Group" button in edit mode
-        if (this.isEditMode && this.isAdminTemplate) {
-            const addGroupBtn = document.createElement("button");
-            addGroupBtn.className = "add-group-btn";
-            addGroupBtn.id = "addGroupBtn";
-            addGroupBtn.innerHTML = `
-                <i data-lucide="plus"></i>
-                <span>Thêm Nhóm Mới</span>
-            `;
-            sidebarNav.appendChild(addGroupBtn);
-        }
-
         console.log(
             `[Unified Nav] Rendered ${renderedCount} desktop menu items in ${filteredLayout.groups.length} groups`,
         );
@@ -1631,62 +1619,75 @@ class UnifiedNavigationManager {
             console.log("[Unified Nav] Lucide icons initialized");
         }
 
-        // Setup edit mode event listeners
-        this.setupEditModeListeners();
+        // Setup event listeners
+        this.setupGroupCollapseListeners();
+
+        // Setup edit button listener
+        const editToggle = document.getElementById('menuEditToggle');
+        if (editToggle) {
+            editToggle.addEventListener('click', () => this.showMenuEditModal());
+        }
     }
 
     /**
-     * Create a group element with header and items
+     * Setup group collapse/expand listeners
+     */
+    setupGroupCollapseListeners() {
+        document.querySelectorAll('.menu-group-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                const groupEl = header.closest('.menu-group');
+                const groupId = groupEl.dataset.groupId;
+                const isCollapsed = groupEl.classList.toggle('collapsed');
+                this.saveGroupCollapsedState(groupId, isCollapsed);
+
+                // Update icon
+                const icon = header.querySelector('.group-collapse-icon i');
+                if (icon) {
+                    icon.setAttribute('data-lucide', isCollapsed ? 'chevron-right' : 'chevron-down');
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }
+            });
+        });
+    }
+
+    /**
+     * Create a group element with header and items (for sidebar display only)
      */
     createGroupElement(group, isUngrouped = false) {
         const groupEl = document.createElement("div");
-        groupEl.className = `menu-group ${group.collapsed ? 'collapsed' : ''}`;
+        groupEl.className = `menu-group`;
         groupEl.dataset.groupId = group.id;
 
         // Get stored collapsed state
         const collapsedState = this.getGroupCollapsedState();
-        const isCollapsed = collapsedState[group.id] ?? group.collapsed;
+        const isCollapsed = collapsedState[group.id] ?? group.collapsed ?? false;
         if (isCollapsed) groupEl.classList.add('collapsed');
 
         // Group header
         const header = document.createElement("div");
         header.className = "menu-group-header";
         header.innerHTML = `
-            ${this.isEditMode && !isUngrouped ? '<span class="group-drag-handle"><i data-lucide="grip-vertical"></i></span>' : ''}
             <span class="group-collapse-icon"><i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}"></i></span>
             <i data-lucide="${group.icon}" class="group-icon"></i>
             <span class="group-name">${group.name}</span>
             <span class="group-count">${group.items.length}</span>
-            ${this.isEditMode && !isUngrouped ? `
-                <div class="group-actions">
-                    <button class="group-action-btn rename-group-btn" data-group-id="${group.id}" title="Đổi tên">
-                        <i data-lucide="pencil"></i>
-                    </button>
-                    <button class="group-action-btn delete-group-btn" data-group-id="${group.id}" title="Xóa nhóm">
-                        <i data-lucide="trash-2"></i>
-                    </button>
-                </div>
-            ` : ''}
         `;
         groupEl.appendChild(header);
 
         // Group items container
         const itemsContainer = document.createElement("div");
         itemsContainer.className = "menu-group-items";
-        itemsContainer.dataset.groupId = group.id;
 
         group.items.forEach((menuItem) => {
             const navItem = document.createElement("a");
             navItem.href = menuItem.href;
             navItem.className = "nav-item";
-            navItem.dataset.pageId = menuItem.pageIdentifier;
 
             if (menuItem.pageIdentifier === this.currentPage) {
                 navItem.classList.add("active");
             }
 
             navItem.innerHTML = `
-                ${this.isEditMode ? '<span class="item-drag-handle"><i data-lucide="grip-vertical"></i></span>' : ''}
                 <i data-lucide="${menuItem.icon}"></i>
                 <span>${menuItem.text}</span>
             `;
@@ -1720,66 +1721,6 @@ class UnifiedNavigationManager {
             localStorage.setItem('n2shop_menu_group_collapsed', JSON.stringify(state));
         } catch (e) {
             console.error('[Menu] Error saving collapsed state:', e);
-        }
-    }
-
-    /**
-     * Setup edit mode event listeners
-     */
-    setupEditModeListeners() {
-        // Edit toggle button
-        const editToggle = document.getElementById('menuEditToggle');
-        if (editToggle) {
-            editToggle.addEventListener('click', () => this.toggleEditMode());
-        }
-
-        // Add group button
-        const addGroupBtn = document.getElementById('addGroupBtn');
-        if (addGroupBtn) {
-            addGroupBtn.addEventListener('click', () => this.showAddGroupModal());
-        }
-
-        // Group header click (collapse/expand)
-        document.querySelectorAll('.menu-group-header').forEach(header => {
-            header.addEventListener('click', (e) => {
-                // Don't collapse if clicking action buttons
-                if (e.target.closest('.group-actions') || e.target.closest('.group-drag-handle')) return;
-
-                const groupEl = header.closest('.menu-group');
-                const groupId = groupEl.dataset.groupId;
-                const isCollapsed = groupEl.classList.toggle('collapsed');
-                this.saveGroupCollapsedState(groupId, isCollapsed);
-
-                // Update icon
-                const icon = header.querySelector('.group-collapse-icon i');
-                if (icon) {
-                    icon.setAttribute('data-lucide', isCollapsed ? 'chevron-right' : 'chevron-down');
-                    if (typeof lucide !== 'undefined') lucide.createIcons();
-                }
-            });
-        });
-
-        // Rename group buttons
-        document.querySelectorAll('.rename-group-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const groupId = btn.dataset.groupId;
-                this.showRenameGroupModal(groupId);
-            });
-        });
-
-        // Delete group buttons
-        document.querySelectorAll('.delete-group-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const groupId = btn.dataset.groupId;
-                this.deleteGroup(groupId);
-            });
-        });
-
-        // Initialize SortableJS if in edit mode
-        if (this.isEditMode) {
-            this.initializeSortable();
         }
     }
 
@@ -2041,144 +1982,215 @@ class UnifiedNavigationManager {
     }
 
     // =====================================================
-    // MENU EDIT MODE (Admin Only)
+    // MENU EDIT MODAL (Admin Only)
     // =====================================================
-
-    /**
-     * Toggle edit mode on/off
-     */
-    async toggleEditMode() {
-        if (!this.isAdminTemplate) {
-            console.warn('[Menu Edit] Only admins can edit menu');
-            return;
-        }
-
-        if (this.isEditMode) {
-            // Exit edit mode - save changes
-            await this.exitEditMode();
-        } else {
-            // Enter edit mode
-            await this.enterEditMode();
-        }
-    }
-
-    /**
-     * Enter edit mode
-     */
-    async enterEditMode() {
-        console.log('[Menu Edit] Entering edit mode...');
-
-        // Load SortableJS if not loaded
-        await this.loadSortableJS();
-
-        this.isEditMode = true;
-        MenuLayoutStore.setEditing(true);
-
-        // Add edit-mode class to sidebar
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar) sidebar.classList.add('edit-mode');
-
-        // Re-render to show edit controls
-        this.renderDesktopSidebar();
-
-        console.log('[Menu Edit] Edit mode enabled');
-    }
-
-    /**
-     * Exit edit mode and save changes
-     */
-    async exitEditMode() {
-        console.log('[Menu Edit] Exiting edit mode, saving changes...');
-
-        this.isEditMode = false;
-        MenuLayoutStore.setEditing(false);
-
-        // Remove edit-mode class
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar) sidebar.classList.remove('edit-mode');
-
-        // Destroy sortable instances
-        this.destroySortables();
-
-        // Re-render without edit controls
-        this.renderDesktopSidebar();
-
-        console.log('[Menu Edit] Edit mode disabled, changes saved');
-    }
 
     /**
      * Load SortableJS library dynamically
      */
     async loadSortableJS() {
-        if (window.Sortable) {
-            console.log('[SortableJS] Already loaded');
-            return true;
-        }
+        if (window.Sortable) return true;
 
         return new Promise((resolve, reject) => {
-            console.log('[SortableJS] Loading from CDN...');
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js';
-            script.onload = () => {
-                console.log('[SortableJS] Loaded successfully');
-                resolve(true);
-            };
-            script.onerror = () => {
-                console.error('[SortableJS] Failed to load');
-                reject(new Error('Failed to load SortableJS'));
-            };
+            script.onload = () => resolve(true);
+            script.onerror = () => reject(new Error('Failed to load SortableJS'));
             document.head.appendChild(script);
         });
     }
 
     /**
-     * Initialize SortableJS for drag-drop
+     * Show menu edit modal (full screen)
      */
-    initializeSortable() {
-        if (!window.Sortable) {
-            console.warn('[SortableJS] Library not loaded');
+    async showMenuEditModal() {
+        if (!this.isAdminTemplate) {
+            alert('Chỉ admin mới có thể chỉnh sửa menu');
             return;
         }
 
-        // Destroy existing instances
-        this.destroySortables();
+        // Load SortableJS first
+        await this.loadSortableJS();
+
+        // Get current layout
+        const layout = MenuLayoutStore.getLayout();
+        MenuLayoutStore.setEditing(true);
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'menu-edit-modal-overlay';
+        modal.id = 'menuEditModal';
+
+        // Build groups HTML
+        const groupsHtml = layout.groups.map(group => `
+            <div class="edit-group" data-group-id="${group.id}">
+                <div class="edit-group-header">
+                    <span class="edit-group-drag-handle"><i data-lucide="grip-vertical"></i></span>
+                    <i data-lucide="${group.icon}" class="edit-group-icon"></i>
+                    <span class="edit-group-name">${group.name}</span>
+                    <span class="edit-group-count">${group.items.length}</span>
+                    <div class="edit-group-actions">
+                        <button class="edit-group-btn rename-btn" data-group-id="${group.id}" title="Đổi tên">
+                            <i data-lucide="pencil"></i>
+                        </button>
+                        <button class="edit-group-btn delete-btn" data-group-id="${group.id}" title="Xóa nhóm">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="edit-group-items" data-group-id="${group.id}">
+                    ${group.items.map(pageId => {
+                        const menuItem = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
+                        if (!menuItem) return '';
+                        return `
+                            <div class="edit-item" data-page-id="${pageId}">
+                                <span class="edit-item-drag-handle"><i data-lucide="grip-vertical"></i></span>
+                                <i data-lucide="${menuItem.icon}"></i>
+                                <span>${menuItem.text}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `).join('');
+
+        // Build ungrouped items HTML
+        const ungroupedItems = layout.ungroupedItems || [];
+        const ungroupedHtml = ungroupedItems.length > 0 ? `
+            <div class="edit-group edit-group-ungrouped" data-group-id="ungrouped">
+                <div class="edit-group-header">
+                    <i data-lucide="more-horizontal" class="edit-group-icon"></i>
+                    <span class="edit-group-name">Chưa phân nhóm</span>
+                    <span class="edit-group-count">${ungroupedItems.length}</span>
+                </div>
+                <div class="edit-group-items" data-group-id="ungrouped">
+                    ${ungroupedItems.map(pageId => {
+                        const menuItem = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
+                        if (!menuItem) return '';
+                        return `
+                            <div class="edit-item" data-page-id="${pageId}">
+                                <span class="edit-item-drag-handle"><i data-lucide="grip-vertical"></i></span>
+                                <i data-lucide="${menuItem.icon}"></i>
+                                <span>${menuItem.text}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        ` : '';
+
+        modal.innerHTML = `
+            <div class="menu-edit-modal">
+                <div class="menu-edit-header">
+                    <h2><i data-lucide="layout-grid"></i> Chỉnh Sửa Menu Sidebar</h2>
+                    <p>Kéo thả để sắp xếp nhóm và menu items</p>
+                    <button class="menu-edit-close" id="closeMenuEditModal">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="menu-edit-body">
+                    <div class="menu-edit-groups" id="editGroupsContainer">
+                        ${groupsHtml}
+                        ${ungroupedHtml}
+                    </div>
+                    <button class="menu-edit-add-group" id="addNewGroupBtn">
+                        <i data-lucide="plus"></i>
+                        Thêm Nhóm Mới
+                    </button>
+                </div>
+                <div class="menu-edit-footer">
+                    <button class="btn-secondary" id="cancelMenuEdit">Hủy</button>
+                    <button class="btn-primary" id="saveMenuEdit">
+                        <i data-lucide="check"></i>
+                        Lưu Thay Đổi
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Inject modal styles
+        this.injectMenuEditModalStyles();
+
+        document.body.appendChild(modal);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Initialize sortable
+        this.initializeEditModalSortable();
+
+        // Event listeners
+        const closeModal = () => {
+            this.destroyEditModalSortables();
+            MenuLayoutStore.setEditing(false);
+            modal.remove();
+        };
+
+        document.getElementById('closeMenuEditModal').addEventListener('click', closeModal);
+        document.getElementById('cancelMenuEdit').addEventListener('click', closeModal);
+
+        document.getElementById('saveMenuEdit').addEventListener('click', () => {
+            // Layout is already being saved on each drag operation
+            closeModal();
+            this.renderDesktopSidebar();
+        });
+
+        document.getElementById('addNewGroupBtn').addEventListener('click', () => {
+            this.showAddGroupModalInEdit();
+        });
+
+        // Rename/Delete buttons
+        modal.querySelectorAll('.rename-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const groupId = btn.dataset.groupId;
+                this.showRenameGroupModalInEdit(groupId);
+            });
+        });
+
+        modal.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const groupId = btn.dataset.groupId;
+                this.deleteGroupInEdit(groupId);
+            });
+        });
+    }
+
+    /**
+     * Initialize SortableJS for edit modal
+     */
+    initializeEditModalSortable() {
+        if (!window.Sortable) return;
 
         // Make groups sortable
-        const groupsContainer = document.getElementById('menuGroupsContainer');
+        const groupsContainer = document.getElementById('editGroupsContainer');
         if (groupsContainer) {
             this.groupSortable = new Sortable(groupsContainer, {
                 animation: 150,
-                handle: '.group-drag-handle',
+                handle: '.edit-group-drag-handle',
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
-                dragClass: 'sortable-drag',
-                filter: '[data-group-id="ungrouped"]', // Don't allow dragging ungrouped section
-                onEnd: (evt) => this.handleGroupReorder(evt)
+                filter: '.edit-group-ungrouped',
+                onEnd: (evt) => this.handleGroupReorderInEdit(evt)
             });
         }
 
         // Make items within each group sortable
         this.itemSortables = [];
-        document.querySelectorAll('.menu-group-items').forEach(itemsContainer => {
-            const sortable = new Sortable(itemsContainer, {
-                group: 'menu-items', // Allow dragging between groups
+        document.querySelectorAll('.edit-group-items').forEach(container => {
+            const sortable = new Sortable(container, {
+                group: 'edit-menu-items',
                 animation: 150,
-                handle: '.item-drag-handle',
+                handle: '.edit-item-drag-handle',
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
-                dragClass: 'sortable-drag',
-                onEnd: (evt) => this.handleItemMove(evt)
+                onEnd: (evt) => this.handleItemMoveInEdit(evt)
             });
             this.itemSortables.push(sortable);
         });
-
-        console.log('[SortableJS] Initialized', this.itemSortables.length, 'item sortables');
     }
 
     /**
      * Destroy sortable instances
      */
-    destroySortables() {
+    destroyEditModalSortables() {
         if (this.groupSortable) {
             this.groupSortable.destroy();
             this.groupSortable = null;
@@ -2188,278 +2200,350 @@ class UnifiedNavigationManager {
     }
 
     /**
-     * Handle group reorder event
+     * Handle group reorder in edit modal
      */
-    handleGroupReorder(evt) {
-        console.log('[Menu Edit] Group reordered:', evt.oldIndex, '->', evt.newIndex);
-
+    handleGroupReorderInEdit(evt) {
         const layout = MenuLayoutStore.getLayout();
         const groups = [...layout.groups];
-
-        // Move group in array
         const [moved] = groups.splice(evt.oldIndex, 1);
         groups.splice(evt.newIndex, 0, moved);
-
-        // Save updated layout
-        MenuLayoutStore.saveLayout({
-            ...layout,
-            groups: groups
-        });
+        MenuLayoutStore.saveLayout({ ...layout, groups });
     }
 
     /**
-     * Handle item move event (within or between groups)
+     * Handle item move in edit modal
      */
-    handleItemMove(evt) {
+    handleItemMoveInEdit(evt) {
         const fromGroupId = evt.from.dataset.groupId;
         const toGroupId = evt.to.dataset.groupId;
         const pageId = evt.item.dataset.pageId;
 
-        console.log('[Menu Edit] Item moved:', pageId, 'from', fromGroupId, 'to', toGroupId, 'at index', evt.newIndex);
-
         const layout = MenuLayoutStore.getLayout();
-        const newLayout = { ...layout };
 
-        // Remove from source group
+        // Remove from source
         if (fromGroupId === 'ungrouped') {
-            newLayout.ungroupedItems = newLayout.ungroupedItems.filter(id => id !== pageId);
+            layout.ungroupedItems = layout.ungroupedItems.filter(id => id !== pageId);
         } else {
-            const fromGroup = newLayout.groups.find(g => g.id === fromGroupId);
-            if (fromGroup) {
-                fromGroup.items = fromGroup.items.filter(id => id !== pageId);
-            }
+            const fromGroup = layout.groups.find(g => g.id === fromGroupId);
+            if (fromGroup) fromGroup.items = fromGroup.items.filter(id => id !== pageId);
         }
 
-        // Add to target group
+        // Add to target
         if (toGroupId === 'ungrouped') {
-            newLayout.ungroupedItems = newLayout.ungroupedItems || [];
-            newLayout.ungroupedItems.splice(evt.newIndex, 0, pageId);
+            layout.ungroupedItems = layout.ungroupedItems || [];
+            layout.ungroupedItems.splice(evt.newIndex, 0, pageId);
         } else {
-            const toGroup = newLayout.groups.find(g => g.id === toGroupId);
-            if (toGroup) {
-                toGroup.items.splice(evt.newIndex, 0, pageId);
-            }
+            const toGroup = layout.groups.find(g => g.id === toGroupId);
+            if (toGroup) toGroup.items.splice(evt.newIndex, 0, pageId);
         }
 
-        // Save updated layout
-        MenuLayoutStore.saveLayout(newLayout);
-    }
+        MenuLayoutStore.saveLayout(layout);
 
-    // =====================================================
-    // GROUP CRUD OPERATIONS
-    // =====================================================
-
-    /**
-     * Show modal to add a new group
-     */
-    showAddGroupModal() {
-        const modal = document.createElement('div');
-        modal.className = 'settings-modal-overlay';
-        modal.innerHTML = `
-            <div class="settings-modal" style="max-width: 400px;">
-                <div class="settings-header">
-                    <h2>
-                        <i data-lucide="folder-plus"></i>
-                        Thêm Nhóm Mới
-                    </h2>
-                    <button class="settings-close" id="closeAddGroupModal">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-                <div class="settings-content">
-                    <div class="setting-group">
-                        <label class="setting-label">Tên nhóm</label>
-                        <input type="text" id="newGroupName" class="setting-input" placeholder="Nhập tên nhóm..." autofocus>
-                    </div>
-                    <div class="setting-group">
-                        <label class="setting-label">Icon (Lucide)</label>
-                        <select id="newGroupIcon" class="setting-input">
-                            <option value="folder">Folder</option>
-                            <option value="shopping-cart">Shopping Cart</option>
-                            <option value="package">Package</option>
-                            <option value="users">Users</option>
-                            <option value="video">Video</option>
-                            <option value="settings">Settings</option>
-                            <option value="grid">Grid</option>
-                            <option value="layers">Layers</option>
-                            <option value="star">Star</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="settings-footer" style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <button id="cancelAddGroup" class="btn-secondary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer;">Hủy</button>
-                    <button id="confirmAddGroup" class="btn-primary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer; background: #6366f1; color: white; border: none;">Thêm</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-
-        // Focus input
-        setTimeout(() => document.getElementById('newGroupName')?.focus(), 100);
-
-        // Event listeners
-        const close = () => modal.remove();
-        modal.querySelector('#closeAddGroupModal').addEventListener('click', close);
-        modal.querySelector('#cancelAddGroup').addEventListener('click', close);
-        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-
-        modal.querySelector('#confirmAddGroup').addEventListener('click', () => {
-            const name = document.getElementById('newGroupName').value.trim();
-            const icon = document.getElementById('newGroupIcon').value;
-
-            if (!name) {
-                alert('Vui lòng nhập tên nhóm');
-                return;
-            }
-
-            this.addGroup(name, icon);
-            close();
-        });
-
-        // Enter key to submit
-        document.getElementById('newGroupName').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                modal.querySelector('#confirmAddGroup').click();
-            }
-        });
+        // Update counts in modal
+        this.updateGroupCountsInModal();
     }
 
     /**
-     * Add a new group
+     * Update group counts in edit modal
      */
-    addGroup(name, icon = 'folder') {
+    updateGroupCountsInModal() {
+        const layout = MenuLayoutStore.getLayout();
+        layout.groups.forEach(group => {
+            const countEl = document.querySelector(`.edit-group[data-group-id="${group.id}"] .edit-group-count`);
+            if (countEl) countEl.textContent = group.items.length;
+        });
+        const ungroupedCountEl = document.querySelector('.edit-group-ungrouped .edit-group-count');
+        if (ungroupedCountEl) ungroupedCountEl.textContent = (layout.ungroupedItems || []).length;
+    }
+
+    /**
+     * Show add group modal (inside edit modal)
+     */
+    showAddGroupModalInEdit() {
+        const name = prompt('Nhập tên nhóm mới:');
+        if (!name || !name.trim()) return;
+
         const layout = MenuLayoutStore.getLayout();
         const newGroup = {
             id: `group_${Date.now()}`,
-            name: name,
-            icon: icon,
+            name: name.trim(),
+            icon: 'folder',
             collapsed: false,
             items: []
         };
-
         layout.groups.push(newGroup);
         MenuLayoutStore.saveLayout(layout);
 
-        // Re-render
-        this.renderDesktopSidebar();
-
-        console.log('[Menu Edit] Added new group:', name);
+        // Refresh edit modal
+        document.getElementById('menuEditModal')?.remove();
+        this.showMenuEditModal();
     }
 
     /**
-     * Show modal to rename a group
+     * Show rename group modal (inside edit modal)
      */
-    showRenameGroupModal(groupId) {
+    showRenameGroupModalInEdit(groupId) {
         const layout = MenuLayoutStore.getLayout();
         const group = layout.groups.find(g => g.id === groupId);
         if (!group) return;
 
-        const modal = document.createElement('div');
-        modal.className = 'settings-modal-overlay';
-        modal.innerHTML = `
-            <div class="settings-modal" style="max-width: 400px;">
-                <div class="settings-header">
-                    <h2>
-                        <i data-lucide="pencil"></i>
-                        Đổi Tên Nhóm
-                    </h2>
-                    <button class="settings-close" id="closeRenameModal">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-                <div class="settings-content">
-                    <div class="setting-group">
-                        <label class="setting-label">Tên nhóm mới</label>
-                        <input type="text" id="renameGroupName" class="setting-input" value="${group.name}" autofocus>
-                    </div>
-                </div>
-                <div class="settings-footer" style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <button id="cancelRename" class="btn-secondary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer;">Hủy</button>
-                    <button id="confirmRename" class="btn-primary" style="padding: 8px 16px; border-radius: 8px; cursor: pointer; background: #6366f1; color: white; border: none;">Lưu</button>
-                </div>
-            </div>
-        `;
+        const newName = prompt('Nhập tên mới cho nhóm:', group.name);
+        if (!newName || !newName.trim()) return;
 
-        document.body.appendChild(modal);
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-
-        // Select all text in input
-        const input = document.getElementById('renameGroupName');
-        setTimeout(() => {
-            input?.focus();
-            input?.select();
-        }, 100);
-
-        // Event listeners
-        const close = () => modal.remove();
-        modal.querySelector('#closeRenameModal').addEventListener('click', close);
-        modal.querySelector('#cancelRename').addEventListener('click', close);
-        modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-
-        modal.querySelector('#confirmRename').addEventListener('click', () => {
-            const newName = input.value.trim();
-            if (!newName) {
-                alert('Vui lòng nhập tên nhóm');
-                return;
-            }
-
-            this.renameGroup(groupId, newName);
-            close();
-        });
-
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                modal.querySelector('#confirmRename').click();
-            }
-        });
-    }
-
-    /**
-     * Rename a group
-     */
-    renameGroup(groupId, newName) {
-        const layout = MenuLayoutStore.getLayout();
-        const group = layout.groups.find(g => g.id === groupId);
-        if (!group) return;
-
-        group.name = newName;
+        group.name = newName.trim();
         MenuLayoutStore.saveLayout(layout);
 
-        // Re-render
-        this.renderDesktopSidebar();
-
-        console.log('[Menu Edit] Renamed group:', groupId, 'to', newName);
+        // Update name in modal
+        const nameEl = document.querySelector(`.edit-group[data-group-id="${groupId}"] .edit-group-name`);
+        if (nameEl) nameEl.textContent = newName.trim();
     }
 
     /**
-     * Delete a group (move items to ungrouped)
+     * Delete group (inside edit modal)
      */
-    deleteGroup(groupId) {
-        if (!confirm('Xóa nhóm này? Các menu trong nhóm sẽ được chuyển sang "Chưa phân nhóm".')) {
-            return;
-        }
+    deleteGroupInEdit(groupId) {
+        if (!confirm('Xóa nhóm này? Các menu sẽ được chuyển sang "Chưa phân nhóm".')) return;
 
         const layout = MenuLayoutStore.getLayout();
         const groupIndex = layout.groups.findIndex(g => g.id === groupId);
         if (groupIndex === -1) return;
 
         const group = layout.groups[groupIndex];
-
-        // Move items to ungrouped
         layout.ungroupedItems = layout.ungroupedItems || [];
         layout.ungroupedItems.push(...group.items);
-
-        // Remove group
         layout.groups.splice(groupIndex, 1);
-
         MenuLayoutStore.saveLayout(layout);
 
-        // Re-render
-        this.renderDesktopSidebar();
+        // Refresh edit modal
+        document.getElementById('menuEditModal')?.remove();
+        this.showMenuEditModal();
+    }
 
-        console.log('[Menu Edit] Deleted group:', groupId, 'moved', group.items.length, 'items to ungrouped');
+    /**
+     * Inject CSS for menu edit modal
+     */
+    injectMenuEditModalStyles() {
+        if (document.getElementById('menuEditModalStyles')) return;
+
+        const style = document.createElement('style');
+        style.id = 'menuEditModalStyles';
+        style.textContent = `
+            .menu-edit-modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            }
+            .menu-edit-modal {
+                background: #1e293b;
+                border-radius: 16px;
+                width: 100%;
+                max-width: 600px;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            }
+            .menu-edit-header {
+                padding: 20px 24px;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+                position: relative;
+            }
+            .menu-edit-header h2 {
+                margin: 0 0 4px 0;
+                font-size: 18px;
+                color: white;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .menu-edit-header p {
+                margin: 0;
+                font-size: 13px;
+                color: rgba(255,255,255,0.5);
+            }
+            .menu-edit-close {
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                background: none;
+                border: none;
+                color: rgba(255,255,255,0.5);
+                cursor: pointer;
+                padding: 8px;
+                border-radius: 8px;
+            }
+            .menu-edit-close:hover {
+                background: rgba(255,255,255,0.1);
+                color: white;
+            }
+            .menu-edit-body {
+                flex: 1;
+                overflow-y: auto;
+                padding: 16px 24px;
+            }
+            .menu-edit-groups {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .edit-group {
+                background: rgba(255,255,255,0.05);
+                border-radius: 12px;
+                overflow: hidden;
+            }
+            .edit-group-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 16px;
+                background: rgba(255,255,255,0.05);
+            }
+            .edit-group-drag-handle {
+                cursor: grab;
+                color: rgba(255,255,255,0.3);
+                display: flex;
+                align-items: center;
+            }
+            .edit-group-drag-handle:hover {
+                color: rgba(255,255,255,0.6);
+            }
+            .edit-group-icon {
+                width: 18px;
+                height: 18px;
+                color: #a5b4fc;
+            }
+            .edit-group-name {
+                flex: 1;
+                font-weight: 600;
+                color: white;
+                font-size: 14px;
+            }
+            .edit-group-count {
+                font-size: 12px;
+                color: rgba(255,255,255,0.4);
+                background: rgba(255,255,255,0.1);
+                padding: 2px 8px;
+                border-radius: 10px;
+            }
+            .edit-group-actions {
+                display: flex;
+                gap: 4px;
+            }
+            .edit-group-btn {
+                padding: 6px;
+                background: none;
+                border: none;
+                color: rgba(255,255,255,0.4);
+                cursor: pointer;
+                border-radius: 6px;
+            }
+            .edit-group-btn:hover {
+                background: rgba(255,255,255,0.1);
+                color: white;
+            }
+            .edit-group-btn.delete-btn:hover {
+                color: #f87171;
+            }
+            .edit-group-items {
+                padding: 8px;
+                min-height: 40px;
+            }
+            .edit-item {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 12px;
+                background: rgba(255,255,255,0.03);
+                border-radius: 8px;
+                margin-bottom: 4px;
+                color: rgba(255,255,255,0.8);
+                font-size: 13px;
+            }
+            .edit-item:last-child {
+                margin-bottom: 0;
+            }
+            .edit-item-drag-handle {
+                cursor: grab;
+                color: rgba(255,255,255,0.3);
+                display: flex;
+                align-items: center;
+            }
+            .edit-item-drag-handle:hover {
+                color: rgba(255,255,255,0.6);
+            }
+            .edit-item i:not(.edit-item-drag-handle i) {
+                width: 16px;
+                height: 16px;
+                color: rgba(255,255,255,0.5);
+            }
+            .menu-edit-add-group {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                width: 100%;
+                padding: 14px;
+                margin-top: 12px;
+                background: rgba(34, 197, 94, 0.1);
+                border: 2px dashed rgba(34, 197, 94, 0.3);
+                border-radius: 12px;
+                color: #86efac;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            .menu-edit-add-group:hover {
+                background: rgba(34, 197, 94, 0.15);
+                border-color: rgba(34, 197, 94, 0.5);
+            }
+            .menu-edit-footer {
+                padding: 16px 24px;
+                border-top: 1px solid rgba(255,255,255,0.1);
+                display: flex;
+                justify-content: flex-end;
+                gap: 12px;
+            }
+            .menu-edit-footer .btn-secondary {
+                padding: 10px 20px;
+                background: rgba(255,255,255,0.1);
+                border: none;
+                border-radius: 8px;
+                color: white;
+                cursor: pointer;
+            }
+            .menu-edit-footer .btn-secondary:hover {
+                background: rgba(255,255,255,0.15);
+            }
+            .menu-edit-footer .btn-primary {
+                padding: 10px 20px;
+                background: #6366f1;
+                border: none;
+                border-radius: 8px;
+                color: white;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .menu-edit-footer .btn-primary:hover {
+                background: #5558e3;
+            }
+            /* Sortable states */
+            .sortable-ghost {
+                opacity: 0.4;
+            }
+            .sortable-chosen {
+                background: rgba(99, 102, 241, 0.2) !important;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     // =====================================================
