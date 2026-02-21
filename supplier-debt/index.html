@@ -319,6 +319,37 @@
         </div>
     </div>
 
+    <!-- Note Edit Modal -->
+    <div class="modal-overlay" id="noteEditModal">
+        <div class="modal modal-note">
+            <div class="modal-header">
+                <h3>Chỉnh sửa ghi chú</h3>
+                <button class="modal-close" id="btnCloseNoteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-form">
+                    <div class="form-group">
+                        <label>Nhà cung cấp - Ngày</label>
+                        <div class="form-value" id="noteEditSupplier"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Ghi chú TPOS <span class="text-muted">(không thể sửa)</span></label>
+                        <div class="form-value note-readonly" id="noteEditTpos"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Ghi chú Web <span class="text-muted">(có thể sửa)</span></label>
+                        <textarea id="noteEditWeb" class="form-input form-textarea" rows="3" placeholder="Nhập ghi chú..."></textarea>
+                        <div class="form-hint">Nhấn Ctrl+Enter để lưu nhanh</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="btnSaveNote">Lưu</button>
+                <button class="btn btn-secondary" id="btnCancelNote">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>

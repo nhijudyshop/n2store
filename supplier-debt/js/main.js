@@ -14,7 +14,165 @@ const CONFIG = {
     RESULT_SELECTION: 'supplier',
     DEFAULT_PAGE_SIZE: 20,
     DETAIL_PAGE_SIZE: 10,
-    COLUMN_VISIBILITY_KEY: 'supplierDebt_columnVisibility'
+    COLUMN_VISIBILITY_KEY: 'supplierDebt_columnVisibility',
+    FIREBASE_COLLECTION: 'supplier_debt_notes'
+};
+
+// =====================================================
+// WEB NOTES STORAGE (Firebase)
+// =====================================================
+
+const WebNotesStore = {
+    _data: new Map(),
+    _isListening: false,
+    _unsubscribe: null,
+
+    // Generate key from supplier code and date
+    _makeKey(supplierCode, dateStr) {
+        // dateStr format: dd/mm/yyyy
+        return `${supplierCode}_${dateStr.replace(/\//g, '-')}`;
+    },
+
+    // Get Firestore document reference
+    _getDocRef() {
+        if (!window.firebaseDb) {
+            console.error('[WebNotesStore] Firebase not initialized');
+            return null;
+        }
+        return window.firebaseDb.collection(CONFIG.FIREBASE_COLLECTION).doc('notes');
+    },
+
+    // Initialize store
+    async init() {
+        console.log('[WebNotesStore] Initializing...');
+
+        // Load from localStorage first (cache)
+        this._loadFromLocalStorage();
+
+        // Then load from Firestore (source of truth)
+        await this._loadFromFirestore();
+
+        // Setup real-time listener
+        this._setupRealtimeListener();
+
+        console.log('[WebNotesStore] Initialized with', this._data.size, 'notes');
+    },
+
+    _loadFromLocalStorage() {
+        try {
+            const saved = localStorage.getItem('supplierDebt_webNotes');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                this._data = new Map(Object.entries(parsed));
+            }
+        } catch (e) {
+            console.error('[WebNotesStore] Error loading from localStorage:', e);
+        }
+    },
+
+    _saveToLocalStorage() {
+        try {
+            const obj = Object.fromEntries(this._data);
+            localStorage.setItem('supplierDebt_webNotes', JSON.stringify(obj));
+        } catch (e) {
+            console.error('[WebNotesStore] Error saving to localStorage:', e);
+        }
+    },
+
+    async _loadFromFirestore() {
+        const docRef = this._getDocRef();
+        if (!docRef) return false;
+
+        try {
+            const doc = await docRef.get();
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.notes) {
+                    this._data = new Map(Object.entries(data.notes));
+                    this._saveToLocalStorage();
+                }
+            }
+            return true;
+        } catch (e) {
+            console.error('[WebNotesStore] Error loading from Firestore:', e);
+            return false;
+        }
+    },
+
+    async _saveToFirestore() {
+        const docRef = this._getDocRef();
+        if (!docRef) return;
+
+        try {
+            await docRef.set({
+                notes: Object.fromEntries(this._data),
+                lastUpdated: Date.now()
+            }, { merge: true });
+        } catch (e) {
+            console.error('[WebNotesStore] Error saving to Firestore:', e);
+        }
+    },
+
+    _setupRealtimeListener() {
+        const docRef = this._getDocRef();
+        if (!docRef) return;
+
+        this._unsubscribe = docRef.onSnapshot((doc) => {
+            if (doc.exists) {
+                const data = doc.data();
+                if (data && data.notes) {
+                    this._isListening = true;
+                    this._data = new Map(Object.entries(data.notes));
+                    this._saveToLocalStorage();
+                    this._isListening = false;
+                }
+            }
+        }, (error) => {
+            console.error('[WebNotesStore] Realtime listener error:', error);
+        });
+    },
+
+    // Get note for a supplier code and date
+    get(supplierCode, dateStr) {
+        const key = this._makeKey(supplierCode, dateStr);
+        return this._data.get(key) || '';
+    },
+
+    // Set note for a supplier code and date
+    async set(supplierCode, dateStr, note) {
+        const key = this._makeKey(supplierCode, dateStr);
+
+        if (note && note.trim()) {
+            this._data.set(key, note.trim());
+        } else {
+            this._data.delete(key);
+        }
+
+        this._saveToLocalStorage();
+
+        if (!this._isListening) {
+            await this._saveToFirestore();
+        }
+    },
+
+    // Delete note
+    async delete(supplierCode, dateStr) {
+        const key = this._makeKey(supplierCode, dateStr);
+        this._data.delete(key);
+        this._saveToLocalStorage();
+
+        const docRef = this._getDocRef();
+        if (docRef && !this._isListening) {
+            try {
+                await docRef.update({
+                    [`notes.${key}`]: firebase.firestore.FieldValue.delete(),
+                    lastUpdated: Date.now()
+                });
+            } catch (e) {
+                console.error('[WebNotesStore] Error deleting from Firestore:', e);
+            }
+        }
+    }
 };
 
 // Column definitions for visibility toggle
@@ -719,6 +877,8 @@ function renderCongNoTab(partnerId) {
     const page = rowState?.congNoPage || 1;
     const total = rowState?.congNoTotal || 0;
     const totalPages = Math.ceil(total / CONFIG.DETAIL_PAGE_SIZE);
+    const partnerData = rowState?.partnerData || {};
+    const supplierCode = partnerData.Code || '';
 
     // Check if not loaded yet
     if (rowState?.congNo === null) {
@@ -751,12 +911,36 @@ function renderCongNoTab(partnerId) {
             <tbody>
     `;
 
-    congNo.forEach(item => {
+    congNo.forEach((item, index) => {
+        const dateStr = formatDateFromISO(item.Date);
+        const tposNote = item.Ref || '';
+        const webNote = WebNotesStore.get(supplierCode, dateStr);
+
+        // Escape for HTML attributes
+        const escapedSupplierCode = escapeHtmlAttr(supplierCode);
+        const escapedDateStr = escapeHtmlAttr(dateStr);
+        const escapedTposNote = escapeHtmlAttr(tposNote);
+        const escapedWebNote = escapeHtmlAttr(webNote);
+
         tableHtml += `
             <tr>
-                <td>${formatDateFromISO(item.Date)}</td>
+                <td>${dateStr}</td>
                 <td>${escapeHtml(item.Name || '')}</td>
-                <td>${escapeHtml(item.Ref || '')}</td>
+                <td class="note-cell">
+                    <div class="note-content">
+                        ${tposNote ? `<span class="note-tpos" title="Dữ liệu TPOS (không thể sửa)">${escapeHtml(tposNote)}</span>` : ''}
+                        ${webNote ? `<span class="note-web" title="Ghi chú web">${escapeHtml(webNote)}</span>` : ''}
+                    </div>
+                    <button class="btn-edit-note"
+                        data-supplier="${escapedSupplierCode}"
+                        data-date="${escapedDateStr}"
+                        data-tpos="${escapedTposNote}"
+                        data-web="${escapedWebNote}"
+                        onclick="handleNoteEditClick(this)"
+                        title="Chỉnh sửa ghi chú web">
+                        <i data-lucide="pencil" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </td>
                 <td>${escapeHtml(item.MoveName || '')}</td>
                 <td class="col-number">${formatNumber(item.Begin)}</td>
                 <td class="col-number">${formatNumber(item.Debit)}</td>
@@ -1616,6 +1800,103 @@ function initPaymentModal() {
 }
 
 // =====================================================
+// NOTE EDIT MODAL
+// =====================================================
+
+let currentNoteEdit = {
+    supplierCode: null,
+    dateStr: null
+};
+
+function openNoteEditModal(supplierCode, dateStr, tposNote, webNote) {
+    currentNoteEdit.supplierCode = supplierCode;
+    currentNoteEdit.dateStr = dateStr;
+
+    // Set modal content
+    document.getElementById('noteEditSupplier').textContent = `[${supplierCode}] - ${dateStr}`;
+    document.getElementById('noteEditTpos').textContent = tposNote || '(Không có)';
+    document.getElementById('noteEditWeb').value = webNote || '';
+
+    // Show modal
+    document.getElementById('noteEditModal').classList.add('show');
+
+    // Focus on textarea
+    document.getElementById('noteEditWeb').focus();
+}
+
+function closeNoteEditModal() {
+    document.getElementById('noteEditModal').classList.remove('show');
+    currentNoteEdit.supplierCode = null;
+    currentNoteEdit.dateStr = null;
+}
+
+async function saveNoteEdit() {
+    const { supplierCode, dateStr } = currentNoteEdit;
+    const webNote = document.getElementById('noteEditWeb').value;
+
+    if (!supplierCode || !dateStr) {
+        console.error('[NoteEdit] No supplier code or date');
+        return;
+    }
+
+    try {
+        await WebNotesStore.set(supplierCode, dateStr, webNote);
+
+        if (window.notificationManager) {
+            window.notificationManager.success('Đã lưu ghi chú');
+        }
+
+        closeNoteEditModal();
+
+        // Refresh the current expanded row's congno tab
+        const partnerData = State.filteredData.find(p => p.Code === supplierCode);
+        if (partnerData) {
+            const partnerId = partnerData.PartnerId;
+            const tabContent = document.getElementById(`tab-congno-${partnerId}`);
+            if (tabContent) {
+                tabContent.innerHTML = renderCongNoTab(partnerId);
+                if (window.lucide) window.lucide.createIcons();
+            }
+        }
+    } catch (error) {
+        console.error('[NoteEdit] Error saving note:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi lưu ghi chú: ' + error.message);
+        }
+    }
+}
+
+function initNoteEditModal() {
+    // Close handlers
+    document.getElementById('btnCloseNoteModal')?.addEventListener('click', closeNoteEditModal);
+    document.getElementById('btnCancelNote')?.addEventListener('click', closeNoteEditModal);
+
+    // Save handler
+    document.getElementById('btnSaveNote')?.addEventListener('click', saveNoteEdit);
+
+    // Close on overlay click
+    document.getElementById('noteEditModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'noteEditModal') {
+            closeNoteEditModal();
+        }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById('noteEditModal')?.classList.contains('show')) {
+            closeNoteEditModal();
+        }
+    });
+
+    // Save on Ctrl+Enter
+    document.getElementById('noteEditWeb')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            saveNoteEdit();
+        }
+    });
+}
+
+// =====================================================
 // DATE FORMATTING HELPERS
 // =====================================================
 
@@ -1642,6 +1923,24 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function escapeHtmlAttr(text) {
+    if (!text) return '';
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function handleNoteEditClick(btn) {
+    const supplierCode = btn.dataset.supplier || '';
+    const dateStr = btn.dataset.date || '';
+    const tposNote = btn.dataset.tpos || '';
+    const webNote = btn.dataset.web || '';
+    openNoteEditModal(supplierCode, dateStr, tposNote, webNote);
 }
 
 // =====================================================
@@ -1817,6 +2116,12 @@ async function init() {
 
     // Initialize payment modal
     initPaymentModal();
+
+    // Initialize note edit modal
+    initNoteEditModal();
+
+    // Initialize web notes store
+    await WebNotesStore.init();
 
     // Load initial data
     await fetchData();

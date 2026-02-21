@@ -987,3 +987,105 @@
 .modal-footer .btn {
     padding: 10px 20px;
 }
+
+/* =====================================================
+   Note Edit Styles
+   ===================================================== */
+
+/* Note Cell in Detail Table */
+.note-cell {
+    position: relative;
+    min-width: 180px;
+}
+
+.note-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-right: 30px;
+}
+
+.note-tpos {
+    color: #6b7280;
+    font-size: 12px;
+    padding: 2px 6px;
+    background: #f1f5f9;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.note-tpos::before {
+    content: 'TPOS: ';
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+.note-web {
+    color: #059669;
+    font-size: 12px;
+    padding: 2px 6px;
+    background: #d1fae5;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.note-web::before {
+    content: 'Web: ';
+    color: #10b981;
+    font-weight: 500;
+}
+
+.btn-edit-note {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: #f8fafc;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6b7280;
+    transition: all 0.2s;
+}
+
+.btn-edit-note:hover {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+}
+
+/* Note Edit Modal */
+.modal-note {
+    max-width: 500px;
+}
+
+.note-readonly {
+    background: #f1f5f9;
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #6b7280;
+    min-height: 20px;
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+}
+
+.form-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+.text-muted {
+    color: #9ca3af;
+    font-weight: 400;
+}
