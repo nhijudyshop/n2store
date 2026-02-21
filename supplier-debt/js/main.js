@@ -1075,9 +1075,11 @@ function renderCongNoTab(partnerId) {
         const moveName = item.MoveName || '';
         const webNote = WebNotesStore.get(supplierCode, moveName);
         const noteHistory = WebNotesStore.getHistory(supplierCode, moveName);
-        // Determine note button class: only show color if there's an active note
-        // multi-edit (red) if 2+ edits, has-note (green) if 1 edit, no color if no note
-        const noteButtonClass = webNote ? (noteHistory.length >= 1 ? 'multi-edit' : 'has-note') : '';
+        // Determine note button class:
+        // multi-edit (red) if history has entries (2+ total edits including deletions)
+        // has-note (green) if has note but no history (first edit)
+        // no color if never edited
+        const noteButtonClass = noteHistory.length >= 1 ? 'multi-edit' : (webNote ? 'has-note' : '');
 
         // Escape for HTML attributes
         const escapedSupplierCode = escapeHtmlAttr(supplierCode);
