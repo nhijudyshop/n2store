@@ -1448,6 +1448,8 @@ async function fetchPartnerCongNo(partnerId, page) {
 
         if (response.ok) {
             const data = await response.json();
+            // DEBUG: Log API response structure to check field mapping
+            console.log('[CongNo API Response] First item:', JSON.stringify(data.value?.[0], null, 2));
             const rowState = State.expandedRows.get(partnerId);
             if (rowState) {
                 rowState.congNo = data.value || [];
