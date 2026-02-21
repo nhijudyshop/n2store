@@ -176,8 +176,6 @@ const MENU_CONFIG = [
         text: "NCC",
         shortText: "NCC",
         pageIdentifier: "supplier-debt",
-        adminOnly: true,
-        permissionRequired: "supplier-debt",
     },
     {
         href: "../invoice-compare/index.html",
