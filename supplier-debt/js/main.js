@@ -1395,7 +1395,9 @@ function onPaymentMethodChange() {
 
 async function submitPayment() {
     const partnerId = currentPaymentPartnerId;
-    let journalId = document.getElementById('paymentMethod').value;
+    const select = document.getElementById('paymentMethod');
+    const selectedOption = select.options[select.selectedIndex];
+    let journalId = select.value;
     const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
     const paymentDateValue = document.getElementById('paymentDate').value;
     const content = document.getElementById('paymentContent').value;
@@ -1408,17 +1410,29 @@ async function submitPayment() {
         return;
     }
 
-    // Handle "Khuyến mãi" - use first available cash method
-    if (journalId === 'promotion') {
-        const cashMethod = paymentMethods.find(m => m.Type === 'cash');
-        if (cashMethod) {
-            journalId = cashMethod.Id;
-        } else {
+    // Get the selected journal object
+    let selectedJournal = null;
+    const isPromotion = journalId === 'promotion';
+
+    if (isPromotion) {
+        // "Khuyến mãi" uses bank journal (Ngân hàng)
+        selectedJournal = paymentMethods.find(m => m.Name === 'Ngân hàng' || m.Type === 'bank');
+        if (!selectedJournal) {
             if (window.notificationManager) {
-                window.notificationManager.warning('Không tìm thấy phương thức tiền mặt');
+                window.notificationManager.warning('Không tìm thấy phương thức ngân hàng');
             }
             return;
         }
+        journalId = selectedJournal.Id;
+    } else {
+        selectedJournal = paymentMethods.find(m => m.Id === parseInt(journalId));
+    }
+
+    if (!selectedJournal) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Không tìm thấy phương thức thanh toán');
+        }
+        return;
     }
 
     if (amount <= 0) {
@@ -1430,26 +1444,106 @@ async function submitPayment() {
 
     try {
         const authHeader = await window.tokenManager.getAuthHeader();
-        const paymentDate = new Date(paymentDateValue).toISOString();
+        const paymentDate = new Date(paymentDateValue);
+        const paymentDateISO = paymentDate.toISOString();
+        const localDatetime = new Date(paymentDate.getTime() - paymentDate.getTimezoneOffset() * 60000).toISOString();
 
+        // Get partner data from expanded rows
+        const rowState = State.expandedRows.get(partnerId);
+        const partnerData = rowState?.partnerData || {};
+
+        // Build full payload matching the TPOS API format
         const payload = {
+            Id: 0,
+            CompanyId: null,
+            CurrencyId: 1,
             PartnerId: partnerId,
+            ApproveUserId: null,
+            ApproveUserName: null,
+            CreatedUserName: null,
+            CreatedUserId: null,
+            PartnerDisplayName: null,
+            ContactId: null,
+            ContactName: null,
+            PaymentMethodId: 2,
+            PartnerType: 'supplier',
+            PaymentDate: paymentDateISO,
+            DateCreated: localDatetime,
             JournalId: parseInt(journalId),
+            JournalName: null,
+            JournalType: null,
+            State: 'draft',
+            Name: null,
+            PaymentType: 'outbound',
             Amount: amount,
-            PaymentDate: paymentDate,
-            Ref: content,
-            Communication: content,
-            PartnerType: 'supplier'
+            AmountStr: null,
+            Communication: content || null,
+            SearchDate: null,
+            StateGet: 'Nháp',
+            PaymentType2: null,
+            Description: null,
+            PaymentDifferenceHandling: 'open',
+            WriteoffAccountId: null,
+            PaymentDifference: 0,
+            SenderReceiver: null,
+            Phone: null,
+            Address: null,
+            AccountId: null,
+            AccountName: null,
+            CompanyName: null,
+            OrderCode: null,
+            SaleOrderId: null,
+            Currency: {
+                Id: 1,
+                Name: 'VND',
+                Code: null,
+                Rounding: 1,
+                Symbol: null,
+                Active: true,
+                Position: 'after',
+                Rate: 0,
+                DecimalPlaces: 0
+            },
+            Journal: selectedJournal,
+            Partner: {
+                Id: partnerId,
+                Name: partnerData.PartnerName || '',
+                DisplayName: `[${partnerData.Code || ''}] ${partnerData.PartnerName || ''}`,
+                Street: null,
+                Website: null,
+                Phone: partnerData.PartnerPhone || null,
+                Supplier: true,
+                Customer: false,
+                IsCompany: false,
+                Ref: partnerData.Code || null,
+                Active: true,
+                Employee: false,
+                Type: 'contact',
+                CompanyType: 'person',
+                OverCredit: false,
+                CreditLimit: 0,
+                Discount: 0,
+                AmountDiscount: 0,
+                NameNoSign: (partnerData.PartnerName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
+                DateCreated: localDatetime,
+                Status: 'Normal',
+                StatusText: 'Bình thường',
+                Source: 'Default',
+                IsNewAddress: false,
+                Ward_District_City: ''
+            }
         };
 
-        const url = `${CONFIG.API_BASE_PARTNER}/AccountVoucher/RegisterSupplierPayment`;
+        const url = `${CONFIG.API_BASE}/AccountPayment`;
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
+                'Content-Type': 'application/json;charset=UTF-8',
+                'feature-version': '2',
+                'tposappversion': '6.2.6.1',
+                'x-tpos-lang': 'vi'
             },
             body: JSON.stringify(payload)
         });
