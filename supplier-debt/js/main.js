@@ -1040,6 +1040,10 @@ function renderCongNoTab(partnerId) {
             <tbody>
     `;
 
+    // Calculate running balance ourselves since API returns inconsistent Begin values when sorted by date
+    // Use first row's Begin as starting point, then calculate running balance for each row
+    let runningBalance = congNo.length > 0 ? (congNo[0].Begin || 0) : 0;
+
     congNo.forEach((item, index) => {
         const dateStr = formatDateFromISO(item.Date);
         const tposNote = item.Ref || '';
@@ -1055,9 +1059,12 @@ function renderCongNoTab(partnerId) {
         const debit = item.Debit || 0;
         const credit = item.Credit || 0;
 
-        // Calculate end balance: use each row's own Begin value from API
-        // This ensures correct calculation across pagination
-        const currentEnd = (item.Begin || 0) + debit - credit;
+        // Use running balance calculated from previous rows
+        const currentBegin = runningBalance;
+        const currentEnd = currentBegin + debit - credit;
+
+        // Update running balance for next row
+        runningBalance = currentEnd;
 
         // Check if this is a payment entry (can be deleted)
         // Payments typically have Credit > 0 and MoveName starts with CSH, BANK, etc.
@@ -1089,10 +1096,10 @@ function renderCongNoTab(partnerId) {
                     ${isInvoice ? `<button class="btn-view-invoice" onclick="openInvoiceDetailByMoveName('${escapedMoveName}', ${partnerId})" title="Xem chi tiết hóa đơn"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/></svg></button>` : ''}
                     ${escapeHtml(moveName)}
                 </td>
-                <td class="col-number">${formatNumber(item.Begin)}</td>
+                <td class="col-number">${formatNumber(currentBegin)}</td>
                 <td class="col-number">${formatNumber(debit)}</td>
                 <td class="col-number">${formatNumber(credit)}</td>
-                <td class="col-calc">${formatNumber(item.Begin)} + ${formatNumber(debit)} - ${formatNumber(credit)}</td>
+                <td class="col-calc">${formatNumber(currentBegin)} + ${formatNumber(debit)} - ${formatNumber(credit)}</td>
                 <td class="col-number">${formatNumber(currentEnd)}</td>
                 <td style="text-align: center;">
                     ${isPayment ? `
@@ -1448,8 +1455,6 @@ async function fetchPartnerCongNo(partnerId, page) {
 
         if (response.ok) {
             const data = await response.json();
-            // DEBUG: Log API response structure to check field mapping
-            console.log('[CongNo API Response] First item:', JSON.stringify(data.value?.[0], null, 2));
             const rowState = State.expandedRows.get(partnerId);
             if (rowState) {
                 rowState.congNo = data.value || [];
