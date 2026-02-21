@@ -801,6 +801,7 @@ async function toggleRowExpandTab(partnerId, tabName) {
             congNo: null,
             congNoPage: 1,
             congNoTotal: 0,
+            congNoEndBalances: new Map(), // Store end balance of each page for pagination
             info: null,
             invoices: null,
             invoicePage: 1,
@@ -854,6 +855,7 @@ async function toggleRowExpand(partnerId, expandBtn) {
             congNo: null,
             congNoPage: 1,
             congNoTotal: 0,
+            congNoEndBalances: new Map(), // Store end balance of each page for pagination
             info: null,
             invoices: null,
             invoicePage: 1,
@@ -1032,7 +1034,6 @@ function renderCongNoTab(partnerId) {
                     <th class="col-number">Nợ đầu kỳ</th>
                     <th class="col-number">Phát sinh</th>
                     <th class="col-number">Thanh toán</th>
-                    <th>Cách tính</th>
                     <th class="col-number">Nợ cuối kỳ</th>
                     <th style="width: 40px;"></th>
                 </tr>
@@ -1041,8 +1042,12 @@ function renderCongNoTab(partnerId) {
     `;
 
     // Calculate running balance ourselves since API returns inconsistent Begin values when sorted by date
-    // Use first row's Begin as starting point, then calculate running balance for each row
-    let runningBalance = congNo.length > 0 ? (congNo[0].Begin || 0) : 0;
+    // For page 1: use first row's Begin from API
+    // For page 2+: use stored end balance from previous page
+    const prevPageEndBalance = rowState?.congNoEndBalances?.get(page - 1);
+    let runningBalance = (page > 1 && prevPageEndBalance !== undefined)
+        ? prevPageEndBalance
+        : (congNo.length > 0 ? (congNo[0].Begin || 0) : 0);
 
     congNo.forEach((item, index) => {
         const dateStr = formatDateFromISO(item.Date);
@@ -1099,7 +1104,6 @@ function renderCongNoTab(partnerId) {
                 <td class="col-number">${formatNumber(currentBegin)}</td>
                 <td class="col-number">${formatNumber(debit)}</td>
                 <td class="col-number">${formatNumber(credit)}</td>
-                <td class="col-calc">${formatNumber(currentBegin)} + ${formatNumber(debit)} - ${formatNumber(credit)}</td>
                 <td class="col-number">${formatNumber(currentEnd)}</td>
                 <td style="text-align: center;">
                     ${isPayment ? `
@@ -1113,6 +1117,11 @@ function renderCongNoTab(partnerId) {
             </tr>
         `;
     });
+
+    // Store end balance of this page for pagination to next page
+    if (rowState?.congNoEndBalances) {
+        rowState.congNoEndBalances.set(page, runningBalance);
+    }
 
     tableHtml += '</tbody></table>';
 
