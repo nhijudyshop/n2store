@@ -912,6 +912,9 @@ function renderCongNoTab(partnerId) {
             <tbody>
     `;
 
+    // Calculate running balance for each row
+    let runningBalance = 0;
+
     congNo.forEach((item, index) => {
         const dateStr = formatDateFromISO(item.Date);
         const tposNote = item.Ref || '';
@@ -924,17 +927,28 @@ function renderCongNoTab(partnerId) {
         const escapedTposNote = escapeHtmlAttr(tposNote);
         const escapedWebNote = escapeHtmlAttr(webNote);
 
-        // Calculate the formula explanation
-        let calcExplanation = '';
-        if (index > 0) {
-            const prevEnd = congNo[index - 1].End || 0;
-            const debit = item.Debit || 0;
-            const credit = item.Credit || 0;
+        const debit = item.Debit || 0;
+        const credit = item.Credit || 0;
 
+        // Calculate the formula explanation and running balance
+        let calcExplanation = '';
+        let currentEnd = 0;
+
+        if (index === 0) {
+            // First row: use Begin + Debit - Credit
+            currentEnd = (item.Begin || 0) + debit - credit;
+            runningBalance = currentEnd;
+        } else {
+            // Subsequent rows: prevRunningBalance + Debit - Credit
+            const prevBalance = runningBalance;
+            currentEnd = prevBalance + debit - credit;
+            runningBalance = currentEnd;
+
+            // Show formula
             if (credit > 0) {
-                calcExplanation = `${formatNumber(prevEnd)} - ${formatNumber(credit)}`;
+                calcExplanation = `${formatNumber(prevBalance)} - ${formatNumber(credit)}`;
             } else if (debit > 0) {
-                calcExplanation = `${formatNumber(prevEnd)} + ${formatNumber(debit)}`;
+                calcExplanation = `${formatNumber(prevBalance)} + ${formatNumber(debit)}`;
             }
         }
 
@@ -959,9 +973,9 @@ function renderCongNoTab(partnerId) {
                 </td>
                 <td>${escapeHtml(moveName)}</td>
                 <td class="col-number">${formatNumber(item.Begin)}</td>
-                <td class="col-number">${formatNumber(item.Debit)}</td>
-                <td class="col-number">${formatNumber(item.Credit)}</td>
-                <td class="col-number">${formatNumber(item.End)}</td>
+                <td class="col-number">${formatNumber(debit)}</td>
+                <td class="col-number">${formatNumber(credit)}</td>
+                <td class="col-number">${formatNumber(currentEnd)}</td>
                 <td class="col-calc">${calcExplanation}</td>
             </tr>
         `;
