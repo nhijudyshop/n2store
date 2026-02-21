@@ -471,7 +471,7 @@ function openEditModal(event) {
 
     // Show modal
     if (editModal) {
-        editModal.style.display = "block";
+        editModal.style.display = "flex";
     }
 
     notificationManager.info("Đã mở form chỉnh sửa", 1500);
