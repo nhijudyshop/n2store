@@ -445,6 +445,39 @@ function toggleDateRangeInputs() {
     }
 }
 
+/**
+ * Parse dd/mm/yyyy string to YYYY-MM-DD string
+ * Returns null if invalid
+ */
+function parseDDMMYYYYtoISO(str) {
+    if (!str) return null;
+    const match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+    const [, dd, mm, yyyy] = match;
+    // Validate date
+    const d = parseInt(dd, 10), m = parseInt(mm, 10), y = parseInt(yyyy, 10);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+    const testDate = new Date(y, m - 1, d);
+    if (testDate.getDate() !== d || testDate.getMonth() !== m - 1) return null;
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Auto-format date input as user types: dd/mm/yyyy
+ */
+function autoFormatDateInput(input) {
+    input.addEventListener("input", function (e) {
+        let val = this.value.replace(/[^\d]/g, "");
+        if (val.length > 8) val = val.substring(0, 8);
+        if (val.length >= 5) {
+            val = val.substring(0, 2) + "/" + val.substring(2, 4) + "/" + val.substring(4);
+        } else if (val.length >= 3) {
+            val = val.substring(0, 2) + "/" + val.substring(2);
+        }
+        this.value = val;
+    });
+}
+
 function applyDateRangeFilter() {
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
@@ -457,8 +490,18 @@ function applyDateRangeFilter() {
         return;
     }
 
-    // So sánh chuỗi YYYY-MM-DD trực tiếp
-    if (startDateInput.value > endDateInput.value) {
+    const startISO = parseDDMMYYYYtoISO(startDateInput.value);
+    const endISO = parseDDMMYYYYtoISO(endDateInput.value);
+
+    if (!startISO || !endISO) {
+        notificationManager.warning(
+            "Định dạng ngày không hợp lệ. Vui lòng nhập dd/mm/yyyy",
+            3000,
+        );
+        return;
+    }
+
+    if (startISO > endISO) {
         notificationManager.warning(
             "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc",
             3000,
@@ -466,16 +509,12 @@ function applyDateRangeFilter() {
         return;
     }
 
-    customDateRange.start = startDateInput.value;
-    customDateRange.end = endDateInput.value;
-
-    // Hiển thị thông báo dạng DD/MM/YYYY
-    const [sy, sm, sd] = startDateInput.value.split("-");
-    const [ey, em, ed] = endDateInput.value.split("-");
+    customDateRange.start = startISO;
+    customDateRange.end = endISO;
 
     applyFilters();
     notificationManager.success(
-        `Đã lọc từ ${sd}/${sm}/${sy} đến ${ed}/${em}/${ey}`,
+        `Đã lọc từ ${startDateInput.value} đến ${endDateInput.value}`,
         2500,
     );
 }
@@ -573,34 +612,19 @@ function initializeFilterEvents() {
         applyDateRangeBtn.addEventListener("click", applyDateRangeFilter);
     }
 
-    // Allow Enter key in date inputs + hiển thị ngày DD/MM/YYYY
+    // Auto-format dd/mm/yyyy + Enter key to apply
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
 
-    function updateDateDisplay(input, displayId) {
-        const display = document.getElementById(displayId);
-        if (!display) return;
-        if (input.value) {
-            const [y, m, d] = input.value.split("-");
-            display.textContent = `${d}/${m}/${y}`;
-        } else {
-            display.textContent = "";
-        }
-    }
-
     if (startDateInput) {
-        startDateInput.addEventListener("change", () =>
-            updateDateDisplay(startDateInput, "startDateDisplay"),
-        );
+        autoFormatDateInput(startDateInput);
         startDateInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter") applyDateRangeFilter();
         });
     }
 
     if (endDateInput) {
-        endDateInput.addEventListener("change", () =>
-            updateDateDisplay(endDateInput, "endDateDisplay"),
-        );
+        autoFormatDateInput(endDateInput);
         endDateInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter") applyDateRangeFilter();
         });
