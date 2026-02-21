@@ -1183,6 +1183,19 @@
     color: white;
 }
 
+/* Button has note - green color */
+.btn-edit-note.has-note {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #16a34a;
+}
+
+.btn-edit-note.has-note:hover {
+    background: #22c55e;
+    border-color: #16a34a;
+    color: white;
+}
+
 .btn-edit-note svg,
 .btn-edit-note i {
     width: 12px;
@@ -1255,6 +1268,36 @@
 .text-muted {
     color: #9ca3af;
     font-weight: 400;
+}
+
+/* Note History */
+.note-history-list {
+    max-height: 200px;
+    overflow-y: auto;
+    background: #f8fafc;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.note-history-item {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 13px;
+}
+
+.note-history-item:last-child {
+    border-bottom: none;
+}
+
+.note-history-time {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.note-history-text {
+    color: #374151;
+    word-break: break-word;
 }
 
 /* Invoice Detail Modal */

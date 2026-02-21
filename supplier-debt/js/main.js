@@ -134,18 +134,50 @@ const WebNotesStore = {
         });
     },
 
-    // Get note for a supplier code and moveName (Bút toán)
+    // Get note text for a supplier code and moveName (Bút toán)
     get(supplierCode, moveName) {
         const key = this._makeKey(supplierCode, moveName);
-        return this._data.get(key) || '';
+        const data = this._data.get(key);
+        // Support both old format (string) and new format (object with note/history)
+        if (!data) return '';
+        if (typeof data === 'string') return data;
+        return data.note || '';
+    },
+
+    // Get note history for a supplier code and moveName
+    getHistory(supplierCode, moveName) {
+        const key = this._makeKey(supplierCode, moveName);
+        const data = this._data.get(key);
+        if (!data) return [];
+        if (typeof data === 'string') return []; // Old format has no history
+        return data.history || [];
     },
 
     // Set note for a supplier code and moveName (Bút toán)
     async set(supplierCode, moveName, note) {
         const key = this._makeKey(supplierCode, moveName);
+        const existingData = this._data.get(key);
+        const oldNote = typeof existingData === 'string' ? existingData : (existingData?.note || '');
+        const oldHistory = typeof existingData === 'string' ? [] : (existingData?.history || []);
 
         if (note && note.trim()) {
-            this._data.set(key, note.trim());
+            // Add old note to history if it exists and is different
+            const newHistory = [...oldHistory];
+            if (oldNote && oldNote !== note.trim()) {
+                newHistory.unshift({
+                    text: oldNote,
+                    timestamp: Date.now()
+                });
+                // Keep only last 10 history items
+                if (newHistory.length > 10) {
+                    newHistory.pop();
+                }
+            }
+
+            this._data.set(key, {
+                note: note.trim(),
+                history: newHistory
+            });
         } else {
             this._data.delete(key);
         }
@@ -1054,13 +1086,13 @@ function renderCongNoTab(partnerId) {
                         ${tposNote ? `<span class="note-tpos" title="Dữ liệu TPOS (không thể sửa)">${escapeHtml(tposNote)}</span>` : ''}
                         ${webNote ? `<span class="note-web" title="Ghi chú web">${escapeHtml(webNote)}</span>` : ''}
                     </div>
-                    <button class="btn-edit-note"
+                    <button class="btn-edit-note ${webNote ? 'has-note' : ''}"
                         data-supplier="${escapedSupplierCode}"
                         data-movename="${escapedMoveName}"
                         data-tpos="${escapedTposNote}"
                         data-web="${escapedWebNote}"
                         onclick="handleNoteEditClick(this)"
-                        title="Chỉnh sửa ghi chú web">
+                        title="${webNote ? 'Đã có ghi chú - Bấm để sửa' : 'Thêm ghi chú web'}">
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
                     </button>
                 </td>
@@ -2206,6 +2238,34 @@ function openNoteEditModal(supplierCode, moveName, tposNote, webNote) {
     document.getElementById('noteEditSupplier').textContent = `[${supplierCode}] - ${moveName}`;
     document.getElementById('noteEditTpos').textContent = tposNote || '(Không có)';
     document.getElementById('noteEditWeb').value = webNote || '';
+
+    // Load and display history
+    const history = WebNotesStore.getHistory(supplierCode, moveName);
+    const historySection = document.getElementById('noteHistorySection');
+    const historyList = document.getElementById('noteHistoryList');
+
+    if (history && history.length > 0) {
+        historySection.style.display = 'block';
+        historyList.innerHTML = history.map(item => {
+            const date = new Date(item.timestamp);
+            const timeStr = date.toLocaleString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            return `
+                <div class="note-history-item">
+                    <div class="note-history-time">${timeStr}</div>
+                    <div class="note-history-text">${escapeHtml(item.text)}</div>
+                </div>
+            `;
+        }).join('');
+    } else {
+        historySection.style.display = 'none';
+        historyList.innerHTML = '';
+    }
 
     // Show modal
     document.getElementById('noteEditModal').classList.add('show');
