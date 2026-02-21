@@ -9,9 +9,11 @@
 
 const CONFIG = {
     API_BASE: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata',
+    API_BASE_PARTNER: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
     ENDPOINT: 'Report/PartnerDebtReport',
     RESULT_SELECTION: 'supplier',
-    DEFAULT_PAGE_SIZE: 20
+    DEFAULT_PAGE_SIZE: 20,
+    DETAIL_PAGE_SIZE: 10
 };
 
 // =====================================================
@@ -29,7 +31,9 @@ const State = {
     dateFrom: null,
     dateTo: null,
     display: 'all',
-    selectedSupplier: ''
+    selectedSupplier: '',
+    // Expanded row state
+    expandedRows: new Map(), // partnerId -> { info, invoices, debtDetails, activeTab, invoicePage, debtPage }
 };
 
 // =====================================================
@@ -306,10 +310,16 @@ function renderTable() {
     }
 
     State.filteredData.forEach(item => {
+        const partnerId = item.PartnerId;
+        const isExpanded = State.expandedRows.has(partnerId);
+
+        // Main row
         const tr = document.createElement('tr');
+        tr.className = 'data-row';
+        tr.dataset.partnerId = partnerId;
         tr.innerHTML = `
-            <td class="col-expand">
-                <i data-lucide="chevron-right" class="expand-icon" style="width: 14px; height: 14px;"></i>
+            <td class="col-expand" onclick="toggleRowExpand(${partnerId}, this)">
+                <i data-lucide="chevron-right" class="expand-icon ${isExpanded ? 'expanded' : ''}" style="width: 14px; height: 14px;"></i>
             </td>
             <td>${escapeHtml(item.Code || '')}</td>
             <td>${escapeHtml(item.PartnerName || '')}</td>
@@ -320,6 +330,19 @@ function renderTable() {
             <td class="col-number">${formatNumber(item.End)}</td>
         `;
         tbody.appendChild(tr);
+
+        // Detail row (hidden by default)
+        const detailTr = document.createElement('tr');
+        detailTr.className = `detail-row ${isExpanded ? 'expanded' : ''}`;
+        detailTr.id = `detail-row-${partnerId}`;
+        detailTr.innerHTML = `
+            <td colspan="8">
+                <div class="detail-panel" id="detail-panel-${partnerId}">
+                    ${isExpanded ? renderDetailPanel(partnerId) : ''}
+                </div>
+            </td>
+        `;
+        tbody.appendChild(detailTr);
     });
 
     // Re-render Lucide icons
@@ -404,6 +427,486 @@ function populateSupplierDropdown() {
         option.textContent = `[${supplier.Code}] ${supplier.PartnerName}`;
         select.appendChild(option);
     });
+}
+
+// =====================================================
+// EXPANDABLE ROW FUNCTIONS
+// =====================================================
+
+async function toggleRowExpand(partnerId, expandCell) {
+    const detailRow = document.getElementById(`detail-row-${partnerId}`);
+    const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
+    const expandIcon = expandCell.querySelector('.expand-icon');
+
+    if (State.expandedRows.has(partnerId)) {
+        // Collapse
+        State.expandedRows.delete(partnerId);
+        detailRow.classList.remove('expanded');
+        expandIcon.classList.remove('expanded');
+        detailPanel.innerHTML = '';
+    } else {
+        // Expand
+        const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
+        State.expandedRows.set(partnerId, {
+            partnerData,
+            info: null,
+            invoices: null,
+            invoicePage: 1,
+            invoiceTotal: 0,
+            debtDetails: null,
+            debtPage: 1,
+            debtTotal: 0,
+            activeTab: 'info'
+        });
+
+        detailRow.classList.add('expanded');
+        expandIcon.classList.add('expanded');
+
+        // Render loading state
+        detailPanel.innerHTML = `
+            <div class="detail-loading">
+                <i data-lucide="loader-2" style="width: 20px; height: 20px;"></i>
+                Đang tải dữ liệu...
+            </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+
+        // Fetch data for all tabs
+        await Promise.all([
+            fetchPartnerInfo(partnerId),
+            fetchPartnerInvoices(partnerId, 1),
+            fetchPartnerDebtDetails(partnerId, 1)
+        ]);
+
+        // Render detail panel
+        detailPanel.innerHTML = renderDetailPanel(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+function renderDetailPanel(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    if (!rowState) return '';
+
+    const activeTab = rowState.activeTab || 'info';
+
+    return `
+        <div class="detail-tabs">
+            <button class="detail-tab ${activeTab === 'info' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'info')">Thông tin</button>
+            <button class="detail-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'invoice')">Hóa đơn</button>
+            <button class="detail-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'debt')">Chi tiết nợ</button>
+        </div>
+        <div class="detail-tab-content ${activeTab === 'info' ? 'active' : ''}" id="tab-info-${partnerId}">
+            ${renderInfoTab(partnerId)}
+        </div>
+        <div class="detail-tab-content ${activeTab === 'invoice' ? 'active' : ''}" id="tab-invoice-${partnerId}">
+            ${renderInvoiceTab(partnerId)}
+        </div>
+        <div class="detail-tab-content ${activeTab === 'debt' ? 'active' : ''}" id="tab-debt-${partnerId}">
+            ${renderDebtTab(partnerId)}
+        </div>
+    `;
+}
+
+function switchDetailTab(partnerId, tabName) {
+    const rowState = State.expandedRows.get(partnerId);
+    if (!rowState) return;
+
+    rowState.activeTab = tabName;
+
+    // Update tab buttons
+    document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab`).forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelector(`#detail-panel-${partnerId} .detail-tab:nth-child(${tabName === 'info' ? 1 : tabName === 'invoice' ? 2 : 3})`).classList.add('active');
+
+    // Update tab content
+    document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab-content`).forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`tab-${tabName}-${partnerId}`).classList.add('active');
+}
+
+// =====================================================
+// DETAIL TAB RENDERERS
+// =====================================================
+
+function renderInfoTab(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    const partnerData = rowState?.partnerData || {};
+    const info = rowState?.info || {};
+
+    return `
+        <button class="btn-payment">
+            <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i>
+            Thanh toán
+        </button>
+        <div class="info-grid">
+            <div class="info-section">
+                <div class="info-row">
+                    <span class="info-label">Mã :</span>
+                    <span class="info-value">${escapeHtml(partnerData.Code || '')}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tên:</span>
+                    <span class="info-value">${escapeHtml(partnerData.PartnerName || '')}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Nhóm:</span>
+                    <span class="info-value"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Mã số thuế:</span>
+                    <span class="info-value"></span>
+                </div>
+            </div>
+            <div class="info-section">
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Điện thoại:</span>
+                    <span class="info-value">${escapeHtml(partnerData.PartnerPhone || '')}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Di động:</span>
+                    <span class="info-value"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Địa chỉ:</span>
+                    <span class="info-value"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Zalo:</span>
+                    <span class="info-value"></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Facebook:</span>
+                    <span class="info-value"></span>
+                </div>
+            </div>
+        </div>
+        <div class="revenue-summary">
+            <div class="revenue-row">
+                <span class="revenue-label">Doanh số đầu kỳ:</span>
+                <span class="revenue-value">${formatNumber(info.RevenueBegan || 0)}</span>
+            </div>
+            <div class="revenue-row">
+                <span class="revenue-label">Doanh số :</span>
+                <span class="revenue-value">${formatNumber(info.Revenue || 0)}</span>
+            </div>
+            <div class="revenue-row">
+                <span class="revenue-label">Tổng doanh số :</span>
+                <span class="revenue-value">${formatNumber(info.RevenueTotal || 0)}</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderInvoiceTab(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    const invoices = rowState?.invoices || [];
+    const page = rowState?.invoicePage || 1;
+    const total = rowState?.invoiceTotal || 0;
+    const totalPages = Math.ceil(total / CONFIG.DETAIL_PAGE_SIZE);
+
+    if (invoices.length === 0) {
+        return '<div class="detail-loading">Không có hóa đơn</div>';
+    }
+
+    let tableHtml = `
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>Mã</th>
+                    <th>Ngày hóa đơn</th>
+                    <th>Loại</th>
+                    <th>Người lập</th>
+                    <th>Nguồn</th>
+                    <th>Trạng thái</th>
+                    <th class="col-number">Tổng tiền</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    invoices.forEach(inv => {
+        const statusClass = inv.StateFast === 'open' ? 'status-open' : inv.StateFast === 'cancel' ? 'status-cancel' : 'status-draft';
+        tableHtml += `
+            <tr>
+                <td>${escapeHtml(inv.Number || inv.MoveName || '')}</td>
+                <td>${formatDateFromISO(inv.DateInvoice)}</td>
+                <td>${escapeHtml(inv.ShowType || '')}</td>
+                <td>${escapeHtml(inv.UserName || '')}</td>
+                <td></td>
+                <td><span class="status-badge ${statusClass}">${escapeHtml(inv.ShowStateFast || '')}</span></td>
+                <td class="col-number">${formatNumber(inv.AmountTotal)}</td>
+                <td><button class="btn-view" title="Xem chi tiết"><i data-lucide="external-link" style="width: 14px; height: 14px;"></i></button></td>
+            </tr>
+        `;
+    });
+
+    tableHtml += '</tbody></table>';
+
+    // Pagination
+    const start = total > 0 ? (page - 1) * CONFIG.DETAIL_PAGE_SIZE + 1 : 0;
+    const end = Math.min(page * CONFIG.DETAIL_PAGE_SIZE, total);
+
+    tableHtml += `
+        <div class="detail-pagination">
+            <div class="detail-pagination-nav">
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, 1)"><i data-lucide="chevrons-left" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" style="width:12px;height:12px"></i></button>
+                ${renderDetailPageNumbers(page, totalPages, partnerId, 'invoice')}
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeInvoicePage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" style="width:12px;height:12px"></i></button>
+            </div>
+            <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeInvoicePageSize(${partnerId}, this.value)">
+                <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+            <span class="detail-pagination-info">Số dòng trên trang</span>
+            <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
+            <button class="btn-refresh" onclick="refreshInvoices(${partnerId})"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+        </div>
+    `;
+
+    return tableHtml;
+}
+
+function renderDebtTab(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    const debtDetails = rowState?.debtDetails || [];
+    const page = rowState?.debtPage || 1;
+    const total = rowState?.debtTotal || 0;
+    const totalPages = Math.ceil(total / CONFIG.DETAIL_PAGE_SIZE);
+
+    if (debtDetails.length === 0) {
+        return '<div class="detail-loading">Không có chi tiết nợ</div>';
+    }
+
+    let tableHtml = `
+        <table class="detail-table">
+            <thead>
+                <tr>
+                    <th>Ngày</th>
+                    <th>Chứng từ/Hóa đơn</th>
+                    <th class="col-number">Còn nợ</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    debtDetails.forEach(debt => {
+        tableHtml += `
+            <tr>
+                <td>${formatDateFromDotNet(debt.Date)}</td>
+                <td>${escapeHtml(debt.DisplayedName || '')}</td>
+                <td class="col-number">${formatNumber(debt.AmountResidual)}</td>
+            </tr>
+        `;
+    });
+
+    tableHtml += '</tbody></table>';
+
+    // Pagination
+    const start = total > 0 ? (page - 1) * CONFIG.DETAIL_PAGE_SIZE + 1 : 0;
+    const end = Math.min(page * CONFIG.DETAIL_PAGE_SIZE, total);
+
+    tableHtml += `
+        <div class="detail-pagination">
+            <div class="detail-pagination-nav">
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, 1)"><i data-lucide="chevrons-left" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page <= 1 ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page - 1})"><i data-lucide="chevron-left" style="width:12px;height:12px"></i></button>
+                ${renderDetailPageNumbers(page, totalPages, partnerId, 'debt')}
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${page + 1})"><i data-lucide="chevron-right" style="width:12px;height:12px"></i></button>
+                <button class="btn-page" ${page >= totalPages ? 'disabled' : ''} onclick="changeDebtPage(${partnerId}, ${totalPages})"><i data-lucide="chevrons-right" style="width:12px;height:12px"></i></button>
+            </div>
+            <select class="page-size-select" style="font-size:12px;padding:4px 8px;" onchange="changeDebtPageSize(${partnerId}, this.value)">
+                <option value="10" ${CONFIG.DETAIL_PAGE_SIZE === 10 ? 'selected' : ''}>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+            <span class="detail-pagination-info">Số dòng trên trang</span>
+            <span class="detail-pagination-info">${start} - ${end} của ${total} dòng</span>
+            <button class="btn-refresh" onclick="refreshDebtDetails(${partnerId})"><i data-lucide="refresh-cw" style="width:14px;height:14px"></i></button>
+        </div>
+    `;
+
+    return tableHtml;
+}
+
+function renderDetailPageNumbers(currentPage, totalPages, partnerId, type) {
+    let html = '';
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = Math.min(totalPages, start + maxVisible - 1);
+
+    if (end - start + 1 < maxVisible) {
+        start = Math.max(1, end - maxVisible + 1);
+    }
+
+    for (let i = start; i <= end; i++) {
+        const onclick = type === 'invoice' ? `changeInvoicePage(${partnerId}, ${i})` : `changeDebtPage(${partnerId}, ${i})`;
+        html += `<button class="btn-page ${i === currentPage ? 'active' : ''}" onclick="${onclick}">${i}</button>`;
+    }
+
+    return html;
+}
+
+// =====================================================
+// DETAIL API CALLS
+// =====================================================
+
+async function fetchPartnerInfo(partnerId) {
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const url = `${CONFIG.API_BASE_PARTNER}/partner/GetPartnerRevenueById?id=${partnerId}&supplier=true`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const rowState = State.expandedRows.get(partnerId);
+            if (rowState) {
+                rowState.info = data;
+            }
+        }
+    } catch (error) {
+        console.error('[SupplierDebt] Error fetching partner info:', error);
+    }
+}
+
+async function fetchPartnerInvoices(partnerId, page) {
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const skip = (page - 1) * CONFIG.DETAIL_PAGE_SIZE;
+        const url = `${CONFIG.API_BASE}/AccountInvoice/ODataService.GetInvoicePartner?partnerId=${partnerId}&$format=json&$top=${CONFIG.DETAIL_PAGE_SIZE}&$skip=${skip}&$orderby=DateInvoice+desc&$filter=PartnerId+eq+${partnerId}&$count=true`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const rowState = State.expandedRows.get(partnerId);
+            if (rowState) {
+                rowState.invoices = data.value || [];
+                rowState.invoiceTotal = data['@odata.count'] || 0;
+                rowState.invoicePage = page;
+            }
+        }
+    } catch (error) {
+        console.error('[SupplierDebt] Error fetching invoices:', error);
+    }
+}
+
+async function fetchPartnerDebtDetails(partnerId, page) {
+    try {
+        const authHeader = await window.tokenManager.getAuthHeader();
+        const skip = (page - 1) * CONFIG.DETAIL_PAGE_SIZE;
+        const url = `${CONFIG.API_BASE_PARTNER}/Partner/CreditDebitSupplierDetail?partnerId=${partnerId}&take=${CONFIG.DETAIL_PAGE_SIZE}&skip=${skip}&page=${page}&pageSize=${CONFIG.DETAIL_PAGE_SIZE}`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                ...authHeader,
+                'Content-Type': 'application/json',
+                'tposappversion': '6.2.6.1'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const rowState = State.expandedRows.get(partnerId);
+            if (rowState) {
+                rowState.debtDetails = data.Data || [];
+                rowState.debtTotal = data.Total || 0;
+                rowState.debtPage = page;
+            }
+        }
+    } catch (error) {
+        console.error('[SupplierDebt] Error fetching debt details:', error);
+    }
+}
+
+// =====================================================
+// DETAIL PAGINATION HANDLERS
+// =====================================================
+
+async function changeInvoicePage(partnerId, page) {
+    await fetchPartnerInvoices(partnerId, page);
+    const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
+    if (detailPanel) {
+        detailPanel.innerHTML = renderDetailPanel(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+async function changeDebtPage(partnerId, page) {
+    await fetchPartnerDebtDetails(partnerId, page);
+    const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
+    if (detailPanel) {
+        detailPanel.innerHTML = renderDetailPanel(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+async function refreshInvoices(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    await fetchPartnerInvoices(partnerId, rowState?.invoicePage || 1);
+    const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
+    if (detailPanel) {
+        detailPanel.innerHTML = renderDetailPanel(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+async function refreshDebtDetails(partnerId) {
+    const rowState = State.expandedRows.get(partnerId);
+    await fetchPartnerDebtDetails(partnerId, rowState?.debtPage || 1);
+    const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
+    if (detailPanel) {
+        detailPanel.innerHTML = renderDetailPanel(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+    }
+}
+
+// =====================================================
+// DATE FORMATTING HELPERS
+// =====================================================
+
+function formatDateFromISO(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return formatDate(date);
+}
+
+function formatDateFromDotNet(dotNetDate) {
+    if (!dotNetDate) return '';
+    // Parse /Date(1768708149760)/ format
+    const match = dotNetDate.match(/\/Date\((\d+)\)\//);
+    if (match) {
+        const timestamp = parseInt(match[1], 10);
+        const date = new Date(timestamp);
+        return formatDate(date);
+    }
+    return '';
 }
 
 function escapeHtml(text) {
