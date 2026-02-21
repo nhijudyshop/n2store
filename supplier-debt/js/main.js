@@ -1385,6 +1385,11 @@ function onPaymentMethodChange() {
     // If "Khuyến mãi" is selected, auto-fill content
     if (selectedOption && selectedOption.dataset.type === 'promotion') {
         contentInput.value = 'Khuyến mãi';
+    } else {
+        // If switching away from "Khuyến mãi", clear the auto-filled content
+        if (contentInput.value === 'Khuyến mãi') {
+            contentInput.value = '';
+        }
     }
 }
 
