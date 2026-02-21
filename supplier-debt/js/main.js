@@ -824,15 +824,11 @@ function renderDetailPanel(partnerId) {
     return `
         <div class="detail-tabs">
             <button class="detail-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'congno')">Công nợ</button>
-            <button class="detail-tab ${activeTab === 'info' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'info')">Thông tin</button>
             <button class="detail-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'invoice')">Hóa đơn</button>
             <button class="detail-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="switchDetailTab(${partnerId}, 'debt')">Chi tiết nợ</button>
         </div>
         <div class="detail-tab-content ${activeTab === 'congno' ? 'active' : ''}" id="tab-congno-${partnerId}">
             ${renderCongNoTab(partnerId)}
-        </div>
-        <div class="detail-tab-content ${activeTab === 'info' ? 'active' : ''}" id="tab-info-${partnerId}">
-            ${renderInfoTab(partnerId)}
         </div>
         <div class="detail-tab-content ${activeTab === 'invoice' ? 'active' : ''}" id="tab-invoice-${partnerId}">
             ${renderInvoiceTab(partnerId)}
@@ -853,7 +849,7 @@ async function switchDetailTab(partnerId, tabName) {
     document.querySelectorAll(`#detail-panel-${partnerId} .detail-tab`).forEach(tab => {
         tab.classList.remove('active');
     });
-    const tabIndex = { congno: 1, info: 2, invoice: 3, debt: 4 }[tabName] || 1;
+    const tabIndex = { congno: 1, invoice: 2, debt: 3 }[tabName] || 1;
     document.querySelector(`#detail-panel-${partnerId} .detail-tab:nth-child(${tabIndex})`).classList.add('active');
 
     // Update tab content
