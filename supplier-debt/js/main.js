@@ -1045,7 +1045,7 @@ function renderCongNoTab(partnerId) {
                 <td style="text-align: center;">
                     ${isPayment ? `
                         <button class="btn-delete-row"
-                            onclick="handleDeletePayment(${moveId}, '${escapedMoveName}', ${partnerId})"
+                            onclick="handleDeletePayment('${escapeHtmlAttr(item.Date || '')}', '${escapedMoveName}', ${partnerId})"
                             title="Xóa thanh toán">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                         </button>
@@ -2119,64 +2119,111 @@ async function handleDeleteLastPayment(partnerId, supplierCode) {
     }
 }
 
-async function handleDeletePayment(moveId, moveName, partnerId) {
-    if (!moveId) {
-        // If no moveId, try to lookup by moveName
-        const paymentId = await lookupPaymentId(moveName);
-        if (!paymentId) {
-            if (window.notificationManager) {
-                window.notificationManager.warning('Không tìm thấy ID thanh toán để xóa');
-            }
-            return;
-        }
-        moveId = paymentId;
-    }
-
-    // Show custom confirm dialog
+async function handleDeletePayment(paymentDate, moveName, partnerId) {
+    // Show custom confirm dialog first
+    let confirmed = false;
     if (window.notificationManager && window.notificationManager.confirm) {
-        const confirmed = await window.notificationManager.confirm(
+        confirmed = await window.notificationManager.confirm(
             `Bạn có chắc chắn muốn xóa thanh toán "${moveName}"?`,
             'Xác nhận xóa'
         );
-
-        if (confirmed) {
-            await deletePayment(moveId, partnerId);
-        }
     } else {
-        // Fallback to browser confirm
-        if (confirm(`Bạn có chắc chắn muốn xóa thanh toán "${moveName}"?`)) {
-            await deletePayment(moveId, partnerId);
-        }
+        confirmed = confirm(`Bạn có chắc chắn muốn xóa thanh toán "${moveName}"?`);
     }
+
+    if (!confirmed) return;
+
+    // Lookup payment ID by PaymentDate using GetAccountPaymentList API
+    const paymentId = await lookupPaymentIdByDate(partnerId, paymentDate);
+    if (!paymentId) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không tìm thấy ID thanh toán. Có thể thanh toán đã bị xóa hoặc không tồn tại.');
+        }
+        return;
+    }
+
+    // Delete the payment
+    await deletePayment(paymentId, partnerId);
 }
 
-async function lookupPaymentId(moveName) {
-    // Try to find the payment ID by moveName
-    // This searches AccountPayment by Name/Number
+async function lookupPaymentIdByDate(partnerId, paymentDate) {
+    // Lookup payment ID by PartnerDisplayName and PaymentDate using GetAccountPaymentList API
     try {
+        // Get partner display name from state
+        const rowState = State.expandedRows.get(partnerId);
+        const partnerData = rowState?.partnerData || {};
+        const partnerDisplayName = `[${partnerData.Code || ''}] ${partnerData.PartnerName || ''}`;
+
+        if (!partnerDisplayName || partnerDisplayName === '[] ') {
+            console.error('[SupplierDebt] Could not determine PartnerDisplayName');
+            return null;
+        }
+
         const authHeader = await window.tokenManager.getAuthHeader();
-        const encodedName = encodeURIComponent(moveName);
-        const url = `${CONFIG.API_BASE}/AccountPayment?$filter=Name eq '${encodedName}'&$top=1&$format=json`;
+        const encodedDisplayName = encodeURIComponent(partnerDisplayName);
+
+        // Call GetAccountPaymentList API with PartnerDisplayName filter
+        const url = `${CONFIG.API_BASE}/AccountPayment/OdataService.GetAccountPaymentList?partnerType=supplier&$top=50&$orderby=PaymentDate desc,Name desc&$filter=contains(PartnerDisplayName,'${encodedDisplayName}')&$count=true`;
+
+        console.log('[SupplierDebt] Looking up payment ID by date:', { partnerDisplayName, paymentDate, url });
 
         const response = await fetch(url, {
             method: 'GET',
             headers: {
                 ...authHeader,
                 'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
+                'tposappversion': '6.2.6.1',
+                'x-tpos-lang': 'vi'
             }
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            if (data.value && data.value.length > 0) {
-                return data.value[0].Id;
-            }
+        if (!response.ok) {
+            console.error('[SupplierDebt] GetAccountPaymentList API error:', response.status);
+            return null;
         }
+
+        const data = await response.json();
+        console.log('[SupplierDebt] GetAccountPaymentList response:', data);
+
+        if (!data.value || data.value.length === 0) {
+            console.warn('[SupplierDebt] No payments found for partner');
+            return null;
+        }
+
+        // Find payment matching the PaymentDate
+        // Compare date strings - normalize both to ISO format for comparison
+        const targetDate = new Date(paymentDate).getTime();
+
+        const matchingPayment = data.value.find(payment => {
+            const apiDate = new Date(payment.PaymentDate).getTime();
+            // Allow 1 second tolerance for date matching
+            return Math.abs(apiDate - targetDate) < 1000;
+        });
+
+        if (matchingPayment) {
+            console.log('[SupplierDebt] Found matching payment:', matchingPayment);
+            return matchingPayment.Id;
+        }
+
+        // If exact match not found, try matching by date only (ignore time)
+        const targetDateOnly = paymentDate.split('T')[0];
+        const matchByDateOnly = data.value.find(payment => {
+            const apiDateOnly = payment.PaymentDate.split('T')[0];
+            return apiDateOnly === targetDateOnly;
+        });
+
+        if (matchByDateOnly) {
+            console.log('[SupplierDebt] Found payment by date (ignoring time):', matchByDateOnly);
+            return matchByDateOnly.Id;
+        }
+
+        console.warn('[SupplierDebt] No payment found matching date:', paymentDate);
+        return null;
+
     } catch (error) {
-        console.error('[SupplierDebt] Error looking up payment ID:', error);
+        console.error('[SupplierDebt] Error looking up payment ID by date:', error);
+        return null;
     }
-    return null;
 }
 
 async function deletePayment(paymentId, partnerId) {
