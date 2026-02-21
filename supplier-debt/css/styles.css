@@ -432,11 +432,64 @@
 }
 
 /* Column Widths */
-.col-expand { width: 30px; }
-.col-code { width: 140px; }
+.col-code-header { width: 220px; min-width: 220px; }
+.col-code-actions { width: 220px; min-width: 220px; }
 .col-name { min-width: 200px; }
 .col-phone { width: 120px; }
 .col-number { width: 130px; }
+
+/* Action Buttons in Code Column */
+.col-code-actions {
+    padding: 6px 8px !important;
+}
+
+.col-code-actions .supplier-code {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-action:hover {
+    background: #e2e8f0;
+    color: #374151;
+}
+
+.btn-action-payment {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #16a34a;
+}
+
+.btn-action-payment:hover {
+    background: #22c55e;
+    border-color: #22c55e;
+    color: white;
+}
+
+.btn-action-tab.active {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: white;
+}
 
 /* Pagination */
 .pagination {

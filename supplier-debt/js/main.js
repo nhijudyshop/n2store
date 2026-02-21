@@ -578,16 +578,33 @@ function renderTable() {
     State.filteredData.forEach(item => {
         const partnerId = item.PartnerId;
         const isExpanded = State.expandedRows.has(partnerId);
+        const rowState = State.expandedRows.get(partnerId);
+        const activeTab = rowState?.activeTab || '';
+        const supplierDisplay = `[${escapeHtml(item.Code || '')}] ${escapeHtml(item.PartnerName || '')}`;
+        const endAmount = item.End || 0;
 
         // Main row
         const tr = document.createElement('tr');
         tr.className = 'data-row';
         tr.dataset.partnerId = partnerId;
         tr.innerHTML = `
-            <td class="col-expand" onclick="toggleRowExpand(${partnerId}, this)">
-                <i data-lucide="chevron-right" class="expand-icon ${isExpanded ? 'expanded' : ''}" style="width: 14px; height: 14px;"></i>
+            <td data-col="code" class="col-code-actions">
+                <span class="supplier-code">${escapeHtml(item.Code || '')}</span>
+                <div class="action-buttons">
+                    <button class="btn-action btn-action-payment" onclick="openPaymentModal(${partnerId}, '${supplierDisplay.replace(/'/g, "\\'")}', ${endAmount})" title="Thanh toán">
+                        <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i>
+                    </button>
+                    <button class="btn-action btn-action-tab ${activeTab === 'congno' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'congno')" title="Công nợ">
+                        <i data-lucide="file-text" style="width: 14px; height: 14px;"></i>
+                    </button>
+                    <button class="btn-action btn-action-tab ${activeTab === 'invoice' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'invoice')" title="Hóa đơn">
+                        <i data-lucide="receipt" style="width: 14px; height: 14px;"></i>
+                    </button>
+                    <button class="btn-action btn-action-tab ${activeTab === 'debt' ? 'active' : ''}" onclick="toggleRowExpandTab(${partnerId}, 'debt')" title="Nợ chi tiết">
+                        <i data-lucide="list" style="width: 14px; height: 14px;"></i>
+                    </button>
+                </div>
             </td>
-            <td data-col="code">${escapeHtml(item.Code || '')}</td>
             <td data-col="name">${escapeHtml(item.PartnerName || '')}</td>
             <td data-col="phone">${escapeHtml(item.PartnerPhone || '')}</td>
             <td data-col="begin" class="col-number">${formatNumber(item.Begin)}</td>
@@ -602,7 +619,7 @@ function renderTable() {
         detailTr.className = `detail-row ${isExpanded ? 'expanded' : ''}`;
         detailTr.id = `detail-row-${partnerId}`;
         detailTr.innerHTML = `
-            <td colspan="8">
+            <td colspan="7">
                 <div class="detail-panel" id="detail-panel-${partnerId}">
                     ${isExpanded ? renderDetailPanel(partnerId) : ''}
                 </div>
@@ -623,7 +640,7 @@ function renderTable() {
 function renderEmptyState() {
     DOM.tableBody.innerHTML = `
         <tr>
-            <td colspan="8" class="empty-state">
+            <td colspan="7" class="empty-state">
                 <i data-lucide="inbox"></i>
                 <p>Không có dữ liệu</p>
             </td>
@@ -702,16 +719,79 @@ function populateSupplierDropdown() {
 // EXPANDABLE ROW FUNCTIONS
 // =====================================================
 
+async function toggleRowExpandTab(partnerId, tabName) {
+    const detailRow = document.getElementById(`detail-row-${partnerId}`);
+    const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
+
+    if (State.expandedRows.has(partnerId)) {
+        const rowState = State.expandedRows.get(partnerId);
+
+        if (rowState.activeTab === tabName) {
+            // Clicking same tab - collapse
+            State.expandedRows.delete(partnerId);
+            detailRow.classList.remove('expanded');
+            detailPanel.innerHTML = '';
+            updateActionButtonsState(partnerId, '');
+        } else {
+            // Clicking different tab - switch tab
+            rowState.activeTab = tabName;
+            detailPanel.innerHTML = renderDetailPanel(partnerId);
+            if (window.lucide) window.lucide.createIcons();
+            await loadTabData(partnerId, tabName);
+            updateActionButtonsState(partnerId, tabName);
+        }
+    } else {
+        // Expand with specified tab
+        const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
+        State.expandedRows.set(partnerId, {
+            partnerData,
+            congNo: null,
+            congNoPage: 1,
+            congNoTotal: 0,
+            info: null,
+            invoices: null,
+            invoicePage: 1,
+            invoiceTotal: 0,
+            debtDetails: null,
+            debtPage: 1,
+            debtTotal: 0,
+            activeTab: tabName,
+            isLoading: {}
+        });
+
+        detailRow.classList.add('expanded');
+        detailPanel.innerHTML = renderDetailPanel(partnerId);
+        if (window.lucide) window.lucide.createIcons();
+        await loadTabData(partnerId, tabName);
+        updateActionButtonsState(partnerId, tabName);
+    }
+}
+
+function updateActionButtonsState(partnerId, activeTab) {
+    // Update active state of action buttons in the main table row
+    const row = document.querySelector(`tr[data-partner-id="${partnerId}"]`);
+    if (row) {
+        row.querySelectorAll('.btn-action-tab').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        if (activeTab) {
+            const activeBtn = row.querySelector(`.btn-action-tab[onclick*="'${activeTab}'"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+        }
+    }
+}
+
+// Legacy function - kept for compatibility
 async function toggleRowExpand(partnerId, expandCell) {
     const detailRow = document.getElementById(`detail-row-${partnerId}`);
     const detailPanel = document.getElementById(`detail-panel-${partnerId}`);
-    const expandIcon = expandCell.querySelector('.expand-icon');
+    const expandIcon = expandCell?.querySelector('.expand-icon');
 
     if (State.expandedRows.has(partnerId)) {
         // Collapse
         State.expandedRows.delete(partnerId);
         detailRow.classList.remove('expanded');
-        expandIcon.classList.remove('expanded');
+        if (expandIcon) expandIcon.classList.remove('expanded');
         detailPanel.innerHTML = '';
     } else {
         // Expand - only set up state, don't fetch all data
