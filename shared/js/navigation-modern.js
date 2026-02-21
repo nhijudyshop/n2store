@@ -173,8 +173,8 @@ const MENU_CONFIG = [
     {
         href: "../supplier-debt/index.html",
         icon: "receipt",
-        text: "Công Nợ Nhà Cung Cấp",
-        shortText: "Công Nợ",
+        text: "NCC",
+        shortText: "NCC",
         pageIdentifier: "supplier-debt",
         adminOnly: true,
         permissionRequired: "supplier-debt",
