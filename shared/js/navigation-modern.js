@@ -171,6 +171,15 @@ const MENU_CONFIG = [
         permissionRequired: "balance-history",
     },
     {
+        href: "../supplier-debt/index.html",
+        icon: "receipt",
+        text: "Công Nợ Nhà Cung Cấp",
+        shortText: "Công Nợ",
+        pageIdentifier: "supplier-debt",
+        adminOnly: true,
+        permissionRequired: "supplier-debt",
+    },
+    {
         href: "../invoice-compare/index.html",
         icon: "file-check-2",
         text: "So Sánh Đơn Hàng",
