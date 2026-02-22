@@ -863,18 +863,46 @@ class SettingsDialog {
 
 // ========================================
 // INVENTORY PICKER DIALOG
-// Matches: Choose from inventory feature (Image 1)
+// Uses TPOS API: ExportFileWithStandardPriceV2 for list, /odata/Product({id}) for details
 // ========================================
 
 class InventoryPickerDialog {
     constructor() {
         this.modalElement = null;
-        this.products = [];
-        this.filteredProducts = [];
-        this.selectedProducts = new Map(); // Use Map for better tracking by id
+        this.products = [];           // Raw products from TPOS (Id, code, name, purchasePrice, costPrice)
+        this.filteredProducts = [];   // Filtered by search
+        this.selectedProducts = new Map(); // Products with full details (after fetching)
         this.onSelect = null;
         this.searchTerm = '';
         this.isLoading = false;
+        this.proxyUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    }
+
+    /**
+     * Get auth token from localStorage or tokenManager
+     */
+    async getAuthToken() {
+        // Try tokenManager first
+        if (window.tokenManager?.getToken) {
+            try {
+                return await window.tokenManager.getToken();
+            } catch (e) {
+                console.warn('tokenManager.getToken failed:', e);
+            }
+        }
+
+        // Fallback to localStorage
+        const tokenData = localStorage.getItem('bearer_token_data');
+        if (tokenData) {
+            try {
+                const parsed = JSON.parse(tokenData);
+                return parsed.access_token || parsed.token;
+            } catch (e) {
+                console.warn('Failed to parse token from localStorage');
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -889,45 +917,119 @@ class InventoryPickerDialog {
         this.render();
         this.show();
 
-        // Load products from TPOS/Firestore
-        await this.loadProducts();
+        // Load products from TPOS API
+        await this.loadProductsFromTPOS();
         this.updateProductsList();
     }
 
     /**
-     * Load products from TPOS API or Firestore
+     * Load products from TPOS ExportFileWithStandardPriceV2 API
+     * Returns: Id, Mã sản phẩm, Tên sản phẩm, Giá mua, Giá vốn
      */
-    async loadProducts() {
+    async loadProductsFromTPOS() {
         this.isLoading = true;
         this.updateLoadingState(true);
 
         try {
-            // Try TPOS first if available
-            if (window.purchaseOrderService?.getProducts) {
-                const result = await window.purchaseOrderService.getProducts({ limit: 100 });
-                this.products = result || [];
-            } else {
-                // Fallback to Firestore
-                const db = firebase.firestore();
-                const snapshot = await db.collection('products')
-                    .orderBy('createdAt', 'desc')
-                    .limit(100)
-                    .get();
-
-                this.products = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
+            const token = await this.getAuthToken();
+            if (!token) {
+                throw new Error('Không có token xác thực');
             }
 
+            const response = await fetch(`${this.proxyUrl}/api/Product/ExportFileWithStandardPriceV2`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'feature-version': '2'
+                },
+                body: JSON.stringify({
+                    model: { Active: 'true' },
+                    ids: ''
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`TPOS API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Map TPOS response to our format
+            // Expected fields: Id, DefaultCode (Mã SP), NameTemplate (Tên SP), StandardPrice (Giá vốn), ListPrice (Giá bán)
+            this.products = (data || []).map(item => ({
+                id: item.Id,
+                code: item.DefaultCode || item.Barcode || '',
+                name: item.NameTemplate || item.Name || '',
+                purchasePrice: item.StandardPrice || 0,
+                sellingPrice: item.ListPrice || item.PriceVariant || 0
+            }));
+
             this.filteredProducts = [...this.products];
+            console.log(`[InventoryPicker] Loaded ${this.products.length} products from TPOS`);
+
         } catch (error) {
-            console.error('Error loading products:', error);
+            console.error('Error loading products from TPOS:', error);
             this.products = [];
             this.filteredProducts = [];
+
+            if (window.notificationManager) {
+                window.notificationManager.error('Không thể tải danh sách sản phẩm: ' + error.message);
+            }
         } finally {
             this.isLoading = false;
             this.updateLoadingState(false);
+        }
+    }
+
+    /**
+     * Fetch product details from TPOS by ID
+     * @param {number} productId - Product ID
+     * @returns {Object} Product details with ImageUrl, DefaultCode, NameTemplate, QtyAvailable, StandardPrice, PriceVariant
+     */
+    async fetchProductDetails(productId) {
+        try {
+            const token = await this.getAuthToken();
+            if (!token) {
+                throw new Error('Không có token xác thực');
+            }
+
+            const response = await fetch(
+                `${this.proxyUrl}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'feature-version': '2',
+                        'tposappversion': '6.2.6.1'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`TPOS API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Map to our format
+            return {
+                id: data.Id,
+                code: data.DefaultCode || data.Barcode || '',
+                name: data.NameTemplate || data.Name || '',
+                image: data.ImageUrl || (data.Thumbnails && data.Thumbnails[2]) || '',
+                qtyAvailable: data.QtyAvailable || 0,
+                purchasePrice: data.StandardPrice || 0,
+                sellingPrice: data.PriceVariant || data.ListPrice || 0,
+                variant: data.DisplayAttributeValues || '',
+                // Keep original data for reference
+                _raw: data
+            };
+
+        } catch (error) {
+            console.error(`Error fetching product ${productId}:`, error);
+            return null;
         }
     }
 
@@ -943,7 +1045,7 @@ class InventoryPickerDialog {
                 listContainer.innerHTML = `
                     <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
                         <div style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;"></div>
-                        <p>Đang tải sản phẩm...</p>
+                        <p>Đang tải sản phẩm từ TPOS...</p>
                     </div>
                     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
                 `;
@@ -1122,20 +1224,20 @@ class InventoryPickerDialog {
                 </thead>
                 <tbody>
                     ${this.filteredProducts.map(product => {
-                        const isSelected = this.selectedProducts.has(product.id);
-                        const imageUrl = product.image || product.images?.[0] || '';
-                        const productCode = product.code || product.sku || product.product_code || '';
-                        const productName = product.name || product.productName || '';
+                        const isSelected = this.selectedProducts.has(String(product.id));
+                        const imageUrl = product.image || '';
+                        const productCode = product.code || '';
+                        const productName = product.name || '';
                         const variant = product.variant || '-';
-                        const purchasePrice = product.purchasePrice || product.cost || product.costPrice || 0;
-                        const sellingPrice = product.price || product.sellingPrice || 0;
+                        const purchasePrice = product.purchasePrice || 0;
+                        const sellingPrice = product.sellingPrice || 0;
 
                         return `
                             <tr data-product-id="${product.id}" style="
                                 cursor: pointer;
                                 transition: background 0.15s;
                                 ${isSelected ? 'background: #eff6ff;' : ''}
-                            " onmouseover="if(!this.classList.contains('selected'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('selected'))this.style.background='${isSelected ? '#eff6ff' : 'transparent'}'">
+                            " onmouseover="if(!this.dataset.selected)this.style.background='#f9fafb'" onmouseout="if(!this.dataset.selected)this.style.background='${isSelected ? '#eff6ff' : 'transparent'}'" ${isSelected ? 'data-selected="true"' : ''}>
                                 <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6;">
                                     ${imageUrl
                                         ? `<img src="${imageUrl}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;">`
@@ -1196,6 +1298,7 @@ class InventoryPickerDialog {
 
     /**
      * Filter products by search term (min 2 characters)
+     * Search by: Mã SP (code) and Tên sản phẩm (name)
      */
     filterProducts(term) {
         this.searchTerm = term.toLowerCase().trim();
@@ -1205,13 +1308,10 @@ class InventoryPickerDialog {
             this.filteredProducts = [...this.products];
         } else {
             this.filteredProducts = this.products.filter(p => {
-                const name = (p.name || p.productName || '').toLowerCase();
-                const code = (p.code || p.sku || p.product_code || '').toLowerCase();
-                const variant = (p.variant || '').toLowerCase();
+                const name = (p.name || '').toLowerCase();
+                const code = (p.code || '').toLowerCase();
 
-                return name.includes(this.searchTerm) ||
-                       code.includes(this.searchTerm) ||
-                       variant.includes(this.searchTerm);
+                return name.includes(this.searchTerm) || code.includes(this.searchTerm);
             });
         }
 
@@ -1225,6 +1325,65 @@ class InventoryPickerDialog {
         const countEl = this.modalElement?.querySelector('#selectedCount');
         if (countEl) {
             countEl.textContent = this.selectedProducts.size;
+        }
+    }
+
+    /**
+     * Handle product selection - fetch full details from TPOS
+     */
+    async handleProductSelect(productId, row) {
+        const productIdStr = String(productId);
+
+        // If already selected, deselect
+        if (this.selectedProducts.has(productIdStr)) {
+            this.selectedProducts.delete(productIdStr);
+            row.style.background = 'transparent';
+            row.removeAttribute('data-selected');
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox) checkbox.checked = false;
+            this.updateSelectedCount();
+            return;
+        }
+
+        // Show loading on this row
+        row.style.opacity = '0.6';
+        row.style.pointerEvents = 'none';
+
+        try {
+            // Fetch full product details from TPOS
+            const productDetails = await this.fetchProductDetails(productId);
+
+            if (productDetails) {
+                this.selectedProducts.set(productIdStr, productDetails);
+                row.style.background = '#eff6ff';
+                row.setAttribute('data-selected', 'true');
+
+                // Update row with fetched image if available
+                if (productDetails.image) {
+                    const imgCell = row.querySelector('td:first-child');
+                    if (imgCell) {
+                        imgCell.innerHTML = `<img src="${productDetails.image}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;">`;
+                    }
+                }
+            } else {
+                // Fallback: use basic product info
+                const basicProduct = this.products.find(p => String(p.id) === productIdStr);
+                if (basicProduct) {
+                    this.selectedProducts.set(productIdStr, basicProduct);
+                    row.style.background = '#eff6ff';
+                    row.setAttribute('data-selected', 'true');
+                }
+            }
+
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox) checkbox.checked = true;
+
+        } catch (error) {
+            console.error('Failed to select product:', error);
+        } finally {
+            row.style.opacity = '1';
+            row.style.pointerEvents = 'auto';
+            this.updateSelectedCount();
         }
     }
 
@@ -1262,25 +1421,7 @@ class InventoryPickerDialog {
             if (!row) return;
 
             const productId = row.dataset.productId;
-            const product = this.products.find(p => p.id === productId);
-            if (!product) return;
-
-            // Toggle selection
-            if (this.selectedProducts.has(productId)) {
-                this.selectedProducts.delete(productId);
-                row.style.background = 'transparent';
-            } else {
-                this.selectedProducts.set(productId, product);
-                row.style.background = '#eff6ff';
-            }
-
-            // Update checkbox
-            const checkbox = row.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-                checkbox.checked = this.selectedProducts.has(productId);
-            }
-
-            this.updateSelectedCount();
+            this.handleProductSelect(productId, row);
         });
 
         // Add selected products
