@@ -65,7 +65,7 @@ class InventoryTrackingApp {
 
         if (userNameEl) userNameEl.textContent = userName;
         if (userRoleEl) {
-            userRoleEl.textContent = authManager.isAdmin() ? 'Quan tri vien' : 'Nhan vien';
+            userRoleEl.textContent = authManager.isAdminTemplate() ? 'Quan tri vien' : 'Nhan vien';
         }
 
         return true;

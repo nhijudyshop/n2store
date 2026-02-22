@@ -20,22 +20,13 @@ const CONFIG = {
 const AUTH_STORAGE_KEY = "loginindex_auth";
 const uploadMetadata = { cacheControl: "public,max-age=31536000" };
 
-// Firebase config - uses global from ES module or fallback
-const FIREBASE_CONFIG_FALLBACK = {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D",
-};
+// Firebase config - use shared config (loaded via shared/js/firebase-config.js)
+// FIREBASE_CONFIG and firebaseConfig are provided by shared/js/firebase-config.js
 
 function getFirebaseConfig() {
     return (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG
         : (typeof firebaseConfig !== 'undefined') ? firebaseConfig
-        : FIREBASE_CONFIG_FALLBACK;
+        : null;
 }
 
 // =====================================================
@@ -783,9 +774,8 @@ class ImageManagementApp {
     async handleFormSubmit(e) {
         e.preventDefault();
 
-        // Check upload permission using modern detailedPermissions
-        const hasUploadPermission = authManager.hasDetailedPermission?.('live', 'upload')
-            ?? authManager.hasPermissionLevel(3); // Fallback to legacy
+        // Check upload permission using detailedPermissions
+        const hasUploadPermission = authManager.hasDetailedPermission?.('live', 'upload') ?? false;
 
         if (!hasUploadPermission) {
             notificationManager.error(
@@ -849,9 +839,8 @@ class ImageManagementApp {
     }
 
     async handleDelete() {
-        // Check delete permission using modern detailedPermissions
-        const hasDeletePermission = authManager.hasDetailedPermission?.('live', 'delete')
-            ?? authManager.hasPermissionLevel(0); // Fallback to legacy (admin only)
+        // Check delete permission using detailedPermissions
+        const hasDeletePermission = authManager.hasDetailedPermission?.('live', 'delete') ?? false;
 
         if (!hasDeletePermission) {
             notificationManager.error(

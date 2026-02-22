@@ -4,24 +4,14 @@
  */
 
 // =====================================================
-// FIREBASE CONFIG
+// FIREBASE CONFIG - use shared config (loaded via shared/js/firebase-config.js)
 // =====================================================
 
-const firebaseConfig = {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
-};
-
-// Initialize Firebase
+// Initialize Firebase (shared config auto-initializes)
 let db, rtdb;
 try {
     if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
+        firebase.initializeApp(FIREBASE_CONFIG);
     }
     db = firebase.firestore();
     rtdb = firebase.database();
