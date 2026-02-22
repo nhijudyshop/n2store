@@ -1160,5 +1160,5 @@ Khi xoa ticket RETURN_SHIPPER (co virtual credit da cap):
 ## 2.7 Related Documentation
 
 - [MASTER_DOCUMENTATION.md](../issue-tracking/MASTER_DOCUMENTATION.md) - Issue-Tracking module details
-- [FULLPlan360customer.md](../FULLPlan360customer.md) - Customer 360 implementation plan
+- [FULLPlan360customer.md](./FULLPlan360customer.md) - Customer 360 implementation plan
 - [BUSINESS_FLOW_SPECIFICATION.md](./BUSINESS_FLOW_SPECIFICATION.md) - Orders & Balance History flows

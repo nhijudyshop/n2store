@@ -160,19 +160,19 @@ getServerStats()                // Server statistics
 
 **Files Created:**
 
-1. **`docs/FIREBASE_TO_RENDER_SSE_MIGRATION.md`** (Original spec)
+1. **`docs/guides/FIREBASE_TO_RENDER_SSE_MIGRATION.md`** (Original spec)
    - Architecture overview
    - Step-by-step migration guide
    - Schema definitions
    - Code examples
 
-2. **`docs/REALTIME_CLIENT_MIGRATION_EXAMPLES.md`** (New)
+2. **`docs/guides/REALTIME_CLIENT_MIGRATION_EXAMPLES.md`** (New)
    - Practical migration examples
    - Before/after code comparisons
    - Testing procedures
    - Troubleshooting guide
 
-3. **`docs/FIREBASE_SSE_IMPLEMENTATION_SUMMARY.md`** (This file)
+3. **`docs/guides/FIREBASE_SSE_IMPLEMENTATION_SUMMARY.md`** (This file)
    - Implementation summary
    - Files created
    - Next steps
@@ -186,8 +186,8 @@ getServerStats()                // Server statistics
 2. ✅ `render.com/routes/realtime-sse.js` (348 lines)
 3. ✅ `render.com/routes/realtime-db.js` (535 lines)
 4. ✅ `js/realtime-client.js` (644 lines)
-5. ✅ `docs/REALTIME_CLIENT_MIGRATION_EXAMPLES.md` (545 lines)
-6. ✅ `docs/FIREBASE_SSE_IMPLEMENTATION_SUMMARY.md` (This file)
+5. ✅ `docs/guides/REALTIME_CLIENT_MIGRATION_EXAMPLES.md` (545 lines)
+6. ✅ `docs/guides/FIREBASE_SSE_IMPLEMENTATION_SUMMARY.md` (This file)
 
 ### Modified:
 1. ✅ `render.com/server.js` (Added imports and route mounting)
@@ -316,8 +316,8 @@ getServerStats()                // Server statistics
 
 ## 📚 Reference Documentation
 
-1. **Original Migration Spec:** `docs/FIREBASE_TO_RENDER_SSE_MIGRATION.md`
-2. **Migration Examples:** `docs/REALTIME_CLIENT_MIGRATION_EXAMPLES.md`
+1. **Original Migration Spec:** `docs/guides/FIREBASE_TO_RENDER_SSE_MIGRATION.md`
+2. **Migration Examples:** `docs/guides/REALTIME_CLIENT_MIGRATION_EXAMPLES.md`
 3. **API Documentation:** See inline comments in route files
 4. **Client API:** See JSDoc in `js/realtime-client.js`
 

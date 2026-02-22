@@ -563,4 +563,4 @@ async function saveData(key, value) {
 - Check server logs: `render.com/server.js`
 - Test API directly with `curl`
 - Use browser DevTools Console for debugging
-- Review migration guide: `docs/FIREBASE_TO_RENDER_SSE_MIGRATION.md`
+- Review migration guide: `docs/guides/FIREBASE_TO_RENDER_SSE_MIGRATION.md`

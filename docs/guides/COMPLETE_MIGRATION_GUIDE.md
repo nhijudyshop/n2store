@@ -506,10 +506,10 @@ await realtimeClient.updateTags('ORDER123', {
 - ✅ `js/realtime-client.js` - Client library (644 → 750 lines)
 
 ### Documentation (Created: 3)
-- ✅ `docs/FIREBASE_TO_RENDER_SSE_MIGRATION.md` - Original spec
-- ✅ `docs/REALTIME_CLIENT_MIGRATION_EXAMPLES.md` - Migration examples
-- ✅ `docs/FIREBASE_SSE_IMPLEMENTATION_SUMMARY.md` - Implementation summary
-- ✅ `docs/COMPLETE_MIGRATION_GUIDE.md` - This comprehensive guide
+- ✅ `docs/guides/FIREBASE_TO_RENDER_SSE_MIGRATION.md` - Original spec
+- ✅ `docs/guides/REALTIME_CLIENT_MIGRATION_EXAMPLES.md` - Migration examples
+- ✅ `docs/guides/FIREBASE_SSE_IMPLEMENTATION_SUMMARY.md` - Implementation summary
+- ✅ `docs/guides/COMPLETE_MIGRATION_GUIDE.md` - This comprehensive guide
 
 **Total:** 8 files, ~3,500+ lines of production-ready code
 

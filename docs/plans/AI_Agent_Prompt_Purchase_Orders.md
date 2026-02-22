@@ -8,7 +8,7 @@
 
 | File | URL | Nội dung |
 |------|-----|----------|
-| TECH_SPEC | `docs/TECH_SPEC_Firebase.md` | Data model, TypeScript, validation, service layer |
+| TECH_SPEC | `docs/api-docs/TECH_SPEC_Firebase.md` | Data model, TypeScript, validation, service layer |
 | UI_SPEC | `PRD_Purchase_Orders_Page.md` | Giao diện, colors, components, screenshots |
 
 **Screenshots có trong PRD:**
