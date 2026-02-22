@@ -1,0 +1,65 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: Build & Deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build:vite
+
+      - name: Deploy to Firebase Hosting
+        id: firebase_deploy
+        run: npx firebase-tools deploy --only hosting --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Check Cloudflare Worker changes
+        id: worker_changes
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -qE '^cloudflare-worker/|^shared/universal/'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy Cloudflare Worker
+        if: steps.worker_changes.outputs.changed == 'true'
+        id: worker_deploy
+        working-directory: ./cloudflare-worker
+        run: |
+          npm install
+          npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Notify team - success
+        if: success()
+        run: echo "✅ Deploy succeeded — Firebase Hosting deployed, Worker=${{ steps.worker_changes.outputs.changed }}"
+
+      - name: Notify team - failure
+        if: failure()
+        run: |
+          echo "❌ Deploy failed — current version retained"
+          echo "Firebase deploy: ${{ steps.firebase_deploy.outcome }}"
+          echo "Worker deploy: ${{ steps.worker_deploy.outcome }}"
