@@ -911,16 +911,20 @@ class InventoryPickerDialog {
      */
     async open(options = {}) {
         this.onSelect = options.onSelect;
-        this.selectedProducts = new Map();
         this.searchTerm = '';
-        this.filteredProducts = []; // Start empty - only show when searching
+        this.filteredProducts = [];
+
+        // Load previously selected products from localStorage
+        this.loadSelectedFromStorage();
 
         this.render();
         this.show();
 
         // Load products from TPOS API (for search index)
         await this.loadProductsFromTPOS();
-        // Don't call updateProductsList here - keep showing search instruction
+
+        // Show selected products list if any
+        this.updateProductsList();
     }
 
     /**
@@ -928,6 +932,7 @@ class InventoryPickerDialog {
      */
     static CACHE_KEY = 'inventory_products_cache';
     static CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+    static SELECTED_CACHE_KEY = 'inventory_selected_products';
 
     /**
      * Load products from TPOS ExportFileWithStandardPriceV2 API (Excel file)
@@ -1126,6 +1131,51 @@ class InventoryPickerDialog {
             console.log(`[InventoryPicker] Cached details for product ${productId}`);
         } catch (e) {
             console.warn('[InventoryPicker] Failed to cache product details:', e);
+        }
+    }
+
+    /**
+     * Load selected products from localStorage
+     */
+    loadSelectedFromStorage() {
+        try {
+            const cached = localStorage.getItem(InventoryPickerDialog.SELECTED_CACHE_KEY);
+            if (cached) {
+                const data = JSON.parse(cached);
+                this.selectedProducts = new Map(Object.entries(data));
+                console.log(`[InventoryPicker] Loaded ${this.selectedProducts.size} selected products from storage`);
+            } else {
+                this.selectedProducts = new Map();
+            }
+        } catch (e) {
+            console.warn('[InventoryPicker] Failed to load selected products:', e);
+            this.selectedProducts = new Map();
+        }
+    }
+
+    /**
+     * Save selected products to localStorage
+     */
+    saveSelectedToStorage() {
+        try {
+            const data = Object.fromEntries(this.selectedProducts);
+            localStorage.setItem(InventoryPickerDialog.SELECTED_CACHE_KEY, JSON.stringify(data));
+            console.log(`[InventoryPicker] Saved ${this.selectedProducts.size} selected products to storage`);
+        } catch (e) {
+            console.warn('[InventoryPicker] Failed to save selected products:', e);
+        }
+    }
+
+    /**
+     * Clear selected products from localStorage
+     */
+    clearSelectedFromStorage() {
+        try {
+            localStorage.removeItem(InventoryPickerDialog.SELECTED_CACHE_KEY);
+            this.selectedProducts = new Map();
+            console.log('[InventoryPicker] Cleared selected products from storage');
+        } catch (e) {
+            console.warn('[InventoryPicker] Failed to clear selected products:', e);
         }
     }
 
@@ -1375,8 +1425,13 @@ class InventoryPickerDialog {
             `;
         }
 
-        // Show instruction when no search term (don't render all products)
+        // When no search term: show selected products list
         if (this.searchTerm.length < 2) {
+            // If has selected products, show them
+            if (this.selectedProducts.size > 0) {
+                return this.renderSelectedProductsList();
+            }
+            // Otherwise show search instruction
             return `
                 <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin: 0 auto 12px; display: block; opacity: 0.5;">
@@ -1475,6 +1530,91 @@ class InventoryPickerDialog {
     }
 
     /**
+     * Render selected products list (shown when no search term)
+     */
+    renderSelectedProductsList() {
+        const selectedArray = Array.from(this.selectedProducts.values());
+
+        return `
+            <div style="padding: 12px 16px; background: #f0f9ff; border-bottom: 1px solid #bfdbfe;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; color: #1e40af; font-weight: 500;">
+                        Danh sách đã chọn (${selectedArray.length} sản phẩm)
+                    </span>
+                    <button type="button" id="btnClearSelected" style="
+                        background: none;
+                        border: none;
+                        color: #dc2626;
+                        font-size: 12px;
+                        cursor: pointer;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                    ">Xóa tất cả</button>
+                </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <thead>
+                    <tr style="background: #f9fafb;">
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 60px;">Hình ảnh</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 80px;">Mã SP</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Tên sản phẩm</th>
+                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 70px;">Tồn kho</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá mua</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá bán</th>
+                        <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${selectedArray.map(product => {
+                        const imageUrl = product.image || '';
+                        const productCode = product.code || '';
+                        const productName = product.name || '';
+                        const qtyAvailable = product.qtyAvailable ?? '-';
+                        const purchasePrice = product.purchasePrice || 0;
+                        const sellingPrice = product.sellingPrice || 0;
+
+                        return `
+                            <tr data-product-id="${product.id}" data-selected="true" style="background: #eff6ff; cursor: pointer;">
+                                <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6;">
+                                    ${imageUrl
+                                        ? `<img src="${imageUrl}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;">`
+                                        : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                <polyline points="21,15 16,10 5,21"></polyline>
+                                            </svg>
+                                        </div>`
+                                    }
+                                </td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; font-weight: 500; color: #3b82f6;">${productCode || '-'}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6;">${productName}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: center; color: #6b7280;">${qtyAvailable}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;">${this.formatPrice(purchasePrice)}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;">${this.formatPrice(sellingPrice)}</td>
+                                <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6; text-align: center;">
+                                    <button type="button" class="btn-remove-product" data-id="${product.id}" style="
+                                        background: none;
+                                        border: none;
+                                        color: #dc2626;
+                                        cursor: pointer;
+                                        padding: 4px;
+                                    ">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    /**
      * Update products list in UI
      */
     updateProductsList() {
@@ -1483,10 +1623,33 @@ class InventoryPickerDialog {
 
         if (listContainer) {
             listContainer.innerHTML = this.renderProductsList();
+
+            // Bind event for clear all button (in selected list view)
+            listContainer.querySelector('#btnClearSelected')?.addEventListener('click', () => {
+                this.clearSelectedFromStorage();
+                this.updateProductsList();
+                this.updateSelectedCount();
+            });
+
+            // Bind events for remove individual product buttons
+            listContainer.querySelectorAll('.btn-remove-product').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const productId = btn.dataset.id;
+                    this.selectedProducts.delete(String(productId));
+                    this.saveSelectedToStorage();
+                    this.updateProductsList();
+                    this.updateSelectedCount();
+                });
+            });
         }
         if (countText) {
             if (this.searchTerm.length < 2) {
-                countText.textContent = `Có ${this.products.length} sản phẩm trong kho`;
+                if (this.selectedProducts.size > 0) {
+                    countText.textContent = `Đã chọn ${this.selectedProducts.size} sản phẩm`;
+                } else {
+                    countText.textContent = `Có ${this.products.length} sản phẩm trong kho`;
+                }
             } else {
                 countText.textContent = `Tìm thấy ${this.filteredProducts.length} sản phẩm`;
             }
@@ -1535,6 +1698,7 @@ class InventoryPickerDialog {
         // If already selected, deselect
         if (this.selectedProducts.has(productIdStr)) {
             this.selectedProducts.delete(productIdStr);
+            this.saveSelectedToStorage();
             row.style.background = 'transparent';
             row.removeAttribute('data-selected');
             const checkbox = row.querySelector('input[type="checkbox"]');
@@ -1569,24 +1733,23 @@ class InventoryPickerDialog {
 
         if (productDetails) {
             this.selectedProducts.set(productIdStr, productDetails);
-            row.style.background = '#eff6ff';
-            row.setAttribute('data-selected', 'true');
-
-            // Update row with fetched data
-            this.updateRowWithDetails(row, productDetails);
         } else {
             // Fallback: use basic product info from Excel
             const basicProduct = this.products.find(p => String(p.id) === productIdStr);
             if (basicProduct) {
                 this.selectedProducts.set(productIdStr, basicProduct);
-                row.style.background = '#eff6ff';
-                row.setAttribute('data-selected', 'true');
             }
         }
 
-        const checkbox = row.querySelector('input[type="checkbox"]');
-        if (checkbox) checkbox.checked = true;
+        // Save selected products to localStorage
+        this.saveSelectedToStorage();
 
+        // Clear search and show selected products list
+        this.searchTerm = '';
+        const searchInput = this.modalElement?.querySelector('#inventorySearchInput');
+        if (searchInput) searchInput.value = '';
+
+        this.updateProductsList();
         this.updateSelectedCount();
     }
 
