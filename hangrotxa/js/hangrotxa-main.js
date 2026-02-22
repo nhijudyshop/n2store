@@ -58,7 +58,7 @@ function initializeQuantityValidation() {
             const enteredValue = parseInt(soLuongInput.value);
             const auth = authManager ? authManager.getAuthState() : null;
 
-            if (!auth || auth.checkLogin != "777") {
+            if (PermissionHelper.canAccessPage('hangrotxa')) {
                 if (enteredValue < 1) {
                     utils.showError("Số lượng phải lớn hơn hoặc bằng 1");
                     soLuongInput.value = "1";

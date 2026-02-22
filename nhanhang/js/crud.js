@@ -9,9 +9,7 @@
 async function addReceipt(event) {
     event.preventDefault();
 
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền thêm phiếu nhận", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'create', { alertMessage: 'Không có quyền thêm phiếu nhận' })) {
         return;
     }
 
@@ -159,9 +157,7 @@ function clearReceiptForm() {
 async function updateReceipt(event) {
     event.preventDefault();
 
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền cập nhật phiếu nhận", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'edit', { alertMessage: 'Không có quyền cập nhật phiếu nhận' })) {
         return;
     }
 
@@ -285,12 +281,7 @@ async function updateReceipt(event) {
 
 // Delete receipt by ID
 async function deleteReceiptByID(event) {
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error(
-            "Không đủ quyền thực hiện chức năng này.",
-            3000,
-        );
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'cancel', { alertMessage: 'Không đủ quyền thực hiện chức năng này.' })) {
         return;
     }
 
@@ -385,9 +376,7 @@ async function migrateDataWithIDs() {
 
 // Open edit modal
 function openEditModal(event) {
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền chỉnh sửa phiếu nhận", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'edit', { alertMessage: 'Không có quyền chỉnh sửa phiếu nhận' })) {
         return;
     }
 

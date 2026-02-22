@@ -76,11 +76,11 @@ function showAccessDenied(reason = "") {
     }
 }
 
-// Firebase Configuration
+// Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js)
 function connectFirebase() {
     try {
         if (!firebase.apps.length) {
-            const config = {
+            const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : {
                 apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
                 authDomain: "n2shop-69e37.firebaseapp.com",
                 projectId: "n2shop-69e37",

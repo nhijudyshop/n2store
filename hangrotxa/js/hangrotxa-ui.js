@@ -10,9 +10,8 @@
 function toggleForm() {
     const config = window.HangRotXaConfig;
     const utils = window.HangRotXaUtils;
-    const auth = authManager ? authManager.getAuthState() : null;
 
-    if (!auth || auth.checkLogin == "777") {
+    if (!PermissionHelper.checkBeforeAction('hangrotxa', 'mark', { alertMessage: 'Không có quyền truy cập biểu mẫu', showAlert: false })) {
         utils.showError("Không có quyền truy cập biểu mẫu");
         return;
     }
@@ -492,7 +491,15 @@ function renderDataToTable(dataArray) {
 
         const auth = authManager ? authManager.getAuthState() : null;
         if (auth) {
-            applyRowPermissions(tr, input, button, parseInt(auth.checkLogin));
+            // Use detailedPermissions instead of legacy checkLogin
+            const canDelete = PermissionHelper.hasPermission('hangrotxa', 'delete');
+            const canEdit = PermissionHelper.hasPermission('hangrotxa', 'price');
+            if (!canEdit) {
+                input.disabled = true;
+            }
+            if (!canDelete) {
+                button.style.display = "none";
+            }
         }
 
         tr.appendChild(td1);
@@ -533,11 +540,17 @@ function renderDataToTable(dataArray) {
 }
 
 function applyRowPermissions(row, input, button, userRole) {
-    if (userRole !== 0) {
+    // Legacy function kept for compatibility - now uses PermissionHelper
+    const canEdit = PermissionHelper.hasPermission('hangrotxa', 'price');
+    const canDelete = PermissionHelper.hasPermission('hangrotxa', 'delete');
+    if (!canEdit) {
         input.disabled = true;
-        button.style.display = "none";
     } else {
         input.disabled = false;
+    }
+    if (!canDelete) {
+        button.style.display = "none";
+    } else {
         button.style.display = "";
     }
 }

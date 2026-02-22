@@ -12,18 +12,8 @@ const AVAILABLE_PAGES = [
         name: "HÌNH ẢNH LIVE ĐẦY ĐỦ",
         description: "Xem và quản lý hình ảnh live stream",
     },
-    {
-        id: "livestream",
-        icon: "video",
-        name: "BÁO CÁO LIVESTREAM",
-        description: "Xem báo cáo và thống kê livestream",
-    },
-    {
-        id: "sanphamlive",
-        icon: "shopping-bag",
-        name: "SẢN PHẨM LIVESTREAM",
-        description: "Xem thống kê sản phẩm livestream",
-    },
+    // REMOVED: livestream (module deleted - cleanup task 9.1)
+    // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
     {
         id: "nhanhang",
         icon: "package",
@@ -84,8 +74,6 @@ const AVAILABLE_PAGES = [
 const PERMISSION_TEMPLATES = {
     admin: [
         "live",
-        "livestream",
-        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
@@ -98,8 +86,6 @@ const PERMISSION_TEMPLATES = {
     ],
     manager: [
         "live",
-        "livestream",
-        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
@@ -109,8 +95,6 @@ const PERMISSION_TEMPLATES = {
     ],
     staff: [
         "live",
-        "livestream",
-        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
@@ -313,7 +297,7 @@ function connectFirebase() {
     try {
         if (!firebase.apps.length) {
             console.log("Initializing Firebase...");
-            const config = {
+            const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : {
                 apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
                 authDomain: "n2shop-69e37.firebaseapp.com",
                 projectId: "n2shop-69e37",

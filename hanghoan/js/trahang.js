@@ -22,16 +22,8 @@ const TraHangModule = (function () {
     let isBackgroundFetching = false;
     let lastBackgroundFetchTime = null;
 
-    // Firebase Configuration (same as hanghoan.js)
-    const firebaseConfig = {
-        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-        authDomain: "n2shop-69e37.firebaseapp.com",
-        projectId: "n2shop-69e37",
-        storageBucket: "n2shop-69e37-ne0q1",
-        messagingSenderId: "598906493303",
-        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-        measurementId: "G-TEJH3S2T1D",
-    };
+    // Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js in index.html)
+    // FIREBASE_CONFIG and firebaseConfig are provided by shared/js/firebase-config.js
 
     // Firebase references (use existing app if available)
     let db = null;

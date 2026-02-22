@@ -303,9 +303,15 @@ class AuthManager {
     }
 
     hasPermission(requiredLevel) {
+        // Legacy wrapper — maps old numeric levels to roleTemplate check
         const auth = this.getAuthState();
         if (!auth) return false;
-        return parseInt(auth.checkLogin) <= requiredLevel;
+        if (requiredLevel === 0) return auth.roleTemplate === 'admin';
+        // For non-admin, check if user has any detailedPermissions
+        if (!auth.detailedPermissions) return false;
+        return Object.values(auth.detailedPermissions).some(page =>
+            Object.values(page).some(v => v === true)
+        );
     }
 
     getAuthState() {
@@ -529,9 +535,10 @@ function isAuthenticated() {
 }
 
 function hasPermission(requiredLevel) {
-    return window.authManager
-        ? window.authManager.hasPermission(requiredLevel)
-        : false;
+    // Legacy wrapper — delegates to authManager's isAdminTemplate or page permission check
+    if (!window.authManager) return false;
+    if (requiredLevel === 0) return window.authManager.isAdminTemplate();
+    return window.authManager.isAuthenticated();
 }
 
 function getUserName() {

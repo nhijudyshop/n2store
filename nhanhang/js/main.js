@@ -263,10 +263,9 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
     actionContainer.appendChild(deleteButton);
     cellActions.appendChild(actionContainer);
 
-    // Apply permissions
-    const auth = getAuthState();
-    if (auth) {
-        applyRowPermissions(tr, [], deleteButton, parseInt(auth.checkLogin));
+    // Apply permissions via detailedPermissions
+    if (!PermissionHelper.hasPermission('nhanhang', 'cancel')) {
+        deleteButton.style.display = "none";
     }
 
     // Append all cells
@@ -389,7 +388,8 @@ function renderDataToTable(dataArray) {
 }
 
 function applyRowPermissions(row, inputs, button, userRole) {
-    if (userRole !== 0) {
+    // Legacy function kept for compatibility - now uses PermissionHelper
+    if (!PermissionHelper.hasPermission('nhanhang', 'cancel')) {
         inputs.forEach((input) => (input.disabled = true));
         button.style.display = "none";
     } else {
@@ -537,9 +537,7 @@ async function initializeWithMigration() {
 }
 
 function toggleForm() {
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền truy cập biểu mẫu", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'create', { alertMessage: 'Không có quyền truy cập biểu mẫu' })) {
         return;
     }
     const dataForm = document.getElementById("dataForm");

@@ -169,37 +169,9 @@ if (typeof window !== 'undefined' && window.AuthManager) {
         return false;
     }
 
-    /**
-     * Get permission level
-     * @returns {number}
-     */
-    getPermissionLevel() {
-        const authData = this.getAuthData();
-        if (!authData) return 777; // Guest level
+    // getPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
 
-        return parseInt(authData.checkLogin) || 777;
-    }
-
-    /**
-     * Check permission level - LEGACY METHOD
-     * @deprecated Use hasDetailedPermission() instead - will be removed in future
-     * Kept for backward compatibility only
-     * @param {number} requiredLevel
-     * @returns {boolean}
-     */
-    hasPermissionLevel(requiredLevel) {
-        // Deprecation warning - log once per session
-        if (!this._permissionLevelWarned) {
-            console.warn('[AuthManager] DEPRECATED: hasPermissionLevel() sẽ bị xóa. Dùng hasDetailedPermission(pageId, action) thay thế.');
-            this._permissionLevelWarned = true;
-        }
-        const authData = this.getAuthData();
-        if (!authData) return false;
-
-        // Legacy: use checkLogin level if available
-        const userLevel = this.getPermissionLevel();
-        return userLevel <= requiredLevel;
-    }
+    // hasPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
 
     /**
      * Check if user has specific detailed permission
@@ -225,24 +197,9 @@ if (typeof window !== 'undefined' && window.AuthManager) {
         return authData?.roleTemplate === 'admin';
     }
 
-    /**
-     * @deprecated Use isAdminTemplate() instead
-     * Kept for backward compatibility - returns template check only
-     */
-    isAdmin() {
-        return this.isAdminTemplate();
-    }
+    // isAdmin() — REMOVED: use isAdminTemplate() instead
 
-    /**
-     * LEGACY: hasPermission for backward compatibility
-     * @deprecated Use hasDetailedPermission() instead
-     * @param {number} requiredLevel - 0 = admin, 1 = manager, etc.
-     * @returns {boolean}
-     */
-    hasPermission(requiredLevel) {
-        // Legacy: use checkLogin level
-        return this.hasPermissionLevel(requiredLevel);
-    }
+    // hasPermission() — REMOVED: legacy alias for hasPermissionLevel
 
     /**
      * Logout user
@@ -294,21 +251,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
         return true;
     }
 
-    /**
-     * Get role information based on checkLogin level
-     * @returns {object}
-     */
-    getRoleInfo() {
-        const level = this.getPermissionLevel();
-        const roles = {
-            0: { name: 'Admin', icon: '👑', color: '#ff6b6b' },
-            1: { name: 'Quản lý', icon: '⭐', color: '#4ecdc4' },
-            2: { name: 'Nhân viên', icon: '👤', color: '#45b7d1' },
-            3: { name: 'Cơ bản', icon: '📝', color: '#96ceb4' },
-            777: { name: 'Khách', icon: '👥', color: '#95a5a6' }
-        };
-        return roles[level] || roles[777];
-    }
+    // getRoleInfo() — REMOVED: legacy checkLogin-based role info, use standalone getRoleInfo() in common-utils for UI display
 
     /**
      * Extend session (refresh expiry time)

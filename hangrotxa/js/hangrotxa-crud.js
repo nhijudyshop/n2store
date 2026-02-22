@@ -12,8 +12,7 @@ async function deleteInventoryByID(event) {
     const utils = window.HangRotXaUtils;
     const cache = window.HangRotXaCache;
 
-    const auth = authManager ? authManager.getAuthState() : null;
-    if (!auth || auth.checkLogin == "777") {
+    if (!PermissionHelper.checkBeforeAction('hangrotxa', 'delete', { alertMessage: 'Không đủ quyền thực hiện chức năng này.', showAlert: false })) {
         utils.showError("Không đủ quyền thực hiện chức năng này.");
         return;
     }
@@ -107,7 +106,7 @@ async function updateInventoryByID(event) {
     const cache = window.HangRotXaCache;
 
     const auth = authManager ? authManager.getAuthState() : null;
-    if (!auth || auth.checkLogin == "777") {
+    if (!PermissionHelper.checkBeforeAction('hangrotxa', 'price', { alertMessage: 'Không đủ quyền thực hiện chức năng này.', showAlert: false })) {
         utils.showError("Không đủ quyền thực hiện chức năng này.");
         event.target.value = event.target.defaultValue;
         return;
@@ -382,7 +381,7 @@ function addProduct(event) {
     const utils = window.HangRotXaUtils;
 
     const auth = authManager ? authManager.getAuthState() : null;
-    if (!auth || auth.checkLogin == "777") {
+    if (!PermissionHelper.checkBeforeAction('hangrotxa', 'mark', { alertMessage: 'Không có quyền thêm sản phẩm', showAlert: false })) {
         utils.showError("Không có quyền thêm sản phẩm");
         return;
     }

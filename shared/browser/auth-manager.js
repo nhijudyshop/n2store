@@ -15,13 +15,7 @@ export const AUTH_CONFIG = {
     REDIRECT_URL: '/index.html',
     SESSION_DURATION: 8 * 60 * 60 * 1000,     // 8 hours
     REMEMBER_DURATION: 30 * 24 * 60 * 60 * 1000, // 30 days
-    PERMISSION_LEVELS: {
-        ADMIN: 0,
-        MANAGER: 1,
-        STAFF: 2,
-        BASIC: 3,
-        GUEST: 777
-    }
+    // PERMISSION_LEVELS removed — legacy checkLogin system has been fully migrated to detailedPermissions
 };
 
 // =====================================================
@@ -180,31 +174,8 @@ export class AuthManager {
         };
     }
 
-    /**
-     * Get permission level
-     * @returns {number}
-     */
-    getPermissionLevel() {
-        const authData = this.getAuthData();
-        if (!authData) return AUTH_CONFIG.PERMISSION_LEVELS.GUEST;
-        return parseInt(authData.checkLogin) || AUTH_CONFIG.PERMISSION_LEVELS.GUEST;
-    }
-
-    /**
-     * Get role information based on checkLogin level
-     * @returns {Object}
-     */
-    getRoleInfo() {
-        const level = this.getPermissionLevel();
-        const roles = {
-            0: { name: 'Admin', icon: '👑', color: '#ff6b6b' },
-            1: { name: 'Quản lý', icon: '⭐', color: '#4ecdc4' },
-            2: { name: 'Nhân viên', icon: '👤', color: '#45b7d1' },
-            3: { name: 'Cơ bản', icon: '📝', color: '#96ceb4' },
-            777: { name: 'Khách', icon: '👥', color: '#95a5a6' }
-        };
-        return roles[level] || roles[777];
-    }
+    // getPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
+    // getRoleInfo() instance method — REMOVED: use standalone getRoleInfo() for UI display
 
     // =====================================================
     // PERMISSION CHECKS
@@ -240,28 +211,8 @@ export class AuthManager {
         return authData.detailedPermissions[pageId][action] === true;
     }
 
-    /**
-     * Check permission level (LEGACY)
-     * @deprecated Use hasDetailedPermission() instead - will be removed in future version
-     * @param {number} requiredLevel
-     * @returns {boolean}
-     */
-    hasPermissionLevel(requiredLevel) {
-        // Deprecation warning - log once per session
-        if (!this._permissionLevelWarned) {
-            console.warn('[AuthManager] DEPRECATED: hasPermissionLevel() sẽ bị xóa. Dùng hasDetailedPermission(pageId, action) thay thế.');
-            this._permissionLevelWarned = true;
-        }
-        const userLevel = this.getPermissionLevel();
-        return userLevel <= requiredLevel;
-    }
-
-    /**
-     * @deprecated Use hasPermissionLevel() instead
-     */
-    hasPermission(requiredLevel) {
-        return this.hasPermissionLevel(requiredLevel);
-    }
+    // hasPermissionLevel() — REMOVED: legacy checkLogin system migrated to detailedPermissions
+    // hasPermission() — REMOVED: legacy alias for hasPermissionLevel
 
     /**
      * Check if user has admin template (for UI display only)
@@ -272,12 +223,7 @@ export class AuthManager {
         return authData?.roleTemplate === 'admin';
     }
 
-    /**
-     * @deprecated Use isAdminTemplate() instead
-     */
-    isAdmin() {
-        return this.isAdminTemplate();
-    }
+    // isAdmin() — REMOVED: use isAdminTemplate() instead
 
     // =====================================================
     // AUTH GUARDS
@@ -398,21 +344,8 @@ export function isAuthenticated() {
     return getAuthManager().isAuthenticated();
 }
 
-/**
- * Get role info by checkLogin level
- * @param {number} checkLogin
- * @returns {Object}
- */
-export function getRoleInfo(checkLogin) {
-    const roleMap = {
-        0: { icon: '👑', text: 'Admin', name: 'Admin' },
-        1: { icon: '👤', text: 'User', name: 'Quản lý' },
-        2: { icon: '🔒', text: 'Limited', name: 'Nhân viên' },
-        3: { icon: '💡', text: 'Basic', name: 'Cơ bản' },
-        777: { icon: '👥', text: 'Guest', name: 'Khách' }
-    };
-    return roleMap[checkLogin] || { icon: '❓', text: 'Unknown', name: 'Unknown' };
-}
+// Standalone getRoleInfo — REMOVED from auth-manager
+// Moved to common-utils.js as it's a UI display helper, not a permission check
 
 console.log('[AUTH-MANAGER] Module loaded');
 

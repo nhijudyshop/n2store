@@ -261,15 +261,20 @@ function renderGroupedDataWithCheckbox(groupedData, tbody) {
             cells[11].appendChild(actionContainer);
             tr.appendChild(cells[11]);
 
-            // Apply permissions
-            const auth = getAuthState();
-            if (auth) {
-                applyRowPermissions(
-                    tr,
-                    [],
-                    [editButton, deleteButton],
-                    parseInt(auth.checkLogin),
-                );
+            // Apply permissions via detailedPermissions
+            const canEdit = PermissionHelper.hasPermission('order-management', 'edit');
+            const canDelete = PermissionHelper.hasPermission('order-management', 'cancel');
+            if (!canEdit) {
+                editButton.style.display = "none";
+                const checkbox = tr.querySelector(".row-checkbox");
+                if (checkbox) {
+                    checkbox.disabled = true;
+                    checkbox.style.cursor = "not-allowed";
+                }
+                tr.style.opacity = "0.7";
+            }
+            if (!canDelete) {
+                deleteButton.style.display = "none";
             }
 
             tbody.appendChild(tr);
@@ -283,7 +288,9 @@ function renderGroupedDataWithCheckbox(groupedData, tbody) {
 }
 
 function applyRowPermissions(row, editableElements, buttons, userRole) {
-    if (userRole > 2) {
+    // Legacy function kept for compatibility - now uses PermissionHelper
+    const canEdit = PermissionHelper.hasPermission('order-management', 'edit');
+    if (!canEdit) {
         editableElements.forEach((element) => {
             element.style.opacity = "0.6";
             element.style.cursor = "not-allowed";

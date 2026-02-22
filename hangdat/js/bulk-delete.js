@@ -152,11 +152,7 @@ class BulkDeleteManager {
             return;
         }
 
-        const auth = getAuthState();
-        if (
-            !auth ||
-            (parseInt(auth.checkLogin) > 0 && parseInt(auth.checkLogin) !== 3)
-        ) {
+        if (!PermissionHelper.checkBeforeAction('order-management', 'cancel', { alertMessage: 'Không đủ quyền thực hiện chức năng này.', showAlert: false })) {
             notifyManager.warning("Không đủ quyền thực hiện chức năng này.");
             return;
         }

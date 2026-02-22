@@ -22,15 +22,17 @@ function showTab(tabName) {
 
 // Firebase Configuration
 function loadDefaultConfig() {
+    // Use shared config if available, otherwise use hardcoded defaults
+    const sharedConfig = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : null;
     document.getElementById("apiKey").value =
-        "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM";
+        sharedConfig?.apiKey || "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM";
     document.getElementById("authDomain").value =
-        "n2shop-69e37.firebaseapp.com";
-    document.getElementById("projectId").value = "n2shop-69e37";
-    document.getElementById("storageBucket").value = "n2shop-69e37-ne0q1";
-    document.getElementById("messagingSenderId").value = "598906493303";
+        sharedConfig?.authDomain || "n2shop-69e37.firebaseapp.com";
+    document.getElementById("projectId").value = sharedConfig?.projectId || "n2shop-69e37";
+    document.getElementById("storageBucket").value = sharedConfig?.storageBucket || "n2shop-69e37-ne0q1";
+    document.getElementById("messagingSenderId").value = sharedConfig?.messagingSenderId || "598906493303";
     document.getElementById("appId").value =
-        "1:598906493303:web:46d6236a1fdc2eff33e972";
+        sharedConfig?.appId || "1:598906493303:web:46d6236a1fdc2eff33e972";
 }
 
 function saveFirebaseConfig() {
@@ -56,6 +58,9 @@ function connectFirebase() {
 
         if (savedConfig) {
             config = JSON.parse(savedConfig);
+        } else if (typeof FIREBASE_CONFIG !== 'undefined') {
+            // Use shared config from shared/js/firebase-config.js
+            config = FIREBASE_CONFIG;
         } else {
             // Use default config
             config = {

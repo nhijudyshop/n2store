@@ -251,7 +251,7 @@ class FormHandler {
 
     // Toggle form visibility
     toggleForm() {
-        if (!authManager.hasPermission(3)) {
+        if (!authManager.hasPagePermission('ib')) {
             uiManager.showError("Không có quyền truy cập form");
             return;
         }
@@ -302,7 +302,7 @@ class FormHandler {
     async handleFormSubmit(e) {
         e.preventDefault();
 
-        if (!authManager.hasPermission(3)) {
+        if (!authManager.hasDetailedPermission('ib', 'edit')) {
             uiManager.showError("Không có quyền thêm inbox");
             return;
         }
@@ -440,7 +440,7 @@ class FormHandler {
         if (!currentUser) return;
 
         // Hide form if user doesn't have permission
-        if (!authManager.hasPermission(3)) {
+        if (!authManager.hasPagePermission('ib')) {
             if (this.dataForm) {
                 this.dataForm.style.display = "none";
             }

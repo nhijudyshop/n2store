@@ -89,7 +89,15 @@ function initializeDOMCache() {
 function refreshAuthCache() {
     if (typeof authManager !== 'undefined' && authManager) {
         cachedAuthState = authManager.getAuthState();
-        cachedUserRole = cachedAuthState ? parseInt(cachedAuthState.checkLogin || 777) : 777;
+        // Use detailedPermissions instead of legacy checkLogin
+        // cachedUserRole: 0 = full access (has delete), 1 = edit access, 777 = view only
+        if (PermissionHelper.hasPermission('hanghoan', 'approve')) {
+            cachedUserRole = 0; // Full access
+        } else if (PermissionHelper.hasPermission('hanghoan', 'update')) {
+            cachedUserRole = 1; // Edit access
+        } else {
+            cachedUserRole = 777; // View only
+        }
     }
 }
 
@@ -423,14 +431,18 @@ function renderSingleRow(item, sttNumber) {
 }
 
 function applyRowPermissions(row, userRole) {
-    if (userRole === 0) return; // Admin - full access
+    // Use detailedPermissions for row-level access control
+    const canDelete = PermissionHelper.hasPermission('hanghoan', 'approve');
+    const canEdit = PermissionHelper.hasPermission('hanghoan', 'update');
 
     const cells = row.cells;
     if (cells.length < 10) return;
 
-    cells[9].style.visibility = "hidden"; // Delete button
+    if (!canDelete) {
+        cells[9].style.visibility = "hidden"; // Delete button
+    }
 
-    if (userRole !== 1) {
+    if (!canEdit) {
         cells[8].style.visibility = "hidden"; // Edit button
         cells[6].style.visibility = "hidden"; // Checkbox
     }

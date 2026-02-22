@@ -3,8 +3,7 @@
 // =====================================================
 
 async function editInventoryItem(event) {
-    const auth = getAuthState();
-    if (!auth || parseInt(auth.checkLogin) > 0) {
+    if (!PermissionHelper.checkBeforeAction('inventoryTracking', 'edit_shipment', { alertMessage: 'Không có quyền chỉnh sửa', showAlert: false })) {
         notificationManager.warning("Không có quyền chỉnh sửa", 3000);
         return;
     }
@@ -230,8 +229,7 @@ async function updateOrderInventoryData(orderId, updateData) {
 }
 
 async function deleteInventoryItem(event) {
-    const auth = getAuthState();
-    if (!auth || parseInt(auth.checkLogin) > 0) {
+    if (!PermissionHelper.checkBeforeAction('inventoryTracking', 'delete_shipment', { alertMessage: 'Không đủ quyền thực hiện chức năng này.', showAlert: false })) {
         notificationManager.warning(
             "Không đủ quyền thực hiện chức năng này.",
             3000,
