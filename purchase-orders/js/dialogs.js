@@ -990,14 +990,21 @@ class InventoryPickerDialog {
             console.log('[InventoryPicker] Excel parsed, first row:', jsonData[0]);
 
             // Map Excel data to our format
-            // Excel columns: ID, Mã sản phẩm, Tên sản phẩm, Giá vốn, ...
-            this.products = jsonData.map(row => ({
-                id: row['ID'] || row['Id'] || row['id'] || 0,
-                code: row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '',
-                name: row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '',
-                purchasePrice: parseFloat(row['Giá vốn'] || row['StandardPrice'] || 0),
-                sellingPrice: parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0)
-            })).filter(p => p.id); // Filter out empty rows
+            // Excel columns: Id (*), Mã sản phẩm, Tên sản phẩm, Giá mua, Giá vốn (*)
+            this.products = jsonData.map(row => {
+                // Find ID - try multiple possible column names
+                const id = row['Id (*)'] || row['ID'] || row['Id'] || row['id'] || 0;
+                // Find code
+                const code = row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '';
+                // Find name
+                const name = row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '';
+                // Giá mua = Purchase price (what we pay to supplier)
+                const purchasePrice = parseFloat(row['Giá mua'] || row['Giá vốn (*)'] || row['Giá vốn'] || row['StandardPrice'] || 0) || 0;
+                // Giá bán = Selling price (we don't have this in Excel, will fetch from product details)
+                const sellingPrice = parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0) || 0;
+
+                return { id, code, name, purchasePrice, sellingPrice };
+            }).filter(p => p.id); // Filter out empty rows
 
             this.filteredProducts = [...this.products];
 
