@@ -1336,7 +1336,7 @@ class UnifiedNavigationManager {
             menuContentHtml += `
                 <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="${group.id}">
                     <div class="mobile-group-header">
-                        <span class="mobile-group-collapse-icon"><i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}"></i></span>
+                        <span class="mobile-group-collapse-icon"><i data-lucide="chevron-down"></i></span>
                         <i data-lucide="${group.icon}" class="mobile-group-icon"></i>
                         <span class="mobile-group-name">${group.name}</span>
                         <span class="mobile-group-count">${group.items.length}</span>
@@ -1360,7 +1360,7 @@ class UnifiedNavigationManager {
             menuContentHtml += `
                 <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="ungrouped">
                     <div class="mobile-group-header">
-                        <span class="mobile-group-collapse-icon"><i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}"></i></span>
+                        <span class="mobile-group-collapse-icon"><i data-lucide="chevron-down"></i></span>
                         <i data-lucide="more-horizontal" class="mobile-group-icon"></i>
                         <span class="mobile-group-name">Khác</span>
                         <span class="mobile-group-count">${filteredLayout.ungroupedItems.length}</span>
@@ -1420,13 +1420,6 @@ class UnifiedNavigationManager {
                 const groupId = groupEl.dataset.groupId;
                 const isCollapsed = groupEl.classList.toggle('collapsed');
                 this.saveMobileGroupCollapsedState(groupId, isCollapsed);
-
-                // Update icon
-                const icon = header.querySelector('.mobile-group-collapse-icon i');
-                if (icon) {
-                    icon.setAttribute('data-lucide', isCollapsed ? 'chevron-right' : 'chevron-down');
-                    if (typeof lucide !== 'undefined') lucide.createIcons();
-                }
             });
         });
 
@@ -1501,6 +1494,10 @@ class UnifiedNavigationManager {
                 align-items: center;
                 justify-content: center;
                 color: rgba(255,255,255,0.5);
+                transition: transform 0.2s ease;
+            }
+            .mobile-menu-group.collapsed .mobile-group-collapse-icon {
+                transform: rotate(-90deg);
             }
             .mobile-group-collapse-icon i,
             .mobile-group-collapse-icon svg {
@@ -1659,13 +1656,6 @@ class UnifiedNavigationManager {
                 const groupId = groupEl.dataset.groupId;
                 const isCollapsed = groupEl.classList.toggle('collapsed');
                 this.saveGroupCollapsedState(groupId, isCollapsed);
-
-                // Update icon
-                const icon = header.querySelector('.group-collapse-icon i');
-                if (icon) {
-                    icon.setAttribute('data-lucide', isCollapsed ? 'chevron-right' : 'chevron-down');
-                    if (typeof lucide !== 'undefined') lucide.createIcons();
-                }
             });
         });
     }
@@ -1687,7 +1677,7 @@ class UnifiedNavigationManager {
         const header = document.createElement("div");
         header.className = "menu-group-header";
         header.innerHTML = `
-            <span class="group-collapse-icon"><i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}"></i></span>
+            <span class="group-collapse-icon"><i data-lucide="chevron-down"></i></span>
             <i data-lucide="${group.icon}" class="group-icon"></i>
             <span class="group-name">${group.name}</span>
             <span class="group-count">${group.items.length}</span>
@@ -1815,6 +1805,10 @@ class UnifiedNavigationManager {
                 align-items: center;
                 justify-content: center;
                 color: var(--text-secondary, #64748b);
+                transition: transform 0.2s ease;
+            }
+            .menu-group.collapsed .group-collapse-icon {
+                transform: rotate(-90deg);
             }
             .group-collapse-icon i,
             .group-collapse-icon svg {
