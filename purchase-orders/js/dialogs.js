@@ -923,19 +923,38 @@ class InventoryPickerDialog {
     }
 
     /**
-     * Load products from TPOS ExportFileWithStandardPriceV2 API
-     * Returns: Id, Mã sản phẩm, Tên sản phẩm, Giá mua, Giá vốn
+     * localStorage key for caching product list
      */
-    async loadProductsFromTPOS() {
+    static CACHE_KEY = 'inventory_products_cache';
+    static CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+
+    /**
+     * Load products from TPOS ExportFileWithStandardPriceV2 API (Excel file)
+     * Parse Excel using XLSX library and cache in localStorage
+     * @param {boolean} forceReload - Force fetch from API instead of cache
+     */
+    async loadProductsFromTPOS(forceReload = false) {
         this.isLoading = true;
         this.updateLoadingState(true);
 
         try {
+            // Check localStorage cache first
+            if (!forceReload) {
+                const cached = this.loadFromCache();
+                if (cached) {
+                    this.products = cached;
+                    this.filteredProducts = [...this.products];
+                    console.log(`[InventoryPicker] Loaded ${this.products.length} products from cache`);
+                    return;
+                }
+            }
+
             const token = await this.getAuthToken();
             if (!token) {
                 throw new Error('Không có token xác thực');
             }
 
+            // Fetch Excel file from TPOS
             const response = await fetch(`${this.proxyUrl}/api/Product/ExportFileWithStandardPriceV2`, {
                 method: 'POST',
                 headers: {
@@ -953,33 +972,117 @@ class InventoryPickerDialog {
                 throw new Error(`TPOS API error: ${response.status}`);
             }
 
-            const data = await response.json();
+            // Response is Excel binary - parse with XLSX library
+            const arrayBuffer = await response.arrayBuffer();
+            const data = new Uint8Array(arrayBuffer);
 
-            // Map TPOS response to our format
-            // Expected fields: Id, DefaultCode (Mã SP), NameTemplate (Tên SP), StandardPrice (Giá vốn), ListPrice (Giá bán)
-            this.products = (data || []).map(item => ({
-                id: item.Id,
-                code: item.DefaultCode || item.Barcode || '',
-                name: item.NameTemplate || item.Name || '',
-                purchasePrice: item.StandardPrice || 0,
-                sellingPrice: item.ListPrice || item.PriceVariant || 0
-            }));
+            if (typeof XLSX === 'undefined') {
+                throw new Error('XLSX library not loaded');
+            }
+
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+
+            // Convert to JSON array (first row is header)
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+            console.log('[InventoryPicker] Excel parsed, first row:', jsonData[0]);
+
+            // Map Excel data to our format
+            // Excel columns: ID, Mã sản phẩm, Tên sản phẩm, Giá vốn, ...
+            this.products = jsonData.map(row => ({
+                id: row['ID'] || row['Id'] || row['id'] || 0,
+                code: row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '',
+                name: row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '',
+                purchasePrice: parseFloat(row['Giá vốn'] || row['StandardPrice'] || 0),
+                sellingPrice: parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0)
+            })).filter(p => p.id); // Filter out empty rows
 
             this.filteredProducts = [...this.products];
-            console.log(`[InventoryPicker] Loaded ${this.products.length} products from TPOS`);
+
+            // Save to localStorage cache
+            this.saveToCache(this.products);
+
+            console.log(`[InventoryPicker] Loaded ${this.products.length} products from TPOS Excel`);
+
+            if (window.notificationManager && forceReload) {
+                window.notificationManager.success(`Đã tải ${this.products.length} sản phẩm từ TPOS`);
+            }
 
         } catch (error) {
             console.error('Error loading products from TPOS:', error);
-            this.products = [];
-            this.filteredProducts = [];
 
-            if (window.notificationManager) {
-                window.notificationManager.error('Không thể tải danh sách sản phẩm: ' + error.message);
+            // Try fallback to cache even on error
+            const cached = this.loadFromCache();
+            if (cached) {
+                this.products = cached;
+                this.filteredProducts = [...this.products];
+                console.log(`[InventoryPicker] Error occurred, fallback to cache: ${this.products.length} products`);
+                if (window.notificationManager) {
+                    window.notificationManager.warning('Không thể tải từ TPOS, đang dùng dữ liệu đã lưu');
+                }
+            } else {
+                this.products = [];
+                this.filteredProducts = [];
+                if (window.notificationManager) {
+                    window.notificationManager.error('Không thể tải danh sách sản phẩm: ' + error.message);
+                }
             }
         } finally {
             this.isLoading = false;
             this.updateLoadingState(false);
         }
+    }
+
+    /**
+     * Load products from localStorage cache
+     * @returns {Array|null} Cached products or null if expired/not found
+     */
+    loadFromCache() {
+        try {
+            const cached = localStorage.getItem(InventoryPickerDialog.CACHE_KEY);
+            if (!cached) return null;
+
+            const { data, timestamp } = JSON.parse(cached);
+
+            // Check expiry
+            if (Date.now() - timestamp > InventoryPickerDialog.CACHE_EXPIRY) {
+                console.log('[InventoryPicker] Cache expired');
+                localStorage.removeItem(InventoryPickerDialog.CACHE_KEY);
+                return null;
+            }
+
+            return data;
+        } catch (e) {
+            console.warn('[InventoryPicker] Failed to load from cache:', e);
+            return null;
+        }
+    }
+
+    /**
+     * Save products to localStorage cache
+     * @param {Array} products - Products to cache
+     */
+    saveToCache(products) {
+        try {
+            const cacheData = {
+                data: products,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(InventoryPickerDialog.CACHE_KEY, JSON.stringify(cacheData));
+            console.log(`[InventoryPicker] Saved ${products.length} products to cache`);
+        } catch (e) {
+            console.warn('[InventoryPicker] Failed to save to cache:', e);
+        }
+    }
+
+    /**
+     * Reload products from TPOS API (clear cache)
+     */
+    async reloadProducts() {
+        await this.loadProductsFromTPOS(true);
+        this.updateProductsList();
     }
 
     /**
@@ -1111,22 +1214,44 @@ class InventoryPickerDialog {
                     align-items: center;
                 ">
                     <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Chọn sản phẩm từ kho</h2>
-                    <button type="button" id="btnCloseInventory" style="
-                        background: none;
-                        border: none;
-                        padding: 8px;
-                        cursor: pointer;
-                        border-radius: 6px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: #6b7280;
-                    ">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button type="button" id="btnReloadInventory" title="Tải lại danh sách sản phẩm từ TPOS" style="
+                            background: none;
+                            border: 1px solid #d1d5db;
+                            padding: 6px 12px;
+                            cursor: pointer;
+                            border-radius: 6px;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            color: #374151;
+                            font-size: 13px;
+                            transition: all 0.15s;
+                        ">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="reloadIcon">
+                                <polyline points="23 4 23 10 17 10"></polyline>
+                                <polyline points="1 20 1 14 7 14"></polyline>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            </svg>
+                            Tải lại
+                        </button>
+                        <button type="button" id="btnCloseInventory" style="
+                            background: none;
+                            border: none;
+                            padding: 8px;
+                            cursor: pointer;
+                            border-radius: 6px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            color: #6b7280;
+                        ">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Search -->
@@ -1391,6 +1516,34 @@ class InventoryPickerDialog {
         // Close buttons
         this.modalElement.querySelector('#btnCloseInventory')?.addEventListener('click', () => this.close());
         this.modalElement.querySelector('#btnCancelInventory')?.addEventListener('click', () => this.close());
+
+        // Reload button
+        this.modalElement.querySelector('#btnReloadInventory')?.addEventListener('click', async () => {
+            const btn = this.modalElement.querySelector('#btnReloadInventory');
+            const icon = btn?.querySelector('#reloadIcon');
+
+            // Add spinning animation
+            if (icon) {
+                icon.style.animation = 'spin 1s linear infinite';
+            }
+            if (btn) {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+            }
+
+            try {
+                await this.reloadProducts();
+            } finally {
+                // Remove spinning animation
+                if (icon) {
+                    icon.style.animation = '';
+                }
+                if (btn) {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                }
+            }
+        });
 
         // Overlay click
         this.modalElement.addEventListener('click', (e) => {
