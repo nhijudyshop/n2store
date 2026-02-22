@@ -1562,8 +1562,30 @@ class UnifiedNavigationManager {
             mainContent.style.paddingBottom = "";
         }
 
+        this.updateSidebarLogo();
         this.renderDesktopSidebar();
         this.initializeSidebarToggle();
+    }
+
+    /**
+     * Replace sidebar header logo icon with N2STORE logo image
+     */
+    updateSidebarLogo() {
+        const logoEl = document.querySelector('.sidebar-header .logo');
+        if (!logoEl) return;
+
+        // Compute logo path from navigation-modern.js script src
+        const scriptTag = document.querySelector('script[src*="navigation-modern"]');
+        let logoPath = '../shared/images/logo.jpg';
+        if (scriptTag) {
+            const src = scriptTag.getAttribute('src');
+            logoPath = src.replace('js/navigation-modern.js', 'images/logo.jpg');
+        }
+
+        logoEl.innerHTML = `
+            <img src="${logoPath}" alt="N2STORE" class="sidebar-logo-img">
+            <span>N2STORE</span>
+        `;
     }
 
     renderDesktopSidebar() {
@@ -1743,6 +1765,14 @@ class UnifiedNavigationManager {
         const style = document.createElement('style');
         style.id = 'groupedMenuStyles';
         style.textContent = `
+            /* Sidebar Logo */
+            .sidebar-logo-img {
+                width: 32px;
+                height: 32px;
+                object-fit: contain;
+                border-radius: 6px;
+            }
+
             /* Edit Controls */
             .menu-edit-controls {
                 padding: 8px 12px;
