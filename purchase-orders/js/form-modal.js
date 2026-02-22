@@ -1332,6 +1332,11 @@ class PurchaseOrderFormModal {
             if (window.inventoryPickerDialog) {
                 window.inventoryPickerDialog.open({
                     onSelect: (products) => {
+                        // Remove empty items before adding new products
+                        this.formData.items = this.formData.items.filter(item =>
+                            item.productName?.trim() || item.productCode?.trim()
+                        );
+
                         products.forEach(product => {
                             const item = this.addItem();
                             item.productName = product.name || '';
