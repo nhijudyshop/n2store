@@ -1335,9 +1335,13 @@ class PurchaseOrderFormModal {
                         products.forEach(product => {
                             const item = this.addItem();
                             item.productName = product.name || '';
-                            item.productCode = product.code || product.sku || '';
-                            item.sellingPrice = product.price || '';
-                            item.productImages = product.images || [];
+                            item.productCode = product.code || '';
+                            item.purchasePrice = product.purchasePrice || 0;
+                            item.sellingPrice = product.sellingPrice || 0;
+                            // Handle image - convert single image to array format
+                            if (product.image) {
+                                item.productImages = [product.image];
+                            }
                         });
                         this.refreshItemsTable();
                     }
