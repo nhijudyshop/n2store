@@ -1502,9 +1502,11 @@ class UnifiedNavigationManager {
                 justify-content: center;
                 color: rgba(255,255,255,0.5);
             }
-            .mobile-group-collapse-icon i {
+            .mobile-group-collapse-icon i,
+            .mobile-group-collapse-icon svg {
                 width: 16px;
                 height: 16px;
+                stroke-width: 2.5;
             }
             .mobile-group-icon {
                 width: 18px;
@@ -1814,9 +1816,11 @@ class UnifiedNavigationManager {
                 justify-content: center;
                 color: var(--text-secondary, #64748b);
             }
-            .group-collapse-icon i {
+            .group-collapse-icon i,
+            .group-collapse-icon svg {
                 width: 14px;
                 height: 14px;
+                stroke-width: 2.5;
             }
             .group-icon {
                 width: 16px;
