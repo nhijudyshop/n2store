@@ -30,7 +30,7 @@ jobs:
 
       - name: Deploy to Firebase Hosting
         id: firebase_deploy
-        run: npx firebase-tools deploy --only hosting --non-interactive
+        run: npx firebase-tools deploy --only hosting --project n2shop-69e37 --non-interactive
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
 
