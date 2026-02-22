@@ -863,7 +863,7 @@ class SettingsDialog {
 
 // ========================================
 // INVENTORY PICKER DIALOG
-// Matches: Choose from inventory feature
+// Matches: Choose from inventory feature (Image 1)
 // ========================================
 
 class InventoryPickerDialog {
@@ -871,9 +871,10 @@ class InventoryPickerDialog {
         this.modalElement = null;
         this.products = [];
         this.filteredProducts = [];
-        this.selectedProducts = [];
+        this.selectedProducts = new Map(); // Use Map for better tracking by id
         this.onSelect = null;
         this.searchTerm = '';
+        this.isLoading = false;
     }
 
     /**
@@ -882,53 +883,89 @@ class InventoryPickerDialog {
      */
     async open(options = {}) {
         this.onSelect = options.onSelect;
-        this.selectedProducts = [];
+        this.selectedProducts = new Map();
         this.searchTerm = '';
-
-        // Load products from Firestore
-        await this.loadProducts();
 
         this.render();
         this.show();
+
+        // Load products from TPOS/Firestore
+        await this.loadProducts();
+        this.updateProductsList();
     }
 
     /**
-     * Load products from Firestore
+     * Load products from TPOS API or Firestore
      */
     async loadProducts() {
-        try {
-            const db = firebase.firestore();
-            const snapshot = await db.collection('products')
-                .orderBy('name')
-                .limit(100)
-                .get();
+        this.isLoading = true;
+        this.updateLoadingState(true);
 
-            this.products = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        try {
+            // Try TPOS first if available
+            if (window.purchaseOrderService?.getProducts) {
+                const result = await window.purchaseOrderService.getProducts({ limit: 100 });
+                this.products = result || [];
+            } else {
+                // Fallback to Firestore
+                const db = firebase.firestore();
+                const snapshot = await db.collection('products')
+                    .orderBy('createdAt', 'desc')
+                    .limit(100)
+                    .get();
+
+                this.products = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+            }
 
             this.filteredProducts = [...this.products];
         } catch (error) {
             console.error('Error loading products:', error);
             this.products = [];
             this.filteredProducts = [];
+        } finally {
+            this.isLoading = false;
+            this.updateLoadingState(false);
+        }
+    }
+
+    /**
+     * Update loading state in UI
+     */
+    updateLoadingState(loading) {
+        const listContainer = this.modalElement?.querySelector('#inventoryProductsList');
+        const countText = this.modalElement?.querySelector('#productCountText');
+
+        if (loading) {
+            if (listContainer) {
+                listContainer.innerHTML = `
+                    <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
+                        <div style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;"></div>
+                        <p>Đang tải sản phẩm...</p>
+                    </div>
+                    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+                `;
+            }
+            if (countText) countText.textContent = 'Đang tải...';
         }
     }
 
     close() {
         if (this.modalElement) {
-            this.modalElement.classList.add('modal-overlay--exit');
-            setTimeout(() => {
-                this.modalElement.remove();
-                this.modalElement = null;
-            }, 200);
+            this.modalElement.remove();
+            this.modalElement = null;
         }
     }
 
     show() {
         if (this.modalElement) {
             this.modalElement.style.display = 'flex';
+            // Focus search input
+            setTimeout(() => {
+                this.modalElement.querySelector('#inventorySearchInput')?.focus();
+            }, 100);
         }
     }
 
@@ -938,87 +975,192 @@ class InventoryPickerDialog {
         }
 
         this.modalElement = document.createElement('div');
-        this.modalElement.className = 'modal-overlay';
-        // Use higher z-index to appear above the form modal (which uses 99999)
-        this.modalElement.style.zIndex = '999999';
+        this.modalElement.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000000;
+            padding: 20px;
+        `;
+
         this.modalElement.innerHTML = `
-            <div class="modal modal--lg">
-                <div class="modal__header">
-                    <h2 class="modal__title">Chọn sản phẩm từ kho</h2>
-                    <button type="button" class="modal__close" id="btnCloseInventory">
-                        <i data-lucide="x"></i>
+            <div style="
+                background: white;
+                border-radius: 12px;
+                width: 100%;
+                max-width: 1000px;
+                max-height: 90vh;
+                display: flex;
+                flex-direction: column;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            ">
+                <!-- Header -->
+                <div style="
+                    padding: 16px 20px;
+                    border-bottom: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Chọn sản phẩm từ kho</h2>
+                    <button type="button" id="btnCloseInventory" style="
+                        background: none;
+                        border: none;
+                        padding: 8px;
+                        cursor: pointer;
+                        border-radius: 6px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #6b7280;
+                    ">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
                     </button>
                 </div>
 
-                <div class="modal__body">
-                    <div class="inventory-search">
-                        <div class="input-icon">
-                            <i data-lucide="search"></i>
-                            <input type="text" class="form-input" id="inventorySearchInput"
-                                   placeholder="Tìm theo tên, mã sản phẩm...">
-                        </div>
-                    </div>
-
-                    <div class="inventory-products-list" id="inventoryProductsList">
-                        ${this.renderProductsList()}
-                    </div>
-
-                    <div class="inventory-selected" id="inventorySelected">
-                        ${this.renderSelectedProducts()}
-                    </div>
+                <!-- Search -->
+                <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
+                    <input type="text" id="inventorySearchInput" placeholder="Tìm kiếm theo mã SP, tên, variant (tối thiểu 2 ký tự)..." style="
+                        width: 100%;
+                        padding: 10px 14px;
+                        border: 1px solid #d1d5db;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        box-sizing: border-box;
+                    ">
+                    <p id="productCountText" style="margin: 8px 0 0; font-size: 13px; color: #6b7280;">
+                        Hiển thị ${this.filteredProducts.length} sản phẩm mới nhất
+                    </p>
                 </div>
 
-                <div class="modal__footer">
-                    <button class="btn btn-outline" id="btnCancelInventory">Hủy</button>
-                    <button class="btn btn-primary" id="btnAddSelectedProducts">
-                        <i data-lucide="plus"></i>
-                        <span>Thêm ${this.selectedProducts.length} sản phẩm</span>
-                    </button>
+                <!-- Products List -->
+                <div style="flex: 1; overflow-y: auto; padding: 0;" id="inventoryProductsList">
+                    ${this.renderProductsList()}
+                </div>
+
+                <!-- Footer -->
+                <div style="
+                    padding: 12px 20px;
+                    border-top: 1px solid #e5e7eb;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: #f9fafb;
+                ">
+                    <div style="font-size: 13px; color: #6b7280;">
+                        Đã chọn: <span id="selectedCount" style="font-weight: 600; color: #3b82f6;">${this.selectedProducts.size}</span> sản phẩm
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" id="btnCancelInventory" style="
+                            padding: 8px 16px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            font-size: 14px;
+                        ">Hủy</button>
+                        <button type="button" id="btnAddSelectedProducts" style="
+                            padding: 8px 16px;
+                            border: none;
+                            border-radius: 8px;
+                            background: #3b82f6;
+                            color: white;
+                            cursor: pointer;
+                            font-size: 14px;
+                            font-weight: 500;
+                        ">Thêm sản phẩm đã chọn</button>
+                    </div>
                 </div>
             </div>
         `;
 
         document.body.appendChild(this.modalElement);
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-
         this.bindEvents();
     }
 
     renderProductsList() {
+        if (this.isLoading) {
+            return `
+                <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
+                    <p>Đang tải sản phẩm...</p>
+                </div>
+            `;
+        }
+
         if (this.filteredProducts.length === 0) {
             return `
-                <div class="inventory-empty">
+                <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin: 0 auto 12px; display: block; opacity: 0.5;">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    </svg>
                     <p>Không tìm thấy sản phẩm</p>
                 </div>
             `;
         }
 
         return `
-            <table class="inventory-table">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
-                    <tr>
-                        <th class="col-checkbox"></th>
-                        <th>Tên sản phẩm</th>
-                        <th>Mã SP</th>
-                        <th>Tồn kho</th>
-                        <th>Giá bán</th>
+                    <tr style="background: #f9fafb;">
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 60px;">Hình ảnh</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 80px;">Mã SP</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Tên sản phẩm</th>
+                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 80px;">Variant</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá mua</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá bán</th>
+                        <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 50px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     ${this.filteredProducts.map(product => {
-                        const isSelected = this.selectedProducts.some(p => p.id === product.id);
+                        const isSelected = this.selectedProducts.has(product.id);
+                        const imageUrl = product.image || product.images?.[0] || '';
+                        const productCode = product.code || product.sku || product.product_code || '';
+                        const productName = product.name || product.productName || '';
+                        const variant = product.variant || '-';
+                        const purchasePrice = product.purchasePrice || product.cost || product.costPrice || 0;
+                        const sellingPrice = product.price || product.sellingPrice || 0;
+
                         return `
-                            <tr class="${isSelected ? 'selected' : ''}" data-product-id="${product.id}">
-                                <td>
-                                    <input type="checkbox" ${isSelected ? 'checked' : ''}>
+                            <tr data-product-id="${product.id}" style="
+                                cursor: pointer;
+                                transition: background 0.15s;
+                                ${isSelected ? 'background: #eff6ff;' : ''}
+                            " onmouseover="if(!this.classList.contains('selected'))this.style.background='#f9fafb'" onmouseout="if(!this.classList.contains('selected'))this.style.background='${isSelected ? '#eff6ff' : 'transparent'}'">
+                                <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6;">
+                                    ${imageUrl
+                                        ? `<img src="${imageUrl}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb;">`
+                                        : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                <polyline points="21,15 16,10 5,21"></polyline>
+                                            </svg>
+                                        </div>`
+                                    }
                                 </td>
-                                <td>${product.name || '-'}</td>
-                                <td>${product.code || product.sku || '-'}</td>
-                                <td>${product.stock || 0}</td>
-                                <td>${window.PurchaseOrderConfig.formatVND(product.price || 0)}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; font-weight: 500; color: #3b82f6;">${productCode || '-'}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6;">${productName}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: center; color: #6b7280;">${variant}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;">${this.formatPrice(purchasePrice)}</td>
+                                <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;">${this.formatPrice(sellingPrice)}</td>
+                                <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6; text-align: center;">
+                                    <input type="checkbox" ${isSelected ? 'checked' : ''} style="
+                                        width: 18px;
+                                        height: 18px;
+                                        accent-color: #3b82f6;
+                                        cursor: pointer;
+                                    ">
+                                </td>
                             </tr>
                         `;
                     }).join('')}
@@ -1027,61 +1169,62 @@ class InventoryPickerDialog {
         `;
     }
 
-    renderSelectedProducts() {
-        if (this.selectedProducts.length === 0) {
-            return '<p class="text-muted">Chưa chọn sản phẩm nào</p>';
-        }
-
-        return `
-            <p>Đã chọn ${this.selectedProducts.length} sản phẩm:</p>
-            <div class="selected-products-tags">
-                ${this.selectedProducts.map(p => `
-                    <span class="selected-tag" data-product-id="${p.id}">
-                        ${p.name}
-                        <button class="btn-remove-tag" data-product-id="${p.id}">
-                            <i data-lucide="x"></i>
-                        </button>
-                    </span>
-                `).join('')}
-            </div>
-        `;
+    /**
+     * Format price in VND
+     */
+    formatPrice(value) {
+        if (!value || value === 0) return '-';
+        const num = parseFloat(value);
+        if (isNaN(num)) return '-';
+        return num.toLocaleString('vi-VN') + ' đ';
     }
 
-    filterProducts(term) {
-        this.searchTerm = term.toLowerCase();
+    /**
+     * Update products list in UI
+     */
+    updateProductsList() {
+        const listContainer = this.modalElement?.querySelector('#inventoryProductsList');
+        const countText = this.modalElement?.querySelector('#productCountText');
 
-        if (!this.searchTerm) {
+        if (listContainer) {
+            listContainer.innerHTML = this.renderProductsList();
+        }
+        if (countText) {
+            countText.textContent = `Hiển thị ${this.filteredProducts.length} sản phẩm mới nhất`;
+        }
+    }
+
+    /**
+     * Filter products by search term (min 2 characters)
+     */
+    filterProducts(term) {
+        this.searchTerm = term.toLowerCase().trim();
+
+        // Require at least 2 characters
+        if (this.searchTerm.length < 2) {
             this.filteredProducts = [...this.products];
         } else {
-            this.filteredProducts = this.products.filter(p =>
-                (p.name && p.name.toLowerCase().includes(this.searchTerm)) ||
-                (p.code && p.code.toLowerCase().includes(this.searchTerm)) ||
-                (p.sku && p.sku.toLowerCase().includes(this.searchTerm))
-            );
+            this.filteredProducts = this.products.filter(p => {
+                const name = (p.name || p.productName || '').toLowerCase();
+                const code = (p.code || p.sku || p.product_code || '').toLowerCase();
+                const variant = (p.variant || '').toLowerCase();
+
+                return name.includes(this.searchTerm) ||
+                       code.includes(this.searchTerm) ||
+                       variant.includes(this.searchTerm);
+            });
         }
 
-        const listContainer = this.modalElement?.querySelector('#inventoryProductsList');
-        if (listContainer) {
-            listContainer.innerHTML = this.renderProductsList();
-        }
+        this.updateProductsList();
     }
 
-    updateSelectedUI() {
-        const selectedContainer = this.modalElement?.querySelector('#inventorySelected');
-        if (selectedContainer) {
-            selectedContainer.innerHTML = this.renderSelectedProducts();
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-
-        const addBtn = this.modalElement?.querySelector('#btnAddSelectedProducts span');
-        if (addBtn) {
-            addBtn.textContent = `Thêm ${this.selectedProducts.length} sản phẩm`;
-        }
-
-        // Update list checkboxes
-        const listContainer = this.modalElement?.querySelector('#inventoryProductsList');
-        if (listContainer) {
-            listContainer.innerHTML = this.renderProductsList();
+    /**
+     * Update selected count in footer
+     */
+    updateSelectedCount() {
+        const countEl = this.modalElement?.querySelector('#selectedCount');
+        if (countEl) {
+            countEl.textContent = this.selectedProducts.size;
         }
     }
 
@@ -1095,12 +1238,25 @@ class InventoryPickerDialog {
             if (e.target === this.modalElement) this.close();
         });
 
-        // Search
+        // Escape key
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.close();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
+        // Search with debounce
+        let searchTimeout;
         this.modalElement.querySelector('#inventorySearchInput')?.addEventListener('input', (e) => {
-            this.filterProducts(e.target.value);
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                this.filterProducts(e.target.value);
+            }, 200);
         });
 
-        // Select products
+        // Select products (using event delegation)
         this.modalElement.querySelector('#inventoryProductsList')?.addEventListener('click', (e) => {
             const row = e.target.closest('tr[data-product-id]');
             if (!row) return;
@@ -1109,33 +1265,28 @@ class InventoryPickerDialog {
             const product = this.products.find(p => p.id === productId);
             if (!product) return;
 
-            const index = this.selectedProducts.findIndex(p => p.id === productId);
-            if (index >= 0) {
-                this.selectedProducts.splice(index, 1);
+            // Toggle selection
+            if (this.selectedProducts.has(productId)) {
+                this.selectedProducts.delete(productId);
+                row.style.background = 'transparent';
             } else {
-                this.selectedProducts.push(product);
+                this.selectedProducts.set(productId, product);
+                row.style.background = '#eff6ff';
             }
 
-            this.updateSelectedUI();
-        });
-
-        // Remove selected
-        this.modalElement.querySelector('#inventorySelected')?.addEventListener('click', (e) => {
-            const btn = e.target.closest('.btn-remove-tag');
-            if (!btn) return;
-
-            const productId = btn.dataset.productId;
-            const index = this.selectedProducts.findIndex(p => p.id === productId);
-            if (index >= 0) {
-                this.selectedProducts.splice(index, 1);
-                this.updateSelectedUI();
+            // Update checkbox
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                checkbox.checked = this.selectedProducts.has(productId);
             }
+
+            this.updateSelectedCount();
         });
 
-        // Add selected
+        // Add selected products
         this.modalElement.querySelector('#btnAddSelectedProducts')?.addEventListener('click', () => {
-            if (this.selectedProducts.length > 0 && this.onSelect) {
-                this.onSelect(this.selectedProducts);
+            if (this.selectedProducts.size > 0 && this.onSelect) {
+                this.onSelect(Array.from(this.selectedProducts.values()));
                 this.close();
             }
         });
