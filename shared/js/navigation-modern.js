@@ -13,23 +13,8 @@ const MENU_CONFIG = [
         pageIdentifier: "live",
         permissionRequired: "live",
     },
-    {
-        href: "../livestream/index.html",
-        icon: "video",
-        text: "Báo Cáo Livestream",
-        shortText: "Báo Cáo",
-        pageIdentifier: "livestream",
-        permissionRequired: "livestream",
-    },
-    {
-        href: "../sanphamlive/index.html",
-        icon: "shopping-bag",
-        text: "Sản Phẩm Livestream",
-        shortText: "Sản Phẩm",
-        pageIdentifier: "sanphamlive",
-        adminOnly: true,
-        permissionRequired: "sanphamlive",
-    },
+    // REMOVED: livestream nav item (module deleted - cleanup task 9.1)
+    // REMOVED: sanphamlive nav item (module deleted - cleanup task 9.1)
     {
         href: "../nhanhang/index.html",
         icon: "scale",
@@ -136,14 +121,7 @@ const MENU_CONFIG = [
         pageIdentifier: "order-log",
         permissionRequired: "order-log",
     },
-    {
-        href: "../order-live-tracking/index.html",
-        icon: "radio",
-        text: "Sổ Order Live",
-        shortText: "Order Live",
-        pageIdentifier: "order-live-tracking",
-        permissionRequired: "order-live-tracking",
-    },
+    // REMOVED: order-live-tracking nav item (module deleted - cleanup task 9.1)
     {
         href: "../soluong-live/index.html",
         icon: "bar-chart",
@@ -384,7 +362,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Live & Streaming",
         icon: "video",
-        items: ["live", "livestream", "soluong-live", "order-live-tracking"]
+        items: ["live", "soluong-live"]
     },
     {
         name: "Đơn Hàng",
@@ -414,7 +392,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Khác",
         icon: "grid",
-        items: ["sanphamlive", "gemini-ai", "supplier-debt"]
+        items: ["gemini-ai", "supplier-debt"]
     }
 ];
 

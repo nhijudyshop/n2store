@@ -6,7 +6,25 @@
  * @description Shared UI utilities for browser applications
  */
 
-import { getRoleInfo } from './auth-manager.js';
+// getRoleInfo — UI display helper (moved from auth-manager.js during legacy cleanup)
+
+/**
+ * Get role info by checkLogin level (UI display only, NOT for permission checks)
+ * @param {number} checkLogin
+ * @returns {Object}
+ */
+function getRoleInfo(checkLogin) {
+    const roleMap = {
+        0: { icon: '👑', text: 'Admin', name: 'Admin' },
+        1: { icon: '👤', text: 'User', name: 'Quản lý' },
+        2: { icon: '🔒', text: 'Limited', name: 'Nhân viên' },
+        3: { icon: '💡', text: 'Basic', name: 'Cơ bản' },
+        777: { icon: '👥', text: 'Guest', name: 'Khách' }
+    };
+    return roleMap[checkLogin] || { icon: '❓', text: 'Unknown', name: 'Unknown' };
+}
+
+export { getRoleInfo };
 
 // =====================================================
 // FLOATING ALERT STATE

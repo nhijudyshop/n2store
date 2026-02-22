@@ -95,17 +95,8 @@
     let autoAddVariants = true; // Auto-add all product variants when selecting a product
     let productNotes = {}; // Store notes for products in preview (like tab2)
 
-    // Firebase Configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-        authDomain: "n2shop-69e37.firebaseapp.com",
-        databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "n2shop-69e37",
-        storageBucket: "n2shop-69e37-ne0q1",
-        messagingSenderId: "598906493303",
-        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-        measurementId: "G-TEJH3S2T1D"
-    };
+    // Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js)
+    // FIREBASE_CONFIG and firebaseConfig are provided by shared/js/firebase-config.js
 
     // Initialize Firebase
     if (!firebase.apps.length) {

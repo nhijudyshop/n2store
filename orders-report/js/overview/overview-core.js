@@ -99,17 +99,8 @@ const DEFAULT_TRACKED_TAGS = [
 const TRACKED_TAGS_PATH = 'settings/tracked_tags';
 const EMPLOYEE_RANGES_PATH = 'settings/employee_ranges';
 
-// Firebase config fallback (check if already defined by config.js)
-var OVERVIEW_FIREBASE_CONFIG = (typeof FIREBASE_CONFIG_FALLBACK !== 'undefined') ? FIREBASE_CONFIG_FALLBACK : {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972"
-};
-const _fbConfig = (typeof firebaseConfig !== 'undefined') ? firebaseConfig : OVERVIEW_FIREBASE_CONFIG;
+// Firebase config - use shared config (loaded via shared/js/firebase-config.js)
+const _fbConfig = (typeof firebaseConfig !== 'undefined') ? firebaseConfig : FIREBASE_CONFIG;
 
 // Initialize Firebase
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {

@@ -327,9 +327,8 @@ function renderTable() {
         return;
     }
 
-    // Check if user has admin access via checkLogin level (0 = admin)
-    // hasPermission(0) returns true only if checkLogin === 0
-    let isAdmin = window.authManager?.hasPermission(0) || false;
+    // Check if user has admin access via roleTemplate
+    let isAdmin = window.authManager?.isAdminTemplate?.() || false;
 
     // Group by employee if ranges are configured AND user is NOT admin
     if (!isAdmin && employeeRanges.length > 0) {

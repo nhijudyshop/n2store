@@ -15,16 +15,32 @@
     // =====================================================
     // INVOICE STATUS DELETE STORE
     // Lưu trữ thông tin đơn hủy với lý do
+    // Uses BaseStore internally for core data management
     // =====================================================
 
     const DELETE_STORAGE_KEY = 'invoiceStatusDelete_v2';
     const DELETE_FIRESTORE_COLLECTION = 'invoice_status_delete_v2';
     const DELETE_MAX_AGE_DAYS = 14; // Auto cleanup after 14 days
 
+    const _deleteBaseStore = new BaseStore({
+        collectionPath: DELETE_FIRESTORE_COLLECTION,
+        localStorageKey: DELETE_STORAGE_KEY,
+        maxLocalAge: DELETE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+    });
+
     const InvoiceStatusDeleteStore = {
-        _data: new Map(),
-        _initialized: false,
-        _unsubscribe: null,        // Real-time listener unsubscribe function
+        /** @returns {Map} Internal data map (delegated to BaseStore) */
+        get _data() { return _deleteBaseStore._data; },
+        set _data(val) { _deleteBaseStore._data = val; },
+
+        /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
+        get _initialized() { return _deleteBaseStore._initialized; },
+        set _initialized(val) { _deleteBaseStore._initialized = val; },
+
+        /** @returns {Function|null} Firestore listener unsubscribe (delegated to BaseStore) */
+        get _unsubscribe() { return _deleteBaseStore._unsubscribe; },
+        set _unsubscribe(val) { _deleteBaseStore._unsubscribe = val; },
+
         _isListening: false,       // Flag to prevent save loops when receiving updates
 
         /**
@@ -40,22 +56,13 @@
 
                 // 2. Nếu không load được từ Firestore, fallback to localStorage (offline mode)
                 if (!loadedFromFirestore) {
-                    const saved = localStorage.getItem(DELETE_STORAGE_KEY);
-                    if (saved) {
-                        const parsed = JSON.parse(saved);
-                        if (parsed.data) {
-                            if (Array.isArray(parsed.data)) {
-                                this._data = new Map(parsed.data);
-                            } else {
-                                this._data = new Map(Object.entries(parsed.data));
-                            }
-                        }
-                    }
+                    // Use BaseStore's localStorage loading
+                    _deleteBaseStore._loadFromLocal();
                     console.log(`[INVOICE-DELETE] Offline mode - loaded ${this._data.size} entries from localStorage cache`);
                 }
 
-                // 3. Cleanup old entries (>14 days)
-                await this.cleanup();
+                // 3. Cleanup old entries (>14 days) - delegate to BaseStore
+                _deleteBaseStore._cleanupOldEntries();
 
                 this._initialized = true;
 
@@ -81,12 +88,15 @@
         },
 
         /**
-         * Save only to localStorage (not Firestore)
+         * Save only to localStorage (extends BaseStore's format)
          */
         _saveToLocalStorage() {
             try {
-                const dataObj = Object.fromEntries(this._data);
-                localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({ data: dataObj }));
+                localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({
+                    data: Array.from(this._data.entries()),
+                    timestamp: Date.now(),
+                    version: 1
+                }));
                 console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error saving to localStorage:', e);
@@ -147,10 +157,8 @@
          */
         async _save() {
             try {
-                // Save to localStorage
-                const dataObj = Object.fromEntries(this._data);
-                localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({ data: dataObj }));
-                console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
+                // Save to localStorage (using BaseStore-compatible format)
+                this._saveToLocalStorage();
 
                 // Skip Firestore save if currently receiving real-time updates (avoid infinite loops)
                 if (this._isListening) {
@@ -164,6 +172,7 @@
                     const docRef = this._getDocRef();
                     console.log(`[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`);
                     // Clean data to remove undefined values (Firestore doesn't accept them)
+                    const dataObj = Object.fromEntries(this._data);
                     const cleanedData = this._cleanForFirestore(dataObj);
                     await docRef.set({ data: cleanedData, lastUpdated: Date.now() }, { merge: true });
                     console.log(`[INVOICE-DELETE] Synced to Firestore successfully`);
@@ -247,15 +256,12 @@
         },
 
         /**
-         * Destroy real-time listener
+         * Destroy real-time listener and cleanup (delegates to BaseStore)
          * Call this when the page is unloaded or the store is no longer needed
          */
         destroy() {
-            if (this._unsubscribe) {
-                this._unsubscribe();
-                this._unsubscribe = null;
-                console.log('[INVOICE-DELETE] Real-time listener destroyed');
-            }
+            _deleteBaseStore.destroy();
+            console.log('[INVOICE-DELETE] Store destroyed (via BaseStore)');
         },
 
         /**
@@ -361,31 +367,32 @@
         },
 
         /**
-         * Cleanup old entries (older than 14 days)
+         * Cleanup old entries (delegates to BaseStore's _cleanupOldEntries)
+         * BaseStore checks both `timestamp` and `lastUpdated` fields;
+         * InvoiceStatusDeleteStore entries use `deletedAt` as their timestamp,
+         * so we also handle that here for entries that only have `deletedAt`.
          */
         async cleanup() {
             const now = Date.now();
             const maxAge = DELETE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
 
+            // First, let BaseStore handle entries with standard timestamp/lastUpdated
+            _deleteBaseStore._cleanupOldEntries();
+
+            // Then handle entries that only have deletedAt (custom to this store)
             let removed = 0;
             const keysToRemove = [];
-
             this._data.forEach((value, key) => {
-                // Use deletedAt as timestamp
-                if (value.deletedAt && (now - value.deletedAt) > maxAge) {
+                if (value.deletedAt && !value.timestamp && !value.lastUpdated && (now - value.deletedAt) > maxAge) {
                     keysToRemove.push(key);
                     removed++;
                 }
             });
-
-            // Remove old entries
-            keysToRemove.forEach(key => {
-                this._data.delete(key);
-            });
+            keysToRemove.forEach(key => this._data.delete(key));
 
             if (removed > 0) {
                 console.log(`[INVOICE-DELETE] Cleaned up ${removed} old entries (>${DELETE_MAX_AGE_DAYS} days)`);
-                await this._save(); // Save to both localStorage and Firestore
+                await this._save();
             }
         }
     };

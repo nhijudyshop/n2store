@@ -267,13 +267,17 @@ window.refreshAccountsList = async function() {
 
 // Helper function to check if user is admin
 function isUserAdmin() {
-    // Check via authManager first
-    if (window.authManager?.hasPermission) {
-        return window.authManager.hasPermission(0);
+    // Check via authManager using roleTemplate
+    if (window.authManager?.isAdminTemplate) {
+        return window.authManager.isAdminTemplate();
     }
-    // Fallback: check localStorage directly (checkLogin: 0 = Admin)
-    const checkLogin = parseInt(localStorage.getItem('checkLogin'));
-    return checkLogin === 0;
+    // Fallback: check localStorage directly
+    try {
+        const authData = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}');
+        return authData.roleTemplate === 'admin';
+    } catch {
+        return false;
+    }
 }
 
 // Helper function to check admin permission

@@ -55,7 +55,7 @@
         if (path.includes('order-management') || path.includes('order-list') || url.includes('hangdat')) {
             return 'order';
         }
-        if (path.includes('sanphamlive') || path.includes('product') || path.includes('soluong-live')) {
+        if (path.includes('product') || path.includes('soluong-live')) {
             return 'product';
         }
         if (path.includes('customer-hub') || path.includes('customer-management')) {

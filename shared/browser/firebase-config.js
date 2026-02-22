@@ -10,7 +10,7 @@
  * ```javascript
  * import { FIREBASE_CONFIG, initializeFirestore, initializeRealtimeDB } from '/shared/browser/firebase-config.js';
  *
- * // For Firestore (sanphamlive, inventory)
+ * // For Firestore (inventory, etc.)
  * const db = initializeFirestore();
  *
  * // For Realtime Database (soluong-live, order-management, issue-tracking)

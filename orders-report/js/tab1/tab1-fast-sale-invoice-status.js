@@ -81,13 +81,31 @@
     /**
      * InvoiceStatusStore - Manages invoice status data
      * Syncs to Firestore for persistence across devices
+     *
+     * Uses BaseStore internally for core data management (localStorage caching, cleanup).
+     * Custom Firestore logic (admin vs normal user, sentBills, debounced save) is kept here.
      */
+    const _invoiceBaseStore = new BaseStore({
+        collectionPath: FIRESTORE_COLLECTION,
+        localStorageKey: STORAGE_KEY,
+        maxLocalAge: MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+    });
+
     const InvoiceStatusStore = {
-        _data: new Map(),
+        /** @returns {Map} Internal data map (delegated to BaseStore) */
+        get _data() { return _invoiceBaseStore._data; },
+        set _data(val) { _invoiceBaseStore._data = val; },
+
         _sentBills: new Set(),
-        _initialized: false,
+        /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
+        get _initialized() { return _invoiceBaseStore._initialized; },
+        set _initialized(val) { _invoiceBaseStore._initialized = val; },
+
         _syncTimeout: null,
-        _unsubscribe: null,        // Real-time listener unsubscribe function
+        /** @returns {Function|null} Firestore listener unsubscribe (delegated to BaseStore) */
+        get _unsubscribe() { return _invoiceBaseStore._unsubscribe; },
+        set _unsubscribe(val) { _invoiceBaseStore._unsubscribe = val; },
+
         _isListening: false,       // Flag to prevent save loops when receiving updates
 
         /**
@@ -103,25 +121,23 @@
 
                 // 2. Nếu không load được từ Firestore, fallback to localStorage (offline mode)
                 if (!loadedFromFirestore) {
+                    // Use BaseStore's localStorage loading
+                    _invoiceBaseStore._loadFromLocal();
+                    // Also load sentBills from localStorage (BaseStore doesn't handle this)
                     const saved = localStorage.getItem(STORAGE_KEY);
                     if (saved) {
-                        const parsed = JSON.parse(saved);
-                        if (parsed.data) {
-                            if (Array.isArray(parsed.data)) {
-                                this._data = new Map(parsed.data);
-                            } else {
-                                this._data = new Map(Object.entries(parsed.data));
+                        try {
+                            const parsed = JSON.parse(saved);
+                            if (Array.isArray(parsed.sentBills)) {
+                                this._sentBills = new Set(parsed.sentBills);
                             }
-                        }
-                        if (Array.isArray(parsed.sentBills)) {
-                            this._sentBills = new Set(parsed.sentBills);
-                        }
+                        } catch (e) { /* ignore parse errors - BaseStore handles data */ }
                     }
                     console.log(`[INVOICE-STATUS] Offline mode - loaded ${this._data.size} entries from localStorage cache`);
                 }
 
-                // 3. Cleanup old entries
-                await this.cleanup();
+                // 3. Cleanup old entries (delegated to BaseStore)
+                _invoiceBaseStore._cleanupOldEntries();
 
                 this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
@@ -230,14 +246,15 @@
         },
 
         /**
-         * Save to localStorage
+         * Save to localStorage (extends BaseStore's _saveToLocal with sentBills)
          */
         _saveToLocalStorage() {
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    data: Object.fromEntries(this._data),
+                    data: Array.from(this._data.entries()),
                     sentBills: Array.from(this._sentBills),
-                    lastUpdated: Date.now()
+                    lastUpdated: Date.now(),
+                    version: 1
                 }));
             } catch (e) {
                 console.error('[INVOICE-STATUS] localStorage save error:', e);
@@ -511,20 +528,18 @@
         },
 
         /**
-         * Destroy real-time listener
+         * Destroy real-time listener and cleanup (delegates to BaseStore)
          * Call this when the page is unloaded or the store is no longer needed
          */
         destroy() {
-            if (this._unsubscribe) {
-                this._unsubscribe();
-                this._unsubscribe = null;
-                console.log('[INVOICE-STATUS] Real-time listener destroyed');
-            }
-            // Clear any pending sync timeout
+            // Delegate core cleanup to BaseStore (unsubscribe, clear timers, clear subscribers)
+            _invoiceBaseStore.destroy();
+            // Clear any pending sync timeout (custom to InvoiceStatusStore)
             if (this._syncTimeout) {
                 clearTimeout(this._syncTimeout);
                 this._syncTimeout = null;
             }
+            console.log('[INVOICE-STATUS] Store destroyed (via BaseStore)');
         },
 
         /**
@@ -811,30 +826,24 @@
         },
 
         /**
-         * Clear old entries (older than 14 days)
+         * Clear old entries (delegates to BaseStore's _cleanupOldEntries)
+         * Also cleans up sentBills for removed entries
          */
         async cleanup() {
-            const now = Date.now();
-            const maxAge = MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+            const sizeBefore = this._data.size;
+            // Delegate cleanup to BaseStore
+            _invoiceBaseStore._cleanupOldEntries();
+            const sizeAfter = this._data.size;
+            const removed = sizeBefore - sizeAfter;
 
-            let removed = 0;
-            const keysToRemove = [];
-
-            this._data.forEach((value, key) => {
-                if (value.timestamp && (now - value.timestamp) > maxAge) {
-                    keysToRemove.push(key);
-                    removed++;
-                }
-            });
-
-            // Remove old entries
-            keysToRemove.forEach(key => {
-                this._data.delete(key);
-                this._sentBills.delete(key);
-            });
-
+            // Also cleanup sentBills for entries that were removed
             if (removed > 0) {
-                console.log(`[INVOICE-STATUS] Cleaned up ${removed} old entries (>${MAX_AGE_DAYS} days)`);
+                const currentKeys = new Set(this._data.keys());
+                this._sentBills.forEach(id => {
+                    if (!currentKeys.has(id)) {
+                        this._sentBills.delete(id);
+                    }
+                });
                 this.save();
             }
         },

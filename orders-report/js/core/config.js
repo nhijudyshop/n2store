@@ -9,17 +9,8 @@ const APP_CONFIG = {
     AUTH_STORAGE_KEY: "loginindex_auth",
 };
 
-// Firebase config fallback (if not loaded from shared/js/firebase-config.js)
-const FIREBASE_CONFIG_FALLBACK = {
-    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-    authDomain: "n2shop-69e37.firebaseapp.com",
-    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "n2shop-69e37",
-    storageBucket: "n2shop-69e37-ne0q1",
-    messagingSenderId: "598906493303",
-    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-    measurementId: "G-TEJH3S2T1D",
-};
+// Firebase config - use shared config (loaded via shared/js/firebase-config.js)
+// FIREBASE_CONFIG and firebaseConfig are provided by shared/js/firebase-config.js
 
 // Global Firebase references
 let app = null;
@@ -35,10 +26,15 @@ function initializeFirebase() {
         return false;
     }
 
-    // Get config from various sources
+    // Get config from shared library (FIREBASE_CONFIG from shared/js/firebase-config.js)
     const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG
         : (typeof firebaseConfig !== 'undefined') ? firebaseConfig
-        : FIREBASE_CONFIG_FALLBACK;
+        : null;
+
+    if (!config) {
+        console.warn('[Config] No Firebase config found. Ensure shared/js/firebase-config.js is loaded.');
+        return false;
+    }
 
     try {
         // Initialize Firebase app

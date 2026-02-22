@@ -34,7 +34,6 @@ export {
     createAuthManager,
     getAuthManager,
     isAuthenticated,
-    getRoleInfo,
 } from './auth-manager.js';
 
 // =====================================================
@@ -109,6 +108,7 @@ export {
     setupCommonEventHandlers,
     initializeCommonUtils,
     injectStyles,
+    getRoleInfo,
 } from './common-utils.js';
 
 // =====================================================
