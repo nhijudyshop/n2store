@@ -1218,9 +1218,9 @@ class InventoryPickerDialog {
 
             const data = await response.json();
 
-            // Map to our format
+            // Map to our format - use original productId to preserve variant identity
             return {
-                id: data.Id,
+                id: productId,
                 code: data.DefaultCode || data.Barcode || '',
                 name: data.NameTemplate || data.Name || '',
                 image: data.ImageUrl || (data.Thumbnails && data.Thumbnails[2]) || '',
