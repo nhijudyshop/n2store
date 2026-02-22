@@ -13,31 +13,8 @@ const DETAILED_PERMISSIONS = {
             upload: { name: "Upload hình ảnh", icon: "upload" },
         },
     },
-    livestream: {
-        id: "livestream",
-        icon: "video",
-        name: "BÁO CÁO LIVESTREAM",
-        description: "Xem báo cáo và thống kê livestream",
-        subPermissions: {
-            view: { name: "Xem báo cáo", icon: "eye" },
-            export: { name: "Xuất báo cáo", icon: "file-down" },
-            edit: { name: "Chỉnh sửa", icon: "edit" },
-            analytics: { name: "Phân tích chi tiết", icon: "trending-up" },
-        },
-    },
-    sanphamlive: {
-        id: "sanphamlive",
-        icon: "shopping-bag",
-        name: "SẢN PHẨM LIVESTREAM",
-        description: "Quản lý sản phẩm livestream",
-        subPermissions: {
-            view: { name: "Xem sản phẩm", icon: "eye" },
-            add: { name: "Thêm sản phẩm", icon: "plus-circle" },
-            edit: { name: "Sửa sản phẩm", icon: "edit" },
-            delete: { name: "Xóa sản phẩm", icon: "trash-2" },
-            pricing: { name: "Chỉnh sửa giá", icon: "dollar-sign" },
-        },
-    },
+    // REMOVED: livestream (module deleted - cleanup task 9.1)
+    // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
     nhanhang: {
         id: "nhanhang",
         icon: "package",

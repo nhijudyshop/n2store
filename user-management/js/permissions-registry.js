@@ -39,41 +39,8 @@ const PAGES_REGISTRY = {
         }
     },
 
-    livestream: {
-        id: "livestream",
-        name: "Báo Cáo Livestream",
-        shortName: "Báo Cáo",
-        icon: "video",
-        href: "../livestream/index.html",
-        description: "Xem báo cáo và thống kê livestream",
-        adminOnly: false,
-        category: "sales",
-        detailedPermissions: {
-            view: { name: "Xem báo cáo", icon: "eye", description: "Xem thống kê livestream" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo ra file" },
-            edit: { name: "Chỉnh sửa", icon: "edit", description: "Sửa thông tin livestream" },
-            analytics: { name: "Phân tích chi tiết", icon: "trending-up", description: "Xem phân tích nâng cao" }
-        }
-    },
-
-    sanphamlive: {
-        id: "sanphamlive",
-        name: "Sản Phẩm Livestream",
-        shortName: "Sản Phẩm",
-        icon: "shopping-bag",
-        href: "../sanphamlive/index.html",
-        description: "Quản lý sản phẩm livestream",
-        adminOnly: true,
-        category: "sales",
-        detailedPermissions: {
-            view: { name: "Xem sản phẩm", icon: "eye", description: "Xem danh sách sản phẩm" },
-            add: { name: "Thêm sản phẩm", icon: "plus-circle", description: "Thêm sản phẩm mới" },
-            edit: { name: "Sửa sản phẩm", icon: "edit", description: "Chỉnh sửa thông tin sản phẩm" },
-            delete: { name: "Xóa sản phẩm", icon: "trash-2", description: "Xóa sản phẩm khỏi hệ thống" },
-            pricing: { name: "Chỉnh sửa giá", icon: "dollar-sign", description: "Thay đổi giá sản phẩm" },
-            stock: { name: "Quản lý tồn kho", icon: "package", description: "Cập nhật số lượng tồn" }
-        }
-    },
+    // REMOVED: livestream (module deleted - cleanup task 9.1)
+    // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
 
     ib: {
         id: "ib",
@@ -276,22 +243,7 @@ const PAGES_REGISTRY = {
         }
     },
 
-    "order-live-tracking": {
-        id: "order-live-tracking",
-        name: "Sổ Order Live",
-        shortName: "Order Live",
-        icon: "radio",
-        href: "../order-live-tracking/index.html",
-        description: "Theo dõi order live realtime",
-        adminOnly: false,
-        category: "orders",
-        detailedPermissions: {
-            view: { name: "Xem order live", icon: "eye", description: "Xem đơn live realtime" },
-            track: { name: "Theo dõi", icon: "radio", description: "Theo dõi trạng thái live" },
-            update: { name: "Cập nhật", icon: "refresh-cw", description: "Cập nhật thông tin" },
-            export: { name: "Xuất dữ liệu", icon: "download", description: "Export order live" }
-        }
-    },
+    // REMOVED: order-live-tracking (module deleted - cleanup task 9.1)
 
     // =====================================================
     // CATEGORY: REPORTS - Báo cáo & Thống kê

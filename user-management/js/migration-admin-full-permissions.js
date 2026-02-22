@@ -12,10 +12,10 @@
 // 3. Mở Console (F12) và chạy: await migrateAdminUsers()
 // =====================================================
 
-// Firebase config (same as user-management-enhanced.js)
+// Firebase config - use shared config if available (loaded via shared/js/firebase-config.js)
 // Use window scope to avoid redeclaration errors
 if (!window._MIGRATION_FIREBASE_CONFIG) {
-    window._MIGRATION_FIREBASE_CONFIG = {
+    window._MIGRATION_FIREBASE_CONFIG = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : {
         apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
         authDomain: "n2shop-69e37.firebaseapp.com",
         projectId: "n2shop-69e37",
@@ -73,20 +73,8 @@ window.generateFullAdminPermissions = function() {
             edit: true,
             delete: true
         },
-        livestream: {
-            view: true,
-            export: true,
-            edit: true,
-            analytics: true
-        },
-        sanphamlive: {
-            view: true,
-            add: true,
-            edit: true,
-            delete: true,
-            pricing: true,
-            stock: true
-        },
+        // REMOVED: livestream (module deleted - cleanup task 9.1)
+        // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
         ib: {
             view: true,
             reply: true,
@@ -189,12 +177,7 @@ window.generateFullAdminPermissions = function() {
             delete: true,
             export: true
         },
-        "order-live-tracking": {
-            view: true,
-            track: true,
-            update: true,
-            export: true
-        },
+        // REMOVED: order-live-tracking (module deleted - cleanup task 9.1)
 
         // REPORTS
         baocaosaleonline: {
