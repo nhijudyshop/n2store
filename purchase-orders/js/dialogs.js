@@ -754,20 +754,55 @@ class VariantGeneratorDialog {
 
 // ========================================
 // SETTINGS DIALOG
-// Matches: Validation settings from React app
+// Validation settings with Firestore persistence
 // ========================================
 
 class SettingsDialog {
     constructor() {
         this.modalElement = null;
-        this.settings = {
-            requireProductImages: true,
-            requirePriceImages: false,
-            minPurchasePrice: 0,
-            maxPurchasePrice: 100000000,
-            autoGenerateCode: true
-        };
+        this.settings = { ...(window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {}) };
         this.onSave = null;
+        this.SETTINGS_DOC_PATH = 'settings/validation';
+    }
+
+    /**
+     * Load settings from Firestore, merged with defaults
+     * @returns {Object} settings
+     */
+    async loadFromFirestore() {
+        const defaults = window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {};
+        try {
+            if (typeof firebase === 'undefined') return { ...defaults };
+            const db = firebase.firestore();
+            const doc = await db.doc(this.SETTINGS_DOC_PATH).get();
+            if (doc.exists) {
+                const data = doc.data();
+                // Remove Firestore metadata fields
+                delete data.updatedAt;
+                return { ...defaults, ...data };
+            }
+        } catch (e) {
+            console.warn('[SettingsDialog] Failed to load from Firestore:', e);
+        }
+        return { ...defaults };
+    }
+
+    /**
+     * Save settings to Firestore
+     * @param {Object} settings
+     */
+    async saveToFirestore(settings) {
+        try {
+            if (typeof firebase === 'undefined') throw new Error('Firebase not loaded');
+            const db = firebase.firestore();
+            const saveData = { ...settings };
+            saveData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.doc(this.SETTINGS_DOC_PATH).set(saveData);
+            console.log('[SettingsDialog] Settings saved to Firestore');
+        } catch (e) {
+            console.error('[SettingsDialog] Failed to save to Firestore:', e);
+            throw e;
+        }
     }
 
     /**
@@ -775,7 +810,9 @@ class SettingsDialog {
      * @param {Object} options - { settings, onSave }
      */
     async open(options = {}) {
-        this.settings = { ...this.settings, ...options.settings };
+        // Load from Firestore first, then merge with any passed-in settings
+        const firestoreSettings = await this.loadFromFirestore();
+        this.settings = { ...firestoreSettings, ...options.settings };
         this.onSave = options.onSave;
 
         this.render();
@@ -798,74 +835,151 @@ class SettingsDialog {
         }
     }
 
+    _formatPreview(value) {
+        const fmt = window.PurchaseOrderConfig?.formatVND;
+        if (!fmt) return (value * 1000) + ' đ';
+        return fmt(value * 1000);
+    }
+
     render() {
         if (this.modalElement) {
             this.modalElement.remove();
         }
 
+        const s = this.settings;
+        const fmt = (v) => this._formatPreview(v);
+
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
-        // Use higher z-index to appear above the form modal (which uses 99999)
         this.modalElement.style.zIndex = '999999';
         this.modalElement.innerHTML = `
-            <div class="modal modal--sm">
+            <div class="modal modal--md" style="max-width: 600px;">
                 <div class="modal__header">
-                    <h2 class="modal__title">Cài đặt xác thực</h2>
+                    <h2 class="modal__title">Cài đặt validation giá mua/bán</h2>
                     <button type="button" class="modal__close" id="btnCloseSettings">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
 
-                <div class="modal__body">
-                    <div class="settings-group">
-                        <h4 class="settings-group-title">Hình ảnh</h4>
-
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="requireProductImages"
-                                   ${this.settings.requireProductImages ? 'checked' : ''}>
-                            <span>Yêu cầu hình ảnh sản phẩm</span>
-                        </label>
-
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="requirePriceImages"
-                                   ${this.settings.requirePriceImages ? 'checked' : ''}>
-                            <span>Yêu cầu hình ảnh giá mua</span>
-                        </label>
+                <div class="modal__body" style="max-height: 70vh; overflow-y: auto;">
+                    <div class="settings-info-box">
+                        <strong>Cách hoạt động:</strong><br>
+                        • Đặt giá trị 0 để không giới hạn<br>
+                        • Hệ thống sẽ kiểm tra khi tạo đơn đặt hàng<br>
+                        • Nếu vi phạm, sẽ hiển thị cảnh báo chi tiết
                     </div>
 
                     <div class="settings-group">
-                        <h4 class="settings-group-title">Giá</h4>
-
-                        <div class="form-group">
-                            <label class="form-label">Giá mua tối thiểu (VND)</label>
-                            <input type="number" class="form-input" id="minPurchasePrice"
-                                   value="${this.settings.minPurchasePrice}" min="0">
+                        <h4 class="settings-group-title">Giá mua</h4>
+                        <div class="settings-price-row">
+                            <div class="form-group">
+                                <label class="form-label">Giá mua tối thiểu (1000đ)</label>
+                                <input type="number" class="form-input" id="minPurchasePrice"
+                                       value="${s.minPurchasePrice}" min="0" data-preview="previewMinPurchase">
+                                <div class="settings-price-preview" id="previewMinPurchase">= ${fmt(s.minPurchasePrice)}</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Giá mua tối đa (1000đ)</label>
+                                <input type="number" class="form-input" id="maxPurchasePrice"
+                                       value="${s.maxPurchasePrice}" min="0" data-preview="previewMaxPurchase">
+                                <div class="settings-price-preview" id="previewMaxPurchase">= ${fmt(s.maxPurchasePrice)}</div>
+                            </div>
                         </div>
+                    </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Giá mua tối đa (VND)</label>
-                            <input type="number" class="form-input" id="maxPurchasePrice"
-                                   value="${this.settings.maxPurchasePrice}" min="0">
+                    <div class="settings-group">
+                        <h4 class="settings-group-title">Giá bán</h4>
+                        <div class="settings-price-row">
+                            <div class="form-group">
+                                <label class="form-label">Giá bán tối thiểu (1000đ)</label>
+                                <input type="number" class="form-input" id="minSellingPrice"
+                                       value="${s.minSellingPrice}" min="0" data-preview="previewMinSelling">
+                                <div class="settings-price-preview" id="previewMinSelling">= ${fmt(s.minSellingPrice)}</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Giá bán tối đa (1000đ)</label>
+                                <input type="number" class="form-input" id="maxSellingPrice"
+                                       value="${s.maxSellingPrice}" min="0" data-preview="previewMaxSelling">
+                                <div class="settings-price-preview" id="previewMaxSelling">= ${fmt(s.maxSellingPrice)}</div>
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h4 class="settings-group-title">Chênh lệch (Margin)</h4>
+                        <div class="form-group">
+                            <label class="form-label">Chênh lệch tối thiểu giá bán - giá mua (1000đ)</label>
+                            <input type="number" class="form-input" id="minMargin"
+                                   value="${s.minMargin}" min="0" data-preview="previewMinMargin"
+                                   style="max-width: 280px;">
+                            <div class="settings-price-preview" id="previewMinMargin">= ${fmt(s.minMargin)}</div>
+                        </div>
+                        <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+                            Ví dụ: Đặt 50 nghĩa là giá bán phải cao hơn giá mua ít nhất 50.000đ
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h4 class="settings-group-title">Quy tắc kiểm tra</h4>
+
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="enableRequireProductName"
+                                   ${s.enableRequireProductName ? 'checked' : ''}>
+                            <span>Bắt buộc tên sản phẩm</span>
+                        </label>
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="enableRequireProductCode"
+                                   ${s.enableRequireProductCode ? 'checked' : ''}>
+                            <span>Bắt buộc mã sản phẩm</span>
+                        </label>
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="enableRequireProductImages"
+                                   ${s.enableRequireProductImages ? 'checked' : ''}>
+                            <span>Bắt buộc hình ảnh sản phẩm</span>
+                        </label>
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="enableRequirePositivePurchasePrice"
+                                   ${s.enableRequirePositivePurchasePrice ? 'checked' : ''}>
+                            <span>Giá mua phải > 0</span>
+                        </label>
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="enableRequirePositiveSellingPrice"
+                                   ${s.enableRequirePositiveSellingPrice ? 'checked' : ''}>
+                            <span>Giá bán phải > 0</span>
+                        </label>
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="enableRequireSellingGreaterThanPurchase"
+                                   ${s.enableRequireSellingGreaterThanPurchase ? 'checked' : ''}>
+                            <span>Giá bán phải > Giá mua</span>
+                        </label>
+                        <label class="settings-checkbox">
+                            <input type="checkbox" id="enableRequireAtLeastOneItem"
+                                   ${s.enableRequireAtLeastOneItem ? 'checked' : ''}>
+                            <span>Phải có ít nhất 1 sản phẩm</span>
+                        </label>
                     </div>
 
                     <div class="settings-group">
                         <h4 class="settings-group-title">Mã sản phẩm</h4>
-
                         <label class="settings-checkbox">
                             <input type="checkbox" id="autoGenerateCode"
-                                   ${this.settings.autoGenerateCode ? 'checked' : ''}>
+                                   ${s.autoGenerateCode ? 'checked' : ''}>
                             <span>Tự động tạo mã sản phẩm</span>
                         </label>
                     </div>
                 </div>
 
                 <div class="modal__footer">
-                    <button class="btn btn-outline" id="btnCancelSettings">Hủy</button>
-                    <button class="btn btn-primary" id="btnSaveSettings">
-                        <i data-lucide="save"></i>
-                        <span>Lưu cài đặt</span>
-                    </button>
+                    <div class="settings-footer-left">
+                        <button class="btn btn-outline btn-reset" id="btnResetSettings">Đặt lại mặc định</button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-outline" id="btnCancelSettings">Hủy</button>
+                            <button class="btn btn-primary" id="btnSaveSettings">
+                                <i data-lucide="save"></i>
+                                <span>Lưu cài đặt</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -884,27 +998,98 @@ class SettingsDialog {
         this.modalElement.querySelector('#btnCloseSettings')?.addEventListener('click', () => this.close());
         this.modalElement.querySelector('#btnCancelSettings')?.addEventListener('click', () => this.close());
 
-        // Overlay click
-        this.modalElement.addEventListener('click', (e) => {
-            if (e.target === this.modalElement) this.close();
+        // Live preview for price inputs
+        this.modalElement.querySelectorAll('input[data-preview]').forEach(input => {
+            input.addEventListener('input', () => {
+                const previewId = input.dataset.preview;
+                const previewEl = this.modalElement.querySelector('#' + previewId);
+                if (previewEl) {
+                    const val = parseInt(input.value, 10) || 0;
+                    previewEl.textContent = '= ' + this._formatPreview(val);
+                }
+            });
+        });
+
+        // Reset to defaults
+        this.modalElement.querySelector('#btnResetSettings')?.addEventListener('click', () => {
+            const defaults = window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {};
+            // Reset all number inputs
+            const numberFields = ['minPurchasePrice', 'maxPurchasePrice', 'minSellingPrice', 'maxSellingPrice', 'minMargin'];
+            numberFields.forEach(field => {
+                const input = this.modalElement.querySelector('#' + field);
+                if (input) {
+                    input.value = defaults[field] || 0;
+                    // Trigger preview update
+                    input.dispatchEvent(new Event('input'));
+                }
+            });
+            // Reset all checkboxes
+            const checkboxFields = [
+                'enableRequireProductName', 'enableRequireProductCode', 'enableRequireProductImages',
+                'enableRequirePositivePurchasePrice', 'enableRequirePositiveSellingPrice',
+                'enableRequireSellingGreaterThanPurchase', 'enableRequireAtLeastOneItem',
+                'autoGenerateCode'
+            ];
+            checkboxFields.forEach(field => {
+                const input = this.modalElement.querySelector('#' + field);
+                if (input) input.checked = defaults[field] !== false;
+            });
+            // Also reset legacy fields
+            const legacyCheckboxes = { requirePriceImages: false };
+            Object.entries(legacyCheckboxes).forEach(([field, val]) => {
+                const input = this.modalElement.querySelector('#' + field);
+                if (input) input.checked = val;
+            });
+
+            if (window.notificationManager) {
+                window.notificationManager.show('Đã đặt lại mặc định', 'info');
+            }
         });
 
         // Save
-        this.modalElement.querySelector('#btnSaveSettings')?.addEventListener('click', () => {
-            this.settings = {
-                requireProductImages: this.modalElement.querySelector('#requireProductImages').checked,
-                requirePriceImages: this.modalElement.querySelector('#requirePriceImages').checked,
-                minPurchasePrice: parseInt(this.modalElement.querySelector('#minPurchasePrice').value, 10) || 0,
-                maxPurchasePrice: parseInt(this.modalElement.querySelector('#maxPurchasePrice').value, 10) || 100000000,
-                autoGenerateCode: this.modalElement.querySelector('#autoGenerateCode').checked
-            };
+        this.modalElement.querySelector('#btnSaveSettings')?.addEventListener('click', async () => {
+            this.settings = this._collectSettings();
 
-            if (this.onSave) {
-                this.onSave(this.settings);
+            try {
+                await this.saveToFirestore(this.settings);
+                if (this.onSave) {
+                    this.onSave(this.settings);
+                }
+                this.close();
+            } catch (e) {
+                if (window.notificationManager) {
+                    window.notificationManager.show('Lỗi lưu cài đặt: ' + e.message, 'error');
+                }
             }
-
-            this.close();
         });
+    }
+
+    /**
+     * Collect all settings from form inputs
+     */
+    _collectSettings() {
+        const el = this.modalElement;
+        return {
+            // Price limits
+            minPurchasePrice: parseInt(el.querySelector('#minPurchasePrice')?.value, 10) || 0,
+            maxPurchasePrice: parseInt(el.querySelector('#maxPurchasePrice')?.value, 10) || 0,
+            minSellingPrice: parseInt(el.querySelector('#minSellingPrice')?.value, 10) || 0,
+            maxSellingPrice: parseInt(el.querySelector('#maxSellingPrice')?.value, 10) || 0,
+            minMargin: parseInt(el.querySelector('#minMargin')?.value, 10) || 0,
+
+            // Boolean rules
+            enableRequireProductName: el.querySelector('#enableRequireProductName')?.checked ?? true,
+            enableRequireProductCode: el.querySelector('#enableRequireProductCode')?.checked ?? true,
+            enableRequireProductImages: el.querySelector('#enableRequireProductImages')?.checked ?? true,
+            enableRequirePositivePurchasePrice: el.querySelector('#enableRequirePositivePurchasePrice')?.checked ?? true,
+            enableRequirePositiveSellingPrice: el.querySelector('#enableRequirePositiveSellingPrice')?.checked ?? true,
+            enableRequireSellingGreaterThanPurchase: el.querySelector('#enableRequireSellingGreaterThanPurchase')?.checked ?? true,
+            enableRequireAtLeastOneItem: el.querySelector('#enableRequireAtLeastOneItem')?.checked ?? true,
+
+            // Legacy
+            requirePriceImages: el.querySelector('#requirePriceImages')?.checked ?? false,
+            autoGenerateCode: el.querySelector('#autoGenerateCode')?.checked ?? true
+        };
     }
 }
 

@@ -606,7 +606,7 @@ class PurchaseOrderFormModal {
     /**
      * Open modal for creating new order
      */
-    openCreate(options = {}) {
+    async openCreate(options = {}) {
         this.isEdit = false;
         this.order = null;
         this.resetFormData();
@@ -615,13 +615,18 @@ class PurchaseOrderFormModal {
         this.onSubmit = options.onSubmit;
         this.onCancel = options.onCancel;
 
+        // Load validation settings from Firestore
+        await this._loadValidationSettings();
+
         this.render();
+        this.captureInitialState();
+        this.updateSettingsButtonHighlight();
     }
 
     /**
      * Open modal for editing existing order
      */
-    openEdit(order, options = {}) {
+    async openEdit(order, options = {}) {
         this.isEdit = true;
         this.order = order;
         this.loadOrderData(order);
@@ -629,7 +634,119 @@ class PurchaseOrderFormModal {
         this.onSubmit = options.onSubmit;
         this.onCancel = options.onCancel;
 
+        // Load validation settings from Firestore
+        await this._loadValidationSettings();
+
         this.render();
+        this.captureInitialState();
+        this.updateSettingsButtonHighlight();
+    }
+
+    /**
+     * Load validation settings from Firestore via SettingsDialog
+     */
+    async _loadValidationSettings() {
+        try {
+            if (window.settingsDialog) {
+                this.validationSettings = await window.settingsDialog.loadFromFirestore();
+            } else {
+                this.validationSettings = { ...(window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {}) };
+            }
+        } catch (e) {
+            console.warn('[FormModal] Failed to load validation settings:', e);
+            this.validationSettings = { ...(window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {}) };
+        }
+    }
+
+    /**
+     * Highlight settings button when any price setting is active
+     */
+    updateSettingsButtonHighlight() {
+        const btn = this.modalElement?.querySelector('#btnSettings');
+        if (!btn) return;
+        const s = this.validationSettings || {};
+        const isActive = (s.minPurchasePrice > 0 || s.maxPurchasePrice > 0 ||
+                          s.minSellingPrice > 0 || s.maxSellingPrice > 0 ||
+                          s.minMargin > 0);
+        if (isActive) {
+            btn.style.background = '#eff6ff';
+            btn.style.color = '#2563eb';
+            btn.style.borderColor = '#2563eb';
+            btn.title = 'Cài đặt validation giá mua/bán — Đang hoạt động';
+        } else {
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
+            btn.title = 'Cài đặt validation giá mua/bán';
+        }
+    }
+
+    /**
+     * Capture initial form state for unsaved changes detection
+     */
+    captureInitialState() {
+        this.initialFormSnapshot = JSON.stringify({
+            supplier: this.formData.supplier,
+            notes: this.formData.notes,
+            items: this.formData.items.map(i => ({
+                productName: i.productName || '',
+                productCode: i.productCode || '',
+                purchasePrice: i.purchasePrice || '',
+                sellingPrice: i.sellingPrice || '',
+                quantity: i.quantity || 1
+            }))
+        });
+    }
+
+    /**
+     * Check if form has unsaved changes
+     */
+    hasUnsavedChanges() {
+        this.collectFormData();
+        const current = JSON.stringify({
+            supplier: this.formData.supplier,
+            notes: this.formData.notes,
+            items: this.formData.items.map(i => ({
+                productName: i.productName || '',
+                productCode: i.productCode || '',
+                purchasePrice: i.purchasePrice || '',
+                sellingPrice: i.sellingPrice || '',
+                quantity: i.quantity || 1
+            }))
+        });
+        return current !== this.initialFormSnapshot;
+    }
+
+    /**
+     * Update price input borders dynamically (red when invalid)
+     */
+    updatePriceInputBorders(row) {
+        if (!row) return;
+        const purchaseInput = row.querySelector('input[data-field="purchasePrice"]');
+        const sellingInput = row.querySelector('input[data-field="sellingPrice"]');
+
+        if (purchaseInput) {
+            const val = parseFloat(String(purchaseInput.value).replace(/[,.]/g, '')) || 0;
+            if (val > 0) {
+                purchaseInput.style.border = '1px solid #d1d5db';
+                purchaseInput.style.background = 'white';
+            } else {
+                purchaseInput.style.border = '2px solid #ef4444';
+                purchaseInput.style.background = '#fef2f2';
+            }
+        }
+
+        if (sellingInput) {
+            const selVal = parseFloat(String(sellingInput.value).replace(/[,.]/g, '')) || 0;
+            const purVal = purchaseInput ? (parseFloat(String(purchaseInput.value).replace(/[,.]/g, '')) || 0) : 0;
+            if (selVal > 0 && selVal > purVal) {
+                sellingInput.style.border = '1px solid #d1d5db';
+                sellingInput.style.background = 'white';
+            } else {
+                sellingInput.style.border = '2px solid #ef4444';
+                sellingInput.style.background = '#fef2f2';
+            }
+        }
     }
 
     /**
@@ -1175,7 +1292,9 @@ class PurchaseOrderFormModal {
         }
 
         return this.formData.items.map((item, index) => {
-            const subtotal = (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 0);
+            const purchaseVal = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+            const sellingVal = parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
+            const subtotal = purchaseVal * (parseInt(item.quantity) || 0);
 
             return `
                 <tr data-item-id="${item.id}">
@@ -1252,11 +1371,11 @@ class PurchaseOrderFormModal {
                             width: 100px;
                             height: 36px;
                             padding: 0 8px;
-                            border: 2px solid #ef4444;
+                            border: ${purchaseVal > 0 ? '1px solid #d1d5db' : '2px solid #ef4444'};
                             border-radius: 6px;
                             font-size: 13px;
                             text-align: right;
-                            background: #fef2f2;
+                            background: ${purchaseVal > 0 ? 'white' : '#fef2f2'};
                             box-sizing: border-box;
                         ">
                     </td>
@@ -1265,11 +1384,11 @@ class PurchaseOrderFormModal {
                             width: 100px;
                             height: 36px;
                             padding: 0 8px;
-                            border: 2px solid #ef4444;
+                            border: ${sellingVal > 0 && sellingVal > purchaseVal ? '1px solid #d1d5db' : '2px solid #ef4444'};
                             border-radius: 6px;
                             font-size: 13px;
                             text-align: right;
-                            background: #fef2f2;
+                            background: ${sellingVal > 0 && sellingVal > purchaseVal ? 'white' : '#fef2f2'};
                             box-sizing: border-box;
                         ">
                     </td>
@@ -1402,9 +1521,17 @@ class PurchaseOrderFormModal {
     bindEvents() {
         if (!this.modalElement) return;
 
-        // Close button
-        this.modalElement.querySelector('#btnCloseModal')?.addEventListener('click', () => this.close());
+        // Close button (with unsaved changes check)
+        this.modalElement.querySelector('#btnCloseModal')?.addEventListener('click', () => {
+            if (this.hasUnsavedChanges()) {
+                if (!confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?')) return;
+            }
+            this.close();
+        });
         this.modalElement.querySelector('#btnCancel')?.addEventListener('click', () => {
+            if (this.hasUnsavedChanges()) {
+                if (!confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?')) return;
+            }
             this.onCancel?.();
             this.close();
         });
@@ -1465,6 +1592,7 @@ class PurchaseOrderFormModal {
                     settings: this.validationSettings || {},
                     onSave: (settings) => {
                         this.validationSettings = settings;
+                        this.updateSettingsButtonHighlight();
                         if (window.notificationManager) {
                             window.notificationManager.success('Đã lưu cài đặt');
                         }
@@ -1537,9 +1665,12 @@ class PurchaseOrderFormModal {
             this.handleSubmit();
         });
 
-        // Escape key
+        // Escape key (with unsaved changes check)
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.modalElement) {
+                if (this.hasUnsavedChanges()) {
+                    if (!confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?')) return;
+                }
                 this.close();
             }
         });
@@ -1657,6 +1788,11 @@ class PurchaseOrderFormModal {
                 if (item && field) {
                     item[field] = e.target.value;
                     this.updateTotals();
+
+                    // Update price input red borders dynamically
+                    if (field === 'purchasePrice' || field === 'sellingPrice') {
+                        this.updatePriceInputBorders(row);
+                    }
 
                     // Auto-generate product code when product name changes
                     if (field === 'productName') {
@@ -1887,22 +2023,64 @@ class PurchaseOrderFormModal {
     }
 
     /**
-     * Handle submit
+     * Show validation errors as toast notification
+     * @param {string[]} errors - Array of error messages
+     */
+    showValidationToast(errors) {
+        const message = 'Không thể tạo đơn hàng:\n' + errors.map(e => '• ' + e).join('\n');
+        if (window.notificationManager) {
+            window.notificationManager.show(message, 'error');
+        } else {
+            alert(message);
+        }
+    }
+
+    /**
+     * Handle submit with settings-aware validation
      */
     async handleSubmit() {
         this.collectFormData();
+        const validation = window.PurchaseOrderValidation;
+        const settings = this.validationSettings || validation?.DEFAULT_VALIDATION_SETTINGS || {};
 
+        // Step 1: Basic validation - supplier required
         if (!this.formData.supplier) {
-            alert('Vui lòng nhập tên nhà cung cấp');
+            this.showValidationToast(['Vui lòng nhập tên nhà cung cấp']);
             return;
         }
 
-        if (this.formData.items.length === 0) {
-            alert('Vui lòng thêm ít nhất một sản phẩm');
-            return;
+        // Step 2: Settings-aware item validation (7 configurable rules)
+        const nonEmptyItems = this.formData.items.filter(i => i.productName && i.productName.trim());
+        if (validation?.validateItemsWithSettings) {
+            const { isValid, invalidFields } = validation.validateItemsWithSettings(nonEmptyItems, settings);
+            if (!isValid) {
+                this.showValidationToast(invalidFields);
+                return;
+            }
+        } else {
+            // Fallback: basic items check
+            if (nonEmptyItems.length === 0) {
+                this.showValidationToast(['Vui lòng thêm ít nhất một sản phẩm']);
+                return;
+            }
         }
 
-        // Show loading
+        // Step 3: Price settings validation (min/max/margin)
+        if (validation?.validatePriceSettings) {
+            const priceErrors = [];
+            nonEmptyItems.forEach((item, index) => {
+                const purchasePrice = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+                const sellingPrice = parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
+                const errors = validation.validatePriceSettings(purchasePrice, sellingPrice, index + 1, settings);
+                priceErrors.push(...errors);
+            });
+            if (priceErrors.length > 0) {
+                this.showValidationToast(priceErrors);
+                return;
+            }
+        }
+
+        // Step 4: Proceed with submission
         const btn = this.modalElement?.querySelector('#btnSubmit');
         const originalText = btn?.innerHTML;
         if (btn) {
@@ -1929,7 +2107,11 @@ class PurchaseOrderFormModal {
             this.close();
         } catch (error) {
             console.error('Submit failed:', error);
-            alert('Không thể tạo đơn hàng: ' + error.message);
+            if (window.notificationManager) {
+                window.notificationManager.show('Không thể tạo đơn hàng: ' + error.message, 'error');
+            } else {
+                alert('Không thể tạo đơn hàng: ' + error.message);
+            }
         } finally {
             if (btn) {
                 btn.disabled = false;

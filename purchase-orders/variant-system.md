@@ -1813,7 +1813,900 @@ Bấm ✏️ → [N131 ✓] (editable) → sửa → bấm ✓ → [N999 ✏️]
 
 ---
 
-## 11. Luồng Hoạt Động End-to-End (Toàn Bộ Hệ Thống)
+## 11. Cài Đặt Validation Giá Mua/Bán - Chi Tiết Từng Bước
+
+### 11.1. Tổng Quan
+
+Dialog **"Cài đặt validation giá mua/bán"** cho phép user cấu hình các giới hạn giá khi tạo/sửa đơn nhập hàng. Settings được lưu **per-user** trong Supabase database.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ⚙️ Cài đặt validation giá mua/bán                          │
+│                                                              │
+│  📌 Cách hoạt động:                                          │
+│  • Đặt giá trị 0 để không giới hạn                           │
+│  • Hệ thống sẽ kiểm tra khi tạo/sửa đơn đặt hàng           │
+│  • Nếu vi phạm, sẽ hiển thị cảnh báo chi tiết               │
+│                                                              │
+│  💰 Giá mua                                                  │
+│  ┌─────────────────────┐  ┌─────────────────────┐            │
+│  │ Giá mua tối thiểu   │  │ Giá mua tối đa      │            │
+│  │ (1000đ)     [0 ↕]   │  │ (1000đ)     [0]     │            │
+│  │ = 0 đ               │  │ = 0 đ               │            │
+│  └─────────────────────┘  └─────────────────────┘            │
+│                                                              │
+│  💸 Giá bán                                                  │
+│  ┌─────────────────────┐  ┌─────────────────────┐            │
+│  │ Giá bán tối thiểu   │  │ Giá bán tối đa      │            │
+│  │ (1000đ)     [0]     │  │ (1000đ)     [0]     │            │
+│  │ = 0 đ               │  │ = 0 đ               │            │
+│  └─────────────────────┘  └─────────────────────┘            │
+│                                                              │
+│  📊 Chênh lệch (Margin)                                     │
+│  ┌──────────────────────────────────────────┐                │
+│  │ Chênh lệch tối thiểu (Giá bán - Giá mua)│                │
+│  │ (1000đ)                           [0]    │                │
+│  │ = 0 đ                                    │                │
+│  └──────────────────────────────────────────┘                │
+│  Ví dụ: Đặt 50 nghĩa là giá bán phải cao hơn giá mua       │
+│  ít nhất 50.000đ                                             │
+│                                                              │
+│  ✅ Quy tắc kiểm tra                                        │
+│  ☑ Bắt buộc tên sản phẩm                                    │
+│  ☑ Bắt buộc mã sản phẩm                                     │
+│  ☑ Bắt buộc hình ảnh sản phẩm                               │
+│  ☑ Giá mua phải > 0                                         │
+│  ☑ Giá bán phải > 0                                         │
+│  ☑ Giá bán phải > Giá mua                                   │
+│  ☑ Phải có ít nhất 1 sản phẩm                               │
+│                                                              │
+│  [Đặt lại mặc định]  [Hủy]  [✓ Lưu cài đặt]               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### 11.2. File Liên Quan
+
+| File | Đường dẫn đầy đủ | Vai trò |
+| ---- | ----------------- | ------- |
+| `CreatePurchaseOrderDialog.tsx` | `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` | Interface, state, dialog UI, validation logic, save mutation |
+| `EditPurchaseOrderDialog.tsx` | `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/EditPurchaseOrderDialog.tsx` | Cùng logic validation khi sửa đơn |
+| `currency-utils.ts` | `/Users/mac/Downloads/github-html-starter-main/src/lib/currency-utils.ts` | `formatVND()` format tiền VNĐ |
+| Migration 1 | `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251102132752_208db819-dc8f-4535-8e3b-4f4c6cf9c01b.sql` | Tạo table `purchase_order_validation_settings` |
+| Migration 2 | `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251111032036_009be780-e14a-485e-9f91-e96804cafc13.sql` | Thêm 7 boolean columns (quy tắc kiểm tra) |
+| `types.ts` | `/Users/mac/Downloads/github-html-starter-main/src/integrations/supabase/types.ts` | TypeScript types cho table (line ~1148) |
+
+### 11.3. Bước 1: User Bấm Nút ⚙️ Settings
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` line ~1966-2003
+- **Vị trí**: Cạnh nút "+ Thêm sản phẩm" và "Chọn từ Kho SP"
+
+```
+  🔍 Tìm kiếm sản phẩm theo tên...  │  Ghi chú thêm cho đơn hàng...  │ [⚙️] │ + Thêm sản phẩm │ Chọn từ Kho SP │
+                                                                          ↑
+                                                                    Bấm vào đây
+```
+
+**onClick**: `setShowValidationSettings(true)` → mở dialog
+
+**Nút highlight khi có settings active**:
+```typescript
+// /Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx:~1976
+className={cn(
+  "h-10 w-10 p-0 shrink-0 transition-all",
+  (validationSettings.minPurchasePrice > 0 ||
+   validationSettings.maxPurchasePrice > 0 ||
+   validationSettings.minSellingPrice > 0 ||
+   validationSettings.maxSellingPrice > 0 ||
+   validationSettings.minMargin > 0)
+    ? "bg-primary/10 text-primary border-primary hover:bg-primary/20"  // ← Highlight
+    : "hover:bg-primary/10 hover:text-primary hover:border-primary"     // ← Bình thường
+)}
+```
+
+**Tooltip**: "Cài đặt validation giá mua/bán" + "✅ Validation đang hoạt động" (nếu active)
+
+### 11.4. Bước 2: Dialog Mở → Load Settings Từ Database
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` line ~253-264
+
+**Query Supabase** khi component mount:
+```typescript
+// line ~253
+const { data: dbValidationSettings } = useQuery({
+  queryKey: ['purchase-order-validation-settings'],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from('purchase_order_validation_settings')
+      .select('*')
+      .maybeSingle();
+    return data || DEFAULT_VALIDATION_SETTINGS;
+  },
+});
+```
+
+**Mapping DB columns → Frontend state** (useEffect line ~269):
+
+| DB Column (snake_case) | Frontend State (camelCase) | Ý nghĩa |
+| ---------------------- | -------------------------- | -------- |
+| `min_purchase_price` | `minPurchasePrice` | Giá mua tối thiểu (đơn vị 1000đ) |
+| `max_purchase_price` | `maxPurchasePrice` | Giá mua tối đa (đơn vị 1000đ) |
+| `min_selling_price` | `minSellingPrice` | Giá bán tối thiểu (đơn vị 1000đ) |
+| `max_selling_price` | `maxSellingPrice` | Giá bán tối đa (đơn vị 1000đ) |
+| `min_margin` | `minMargin` | Chênh lệch tối thiểu (đơn vị 1000đ) |
+| `enable_require_product_name` | `enableRequireProductName` | Bắt buộc tên SP |
+| `enable_require_product_code` | `enableRequireProductCode` | Bắt buộc mã SP |
+| `enable_require_product_images` | `enableRequireProductImages` | Bắt buộc hình ảnh |
+| `enable_require_positive_purchase_price` | `enableRequirePositivePurchasePrice` | Giá mua > 0 |
+| `enable_require_positive_selling_price` | `enableRequirePositiveSellingPrice` | Giá bán > 0 |
+| `enable_require_selling_greater_than_purchase` | `enableRequireSellingGreaterThanPurchase` | Giá bán > Giá mua |
+| `enable_require_at_least_one_item` | `enableRequireAtLeastOneItem` | Ít nhất 1 SP |
+
+### 11.5. Đơn Vị 1000đ - Cách Hoạt Động
+
+Tất cả giá trị trong settings và validation đều dùng **đơn vị 1000 VNĐ**:
+
+| User nhập | Lưu DB | Hiển thị | Khi validate |
+| --------- | ------ | -------- | ------------ |
+| 50 | `min_purchase_price = 50` | `formatVND(50 * 1000)` = "50.000 đ" | `purchasePrice < 50` |
+| 100 | `max_purchase_price = 100` | `formatVND(100 * 1000)` = "100.000 đ" | `purchasePrice > 100` |
+| 0 | `min_margin = 0` | "0 đ" | Không check (0 = không giới hạn) |
+
+**Hàm format**:
+```typescript
+// /Users/mac/Downloads/github-html-starter-main/src/lib/currency-utils.ts
+export function formatVND(value: number): string {
+  return `${new Intl.NumberFormat("vi-VN").format(value)} đ`;
+}
+```
+
+### 11.6. Interface ValidationSettings
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` line 201-216
+
+```typescript
+interface ValidationSettings {
+  minPurchasePrice: number;    // Giá mua tối thiểu (1000đ), 0 = không giới hạn
+  maxPurchasePrice: number;    // Giá mua tối đa (1000đ), 0 = không giới hạn
+  minSellingPrice: number;     // Giá bán tối thiểu (1000đ), 0 = không giới hạn
+  maxSellingPrice: number;     // Giá bán tối đa (1000đ), 0 = không giới hạn
+  minMargin: number;           // Chênh lệch tối thiểu (1000đ), 0 = chỉ yêu cầu bán > mua
+
+  enableRequireProductName: boolean;                    // Bắt buộc tên SP
+  enableRequireProductCode: boolean;                    // Bắt buộc mã SP
+  enableRequireProductImages: boolean;                  // Bắt buộc hình ảnh
+  enableRequirePositivePurchasePrice: boolean;           // Giá mua > 0
+  enableRequirePositiveSellingPrice: boolean;             // Giá bán > 0
+  enableRequireSellingGreaterThanPurchase: boolean;       // Giá bán > Giá mua
+  enableRequireAtLeastOneItem: boolean;                   // Ít nhất 1 SP
+}
+```
+
+**Default values** (line 219-232): Tất cả price = 0 (không giới hạn), tất cả boolean = `true` (bật hết)
+
+### 11.7. Bước 3: User Chỉnh Settings → Bấm "Lưu cài đặt"
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` line ~2823
+
+**Khi bấm "Lưu cài đặt"**:
+```typescript
+// line ~2823
+onClick={() => {
+  saveValidationSettingsMutation.mutate(tempValidationSettings);
+}}
+```
+
+**Mutation logic** (line 298-361):
+```
+Bấm "Lưu cài đặt"
+     ↓
+saveValidationSettingsMutation.mutate(tempValidationSettings)
+     ↓
+supabase.from('purchase_order_validation_settings')
+  .upsert({
+    user_id: user.id,
+    min_purchase_price: settings.minPurchasePrice,
+    max_purchase_price: settings.maxPurchasePrice,
+    min_selling_price: settings.minSellingPrice,
+    max_selling_price: settings.maxSellingPrice,
+    min_margin: settings.minMargin,
+    enable_require_product_name: settings.enableRequireProductName,
+    // ... 6 boolean columns nữa
+  }, { onConflict: 'user_id' })   ← UPSERT theo user_id
+     ↓
+onSuccess:
+  ├─ Update validationSettings state
+  ├─ Invalidate query cache
+  ├─ Đóng dialog: setShowValidationSettings(false)
+  └─ Toast: "✅ Đã lưu cài đặt"
+     ↓
+onError:
+  └─ Toast: "❌ Lỗi lưu cài đặt"
+```
+
+**3 nút trong dialog**:
+
+| Nút | Label | onClick | Chức năng |
+| --- | ----- | ------- | --------- |
+| 1 | "Đặt lại mặc định" | `setTempValidationSettings(DEFAULT_VALIDATION_SETTINGS)` | Reset về default (tất cả = 0, boolean = true) |
+| 2 | "Hủy" | `setTempValidationSettings(validationSettings); setShowValidationSettings(false)` | Bỏ thay đổi, đóng dialog |
+| 3 | "✓ Lưu cài đặt" | `saveValidationSettingsMutation.mutate(tempValidationSettings)` | Lưu vào DB |
+
+### 11.8. Bước 4: Validation Real-Time (Red Border Trên Input)
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` line ~2155-2181
+
+**Giá mua** (line ~2155-2166):
+```typescript
+<Input
+  type="text" inputMode="numeric" placeholder="0"
+  value={item.purchase_price === 0 || item.purchase_price === "" ? "" : item.purchase_price}
+  onChange={(e) => updateItem(index, "purchase_price", parseNumberInput(e.target.value))}
+  className={`... ${
+    (item.purchase_price === 0 || item.purchase_price === "")
+      ? 'ring-2 ring-red-500 ring-inset'   // ← VIỀN ĐỎ khi = 0 hoặc rỗng
+      : ''
+  }`}
+/>
+```
+
+**Giá bán** (line ~2169-2181):
+```typescript
+<Input
+  type="text" inputMode="numeric" placeholder="0"
+  value={item.selling_price === 0 || item.selling_price === "" ? "" : item.selling_price}
+  onChange={(e) => updateItem(index, "selling_price", parseNumberInput(e.target.value))}
+  className={`... ${
+    (item.selling_price === 0 || item.selling_price === "") ||
+    (Number(item.selling_price) <= Number(item.purchase_price))
+      ? 'ring-2 ring-red-500 ring-inset'   // ← VIỀN ĐỎ khi = 0/rỗng HOẶC giá bán ≤ giá mua
+      : ''
+  }`}
+/>
+```
+
+**Quy tắc viền đỏ**:
+
+| Field | Điều kiện viền đỏ | Ví dụ |
+| ----- | ----------------- | ----- |
+| Giá mua | `purchase_price === 0` hoặc rỗng | Screenshot hình 1: viền đỏ vì = 0 |
+| Giá bán | `selling_price === 0` hoặc rỗng, HOẶC `selling_price ≤ purchase_price` | Screenshot hình 1: viền đỏ vì = 0 |
+
+**Lưu ý**: Viền đỏ này là validation cứng (hard-coded), KHÔNG phụ thuộc vào ValidationSettings. Settings chỉ ảnh hưởng khi submit.
+
+### 11.9. Bước 5: Validation Khi Submit (Tạo Đơn / Lưu Nháp)
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` line ~850-884
+
+**Hàm `validatePriceSettings()`** (line 371-408):
+
+```typescript
+// /Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx:371
+const validatePriceSettings = (
+  purchasePrice: number,
+  sellingPrice: number,
+  itemNumber: number,
+  settings: ValidationSettings
+): string[] => {
+  const errors: string[] = [];
+
+  // ① Giá mua tối thiểu
+  if (settings.minPurchasePrice > 0 && purchasePrice < settings.minPurchasePrice) {
+    errors.push(`Dòng ${itemNumber}: Giá mua (${formatVND(purchasePrice * 1000)}) thấp hơn tối thiểu (${formatVND(settings.minPurchasePrice * 1000)})`);
+  }
+
+  // ② Giá mua tối đa
+  if (settings.maxPurchasePrice > 0 && purchasePrice > settings.maxPurchasePrice) {
+    errors.push(`Dòng ${itemNumber}: Giá mua (${formatVND(purchasePrice * 1000)}) vượt quá tối đa (${formatVND(settings.maxPurchasePrice * 1000)})`);
+  }
+
+  // ③ Giá bán tối thiểu
+  if (settings.minSellingPrice > 0 && sellingPrice < settings.minSellingPrice) {
+    errors.push(`Dòng ${itemNumber}: Giá bán (${formatVND(sellingPrice * 1000)}) thấp hơn tối thiểu (${formatVND(settings.minSellingPrice * 1000)})`);
+  }
+
+  // ④ Giá bán tối đa
+  if (settings.maxSellingPrice > 0 && sellingPrice > settings.maxSellingPrice) {
+    errors.push(`Dòng ${itemNumber}: Giá bán (${formatVND(sellingPrice * 1000)}) vượt quá tối đa (${formatVND(settings.maxSellingPrice * 1000)})`);
+  }
+
+  // ⑤ Chênh lệch tối thiểu (Margin)
+  const margin = sellingPrice - purchasePrice;
+  if (settings.minMargin > 0 && margin < settings.minMargin) {
+    errors.push(`Dòng ${itemNumber}: Chênh lệch (${formatVND(margin * 1000)}) thấp hơn mức tối thiểu (${formatVND(settings.minMargin * 1000)})`);
+  }
+
+  return errors;
+};
+```
+
+**Gọi khi submit** (line ~871):
+```typescript
+items.forEach((item, index) => {
+  const priceErrors = validatePriceSettings(
+    Number(item.purchase_price),
+    Number(item.selling_price),
+    index + 1,
+    validationSettings
+  );
+  validationErrors.push(...priceErrors);
+});
+
+if (validationErrors.length > 0) {
+  throw new Error("❌ Vui lòng điền đầy đủ thông tin:\n\n" + validationErrors.join("\n"));
+}
+```
+
+### 11.10. Database Schema
+
+- **Table**: `purchase_order_validation_settings`
+- **Migration 1**: `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251102132752_208db819-dc8f-4535-8e3b-4f4c6cf9c01b.sql`
+
+```sql
+CREATE TABLE IF NOT EXISTS public.purchase_order_validation_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  min_purchase_price INTEGER NOT NULL DEFAULT 0,
+  max_purchase_price INTEGER NOT NULL DEFAULT 0,
+  min_selling_price INTEGER NOT NULL DEFAULT 0,
+  max_selling_price INTEGER NOT NULL DEFAULT 0,
+  min_margin INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id)  -- Mỗi user chỉ có 1 row settings
+);
+
+-- RLS: Mỗi user chỉ xem/sửa settings của mình
+ALTER TABLE public.purchase_order_validation_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own" FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own" FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own" FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own" FOR DELETE USING (auth.uid() = user_id);
+```
+
+- **Migration 2** (thêm boolean columns): `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251111032036_009be780-e14a-485e-9f91-e96804cafc13.sql`
+
+```sql
+ALTER TABLE public.purchase_order_validation_settings
+ADD COLUMN IF NOT EXISTS enable_require_product_name BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS enable_require_product_code BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS enable_require_product_images BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS enable_require_positive_purchase_price BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS enable_require_positive_selling_price BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS enable_require_selling_greater_than_purchase BOOLEAN NOT NULL DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS enable_require_at_least_one_item BOOLEAN NOT NULL DEFAULT TRUE;
+```
+
+### 11.11. Ví Dụ Thực Tế (Theo Screenshot)
+
+**Screenshot 1**: "ao 77", Giá mua = 23, Giá bán = 45, Thành tiền = 23.000 đ
+
+```
+Nếu settings: minPurchasePrice = 20, maxPurchasePrice = 200, minMargin = 10
+
+validatePriceSettings(23, 45, 1, settings):
+  ① 23 >= 20 → ✅ Giá mua OK
+  ② 23 <= 200 → ✅ Giá mua OK
+  ③ 45 >= 0  → ✅ Giá bán OK (minSellingPrice = 0)
+  ④ 45 <= 0  → ✅ Giá bán OK (maxSellingPrice = 0 = không giới hạn)
+  ⑤ margin = 45 - 23 = 22 >= 10 → ✅ Chênh lệch OK
+
+→ Không có lỗi → Cho phép tạo đơn
+```
+
+**Nếu Giá mua = 5 (thấp hơn tối thiểu 20)**:
+```
+validatePriceSettings(5, 45, 1, settings):
+  ① 5 < 20 → ❌ "Dòng 1: Giá mua (5.000 đ) thấp hơn tối thiểu (20.000 đ)"
+
+→ Toast error: "❌ Vui lòng điền đầy đủ thông tin: ..."
+→ BLOCK tạo đơn
+```
+
+### 11.12. Luồng Hoạt Động End-to-End (Validation)
+
+```
+User bấm ⚙️ Settings
+     ↓
+setShowValidationSettings(true) → Mở dialog
+     ↓
+Load settings từ Supabase (useQuery → purchase_order_validation_settings)
+     ↓
+User chỉnh: minPurchasePrice=20, maxPurchasePrice=200, minMargin=10
+     ↓
+Bấm "Lưu cài đặt"
+     ↓
+supabase.upsert({ user_id, min_purchase_price: 20, ... })
+     ↓
+Toast: "✅ Đã lưu cài đặt" → Đóng dialog
+     ↓
+Nút ⚙️ highlight (bg-primary/10) vì có settings active
+     ↓
+User nhập sản phẩm: "ao 77", giá mua = 23, giá bán = 45
+     ↓
+Real-time: Giá mua > 0 → không viền đỏ ✅
+Real-time: Giá bán > Giá mua → không viền đỏ ✅
+     ↓
+User bấm "Tạo đơn hàng" hoặc "Lưu nháp"
+     ↓
+validatePriceSettings(23, 45, 1, validationSettings)
+  ├─ 23 >= 20 (minPurchasePrice) ✅
+  ├─ 23 <= 200 (maxPurchasePrice) ✅
+  └─ 45 - 23 = 22 >= 10 (minMargin) ✅
+     ↓
+Không có lỗi → Tạo đơn thành công
+```
+
+---
+
+## 12. Nút "Tạo Đơn Hàng" / "Lưu Nháp" / "Hủy" - Chi Tiết Từng Bước
+
+### 12.1. Tổng Quan 3 Nút
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx`
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│  Tổng số lượng: 1   Tổng tiền: 23.000 đ   Giảm giá: [0]        │
+│                                                                   │
+│                          THÀNH TIỀN: 23.000 đ                    │
+│                                                                   │
+│                              [Hủy]  [Lưu nháp]  [Tạo đơn hàng] │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+| Nút | Label | Line | Handler | Status khi lưu |
+| --- | ----- | ---- | ------- | --------------- |
+| Hủy | "Hủy" | 2353-2355 | `handleClose()` | Không lưu gì |
+| Lưu nháp | "Lưu nháp" / "Đang lưu..." | 2356-2362 | `saveDraftMutation.mutate()` | `status: 'draft'` |
+| Tạo đơn hàng | "Tạo đơn hàng" / "Đang tạo..." | 2363-2389 | `createOrderMutation.mutate()` | `status: 'awaiting_export'` |
+
+### 12.2. Nút "Hủy" → handleClose()
+
+- **Line**: 2353-2355
+- **Handler**: `handleClose()` (line ~1395)
+
+```
+Bấm "Hủy"
+     ↓
+handleClose()
+     ↓
+Có thay đổi chưa lưu?
+  ├─ Có → setShowCloseConfirm(true) → Hiện dialog xác nhận
+  │         ├─ Xác nhận → Đóng dialog, resetForm()
+  │         └─ Hủy → Quay lại form
+  └─ Không → Đóng dialog ngay, resetForm()
+```
+
+### 12.3. Nút "Lưu nháp" → saveDraftMutation
+
+- **Line**: 2356-2362 (button), 725-848 (mutation)
+- **KHÔNG validate** (lưu dù chưa đầy đủ thông tin)
+- **Status**: `'draft'`
+
+**Luồng chi tiết**:
+
+```
+Bấm "Lưu nháp"
+     ↓
+saveDraftMutation.mutate()
+     ↓
+① Tính tiền (× 1000 cho DB):
+   totalAmount = Σ(item._tempTotalPrice) × 1000
+   discountAmount = formData.discount_amount × 1000
+   shippingFee = formData.shipping_fee × 1000
+   finalAmount = totalAmount - discountAmount + shippingFee
+     ↓
+② Có initialData?.id? (đang sửa draft cũ?)
+   ├─ CÓ → UPDATE purchase_orders (status='draft')
+   │        → DELETE old items
+   │        → INSERT new items
+   └─ KHÔNG → INSERT purchase_orders (status='draft')
+              → INSERT purchase_order_items
+     ↓
+③ Lưu items vào DB:
+   items.filter(i => i.product_name.trim())  ← Bỏ dòng rỗng
+   .map(item => ({
+     purchase_order_id: order.id,
+     quantity: item.quantity,
+     position: index + 1,
+     product_code: item.product_code.trim().toUpperCase(),
+     product_name: item.product_name.trim().toUpperCase(),
+     variant: item.variant?.trim().toUpperCase() || null,
+     purchase_price: Number(item.purchase_price) × 1000,
+     selling_price: Number(item.selling_price) × 1000,
+     product_images: [...],
+     price_images: [...],
+     selected_attribute_value_ids: item.selectedAttributeValueIds || null,
+   }))
+     ↓
+onSuccess:
+   → Toast: "Đã lưu nháp!"
+   → Invalidate cache: ["purchase-orders"]
+   → Đóng dialog: onOpenChange(false)
+   → resetForm()
+     ↓
+onError:
+   → Toast: "Lỗi lưu nháp" + error.message
+```
+
+**Khác biệt với "Tạo đơn hàng"**:
+- KHÔNG validate supplier, prices, images
+- KHÔNG gọi edge function TPOS
+- KHÔNG tạo parent products
+- KHÔNG convert images sang base64
+- Status = `'draft'` (không phải `'awaiting_export'`)
+
+### 12.4. Nút "Tạo đơn hàng" → Pre-Validation (Real-time)
+
+- **Line**: 2363-2389 (button), 666-723 (validateItems)
+
+**Trước khi gọi mutation**, button check `isItemsValid`:
+
+```typescript
+// Line 723 - useMemo chạy real-time khi items thay đổi
+const { isValid: isItemsValid, invalidFields } = useMemo(
+  () => validateItems(), [items, validationSettings]
+);
+```
+
+**Nút disabled** khi `!isItemsValid`:
+```typescript
+// Line 2386
+disabled={createOrderMutation.isPending || !isItemsValid}
+className={!isItemsValid ? "opacity-50 cursor-not-allowed" : ""}
+```
+
+**Khi bấm mà `!isItemsValid`** → Hiện toast lỗi chi tiết:
+```typescript
+// Line 2366-2380
+toast({
+  title: "Không thể tạo đơn hàng",
+  description: (
+    <ul className="list-disc list-inside text-xs">
+      {invalidFields.map((field, idx) => <li key={idx}>{field}</li>)}
+    </ul>
+  ),
+  variant: "destructive",
+});
+return;  // ← KHÔNG gọi mutation
+```
+
+### 12.5. validateItems() - 7 Quy Tắc Kiểm Tra
+
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` line 666-720
+- **Chạy real-time** qua `useMemo` (line 723)
+- **Phụ thuộc** vào `validationSettings` (từ section 11)
+
+| # | Check | Điều kiện bật | Lỗi khi vi phạm |
+| - | ----- | ------------- | ---------------- |
+| 1 | Ít nhất 1 SP | `enableRequireAtLeastOneItem` | "Phải có ít nhất 1 sản phẩm" |
+| 2 | Tên SP | `enableRequireProductName` | "Dòng X: Thiếu tên sản phẩm" |
+| 3 | Mã SP | `enableRequireProductCode` | "Dòng X: Thiếu mã sản phẩm" |
+| 4 | Giá mua > 0 | `enableRequirePositivePurchasePrice` | "Dòng X: Giá mua phải > 0" |
+| 5 | Giá bán > 0 | `enableRequirePositiveSellingPrice` | "Dòng X: Giá bán phải > 0" |
+| 6 | Giá bán > Giá mua | `enableRequireSellingGreaterThanPurchase` | "Dòng X: Giá bán (Y đ) phải lớn hơn giá mua (Z đ)" |
+| 7 | Hình ảnh SP | `enableRequireProductImages` | "Dòng X: Thiếu hình ảnh sản phẩm" |
+
+### 12.6. Bước 1: Validation Khi Submit (createOrderMutation)
+
+- **Line**: 850-884
+
+```
+createOrderMutation.mutate()
+     ↓
+① Validate NCC:
+   if (!formData.supplier_name?.trim())
+     → throw "❌ Vui lòng nhập tên nhà cung cấp"
+     ↓
+② Validate items:
+   if (items.length === 0)
+     → throw "❌ Vui lòng thêm ít nhất một sản phẩm"
+     ↓
+③ Validate giá từng item (validatePriceSettings):
+   items.forEach((item, index) => {
+     priceErrors = validatePriceSettings(
+       Number(item.purchase_price),
+       Number(item.selling_price),
+       index + 1,
+       validationSettings   ← Settings từ Section 11
+     );
+   })
+     ↓
+④ Nếu có lỗi:
+   throw "❌ Vui lòng điền đầy đủ thông tin:\n" + errors.join("\n")
+   → Toast destructive → STOP
+```
+
+### 12.7. Bước 2: Pre-Convert Images Sang Base64
+
+- **Line**: 886-913
+
+```
+Lấy tất cả product_images URLs từ items
+     ↓
+Loại bỏ trùng lặp (Set)
+     ↓
+Kiểm tra URL nào chưa có trong imageCache (Map<URL, base64>)
+     ↓
+Nếu có uncached:
+  → Toast: "⏳ Đang chuẩn bị X ảnh..."
+  → Promise.all: fetch từng URL → convert sang base64
+  → Nếu ảnh > MAX_IMAGE_BYTES → resize (resizeImageBlob)
+  → Lưu vào imageCache
+     ↓
+Log: "✅ All images cached: X total"
+```
+
+**Hàm convert** (line 140-171):
+```typescript
+// /Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx:140
+const convertUrlToBase64 = async (url: string): Promise<string | null> => {
+  const response = await fetch(url);
+  let blob = await response.blob();
+  if (blob.size > MAX_IMAGE_BYTES) {
+    blob = await resizeImageBlob(blob);  // Resize ảnh quá lớn
+  }
+  // FileReader → base64 (bỏ prefix "data:image/...;base64,")
+  return base64Data;
+};
+```
+
+### 12.8. Bước 3: Tính Tiền (× 1000)
+
+- **Line**: 915-918
+
+```typescript
+const totalAmount = items.reduce((sum, item) => sum + item._tempTotalPrice, 0) * 1000;
+const discountAmount = formData.discount_amount * 1000;
+const shippingFee = formData.shipping_fee * 1000;
+const finalAmount = totalAmount - discountAmount + shippingFee;
+```
+
+| Giá trị | Công thức | Ví dụ (screenshot: giá mua=23, SL=1) |
+| ------- | --------- | ------------------------------------- |
+| `_tempTotalPrice` | `quantity × purchase_price` | 1 × 23 = 23 |
+| `totalAmount` | `Σ(_tempTotalPrice) × 1000` | 23 × 1000 = 23.000 |
+| `discountAmount` | `discount × 1000` | 0 × 1000 = 0 |
+| `shippingFee` | `shipping × 1000` | 0 × 1000 = 0 |
+| `finalAmount` | `total - discount + shipping` | 23.000 - 0 + 0 = 23.000 |
+
+### 12.9. Bước 4: INSERT purchase_orders
+
+- **Line**: 1075-1092
+
+```
+supabase.from("purchase_orders").insert({
+  supplier_name: "NCC TÊN".toUpperCase(),
+  order_date: "2026-02-23T...",
+  invoice_amount: formData.invoice_amount × 1000,
+  total_amount: 23000,
+  final_amount: 23000,
+  discount_amount: 0,
+  shipping_fee: 0,
+  invoice_images: [...] hoặc null,
+  notes: "GHI CHÚ".toUpperCase(),
+  status: 'awaiting_export'       ← ⚠️ KHÔNG phải 'draft'
+}).select().single()
+     ↓
+Trả về: order { id, ... }
+```
+
+**Data transformations**:
+- Tất cả text → `.trim().toUpperCase()`
+- Tất cả tiền → `× 1000`
+- Images rỗng → `null`
+- Status = `'awaiting_export'`
+
+### 12.10. Bước 5: INSERT purchase_order_items
+
+- **Line**: 1095-1128
+
+```
+items
+  .filter(item => item.product_name.trim())    ← Bỏ dòng rỗng
+  .map((item, index) => ({
+    purchase_order_id: order.id,
+    quantity: item.quantity,                     // 1
+    position: index + 1,                        // 1, 2, 3...
+    notes: "...".toUpperCase() || null,
+    product_code: "N4033",                      // toUpperCase
+    product_name: "AO 77",                      // toUpperCase
+    variant: "TRANG, M" || null,                // toUpperCase
+    purchase_price: 23 × 1000 = 23000,          // × 1000
+    selling_price: 45 × 1000 = 45000,           // × 1000
+    product_images: ["url1", "url2"],
+    price_images: ["url3"],
+    selected_attribute_value_ids: ["uuid1", "uuid2"] || null,
+    tpos_product_id: null,                      // Chưa có TPOS ID
+    tpos_sync_status: 'pending',                // Chờ edge function xử lý
+    tpos_sync_completed_at: null,
+  }))
+     ↓
+supabase.from("purchase_order_items").insert(orderItems)
+```
+
+### 12.11. Bước 6: Gọi Edge Function (Background TPOS Processing)
+
+- **Line**: 1130-1169
+
+```
+① Convert imageCache Map → plain Object:
+   cacheObject = Object.fromEntries(imageCache)
+     ↓
+② Toast loading: "Đang xử lý 0/1 sản phẩm..."
+     ↓
+③ Fire-and-forget (KHÔNG await):
+   supabase.functions.invoke(
+     'process-purchase-order-background',
+     { body: {
+         purchase_order_id: order.id,
+         imageCache: cacheObject    ← base64 images
+     }}
+   )
+     ↓
+④ Start polling:
+   pollTPOSProcessingProgress(order.id, totalItems, toastId)
+```
+
+**Edge function**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/process-purchase-order-background/index.ts`
+- Nhận `purchase_order_id` + `imageCache`
+- Group items theo `product_code` + `selected_attribute_value_ids`
+- Tạo sản phẩm variant trên TPOS API
+- Update `tpos_sync_status` = 'success' / 'failed' cho từng item
+
+### 12.12. Bước 7: Polling Tiến Trình TPOS
+
+- **Line**: 1258-1355
+
+```
+pollTPOSProcessingProgress(orderId, totalItems, toastId)
+     ↓
+Mỗi 1-3 giây (adaptive backoff × 1.2, max 3s):
+     ↓
+Query: supabase.from('purchase_order_items')
+  .select('id, tpos_sync_status, product_code, tpos_sync_error')
+  .eq('purchase_order_id', orderId)
+     ↓
+Đếm:
+  successCount = items.filter(status === 'success').length
+  failedCount = items.filter(status === 'failed').length
+  completedCount = successCount + failedCount
+     ↓
+Update toast: "Đang xử lý 1/3 sản phẩm... (1 ✅, 0 ❌)"
+     ↓
+Khi completedCount >= totalItems:
+  ├─ Tất cả ✅: "✅ Đã tạo thành công X sản phẩm trên TPOS!"
+  ├─ Tất cả ❌: "❌ Tất cả X sản phẩm đều lỗi"
+  └─ Pha trộn: "⚠️ X thành công, Y lỗi. Retry trong chi tiết đơn"
+     ↓
+Timeout: 60 polls (≈2 phút) → "⏱️ Timeout: Xử lý quá lâu"
+```
+
+### 12.13. Bước 8: Tạo Parent Products
+
+- **Line**: 1171-1236
+
+```
+① Group items theo product_code:
+   Map<product_code, { variants: Set<string>, data: {...} }>
+     ↓
+② Với mỗi product_code (ví dụ "N4033"):
+   → Check: supabase.from("products").select().eq("product_code", "N4033")
+   → Nếu CHƯA tồn tại → Thêm vào danh sách tạo mới
+     ↓
+③ INSERT vào products table:
+   {
+     product_code: "N4033",
+     base_product_code: "N4033",
+     product_name: "AO 77",
+     purchase_price: 23000,
+     selling_price: 45000,
+     supplier_name: "NCC TÊN",
+     product_images: ["url1"],
+     price_images: ["url3"],
+     stock_quantity: 0,
+     unit: 'Cái',
+     variant: "TRANG, M" (nếu có nhiều variant gộp lại)
+   }
+```
+
+### 12.14. Bước 9: onSuccess → Đóng Dialog
+
+- **Line**: 1240-1248
+
+```
+onSuccess:
+  ├─ Invalidate cache:
+  │   ├─ ["purchase-orders"]      → Refresh danh sách đơn
+  │   ├─ ["purchase-order-stats"] → Refresh thống kê
+  │   ├─ ["products"]             → Refresh danh sách SP
+  │   └─ ["products-select"]      → Refresh dropdown SP
+  ├─ onOpenChange(false)          → Đóng dialog
+  └─ resetForm()                  → Reset form về mặc định
+       ├─ imageCache.clear()
+       ├─ formData = { supplier: "", ... }
+       ├─ items = [{ empty item }]
+       └─ manualProductCodes = new Set()
+```
+
+**KHÔNG hiện toast success** ở đây (toast do polling function hiện khi TPOS xong)
+
+### 12.15. onError → Hiện Toast Lỗi
+
+- **Line**: 1249-1255
+
+```
+onError:
+  → Toast destructive: "Lỗi tạo đơn hàng" + error.message
+  → Dialog KHÔNG đóng → User sửa lỗi rồi thử lại
+```
+
+### 12.16. Luồng End-to-End Hoàn Chỉnh
+
+```
+User điền form: NCC="A12", SP="ao 77", Mã="N4033", Giá mua=23, Giá bán=45
+     │
+     ↓ Bấm "Tạo đơn hàng"
+     │
+Pre-check: isItemsValid? (useMemo real-time)
+  ├─ Tên SP ✅, Mã SP ✅, Giá mua > 0 ✅, Giá bán > 0 ✅, Giá bán > Giá mua ✅
+  └─ Hình ảnh? (tùy settings)
+     │
+     ↓ createOrderMutation.mutate()
+     │
+① VALIDATE:
+   NCC="A12" ✅ (không rỗng)
+   items.length=1 ✅ (≥ 1)
+   validatePriceSettings(23, 45, 1, settings) → [] (không lỗi)
+     │
+     ↓
+② PRE-CONVERT IMAGES:
+   product_images = [] → uncached = 0 → skip
+     │
+     ↓
+③ TÍNH TIỀN:
+   totalAmount = 23 × 1000 = 23.000
+   finalAmount = 23.000 - 0 + 0 = 23.000
+     │
+     ↓
+④ INSERT purchase_orders:
+   { supplier="A12", status="awaiting_export", total=23000, final=23000 }
+   → order.id = "abc-123..."
+     │
+     ↓
+⑤ INSERT purchase_order_items:
+   [{ order_id="abc-123", code="N4033", name="AO 77",
+      purchase_price=23000, selling_price=45000,
+      tpos_sync_status="pending" }]
+     │
+     ↓
+⑥ EDGE FUNCTION (fire-and-forget):
+   process-purchase-order-background({ purchase_order_id: "abc-123", imageCache: {} })
+     │
+     ↓
+⑦ POLLING (mỗi 1-3s):
+   Toast: "Đang xử lý 0/1 sản phẩm..."
+   → Query DB → tpos_sync_status = 'success'
+   → Toast: "✅ Đã tạo thành công 1 sản phẩm trên TPOS!"
+     │
+     ↓
+⑧ TẠO PARENT PRODUCT:
+   Check products table → "N4033" chưa tồn tại
+   → INSERT { product_code="N4033", name="AO 77", stock=0, unit="Cái" }
+     │
+     ↓
+⑨ ON SUCCESS:
+   → Invalidate 4 query caches
+   → Đóng dialog
+   → Reset form
+     │
+     ↓
+DONE ✅
+```
+
+---
+
+## 13. Luồng Hoạt Động End-to-End (Toàn Bộ Hệ Thống)
 
 
 ```
@@ -1884,7 +2777,7 @@ Bấm ✏️ → [N131 ✓] (editable) → sửa → bấm ✓ → [N999 ✏️]
 
 ---
 
-## 12. Bảng Tóm Tắt Tất Cả File
+## 14. Bảng Tóm Tắt Tất Cả File
 
 ### Data files (JSON cache từ TPOS)
 
@@ -1906,6 +2799,14 @@ Bấm ✏️ → [N131 ✓] (editable) → sửa → bấm ✓ → [N999 ✏️]
 | `attribute-sort-utils.ts`     | `/Users/mac/Downloads/github-html-starter-main/src/lib/attribute-sort-utils.ts`           | Sắp xếp thông minh (màu chuẩn, size số/chữ)    |
 | `product-code-generator.ts`  | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts`         | Auto-generate mã SP: detect category, query max, check trùng 4 nguồn |
 | `utils.ts`                    | `/Users/mac/Downloads/github-html-starter-main/src/lib/utils.ts`                          | `convertVietnameseToUpperCase()` bỏ dấu tiếng Việt |
+| `currency-utils.ts`           | `/Users/mac/Downloads/github-html-starter-main/src/lib/currency-utils.ts`                 | `formatVND()` format tiền VNĐ |
+
+### Database - Validation Settings
+
+| File | Đường dẫn đầy đủ | Vai trò |
+| ---- | ----------------- | ------- |
+| Migration (table) | `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251102132752_208db819-dc8f-4535-8e3b-4f4c6cf9c01b.sql` | Tạo table `purchase_order_validation_settings` (RLS per-user) |
+| Migration (booleans) | `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251111032036_009be780-e14a-485e-9f91-e96804cafc13.sql` | Thêm 7 boolean columns (quy tắc kiểm tra) |
 
 ### UI Components
 
