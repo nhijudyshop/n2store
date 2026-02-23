@@ -1844,18 +1844,25 @@ class InventoryPickerDialog {
 
         // Add selected products
         this.modalElement.querySelector('#btnAddSelectedProducts')?.addEventListener('click', () => {
+            console.log('[InventoryPicker] btnAddSelectedProducts clicked');
+            console.log('[InventoryPicker] selectedProducts size:', this.selectedProducts.size);
+            console.log('[InventoryPicker] onSelect exists:', !!this.onSelect);
+
             if (this.selectedProducts.size > 0 && this.onSelect) {
                 const productsArray = Array.from(this.selectedProducts.values());
-                console.log('[InventoryPicker] Adding products:', productsArray.length, productsArray);
-                console.log('[InventoryPicker] onSelect type:', typeof this.onSelect);
+                console.log('[InventoryPicker] Products to add:', productsArray.length, productsArray);
+
                 try {
                     this.onSelect(productsArray);
-                    console.log('[InventoryPicker] onSelect completed');
+                    console.log('[InventoryPicker] onSelect completed successfully');
                 } catch (error) {
                     console.error('[InventoryPicker] onSelect ERROR:', error);
                 }
+
                 this.clearSelectedFromStorage(); // Reset for next time
                 this.close();
+            } else {
+                console.log('[InventoryPicker] Skipping - no products or no callback');
             }
         });
     }

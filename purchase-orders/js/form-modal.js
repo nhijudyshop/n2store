@@ -1331,18 +1331,24 @@ class PurchaseOrderFormModal {
         this.modalElement.querySelector('#btnChooseInventory')?.addEventListener('click', () => {
             console.log('[FormModal] btnChooseInventory clicked');
             if (window.inventoryPickerDialog) {
+                // Store reference to this FormModal instance
+                const formModal = this;
+
                 window.inventoryPickerDialog.open({
-                    onSelect: (products) => {
+                    onSelect: function(products) {
                         console.log('[FormModal-MAIN] Received products:', products.length, products);
 
                         // Remove empty items before adding new products
-                        this.formData.items = this.formData.items.filter(item =>
+                        formModal.formData.items = formModal.formData.items.filter(item =>
                             item.productName?.trim() || item.productCode?.trim()
                         );
 
-                        products.forEach((product, index) => {
-                            console.log(`[FormModal-MAIN] Adding product ${index + 1}:`, product.code, product.name);
-                            const item = this.addItem();
+                        console.log('[FormModal-MAIN] Items after filter:', formModal.formData.items.length);
+
+                        for (let i = 0; i < products.length; i++) {
+                            const product = products[i];
+                            console.log(`[FormModal-MAIN] Adding product ${i + 1}:`, product.code, product.name);
+                            const item = formModal.addItem();
                             item.productName = product.name || '';
                             item.productCode = product.code || '';
                             item.purchasePrice = product.purchasePrice || 0;
@@ -1351,10 +1357,10 @@ class PurchaseOrderFormModal {
                             if (product.image) {
                                 item.productImages = [product.image];
                             }
-                        });
+                        }
 
-                        console.log('[FormModal-MAIN] Total items after adding:', this.formData.items.length);
-                        this.refreshItemsTable();
+                        console.log('[FormModal-MAIN] Total items after adding:', formModal.formData.items.length);
+                        formModal.refreshItemsTable();
                     }
                 });
             }
