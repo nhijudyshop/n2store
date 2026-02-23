@@ -836,7 +836,7 @@ class PurchaseOrderFormModal {
                 background: white;
                 border-radius: 12px;
                 width: 100%;
-                max-width: 1400px;
+                max-width: 1600px;
                 max-height: 95vh;
                 display: flex;
                 flex-direction: column;
@@ -1410,11 +1410,8 @@ class PurchaseOrderFormModal {
         });
 
         // Close on overlay click
-        this.modalElement.addEventListener('click', (e) => {
-            if (e.target === this.modalElement) {
-                this.close();
-            }
-        });
+        // Do NOT close on outside click - prevent accidental data loss
+        // User must use X button or Cancel to close
 
         // Add product button
         this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', () => {
@@ -1662,17 +1659,27 @@ class PurchaseOrderFormModal {
                     this.updateTotals();
 
                     // Auto-generate product code when product name changes
-                    if (field === 'productName' && e.target.value.trim()) {
-                        // Auto-detect supplier from first product
-                        if (this.formData.items.indexOf(item) === 0) {
-                            this.autoDetectSupplier(e.target.value);
-                        }
+                    if (field === 'productName') {
+                        if (e.target.value.trim()) {
+                            // Auto-detect supplier from first product
+                            if (this.formData.items.indexOf(item) === 0) {
+                                this.autoDetectSupplier(e.target.value);
+                            }
 
-                        // Debounce code generation
-                        clearTimeout(codeGenTimer);
-                        codeGenTimer = setTimeout(() => {
-                            this.autoGenerateProductCode(item);
-                        }, 800);
+                            // Debounce code generation
+                            clearTimeout(codeGenTimer);
+                            codeGenTimer = setTimeout(() => {
+                                this.autoGenerateProductCode(item);
+                            }, 800);
+                        } else {
+                            // Name cleared → clear product code too
+                            clearTimeout(codeGenTimer);
+                            if (!item._manualCodeEdit) {
+                                item.productCode = '';
+                                const codeInput = row?.querySelector('input[data-field="productCode"]');
+                                if (codeInput) codeInput.value = '';
+                            }
+                        }
                     }
 
                     // Mark as manual edit if user changes product code
