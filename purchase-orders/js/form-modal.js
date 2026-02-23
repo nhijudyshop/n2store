@@ -680,7 +680,8 @@ class PurchaseOrderFormModal {
             shippingFee: order.shippingFee || '',
             items: (order.items || []).map((item, index) => ({
                 ...item,
-                id: item.id || `item_${index}`
+                id: item.id || `item_${index}`,
+                _isExistingItem: true
             }))
         };
         this.itemCounter = this.formData.items.length;
@@ -723,10 +724,20 @@ class PurchaseOrderFormModal {
         const newItem = {
             ...sourceItem,
             id: `item_${Date.now()}_${this.itemCounter++}`,
+            productCode: '', // Clear code so auto-generate can create new one
+            _manualCodeEdit: false,
+            _isExistingItem: false,
+            variant: '',
+            selectedAttributeValueIds: [],
             productImages: [...(sourceItem.productImages || [])],
             priceImages: [...(sourceItem.priceImages || [])]
         };
         this.formData.items.push(newItem);
+
+        // Auto-generate new product code for copied item
+        if (newItem.productName && newItem.productName.trim()) {
+            this.autoGenerateProductCode(newItem);
+        }
     }
 
     /**
@@ -1202,25 +1213,26 @@ class PurchaseOrderFormModal {
                                 border-radius: 6px;
                                 font-size: 13px;
                                 box-sizing: border-box;
-                                background: #f9fafb;
+                                background: ${(this.isEdit && item._isExistingItem) ? '#e5e7eb' : '#f9fafb'};
                                 color: #374151;
+                                ${(this.isEdit && item._isExistingItem) ? 'cursor: not-allowed; opacity: 0.7;' : ''}
                             ">
-                            <button type="button" data-action="editCode" style="
+                            ${(this.isEdit && item._isExistingItem) ? '' : `<button type="button" data-action="editCode" style="
                                 width: 32px;
                                 height: 36px;
                                 border: 1px solid #d1d5db;
                                 border-radius: 6px;
-                                background: white;
+                                background: ${item._manualCodeEdit ? '#dcfce7' : 'white'};
                                 cursor: pointer;
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
                             ">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                </svg>
-                            </button>
+                                ${item._manualCodeEdit
+                                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>'
+                                    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>'
+                                }
+                            </button>`}
                         </div>
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
@@ -1560,12 +1572,22 @@ class PurchaseOrderFormModal {
     async autoGenerateProductCode(item) {
         if (!item || !item.productName || item._manualCodeEdit) return;
 
+        // Skip existing items in edit mode
+        if (this.isEdit && item._isExistingItem) return;
+
         // Skip if code already exists
         if (item.productCode && item.productCode.trim()) return;
 
         // Use ProductCodeGenerator if available
         if (window.ProductCodeGenerator) {
             try {
+                // Detect category first
+                const category = window.ProductCodeGenerator.detectProductCategory(item.productName);
+                if (!category) {
+                    console.warn('Could not detect category for:', item.productName);
+                    return;
+                }
+
                 const code = await window.ProductCodeGenerator.generateProductCodeFromMax(
                     item.productName,
                     this.formData.items
@@ -1578,6 +1600,14 @@ class PurchaseOrderFormModal {
                     const codeInput = row?.querySelector('input[data-field="productCode"]');
                     if (codeInput) {
                         codeInput.value = code;
+                    }
+                } else {
+                    // Failed after max attempts
+                    if (window.notificationManager) {
+                        window.notificationManager.show(
+                            '⚠️ Mã trùng trên TPOS hơn 30 mã. Vào TPOS tìm mã lớn nhất điền tay cho mã sản phẩm đầu tiên',
+                            'warning'
+                        );
                     }
                 }
             } catch (error) {
@@ -1660,16 +1690,37 @@ class PurchaseOrderFormModal {
                 const itemId = row?.dataset.itemId;
                 const action = e.target.closest('button').dataset.action;
 
-                if (action === 'editCode') {
+                if (action === 'editCode' && itemId) {
+                    const item = this.formData.items.find(i => i.id === itemId);
+                    if (!item) return;
+
+                    // Toggle manual edit mode
+                    item._manualCodeEdit = !item._manualCodeEdit;
+
                     const codeInput = e.target.closest('td')?.querySelector('input[data-field="productCode"]');
-                    if (codeInput) {
-                        codeInput.disabled = false;
-                        codeInput.style.background = '';
-                        codeInput.focus();
-                        codeInput.addEventListener('blur', () => {
+                    const btn = e.target.closest('button[data-action="editCode"]');
+
+                    if (item._manualCodeEdit) {
+                        // Switch to edit mode (Check icon)
+                        if (codeInput) {
+                            codeInput.disabled = false;
+                            codeInput.style.background = '';
+                            codeInput.focus();
+                        }
+                        if (btn) {
+                            btn.style.background = '#dcfce7';
+                            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                        }
+                    } else {
+                        // Switch to read-only mode (Pencil icon)
+                        if (codeInput) {
                             codeInput.disabled = true;
                             codeInput.style.background = '#f9fafb';
-                        }, { once: true });
+                        }
+                        if (btn) {
+                            btn.style.background = 'white';
+                            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+                        }
                     }
                 } else if (action === 'delete' && itemId) {
                     this.removeItem(itemId);
