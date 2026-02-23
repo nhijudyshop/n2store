@@ -851,7 +851,7 @@ class SettingsDialog {
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
-        this.modalElement.style.zIndex = '999999';
+        this.modalElement.style.zIndex = '100000';
         this.modalElement.innerHTML = `
             <div class="modal modal--md" style="max-width: 600px;">
                 <div class="modal__header">
