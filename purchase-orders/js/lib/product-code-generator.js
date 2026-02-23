@@ -196,13 +196,12 @@ window.ProductCodeGenerator = (function() {
     }
 
     /**
-     * Get max number from Firestore (purchase_order_items collection)
+     * Get max number from Firestore (purchase_orders collection → items array)
      * @param {string} category
      * @returns {Promise<number>}
      */
     async function getMaxNumberFromFirestore(category) {
         try {
-            // Use Firestore to query items with matching code prefix
             if (!window.firebase || !window.firebase.firestore) {
                 console.warn('Firestore not available');
                 return 0;
@@ -210,25 +209,78 @@ window.ProductCodeGenerator = (function() {
 
             const db = firebase.firestore();
             const prefix = category.toUpperCase();
-
-            // Query purchase_order_items where product_code starts with category
-            // Firestore doesn't support startsWith directly, so we use range query
-            const startCode = prefix;
-            const endCode = prefix + '\uf8ff';
-
-            const snapshot = await db.collection('purchase_order_items')
-                .where('product_code', '>=', startCode)
-                .where('product_code', '<=', endCode)
-                .orderBy('product_code', 'desc')
-                .limit(50)
-                .get();
-
-            let maxNum = 0;
             const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
 
+            // Items are stored as array field inside purchase_orders documents
+            const snapshot = await db.collection('purchase_orders').get();
+
+            let maxNum = 0;
+
             snapshot.forEach(doc => {
-                const code = doc.data().product_code;
-                if (code) {
+                const data = doc.data();
+                const items = data.items || [];
+                for (const item of items) {
+                    const code = item.productCode || '';
+                    if (code) {
+                        const match = code.match(regex);
+                        if (match) {
+                            const num = parseInt(match[1], 10);
+                            if (num > maxNum) {
+                                maxNum = num;
+                            }
+                        }
+                    }
+                }
+            });
+
+            console.log(`[ProductCodeGen] Firestore max for ${prefix}: ${maxNum}`);
+            return maxNum;
+        } catch (error) {
+            console.error('Error getting max number from Firestore:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Get max number from TPOS (search products by code prefix)
+     * @param {string} category - Category prefix (N, P, Q)
+     * @returns {Promise<number>}
+     */
+    async function getMaxNumberFromTPOS(category) {
+        try {
+            if (!window.TPOSClient || !window.TPOSClient.getToken) {
+                return 0;
+            }
+
+            const prefix = category.toUpperCase();
+            const token = await window.TPOSClient.getToken();
+            const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+            // Search TPOS for products with this prefix, ordered by code desc
+            const url = `${PROXY_URL}/api/odata/Product/OdataService.GetViewV2`
+                + `?Active=true`
+                + `&$filter=startswith(DefaultCode,'${prefix}')`
+                + `&$top=50`
+                + `&$orderby=DefaultCode desc`
+                + `&$count=true`;
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) return 0;
+
+            const data = await response.json();
+            const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
+            let maxNum = 0;
+
+            if (data.value && data.value.length > 0) {
+                for (const product of data.value) {
+                    const code = product.DefaultCode || product.Code || '';
                     const match = code.match(regex);
                     if (match) {
                         const num = parseInt(match[1], 10);
@@ -237,11 +289,12 @@ window.ProductCodeGenerator = (function() {
                         }
                     }
                 }
-            });
+            }
 
+            console.log(`[ProductCodeGen] TPOS max for ${prefix}: ${maxNum}`);
             return maxNum;
         } catch (error) {
-            console.error('Error getting max number from Firestore:', error);
+            console.error('Error getting max number from TPOS:', error);
             return 0;
         }
     }
@@ -273,24 +326,23 @@ window.ProductCodeGenerator = (function() {
             }
 
             const db = firebase.firestore();
+            const upperCode = code.toUpperCase();
 
-            // Check in purchase_order_items
-            const itemsSnapshot = await db.collection('purchase_order_items')
-                .where('product_code', '==', code.toUpperCase())
-                .limit(1)
-                .get();
+            // Items are inside purchase_orders documents as array field
+            // We already scanned all orders in getMaxNumberFromFirestore,
+            // so use a simple scan here too
+            const snapshot = await db.collection('purchase_orders').get();
 
-            if (!itemsSnapshot.empty) {
-                return true;
+            for (const doc of snapshot.docs) {
+                const items = doc.data().items || [];
+                for (const item of items) {
+                    if ((item.productCode || '').toUpperCase() === upperCode) {
+                        return true;
+                    }
+                }
             }
 
-            // Check in products collection if exists
-            const productsSnapshot = await db.collection('products')
-                .where('product_code', '==', code.toUpperCase())
-                .limit(1)
-                .get();
-
-            return !productsSnapshot.empty;
+            return false;
         } catch (error) {
             console.error('Error checking code in Firestore:', error);
             return false;
@@ -331,10 +383,14 @@ window.ProductCodeGenerator = (function() {
             return null;
         }
 
-        // Get max numbers from all sources
+        // Get max numbers from all sources (parallel)
+        const [maxFromFirestore, maxFromTPOS] = await Promise.all([
+            getMaxNumberFromFirestore(category),
+            getMaxNumberFromTPOS(category)
+        ]);
         const maxFromItems = getMaxNumberFromItems(existingItems, category);
-        const maxFromFirestore = await getMaxNumberFromFirestore(category);
-        const maxNumber = Math.max(maxFromItems, maxFromFirestore);
+        const maxNumber = Math.max(maxFromItems, maxFromFirestore, maxFromTPOS);
+        console.log(`[ProductCodeGen] Max for ${category}: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
 
         // Try to find unused code
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -415,6 +471,7 @@ window.ProductCodeGenerator = (function() {
         detectProductCategory,
         getMaxNumberFromItems,
         getMaxNumberFromFirestore,
+        getMaxNumberFromTPOS,
         generateProductCodeFromMax,
         generateProductCodeSync,
         extractBaseProductCode,
