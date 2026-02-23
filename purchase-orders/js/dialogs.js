@@ -1847,7 +1847,13 @@ class InventoryPickerDialog {
             if (this.selectedProducts.size > 0 && this.onSelect) {
                 const productsArray = Array.from(this.selectedProducts.values());
                 console.log('[InventoryPicker] Adding products:', productsArray.length, productsArray);
-                this.onSelect(productsArray);
+                console.log('[InventoryPicker] onSelect type:', typeof this.onSelect);
+                try {
+                    this.onSelect(productsArray);
+                    console.log('[InventoryPicker] onSelect completed');
+                } catch (error) {
+                    console.error('[InventoryPicker] onSelect ERROR:', error);
+                }
                 this.clearSelectedFromStorage(); // Reset for next time
                 this.close();
             }
