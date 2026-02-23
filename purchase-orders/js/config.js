@@ -156,7 +156,7 @@ function canEditOrder(status) {
  * @returns {boolean}
  */
 function canDeleteOrder(status) {
-    return status === OrderStatus.DRAFT || status === OrderStatus.CANCELLED;
+    return status === OrderStatus.DRAFT || status === OrderStatus.AWAITING_PURCHASE || status === OrderStatus.CANCELLED;
 }
 
 /**
