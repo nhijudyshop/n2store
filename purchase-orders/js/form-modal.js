@@ -1826,14 +1826,36 @@ class PurchaseOrderFormModal {
     }
 
     /**
-     * Collect form data from inputs
+     * Collect form data from inputs (top-level + item-level)
      */
     collectFormData() {
+        // Top-level fields
         this.formData.supplier = this.modalElement?.querySelector('#inputSupplier')?.value || '';
         this.formData.orderDate = this.modalElement?.querySelector('#inputOrderDate')?.value || '';
         this.formData.invoiceAmount = this.modalElement?.querySelector('#inputInvoiceAmount')?.value || '';
         this.formData.notes = this.modalElement?.querySelector('#inputNotes')?.value || '';
         this.formData.discountAmount = this.modalElement?.querySelector('#inputDiscount')?.value || '';
+
+        // Item-level fields: sync DOM input values back to formData.items
+        const tbody = this.modalElement?.querySelector('#itemsTableBody');
+        if (tbody) {
+            tbody.querySelectorAll('tr[data-item-id]').forEach(row => {
+                const itemId = row.dataset.itemId;
+                const item = this.formData.items.find(i => i.id === itemId);
+                if (!item) return;
+
+                row.querySelectorAll('input[data-field]').forEach(input => {
+                    const field = input.dataset.field;
+                    if (field) {
+                        item[field] = input.value;
+                    }
+                });
+            });
+        }
+
+        console.log('[FormModal] collectFormData - items:', this.formData.items.map(i => ({
+            name: i.productName, variant: i.variant, attrIds: (i.selectedAttributeValueIds || []).length
+        })));
     }
 
     /**
@@ -1842,7 +1864,7 @@ class PurchaseOrderFormModal {
     getFormData() {
         const totals = this.calculateTotals();
 
-        return {
+        const result = {
             supplier: {
                 name: this.formData.supplier,
                 code: this.formData.supplier.substring(0, 3).toUpperCase()
@@ -1863,6 +1885,12 @@ class PurchaseOrderFormModal {
                 subtotal: (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 1)
             }))
         };
+
+        console.log('[FormModal] getFormData - items:', result.items.map(i => ({
+            name: i.productName, variant: i.variant, attrIds: (i.selectedAttributeValueIds || []).length
+        })));
+
+        return result;
     }
 }
 

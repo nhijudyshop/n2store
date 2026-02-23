@@ -185,22 +185,27 @@ class PurchaseOrderService {
     prepareItems(items) {
         const config = window.PurchaseOrderConfig;
 
-        return items.map((item, index) => ({
-            id: item.id || config.generateUUID(),
-            position: index + 1,
-            productCode: item.productCode || '',
-            productName: item.productName || '',
-            variant: item.variant || '',
-            productImages: item.productImages || [],
-            priceImages: item.priceImages || [],
-            purchasePrice: item.purchasePrice || 0,
-            sellingPrice: item.sellingPrice || 0,
-            quantity: item.quantity || 1,
-            subtotal: (item.purchasePrice || 0) * (item.quantity || 1),
-            notes: item.notes || '',
-            tposSyncStatus: item.tposSyncStatus || null,
-            tposProductId: item.tposProductId || null
-        }));
+        return items.map((item, index) => {
+            const prepared = {
+                id: item.id || config.generateUUID(),
+                position: index + 1,
+                productCode: item.productCode || '',
+                productName: item.productName || '',
+                variant: item.variant || '',
+                selectedAttributeValueIds: item.selectedAttributeValueIds || [],
+                productImages: item.productImages || [],
+                priceImages: item.priceImages || [],
+                purchasePrice: item.purchasePrice || 0,
+                sellingPrice: item.sellingPrice || 0,
+                quantity: item.quantity || 1,
+                subtotal: (item.purchasePrice || 0) * (item.quantity || 1),
+                notes: item.notes || '',
+                tposSyncStatus: item.tposSyncStatus || null,
+                tposProductId: item.tposProductId || null
+            };
+            console.log(`[PrepareItems] Item ${index + 1}: variant="${prepared.variant}", attrIds=${prepared.selectedAttributeValueIds.length}`);
+            return prepared;
+        });
     }
 
     /**
@@ -564,6 +569,10 @@ class PurchaseOrderService {
                     delete update[key];
                 }
             });
+
+            console.log('[PurchaseOrderService] Saving update - items:', (update.items || []).map(i => ({
+                name: i.productName, variant: i.variant, attrIds: (i.selectedAttributeValueIds || []).length
+            })));
 
             await docRef.update(update);
 
