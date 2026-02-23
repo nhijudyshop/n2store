@@ -1845,7 +1845,9 @@ class InventoryPickerDialog {
         // Add selected products
         this.modalElement.querySelector('#btnAddSelectedProducts')?.addEventListener('click', () => {
             if (this.selectedProducts.size > 0 && this.onSelect) {
-                this.onSelect(Array.from(this.selectedProducts.values()));
+                const productsArray = Array.from(this.selectedProducts.values());
+                console.log('[InventoryPicker] Adding products:', productsArray.length, productsArray);
+                this.onSelect(productsArray);
                 this.clearSelectedFromStorage(); // Reset for next time
                 this.close();
             }

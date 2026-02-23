@@ -1332,12 +1332,15 @@ class PurchaseOrderFormModal {
             if (window.inventoryPickerDialog) {
                 window.inventoryPickerDialog.open({
                     onSelect: (products) => {
+                        console.log('[FormModal] Received products:', products.length, products);
+
                         // Remove empty items before adding new products
                         this.formData.items = this.formData.items.filter(item =>
                             item.productName?.trim() || item.productCode?.trim()
                         );
 
-                        products.forEach(product => {
+                        products.forEach((product, index) => {
+                            console.log(`[FormModal] Adding product ${index + 1}:`, product.code, product.name);
                             const item = this.addItem();
                             item.productName = product.name || '';
                             item.productCode = product.code || '';
@@ -1348,6 +1351,8 @@ class PurchaseOrderFormModal {
                                 item.productImages = [product.image];
                             }
                         });
+
+                        console.log('[FormModal] Total items after adding:', this.formData.items.length);
                         this.refreshItemsTable();
                     }
                 });
