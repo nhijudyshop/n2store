@@ -242,87 +242,16 @@ window.ProductCodeGenerator = (function() {
     }
 
     /**
-     * Get max number from TPOS (search products by code prefix)
+     * Get max number from TPOS via TPOSClient.getMaxProductCode
      * @param {string} category - Category prefix (N, P, Q)
      * @returns {Promise<number>}
      */
     async function getMaxNumberFromTPOS(category) {
         try {
-            if (!window.TPOSClient || !window.TPOSClient.getToken) {
+            if (!window.TPOSClient || !window.TPOSClient.getMaxProductCode) {
                 return 0;
             }
-
-            const prefix = category.toUpperCase();
-            const token = await window.TPOSClient.getToken();
-            const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            const headers = {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            };
-
-            const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
-            let maxNum = 0;
-
-            // Strategy 1: Use DefaultCode parameter (same as searchProduct)
-            // GetViewV2 supports DefaultCode as a search param
-            const url1 = `${PROXY_URL}/api/odata/Product/OdataService.GetViewV2`
-                + `?Active=true`
-                + `&DefaultCode=${prefix}`
-                + `&$top=200`
-                + `&$orderby=DateCreated desc`
-                + `&$count=true`;
-
-            console.log(`[ProductCodeGen] TPOS query:`, url1);
-            const resp1 = await fetch(url1, { method: 'GET', headers });
-
-            if (resp1.ok) {
-                const data = await resp1.json();
-                console.log(`[ProductCodeGen] TPOS response: ${data['@odata.count'] || data.value?.length || 0} products`);
-                if (data.value && data.value.length > 0) {
-                    for (const product of data.value) {
-                        const code = product.DefaultCode || product.Code || '';
-                        const match = code.match(regex);
-                        if (match) {
-                            const num = parseInt(match[1], 10);
-                            if (num > maxNum) maxNum = num;
-                        }
-                    }
-                }
-            } else {
-                console.warn(`[ProductCodeGen] TPOS Strategy 1 failed: ${resp1.status}`);
-            }
-
-            // Strategy 2: If Strategy 1 returned 0, try OData $filter on base Product endpoint
-            if (maxNum === 0) {
-                const url2 = `${PROXY_URL}/api/odata/Product`
-                    + `?$filter=Active eq true and startswith(DefaultCode,'${prefix}')`
-                    + `&$top=100`
-                    + `&$orderby=Id desc`
-                    + `&$count=true`;
-
-                console.log(`[ProductCodeGen] TPOS Strategy 2:`, url2);
-                const resp2 = await fetch(url2, { method: 'GET', headers });
-
-                if (resp2.ok) {
-                    const data2 = await resp2.json();
-                    console.log(`[ProductCodeGen] TPOS Strategy 2 response: ${data2['@odata.count'] || data2.value?.length || 0} products`);
-                    if (data2.value && data2.value.length > 0) {
-                        for (const product of data2.value) {
-                            const code = product.DefaultCode || product.Code || '';
-                            const match = code.match(regex);
-                            if (match) {
-                                const num = parseInt(match[1], 10);
-                                if (num > maxNum) maxNum = num;
-                            }
-                        }
-                    }
-                } else {
-                    console.warn(`[ProductCodeGen] TPOS Strategy 2 failed: ${resp2.status}`);
-                }
-            }
-
-            console.log(`[ProductCodeGen] TPOS max for ${prefix}: ${maxNum}`);
-            return maxNum;
+            return await window.TPOSClient.getMaxProductCode(category);
         } catch (error) {
             console.error('Error getting max number from TPOS:', error);
             return 0;
