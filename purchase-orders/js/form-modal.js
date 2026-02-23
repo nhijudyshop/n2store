@@ -1141,7 +1141,7 @@ class PurchaseOrderFormModal {
                     </td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
                         <div style="display: flex; gap: 4px;">
-                            <input type="text" data-field="productCode" value="${item.productCode || ''}" placeholder="Mã SP" style="
+                            <input type="text" data-field="productCode" value="${item.productCode || ''}" placeholder="Mã SP" disabled style="
                                 width: 80px;
                                 height: 36px;
                                 padding: 0 8px;
@@ -1149,8 +1149,10 @@ class PurchaseOrderFormModal {
                                 border-radius: 6px;
                                 font-size: 13px;
                                 box-sizing: border-box;
+                                background: #f9fafb;
+                                color: #374151;
                             ">
-                            <button type="button" style="
+                            <button type="button" data-action="editCode" style="
                                 width: 32px;
                                 height: 36px;
                                 border: 1px solid #d1d5db;
@@ -1556,7 +1558,18 @@ class PurchaseOrderFormModal {
                 const itemId = row?.dataset.itemId;
                 const action = e.target.closest('button').dataset.action;
 
-                if (action === 'delete' && itemId) {
+                if (action === 'editCode') {
+                    const codeInput = e.target.closest('td')?.querySelector('input[data-field="productCode"]');
+                    if (codeInput) {
+                        codeInput.disabled = false;
+                        codeInput.style.background = '';
+                        codeInput.focus();
+                        codeInput.addEventListener('blur', () => {
+                            codeInput.disabled = true;
+                            codeInput.style.background = '#f9fafb';
+                        }, { once: true });
+                    }
+                } else if (action === 'delete' && itemId) {
                     this.removeItem(itemId);
                     this.refreshItemsTable();
                 } else if (action === 'copy' && itemId) {
