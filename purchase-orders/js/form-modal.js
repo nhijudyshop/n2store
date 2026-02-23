@@ -1329,10 +1329,11 @@ class PurchaseOrderFormModal {
 
         // Choose from inventory button
         this.modalElement.querySelector('#btnChooseInventory')?.addEventListener('click', () => {
+            console.log('[FormModal] btnChooseInventory clicked');
             if (window.inventoryPickerDialog) {
                 window.inventoryPickerDialog.open({
                     onSelect: (products) => {
-                        console.log('[FormModal] Received products:', products.length, products);
+                        console.log('[FormModal-MAIN] Received products:', products.length, products);
 
                         // Remove empty items before adding new products
                         this.formData.items = this.formData.items.filter(item =>
@@ -1340,7 +1341,7 @@ class PurchaseOrderFormModal {
                         );
 
                         products.forEach((product, index) => {
-                            console.log(`[FormModal] Adding product ${index + 1}:`, product.code, product.name);
+                            console.log(`[FormModal-MAIN] Adding product ${index + 1}:`, product.code, product.name);
                             const item = this.addItem();
                             item.productName = product.name || '';
                             item.productCode = product.code || '';
@@ -1352,7 +1353,7 @@ class PurchaseOrderFormModal {
                             }
                         });
 
-                        console.log('[FormModal] Total items after adding:', this.formData.items.length);
+                        console.log('[FormModal-MAIN] Total items after adding:', this.formData.items.length);
                         this.refreshItemsTable();
                     }
                 });
@@ -1588,10 +1589,12 @@ class PurchaseOrderFormModal {
                     }
                 } else if (action === 'inventory' && itemId) {
                     // Open inventory picker for this item
+                    console.log('[FormModal-ROW] inventory action clicked for item:', itemId);
                     const item = this.formData.items.find(i => i.id === itemId);
                     if (item && window.inventoryPickerDialog) {
                         window.inventoryPickerDialog.open({
                             onSelect: (products) => {
+                                console.log('[FormModal-ROW] Received products (using first only):', products.length);
                                 if (products.length > 0) {
                                     const product = products[0];
                                     item.productName = product.name || '';
