@@ -645,7 +645,7 @@ router.get('/:id/transactions', async (req, res) => {
                 CASE WHEN ct.status = 'pending' THEN 'yellow' WHEN ct.status = 'completed' THEN 'green'
                      WHEN ct.status = 'cancelled' THEN 'red' ELSE 'blue' END as color
             FROM customer_tickets ct LEFT JOIN customers c ON c.phone = ct.phone
-            WHERE ct.phone = $1
+            WHERE ct.phone = $1 AND ct.status != 'DELETED'
         `;
 
         let finalWallet = walletQuery;

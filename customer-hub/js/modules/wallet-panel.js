@@ -5,15 +5,19 @@ const TYPE_LABELS = {
     'DEPOSIT': 'Nạp tiền',
     'WITHDRAW': 'Rút tiền',
     'VIRTUAL_CREDIT': 'Cộng công nợ ảo',
-    'VIRTUAL_CREDIT_ISSUED': 'Cộng công nợ ảo (Thu về)',
-    'VIRTUAL_CREDIT_CANCELLED': 'Cộng công nợ ảo (đã hủy)',
     'VIRTUAL_DEBIT': 'Trừ công nợ ảo',
     'VIRTUAL_EXPIRE': 'Công nợ hết hạn',
     'VIRTUAL_CANCEL': 'Thu hồi công nợ ảo',
-    'ADJUSTMENT': 'Điều chỉnh số dư'
+    'ADJUSTMENT': 'Điều chỉnh số dư',
+    'RETURN_SHIPPER': 'Phiếu thu về',
+    'RETURN_CLIENT': 'Phiếu trả hàng',
+    'BOOM': 'Phiếu boom hàng',
+    'FIX_COD': 'Phiếu sửa COD',
+    'COD_ADJUSTMENT': 'Điều chỉnh COD',
+    'OTHER': 'Phiếu khác'
 };
 
-const CREDIT_TYPES = ['DEPOSIT', 'VIRTUAL_CREDIT', 'VIRTUAL_CREDIT_ISSUED', 'VIRTUAL_CREDIT_CANCELLED'];
+const CREDIT_TYPES = ['DEPOSIT', 'VIRTUAL_CREDIT'];
 
 export class WalletPanelModule {
     constructor(containerId, permissionHelper) {
@@ -276,7 +280,7 @@ export class WalletPanelModule {
         const bg = isCredit ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
         const color = isCredit ? 'text-green-600' : 'text-red-600';
         const date = tx.created_at ? new Date(tx.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-        const expiry = (tx.type === 'VIRTUAL_CREDIT_ISSUED' && tx.expires_at)
+        const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
             ? `<span class="text-orange-500 ml-1">• HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}</span>` : '';
 
         return `
