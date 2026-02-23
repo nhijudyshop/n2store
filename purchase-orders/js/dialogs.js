@@ -287,56 +287,137 @@ class VariantGeneratorDialog {
         this.onGenerate = null;
         this.baseProduct = null;
 
-        // Predefined attribute options
-        this.attributeConfig = {
-            color: {
-                name: 'Màu',
-                values: ['Trắng', 'Đen', 'Đỏ', 'Xanh', 'Xám', 'Nude', 'Vàng', 'Hồng', 'Nâu', 'Cam', 'Tím', 'Be', 'Kem']
-            },
-            sizeNumber: {
-                name: 'Size Số',
-                values: ['1', '2', '3', '4', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40']
-            },
-            sizeLetter: {
-                name: 'Size Chữ',
-                values: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize']
+        // Will be loaded from CSV files
+        this.attributes = []; // [{id, name, key, values: [{id, value, code, tpos_id}]}]
+        this.attributeConfig = {};
+        this.selected = {};
+        this.searchFilters = {};
+        this.csvLoaded = false;
+
+        // Load CSV data on construction
+        this.loadCSVData();
+    }
+
+    /**
+     * Parse CSV text into array of objects
+     */
+    parseCSV(text) {
+        const lines = text.trim().split('\n');
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',');
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            for (const ch of lines[i]) {
+                if (ch === '"') { inQuotes = !inQuotes; }
+                else if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
+                else { current += ch; }
             }
-        };
+            values.push(current.trim());
+            const obj = {};
+            headers.forEach((h, idx) => { obj[h.trim()] = values[idx] || ''; });
+            rows.push(obj);
+        }
+        return rows;
+    }
 
-        // Selected values for each attribute
-        this.selected = {
-            color: [],
-            sizeNumber: [],
-            sizeLetter: []
-        };
+    /**
+     * Load attributes and values from CSV files
+     */
+    async loadCSVData() {
+        try {
+            const basePath = window.location.pathname.includes('/purchase-orders/')
+                ? '' : 'purchase-orders/';
 
-        // Search filters
-        this.searchFilters = {
-            color: '',
-            sizeNumber: '',
-            sizeLetter: ''
-        };
+            const [attrsText, valsText] = await Promise.all([
+                fetch(`${basePath}product_attributes_rows.csv`).then(r => r.text()),
+                fetch(`${basePath}product_attribute_values_rows.csv`).then(r => r.text())
+            ]);
+
+            const attrsRows = this.parseCSV(attrsText);
+            const valsRows = this.parseCSV(valsText);
+
+            // Sort attributes by display_order
+            attrsRows.sort((a, b) => parseInt(a.display_order || 0) - parseInt(b.display_order || 0));
+
+            // Key mapping: attribute name → internal key
+            const keyMap = { 'Màu': 'color', 'Size Số': 'sizeNumber', 'Size Chữ': 'sizeLetter' };
+
+            this.attributes = attrsRows
+                .filter(a => a.is_active === 'true')
+                .map(attr => {
+                    const key = keyMap[attr.name] || attr.name.replace(/\s+/g, '_').toLowerCase();
+                    const attrValues = valsRows
+                        .filter(v => v.attribute_id === attr.id && v.is_active === 'true')
+                        .map(v => ({
+                            id: v.id,
+                            value: v.value,
+                            code: v.code,
+                            tpos_id: v.tpos_id,
+                            sequence: parseInt(v.sequence || 0)
+                        }));
+
+                    // Sort values using VariantUtils if available
+                    const sortedValues = window.VariantUtils
+                        ? window.VariantUtils.sortAttributeValues(attrValues.map(v => ({ name: v.value, ...v })))
+                              .map(v => ({ ...v, value: v.name || v.value }))
+                        : attrValues;
+
+                    return { id: attr.id, name: attr.name, key, values: sortedValues };
+                });
+
+            // Build attributeConfig, selected, searchFilters
+            this.attributeConfig = {};
+            this.selected = {};
+            this.searchFilters = {};
+            for (const attr of this.attributes) {
+                this.attributeConfig[attr.key] = {
+                    name: attr.name,
+                    values: attr.values.map(v => v.value),
+                    valueObjects: attr.values
+                };
+                this.selected[attr.key] = [];
+                this.searchFilters[attr.key] = '';
+            }
+
+            this.csvLoaded = true;
+            console.log('[VariantGenerator] Loaded CSV data:', this.attributes.map(a => `${a.name}(${a.values.length})`).join(', '));
+        } catch (error) {
+            console.error('[VariantGenerator] Failed to load CSV:', error);
+            // Fallback to hardcoded values
+            this.attributeConfig = {
+                color: { name: 'Màu', values: ['Trắng', 'Đen', 'Đỏ', 'Xanh', 'Xám', 'Nude', 'Vàng', 'Hồng', 'Nâu', 'Cam', 'Tím', 'Be', 'Kem'] },
+                sizeNumber: { name: 'Size Số', values: ['1', '2', '3', '4', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'] },
+                sizeLetter: { name: 'Size Chữ', values: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize'] }
+            };
+            this.selected = { color: [], sizeNumber: [], sizeLetter: [] };
+            this.searchFilters = { color: '', sizeNumber: '', sizeLetter: '' };
+            this.csvLoaded = true;
+        }
     }
 
     /**
      * Open variant generator dialog
      * @param {Object} options - { baseProduct, onGenerate }
      */
-    open(options = {}) {
+    async open(options = {}) {
         this.baseProduct = options.baseProduct || {};
         this.onGenerate = options.onGenerate;
 
+        // Wait for CSV data if not yet loaded
+        if (!this.csvLoaded) {
+            await this.loadCSVData();
+        }
+
         // Reset selections
-        this.selected = {
-            color: [],
-            sizeNumber: [],
-            sizeLetter: []
-        };
-        this.searchFilters = {
-            color: '',
-            sizeNumber: '',
-            sizeLetter: ''
-        };
+        for (const key of Object.keys(this.selected)) {
+            this.selected[key] = [];
+        }
+        for (const key of Object.keys(this.searchFilters)) {
+            this.searchFilters[key] = '';
+        }
 
         this.render();
     }
@@ -355,14 +436,10 @@ class VariantGeneratorDialog {
     generateCombinations() {
         const selectedArrays = [];
 
-        if (this.selected.color.length > 0) {
-            selectedArrays.push(this.selected.color);
-        }
-        if (this.selected.sizeNumber.length > 0) {
-            selectedArrays.push(this.selected.sizeNumber);
-        }
-        if (this.selected.sizeLetter.length > 0) {
-            selectedArrays.push(this.selected.sizeLetter);
+        for (const key of Object.keys(this.attributeConfig)) {
+            if (this.selected[key] && this.selected[key].length > 0) {
+                selectedArrays.push(this.selected[key]);
+            }
         }
 
         if (selectedArrays.length === 0) return [];
@@ -390,14 +467,10 @@ class VariantGeneratorDialog {
      */
     getSelectedSummary() {
         const parts = [];
-        if (this.selected.color.length > 0) {
-            parts.push(this.selected.color.join(', '));
-        }
-        if (this.selected.sizeNumber.length > 0) {
-            parts.push(this.selected.sizeNumber.join(', '));
-        }
-        if (this.selected.sizeLetter.length > 0) {
-            parts.push(this.selected.sizeLetter.join(', '));
+        for (const key of Object.keys(this.attributeConfig)) {
+            if (this.selected[key] && this.selected[key].length > 0) {
+                parts.push(this.selected[key].join(', '));
+            }
         }
         return parts.length > 0 ? parts.join(' | ') : 'Chưa chọn giá trị nào';
     }
@@ -475,12 +548,12 @@ class VariantGeneratorDialog {
 
                 <!-- Body -->
                 <div style="flex: 1; overflow-y: auto; padding: 20px;">
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; height: 100%;">
-                        <!-- Màu Column -->
+                    <div style="display: grid; grid-template-columns: repeat(${Object.keys(this.attributeConfig).length + 1}, 1fr); gap: 16px; height: 100%;">
+                        ${Object.entries(this.attributeConfig).map(([key, config]) => `
                         <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
-                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Màu</div>
+                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${config.name}</div>
                             <div style="padding: 8px;">
-                                <input type="text" placeholder="Tìm kiếm..." data-search="color" style="
+                                <input type="text" placeholder="Tìm kiếm..." data-search="${key}" style="
                                     width: 100%;
                                     padding: 8px 12px;
                                     border: 1px solid #d1d5db;
@@ -489,46 +562,11 @@ class VariantGeneratorDialog {
                                     box-sizing: border-box;
                                 ">
                             </div>
-                            <div style="flex: 1; overflow-y: auto; padding: 8px; max-height: 300px;" id="colorList">
-                                ${this.renderCheckboxList('color')}
+                            <div style="flex: 1; overflow-y: auto; padding: 8px; max-height: 300px;" id="${key}List">
+                                ${this.renderCheckboxList(key)}
                             </div>
                         </div>
-
-                        <!-- Size Số Column -->
-                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
-                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Size Số</div>
-                            <div style="padding: 8px;">
-                                <input type="text" placeholder="Tìm kiếm..." data-search="sizeNumber" style="
-                                    width: 100%;
-                                    padding: 8px 12px;
-                                    border: 1px solid #d1d5db;
-                                    border-radius: 6px;
-                                    font-size: 14px;
-                                    box-sizing: border-box;
-                                ">
-                            </div>
-                            <div style="flex: 1; overflow-y: auto; padding: 8px; max-height: 300px;" id="sizeNumberList">
-                                ${this.renderCheckboxList('sizeNumber')}
-                            </div>
-                        </div>
-
-                        <!-- Size Chữ Column -->
-                        <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
-                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Size Chữ</div>
-                            <div style="padding: 8px;">
-                                <input type="text" placeholder="Tìm kiếm..." data-search="sizeLetter" style="
-                                    width: 100%;
-                                    padding: 8px 12px;
-                                    border: 1px solid #d1d5db;
-                                    border-radius: 6px;
-                                    font-size: 14px;
-                                    box-sizing: border-box;
-                                ">
-                            </div>
-                            <div style="flex: 1; overflow-y: auto; padding: 8px; max-height: 300px;" id="sizeLetterList">
-                                ${this.renderCheckboxList('sizeLetter')}
-                            </div>
-                        </div>
+                        `).join('')}
 
                         <!-- Variant Preview Column -->
                         <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
@@ -615,7 +653,7 @@ class VariantGeneratorDialog {
         }
 
         // Update checkbox lists
-        ['color', 'sizeNumber', 'sizeLetter'].forEach(key => {
+        Object.keys(this.attributeConfig).forEach(key => {
             const listEl = this.modalElement?.querySelector(`#${key}List`);
             if (listEl) {
                 listEl.innerHTML = this.renderCheckboxList(key);
