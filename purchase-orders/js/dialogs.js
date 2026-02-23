@@ -431,14 +431,20 @@ class VariantGeneratorDialog {
 
     /**
      * Generate all variant combinations from selected values
-     * @returns {Array} Array of variant strings
+     * @returns {Array} Array of {variant: string, selectedAttributeValueIds: string[]}
      */
     generateCombinations() {
         const selectedArrays = [];
 
         for (const key of Object.keys(this.attributeConfig)) {
             if (this.selected[key] && this.selected[key].length > 0) {
-                selectedArrays.push(this.selected[key]);
+                const config = this.attributeConfig[key];
+                // Map selected values to objects with ID
+                const valuesWithIds = this.selected[key].map(val => {
+                    const obj = config.valueObjects?.find(v => v.value === val);
+                    return { value: val, id: obj?.id || null };
+                });
+                selectedArrays.push(valuesWithIds);
             }
         }
 
@@ -450,16 +456,19 @@ class VariantGeneratorDialog {
             const [first, ...rest] = arrays;
             const restCombinations = combine(rest);
             const result = [];
-            for (const value of first) {
+            for (const item of first) {
                 for (const combo of restCombinations) {
-                    result.push([value, ...combo]);
+                    result.push([item, ...combo]);
                 }
             }
             return result;
         };
 
         const combinations = combine(selectedArrays);
-        return combinations.map(combo => combo.join(' / '));
+        return combinations.map(combo => ({
+            variant: combo.map(c => c.value).join(' / '),
+            selectedAttributeValueIds: combo.map(c => c.id).filter(Boolean)
+        }));
     }
 
     /**
@@ -573,7 +582,7 @@ class VariantGeneratorDialog {
                             <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Danh sách Biến Thể</div>
                             <div style="flex: 1; overflow-y: auto; padding: 12px; max-height: 350px;" id="variantPreviewList">
                                 ${combinations.length > 0
-                                    ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v}</div>`).join('')
+                                    ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v.variant || v}</div>`).join('')
                                     : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>'
                                 }
                             </div>
@@ -665,7 +674,7 @@ class VariantGeneratorDialog {
         const previewEl = this.modalElement?.querySelector('#variantPreviewList');
         if (previewEl) {
             previewEl.innerHTML = combinations.length > 0
-                ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v}</div>`).join('')
+                ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v.variant || v}</div>`).join('')
                 : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>';
         }
 

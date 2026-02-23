@@ -36,6 +36,7 @@ class PurchaseOrderFormModal {
         this.itemCounter = 0;
         this.isUploading = false;
         this.activeImageUpload = null; // Track which area is focused for paste
+        this.showDebugColumn = false;
     }
 
     // ========================================
@@ -698,7 +699,8 @@ class PurchaseOrderFormModal {
             purchasePrice: '',
             sellingPrice: '',
             productImages: [],
-            priceImages: []
+            priceImages: [],
+            selectedAttributeValueIds: []
         };
         this.formData.items.push(newItem);
         return newItem;
@@ -980,7 +982,23 @@ class PurchaseOrderFormModal {
                                         <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Thành tiền (VND)</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Hình ảnh sản phẩm</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Hình ảnh Giá mua</th>
-                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Thao tác</th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">
+                                            Thao tác
+                                        </th>
+                                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">
+                                            <button type="button" id="btnToggleDebug" style="
+                                                background: none; border: none; cursor: pointer; padding: 4px;
+                                                color: #9ca3af; display: inline-flex; align-items: center; gap: 4px;
+                                            " title="Toggle Debug: Attr IDs">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                    ${this.showDebugColumn
+                                                        ? '<polyline points="15 18 9 12 15 6"></polyline>'
+                                                        : '<polyline points="9 18 15 12 9 6"></polyline>'
+                                                    }
+                                                </svg>
+                                            </button>
+                                            ${this.showDebugColumn ? '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>' : ''}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody id="itemsTableBody">
@@ -1271,6 +1289,16 @@ class PurchaseOrderFormModal {
                             </button>
                         </div>
                     </td>
+                    <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; vertical-align: top; ${this.showDebugColumn ? '' : 'display: none;'}">
+                        ${(item.selectedAttributeValueIds || []).length > 0
+                            ? item.selectedAttributeValueIds.map(id => `
+                                <div style="font-family: monospace; font-size: 10px; background: #fefce8; padding: 2px 6px; margin: 2px 0; border-radius: 4px; border: 1px solid #fde68a; word-break: break-all;">
+                                    ${id}
+                                </div>
+                            `).join('')
+                            : '<span style="color: #d1d5db; font-size: 11px;">-</span>'
+                        }
+                    </td>
                 </tr>
             `;
         }).join('');
@@ -1381,6 +1409,27 @@ class PurchaseOrderFormModal {
                     }
                 });
             }
+        });
+
+        // Debug column toggle
+        this.modalElement.querySelector('#btnToggleDebug')?.addEventListener('click', () => {
+            this.showDebugColumn = !this.showDebugColumn;
+            // Update header
+            const th = this.modalElement.querySelector('#btnToggleDebug').closest('th');
+            const btn = this.modalElement.querySelector('#btnToggleDebug');
+            if (btn) {
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    ${this.showDebugColumn ? '<polyline points="15 18 9 12 15 6"></polyline>' : '<polyline points="9 18 15 12 9 6"></polyline>'}
+                </svg>`;
+            }
+            const label = th?.querySelector('span');
+            if (this.showDebugColumn && !label) {
+                btn.insertAdjacentHTML('afterend', '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>');
+            } else if (!this.showDebugColumn && label) {
+                label.remove();
+            }
+            // Refresh body rows (debug cells visibility)
+            this.refreshItemsTable();
         });
 
         // Add shipping fee button
@@ -1581,17 +1630,21 @@ class PurchaseOrderFormModal {
                     if (item && window.variantGeneratorDialog) {
                         window.variantGeneratorDialog.open({
                             baseProduct: item,
-                            onGenerate: (variants, baseProduct) => {
-                                // Update the current item with first variant
-                                if (variants.length > 0) {
-                                    item.variant = variants[0];
+                            onGenerate: (combinations, baseProduct) => {
+                                if (combinations.length > 0) {
+                                    // First combo updates the current item
+                                    const first = combinations[0];
+                                    item.variant = first.variant || first;
+                                    item.selectedAttributeValueIds = first.selectedAttributeValueIds || [];
 
-                                    // Add remaining variants as new items
-                                    for (let i = 1; i < variants.length; i++) {
+                                    // Remaining combos create new items
+                                    for (let i = 1; i < combinations.length; i++) {
+                                        const combo = combinations[i];
                                         const newItem = this.addItem();
                                         newItem.productName = baseProduct.productName;
                                         newItem.productCode = baseProduct.productCode;
-                                        newItem.variant = variants[i];
+                                        newItem.variant = combo.variant || combo;
+                                        newItem.selectedAttributeValueIds = combo.selectedAttributeValueIds || [];
                                         newItem.purchasePrice = baseProduct.purchasePrice;
                                         newItem.sellingPrice = baseProduct.sellingPrice;
                                         newItem.quantity = baseProduct.quantity || 1;
@@ -1600,7 +1653,7 @@ class PurchaseOrderFormModal {
                                     this.refreshItemsTable();
 
                                     if (window.notificationManager) {
-                                        window.notificationManager.success(`Đã tạo ${variants.length} biến thể`);
+                                        window.notificationManager.success(`Đã tạo ${combinations.length} biến thể`);
                                     }
                                 }
                             }
