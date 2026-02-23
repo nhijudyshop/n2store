@@ -730,6 +730,41 @@ class PurchaseOrderFormModal {
     }
 
     /**
+     * Apply price & images from one variant to all variants with same productCode
+     * @param {string} sourceItemId - Source item ID
+     */
+    applyAllFieldsToVariants(sourceItemId) {
+        const sourceItem = this.formData.items.find(item => item.id === sourceItemId);
+        if (!sourceItem || !sourceItem.productCode) return;
+
+        const productCode = sourceItem.productCode.trim();
+        if (!productCode) return;
+
+        let updatedCount = 0;
+        this.formData.items.forEach(item => {
+            if (item.id === sourceItemId) return; // Skip source
+            if ((item.productCode || '').trim() !== productCode) return; // Skip different product
+
+            item.productImages = [...(sourceItem.productImages || [])];
+            item.priceImages = [...(sourceItem.priceImages || [])];
+            item.purchasePrice = sourceItem.purchasePrice;
+            item.sellingPrice = sourceItem.sellingPrice;
+            updatedCount++;
+        });
+
+        if (updatedCount > 0) {
+            this.refreshItemsTable();
+            if (window.notificationManager) {
+                window.notificationManager.success(`Đã áp dụng giá & hình ảnh cho ${updatedCount} biến thể`);
+            }
+        } else {
+            if (window.notificationManager) {
+                window.notificationManager.show('Không tìm thấy biến thể cùng mã sản phẩm', 'warning');
+            }
+        }
+    }
+
+    /**
      * Calculate totals
      */
     calculateTotals() {
@@ -1270,6 +1305,24 @@ class PurchaseOrderFormModal {
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                             </button>
+                            <button type="button" data-action="applyVariants" title="Áp dụng giá & hình ảnh cho tất cả biến thể" style="
+                                width: 32px;
+                                height: 32px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                background: white;
+                                cursor: pointer;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: #8b5cf6;
+                            ">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    <polyline points="17 14 12 9 7 14"></polyline>
+                                </svg>
+                            </button>
                             <button type="button" data-action="delete" title="Xóa" style="
                                 width: 32px;
                                 height: 32px;
@@ -1659,6 +1712,8 @@ class PurchaseOrderFormModal {
                             }
                         });
                     }
+                } else if (action === 'applyVariants' && itemId) {
+                    this.applyAllFieldsToVariants(itemId);
                 } else if (action === 'inventory' && itemId) {
                     // Open inventory picker for this item
                     console.log('[FormModal-ROW] inventory action clicked for item:', itemId);
