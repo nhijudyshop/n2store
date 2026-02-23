@@ -246,7 +246,7 @@ fetchProductVariants("ABC123")
 
 ---
 
-## 6. Database (CSV files từ Supabase export)
+## 6. Database (CSV files từ TPOS export)
 
 ### `product_attributes_rows.csv`
 **Đường dẫn**: `/Users/mac/Downloads/n2store/purchase-orders/product_attributes_rows.csv`
@@ -747,7 +747,8 @@ onClick → handleClose()
 
 #### Step 1: Grouping items
 
-**File**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/process-purchase-order-background/index.ts`
+**File (React app legacy)**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/process-purchase-order-background/index.ts`
+**N2store**: Xử lý trực tiếp trong `form-modal.js` khi lưu đơn, không cần background processing.
 
 ```typescript
 // Line 101-112: Group items theo product_code + selected_attribute_value_ids
@@ -774,7 +775,8 @@ Ví dụ grouping:
 
 #### Step 2: Gọi create-tpos-variants-from-order
 
-**File**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants-from-order/index.ts`
+**File (React app legacy)**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants-from-order/index.ts`
+**N2store**: Dùng CSV files (variant JSON → attribute mapping) thay vì Supabase Edge Function.
 
 ```typescript
 // Line 217-219: Nhận selectedAttributeValueIds
@@ -789,6 +791,8 @@ const {
 
 ```typescript
 // Line 538-560: Query attribute values từ UUIDs
+// React app legacy: Supabase query
+// N2store: Dùng CSV lookup từ product_attribute_values_rows.csv
 const { data: attributeValuesWithAttrs } = await supabase
   .from('product_attribute_values')
   .select(`
@@ -842,6 +846,8 @@ selectedAttributeValueIds: ["uuid-nude", "uuid-xxxl"]
 const { data: existingItems } = useQuery({
   queryKey: ["purchaseOrderItems", order?.id],
   queryFn: async () => {
+    // React app legacy: Supabase query
+    // N2store: Load từ Firestore document purchase_orders/{orderId}.items[]
     const { data } = await supabase
       .from("purchase_order_items")
       .select("*")
@@ -932,16 +938,18 @@ interface PurchaseOrderItem {
 
 ### 8.13 Database Column
 
-**Migration file**: `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251027120913_18e287ad-d774-4cfc-b8b6-d9e99a80718c.sql`
+**React app legacy - Migration file**: `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251027120913_18e287ad-d774-4cfc-b8b6-d9e99a80718c.sql`
 
 ```sql
+-- React app legacy (Supabase/PostgreSQL)
+-- N2store: Lưu trong Firestore document purchase_orders/{id}.items[].selectedAttributeValueIds (array of strings)
 ALTER TABLE purchase_order_items
 ADD COLUMN selected_attribute_value_ids uuid[] NULL;
 COMMENT ON COLUMN purchase_order_items.selected_attribute_value_ids IS
   'Array of product_attribute_values.id used to generate variants. Null for non-variant products.';
 ```
 
-**TypeScript type** (`/Users/mac/Downloads/github-html-starter-main/src/integrations/supabase/types.ts`):
+**React app legacy - TypeScript type** (`/Users/mac/Downloads/github-html-starter-main/src/integrations/supabase/types.ts`):
 ```typescript
 // Line 1081 - Row type
 selected_attribute_value_ids: string[] | null
@@ -949,11 +957,13 @@ selected_attribute_value_ids: string[] | null
 selected_attribute_value_ids?: string[] | null
 ```
 
+**N2store equivalent**: Firestore document field `items[].selectedAttributeValueIds: string[]` (camelCase)
+
 ### 8.14 Legacy: create-tpos-variants function
 
-**File**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants/index.ts`
+**File (React app legacy)**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants/index.ts`
 
-Phiên bản cũ, cùng logic (line 95-98):
+Phiên bản cũ (Supabase Edge Function, không dùng trong N2store), cùng logic (line 95-98):
 ```typescript
 const { baseProductCode, selectedAttributeValueIds } = await req.json();
 ```
@@ -1186,7 +1196,7 @@ Submit đơn hàng
 Khi cần gửi TPOS API → fetch Firebase URL → convert base64 → gửi TPOS
 ```
 
-**Lưu ý**: React app (github-html-starter-main) dùng Supabase Storage + Edge Functions cho background processing. N2store dùng Firebase Storage trực tiếp.
+**Lưu ý**: React app (github-html-starter-main) là phiên bản cũ dùng Supabase Storage + Edge Functions (không còn dùng). **N2store dùng Firebase Storage + Firestore trực tiếp**, không cần background processing.
 
 ### 9.8 Ưu tiên hiển thị ảnh (Image Priority)
 
@@ -1279,7 +1289,7 @@ tpos_image_url: fullProduct.ImageUrl || null,
 if (tposData.ImageUrl) updateData.tpos_image_url = tposData.ImageUrl;
 ```
 
-**React app** dùng Supabase Edge Function `sync-tpos-images` để batch update. N2store lưu `tpos_image_url` trong CSV file `products_rows.csv`.
+**React app (legacy)** dùng Supabase Edge Function `sync-tpos-images` để batch update (không còn dùng). **N2store** lưu `tpos_image_url` trong CSV file `products_rows.csv`.
 
 #### Sử dụng trong variant
 
@@ -1435,8 +1445,8 @@ const maxFromForm = getMaxNumberFromItems(currentFormItems, category);
 
 | Nguồn | Hàm | File:Line | Cách query |
 | ----- | ---- | --------- | ---------- |
-| **products** table | `getMaxNumberFromProductsDB(category)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:537-541` | Supabase RPC `get_max_product_code_number('N', 'products')` |
-| **purchase_order_items** table | `getMaxNumberFromPurchaseOrderItemsDB(category)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:548-552` | Supabase RPC `get_max_product_code_number('N', 'purchase_order_items')` |
+| **products** table | `getMaxNumberFromProductsDB(category)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:537-541` | React app legacy: Supabase RPC. **N2store**: `TPOSClient.getMaxProductCode(category)` qua TPOS OData API |
+| **purchase_order_items** table | `getMaxNumberFromPurchaseOrderItemsDB(category)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:548-552` | React app legacy: Supabase RPC. **N2store**: `getMaxNumberFromFirestore(category)` scan Firestore `purchase_orders` collection |
 | **Form hiện tại** | `getMaxNumberFromItems(items, category)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:216-233` | Scan tất cả `product_code` trong form, regex `/^([NPQ])(\d+)$/` |
 
 **Ví dụ**:
@@ -1458,9 +1468,9 @@ candidateCode = "N133"
 │                               │
 │  ① Check FORM items          │  → formItems.some(code === "N133")
 │     ↓ Không trùng            │
-│  ② Check purchase_order_items│  → supabase.from('purchase_order_items').ilike('product_code', 'N133')
+│  ② Check Firestore           │  → scan purchase_orders/{}.items[].productCode === 'N133'
 │     ↓ Không trùng            │
-│  ③ Check products table      │  → supabase.from('products').ilike('product_code', 'N133')
+│  ③ Check TPOS (duplicate)    │  → TPOSClient.searchProduct('N133') qua OData API
 │     ↓ Không trùng            │
 │  ④ Check TPOS API            │  → searchTPOSProduct("N133")
 │     ↓ Không tồn tại          │
@@ -1482,9 +1492,75 @@ candidateCode = "N133"
 | # | Nguồn | Cách check | File:Line |
 | - | ----- | ---------- | --------- |
 | 1 | Form hiện tại | `formItems.some(item => item.product_code === code)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:459-461` |
-| 2 | purchase_order_items (ALL statuses) | `supabase.from('purchase_order_items').ilike('product_code', code)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:469-473` |
-| 3 | products table | `supabase.from('products').ilike('product_code', code)` | `/Users/mac/Downloads/github-html-starter-main/src/lib/product-code-generator.ts:485-489` |
+| 2 | Firestore purchase_orders | Scan `purchase_orders/{}.items[].productCode` | `purchase-orders/js/lib/product-code-generator.js` → `codeExistsInFirestore()` |
+| 3 | TPOS API (duplicate check) | `TPOSClient.searchProduct(code)` qua OData GetViewV2 | `purchase-orders/js/lib/tpos-search.js` → `searchProduct()` |
 | 4 | TPOS API | `searchTPOSProduct(candidateCode)` | `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx:~600` |
+
+**Chi tiết TPOS API Request (Bước ④)**:
+
+- **Hàm**: `searchTPOSProduct(productCode)`
+- **File**: `/Users/mac/Downloads/github-html-starter-main/src/lib/tpos-api.ts` line 10-42
+- **Import**: `import { searchTPOSProduct } from "@/lib/tpos-api";` (line 34 CreatePurchaseOrderDialog.tsx)
+
+```typescript
+// /Users/mac/Downloads/github-html-starter-main/src/lib/tpos-api.ts:10-42
+export async function searchTPOSProduct(productCode: string): Promise<TPOSProductSearchResult | null> {
+  const token = await getActiveTPOSToken();  // Lấy Bearer Token từ settings
+
+  // GET request lên TPOS OData API
+  const url = `https://tomato.tpos.vn/odata/Product/OdataService.GetViewV2`
+    + `?Active=true`
+    + `&DefaultCode=${encodeURIComponent(productCode)}`  // ← Mã SP cần check
+    + `&$top=50`
+    + `&$orderby=DateCreated desc`
+    + `&$count=true`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getTPOSHeaders(token),  // Authorization: Bearer {token}
+  });
+
+  const data = await response.json();
+
+  if (data.value && data.value.length > 0) {
+    return data.value[0];  // ← Mã đã tồn tại trên TPOS → trả về product
+  }
+  return null;  // ← Mã chưa tồn tại → khả dụng
+}
+```
+
+**Request**:
+```
+GET https://tomato.tpos.vn/odata/Product/OdataService.GetViewV2
+    ?Active=true
+    &DefaultCode=N4033
+    &$top=50
+    &$orderby=DateCreated desc
+    &$count=true
+Headers: { Authorization: "Bearer {tpos_token}" }
+```
+
+**Response**:
+- `data.value.length > 0` → Mã **N4033 đã tồn tại** trên TPOS → `nextNumber++` → thử N4034
+- `data.value.length === 0` → Mã **N4033 khả dụng** → assign cho item
+
+**Ví dụ thực tế** (screenshot: "ao 2" → N4033):
+```
+detectProductCategory("ao 2") → "AO" match CATEGORY_N_KEYWORDS → category = 'N'
+         ↓
+maxFromDB = 4032 (giả sử)
+         ↓
+candidateCode = "N4033"
+         ↓
+isProductCodeExists("N4033") → false (không trùng form + DB)
+         ↓
+searchTPOSProduct("N4033")
+  → GET https://tomato.tpos.vn/odata/Product/OdataService.GetViewV2?DefaultCode=N4033
+  → response: data.value = [] (không tồn tại)
+  → return null ✅
+         ↓
+Assign: item.product_code = "N4033"
+```
 
 ### 10.10. Bước 8: Assign Mã Cho Item
 
@@ -1755,7 +1831,7 @@ Bấm ✏️ → [N131 ✓] (editable) → sửa → bấm ✓ → [N999 ✏️]
                               │ Export thành CSV
                               ▼
               ┌─────────────────────────────────┐
-              │  3 CSV Files (từ Supabase)      │
+              │  3 CSV Files (từ TPOS export)   │
               │  ┌──────────────────────────┐   │
               │  │ product_attributes_rows  │   │
               │  │ .csv (Màu, Size Số, ...) │   │
@@ -1856,16 +1932,29 @@ Bấm ✏️ → [N131 ✓] (editable) → sửa → bấm ✓ → [N999 ✏️]
 | `EditPurchaseOrderDialog`            | `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/EditPurchaseOrderDialog.tsx`      | Sửa đơn, load/lưu `selected_attribute_value_ids`      |
 | `PurchaseOrders` (page)              | `/Users/mac/Downloads/github-html-starter-main/src/pages/PurchaseOrders.tsx`                                   | Query `selected_attribute_value_ids` từ DB             |
 
-### Supabase Edge Functions (Backend)
+### React App Legacy - Supabase Edge Functions (Không dùng trong N2store)
 
-| Function                               | Đường dẫn đầy đủ                                                                                                   | Vai trò                                            |
+> **Lưu ý**: N2store KHÔNG dùng Supabase. Các Edge Functions dưới đây chỉ tồn tại trong React app cũ (github-html-starter-main) để tham khảo logic. N2store xử lý trực tiếp trong `form-modal.js` + `product-code-generator.js` + `tpos-search.js`.
+
+| Function                               | Đường dẫn đầy đủ                                                                                                   | Vai trò (legacy)                                   |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | `process-purchase-order-background`    | `/Users/mac/Downloads/github-html-starter-main/supabase/functions/process-purchase-order-background/index.ts`       | Group items theo product_code + attribute IDs      |
 | `create-tpos-variants-from-order`      | `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants-from-order/index.ts`         | Query UUIDs → Build AttributeLines → Push TPOS API |
 | `create-tpos-variants` (legacy)        | `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants/index.ts`                    | Phiên bản cũ, cùng logic                          |
 
-### Database Migration
+### N2store Backend Stack
 
-| File                                   | Đường dẫn đầy đủ                                                                                                   | Vai trò                                            |
+| Service | Vai trò |
+| ------- | ------- |
+| **Firebase Firestore** | Lưu purchase_orders, items, selectedAttributeValueIds |
+| **Firebase Storage** | Lưu ảnh sản phẩm, hóa đơn |
+| **TPOS OData API** (qua Cloudflare proxy) | Product search, max code query, variant creation |
+| **Cloudflare Worker** | Proxy CORS bypass (`chatomni-proxy.nhijudyshop.workers.dev`) |
+
+### React App Legacy - Database Migration (Tham khảo)
+
+| File                                   | Đường dẫn đầy đủ                                                                                                   | Vai trò (legacy)                                   |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | Migration `20251027120913`             | `/Users/mac/Downloads/github-html-starter-main/supabase/migrations/20251027120913_18e287ad-d774-4cfc-b8b6-d9e99a80718c.sql` | Thêm column `selected_attribute_value_ids uuid[]`  |
+
+**N2store equivalent**: Field `items[].selectedAttributeValueIds` trong Firestore document `purchase_orders/{id}` (camelCase, array of strings)
