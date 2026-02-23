@@ -1846,6 +1846,7 @@ class InventoryPickerDialog {
         this.modalElement.querySelector('#btnAddSelectedProducts')?.addEventListener('click', () => {
             if (this.selectedProducts.size > 0 && this.onSelect) {
                 this.onSelect(Array.from(this.selectedProducts.values()));
+                this.clearSelectedFromStorage(); // Reset for next time
                 this.close();
             }
         });
