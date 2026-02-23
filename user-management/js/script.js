@@ -89,10 +89,12 @@ function connectFirebase() {
                 appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
             };
 
-            const app = firebase.initializeApp(config);
-            db = firebase.firestore();
-            auth = firebase.auth();
+            firebase.initializeApp(config);
         }
+
+        // Always get db and auth references (even if app was already initialized by shared/js/firebase-config.js)
+        db = db || window.db || firebase.firestore();
+        auth = auth || firebase.auth();
 
         document.getElementById("firebaseStatus").textContent =
             "✅ Kết nối Firebase thành công!\nProject: n2shop-69e37\nTrạng thái: Admin Access Granted";
@@ -106,6 +108,7 @@ function connectFirebase() {
         document.getElementById("firebaseStatus").className = "output error";
     }
 }
+
 
 // Tab Management
 function showTab(tabName) {
