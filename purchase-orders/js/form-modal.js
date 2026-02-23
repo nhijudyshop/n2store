@@ -1598,16 +1598,35 @@ class PurchaseOrderFormModal {
                     console.log('[FormModal-ROW] inventory action clicked for item:', itemId);
                     const item = this.formData.items.find(i => i.id === itemId);
                     if (item && window.inventoryPickerDialog) {
+                        const formModal = this;
                         window.inventoryPickerDialog.open({
-                            onSelect: (products) => {
-                                console.log('[FormModal-ROW] Received products (using first only):', products.length);
+                            onSelect: function(products) {
+                                console.log('[FormModal-ROW] Received products:', products.length);
                                 if (products.length > 0) {
-                                    const product = products[0];
-                                    item.productName = product.name || '';
-                                    item.productCode = product.code || product.sku || '';
-                                    item.sellingPrice = product.price || '';
-                                    item.productImages = product.images || [];
-                                    this.refreshItemsTable();
+                                    // First product fills the current row
+                                    const first = products[0];
+                                    item.productName = first.name || '';
+                                    item.productCode = first.code || '';
+                                    item.purchasePrice = first.purchasePrice || 0;
+                                    item.sellingPrice = first.sellingPrice || 0;
+                                    if (first.image) {
+                                        item.productImages = [first.image];
+                                    }
+
+                                    // Remaining products add new rows
+                                    for (let i = 1; i < products.length; i++) {
+                                        const product = products[i];
+                                        const newItem = formModal.addItem();
+                                        newItem.productName = product.name || '';
+                                        newItem.productCode = product.code || '';
+                                        newItem.purchasePrice = product.purchasePrice || 0;
+                                        newItem.sellingPrice = product.sellingPrice || 0;
+                                        if (product.image) {
+                                            newItem.productImages = [product.image];
+                                        }
+                                    }
+
+                                    formModal.refreshItemsTable();
                                 }
                             }
                         });
