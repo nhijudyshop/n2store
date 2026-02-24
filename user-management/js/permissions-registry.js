@@ -243,6 +243,31 @@ const PAGES_REGISTRY = {
         }
     },
 
+    "purchase-orders": {
+        id: "purchase-orders",
+        name: "Quản Lý Đặt Hàng",
+        shortName: "Đặt Hàng",
+        icon: "shopping-bag",
+        href: "../purchase-orders/index.html",
+        description: "Quản lý đơn đặt hàng từ nhà cung cấp",
+        adminOnly: false,
+        category: "orders",
+        detailedPermissions: {
+            view: { name: "Xem đơn đặt hàng", icon: "eye", description: "Xem danh sách đơn đặt hàng" },
+            create: { name: "Tạo đơn đặt hàng", icon: "plus-circle", description: "Tạo đơn đặt hàng mới" },
+            edit: { name: "Sửa đơn đặt hàng", icon: "edit", description: "Chỉnh sửa đơn đặt hàng" },
+            delete: { name: "Xóa đơn đặt hàng", icon: "trash-2", description: "Xóa đơn đặt hàng" },
+            submit: { name: "Submit đơn", icon: "send", description: "Submit đơn nháp để xử lý" },
+            export: { name: "Xuất Excel", icon: "download", description: "Export đơn đặt hàng ra Excel" },
+            bulkActions: { name: "Thao tác hàng loạt", icon: "check-square", description: "Chọn nhiều đơn để export/xóa" },
+            syncTpos: { name: "Đồng bộ TPOS", icon: "refresh-cw", description: "Đồng bộ sản phẩm lên TPOS" },
+            uploadImages: { name: "Upload ảnh", icon: "image", description: "Tải lên ảnh sản phẩm, giá, hóa đơn" },
+            manageProducts: { name: "Quản lý sản phẩm", icon: "package", description: "Thêm/sửa sản phẩm trong đơn" },
+            receiveGoods: { name: "Nhận hàng", icon: "package-check", description: "Xác nhận nhận hàng từ NCC" },
+            updateStatus: { name: "Cập nhật trạng thái", icon: "refresh-cw", description: "Thay đổi trạng thái đơn hàng" }
+        }
+    },
+
     // REMOVED: order-live-tracking (module deleted - cleanup task 9.1)
 
     // =====================================================
