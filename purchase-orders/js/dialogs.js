@@ -810,13 +810,28 @@ class SettingsDialog {
      * @param {Object} options - { settings, onSave }
      */
     async open(options = {}) {
-        // Load from Firestore first, then merge with any passed-in settings
-        const firestoreSettings = await this.loadFromFirestore();
-        this.settings = { ...firestoreSettings, ...options.settings };
         this.onSave = options.onSave;
+
+        // Use passed-in settings immediately (render dialog first, don't block on Firestore)
+        const defaults = window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {};
+        this.settings = { ...defaults, ...options.settings };
 
         this.render();
         this.show();
+
+        // Then load from Firestore in background and update if different
+        try {
+            const firestoreSettings = await this.loadFromFirestore();
+            const merged = { ...firestoreSettings, ...options.settings };
+            if (JSON.stringify(merged) !== JSON.stringify(this.settings)) {
+                this.settings = merged;
+                // Re-render with Firestore data
+                this.render();
+                this.show();
+            }
+        } catch (e) {
+            console.warn('[SettingsDialog] Firestore load failed, using defaults:', e);
+        }
     }
 
     close() {
