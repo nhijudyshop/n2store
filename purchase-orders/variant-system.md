@@ -1528,6 +1528,342 @@ React app legacy (phức tạp hơn, KHÔNG DÙNG):
 5. **Variant con không có ảnh riêng**: TPOS payload variant con có `Image: null`, chỉ parent product có ảnh
 6. **DB lưu URLs, TPOS nhận base64**: Firestore `items[].productImages` = Firebase Storage URLs, TPOS `Image` = base64 string
 
+### 9.14 Debug: Attr IDs - Chi Tiết Logic
+
+#### 9.14.1 Tổng Quan
+
+"Debug: Attr IDs" là cột debug ẩn trên bảng sản phẩm trong CreatePurchaseOrderDialog, hiển thị mảng `selectedAttributeValueIds` (UUIDs) của mỗi item. Cột này giúp kiểm tra các attribute value IDs đã được gán cho từng dòng sản phẩm — dữ liệu này **quyết định cách TPOS tạo variant**.
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│ ...Thao tác │  < Debug: Attr IDs                                   │
+│             │ ┌──────────────────────────────────────────────────┐ │
+│             │ │ 885ba459-622d-4ab4-b39b-1a047664f453             │ │ ← Attr value UUID 1
+│             │ │ 21cfea95-87e8-45dd-a92e-75670151ac1f             │ │ ← Attr value UUID 2
+│             │ │ 3f2318d1-0f3b-4ef0-8c56-b8d62b027beb             │ │ ← Attr value UUID 3
+│             │ └──────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+#### 9.14.2 UI Toggle - Mở/Đóng Cột Debug
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx`
+
+**State** (line 446):
+
+```typescript
+const [showDebugColumn, setShowDebugColumn] = useState(false); // Mặc định ẩn
+```
+
+**Header** (line 2041-2055):
+
+```typescript
+<TableHead className={`border-l-2 border-yellow-500/30 transition-all ${showDebugColumn ? 'w-[200px]' : 'w-8'}`}>
+  <div className="flex items-center gap-2">
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-6 w-6 p-0 shrink-0"
+      onClick={() => setShowDebugColumn(!showDebugColumn)}
+      title="Toggle debug column"
+    >
+      {showDebugColumn ? <ChevronLeft /> : <ChevronRight />}
+    </Button>
+    {showDebugColumn && <span className="text-xs text-muted-foreground">Debug: Attr IDs</span>}
+  </div>
+</TableHead>
+```
+
+**Hiển thị cell** (line 2244-2258):
+
+```typescript
+{showDebugColumn && (
+  <TableCell className="border-l-2 border-yellow-500/30 align-top">
+    {item.selectedAttributeValueIds && item.selectedAttributeValueIds.length > 0 ? (
+      <div className="space-y-1 max-h-[120px] overflow-y-auto text-xs">
+        {item.selectedAttributeValueIds.map((id, idx) => (
+          <div key={idx} className="font-mono text-[10px] bg-yellow-50 px-1 py-0.5 rounded border border-yellow-200">
+            {id}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <span className="text-xs text-muted-foreground italic">—</span>
+    )}
+  </TableCell>
+)}
+```
+
+**Style**:
+- Cột có `border-l-2 border-yellow-500/30` (viền vàng bên trái)
+- Khi đóng: `w-8` (chỉ hiển thị nút `>`)
+- Khi mở: `w-[200px]` (hiển thị header "Debug: Attr IDs" + UUIDs)
+- UUID box: `font-mono text-[10px] bg-yellow-50 border-yellow-200` (nền vàng nhạt)
+- Max height: `120px` với `overflow-y-auto` (scroll nếu nhiều IDs)
+
+#### 9.14.3 Badge "✓ N thuộc tính đã chọn"
+
+Ở cột Biến thể, dưới nút variant, hiển thị badge khi có attribute IDs:
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` (line 2098-2102)
+
+```typescript
+{item.selectedAttributeValueIds && item.selectedAttributeValueIds.length > 0 && (
+  <Badge variant="secondary" className="text-xs">
+    ✓ {item.selectedAttributeValueIds.length} thuộc tính đã chọn
+  </Badge>
+)}
+```
+
+Ví dụ: item có 3 IDs → hiển thị `"✓ 3 thuộc tính đã chọn"`
+
+#### 9.14.4 Nguồn Gốc selectedAttributeValueIds - Từ VariantGeneratorDialog
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/VariantGeneratorDialog.tsx`
+
+Khi user chọn variant trong dialog "Tạo biến thể từ thuộc tính":
+
+**handleSubmit()** (line 138-183):
+
+```
+User chọn: Màu = [Đen, Xám], Size Số = [4], Size Chữ = [XL]
+  ↓
+Bước 1: Tạo allSelectedAttributeValueIds (line 150-160)
+  ↓ attributes.filter(có selectedValues)
+  ↓ .flatMap → lấy UUID cho TỪNG value đã chọn
+  ↓ attributeValues.find(av.value === "Đen" && av.attribute_id === "mau_id") → UUID
+  ↓ attributeValues.find(av.value === "Xám" && av.attribute_id === "mau_id") → UUID
+  ↓ attributeValues.find(av.value === "4" && av.attribute_id === "sizeso_id") → UUID
+  ↓ attributeValues.find(av.value === "XL" && av.attribute_id === "sizechu_id") → UUID
+  ↓
+  ↓ Kết quả: allSelectedAttributeValueIds = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]
+  ↓ (4 IDs cho ví dụ Đen+Xám, 4, XL)
+  ↓
+Bước 2: Gán CÙNG mảng IDs cho TẤT CẢ combinations (line 163-166)
+  ↓ combinations = selectedCombinations.map(combo => ({
+  ↓   combinationString: combo,         // VD: "Đen, 4, XL"
+  ↓   selectedAttributeValueIds: allSelectedAttributeValueIds  // ← CÙNG mảng!
+  ↓ }))
+  ↓
+  ↓ onSubmit({ combinations, hasVariants: true })
+```
+
+**QUAN TRỌNG**: Tất cả variant items từ cùng 1 lần tạo đều có **CÙNG mảng `selectedAttributeValueIds`**. Đây KHÔNG phải là IDs riêng cho từng combo, mà là **tập hợp TẤT CẢ attribute value IDs đã chọn**.
+
+Ví dụ từ screenshot:
+
+```
+Item 1: "Đen, 4, XL" → selectedAttributeValueIds = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]
+Item 2: "Xám, 4, XL" → selectedAttributeValueIds = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]
+                         ↑ CÙNG 4 IDs (nhưng screenshot chỉ thấy 3 vì scroll)
+```
+
+#### 9.14.5 Khi Tạo Variant Items - IDs Được Gán
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` (line 2420-2457)
+
+```
+VariantGeneratorDialog.onSubmit(result)
+  ↓
+result.combinations = [
+  { combinationString: "Đen, 4, XL", selectedAttributeValueIds: [id1, id2, id3, id4] },
+  { combinationString: "Xám, 4, XL", selectedAttributeValueIds: [id1, id2, id3, id4] }
+]
+  ↓
+Tạo newVariantItems (line 2432-2446):
+  const newVariantItems = result.combinations.map((combo, index) => ({
+    product_name: sourceItem.product_name,     // "ao 32"
+    product_code: sourceItem.product_code,     // "N4033"
+    variant: combo.combinationString,          // "Đen, 4, XL"
+    selectedAttributeValueIds: combo.selectedAttributeValueIds,  // ← GÁN IDs
+    hasVariants: true,
+    ...
+  }));
+  ↓
+Xóa source item + thêm variant items (line 2453-2457):
+  setItems(prev => {
+    const filtered = prev.filter((_, idx) => idx !== variantGeneratorIndex);
+    return [...filtered, ...newVariantItems];
+  });
+```
+
+#### 9.14.6 Khi Xóa Item (Nút ✕) - Ảnh Hưởng Đến Attr IDs
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` (line 1558-1580)
+
+```
+User bấm ✕ trên dòng variant
+  ↓
+removeItem(index) (line 1558)
+  ↓
+Nếu items.length > 1:
+  ↓ setItems(items.filter((_, i) => i !== index))
+  ↓ → Item bị xóa hoàn toàn, kể cả selectedAttributeValueIds
+  ↓
+Nếu items.length === 1 (dòng cuối):
+  ↓ Reset thành item trống, KHÔNG có selectedAttributeValueIds
+  ↓ setItems([{ product_code: "", product_name: "", variant: "", ... }])
+```
+
+**Ảnh hưởng khi xóa 1 variant item**:
+
+```
+Trước khi xóa (2 items):
+  Item 1: "Đen, 4, XL" - N4033 - IDs: [id1, id2, id3, id4]
+  Item 2: "Xám, 4, XL" - N4033 - IDs: [id1, id2, id3, id4]
+
+Xóa Item 1 (Đen, 4, XL):
+  Item 2: "Xám, 4, XL" - N4033 - IDs: [id1, id2, id3, id4]  ← KHÔNG ĐỔI
+
+→ selectedAttributeValueIds của item còn lại KHÔNG bị ảnh hưởng
+→ IDs vẫn chứa TẤT CẢ attribute values (kể cả Đen đã bị xóa khỏi bảng)
+```
+
+**Hệ quả cho TPOS**: Khi "Tạo đơn hàng":
+- Edge Function nhóm items theo `product_code|sorted(selectedAttributeValueIds)`
+- Item 2 còn lại vẫn có đầy đủ IDs → Edge Fn 2 sẽ query DB lấy tất cả attribute values từ IDs → **vẫn tạo CÙNG Cartesian product** (Đen×4×XL + Xám×4×XL)
+- TPOS sẽ tạo **cả 2 variant** (Đen+Xám) dù chỉ còn 1 item trên UI
+
+**Kết luận xóa item**: Xóa dòng trên UI **KHÔNG xóa attribute value IDs** từ các items còn lại. TPOS vẫn tạo tất cả variant combinations dựa trên `selectedAttributeValueIds`.
+
+#### 9.14.7 Khi Thêm Mới Item (Nút "+ Thêm sản phẩm") - Không Có Attr IDs
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` (line ~1430-1444)
+
+```
+User bấm "+ Thêm sản phẩm"
+  ↓
+addNewItem()
+  ↓ items.push({
+  ↓   product_name: "",
+  ↓   product_code: "",
+  ↓   variant: "",
+  ↓   selectedAttributeValueIds: undefined,  ← KHÔNG CÓ IDs
+  ↓   ...
+  ↓ })
+  ↓
+Debug column hiển thị: "—" (dash, italic)
+```
+
+Item mới thêm **không có `selectedAttributeValueIds`** → cột Debug hiển thị dấu gạch. Chỉ khi user mở VariantGeneratorDialog và chọn attributes thì IDs mới được gán.
+
+#### 9.14.8 Khi Copy Item (Nút 📋) - IDs Được Copy Theo
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` (line 1447-1554)
+
+```
+User bấm 📋 copy dòng "Đen, 4, XL"
+  ↓
+copyItem(index) (line 1447)
+  ↓ const itemToCopy = { ...items[index] }
+  ↓   → Spread copy: selectedAttributeValueIds được copy by reference
+  ↓
+  ↓ Tạo product_code mới (auto-generate)
+  ↓ newItems.splice(index + 1, 0, itemToCopy)
+  ↓
+Kết quả:
+  Item 1: "Đen, 4, XL" - N4033 - IDs: [id1, id2, id3, id4]  ← gốc
+  Item 2: "Đen, 4, XL" - N4034 - IDs: [id1, id2, id3, id4]  ← copy (MÃ MỚI, IDs GIỐNG)
+```
+
+**Lưu ý**: Copy item giữ nguyên `selectedAttributeValueIds` nhưng tạo **mã sản phẩm mới**. Do đó khi nhóm items cho TPOS (theo `product_code|IDs`), item copy sẽ nằm ở **group khác** → tạo sản phẩm TPOS riêng.
+
+#### 9.14.9 Khi Load Draft - IDs Từ Database
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx` (line 480-493)
+
+```
+Mở dialog với initialData (draft từ DB)
+  ↓
+loadedItems = initialData.items.map(item => ({
+  selectedAttributeValueIds: item.selected_attribute_value_ids || undefined,
+  hasVariants: item.selected_attribute_value_ids?.length > 0,
+  ...
+}))
+  ↓
+Nếu draft có selected_attribute_value_ids → hiển thị trong Debug column
+Nếu draft không có → hiển thị "—"
+```
+
+#### 9.14.10 Khi Lưu Vào Database - IDs Lưu Nguyên
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/CreatePurchaseOrderDialog.tsx`
+
+Cả 2 flow (Lưu nháp + Tạo đơn hàng) đều lưu IDs:
+
+```typescript
+// orderItems mapping (line 1095-1120 cho Tạo đơn, line 760-775 cho Lưu nháp)
+const orderItems = items.map(item => ({
+  selected_attribute_value_ids: item.selectedAttributeValueIds || null,
+  // ...
+}));
+
+// INSERT vào purchase_order_items table
+await supabase.from("purchase_order_items").insert(orderItems);
+```
+
+#### 9.14.11 Vai Trò Của selectedAttributeValueIds Trong Edge Function
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/process-purchase-order-background/index.ts` (line 101-112)
+
+```typescript
+// Step 1: Group items by (product_code + selected_attribute_value_ids)
+for (const item of items) {
+  const sortedIds = (item.selected_attribute_value_ids || []).sort().join(',');
+  const groupKey = `${item.product_code}|${sortedIds}`;
+  // → VD: "N4033|21cfea95...,3f2318d1...,885ba459..."
+
+  groups.get(groupKey)!.push(item);
+}
+```
+
+**Quy tắc nhóm**: Items có **cùng `product_code`** VÀ **cùng sorted `selected_attribute_value_ids`** → nhóm chung → gọi 1 lần TPOS API.
+
+**Ví dụ từ screenshot** (2 items cùng N4033, cùng IDs):
+
+```
+Item 1: N4033 | [885ba..., 21cfe..., 3f231...] → groupKey = "N4033|21cfe...,3f231...,885ba..."
+Item 2: N4033 | [885ba..., 21cfe..., 3f231...] → groupKey = "N4033|21cfe...,3f231...,885ba..."
+  → CÙNG GROUP → chỉ gọi TPOS 1 lần → tạo 1 parent + N variants
+```
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants-from-order/index.ts` (line 530+)
+
+```
+Edge Fn 2 nhận selectedAttributeValueIds = [id1, id2, id3]
+  ↓
+Query Supabase: attribute_values JOIN attributes (dùng IDs)
+  ↓ → Lấy tpos_id, tpos_attribute_id, value cho mỗi UUID
+  ↓
+Group by attribute → Cartesian product
+  ↓ VD: Màu=[Đen, Xám] × Size Số=[4] × Size Chữ=[XL] = 2 combos
+  ↓
+Tạo ProductVariants array → POST TPOS InsertV2
+```
+
+#### 9.14.12 Bảng Tổng Hợp: Hành Vi selectedAttributeValueIds
+
+| Hành động | selectedAttributeValueIds | Ảnh hưởng |
+|-----------|--------------------------|-----------|
+| **Tạo variant** (VariantGeneratorDialog) | Gán CÙNG mảng IDs cho TẤT CẢ combos | Tất cả items cùng nhóm có cùng IDs |
+| **Xóa item** (nút ✕) | Items còn lại KHÔNG ĐỔI IDs | TPOS vẫn tạo đầy đủ Cartesian product |
+| **Thêm item mới** (+ Thêm SP) | `undefined` (không có IDs) | Debug hiển thị "—", TPOS tạo simple product |
+| **Copy item** (nút 📋) | Copy by reference (CÙNG IDs) | Mã SP mới → group riêng → TPOS SP riêng |
+| **Chọn từ kho** (Chọn từ Kho SP) | KHÔNG gán IDs | Debug hiển thị "—" |
+| **Load draft** | Restore từ `selected_attribute_value_ids` trong DB | Hiển thị lại IDs đã lưu |
+| **Lưu nháp** | Lưu vào `purchase_order_items.selected_attribute_value_ids` | Persist IDs trong DB |
+| **Tạo đơn hàng** | Lưu DB + Edge Fn dùng IDs để nhóm + query attributes | IDs quyết định TPOS Cartesian product |
+| **Apply All (📋 áp dụng)** | KHÔNG copy IDs (chỉ copy giá + ảnh) | IDs của items khác không đổi |
+
+#### 9.14.13 Lưu Ý Quan Trọng
+
+1. **Cùng IDs ≠ cùng variant**: Tất cả items từ 1 lần tạo variant đều có **CÙNG mảng IDs** (tổng hợp TẤT CẢ attribute values), không phải IDs riêng cho từng combo
+2. **IDs dùng cho nhóm**: Edge Fn 1 nhóm items theo `product_code|sorted(IDs)` → items cùng group gọi TPOS 1 lần
+3. **IDs dùng cho Cartesian**: Edge Fn 2 dùng IDs query DB → lấy attribute values → tạo Cartesian product → tạo TPOS variants
+4. **Xóa item ≠ xóa variant trên TPOS**: Xóa 1 dòng variant trên UI không ảnh hưởng IDs của items còn lại, TPOS vẫn tạo đầy đủ variants
+5. **Debug column mặc định ẩn**: `showDebugColumn` = `false`, user phải bấm `>` để mở
+6. **Chỉ hiển thị, không sửa được**: Debug column là read-only, không có chức năng edit IDs trực tiếp
+
 ---
 
 ## 10. Tự Tạo Mã Sản Phẩm (Auto-Generate Product Code) - Chi Tiết Từng Bước

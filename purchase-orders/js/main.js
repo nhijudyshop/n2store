@@ -5,6 +5,76 @@
  */
 
 // ========================================
+// UTILITY: Variant Matching (Section 15.6)
+// ========================================
+
+/**
+ * Compare two variant strings order-insensitively and format-insensitively.
+ * Supports comma, pipe, and parenthesis formats.
+ * e.g. "ĐEN, 4, XL" matches "(Đen) (4) (XL)" or "Đen | 4 | XL"
+ */
+function variantsMatch(variant1, variant2) {
+    if (!variant1 || !variant2) return false;
+
+    const removeDiacritics = window.ProductCodeGenerator?.removeVietnameseDiacritics
+        || ((s) => s);
+
+    const normalize = (str) =>
+        removeDiacritics(str.trim())
+            .toUpperCase()
+            .replace(/[()]/g, '')
+            .replace(/\s+/g, ' ');
+
+    const parts1 = variant1.split(/[,|]/).map(normalize).filter(p => p.length > 0).sort();
+    const parts2 = variant2.split(/[,|]/).map(normalize).filter(p => p.length > 0).sort();
+
+    return parts1.length === parts2.length && parts1.every((part, idx) => part === parts2[idx]);
+}
+
+// ========================================
+// UTILITY: Products CSV Loader (for variant lookup)
+// ========================================
+
+let _productsCSVCache = null;
+
+/**
+ * Load and parse products_rows.csv
+ * @returns {Promise<Array<{product_code: string, variant: string, base_product_code: string}>>}
+ */
+async function loadProductsCSV() {
+    if (_productsCSVCache) return _productsCSVCache;
+
+    try {
+        const response = await fetch('products_rows.csv');
+        if (!response.ok) {
+            console.warn('[ExportMH] products_rows.csv fetch failed:', response.status);
+            return [];
+        }
+        const text = await response.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) return [];
+
+        const headers = lines[0].split(',');
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',');
+            const row = {};
+            headers.forEach((h, idx) => {
+                row[h.trim()] = (values[idx] || '').trim();
+            });
+            rows.push(row);
+        }
+
+        _productsCSVCache = rows;
+        console.log(`[ExportMH] Loaded ${rows.length} products from CSV`);
+        return rows;
+    } catch (error) {
+        console.error('[ExportMH] Failed to load products CSV:', error);
+        return [];
+    }
+}
+
+// ========================================
 // MAIN CONTROLLER CLASS
 // ========================================
 class PurchaseOrderController {
@@ -451,7 +521,7 @@ class PurchaseOrderController {
                         <input type="radio" name="exportFormat" value="MH" checked style="width: 18px; height: 18px;">
                         <div>
                             <div style="font-weight: 600; margin-bottom: 4px;">📋 Mua Hàng (MH)</div>
-                            <div style="font-size: 12px; color: #6b7280;">4 cột: STT, Tên SP, Biến thể, SL</div>
+                            <div style="font-size: 12px; color: #6b7280;">4 cột: Mã SP, Số lượng, Đơn giá, Chiết khấu (TPOS import)</div>
                         </div>
                     </label>
 
@@ -542,85 +612,180 @@ class PurchaseOrderController {
         });
 
         // Confirm button
-        overlay.querySelector('#btnConfirmExport').addEventListener('click', () => {
+        overlay.querySelector('#btnConfirmExport').addEventListener('click', async () => {
             const format = overlay.querySelector('input[name="exportFormat"]:checked').value;
             overlay.remove();
 
             try {
                 if (format === 'MH') {
-                    this.exportMuaHang(orders);
+                    // Async export with 3-case variant resolution
+                    const result = await this.exportMuaHang(orders);
+
+                    if (result.exported === 0) {
+                        this.ui.showToast('Không thể xuất Excel - Không có SP nào phù hợp', 'error');
+                        return;
+                    }
+
+                    if (result.skipped > 0) {
+                        const errorDetails = result.errors.slice(0, 3).join('\n');
+                        this.ui.showToast(
+                            `⚠️ Xuất Excel với lỗi! Đã xuất ${result.exported} SP, bỏ qua ${result.skipped} SP\n${errorDetails}`,
+                            'warning'
+                        );
+                    } else {
+                        this.ui.showToast(`Xuất Excel thành công! Đã xuất ${result.exported} sản phẩm`, 'success');
+                    }
+
+                    // Auto-update status: AWAITING_PURCHASE → AWAITING_DELIVERY
+                    const order = orders[0];
+                    const config = window.PurchaseOrderConfig;
+                    if (order.status === config?.OrderStatus?.AWAITING_PURCHASE) {
+                        try {
+                            await this.dataManager.updateOrderStatus(order.id, config.OrderStatus.AWAITING_DELIVERY);
+                            this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'info');
+                            // Refresh order list
+                            if (this.dataManager?.loadOrders) {
+                                this.dataManager.loadOrders(this.currentTab, true);
+                            }
+                        } catch (statusErr) {
+                            console.warn('[ExportMH] Auto-update status failed:', statusErr);
+                        }
+                    }
                 } else if (format === 'TSP') {
                     this.exportThemSP(orders);
+                    this.ui.showToast(`Xuất Excel (TSP) thành công!`, 'success');
                 } else {
                     this.exportOrderToExcelFull(orders);
+                    this.ui.showToast(`Xuất Excel thành công!`, 'success');
                 }
-                this.ui.showToast(`Xuất Excel (${format}) thành công!`, 'success');
             } catch (error) {
                 console.error('Export failed:', error);
-                this.ui.showToast('Không thể xuất Excel: ' + error.message, 'error');
+                this.ui.showToast('Lỗi khi xuất Excel! Vui lòng thử lại', 'error');
             }
         });
     }
 
     /**
-     * Export "Mua Hàng" format - 4 columns for purchasing
-     * Columns: STT, Tên sản phẩm, Biến thể, SL
-     * @param {Array} orders - Orders to export
+     * Export "Mua Hàng" format - TPOS-importable 4 columns (Section 15)
+     * Columns: Mã sản phẩm (*), Số lượng (*), Đơn giá, Chiết khấu (%)
+     * Uses 3-case product code resolution with variant matching
+     * @param {Array} orders - Orders to export (single order in array)
+     * @returns {Promise<{exported: number, skipped: number, errors: string[]}>}
      */
-    exportMuaHang(orders) {
+    async exportMuaHang(orders) {
         if (typeof XLSX === 'undefined') {
             throw new Error('XLSX library not loaded');
         }
 
-        const data = [];
+        const order = orders[0];
+        const allItems = order.items || [];
+        if (allItems.length === 0) {
+            return { exported: 0, skipped: 0, errors: ['Đơn hàng không có sản phẩm nào'] };
+        }
 
-        // Header row
-        data.push(['STT', 'Tên sản phẩm', 'Biến thể', 'SL']);
+        // Load products CSV for variant lookup (CASE 3)
+        const productsCSV = await loadProductsCSV();
 
-        let stt = 1;
-        orders.forEach(order => {
-            // Add supplier header for each order if multiple
-            if (orders.length > 1) {
-                data.push([`--- ${order.supplier?.name || 'Không rõ NCC'} (${order.orderNumber}) ---`, '', '', '']);
+        const excelRows = [];
+        const skippedErrors = [];
+
+        for (const item of allItems) {
+            let productCode = null;
+
+            // CASE 1: Already has tposProductId → use productCode directly
+            if (item.tposProductId) {
+                productCode = item.productCode;
+            }
+            // CASE 2: No variant → use productCode directly
+            else if (!item.variant || item.variant.trim() === '') {
+                productCode = item.productCode;
+            }
+            // CASE 3: Has variant + no tposProductId → 3-step fallback
+            else {
+                // Step 1: Find variant match in products CSV by base_product_code
+                const candidates = productsCSV.filter(
+                    row => row.base_product_code === item.productCode
+                        && row.variant && row.variant.trim() !== ''
+                );
+
+                const matched = candidates.find(
+                    row => variantsMatch(row.variant, item.variant)
+                );
+
+                if (matched) {
+                    productCode = matched.product_code;
+                } else {
+                    // Step 2: Check if productCode exists as exact product_code in CSV
+                    const exactMatch = productsCSV.find(
+                        row => row.product_code === item.productCode
+                    );
+
+                    if (exactMatch) {
+                        productCode = item.productCode;
+                    } else {
+                        // Step 3: Search TPOS API
+                        try {
+                            const tposResults = await window.TPOSClient?.searchProduct(item.productCode);
+                            if (tposResults && tposResults.length > 0) {
+                                productCode = item.productCode;
+                            }
+                        } catch (err) {
+                            console.warn('[ExportMH] TPOS search failed for', item.productCode, err);
+                        }
+                    }
+                }
+
+                // All steps failed → skip
+                if (!productCode) {
+                    const candidateCodes = candidates.map(c => c.product_code).slice(0, 3).join(', ');
+                    skippedErrors.push(
+                        `❌ ${item.productCode} - ${item.productName || ''} (Variant: ${item.variant}${candidateCodes ? ', Có trong kho: [' + candidateCodes + ']' : ''})`
+                    );
+                    continue;
+                }
             }
 
-            // Add items
-            (order.items || []).forEach((item) => {
-                data.push([
-                    stt++,
-                    item.productName || '',
-                    item.variant || '',
-                    item.quantity || 0
-                ]);
+            excelRows.push({
+                'Mã sản phẩm (*)': productCode,
+                'Số lượng (*)': item.quantity || 0,
+                'Đơn giá': item.purchasePrice || 0,
+                'Chiết khấu (%)': 0
             });
-        });
+        }
 
-        // Total row
-        const totalQty = orders.reduce((sum, order) =>
-            sum + (order.items || []).reduce((s, item) => s + (item.quantity || 0), 0), 0);
-        data.push(['']);
-        data.push(['TỔNG CỘNG', '', '', totalQty]);
+        if (excelRows.length === 0) {
+            return { exported: 0, skipped: skippedErrors.length, errors: skippedErrors };
+        }
 
-        // Create workbook
-        const ws = XLSX.utils.aoa_to_sheet(data);
+        // Create workbook with json_to_sheet (preserves column headers as keys)
+        const ws = XLSX.utils.json_to_sheet(excelRows);
 
         // Set column widths
         ws['!cols'] = [
-            { wch: 5 },   // STT
-            { wch: 40 },  // Tên sản phẩm
-            { wch: 20 },  // Biến thể
-            { wch: 8 }    // SL
+            { wch: 25 },  // Mã sản phẩm
+            { wch: 12 },  // Số lượng
+            { wch: 12 },  // Đơn giá
+            { wch: 14 }   // Chiết khấu
         ];
 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Mua Hàng');
 
-        // Filename
-        const filename = orders.length === 1
-            ? `MH_${orders[0].orderNumber}.xlsx`
-            : `MH_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+        // Filename: MuaHang_{Supplier}_{DD-MM}.xlsx
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const supplierName = (order.supplier?.name || order.orderNumber || 'Export')
+            .replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_');
+        const filename = `MuaHang_${supplierName}_${dd}-${mm}.xlsx`;
 
         XLSX.writeFile(wb, filename);
+
+        return {
+            exported: excelRows.length,
+            skipped: skippedErrors.length,
+            errors: skippedErrors
+        };
     }
 
     /**
