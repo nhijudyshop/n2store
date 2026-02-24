@@ -1315,6 +1315,219 @@ tpos_image_url: string | null;
 | `tpos-product-sync` | `/Users/mac/Downloads/github-html-starter-main/src/lib/tpos-product-sync.ts` | Sync `tpos_image_url` từ TPOS |
 | `table-renderer.js` (n2store) | `/Users/mac/Downloads/n2store/purchase-orders/js/table-renderer.js` | Hiển thị ảnh thumbnail + hover zoom trên bảng |
 
+### 9.13 Logic Upload Hình Lên TPOS - End-to-End Chi Tiết
+
+Toàn bộ luồng hình ảnh từ user dán/chọn ảnh → Firebase Storage → base64 cache → TPOS API `Image` field.
+
+> **N2store**: Dùng Firebase Storage thay Supabase Storage. Không cần Edge Function — xử lý trực tiếp trong `tpos-product-creator.js`.
+
+#### 9.13.1 Tổng Quan Luồng Hình Ảnh → TPOS
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BƯỚC 1: User dán/kéo/chọn ảnh                                              │
+│ ─────────────────────────────                                               │
+│ UnifiedImageUpload → handlePaste/handleDrop/handleFileInputChange           │
+│   ↓ compressImage() nếu > 1MB                                              │
+│   ↓ Upload lên Firebase Storage (purchase-orders/products/)                  │
+│   ↓ Nhận downloadURL (https://firebasestorage.googleapis.com/...)           │
+│   ↓ onChange([downloadURL]) → item.productImages = [downloadURL]            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ BƯỚC 2: Auto-cache base64 ngay khi upload                                   │
+│ ──────────────────────────────────────────                                   │
+│ N2store: Ảnh được lưu local dạng dataUrl (pendingImages)                    │
+│   ↓ Khi submit → uploadPendingImages() → Firebase Storage URLs             │
+│   ↓ item.productImages = [firebaseURL]                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ BƯỚC 3: tpos-product-creator.js convert image → base64                      │
+│ ──────────────────────────────────────────────────                           │
+│ syncOrderToTPOS() → processGroup()                                          │
+│   ↓ Lấy productImages[0] (Firebase Storage URL)                            │
+│   ↓ convertImageToBase64(url)                                               │
+│   ↓ fetch(url) → blob → canvas resize (800×800) → base64                   │
+│   ↓ Strip prefix "data:image/...;base64," → pure base64 string             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ BƯỚC 4: Gửi TPOS API với Image field                                        │
+│ ────────────────────────────────────                                         │
+│ POST https://tomato.tpos.vn/odata/ProductTemplate/ODataService.InsertV2     │
+│   payload.Image = imageBase64    ← base64 string (CHỈ ảnh đầu tiên)        │
+│   payload.ImageUrl = null        ← không dùng                               │
+│   payload.Thumbnails = []        ← không dùng                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 9.13.2 Bước 1: User Upload Ảnh → Firebase Storage (N2store)
+
+**File**: `/Users/mac/Downloads/n2store/purchase-orders/js/form-modal.js`
+
+```
+User dán ảnh (Ctrl+V) / Hover + Paste / Click chọn file
+  ↓
+addLocalImages(files, type, itemId) (form-modal.js)
+  ↓ compressImage() nếu có ImageUtils (max 1920×1920)
+  ↓ Convert → dataUrl cho preview tức thì
+  ↓ Lưu vào pendingImages (chưa upload)
+  ↓
+handleSubmit() → uploadPendingImages()
+  ↓ Upload lên Firebase Storage (purchase-orders/products/)
+  ↓ Nhận downloadURL: "https://firebasestorage.googleapis.com/..."
+  ↓ Thay dataUrl bằng Firebase URL trong formData
+  ↓ item.productImages = [downloadURL]
+```
+
+**Config upload (N2store)**:
+
+| Config | Giá trị |
+|--------|---------|
+| Storage | Firebase Storage |
+| Folder | `purchase-orders/products/` |
+| Compress max dimensions | 1920×1920 |
+| Compress quality | 1 (ImageUtils) |
+
+#### 9.13.3 Bước 2: TPOS Product Creator Convert Image → Base64 (N2store)
+
+**File**: `/Users/mac/Downloads/n2store/purchase-orders/js/lib/tpos-product-creator.js`
+
+```
+syncOrderToTPOS() → processGroup()
+  ↓
+  ↓ Lấy productImages[0] từ item đầu tiên trong group (Firebase Storage URL)
+  ↓
+  ↓ convertImageToBase64(url)
+  ↓   fetch(url) → blob
+  ↓   Nếu blob.size > 512000 (500KB):
+  ↓     Canvas resize: max 800×800 px, quality 0.8, image/jpeg
+  ↓   FileReader.readAsDataURL(blob)
+  ↓   base64Data = result.split(',')[1]  ← Bỏ prefix "data:image/jpeg;base64,"
+  ↓   return base64Data (pure base64 string)
+  ↓
+  ↓ payload.Image = base64Data
+```
+
+**Lưu ý quan trọng**:
+- Chỉ convert **1 ảnh đầu tiên** (`productImages[0]`) — TPOS API chỉ nhận 1 field `Image`
+- Resize xuống **800×800** và compress **80% quality** — nhỏ hơn ảnh gốc, tối ưu cho TPOS
+- Base64 **không có prefix** `data:image/...;base64,`
+
+| Constant | Giá trị |
+|----------|---------|
+| Max resize dimensions | 800×800 px |
+| Max bytes before resize | 500KB (512000 bytes) |
+| Resize quality | 0.8 (80%) |
+| Resize format | `image/jpeg` |
+
+#### 9.13.8 Bước 7: TPOS API Payload - Field Image
+
+**CASE 1: Sản phẩm đơn (không có variant)** — line 268-423
+
+```typescript
+const simplePayload = {
+  // ... ~60 fields ...
+  Image: imageBase64,    // ← base64 string (line 315)
+  ImageUrl: null,        // ← không dùng (line 316)
+  Thumbnails: [],        // ← không dùng (line 317)
+  // ...
+  ProductVariants: []
+};
+```
+
+**CASE 2: Sản phẩm có variant** — line 736-830
+
+```typescript
+const parentPayload = {
+  // ... ~60 fields ...
+  Image: imageBase64,    // ← base64 string (line 799)
+  ImageUrl: null,        // ← không dùng (line 800)
+  Thumbnails: [],        // ← không dùng (line 801)
+  // ...
+  ProductVariants: [     // Variant CON không có Image
+    {
+      Image: null,       // ← null cho variant con (line 677)
+      ImageUrl: null,    // ← null cho variant con (line 678)
+      Thumbnails: [],
+      // ...
+    }
+  ]
+};
+```
+
+**POST endpoint**: `https://tomato.tpos.vn/odata/ProductTemplate/ODataService.InsertV2?$expand=ProductVariants,UOM,UOMPO`
+
+**Headers** (line 195-202):
+
+```typescript
+{
+  'Authorization': 'Bearer {token}',
+  'Content-Type': 'application/json',
+  'Tpos-Agent': 'Node.js v20.5.1, Mozilla/5.0, Windows NT 10.0; Win64; x64',
+  'Tpos-Retailer': '1'
+}
+```
+
+**Kết luận Image trên TPOS**:
+- Chỉ **parent product** có `Image` (base64)
+- **Variant con** luôn có `Image: null` → TPOS sẽ dùng ảnh parent
+- Chỉ **ảnh đầu tiên** trong `product_images[]` được gửi
+- `ImageUrl` và `Thumbnails` luôn `null` / `[]` → không sử dụng
+
+#### 9.13.9 Lưu Ảnh Vào Firestore
+
+Sau khi TPOS trả về kết quả, ảnh URLs (Firebase Storage) đã được lưu trong Firestore document từ trước (khi submit đơn hàng):
+
+```
+Firestore document: purchase_orders/{orderId}
+  items[]: [
+    {
+      productCode: "N4033",
+      productImages: ["https://firebasestorage.googleapis.com/..."],  ← Firebase Storage URLs
+      tposSyncStatus: "success",
+      tposProductId: 12345,
+      ...
+    }
+  ]
+```
+
+**Lưu ý**: Tất cả variant items cùng productCode dùng **cùng ảnh** (từ item đầu tiên). Trong Firestore, `productImages` lưu **Firebase Storage URLs** (không phải base64). Base64 chỉ dùng để gửi TPOS API.
+
+#### 9.13.10 N2store: Không Cần Pre-Cache
+
+**React app legacy** dùng imageCache (Map) để pre-cache base64 trước khi gửi Edge Function. **N2store không cần pre-cache** vì:
+
+1. Ảnh được lưu local dạng `dataUrl` (pendingImages) trước khi submit
+2. Khi submit → upload Firebase Storage → nhận URL
+3. Khi sync TPOS → `convertImageToBase64(url)` fetch trực tiếp Firebase Storage URL → convert base64
+4. Không có Edge Function trung gian → không cần serialize cache
+
+```
+N2store flow (đơn giản hơn):
+  pendingImages (dataUrl) → upload Firebase → Firebase URL → fetch → base64 → TPOS
+
+React app legacy (phức tạp hơn, KHÔNG DÙNG):
+  upload Supabase → URL → imageCache.set(url, base64) → serialize → Edge Fn 1 → Edge Fn 2 → TPOS
+```
+
+#### 9.13.11 Bảng Tổng Hợp: Toàn Bộ Luồng Hình Ảnh → TPOS (N2store)
+
+| Bước | File | Hành động | Input | Output |
+|------|------|-----------|-------|--------|
+| 1. Paste/Drop ảnh | `form-modal.js` | Compress + lưu local dataUrl | File/Blob | pendingImages (dataUrl) |
+| 2. Submit đơn | `form-modal.js` | uploadPendingImages() → Firebase Storage | dataUrl + File | Firebase Storage URL |
+| 3. Lưu Firestore | `service.js` | createOrder() / updateOrder() | Firebase URLs | Firestore document |
+| 4. Sync TPOS | `tpos-product-creator.js` | convertImageToBase64(url) | Firebase URL | base64 string |
+| 5. Resize (nếu cần) | `tpos-product-creator.js` | Canvas resize 800×800 nếu > 500KB | Blob | Blob nhỏ hơn |
+| 6. TPOS payload | `tpos-product-creator.js` | `payload.Image = base64` | base64 string | TPOS product created |
+
+#### 9.13.12 Lưu Ý Quan Trọng
+
+1. **Chỉ 1 ảnh gửi TPOS**: Dù `productImages` có thể chứa nhiều URL, chỉ `productImages[0]` được convert base64 và gửi TPOS
+2. **2 lần resize**: Ảnh có thể bị resize 2 lần:
+   - Lần 1: `compressImage()` khi paste/upload (1920×1920, quality 1) — trong `form-modal.js`
+   - Lần 2: `convertImageToBase64()` khi sync TPOS (800×800, quality 0.8) — trong `tpos-product-creator.js`
+3. **Base64 không có prefix**: Base64 string gửi TPOS đã **bỏ prefix** `data:image/...;base64,` (chỉ giữ phần data)
+4. **Không cần pre-cache**: N2store fetch trực tiếp Firebase Storage URL khi cần convert base64, không cần cache trung gian
+5. **Variant con không có ảnh riêng**: TPOS payload variant con có `Image: null`, chỉ parent product có ảnh
+6. **DB lưu URLs, TPOS nhận base64**: Firestore `items[].productImages` = Firebase Storage URLs, TPOS `Image` = base64 string
+
 ---
 
 ## 10. Tự Tạo Mã Sản Phẩm (Auto-Generate Product Code) - Chi Tiết Từng Bước

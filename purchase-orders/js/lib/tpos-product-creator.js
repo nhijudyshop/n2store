@@ -489,6 +489,93 @@ window.TPOSProductCreator = (function () {
     }
 
     // =====================================================
+    // IMAGE → BASE64 CONVERSION
+    // =====================================================
+
+    /**
+     * Convert an image URL (Firebase Storage) to base64 string for TPOS Image field.
+     * Resizes to max 800×800 if blob > 500KB. Returns pure base64 (no prefix).
+     * @param {string} url - Firebase Storage download URL
+     * @returns {Promise<string|null>} base64 string or null on failure
+     */
+    async function convertImageToBase64(url) {
+        if (!url) return null;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.warn('[TPOSCreator] Failed to fetch image:', response.status, url);
+                return null;
+            }
+
+            let blob = await response.blob();
+
+            // Resize if > 500KB
+            if (blob.size > 512000) {
+                blob = await resizeImageBlob(blob, 800, 800, 0.8);
+            }
+
+            // Convert blob to base64
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const dataUrl = reader.result;
+                    // Strip prefix "data:image/...;base64,"
+                    const base64Data = dataUrl.split(',')[1] || null;
+                    resolve(base64Data);
+                };
+                reader.onerror = () => {
+                    console.warn('[TPOSCreator] FileReader error');
+                    resolve(null);
+                };
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.warn('[TPOSCreator] Image conversion failed:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Resize image blob using canvas
+     * @param {Blob} blob - image blob
+     * @param {number} maxW - max width
+     * @param {number} maxH - max height
+     * @param {number} quality - JPEG quality (0-1)
+     * @returns {Promise<Blob>}
+     */
+    function resizeImageBlob(blob, maxW, maxH, quality) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                let w = img.width;
+                let h = img.height;
+
+                // Scale down proportionally
+                if (w > maxW || h > maxH) {
+                    const ratio = Math.min(maxW / w, maxH / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+
+                canvas.toBlob(
+                    (resizedBlob) => resolve(resizedBlob || blob),
+                    'image/jpeg',
+                    quality
+                );
+            };
+            img.onerror = () => resolve(blob); // fallback to original
+            img.src = URL.createObjectURL(blob);
+        });
+    }
+
+    // =====================================================
     // TPOS API CALLS
     // =====================================================
 
@@ -606,10 +693,28 @@ window.TPOSProductCreator = (function () {
             (item.selectedAttributeValueIds || []).forEach(id => allAttrIds.add(id));
         }
 
+        // Collect first available productImages URL from any item in the group
+        let imageUrl = null;
+        for (const item of groupItems) {
+            if (item.productImages && item.productImages.length > 0) {
+                imageUrl = item.productImages[0];
+                break;
+            }
+        }
+
         // Mark as processing
         await updateSyncStatus(orderId, itemIds, 'processing', null, null);
 
         try {
+            // Convert image to base64 for TPOS (fire-and-forget style, don't block on failure)
+            let imageBase64 = null;
+            if (imageUrl) {
+                imageBase64 = await convertImageToBase64(imageUrl);
+                if (imageBase64) {
+                    console.log(`[TPOSCreator] Image converted for ${productCode} (${Math.round(imageBase64.length / 1024)}KB base64)`);
+                }
+            }
+
             let payload;
 
             if (allAttrIds.size === 0) {
@@ -632,6 +737,11 @@ window.TPOSProductCreator = (function () {
                 payload.ProductVariantCount = productVariants.length;
                 payload.AttributeLines = attributeLines;
                 payload.ProductVariants = productVariants;
+            }
+
+            // Set image on payload (only parent product, variant children keep Image: null)
+            if (imageBase64) {
+                payload.Image = imageBase64;
             }
 
             // POST to TPOS
@@ -741,7 +851,8 @@ window.TPOSProductCreator = (function () {
         buildBasePayload,
         buildAttributeLines,
         buildProductVariants,
-        createTPOSProduct
+        createTPOSProduct,
+        convertImageToBase64
     };
 
 })();
