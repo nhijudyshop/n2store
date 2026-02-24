@@ -1585,19 +1585,6 @@ class UnifiedNavigationManager {
         const filteredLayout = MenuLayoutStore.getFilteredLayout(this.userPermissions);
         let renderedCount = 0;
 
-        // Add edit button for admins at the top (opens modal)
-        if (this.isAdminTemplate) {
-            const editControls = document.createElement("div");
-            editControls.className = "menu-edit-controls";
-            editControls.innerHTML = `
-                <button class="menu-edit-toggle" id="menuEditToggle" title="Chỉnh sửa menu">
-                    <i data-lucide="grip-vertical"></i>
-                    <span>Sửa Menu</span>
-                </button>
-            `;
-            sidebarNav.appendChild(editControls);
-        }
-
         // Create groups container
         const groupsContainer = document.createElement("div");
         groupsContainer.className = "menu-groups-container";
@@ -1640,11 +1627,6 @@ class UnifiedNavigationManager {
         // Setup event listeners
         this.setupGroupCollapseListeners();
 
-        // Setup edit button listener
-        const editToggle = document.getElementById('menuEditToggle');
-        if (editToggle) {
-            editToggle.addEventListener('click', () => this.showMenuEditModal());
-        }
     }
 
     /**
@@ -3429,6 +3411,19 @@ class UnifiedNavigationManager {
                             </div>
                         </div>
                     </div>
+                    ${this.isAdminTemplate ? `
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i data-lucide="layout-grid"></i>
+                            Quản Lý Menu
+                        </label>
+                        <button class="settings-edit-menu-btn" id="settingsEditMenuBtn">
+                            <i data-lucide="grip-vertical"></i>
+                            <span>Sửa Menu Sidebar</span>
+                            <i data-lucide="chevron-right" style="margin-left: auto; width: 16px; height: 16px; opacity: 0.5;"></i>
+                        </button>
+                    </div>
+                    ` : ''}
                 </div>
 
                 <div class="settings-footer">
@@ -3517,6 +3512,15 @@ class UnifiedNavigationManager {
             closeModal();
             this.showToast("Đã lưu cài đặt thành công!", "success");
         });
+
+        // Edit menu button (admin only)
+        const editMenuBtn = modal.querySelector("#settingsEditMenuBtn");
+        if (editMenuBtn) {
+            editMenuBtn.addEventListener("click", () => {
+                closeModal();
+                this.showMenuEditModal();
+            });
+        }
     }
 
     addSettingsStyles() {
@@ -3933,6 +3937,30 @@ class UnifiedNavigationManager {
 
             body {
                 font-size: var(--base-font-size, 14px);
+            }
+
+            .settings-edit-menu-btn {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+                padding: 12px 16px;
+                background: rgba(99, 102, 241, 0.1);
+                border: 1px dashed rgba(99, 102, 241, 0.3);
+                border-radius: 10px;
+                color: var(--accent-color, #6366f1);
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .settings-edit-menu-btn:hover {
+                background: rgba(99, 102, 241, 0.2);
+                border-color: rgba(99, 102, 241, 0.5);
+            }
+            .settings-edit-menu-btn i {
+                width: 18px;
+                height: 18px;
             }
 
             @media (max-width: 640px) {
