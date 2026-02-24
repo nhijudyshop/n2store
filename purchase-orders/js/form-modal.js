@@ -944,7 +944,7 @@ class PurchaseOrderFormModal {
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 99999;
+            z-index: 5000;
             padding: 20px;
         `;
 

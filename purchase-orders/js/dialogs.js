@@ -502,7 +502,7 @@ class VariantGeneratorDialog {
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000000;
+            z-index: 6000;
             padding: 20px;
         `;
 
@@ -860,7 +860,7 @@ class SettingsDialog {
 
         // Create overlay
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100000;opacity:0;transition:opacity 0.2s';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:6000;opacity:0;transition:opacity 0.2s';
 
         // Build checkbox rows data
         const checkboxes = [
@@ -1622,7 +1622,7 @@ class InventoryPickerDialog {
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000000;
+            z-index: 6000;
             padding: 20px;
         `;
 
@@ -2248,8 +2248,8 @@ class ShippingFeeDialog {
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
-        // Use higher z-index to appear above the form modal (which uses 99999)
-        this.modalElement.style.zIndex = '999999';
+        // Use higher z-index to appear above the form modal (which uses 5000)
+        this.modalElement.style.zIndex = '6000';
         this.modalElement.innerHTML = `
             <div class="modal modal--xs">
                 <div class="modal__header">
