@@ -10,8 +10,8 @@
 
 /**
  * Compare two variant strings order-insensitively and format-insensitively.
- * Supports comma, pipe, and parenthesis formats.
- * e.g. "ĐEN, 4, XL" matches "(Đen) (4) (XL)" or "Đen | 4 | XL"
+ * Supports comma, pipe, slash, and parenthesis formats.
+ * e.g. "ĐEN, 4, XL" matches "(Đen) (4) (XL)" or "Đen | 4 | XL" or "Đen / 4 / XL"
  */
 function variantsMatch(variant1, variant2) {
     if (!variant1 || !variant2) return false;
@@ -25,8 +25,8 @@ function variantsMatch(variant1, variant2) {
             .replace(/[()]/g, '')
             .replace(/\s+/g, ' ');
 
-    const parts1 = variant1.split(/[,|]/).map(normalize).filter(p => p.length > 0).sort();
-    const parts2 = variant2.split(/[,|]/).map(normalize).filter(p => p.length > 0).sort();
+    const parts1 = variant1.split(/[,|\/]/).map(normalize).filter(p => p.length > 0).sort();
+    const parts2 = variant2.split(/[,|\/]/).map(normalize).filter(p => p.length > 0).sort();
 
     return parts1.length === parts2.length && parts1.every((part, idx) => part === parts2[idx]);
 }
