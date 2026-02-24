@@ -85,6 +85,52 @@ window.countPermissions = function(perms) {
 };
 
 /**
+ * Update the current user's local auth data to reflect admin status.
+ * Solves the chicken-and-egg problem: after Firestore migration, local
+ * storage still has stale auth data without isAdmin flag.
+ */
+window.updateLocalAuthAsAdmin = function() {
+    const AUTH_KEY = "loginindex_auth";
+    let source = null;
+    let raw = null;
+
+    // Try localStorage first, then sessionStorage
+    raw = localStorage.getItem(AUTH_KEY);
+    if (raw) {
+        source = "localStorage";
+    } else {
+        raw = sessionStorage.getItem(AUTH_KEY);
+        if (raw) {
+            source = "sessionStorage";
+        }
+    }
+
+    if (!raw || !source) {
+        console.warn("[Migration] No auth data found in localStorage or sessionStorage under key:", AUTH_KEY);
+        return null;
+    }
+
+    try {
+        const authData = JSON.parse(raw);
+        authData.isAdmin = true;
+        authData.roleTemplate = 'admin';
+
+        const updated = JSON.stringify(authData);
+        if (source === "localStorage") {
+            localStorage.setItem(AUTH_KEY, updated);
+        } else {
+            sessionStorage.setItem(AUTH_KEY, updated);
+        }
+
+        console.log(`[Migration] ✅ Local auth updated in ${source}: isAdmin=true, roleTemplate='admin'`);
+        return authData;
+    } catch (error) {
+        console.error("[Migration] Failed to update local auth data:", error);
+        return null;
+    }
+};
+
+/**
  * Migrate all admin users to have full detailedPermissions
  */
 window.migrateAdminUsers = async function() {
@@ -156,6 +202,9 @@ window.migrateAdminUsers = async function() {
 
         // Commit batch
         await batch.commit();
+
+        // Update current user's local auth data so admin toggle works immediately
+        window.updateLocalAuthAsAdmin();
 
         console.log("========================================");
         console.log("MIGRATION COMPLETE!");
@@ -274,4 +323,5 @@ console.log("  - previewMigration() : Preview users to migrate");
 console.log("  - migrateAdminUsers() : Migrate all admin users");
 console.log("  - migrateSingleUser('username') : Migrate single user");
 console.log("  - generateFullAdminPermissions() : Get full permissions object");
+console.log("  - updateLocalAuthAsAdmin() : Update local auth data with admin flag");
 console.log("========================================");

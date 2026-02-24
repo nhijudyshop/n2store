@@ -89,9 +89,9 @@
         window.addEventListener('sharedModulesLoaded', () => {
             if (window.authManager) {
                 window.getAuthState = () => window.authManager.getAuthData();
-                window.setAuthState = (isLoggedIn, userType, checkLogin) => {
+                window.setAuthState = (isLoggedIn, userType, roleData) => {
                     window.authManager.saveAuthData(
-                        { isLoggedIn, userType, checkLogin, timestamp: Date.now() },
+                        { isLoggedIn, userType, roleData, timestamp: Date.now() },
                         false
                     );
                 };

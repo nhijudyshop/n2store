@@ -148,9 +148,9 @@ async function loadUsers() {
         }
 
         users.sort((a, b) => {
-            if (a.checkLogin !== b.checkLogin) {
-                return a.checkLogin - b.checkLogin;
-            }
+            const aIsAdmin = a.roleTemplate === 'admin' ? 0 : 1;
+            const bIsAdmin = b.roleTemplate === 'admin' ? 0 : 1;
+            if (aIsAdmin !== bIsAdmin) return aIsAdmin - bIsAdmin;
             return a.displayName.localeCompare(b.displayName);
         });
 
@@ -397,7 +397,6 @@ function renderUserList(users) {
     `;
 
     users.forEach((user) => {
-        // NEW: Get role info from roleTemplate instead of checkLogin
         const roleInfo = getRoleTemplateInfo(user.roleTemplate);
 
         // Count detailed permissions and derive page access count
@@ -475,46 +474,12 @@ function renderUserList(users) {
     lucide.createIcons();
 }
 
-// Helper functions
-function getRoleClass(checkLogin) {
-    const classes = {
-        0: "admin",
-        1: "user",
-        2: "limited",
-        3: "basic",
-        777: "guest",
-    };
-    return classes[checkLogin] || "user";
-}
 
-function getRoleIcon(checkLogin) {
-    const icons = {
-        0: "crown",
-        1: "user",
-        2: "lock",
-        3: "circle",
-        777: "user-x",
-    };
-    return icons[checkLogin] || "user";
-}
 
-function getRoleName(checkLogin) {
-    const names = {
-        0: "Admin",
-        1: "User",
-        2: "Limited",
-        3: "Basic",
-        777: "Guest",
-    };
-    return names[checkLogin] || "Unknown";
-}
 
-function getRoleText(checkLogin) {
-    return getRoleName(checkLogin);
-}
 
 /**
- * Lấy thông tin role từ roleTemplate (NEW SYSTEM)
+ * Lấy thông tin role từ roleTemplate
  * @param {string} roleTemplate - Template name (admin, manager, sales-team, etc.)
  * @returns {Object} - { name, icon, color }
  */
@@ -574,7 +539,7 @@ function editUser(username) {
     document.getElementById("editIdentifier").value = user.identifier || "";
     document.getElementById("editNewPassword").value = "";
 
-    // Load detailed permissions and roleTemplate (NEW SYSTEM)
+    // Load detailed permissions and roleTemplate
     if (window.editDetailedPermUI) {
         window.editDetailedPermUI.setPermissions(user.detailedPermissions || {});
         // Set the currentTemplate so it's saved correctly on update
@@ -603,7 +568,8 @@ function viewUserPermissions(username) {
     let report = `QUYỀN HẠN CHI TIẾT\n`;
     report += `${"=".repeat(60)}\n\n`;
     report += `Tài khoản: ${user.displayName} (${user.id})\n`;
-    report += `Vai trò: ${getRoleText(user.checkLogin)}\n\n`;
+    const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+    report += `Vai trò: ${roleInfo.name}\n\n`;
 
     const permissions = user.detailedPermissions || {};
     let totalGranted = 0;
@@ -834,7 +800,6 @@ async function deleteUser(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
 
-    // NEW SYSTEM: Check roleTemplate instead of checkLogin
     const adminCount = users.filter((u) => u.roleTemplate === 'admin').length;
     if (user.roleTemplate === 'admin' && adminCount === 1) {
         showError(
@@ -853,7 +818,6 @@ async function deleteUser(username) {
         });
     }
 
-    // NEW SYSTEM: Display roleTemplate instead of checkLogin
     const roleInfo = getRoleTemplateInfo(user.roleTemplate);
     const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nNhóm quyền: ${roleInfo.name}\nQuyền chi tiết: ${permCount} quyền\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
 
@@ -920,7 +884,6 @@ async function loadPermissionsOverview() {
             const user = doc.data();
             totalUsers++;
 
-            // NEW SYSTEM: Use roleTemplate for role stats
             const roleInfo = getRoleTemplateInfo(user.roleTemplate);
             const role = roleInfo.name;
             roleStats[role] = (roleStats[role] || 0) + 1;
@@ -1047,7 +1010,8 @@ async function exportPermissions() {
                   )
                 : "N/A";
 
-            csv += `${user.id},"${user.displayName}","${getRoleText(user.checkLogin)}",`;
+            const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+            csv += `${user.id},"${user.displayName}","${roleInfo.name}",`;
 
             let totalPerms = 0;
             Object.values(DETAILED_PERMISSIONS).forEach((page) => {
@@ -1092,7 +1056,7 @@ async function exportUsers() {
 
     try {
         let csv =
-            "Username,Display Name,Role,Role Code,Total Permissions,Created Date,Updated Date\n";
+            "Username,Display Name,Role,Role Template,Total Permissions,Created Date,Updated Date\n";
 
         users.forEach((user) => {
             const createdDate = user.createdAt
@@ -1115,7 +1079,8 @@ async function exportUsers() {
                 });
             }
 
-            csv += `${user.id},"${user.displayName}","${getRoleText(user.checkLogin)}",${user.checkLogin},${permCount},"${createdDate}","${updatedDate}"\n`;
+            const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+            csv += `${user.id},"${user.displayName}","${roleInfo.name}","${user.roleTemplate || 'custom'}",${permCount},"${createdDate}","${updatedDate}"\n`;
         });
 
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -1184,7 +1149,10 @@ function initAdminToggle() {
         if (authData) {
             try {
                 const auth = JSON.parse(authData);
-                if (auth.isAdmin === true || auth.roleTemplate === 'admin') {
+                const isCurrentUserAdmin = auth.isAdmin === true || auth.roleTemplate === 'admin';
+                const hasUserMgmtAccess = auth.detailedPermissions?.['user-management'] && 
+                    Object.values(auth.detailedPermissions['user-management']).some(v => v === true);
+                if (isCurrentUserAdmin || hasUserMgmtAccess) {
                     adminToggleGroup.style.display = '';
                 }
             } catch (e) {

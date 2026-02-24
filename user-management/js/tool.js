@@ -1,3 +1,9 @@
+// =====================================================
+// ⚠️ DEPRECATED - This file is no longer loaded by any HTML page.
+// The active user management system uses user-management-enhanced.js
+// with roleTemplate + detailedPermissions instead of checkLogin.
+// This file is kept for reference only and can be safely deleted.
+// =====================================================
 let db = null;
 let auth = null;
 let currentMethod = "cryptojs";
