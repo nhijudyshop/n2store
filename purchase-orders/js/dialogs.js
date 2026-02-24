@@ -861,14 +861,19 @@ class SettingsDialog {
             this.modalElement.remove();
         }
 
-        const s = this.settings;
-        const fmt = (v) => this._formatPreview(v);
+        const s = this.settings || {};
+        const fmt = (v) => {
+            try { return this._formatPreview(v); }
+            catch (e) { return (v * 1000) + ' đ'; }
+        };
 
         this.modalElement = document.createElement('div');
         this.modalElement.className = 'modal-overlay';
         this.modalElement.style.zIndex = '100000';
+
+        try {
         this.modalElement.innerHTML = `
-            <div class="modal modal--md" style="max-width: 600px;">
+            <div class="modal modal--md" style="max-width: 600px; background: white; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
                 <div class="modal__header">
                     <h2 class="modal__title">Cài đặt validation giá mua/bán</h2>
                     <button type="button" class="modal__close" id="btnCloseSettings">
@@ -998,6 +1003,16 @@ class SettingsDialog {
                 </div>
             </div>
         `;
+        } catch (renderError) {
+            console.error('[SettingsDialog] Render error:', renderError);
+            this.modalElement.innerHTML = `
+                <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90vw;">
+                    <h2 style="margin: 0 0 12px;">Cài đặt validation</h2>
+                    <p style="color: red;">Lỗi hiển thị: ${renderError.message}</p>
+                    <button id="btnCloseSettings" style="margin-top: 12px; padding: 8px 16px; cursor: pointer;">Đóng</button>
+                </div>
+            `;
+        }
 
         document.body.appendChild(this.modalElement);
 
