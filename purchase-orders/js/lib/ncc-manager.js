@@ -284,6 +284,102 @@ window.NCCManager = (function() {
     }
 
     // =====================================================
+    // SYNC SUPPLIERS FROM TPOS → FIREBASE
+    // =====================================================
+
+    async function syncFromTPOS() {
+        if (!window.TPOSClient?.authenticatedFetch) {
+            throw new Error('TPOSClient not available');
+        }
+
+        const showToast = window.notificationManager?.show?.bind(window.notificationManager)
+            || ((msg, type) => console.log(`[NCCManager] ${type}: ${msg}`));
+
+        try {
+            showToast('Đang tải danh sách NCC từ TPOS...', 'info');
+
+            // Step 1: Fetch suppliers from TPOS
+            const params = new URLSearchParams({
+                '$top': '1000',
+                '$orderby': 'Name',
+                '$filter': '(Supplier eq true and Active eq true)',
+                '$count': 'true'
+            });
+            const url = `${PROXY_URL}/api/odata/Partner/ODataService.GetView?${params}`;
+
+            const response = await window.TPOSClient.authenticatedFetch(url);
+            if (!response.ok) throw new Error(`TPOS API error: ${response.status}`);
+
+            const data = await response.json();
+            const suppliers = data.value || [];
+
+            if (suppliers.length === 0) {
+                showToast('Không tìm thấy NCC nào từ TPOS', 'warning');
+                return { success: false, count: 0 };
+            }
+
+            console.log(`[NCCManager] Fetched ${suppliers.length} suppliers from TPOS`);
+
+            // Step 2: Delete existing docs in Firebase (batches of 400)
+            const db = firebase.firestore();
+            const collRef = db.collection(COLLECTION);
+            const existing = await collRef.get();
+
+            if (!existing.empty) {
+                const docs = existing.docs;
+                for (let i = 0; i < docs.length; i += 400) {
+                    const batch = db.batch();
+                    docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+                    await batch.commit();
+                }
+                console.log(`[NCCManager] Deleted ${docs.length} old docs`);
+            }
+
+            // Step 3: Save new suppliers to Firebase (batches of 400)
+            const toSave = [];
+            for (const s of suppliers) {
+                const name = (s.Name || s.name || '').trim();
+                const tposCode = s.Ref || s.ref || s.Code || s.code;
+                if (!name || !tposCode) continue;
+
+                const docId = String(tposCode).replace(/[\/\\\.#$\[\]]/g, '_').trim();
+                if (!docId) continue;
+
+                const axCode = parseAxCode(name);
+                // Save all TPOS response fields + our parsed fields
+                const data = { ...s, name, axCode: axCode || null, tposCode, tposId: s.Id || s.id || null };
+                // Remove undefined values (Firestore doesn't accept them)
+                for (const key of Object.keys(data)) {
+                    if (data[key] === undefined) delete data[key];
+                }
+                toSave.push({ docId, data });
+            }
+
+            let saved = 0;
+            for (let i = 0; i < toSave.length; i += 400) {
+                const batch = db.batch();
+                toSave.slice(i, i + 400).forEach(item => {
+                    batch.set(collRef.doc(item.docId), item.data);
+                });
+                await batch.commit();
+                saved += Math.min(400, toSave.length - i);
+            }
+
+            console.log(`[NCCManager] Saved ${saved} suppliers to Firebase`);
+
+            // Step 4: Reload local cache
+            await loadNCCNames();
+
+            showToast(`Đã tải ${nccNames.length} NCC từ TPOS`, 'success');
+            return { success: true, count: saved };
+        } catch (error) {
+            console.error('[NCCManager] Sync from TPOS failed:', error);
+            showToast('Lỗi tải NCC từ TPOS: ' + error.message, 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
+    // =====================================================
     // HELPERS
     // =====================================================
 
@@ -300,6 +396,7 @@ window.NCCManager = (function() {
 
     return {
         loadNCCNames,
+        syncFromTPOS,
         showSuggestions,
         hideSuggestions,
         handleTabSelect,

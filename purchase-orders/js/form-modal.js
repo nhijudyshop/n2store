@@ -1003,8 +1003,29 @@ class PurchaseOrderFormModal {
                     <!-- Row 1: Supplier, Date, Invoice Amount, Invoice Image -->
                     <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
                         <div style="flex: 1; min-width: 200px;">
-                            <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
                                 Nhà cung cấp <span style="color: #ef4444;">*</span>
+                                <button type="button" id="btnSyncNCC" title="Tải danh sách NCC từ TPOS" style="
+                                    margin-left: auto;
+                                    background: none;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    padding: 2px 8px;
+                                    font-size: 11px;
+                                    color: #6b7280;
+                                    cursor: pointer;
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 4px;
+                                    transition: all 0.15s;
+                                ">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="1 4 1 10 7 10"></polyline>
+                                        <polyline points="23 20 23 14 17 14"></polyline>
+                                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                                    </svg>
+                                    Tải TPOS
+                                </button>
                             </label>
                             <div style="position: relative;">
                                 <input type="text" id="inputSupplier" value="${this.formData.supplier}" placeholder="Nhập tên nhà cung cấp" autocomplete="off" style="
@@ -1747,6 +1768,29 @@ class PurchaseOrderFormModal {
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('#inputSupplier') && !e.target.closest('#supplierSuggestions')) {
                     window.NCCManager.hideSuggestions(supplierDropdown);
+                }
+            });
+        }
+
+        // Sync NCC from TPOS button
+        const btnSyncNCC = this.modalElement.querySelector('#btnSyncNCC');
+        if (btnSyncNCC && window.NCCManager) {
+            btnSyncNCC.addEventListener('click', async () => {
+                btnSyncNCC.disabled = true;
+                btnSyncNCC.style.opacity = '0.5';
+                btnSyncNCC.innerHTML = '<span style="font-size: 11px;">Đang tải...</span>';
+                try {
+                    await window.NCCManager.syncFromTPOS();
+                } finally {
+                    btnSyncNCC.disabled = false;
+                    btnSyncNCC.style.opacity = '';
+                    btnSyncNCC.innerHTML = `
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <polyline points="23 20 23 14 17 14"></polyline>
+                            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                        </svg>
+                        Tải TPOS`;
                 }
             });
         }
