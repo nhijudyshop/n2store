@@ -346,8 +346,13 @@ class PurchaseOrderController {
 
         this.formModal.openCreate({
             onSubmit: async (orderData) => {
-                await this.dataManager.createOrder(orderData);
+                const orderId = await this.dataManager.createOrder(orderData);
                 this.ui.showToast('Tạo đơn hàng thành công!', 'success');
+
+                // Fire-and-forget: sync products to TPOS (only for confirmed orders)
+                if (orderData.status === 'AWAITING_PURCHASE' && window.TPOSProductCreator) {
+                    window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
+                }
             },
             onCancel: () => {
                 // Nothing to do
