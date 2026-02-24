@@ -643,6 +643,11 @@ class PurchaseOrderController {
                         this.ui.showToast(`Xuất Excel thành công! Đã xuất ${result.exported} sản phẩm`, 'success');
                     }
 
+                    // Ask to push to TPOS if workbook available
+                    if (result.workbook && window.TPOSPurchase) {
+                        this.showTPOSPurchaseConfirm(result.workbook, result.order, result.exported);
+                    }
+
                     // Auto-update status: AWAITING_PURCHASE → AWAITING_DELIVERY
                     const order = orders[0];
                     const config = window.PurchaseOrderConfig;
@@ -668,6 +673,81 @@ class PurchaseOrderController {
             } catch (error) {
                 console.error('Export failed:', error);
                 this.ui.showToast('Lỗi khi xuất Excel! Vui lòng thử lại', 'error');
+            }
+        });
+    }
+
+    /**
+     * Show confirm dialog to push Excel to TPOS as purchase order
+     */
+    showTPOSPurchaseConfirm(workbook, order, exportedCount) {
+        // Check if NCC has tposId
+        const ncc = window.NCCManager?.findByName(order.supplier?.name);
+        if (!ncc?.tposId) {
+            console.log('[TPOSPurchase] NCC not found or no tposId, skipping TPOS confirm');
+            return;
+        }
+
+        const confirmOverlay = document.createElement('div');
+        confirmOverlay.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center; z-index: 5001;
+        `;
+        confirmOverlay.innerHTML = `
+            <div style="
+                background: white; border-radius: 12px; padding: 24px;
+                max-width: 420px; width: 90%;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            ">
+                <h3 style="margin: 0 0 12px; font-size: 16px; font-weight: 600;">
+                    Tạo đơn mua hàng trên TPOS?
+                </h3>
+                <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px;">
+                    Đã xuất <strong>${exportedCount}</strong> sản phẩm. Bạn có muốn tạo đơn mua hàng trực tiếp trên TPOS?
+                </p>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px;">
+                    <div><strong>NCC:</strong> ${ncc.name}</div>
+                    <div><strong>TPOS ID:</strong> ${ncc.tposId}</div>
+                    <div><strong>Số SP:</strong> ${exportedCount}</div>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button id="btnSkipTPOS" style="
+                        padding: 10px 20px; border: 1px solid #d1d5db; border-radius: 8px;
+                        background: white; cursor: pointer; font-size: 14px;
+                    ">Bỏ qua</button>
+                    <button id="btnConfirmTPOS" style="
+                        padding: 10px 20px; border: none; border-radius: 8px;
+                        background: #16a34a; color: white; cursor: pointer;
+                        font-size: 14px; font-weight: 500;
+                    ">Tạo đơn TPOS</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(confirmOverlay);
+
+        confirmOverlay.querySelector('#btnSkipTPOS').addEventListener('click', () => {
+            confirmOverlay.remove();
+        });
+        confirmOverlay.addEventListener('click', (e) => {
+            if (e.target === confirmOverlay) confirmOverlay.remove();
+        });
+
+        confirmOverlay.querySelector('#btnConfirmTPOS').addEventListener('click', async () => {
+            const btn = confirmOverlay.querySelector('#btnConfirmTPOS');
+            btn.disabled = true;
+            btn.textContent = 'Đang tạo...';
+            btn.style.opacity = '0.6';
+
+            const result = await window.TPOSPurchase.createFromExcel(workbook, order);
+
+            confirmOverlay.remove();
+
+            if (result.success) {
+                this.ui.showToast(
+                    `Đã tạo đơn TPOS: ${result.poNumber || 'ID ' + result.poId} (${result.linesCount} SP)`,
+                    'success'
+                );
             }
         });
     }
@@ -778,20 +858,22 @@ class PurchaseOrderController {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Mua Hàng');
 
-        // Filename: MuaHang_{Supplier}_{DD-MM}.xlsx
+        // Filename: MuaHang_{AxCode}_{DD-MM}.xlsx (e.g. MuaHang_A12_24-02.xlsx)
         const now = new Date();
         const dd = String(now.getDate()).padStart(2, '0');
         const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const supplierName = (order.supplier?.name || order.orderNumber || 'Export')
-            .replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_');
-        const filename = `MuaHang_${supplierName}_${dd}-${mm}.xlsx`;
+        const ncc = window.NCCManager?.findByName(order.supplier?.name);
+        const supplierLabel = ncc?.code || order.orderNumber || 'Export';
+        const filename = `MuaHang_${supplierLabel}_${dd}-${mm}.xlsx`;
 
         XLSX.writeFile(wb, filename);
 
         return {
             exported: excelRows.length,
             skipped: skippedErrors.length,
-            errors: skippedErrors
+            errors: skippedErrors,
+            workbook: wb,
+            order: order
         };
     }
 
