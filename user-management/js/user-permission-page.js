@@ -45,12 +45,6 @@ const AVAILABLE_PAGES = [
         description: "Xử lý hàng hoàn trả",
     },
     {
-        id: "hangdat",
-        icon: "file-text",
-        name: "HÀNG ĐẶT",
-        description: "Quản lý đơn hàng đặt trước",
-    },
-    {
         id: "bangkiemhang",
         icon: "check-square",
         name: "BẢNG KIỂM HÀNG",
@@ -79,7 +73,6 @@ const PERMISSION_TEMPLATES = {
         "ib",
         "ck",
         "hanghoan",
-        "hangdat",
         "bangkiemhang",
         "user-management",
         "history",

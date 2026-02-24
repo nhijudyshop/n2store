@@ -52,7 +52,7 @@
         const path = window.location.pathname;
         const url = window.location.href;
 
-        if (path.includes('order-management') || path.includes('order-list') || url.includes('hangdat')) {
+        if (path.includes('order-management') || path.includes('order-list')) {
             return 'order';
         }
         if (path.includes('product') || path.includes('soluong-live')) {

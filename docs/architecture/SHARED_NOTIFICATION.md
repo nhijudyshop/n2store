@@ -34,7 +34,7 @@ import { NotificationManager, getNotificationManager } from '/shared/browser/not
 
 ### Folders using notification-system.js
 
-balance-history, bangkiemhang, ck, hanghoan, tpos-pancake, user-management, inventory-tracking, hangdat, sanphamlive, live, livestream, nhanhang, hangrotxa, issue-tracking, ib, orders-report
+balance-history, bangkiemhang, ck, hanghoan, tpos-pancake, user-management, inventory-tracking, sanphamlive, live, livestream, nhanhang, hangrotxa, issue-tracking, ib, orders-report
 
 ---
 

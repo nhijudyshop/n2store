@@ -13,7 +13,6 @@ echo "================================================"
 MODULES=(
     "bangkiemhang"
     "ck"
-    "hangdat"
     "hanghoan"
     "hangrotxa"
     "ib"

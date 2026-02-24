@@ -64,7 +64,6 @@ n2store/
 | `inventory-tracking` | Theo dõi tồn kho |
 | `purchase-orders` | Đơn đặt hàng nhà cung cấp |
 | `nhanhang` | Nhận hàng |
-| `hangdat` | Hàng đặt |
 | `hangrotxa` | Hàng rót xa |
 | `hanghoan` | Hàng hoàn |
 | `live` | Bán hàng live |

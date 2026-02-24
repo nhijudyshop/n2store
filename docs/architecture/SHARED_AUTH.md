@@ -28,7 +28,7 @@ import { AuthManager } from '/shared/browser/auth-manager.js';
 
 | File | Folders sử dụng (giống 100%) |
 |------|------------------------------|
-| `auth.js` | balance-history, bangkiemhang, ck, hangdat, hanghoan, soorder, tpos-pancake |
+| `auth.js` | balance-history, bangkiemhang, ck, hanghoan, soorder, tpos-pancake |
 
 ### Variations
 

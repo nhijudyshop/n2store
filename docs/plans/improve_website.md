@@ -38,7 +38,7 @@
 <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 ```
 
-### Files đã sửa (23 files total)
+### Files đã sửa (22 files total)
 
 | # | File | Status |
 |---|------|--------|
@@ -47,24 +47,23 @@
 | 3 | bangkiemhang/index.html | ✅ Done |
 | 4 | ck/index.html | ✅ Done |
 | 5 | firebase-stats/index.html | ✅ Done |
-| 6 | hangdat/index.html | ✅ Done |
-| 7 | hanghoan/index.html | ✅ Done |
-| 8 | hangrotxa/index.html | ✅ Done |
-| 9 | ib/index.html | ✅ Done |
-| 10 | inventory-tracking/index.html | ✅ Done |
-| 11 | invoice-compare/index.html | ✅ Done |
-| 12 | issue-tracking/index.html | ✅ Done |
-| 13 | lichsuchinhsua/index.html | ✅ Done |
-| 14 | live/index.html | ✅ Done |
-| 15 | livestream/index.html | ✅ Done |
-| 16 | nhanhang/index.html | ✅ Done |
-| 17 | order-management/index.html | ✅ Done |
-| 18 | orders-report/main.html | ✅ Done |
-| 19 | purchase-orders/index.html | ✅ Done |
-| 20 | sanphamlive/index.html | ✅ Done |
-| 21 | soorder/index.html | ✅ Done |
-| 22 | tpos-pancake/index.html | ✅ Done |
-| 23 | user-management/index.html | ✅ Done |
+| 6 | hanghoan/index.html | ✅ Done |
+| 7 | hangrotxa/index.html | ✅ Done |
+| 8 | ib/index.html | ✅ Done |
+| 9 | inventory-tracking/index.html | ✅ Done |
+| 10 | invoice-compare/index.html | ✅ Done |
+| 11 | issue-tracking/index.html | ✅ Done |
+| 12 | lichsuchinhsua/index.html | ✅ Done |
+| 13 | live/index.html | ✅ Done |
+| 14 | livestream/index.html | ✅ Done |
+| 15 | nhanhang/index.html | ✅ Done |
+| 16 | order-management/index.html | ✅ Done |
+| 17 | orders-report/main.html | ✅ Done |
+| 18 | purchase-orders/index.html | ✅ Done |
+| 19 | sanphamlive/index.html | ✅ Done |
+| 20 | soorder/index.html | ✅ Done |
+| 21 | tpos-pancake/index.html | ✅ Done |
+| 22 | user-management/index.html | ✅ Done |
 
 ### Cách revert
 ```bash
@@ -196,8 +195,8 @@ overrideConsoleInProduction();
 - improve_website.md - File tracking changes
 
 ### Changed
-- 23 HTML files: Added `defer` attribute to Lucide script
-- 23 HTML files: Pinned Lucide version from @latest to @0.294.0
+- 22 HTML files: Added `defer` attribute to Lucide script
+- 22 HTML files: Pinned Lucide version from @latest to @0.294.0
 
 ### Removed
 - None
@@ -217,15 +216,15 @@ overrideConsoleInProduction();
    - ✅ ĐÃ FIX
 
 ### Cảnh báo
-1. **23 files .min.html cũ** - Vẫn chứa `lucide@latest`
+1. **22 files .min.html cũ** - Vẫn chứa `lucide@latest`
    - Cần chạy: `node build-scripts/minify-all.js` để regenerate
    - Các file .min.html là bản minified, sẽ tự động cập nhật khi chạy build
 
 ### Kết luận Track B Phase 1
-- ✅ 1.1 Thêm `defer` - HOÀN THÀNH (23/23 files)
+- ✅ 1.1 Thêm `defer` - HOÀN THÀNH (22/22 files)
 - ⏸️ 1.2 Xóa duplicate cache.js - SKIP (không phải duplicate)
 - ⏳ 1.3 Logger production mode - PENDING
-- ✅ 1.4 Pin Lucide version - HOÀN THÀNH (23/23 files)
+- ✅ 1.4 Pin Lucide version - HOÀN THÀNH (22/22 files)
 
 ---
 

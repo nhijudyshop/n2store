@@ -92,7 +92,7 @@ Format: [YYYY-MM-DD] Mô tả thay đổi
 - **Rollback:** `git revert <commit-hash>`
 
 ## [2026-02-22] Loại bỏ Firebase config trùng lặp trong tất cả modules (Task 5.1, 5.2)
-- **Phạm vi:** soluong-live, orders-report, order-management, user-management, nhanhang, live, ib, hangdat, hangrotxa, ck, bangkiemhang, firebase-stats, purchase-orders, inventory-tracking, hanghoan, index (login), tpos-pancake, soorder
+- **Phạm vi:** soluong-live, orders-report, order-management, user-management, nhanhang, live, ib, hangrotxa, ck, bangkiemhang, firebase-stats, purchase-orders, inventory-tracking, hanghoan, index (login), tpos-pancake, soorder
 - **Loại:** cleanup
 - **Mô tả:**
   - Thêm `shared/js/firebase-config.js` vào tất cả HTML pages chưa load shared config
@@ -114,7 +114,7 @@ Format: [YYYY-MM-DD] Mô tả thay đổi
 - **Rollback:** `git revert <commit-hash>`
 
 ## [2026-02-22] Migrate 12+ module legacy sang detailedPermissions (Task 3.3)
-- **Phạm vi:** nhanhang, hangdat, hangrotxa, ib, ck, bangkiemhang, hanghoan, shared/browser/auth-manager.js, shared/js/shared-auth-manager.js
+- **Phạm vi:** nhanhang, hangrotxa, ib, ck, bangkiemhang, hanghoan, shared/browser/auth-manager.js, shared/js/shared-auth-manager.js
 - **Loại:** migration
 - **Mô tả:**
   - Thay thế các so sánh auth.checkLogin và auth.userType bằng PermissionHelper.canAccessPage(pageId) / PermissionHelper.hasPermission(pageId, action)

@@ -28,7 +28,7 @@ import { PersistentCacheManager } from '/shared/browser/persistent-cache.js';
 
 | File | Folders |
 |------|---------|
-| `cache.js` | orders-report, balance-history, bangkiemhang, tpos-pancake, hangdat |
+| `cache.js` | orders-report, balance-history, bangkiemhang, tpos-pancake |
 | `shared-cache-manager.js` | /shared/js/ (wrapper cho core-loader) |
 
 > [!NOTE]

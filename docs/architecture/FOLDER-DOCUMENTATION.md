@@ -16,29 +16,28 @@
 7. [cloudflare-worker](#7-cloudflare-worker)
 8. [customer-hub](#8-customer-hub)
 9. [firebase-functions](#9-firebase-functions)
-10. [hangdat](#10-hangdat)
-11. [hanghoan](#11-hanghoan)
-12. [hangrotxa](#12-hangrotxa)
-13. [ib](#13-ib)
-14. [index](#14-index)
-15. [inventory-tracking](#15-inventory-tracking)
-16. [invoice-compare](#16-invoice-compare)
-17. [shared (formerly js)](#17-shared-formerly-js)
-18. [lichsuchinhsua](#18-lichsuchinhsua)
-19. [live](#19-live)
-20. [livestream](#20-livestream)
-21. [nhanhang](#21-nhanhang)
-22. [order-live-tracking](#22-order-live-tracking)
-23. [order-management](#23-order-management)
-24. [orders-report](#24-orders-report)
-25. [purchase-orders](#25-purchase-orders)
-26. [render.com](#26-rendercom)
-27. [sanphamlive](#27-sanphamlive)
-28. [scripts](#28-scripts)
-29. [soluong-live](#29-soluong-live)
-30. [soorder](#30-soorder)
-31. [tpos-pancake](#31-tpos-pancake)
-32. [user-management](#32-user-management)
+10. [hanghoan](#10-hanghoan)
+11. [hangrotxa](#11-hangrotxa)
+12. [ib](#12-ib)
+13. [index](#13-index)
+14. [inventory-tracking](#14-inventory-tracking)
+15. [invoice-compare](#15-invoice-compare)
+16. [shared (formerly js)](#16-shared-formerly-js)
+17. [lichsuchinhsua](#17-lichsuchinhsua)
+18. [live](#18-live)
+19. [livestream](#19-livestream)
+20. [nhanhang](#20-nhanhang)
+21. [order-live-tracking](#21-order-live-tracking)
+22. [order-management](#22-order-management)
+23. [orders-report](#23-orders-report)
+24. [purchase-orders](#24-purchase-orders)
+25. [render.com](#25-rendercom)
+26. [sanphamlive](#26-sanphamlive)
+27. [scripts](#27-scripts)
+28. [soluong-live](#28-soluong-live)
+29. [soorder](#29-soorder)
+30. [tpos-pancake](#30-tpos-pancake)
+31. [user-management](#31-user-management)
 
 ---
 
@@ -220,22 +219,7 @@ cloudflare-worker/
 
 ---
 
-## 10. hangdat
-
-**Mục đích:** Quản lý hàng đặt (order booking) với form xử lý phức tạp
-
-### Chức Năng
-- CRUD hàng đặt
-- Xóa hàng loạt (bulk delete)
-- Upload button icons
-- Filter toggle
-- Form handler với validation
-- Export Excel chi tiết
-- Table renderer với sorting
-
----
-
-## 11. hanghoan
+## 10. hanghoan
 
 **Mục đích:** Quản lý hàng hoàn trả
 
@@ -253,7 +237,7 @@ cloudflare-worker/
 
 ---
 
-## 12. hangrotxa
+## 11. hangrotxa
 
 **Mục đích:** Quản lý hàng rớt và hàng xả
 
@@ -269,7 +253,7 @@ cloudflare-worker/
 
 ---
 
-## 13. ib
+## 12. ib
 
 **Mục đích:** Kiểm tra inbox khách hàng với image handling
 
@@ -282,7 +266,7 @@ cloudflare-worker/
 
 ---
 
-## 14. index
+## 13. index
 
 **Mục đích:** Trang login hệ thống
 
@@ -295,7 +279,7 @@ cloudflare-worker/
 
 ---
 
-## 15. inventory-tracking
+## 14. inventory-tracking
 
 **Mục đích:** Theo dõi nhập hàng SL với RBAC permissions
 
@@ -314,7 +298,7 @@ cloudflare-worker/
 
 ---
 
-## 16. invoice-compare
+## 15. invoice-compare
 
 **Mục đích:** So sánh đơn hàng tự động bằng Gemini AI
 
@@ -328,7 +312,7 @@ cloudflare-worker/
 
 ---
 
-## 17. shared (formerly js)
+## 16. shared (formerly js)
 
 **Mục đích:** Shared library cho toàn hệ thống - **CENTRALIZED AUTH, CACHE, NOTIFICATION**
 
@@ -400,7 +384,7 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 ---
 
-## 18. lichsuchinhsua
+## 17. lichsuchinhsua
 
 **Mục đích:** Xem lịch sử chỉnh sửa (edit history)
 
@@ -411,7 +395,7 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 ---
 
-## 19. live
+## 18. live
 
 **Mục đích:** Hiển thị Facebook Live video và quản lý realtime
 
@@ -423,7 +407,7 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 ---
 
-## 20. livestream
+## 19. livestream
 
 **Mục đích:** Báo cáo livestream với filters và modals
 
@@ -438,7 +422,7 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 ---
 
-## 21. nhanhang
+## 20. nhanhang
 
 **Mục đích:** Quản lý cân nặng hàng nhận với camera
 
@@ -453,7 +437,7 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 ---
 
-## 22. order-live-tracking
+## 21. order-live-tracking
 
 **Mục đích:** Sổ order live tracking realtime
 
@@ -466,7 +450,7 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 ---
 
-## 23. order-management
+## 22. order-management
 
 **Mục đích:** Quản lý đơn hàng với Firebase helpers
 
@@ -480,7 +464,7 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 
 ---
 
-## 24. orders-report
+## 23. orders-report
 
 **Mục đích:** **Module lớn nhất** - Quản lý đơn hàng đa tab với Firebase realtime
 
@@ -518,7 +502,7 @@ orders-report/
 
 ---
 
-## 25. purchase-orders
+## 24. purchase-orders
 
 **Mục đích:** Quản lý đơn đặt hàng nhà cung cấp
 
@@ -536,7 +520,7 @@ orders-report/
 
 ---
 
-## 26. render.com
+## 25. render.com
 
 **Mục đích:** Express.js fallback server trên Render.com
 
@@ -565,7 +549,7 @@ render.com/
 
 ---
 
-## 27. sanphamlive
+## 26. sanphamlive
 
 **Mục đích:** Quản lý sản phẩm livestream với Firebase
 
@@ -579,7 +563,7 @@ render.com/
 
 ---
 
-## 28. scripts
+## 27. scripts
 
 **Mục đích:** Utility scripts cho versioning
 
@@ -591,7 +575,7 @@ render.com/
 
 ---
 
-## 29. soluong-live
+## 28. soluong-live
 
 **Mục đích:** Quản lý số lượng sản phẩm live
 
@@ -605,7 +589,7 @@ render.com/
 
 ---
 
-## 30. soorder
+## 29. soorder
 
 **Mục đích:** Sổ order với supplier loader
 
@@ -621,7 +605,7 @@ render.com/
 
 ---
 
-## 31. tpos-pancake
+## 30. tpos-pancake
 
 **Mục đích:** Chat tích hợp TPOS + Pancake (2 cột)
 
@@ -651,7 +635,7 @@ tpos-pancake/
 
 ---
 
-## 32. user-management
+## 31. user-management
 
 **Mục đích:** Quản lý users và phân quyền RBAC
 
@@ -691,7 +675,6 @@ tpos-pancake/
 | user-management | 22 | Phân quyền |
 | js | 14 | Shared modules |
 | balance-history | 22 | Lịch sử số dư |
-| hangdat | 20 | Hàng đặt |
 | **Tổng** | **400+** | - |
 
 ---

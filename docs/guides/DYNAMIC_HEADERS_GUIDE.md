@@ -97,7 +97,6 @@ tposHeaders.set('tposappversion', getDynamicHeader('tposappversion') || '5.12.29
 
 ### ✅ Frontend (Browser)
 - [js/tpos-config.js](js/tpos-config.js) - Central config với dynamic fetch
-- [hangdat/tpos.config.js](hangdat/tpos.config.js) - Sử dụng `window.TPOS_CONFIG`
 - [hanghoan/banhang.js](hanghoan/banhang.js) - Sử dụng `window.TPOS_CONFIG`
 - [hanghoan/doisoat.js](hanghoan/doisoat.js) - Sử dụng `window.TPOS_CONFIG`
 - [invoice-compare/invoice-compare.js](invoice-compare/invoice-compare.js) - Sử dụng `window.TPOS_CONFIG`

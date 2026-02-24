@@ -34,7 +34,7 @@ const FIRESTORE_COLLECTIONS = [
     {
         name: 'dathang',
         description: 'Dữ liệu đặt hàng chính',
-        modules: ['bangkiemhang', 'hangdat'],
+        modules: ['bangkiemhang'],
         countable: true
     },
     {

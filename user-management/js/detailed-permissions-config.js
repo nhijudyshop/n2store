@@ -80,19 +80,6 @@ const DETAILED_PERMISSIONS = {
             update: { name: "Cập nhật", icon: "refresh-cw" },
         },
     },
-    hangdat: {
-        id: "hangdat",
-        icon: "file-text",
-        name: "HÀNG ĐẶT",
-        description: "Quản lý đơn đặt trước",
-        subPermissions: {
-            view: { name: "Xem đơn đặt", icon: "eye" },
-            create: { name: "Tạo đơn mới", icon: "plus-circle" },
-            edit: { name: "Sửa đơn hàng", icon: "edit" },
-            confirm: { name: "Xác nhận", icon: "check-square" },
-            cancel: { name: "Hủy đơn", icon: "x-square" },
-        },
-    },
     bangkiemhang: {
         id: "bangkiemhang",
         icon: "check-square",
