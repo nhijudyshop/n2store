@@ -29,6 +29,7 @@ window.NCCManager = (function() {
                 nccNames.push({
                     code: data.axCode || doc.id.toUpperCase(),
                     tposCode: data.tposCode || doc.id,
+                    tposId: data.tposId || null,
                     docId: doc.id,
                     name: data.name
                 });

@@ -698,6 +698,7 @@ window.SoOrderCRUD = {
                 state.nccNames.push({
                     code: data.axCode || doc.id.toUpperCase(), // Dùng axCode nếu có
                     tposCode: data.tposCode || doc.id, // Mã TPOS gốc
+                    tposId: data.tposId || null, // TPOS Partner Id (số nguyên)
                     docId: doc.id, // Document ID (sanitized)
                     name: data.name,
                 });
