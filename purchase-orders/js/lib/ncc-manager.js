@@ -380,6 +380,37 @@ window.NCCManager = (function() {
     }
 
     // =====================================================
+    // LOOKUP: Find NCC by supplier name
+    // =====================================================
+
+    function findByName(supplierName) {
+        if (!supplierName) return null;
+        const lower = supplierName.trim().toLowerCase();
+        // Exact match first
+        let found = nccNames.find(n => n.name.toLowerCase() === lower);
+        if (found) return found;
+        // Ax code match (e.g. user typed "A14")
+        const axCode = parseAxCode(supplierName);
+        if (axCode) {
+            found = nccNames.find(n => n.code === axCode);
+        }
+        return found || null;
+    }
+
+    // Get full Partner document from Firebase (with all TPOS response fields)
+    async function getFullPartnerData(docId) {
+        if (!docId) return null;
+        try {
+            const db = firebase.firestore();
+            const doc = await db.collection(COLLECTION).doc(docId).get();
+            return doc.exists ? doc.data() : null;
+        } catch (error) {
+            console.error('[NCCManager] Failed to get full partner data:', error);
+            return null;
+        }
+    }
+
+    // =====================================================
     // HELPERS
     // =====================================================
 
@@ -402,6 +433,8 @@ window.NCCManager = (function() {
         handleTabSelect,
         createSupplier: handleCreateSupplier,
         parseAxCode,
+        findByName,
+        getFullPartnerData,
         getNccNames: () => nccNames,
         isLoaded: () => loaded
     };

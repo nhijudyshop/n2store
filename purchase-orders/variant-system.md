@@ -1538,12 +1538,16 @@ React app legacy (phức tạp hơn, KHÔNG DÙNG):
 ┌────────────────────────────────────────────────────────────────────┐
 │ ...Thao tác │  < Debug: Attr IDs                                   │
 │             │ ┌──────────────────────────────────────────────────┐ │
-│             │ │ 885ba459-622d-4ab4-b39b-1a047664f453             │ │ ← Attr value UUID 1
-│             │ │ 21cfea95-87e8-45dd-a92e-75670151ac1f             │ │ ← Attr value UUID 2
-│             │ │ 3f2318d1-0f3b-4ef0-8c56-b8d62b027beb             │ │ ← Attr value UUID 3
+│             │ │ 885ba459-622d-4ab4-b39b-1a047664f453             │ │ ← UUID value "Đen"
+│             │ │ a1b2c3d4-e5f6-7890-abcd-ef1234567890             │ │ ← UUID value "Xám"
+│             │ │ 21cfea95-87e8-45dd-a92e-75670151ac1f             │ │ ← UUID value "4"
+│             │ │ 3f2318d1-0f3b-4ef0-8c56-b8d62b027beb             │ │ ← UUID value "XL"
 │             │ └──────────────────────────────────────────────────┘ │
+│             │  ↑ TẤT CẢ attribute values đã chọn (4 IDs)          │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+**Lưu ý**: Mảng IDs chứa TẤT CẢ values đã chọn (Đen + Xám + 4 + XL = 4 IDs), KHÔNG phải chỉ riêng variant của dòng đó.
 
 #### 9.14.2 UI Toggle - Mở/Đóng Cột Debug
 
@@ -1615,7 +1619,7 @@ const [showDebugColumn, setShowDebugColumn] = useState(false); // Mặc định 
 )}
 ```
 
-Ví dụ: item có 3 IDs → hiển thị `"✓ 3 thuộc tính đã chọn"`
+Ví dụ: chọn Màu=[Đen, Xám], Size Số=[4], Size Chữ=[XL] → 4 values → hiển thị `"✓ 4 thuộc tính đã chọn"`
 
 #### 9.14.4 Nguồn Gốc selectedAttributeValueIds - Từ VariantGeneratorDialog
 
@@ -1650,12 +1654,27 @@ Bước 2: Gán CÙNG mảng IDs cho TẤT CẢ combinations (line 163-166)
 
 **QUAN TRỌNG**: Tất cả variant items từ cùng 1 lần tạo đều có **CÙNG mảng `selectedAttributeValueIds`**. Đây KHÔNG phải là IDs riêng cho từng combo, mà là **tập hợp TẤT CẢ attribute value IDs đã chọn**.
 
-Ví dụ từ screenshot:
+Ví dụ từ screenshot (Đen+Xám, 4, XL):
 
 ```
-Item 1: "Đen, 4, XL" → selectedAttributeValueIds = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]
-Item 2: "Xám, 4, XL" → selectedAttributeValueIds = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]
-                         ↑ CÙNG 4 IDs (nhưng screenshot chỉ thấy 3 vì scroll)
+allSelectedAttributeValueIds = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]  ← 4 IDs
+
+Item 1: "Đen, 4, XL" → IDs = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]  ← CÙNG 4 IDs
+Item 2: "Xám, 4, XL" → IDs = [UUID_Đen, UUID_Xám, UUID_4, UUID_XL]  ← CÙNG 4 IDs
+```
+
+Ví dụ mở rộng (chọn nhiều giá trị hơn): Màu=[Đen, Xám, Trắng, Hồng], Size Số=[32, 33], Size Chữ=[S, M, XL]:
+
+```
+allSelectedAttributeValueIds = [UUID_Đen, UUID_Xám, UUID_Trắng, UUID_Hồng, UUID_32, UUID_33, UUID_S, UUID_M, UUID_XL]
+                                ← 9 IDs cho TẤT CẢ values đã chọn
+
+Tạo 4×2×3 = 24 combos, MỖI combo đều có CÙNG 9 IDs:
+  Item 1:  "Đen, 32, S"     → IDs = [9 UUIDs giống nhau]
+  Item 2:  "Đen, 32, M"     → IDs = [9 UUIDs giống nhau]
+  Item 3:  "Đen, 32, XL"    → IDs = [9 UUIDs giống nhau]
+  ...
+  Item 24: "Hồng, 33, XL"   → IDs = [9 UUIDs giống nhau]
 ```
 
 #### 9.14.5 Khi Tạo Variant Items - IDs Được Gán
@@ -1819,26 +1838,44 @@ for (const item of items) {
 
 **Quy tắc nhóm**: Items có **cùng `product_code`** VÀ **cùng sorted `selected_attribute_value_ids`** → nhóm chung → gọi 1 lần TPOS API.
 
-**Ví dụ từ screenshot** (2 items cùng N4033, cùng IDs):
+**Ví dụ từ screenshot** (2 items cùng N4033, cùng 4 IDs):
 
 ```
-Item 1: N4033 | [885ba..., 21cfe..., 3f231...] → groupKey = "N4033|21cfe...,3f231...,885ba..."
-Item 2: N4033 | [885ba..., 21cfe..., 3f231...] → groupKey = "N4033|21cfe...,3f231...,885ba..."
-  → CÙNG GROUP → chỉ gọi TPOS 1 lần → tạo 1 parent + N variants
+Item 1: N4033 | [885ba..., a1b2c..., 21cfe..., 3f231...]
+  → sorted → groupKey = "N4033|21cfe...,3f231...,885ba...,a1b2c..."
+
+Item 2: N4033 | [885ba..., a1b2c..., 21cfe..., 3f231...]
+  → sorted → groupKey = "N4033|21cfe...,3f231...,885ba...,a1b2c..."
+
+→ CÙNG GROUP → chỉ gọi TPOS 1 lần → tạo 1 parent + N variants
+```
+
+**Ví dụ mở rộng** (9 IDs, 4 Màu × 2 Size Số × 3 Size Chữ = 24 items):
+
+```
+24 items cùng N4033 | cùng 9 IDs (sorted)
+  → 1 GROUP → 1 lần TPOS API → tạo 1 parent + 24 variant children
 ```
 
 **File**: `/Users/mac/Downloads/github-html-starter-main/supabase/functions/create-tpos-variants-from-order/index.ts` (line 530+)
 
 ```
-Edge Fn 2 nhận selectedAttributeValueIds = [id1, id2, id3]
+Edge Fn 2 nhận selectedAttributeValueIds = [id1, id2, id3, id4]  (4 IDs)
   ↓
-Query Supabase: attribute_values JOIN attributes (dùng IDs)
-  ↓ → Lấy tpos_id, tpos_attribute_id, value cho mỗi UUID
+Query Supabase: attribute_values JOIN attributes (dùng 4 IDs)
+  ↓ → id1 = Đen (Màu, tpos_id=X)
+  ↓ → id2 = Xám (Màu, tpos_id=Y)
+  ↓ → id3 = 4   (Size Số, tpos_id=Z)
+  ↓ → id4 = XL  (Size Chữ, tpos_id=W)
   ↓
 Group by attribute → Cartesian product
-  ↓ VD: Màu=[Đen, Xám] × Size Số=[4] × Size Chữ=[XL] = 2 combos
+  ↓ Màu=[Đen, Xám] × Size Số=[4] × Size Chữ=[XL] = 2 combos
   ↓
 Tạo ProductVariants array → POST TPOS InsertV2
+
+Ví dụ mở rộng (9 IDs):
+  ↓ Màu=[Đen, Xám, Trắng, Hồng] × Size Số=[32, 33] × Size Chữ=[S, M, XL]
+  ↓ = 4×2×3 = 24 combos → 24 ProductVariants
 ```
 
 #### 9.14.12 Bảng Tổng Hợp: Hành Vi selectedAttributeValueIds
@@ -3681,7 +3718,417 @@ Response (success):
 
 ---
 
-## 15. Bảng Tóm Tắt Tất Cả File
+## 15. Xuất Excel Mua Hàng - Chi Tiết Từng Bước
+
+### 15.1 Tổng Quan
+
+Nút xuất Excel (icon `FileDown` màu xanh lá 📥) trên mỗi dòng đơn hàng tại trang "Quản lý đặt hàng". Tạo file `.xlsx` dùng để import vào TPOS (template "Mua Hàng").
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ Thao tác                                                               │
+│  [✏️ Sửa] [📥 Xuất Excel] [📋 Copy] [🗑️ Xóa]                         │
+│            ↑ FileDown icon, text-green-600                             │
+│            title="Xuất Excel mua hàng"                                 │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+**2 loại xuất Excel** trong hệ thống:
+
+| Nút | Function | Mục đích | Template |
+|-----|----------|----------|----------|
+| "Xuất Excel Thêm SP" | `handleExportExcel()` | Tạo sản phẩm mới trên TPOS | 17 cột (Mã SP, Tên SP, Giá bán, Giá mua, Đơn vị...) |
+| **"Xuất Excel Mua Hàng"** (📥) | `handleExportPurchaseExcel()` | Import đơn mua hàng vào TPOS | **4 cột** (Mã SP, Số lượng, Đơn giá, Chiết khấu) |
+
+Section này tập trung vào **"Xuất Excel Mua Hàng"** — nút 📥 trên mỗi dòng đơn hàng.
+
+### 15.2 File Liên Quan
+
+| File | Đường dẫn đầy đủ | Vai trò |
+|------|-------------------|---------|
+| `PurchaseOrders.tsx` | `/Users/mac/Downloads/github-html-starter-main/src/pages/PurchaseOrders.tsx` | Chứa `handleExportPurchaseExcel()` — toàn bộ logic xuất Excel |
+| `PurchaseOrderList.tsx` | `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/PurchaseOrderList.tsx` | UI nút 📥 → gọi `onExportOrder(order)` |
+| `tpos-api.ts` | `/Users/mac/Downloads/github-html-starter-main/src/lib/tpos-api.ts` | `searchTPOSProduct()` — fallback tìm SP trên TPOS |
+| `utils.ts` | `/Users/mac/Downloads/github-html-starter-main/src/lib/utils.ts` | `convertVietnameseToUpperCase()` — normalize variant matching |
+| `xlsx` (thư viện) | `node_modules/xlsx` | Thư viện SheetJS — tạo file .xlsx |
+
+### 15.3 UI Nút Xuất Excel
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/components/purchase-orders/PurchaseOrderList.tsx` (line 813-822)
+
+```typescript
+{/* Export Excel button */}
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={() => onExportOrder?.(flatItem)}
+  title="Xuất Excel mua hàng"
+  disabled={isOrderProcessing(flatItem.id)}
+>
+  <FileDown className="w-4 h-4 text-green-600" />
+</Button>
+```
+
+- Icon: `FileDown` (lucide-react), màu `text-green-600`
+- Disabled khi đơn hàng đang processing (TPOS sync)
+- Gọi `onExportOrder` prop → map tới `handleExportPurchaseExcel(singleOrder)`
+
+**2 cách gọi**:
+1. **Nút trên mỗi dòng**: `handleExportPurchaseExcel(flatItem)` — truyền trực tiếp đơn hàng
+2. **Nút chính (header)**: `handleExportPurchaseExcel()` — không truyền param, lấy từ `selectedOrders`
+
+### 15.4 Luồng Chính - handleExportPurchaseExcel()
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/pages/PurchaseOrders.tsx` (line 626-862)
+
+```
+handleExportPurchaseExcel(singleOrder?)
+  ↓
+STEP 1: Xác định đơn hàng (line 627-658)
+  ↓ Nếu có singleOrder → dùng trực tiếp
+  ↓ Nếu không → validate selectedOrders.length === 1
+  ↓   → Lỗi nếu chọn != 1 đơn: "Chỉ được xuất từ 1 đơn hàng tại 1 thời điểm"
+  ↓
+STEP 2: Lấy items (line 660-670)
+  ↓ allItems = orderToExport.items || []
+  ↓ Nếu rỗng → toast "Đơn hàng không có sản phẩm nào"
+  ↓
+STEP 3: Process từng item — 3 CASES (line 672-796)
+  ↓ Duyệt từng item → quyết định mã SP nào đưa vào Excel
+  ↓ (Chi tiết bên dưới 15.5)
+  ↓
+STEP 4: Validate có items (line 798-806)
+  ↓ excelRows.length === 0 → toast "Không có sản phẩm nào phù hợp"
+  ↓
+STEP 5: Tạo file Excel (line 808-814)
+  ↓ XLSX.utils.json_to_sheet(excelRows)
+  ↓ Sheet name: "Mua Hàng"
+  ↓ File name: MuaHang_{supplier}_{DD-MM}.xlsx
+  ↓   VD: "MuaHang_TESTEXCEL_24-02.xlsx"
+  ↓
+STEP 6: Toast kết quả (line 816-831)
+  ↓ Thành công: "Xuất Excel thành công! Đã xuất N sản phẩm"
+  ↓ Có lỗi: "⚠️ Xuất Excel với lỗi! Đã xuất N SP, bỏ qua M SP"
+  ↓   → Hiển thị tối đa 3 lỗi đầu tiên
+  ↓
+STEP 7: Auto-update trạng thái (line 833-852)
+  ↓ Nếu status === 'awaiting_export':
+  ↓   → UPDATE purchase_orders SET status = 'pending'
+  ↓   → Toast: "Đơn hàng chuyển sang trạng thái Chờ Hàng"
+  ↓   → invalidateQueries → refresh UI
+```
+
+### 15.5 3 Cases Xử Lý Từng Item
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/pages/PurchaseOrders.tsx` (line 684-796)
+
+#### CASE 1: Đã có tpos_product_id (line 686-694)
+
+```
+item.tpos_product_id != null?
+  ↓ YES → Đã upload TPOS thành công trước đó
+  ↓ Dùng trực tiếp item.product_code
+  ↓
+  excelRows.push({
+    "Mã sản phẩm (*)": item.product_code,    // VD: "N4033"
+    "Số lượng (*)": item.quantity,             // VD: 1
+    "Đơn giá": item.purchase_price,            // VD: 150000 (đồng)
+    "Chiết khấu (%)": 0
+  })
+```
+
+#### CASE 2: Chưa upload TPOS + Không có biến thể (line 696-705)
+
+```
+!item.variant || item.variant.trim() === ''?
+  ↓ YES → Sản phẩm đơn (simple product)
+  ↓ Dùng trực tiếp item.product_code
+  ↓
+  excelRows.push({
+    "Mã sản phẩm (*)": item.product_code,
+    "Số lượng (*)": item.quantity,
+    "Đơn giá": item.purchase_price,
+    "Chiết khấu (%)": 0
+  })
+```
+
+#### CASE 3: Chưa upload TPOS + Có biến thể → 3-Step Fallback (line 707-796)
+
+Đây là case phức tạp nhất — cần tìm **mã variant con** từ DB hoặc TPOS.
+
+```
+item có variant (VD: "ĐEN, 4, XL") nhưng chưa upload TPOS
+  ↓
+FALLBACK STEP 1: Tìm variant match trong bảng products (line 708-736)
+  ↓ Query: products WHERE base_product_code = item.product_code
+  ↓         AND variant IS NOT NULL AND variant != ''
+  ↓
+  ↓ candidates = [
+  ↓   { product_code: "N4033-DEN-4-XL", variant: "(Đen) (4) (XL)" },
+  ↓   { product_code: "N4033-XAM-4-XL", variant: "(Xám) (4) (XL)" },
+  ↓   ...
+  ↓ ]
+  ↓
+  ↓ variantsMatch(candidate.variant, item.variant)?
+  ↓   → Normalize: bỏ dấu, uppercase, bỏ ngoặc, sort parts
+  ↓   → "(Đen) (4) (XL)" → ["4", "DEN", "XL"]
+  ↓   → "ĐEN, 4, XL"    → ["4", "DEN", "XL"]
+  ↓   → MATCH! → Dùng matchedProduct.product_code (mã variant con)
+  ↓
+  ↓ Nếu MATCH:
+  ↓   excelRows.push({ "Mã sản phẩm (*)": "N4033-DEN-4-XL", ... })
+  ↓   → Dùng MÃ VARIANT CON (không phải mã parent)
+  ↓
+FALLBACK STEP 2: Tìm exact product_code trong kho (line 738-764)
+  ↓ Nếu không match variant → query products WHERE product_code = item.product_code
+  ↓ Nếu tồn tại → dùng item.product_code (mã parent)
+  ↓
+FALLBACK STEP 3: Tìm trên TPOS API (line 766-786)
+  ↓ Nếu không có trong kho → searchTPOSProduct(item.product_code)
+  ↓ GET https://tomato.tpos.vn/odata/Product/OdataService.GetViewV2?DefaultCode={code}
+  ↓ Nếu tìm thấy → dùng item.product_code
+  ↓
+❌ FINAL: Không tìm thấy ở đâu (line 788-796)
+  ↓ Skip item + ghi log lỗi
+  ↓ skippedItems.push("❌ Upload TPOS Lỗi: N4033 - AO 32 (Variant: ĐEN, 4, XL, Có trong kho: [...])")
+```
+
+### 15.6 variantsMatch() - So Khớp Biến Thể
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/pages/PurchaseOrders.tsx` (line 92-110)
+
+```typescript
+const variantsMatch = (variant1: string | null, variant2: string | null): boolean => {
+  // Normalize: uppercase, bỏ dấu, bỏ ngoặc, trim
+  const normalize = (str: string) =>
+    convertVietnameseToUpperCase(str.trim())
+      .replace(/[()]/g, '')         // Bỏ ngoặc (format cũ)
+      .replace(/\s+/g, ' ');        // Normalize spaces
+
+  // Split by comma hoặc pipe (hỗ trợ 2 format)
+  const parts1 = variant1.split(/[,|]/).map(normalize).filter(p => p.length > 0).sort();
+  const parts2 = variant2.split(/[,|]/).map(normalize).filter(p => p.length > 0).sort();
+
+  // So sánh sorted arrays (thứ tự không quan trọng)
+  return parts1.length === parts2.length && parts1.every((part, idx) => part === parts2[idx]);
+};
+```
+
+**Ví dụ matching**:
+
+| DB variant (format cũ) | Item variant (format mới) | Normalize 1 | Normalize 2 | Match? |
+|------------------------|--------------------------|-------------|-------------|--------|
+| `"(Đen) (4) (XL)"` | `"ĐEN, 4, XL"` | `["4", "DEN", "XL"]` | `["4", "DEN", "XL"]` | ✅ |
+| `"(Xám) (32) (S)"` | `"Xám, 32, S"` | `["32", "S", "XAM"]` | `["32", "S", "XAM"]` | ✅ |
+| `"(Đen) (4) (XL)"` | `"Xám, 4, XL"` | `["4", "DEN", "XL"]` | `["4", "XAM", "XL"]` | ❌ |
+| `"Đen \| 4 \| XL"` | `"ĐEN, 4, XL"` | `["4", "DEN", "XL"]` | `["4", "DEN", "XL"]` | ✅ |
+
+**Đặc điểm**: So sánh **order-insensitive** (sort trước khi compare) và **format-insensitive** (hỗ trợ `,` lẫn `|` lẫn `()`)
+
+### 15.7 Cấu Trúc File Excel Output
+
+**Sheet name**: `"Mua Hàng"`
+
+| Cột | Key | Kiểu | Ví dụ |
+|-----|-----|------|-------|
+| A | `Mã sản phẩm (*)` | string | `"N4033-DEN-4-XL"` hoặc `"N4033"` |
+| B | `Số lượng (*)` | number | `1` |
+| C | `Đơn giá` | number | `150000` (đồng, đã ×1000 trong DB) |
+| D | `Chiết khấu (%)` | number | `0` (luôn = 0) |
+
+**File name format**: `MuaHang_{SupplierName}_{DD-MM}.xlsx`
+- VD: `MuaHang_TESTEXCEL_24-02.xlsx`
+
+**Lưu ý**: `Đơn giá` lấy trực tiếp `item.purchase_price` từ DB (đã ×1000 khi lưu), KHÔNG chia lại.
+
+### 15.8 Auto-Update Trạng Thái Sau Xuất
+
+**File**: `/Users/mac/Downloads/github-html-starter-main/src/pages/PurchaseOrders.tsx` (line 833-852)
+
+```
+Xuất Excel thành công
+  ↓
+Kiểm tra: orderToExport.status === 'awaiting_export'?
+  ↓ YES:
+  ↓   UPDATE purchase_orders
+  ↓     SET status = 'pending', updated_at = now()
+  ↓     WHERE id = orderToExport.id
+  ↓
+  ↓   → Đơn hàng chuyển từ tab "Chờ mua" sang "Chờ hàng"
+  ↓   → invalidateQueries → refresh danh sách
+  ↓   → Toast: "Đã cập nhật trạng thái - Đơn hàng chuyển sang trạng thái Chờ Hàng"
+  ↓
+  ↓ NO (status khác):
+  ↓   → Không đổi trạng thái
+```
+
+**Luồng trạng thái**:
+
+```
+awaiting_export (Chờ mua) → [Xuất Excel] → pending (Chờ hàng)
+```
+
+### 15.9 Xử Lý Lỗi + Toast
+
+| Tình huống | Toast title | Toast variant | Chi tiết |
+|-----------|-------------|---------------|----------|
+| Chọn != 1 đơn (nút chính) | "Vui lòng chọn 1 đơn hàng" | destructive | Chỉ cho xuất 1 đơn/lần |
+| Đơn hàng 0 items | "Không có sản phẩm" | destructive | — |
+| Xuất OK, 0 skip | "Xuất Excel thành công!" | default | "Đã xuất N sản phẩm" |
+| Xuất OK, có skip | "⚠️ Xuất Excel với lỗi!" | destructive | "Đã xuất N SP, bỏ qua M SP" + 3 lỗi đầu |
+| 0 items xuất được | "Không thể xuất Excel" | destructive | "Không có SP nào phù hợp" |
+| Exception | "Lỗi khi xuất Excel!" | destructive | "Vui lòng thử lại" |
+
+### 15.10 Xử Lý Sản Phẩm Nhiều Biến Thể - Chi Tiết
+
+**Quan trọng**: Vòng lặp `for (const item of allItems)` xử lý **TỪNG item riêng lẻ**, KHÔNG nhóm theo product_code. Mỗi item tự tìm mã variant con của nó.
+
+#### Ví dụ: Đơn TESTEXCEL — 2 items cùng N4033, khác biến thể
+
+```
+Đơn: TESTEXCEL (24/02/2026) - NCC: TESTEXCEL - Tổng SL: 2
+Đồng bộ TPOS: 0/15 (0.0%) → TPOS sync lỗi, chưa có tpos_product_id
+
+Item 1: AO 32 - N4033 - ĐEN, 4, XL - SL: 1 - Giá mua: 0đ - "2 lỗi" (đỏ)
+Item 2: AO 32 - N4033 - XÁM, 4, XL - SL: 1 - Giá mua: 0đ
+```
+
+#### Bấm 📥 → xử lý từng item:
+
+```
+═══════════════════════════════════════════════════════════════════
+ITEM 1: AO 32 - N4033 - ĐEN, 4, XL
+═══════════════════════════════════════════════════════════════════
+
+CHECK CASE 1: item.tpos_product_id != null?
+  → tpos_product_id = null (TPOS sync lỗi) → ❌ Bỏ qua
+
+CHECK CASE 2: !item.variant?
+  → variant = "ĐEN, 4, XL" (có biến thể) → ❌ Bỏ qua
+
+VÀO CASE 3: Chưa upload + Có biến thể → 3-step fallback
+  ↓
+  ↓ Query: products WHERE base_product_code = 'N4033'
+  ↓         AND variant IS NOT NULL AND variant != ''
+  ↓
+  ↓ candidates = [
+  ↓   { product_code: "N4033-1", variant: "(Đen) (4) (XL)" },
+  ↓   { product_code: "N4033-2", variant: "(Xám) (4) (XL)" },
+  ↓ ]
+  ↓
+  ↓ Duyệt từng candidate:
+  ↓   variantsMatch("(Đen) (4) (XL)", "ĐEN, 4, XL")?
+  ↓     normalize: "(Đen) (4) (XL)" → bỏ dấu, bỏ ngoặc → "DEN 4 XL"
+  ↓                                  → split → sort → ["4", "DEN", "XL"]
+  ↓     normalize: "ĐEN, 4, XL"    → bỏ dấu → "DEN, 4, XL"
+  ↓                                  → split → sort → ["4", "DEN", "XL"]
+  ↓     → ["4","DEN","XL"] === ["4","DEN","XL"] → ✅ MATCH!
+  ↓
+  ↓ → Dùng matchedProduct.product_code = "N4033-1" (MÃ VARIANT CON)
+  ↓
+  excelRows.push({ "Mã sản phẩm (*)": "N4033-1", "Số lượng (*)": 1, "Đơn giá": 0 })
+
+═══════════════════════════════════════════════════════════════════
+ITEM 2: AO 32 - N4033 - XÁM, 4, XL
+═══════════════════════════════════════════════════════════════════
+
+VÀO CASE 3 (tương tự):
+  ↓
+  ↓ Query: products WHERE base_product_code = 'N4033' (CÙNG query, CÙNG candidates)
+  ↓
+  ↓ candidates = [
+  ↓   { product_code: "N4033-1", variant: "(Đen) (4) (XL)" },
+  ↓   { product_code: "N4033-2", variant: "(Xám) (4) (XL)" },
+  ↓ ]
+  ↓
+  ↓ Duyệt từng candidate:
+  ↓   variantsMatch("(Đen) (4) (XL)", "XÁM, 4, XL")?
+  ↓     → ["4","DEN","XL"] vs ["4","XAM","XL"] → ❌ DEN ≠ XAM
+  ↓
+  ↓   variantsMatch("(Xám) (4) (XL)", "XÁM, 4, XL")?
+  ↓     normalize: "(Xám) (4) (XL)" → ["4", "XAM", "XL"]
+  ↓     normalize: "XÁM, 4, XL"    → ["4", "XAM", "XL"]
+  ↓     → ✅ MATCH!
+  ↓
+  ↓ → Dùng matchedProduct.product_code = "N4033-2" (MÃ VARIANT CON KHÁC)
+  ↓
+  excelRows.push({ "Mã sản phẩm (*)": "N4033-2", "Số lượng (*)": 1, "Đơn giá": 0 })
+```
+
+#### Kết quả file Excel: `MuaHang_TESTEXCEL_24-02.xlsx`
+
+```
+Sheet: "Mua Hàng"
+┌──────────────────┬──────────────┬─────────┬────────────────┐
+│ Mã sản phẩm (*)  │ Số lượng (*) │ Đơn giá │ Chiết khấu (%) │
+├──────────────────┼──────────────┼─────────┼────────────────┤
+│ N4033-1          │ 1            │ 0       │ 0              │  ← variant Đen,4,XL
+│ N4033-2          │ 1            │ 0       │ 0              │  ← variant Xám,4,XL
+└──────────────────┴──────────────┴─────────┴────────────────┘
+```
+
+**Lưu ý**: Mã trong Excel là **mã variant con** (`N4033-1`, `N4033-2`), KHÔNG phải mã parent (`N4033`). TPOS cần mã con để nhập kho đúng biến thể.
+
+#### Ví dụ mở rộng: 1 SP có 6 biến thể (3 Màu × 2 Size)
+
+```
+Đơn hàng có 6 items cùng mã P100:
+  Item 1: P100 - ĐỎ, S     Item 4: P100 - XANH, S
+  Item 2: P100 - ĐỎ, M     Item 5: P100 - XANH, M
+  Item 3: P100 - VÀNG, S   Item 6: P100 - VÀNG, M
+
+Bảng products có variant children:
+  P100-1: "(Đỏ) (S)"     P100-4: "(Xanh) (S)"
+  P100-2: "(Đỏ) (M)"     P100-5: "(Xanh) (M)"
+  P100-3: "(Vàng) (S)"   P100-6: "(Vàng) (M)"
+
+→ Duyệt TỪNG item × query candidates × variantsMatch()
+→ Mỗi item tìm được đúng 1 variant con match
+
+Kết quả Excel:
+  P100-1 | 1 | giá | 0    ← Đỏ, S
+  P100-2 | 1 | giá | 0    ← Đỏ, M
+  P100-3 | 1 | giá | 0    ← Vàng, S
+  P100-4 | 1 | giá | 0    ← Xanh, S
+  P100-5 | 1 | giá | 0    ← Xanh, M
+  P100-6 | 1 | giá | 0    ← Vàng, M
+```
+
+#### Trường hợp TPOS chưa sync xong (như screenshot: "2 lỗi")
+
+```
+TPOS sync lỗi → tpos_product_id = null
+             → Chưa có variant children trong bảng products
+             → candidates = [] (rỗng)
+             → Không match được
+  ↓
+FALLBACK STEP 2: exact match 'N4033' trong products?
+  → Nếu có parent product N4033 → dùng "N4033" (mã parent, không lý tưởng)
+  → Nếu không →
+  ↓
+FALLBACK STEP 3: searchTPOSProduct('N4033')?
+  → Nếu TPOS có N4033 → dùng "N4033"
+  → Nếu không →
+  ↓
+❌ SKIP: "Upload TPOS Lỗi: N4033 - AO 32 (Variant: ĐEN, 4, XL, Có trong kho: [])"
+  → Toast đỏ: "⚠️ Xuất Excel với lỗi! Bỏ qua 2 sản phẩm"
+```
+
+### 15.11 Lưu Ý Quan Trọng
+
+1. **Xử lý TỪNG item riêng lẻ**: Vòng `for...of` duyệt từng item, KHÔNG nhóm theo product_code. Mỗi item tự query + match variant con
+2. **Mã variant con vs mã parent**: CASE 3 ưu tiên tìm **mã variant con** (VD: `N4033-1`) thay vì mã parent (`N4033`), vì TPOS cần mã con để nhập kho đúng biến thể
+3. **Cùng query, khác match**: 2 items cùng N4033 chạy cùng query `base_product_code = 'N4033'` nhưng `variantsMatch()` match ra **variant con khác nhau**
+4. **3-step fallback**: variant match → exact match trong kho → TPOS API search → skip
+5. **variantsMatch order-insensitive**: `"ĐEN, 4, XL"` match `"(XL) (4) (Đen)"` vì sort trước compare
+6. **Giá lấy trực tiếp từ DB**: `purchase_price` trong DB đã ×1000, không cần convert thêm
+7. **Auto-update status**: Chỉ update nếu status hiện tại là `'awaiting_export'`
+8. **Chiết khấu luôn = 0**: Không hỗ trợ chiết khấu, hardcode `0`
+9. **TPOS chưa sync = fallback**: Nếu TPOS sync lỗi, chưa có variant children trong DB → fallback dùng mã parent hoặc skip
+
+---
+
+## 16. Bảng Tóm Tắt Tất Cả File
 
 ### Data files (JSON cache từ TPOS)
 
