@@ -1301,7 +1301,6 @@ class UnifiedNavigationManager {
 
         // Get filtered layout based on user permissions
         const filteredLayout = MenuLayoutStore.getFilteredLayout(this.userPermissions);
-        const mobileGroupState = this.getMobileGroupCollapsedState();
 
         // Inject mobile group styles
         this.injectMobileGroupStyles();
@@ -1310,7 +1309,8 @@ class UnifiedNavigationManager {
         let menuContentHtml = '';
 
         filteredLayout.groups.forEach((group) => {
-            const isCollapsed = mobileGroupState[group.id] ?? false;
+            const hasActivePage = group.items.some(item => item.pageIdentifier === this.currentPage);
+            const isCollapsed = !hasActivePage;
             menuContentHtml += `
                 <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="${group.id}">
                     <div class="mobile-group-header">
@@ -1334,7 +1334,8 @@ class UnifiedNavigationManager {
 
         // Add ungrouped items if any
         if (filteredLayout.ungroupedItems && filteredLayout.ungroupedItems.length > 0) {
-            const isCollapsed = mobileGroupState['ungrouped'] ?? false;
+            const hasActivePage = filteredLayout.ungroupedItems.some(item => item.pageIdentifier === this.currentPage);
+            const isCollapsed = !hasActivePage;
             menuContentHtml += `
                 <div class="mobile-menu-group ${isCollapsed ? 'collapsed' : ''}" data-group-id="ungrouped">
                     <div class="mobile-group-header">
@@ -1668,10 +1669,12 @@ class UnifiedNavigationManager {
         groupEl.className = `menu-group`;
         groupEl.dataset.groupId = group.id;
 
-        // Get stored collapsed state
-        const collapsedState = this.getGroupCollapsedState();
-        const isCollapsed = collapsedState[group.id] ?? group.collapsed ?? false;
-        if (isCollapsed) groupEl.classList.add('collapsed');
+        // Always start collapsed on page load
+        groupEl.classList.add('collapsed');
+        
+        // But expand the group containing the active page
+        const hasActivePage = group.items.some(item => item.pageIdentifier === this.currentPage);
+        if (hasActivePage) groupEl.classList.remove('collapsed');
 
         // Group header
         const header = document.createElement("div");
