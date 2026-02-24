@@ -1334,6 +1334,14 @@ class PurchaseOrderFormModal {
                             font-size: 12px;
                             white-space: nowrap;
                         ">${item.variant || 'Nhấn để tạo biến thể'}</button>
+                        ${(item.selectedAttributeValueIds || []).length > 0
+                            ? `<div style="margin-top: 4px;">
+                                <span style="display: inline-block; font-size: 10px; padding: 2px 6px; background: #f3f4f6; color: #6b7280; border-radius: 4px;">
+                                    ✓ ${item.selectedAttributeValueIds.length} thuộc tính đã chọn
+                                </span>
+                            </div>`
+                            : ''
+                        }
                     </td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
                         <div style="display: flex; gap: 4px;">
