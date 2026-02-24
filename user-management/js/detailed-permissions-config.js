@@ -161,6 +161,18 @@ const DETAILED_PERMISSIONS = {
             delete: { name: "Xóa lịch sử", icon: "trash-2" },
         },
     },
+    "supplier-debt": {
+        id: "supplier-debt",
+        icon: "receipt",
+        name: "CÔNG NỢ NHÀ CUNG CẤP",
+        description: "Quản lý công nợ nhà cung cấp",
+        subPermissions: {
+            payment: { name: "Đăng ký thanh toán", icon: "credit-card" },
+            deletePayment: { name: "Xóa thanh toán", icon: "trash-2" },
+            editNoteBill: { name: "Sửa ghi chú hóa đơn", icon: "edit" },
+            editNotePayment: { name: "Sửa ghi chú thanh toán", icon: "edit-3" },
+        },
+    },
     // NOTE: "soluong-live" permissions are now defined in permissions-registry.js
     // with keys: livestream, social, viewReport
 };

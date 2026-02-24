@@ -224,6 +224,12 @@ window.generateFullAdminPermissions = function() {
             export: true,
             restore: true,
             delete: true
+        },
+        "supplier-debt": {
+            payment: true,
+            deletePayment: true,
+            editNoteBill: true,
+            editNotePayment: true
         }
     };
 
