@@ -1006,15 +1006,32 @@ class PurchaseOrderFormModal {
                             <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
                                 Nhà cung cấp <span style="color: #ef4444;">*</span>
                             </label>
-                            <input type="text" id="inputSupplier" value="${this.formData.supplier}" placeholder="Nhập tên nhà cung cấp" style="
-                                width: 100%;
-                                height: 40px;
-                                padding: 0 12px;
-                                border: 1px solid #d1d5db;
-                                border-radius: 8px;
-                                font-size: 14px;
-                                box-sizing: border-box;
-                            ">
+                            <div style="position: relative;">
+                                <input type="text" id="inputSupplier" value="${this.formData.supplier}" placeholder="Nhập tên nhà cung cấp" autocomplete="off" style="
+                                    width: 100%;
+                                    height: 40px;
+                                    padding: 0 12px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 8px;
+                                    font-size: 14px;
+                                    box-sizing: border-box;
+                                ">
+                                <div id="supplierSuggestions" style="
+                                    display: none;
+                                    position: absolute;
+                                    top: 100%;
+                                    left: 0;
+                                    right: 0;
+                                    background: white;
+                                    border: 1px solid #e5e7eb;
+                                    border-radius: 8px;
+                                    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+                                    max-height: 260px;
+                                    overflow-y: auto;
+                                    z-index: 100;
+                                    margin-top: 4px;
+                                "></div>
+                            </div>
                         </div>
                         <div style="min-width: 160px;">
                             <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
@@ -1708,6 +1725,31 @@ class PurchaseOrderFormModal {
                 this.handlePaste(e, this.hoveredImageArea.type, this.hoveredImageArea.itemId);
             }
         });
+
+        // Supplier autocomplete (NCCManager)
+        const supplierInput = this.modalElement.querySelector('#inputSupplier');
+        const supplierDropdown = this.modalElement.querySelector('#supplierSuggestions');
+        if (supplierInput && supplierDropdown && window.NCCManager) {
+            supplierInput.addEventListener('input', () => {
+                window.NCCManager.showSuggestions(supplierInput, supplierDropdown);
+            });
+            supplierInput.addEventListener('focus', () => {
+                if (supplierInput.value.trim()) {
+                    window.NCCManager.showSuggestions(supplierInput, supplierDropdown);
+                }
+            });
+            supplierInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab' && window.NCCManager.handleTabSelect(supplierInput, supplierDropdown)) {
+                    e.preventDefault();
+                }
+            });
+            // Hide suggestions on click outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#inputSupplier') && !e.target.closest('#supplierSuggestions')) {
+                    window.NCCManager.hideSuggestions(supplierDropdown);
+                }
+            });
+        }
 
         // Bind invoice image events
         this.bindInvoiceImageEvents();

@@ -230,6 +230,7 @@ window.SoOrderSupplierLoader = {
                 // API trả về: Name, Ref (không phải Code)
                 const name = supplier.Name || supplier.name;
                 const tposCode = supplier.Ref || supplier.ref || supplier.Code || supplier.code;
+                const tposId = supplier.Id || supplier.id || null;
 
                 if (!name || !tposCode) {
                     console.warn('[Supplier Loader] ⚠️ Skipping supplier without name or code:', JSON.stringify(supplier));
@@ -249,7 +250,8 @@ window.SoOrderSupplierLoader = {
                     data: {
                         name: name.trim(),
                         axCode: axCode || null,
-                        tposCode: tposCode // Lưu lại TPOS code gốc
+                        tposCode: tposCode, // Lưu lại TPOS code gốc
+                        tposId: tposId      // TPOS Partner Id (số nguyên)
                     }
                 });
             }
