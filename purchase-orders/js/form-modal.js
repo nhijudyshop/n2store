@@ -36,6 +36,7 @@ class PurchaseOrderFormModal {
         this.itemCounter = 0;
         this.isUploading = false;
         this.activeImageUpload = null; // Track which area is focused for paste
+        this.hoveredImageArea = null;  // Track which image area mouse is hovering over
         this.showDebugColumn = false;
     }
 
@@ -533,14 +534,16 @@ class PurchaseOrderFormModal {
             // Click to upload
             area.addEventListener('click', () => fileInput.click());
 
-            // Hover effect
+            // Hover effect + track hovered area for paste
             area.addEventListener('mouseenter', () => {
                 area.style.borderColor = '#3b82f6';
                 area.style.color = '#3b82f6';
+                this.hoveredImageArea = { type: 'invoice', itemId: null };
             });
             area.addEventListener('mouseleave', () => {
                 area.style.borderColor = '#d1d5db';
                 area.style.color = '#9ca3af';
+                this.hoveredImageArea = null;
             });
 
             // Paste on focus
@@ -572,11 +575,21 @@ class PurchaseOrderFormModal {
         const area = cell.querySelector(`[data-type="${type}"]`);
         const fileInput = cell.querySelector(`[data-file-type="${type}"]`);
 
+        // Track hover on entire cell for paste (works even when images exist)
+        cell.addEventListener('mouseenter', () => {
+            this.hoveredImageArea = { type, itemId };
+        });
+        cell.addEventListener('mouseleave', () => {
+            if (this.hoveredImageArea?.type === type && this.hoveredImageArea?.itemId === itemId) {
+                this.hoveredImageArea = null;
+            }
+        });
+
         if (area && fileInput) {
             // Click to upload
             area.addEventListener('click', () => fileInput.click());
 
-            // Hover effect
+            // Hover effect on dashed area
             area.addEventListener('mouseenter', () => {
                 area.style.borderColor = '#3b82f6';
                 area.style.color = '#3b82f6';
@@ -1675,15 +1688,17 @@ class PurchaseOrderFormModal {
             }
         });
 
-        // Global paste handler - paste to last focused image area
+        // Global paste handler - paste to hovered image area
         document.addEventListener('paste', (e) => {
-            // Only handle if modal is open and no input is focused
+            // Only handle if modal is open and no input/textarea is focused
             if (!this.modalElement) return;
             const activeEl = document.activeElement;
             if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
 
-            // Default to invoice if no specific area focused
-            this.handlePaste(e, 'invoice');
+            // Route paste to the hovered image area
+            if (this.hoveredImageArea) {
+                this.handlePaste(e, this.hoveredImageArea.type, this.hoveredImageArea.itemId);
+            }
         });
 
         // Bind invoice image events
