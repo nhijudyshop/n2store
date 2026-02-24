@@ -311,21 +311,12 @@ class TemplateManager {
             </button>
         `;
 
-        // System defaults: có nút Reset, không có nút Xóa
-        if (isSystemDefault) {
-            actionsHtml += `
-                <button class="btn btn-sm btn-warning" onclick="templateManager.resetToDefault('${id}')" title="Khôi phục về mặc định">
-                    <i data-lucide="rotate-ccw"></i>
-                </button>
-            `;
-        } else {
-            // Custom templates: có nút Xóa
-            actionsHtml += `
-                <button class="btn btn-sm btn-danger" onclick="templateManager.deleteTemplate('${id}')" title="Xóa">
-                    <i data-lucide="trash-2"></i>
-                </button>
-            `;
-        }
+        // Nút Xóa cho tất cả templates
+        actionsHtml += `
+            <button class="btn btn-sm btn-danger" onclick="templateManager.deleteTemplate('${id}')" title="Xóa">
+                <i data-lucide="trash-2"></i>
+            </button>
+        `;
 
         return `
             <div class="template-card ${isSystemDefault ? 'system-default' : 'custom'} ${isAdmin ? 'admin-template' : ''}" data-template-id="${id}">
@@ -628,11 +619,6 @@ class TemplateManager {
 
         if (!template) {
             alert('Không tìm thấy template!');
-            return;
-        }
-
-        if (template.isSystemDefault) {
-            alert('Không thể xóa template mặc định của hệ thống!\nBạn có thể Reset nếu muốn khôi phục về trạng thái ban đầu.');
             return;
         }
 
