@@ -61,6 +61,14 @@ window.TPOSPurchase = (function() {
         }
     };
 
+    // Format date as Vietnam timezone (+07:00) matching TPOS payload format
+    function toVNDateString(date) {
+        const d = date || new Date();
+        const offset = 7 * 60; // +07:00 in minutes
+        const local = new Date(d.getTime() + offset * 60000);
+        return local.toISOString().replace('Z', '') + '+07:00';
+    }
+
     // =====================================================
     // STEP 1: PurchaseByExcel - Convert Excel → OrderLines
     // =====================================================
@@ -76,7 +84,7 @@ window.TPOSPurchase = (function() {
             file: base64File,
             paramModel: {
                 PartnerId: partnerId,
-                DateOrder: dateOrder instanceof Date ? dateOrder.toISOString() : dateOrder
+                DateOrder: dateOrder
             }
         };
 
@@ -145,7 +153,7 @@ window.TPOSPurchase = (function() {
             Status: partnerData.Status || 'Normal',
             StatusText: partnerData.StatusText || 'Bình thường',
             Source: partnerData.Source || 'Default',
-            DateCreated: partnerData.DateCreated || new Date().toISOString()
+            DateCreated: partnerData.DateCreated || toVNDateString()
         };
 
         // Build payload
@@ -170,9 +178,7 @@ window.TPOSPurchase = (function() {
             Note: orderInfo.notes || '',
             CompanyId: STATIC.CompanyId,
             JournalId: STATIC.JournalId,
-            DateInvoice: orderInfo.orderDate instanceof Date
-                ? orderInfo.orderDate.toISOString()
-                : (orderInfo.orderDate || now.toISOString()),
+            DateInvoice: toVNDateString(now),
             Number: null,
             Type: 'invoice',
             Residual: null,
@@ -191,7 +197,7 @@ window.TPOSPurchase = (function() {
             CompanyName: null,
             PartnerPhone: null,
             Address: null,
-            DateCreated: now.toISOString(),
+            DateCreated: toVNDateString(now),
             TaxView: null,
             CostsIncurred: shippingFee,
             VatInvoiceNumber: null,
@@ -269,9 +275,7 @@ window.TPOSPurchase = (function() {
             const base64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
 
             // 3. PurchaseByExcel → get OrderLines
-            const orderDate = order.orderDate instanceof Date
-                ? order.orderDate.toISOString()
-                : new Date(order.orderDate || Date.now()).toISOString();
+            const orderDate = toVNDateString();
 
             const excelResult = await purchaseByExcel(base64, ncc.tposId, orderDate);
 
