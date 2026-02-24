@@ -216,7 +216,7 @@ class TemplateManager {
     }
 
     /**
-     * Render danh sách templates (SIMPLIFIED - chỉ 1 danh sách)
+     * Render danh sách templates
      */
     renderTemplatesList() {
         const container = document.getElementById('templatesList');
@@ -236,27 +236,17 @@ class TemplateManager {
             return;
         }
 
-        // Separate system defaults and custom templates for display order
-        const systemTemplates = templateKeys.filter(k => this.templates[k].isSystemDefault);
-        const customTemplates = templateKeys.filter(k => !this.templates[k].isSystemDefault);
-
         let html = `
             <div class="templates-section">
                 <h3 class="section-title">
                     <i data-lucide="layout-template"></i>
                     Tất cả Templates (${templateKeys.length})
                 </h3>
-                <p class="section-desc">Tất cả templates đều có thể chỉnh sửa. Templates mặc định (hệ thống) không thể xóa nhưng có thể reset về trạng thái ban đầu.</p>
+                <p class="section-desc">Tất cả templates đều có thể chỉnh sửa và xóa tự do.</p>
                 <div class="templates-grid">
         `;
 
-        // Render system templates first
-        systemTemplates.forEach(key => {
-            html += this.renderTemplateCard(key, this.templates[key]);
-        });
-
-        // Then custom templates
-        customTemplates.forEach(key => {
+        templateKeys.forEach(key => {
             html += this.renderTemplateCard(key, this.templates[key]);
         });
 
@@ -267,7 +257,7 @@ class TemplateManager {
     }
 
     /**
-     * Render một template card (SIMPLIFIED)
+     * Render một template card
      */
     renderTemplateCard(id, template) {
         const permissions = this.getTemplatePermissions(id);
@@ -276,50 +266,18 @@ class TemplateManager {
             ? PermissionsRegistry.getTotalPermissionsCount()
             : 101;
 
-        const isSystemDefault = template.isSystemDefault === true;
         const isAdmin = id === 'admin';
 
-        // Badge - chỉ 2 loại: Mặc định hoặc Tùy chỉnh
+        // Badge
         let badgeHtml = '';
         if (isAdmin) {
             badgeHtml = `<span class="template-badge admin"><i data-lucide="crown"></i> Admin</span>`;
-        } else if (isSystemDefault) {
-            badgeHtml = `<span class="template-badge builtin"><i data-lucide="settings"></i> Mặc định</span>`;
         } else {
             badgeHtml = `<span class="template-badge custom"><i data-lucide="user"></i> Tùy chỉnh</span>`;
         }
 
-        // Action buttons - đơn giản hóa
-        let actionsHtml = `
-            <button class="btn btn-sm btn-success" onclick="templateManager.showUserAssignment('${id}')" title="Gán nhân viên vào template này">
-                <i data-lucide="users"></i>
-                Gán NV
-            </button>
-            <button class="btn btn-sm btn-secondary" onclick="templateManager.previewTemplate('${id}')" title="Xem chi tiết">
-                <i data-lucide="eye"></i>
-                Xem
-            </button>
-            <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}')" title="Chỉnh sửa">
-                <i data-lucide="edit"></i>
-                Sửa
-            </button>
-            <button class="btn btn-sm btn-info" onclick="templateManager.syncUsersWithTemplate('${id}')" title="Cập nhật quyền cho tất cả users đang dùng template này">
-                <i data-lucide="refresh-cw"></i>
-            </button>
-            <button class="btn btn-sm btn-secondary" onclick="templateManager.duplicateTemplate('${id}')" title="Sao chép">
-                <i data-lucide="copy"></i>
-            </button>
-        `;
-
-        // Nút Xóa cho tất cả templates
-        actionsHtml += `
-            <button class="btn btn-sm btn-danger" onclick="templateManager.deleteTemplate('${id}')" title="Xóa">
-                <i data-lucide="trash-2"></i>
-            </button>
-        `;
-
         return `
-            <div class="template-card ${isSystemDefault ? 'system-default' : 'custom'} ${isAdmin ? 'admin-template' : ''}" data-template-id="${id}">
+            <div class="template-card" data-template-id="${id}">
                 <div class="template-card-header" style="--template-color: ${template.color || '#6366f1'}">
                     <div class="template-icon">
                         <i data-lucide="${template.icon || 'sliders'}"></i>
@@ -342,8 +300,29 @@ class TemplateManager {
                     </div>
                     ${badgeHtml}
                 </div>
-                <div class="template-card-actions">
-                    ${actionsHtml}
+                <div class="template-card-actions" style="display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+                    <button class="btn btn-sm btn-success" onclick="templateManager.showUserAssignment('${id}')" title="Gán nhân viên">
+                        <i data-lucide="users"></i>
+                        Gán NV
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="templateManager.previewTemplate('${id}')" title="Xem chi tiết">
+                        <i data-lucide="eye"></i>
+                        Xem
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="templateManager.editTemplate('${id}')" title="Chỉnh sửa">
+                        <i data-lucide="edit"></i>
+                        Sửa
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="templateManager.syncUsersWithTemplate('${id}')" title="Đồng bộ quyền">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="templateManager.duplicateTemplate('${id}')" title="Sao chép">
+                        <i data-lucide="copy"></i>
+                    </button>
+                    <button class="btn btn-sm" onclick="templateManager.deleteTemplate('${id}')" title="Xóa template" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;padding:6px 12px;font-size:12px;border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                        <i data-lucide="trash-2"></i>
+                        Xóa
+                    </button>
                 </div>
             </div>
         `;
