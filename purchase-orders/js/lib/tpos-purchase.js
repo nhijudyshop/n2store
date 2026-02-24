@@ -300,7 +300,8 @@ window.TPOSPurchase = (function() {
                 poNumber: poResult.Number,
                 state: poResult.ShowState,
                 linesCount: excelResult.orderLines.length,
-                excelErrors: excelResult.errors
+                excelErrors: excelResult.errors,
+                orderLines: excelResult.orderLines
             };
         } catch (error) {
             console.error('[TPOSPurchase] createFromExcel failed:', error);

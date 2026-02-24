@@ -645,7 +645,7 @@ class PurchaseOrderController {
 
                     // Ask to push to TPOS if workbook available
                     if (result.workbook && window.TPOSPurchase) {
-                        this.showTPOSPurchaseConfirm(result.workbook, result.order, result.exported);
+                        this.showTPOSPurchaseConfirm(result.workbook, result.order, result.exported, result.itemCodeMap);
                     }
 
                     // Auto-update status: AWAITING_PURCHASE → AWAITING_DELIVERY
@@ -680,7 +680,7 @@ class PurchaseOrderController {
     /**
      * Show confirm dialog to push Excel to TPOS as purchase order
      */
-    showTPOSPurchaseConfirm(workbook, order, exportedCount) {
+    showTPOSPurchaseConfirm(workbook, order, exportedCount, itemCodeMap) {
         // Check if NCC has tposId
         const ncc = window.NCCManager?.findByName(order.supplier?.name);
         if (!ncc?.tposId) {
@@ -748,8 +748,62 @@ class PurchaseOrderController {
                     `Đã tạo đơn TPOS: ${result.poNumber || 'ID ' + result.poId} (${result.linesCount} SP)`,
                     'success'
                 );
+
+                // Update Firebase items with TPOS variant codes
+                if (result.orderLines && itemCodeMap && order.id) {
+                    try {
+                        await this.updateItemsWithTPOSCodes(order, result.orderLines, itemCodeMap);
+                    } catch (err) {
+                        console.warn('[TPOSPurchase] Failed to update variant codes:', err);
+                    }
+                }
             }
         });
+    }
+
+    /**
+     * Update Firebase order items with resolved product codes from TPOS PurchaseByExcel response
+     * Maps OrderLine.Product.Barcode + Product.Id back to original items
+     */
+    async updateItemsWithTPOSCodes(order, orderLines, itemCodeMap) {
+        if (!order.id || !order.items) return;
+
+        const updatedItems = [...order.items];
+        let updatedCount = 0;
+
+        for (let i = 0; i < orderLines.length && i < itemCodeMap.length; i++) {
+            const line = orderLines[i];
+            const mapping = itemCodeMap[i];
+            const barcode = line.Product?.Barcode || line.Product?.DefaultCode;
+            const tposProductId = line.Product?.Id || line.ProductId;
+
+            if (barcode && mapping.itemIndex < updatedItems.length) {
+                const item = updatedItems[mapping.itemIndex];
+                if (item.productCode !== barcode || !item.tposProductId) {
+                    updatedItems[mapping.itemIndex] = {
+                        ...item,
+                        productCode: barcode,
+                        tposProductId: tposProductId
+                    };
+                    updatedCount++;
+                }
+            }
+        }
+
+        if (updatedCount > 0) {
+            const db = firebase.firestore();
+            await db.collection('purchase_orders').doc(order.id).update({
+                items: updatedItems
+            });
+            console.log(`[TPOSPurchase] Updated ${updatedCount} items with TPOS variant codes`);
+
+            this.ui.showToast(`Đã cập nhật ${updatedCount} mã biến thể từ TPOS`, 'info');
+
+            // Refresh table to show updated codes
+            if (this.dataManager?.loadOrders) {
+                this.dataManager.loadOrders(this.currentTab, true);
+            }
+        }
     }
 
     /**
@@ -775,8 +829,10 @@ class PurchaseOrderController {
 
         const excelRows = [];
         const skippedErrors = [];
+        const itemCodeMap = []; // Track resolved code → item index for TPOS update
 
-        for (const item of allItems) {
+        for (let i = 0; i < allItems.length; i++) {
+            const item = allItems[i];
             let productCode = null;
 
             // CASE 1: Already has tposProductId → use productCode directly
@@ -832,6 +888,8 @@ class PurchaseOrderController {
                 }
             }
 
+            itemCodeMap.push({ itemIndex: i, resolvedCode: productCode });
+
             excelRows.push({
                 'Mã sản phẩm (*)': productCode,
                 'Số lượng (*)': item.quantity || 0,
@@ -873,7 +931,8 @@ class PurchaseOrderController {
             skipped: skippedErrors.length,
             errors: skippedErrors,
             workbook: wb,
-            order: order
+            order: order,
+            itemCodeMap: itemCodeMap
         };
     }
 

@@ -671,6 +671,82 @@ window.TPOSProductCreator = (function () {
     }
 
     // =====================================================
+    // UPDATE VARIANT BARCODES FROM TPOS RESPONSE
+    // =====================================================
+
+    /**
+     * Match TPOS response ProductVariants to order items by attribute tpos_ids,
+     * then update each item's productCode with the variant's Barcode.
+     * @param {string} orderId - Firestore document ID
+     * @param {Array} groupItems - order items in this group
+     * @param {Array} responseVariants - ProductVariants[] from TPOS response
+     * @param {Array} allCombinations - Cartesian product combos (same order as request)
+     */
+    async function updateVariantBarcodes(orderId, groupItems, responseVariants, allCombinations) {
+        // Build tpos_id set for each combo (matches request order → response order)
+        const comboTposIdSets = allCombinations.map(combo =>
+            new Set(combo.map(v => v.tpos_id))
+        );
+
+        // Match each item to a variant by comparing attribute tpos_ids
+        const updates = [];
+        for (const item of groupItems) {
+            const itemTposIds = new Set();
+            for (const uuid of (item.selectedAttributeValueIds || [])) {
+                const val = attrValueMap.get(uuid);
+                if (val) itemTposIds.add(val.tpos_id);
+            }
+            if (itemTposIds.size === 0) continue;
+
+            for (let ci = 0; ci < comboTposIdSets.length; ci++) {
+                const comboSet = comboTposIdSets[ci];
+                if (comboSet.size === itemTposIds.size &&
+                    [...comboSet].every(id => itemTposIds.has(id))) {
+                    if (ci < responseVariants.length && responseVariants[ci].Barcode) {
+                        updates.push({
+                            itemId: item.id,
+                            barcode: responseVariants[ci].Barcode,
+                            tposVariantId: responseVariants[ci].Id
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (updates.length === 0) return;
+
+        // Update Firebase items with variant Barcodes
+        try {
+            const db = firebase.firestore();
+            const docRef = db.collection('purchase_orders').doc(orderId);
+            const doc = await docRef.get();
+            if (!doc.exists) return;
+
+            const data = doc.data();
+            const items = data.items || [];
+            let changed = false;
+
+            for (const update of updates) {
+                const item = items.find(i => i.id === update.itemId);
+                if (item && update.barcode) {
+                    console.log(`[TPOSCreator] Variant code: ${item.productCode} → ${update.barcode}`);
+                    item.productCode = update.barcode;
+                    item.tposProductId = update.tposVariantId;
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                await docRef.update({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                console.log(`[TPOSCreator] Updated ${updates.length} items with variant Barcodes`);
+            }
+        } catch (err) {
+            console.error('[TPOSCreator] Failed to update variant barcodes:', err);
+        }
+    }
+
+    // =====================================================
     // MAIN SYNC ORCHESTRATOR
     // =====================================================
 
@@ -716,6 +792,7 @@ window.TPOSProductCreator = (function () {
             }
 
             let payload;
+            let allCombinations = null; // Track combos for variant barcode matching
 
             if (allAttrIds.size === 0) {
                 // CASE 1: Simple product (no variants)
@@ -731,6 +808,10 @@ window.TPOSProductCreator = (function () {
                 const attrGroups = groupByAttribute(resolvedValues);
                 const attributeLines = buildAttributeLines(attrGroups);
                 const productVariants = buildProductVariants(productCode, sellingPrice, attrGroups);
+
+                // Save combos for matching response variants back to items
+                const valueArrays = [...attrGroups.values()];
+                allCombinations = cartesianProduct(valueArrays);
 
                 payload = buildBasePayload(productCode, productName, purchasePrice, sellingPrice);
                 payload.IsProductVariant = true;
@@ -750,6 +831,12 @@ window.TPOSProductCreator = (function () {
             if (result.success) {
                 const tposId = result.data?.Id || null;
                 await updateSyncStatus(orderId, itemIds, 'success', tposId, null);
+
+                // Update variant Barcodes from TPOS response → Firebase items
+                if (allCombinations && result.data?.ProductVariants?.length > 0) {
+                    await updateVariantBarcodes(orderId, groupItems, result.data.ProductVariants, allCombinations);
+                }
+
                 return { success: true, productCode, alreadyExists: result.alreadyExists };
             } else {
                 await updateSyncStatus(orderId, itemIds, 'failed', null, result.error);
