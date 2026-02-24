@@ -2,19 +2,21 @@
 // PERMISSIONS HELPER - Global Permission System
 // Single source of truth for all permission checks
 //
-// ARCHITECTURE: ALL users (including Admin) use detailedPermissions
-// - NO bypass based on roleTemplate
-// - Admin template = all detailedPermissions set to true
-// - Consistent permission check for everyone
+// ARCHITECTURE:
+// - Admin (isAdmin === true || roleTemplate === 'admin'): bypass toàn bộ kiểm tra quyền
+// - Non-admin: kiểm tra detailedPermissions cho mọi thao tác
+// - isAdminTemplate() giữ nguyên cho UI display (backward compatible)
 // =====================================================
 
 /**
  * PermissionHelper - Hệ thống phân quyền toàn cục
  *
- * QUAN TRỌNG: Tất cả users kể cả Admin đều dựa vào detailedPermissions
- * Admin được full quyền bằng cách set TẤT CẢ permissions = true trong detailedPermissions
+ * QUAN TRỌNG:
+ * - Admin (isAdmin flag hoặc roleTemplate === 'admin'): bypass mọi kiểm tra, luôn trả về true
+ * - Non-admin: kiểm tra detailedPermissions[pageId][action] === true
  *
  * Sử dụng:
+ * - PermissionHelper.isAdmin() - Kiểm tra user có phải admin không
  * - PermissionHelper.canAccessPage('live') - Kiểm tra quyền truy cập trang
  * - PermissionHelper.hasPermission('live', 'upload') - Kiểm tra quyền cụ thể
  * - PermissionHelper.enforcePageAccess('live') - Redirect nếu không có quyền
@@ -84,25 +86,27 @@ const PermissionHelper = {
     },
 
     /**
-     * @deprecated Use isAdminTemplate() instead. This is kept for backward compatibility.
-     * QUAN TRỌNG: Không còn bypass - chỉ để check template name
+     * Kiểm tra user có phải admin không (isAdmin flag hoặc roleTemplate backward compatible)
+     * Admin bypass: trả về true → skip toàn bộ kiểm tra detailedPermissions
+     * @returns {boolean}
      */
     isAdmin() {
-        return this.isAdminTemplate();
+        const auth = this.getAuth();
+        return auth?.isAdmin === true || auth?.roleTemplate === 'admin';
     },
 
     /**
      * Kiểm tra có quyền truy cập trang không
-     * TẤT CẢ users (kể cả Admin) đều check detailedPermissions
-     * User cần ít nhất 1 permission = true trong trang đó để truy cập
+     * Admin bypass: trả về true ngay lập tức
+     * Non-admin: cần ít nhất 1 permission = true trong trang đó để truy cập
      *
      * @param {string} pageId - ID trang (live, ck, order-management, etc.)
      * @returns {boolean}
      */
     canAccessPage(pageId) {
         const auth = this.getAuth();
+        if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true; // Admin bypass
 
-        // ALL users check detailedPermissions - NO bypass
         if (!auth?.detailedPermissions?.[pageId]) {
             return false;
         }
@@ -113,7 +117,8 @@ const PermissionHelper = {
 
     /**
      * Kiểm tra quyền cụ thể trong trang
-     * TẤT CẢ users (kể cả Admin) đều check detailedPermissions
+     * Admin bypass: trả về true ngay lập tức
+     * Non-admin: check detailedPermissions[pageId][action] === true
      *
      * @param {string} pageId - ID trang
      * @param {string} action - Hành động (view, edit, delete, upload, etc.)
@@ -121,7 +126,7 @@ const PermissionHelper = {
      */
     hasPermission(pageId, action) {
         const auth = this.getAuth();
-        // ALL users check detailedPermissions - NO bypass
+        if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true; // Admin bypass
         return auth?.detailedPermissions?.[pageId]?.[action] === true;
     },
 
@@ -137,6 +142,9 @@ const PermissionHelper = {
         if (!Array.isArray(actions) || actions.length === 0) {
             return false;
         }
+
+        const auth = this.getAuth();
+        if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true; // Admin bypass
 
         if (mode === 'all') {
             return actions.every(action => this.hasPermission(pageId, action));
@@ -303,6 +311,9 @@ const PermissionHelper = {
             window.location.href = redirectUrl;
             return false;
         }
+
+        // Admin bypass - skip permission check
+        if (this.isAdmin()) return true;
 
         // Kiểm tra quyền trang
         if (!this.canAccessPage(pageId)) {
@@ -472,6 +483,9 @@ const PermissionHelper = {
             alertMessage = 'Bạn không có quyền thực hiện thao tác này!',
             showAlert = true
         } = options;
+
+        const auth = this.getAuth();
+        if (auth?.isAdmin === true || auth?.roleTemplate === 'admin') return true; // Admin bypass
 
         if (this.hasPermission(pageId, action)) {
             return true;

@@ -480,13 +480,6 @@ const PAGE_CATEGORIES = {
 // PERMISSION TEMPLATES - Mẫu phân quyền theo vai trò
 // =====================================================
 const PERMISSION_TEMPLATES = {
-    admin: {
-        id: "admin",
-        name: "Admin - Toàn quyền",
-        icon: "crown",
-        description: "Có tất cả quyền trong hệ thống",
-        color: "#ef4444"
-    },
     manager: {
         id: "manager",
         name: "Manager - Quản lý",
@@ -655,14 +648,6 @@ function generateTemplatePermissions(templateId) {
         detailedPermissions[pageId] = {};
 
         switch (templateId) {
-            case "admin":
-                // Admin có tất cả quyền
-                pagePermissions.push(pageId);
-                Object.keys(page.detailedPermissions).forEach(subKey => {
-                    detailedPermissions[pageId][subKey] = true;
-                });
-                break;
-
             case "manager":
                 // Manager có hầu hết quyền, trừ delete user và restore history
                 pagePermissions.push(pageId);

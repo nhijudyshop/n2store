@@ -345,6 +345,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // Load detailed permissions and roleTemplate (NEW SYSTEM)
             let detailedPermissions = {};
             let roleTemplate = 'custom';
+            let isAdminFlag = false;
 
             const cachedPermissions = authCache.get(
                 `${username}_detailed_permissions`,
@@ -355,6 +356,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 console.log("✔ Sử dụng detailedPermissions từ cache");
                 detailedPermissions = cachedPermissions.detailedPermissions || {};
                 roleTemplate = cachedPermissions.roleTemplate || 'custom';
+                isAdminFlag = cachedPermissions.isAdmin === true || roleTemplate === 'admin';
             } else {
                 console.log("⚡ Fetching detailedPermissions từ Firestore");
                 try {
@@ -365,11 +367,12 @@ document.addEventListener("DOMContentLoaded", function () {
                         const userData = userDoc.data();
                         detailedPermissions = userData.detailedPermissions || {};
                         roleTemplate = userData.roleTemplate || 'custom';
+                        isAdminFlag = userData.isAdmin === true || roleTemplate === 'admin'; // backward compatible
 
                         // Cache permissions
                         authCache.set(
                             `${username}_detailed_permissions`,
-                            { detailedPermissions, roleTemplate },
+                            { detailedPermissions, roleTemplate, isAdmin: isAdminFlag },
                             "permissions",
                         );
                         console.log(
@@ -426,6 +429,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // NEW PERMISSION SYSTEM - Only detailedPermissions
                 detailedPermissions: detailedPermissions,
                 roleTemplate: roleTemplate,
+                isAdmin: isAdminFlag,  // NEW: Admin flag for bypass
                 isRemembered: rememberMe,
             };
 

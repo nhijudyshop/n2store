@@ -1,6 +1,7 @@
 /**
  * SHARED AUTHENTICATION MANAGER
  * SOURCE OF TRUTH - All auth logic in one place
+ * Admin bypass: isAdmin === true → skip all permission checks
  *
  * @module shared/browser/auth-manager
  * @description Centralized authentication manager for browser environments
@@ -183,13 +184,14 @@ export class AuthManager {
 
     /**
      * Check if user has permission for current page
-     * ALL users check detailedPermissions - NO bypass
+     * Admin bypass: isAdmin or roleTemplate 'admin' → always true
      * @param {string} pageName
      * @returns {boolean}
      */
     hasPagePermission(pageName) {
         const authData = this.getAuthData();
         if (!authData) return false;
+        if (authData.isAdmin === true || authData.roleTemplate === 'admin') return true; // Admin bypass
 
         if (authData.detailedPermissions && authData.detailedPermissions[pageName]) {
             const pagePerms = authData.detailedPermissions[pageName];
@@ -201,13 +203,16 @@ export class AuthManager {
 
     /**
      * Check if user has specific detailed permission
+     * Admin bypass: isAdmin or roleTemplate 'admin' → always true
      * @param {string} pageId
      * @param {string} action
      * @returns {boolean}
      */
     hasDetailedPermission(pageId, action) {
         const authData = this.getAuthData();
-        if (!authData?.detailedPermissions?.[pageId]) return false;
+        if (!authData) return false;
+        if (authData.isAdmin === true || authData.roleTemplate === 'admin') return true; // Admin bypass
+        if (!authData.detailedPermissions?.[pageId]) return false;
         return authData.detailedPermissions[pageId][action] === true;
     }
 
@@ -216,6 +221,7 @@ export class AuthManager {
 
     /**
      * Check if user has admin template (for UI display only)
+     * NOTE: Use isAdmin() for actual permission bypass checks
      * @returns {boolean}
      */
     isAdminTemplate() {
@@ -223,7 +229,15 @@ export class AuthManager {
         return authData?.roleTemplate === 'admin';
     }
 
-    // isAdmin() — REMOVED: use isAdminTemplate() instead
+    /**
+     * Check if user is admin (isAdmin flag or roleTemplate backward compatible)
+     * Admin bypass: returns true → skip all permission checks
+     * @returns {boolean}
+     */
+    isAdmin() {
+        const authData = this.getAuthData();
+        return authData?.isAdmin === true || authData?.roleTemplate === 'admin';
+    }
 
     // =====================================================
     // AUTH GUARDS
@@ -249,6 +263,7 @@ export class AuthManager {
      */
     requirePagePermission(pageName) {
         if (!this.requireAuth()) return false;
+        if (this.isAdmin()) return true; // Admin bypass
 
         if (!this.hasPagePermission(pageName)) {
             this.logger.warn('[AuthManager] Access denied to page:', pageName);
