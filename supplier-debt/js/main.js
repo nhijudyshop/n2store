@@ -1981,7 +1981,14 @@ async function submitPayment() {
                     window.notificationManager.success('Thanh toán thành công');
                 }
                 closePaymentModal();
-                // Refresh data
+                // Refresh detail panels trước (theo pattern deletePayment)
+                try {
+                    await refreshCongNo(partnerId);
+                    await refreshDebtDetails(partnerId);
+                } catch (e) {
+                    console.error('[SupplierDebt] Error refreshing detail panels:', e);
+                }
+                // Refresh bảng tổng
                 await fetchData();
             } else {
                 const actionError = await actionPostResponse.json();
