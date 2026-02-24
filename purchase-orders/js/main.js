@@ -147,6 +147,13 @@ class PurchaseOrderController {
             // Bind UI events
             this.bindEvents();
 
+            // Pre-load NCC names for supplier autocomplete
+            if (window.NCCManager) {
+                window.NCCManager.loadNCCNames().catch(err =>
+                    console.warn('[Init] NCC names load failed:', err)
+                );
+            }
+
             // Load initial data
             await this.loadInitialData();
 
