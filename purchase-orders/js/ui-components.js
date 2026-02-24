@@ -670,6 +670,8 @@ class PurchaseOrderUIComponents {
             toastContainer.className = 'toast-container';
             document.body.appendChild(toastContainer);
         }
+        // Always re-append to end of body so it's above any modals
+        document.body.appendChild(toastContainer);
 
         const icons = {
             success: 'check-circle',
