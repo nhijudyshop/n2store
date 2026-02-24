@@ -581,6 +581,14 @@ function editUser(username) {
         window.editDetailedPermUI.currentTemplate = user.roleTemplate || 'custom';
     }
 
+    // Set admin toggle state based on user data
+    const isAdmin = user.isAdmin === true || user.roleTemplate === 'admin';
+    const editIsAdminCheckbox = document.getElementById('editIsAdmin');
+    if (editIsAdminCheckbox) {
+        editIsAdminCheckbox.checked = isAdmin;
+    }
+    toggleAdminMode(isAdmin);
+
     document.querySelector('[data-tab="manage"]').click();
     document
         .querySelector("#manage .card:nth-child(3)")
@@ -651,6 +659,10 @@ async function updateUser() {
     // Get roleTemplate from UI (which template is currently applied)
     const roleTemplate = window.editDetailedPermUI?.currentTemplate || 'custom';
 
+    // Get isAdmin flag from checkbox
+    const isAdminCheckbox = document.getElementById('editIsAdmin');
+    const isAdmin = isAdminCheckbox ? isAdminCheckbox.checked : false;
+
     const loadingId = showFloatingAlert(
         "Đang cập nhật tài khoản...",
         "loading",
@@ -661,7 +673,8 @@ async function updateUser() {
             displayName: displayName,
             identifier: identifier,
             detailedPermissions: detailedPermissions,
-            roleTemplate: roleTemplate,
+            roleTemplate: isAdmin ? 'admin' : roleTemplate,
+            isAdmin: isAdmin,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
                 .username,
@@ -1126,6 +1139,61 @@ async function exportUsers() {
     }
 }
 
+// =====================================================
+// ADMIN TOGGLE - isAdmin flag management
+// =====================================================
+
+/**
+ * Toggle admin mode for edit form
+ * When admin is ON: hide detailed permissions section, show ON badge, hide OFF badge
+ * When admin is OFF: show detailed permissions section, hide ON badge, show OFF badge
+ */
+function toggleAdminMode(isAdmin) {
+    const detailedPermissions = document.getElementById('editDetailedPermissions');
+    const adminBadge = document.getElementById('editAdminBadge');
+    const adminBadgeOff = document.getElementById('editAdminBadgeOff');
+
+    if (isAdmin) {
+        if (detailedPermissions) detailedPermissions.style.display = 'none';
+        if (adminBadge) adminBadge.style.display = 'inline-flex';
+        if (adminBadgeOff) adminBadgeOff.style.display = 'none';
+    } else {
+        if (detailedPermissions) detailedPermissions.style.display = '';
+        if (adminBadge) adminBadge.style.display = 'none';
+        if (adminBadgeOff) adminBadgeOff.style.display = '';
+    }
+}
+
+/**
+ * Initialize admin toggle checkbox event listener
+ * Only show admin toggle group if current logged-in user is admin
+ */
+function initAdminToggle() {
+    const adminCheckbox = document.getElementById('editIsAdmin');
+    const adminToggleGroup = document.getElementById('editAdminToggleGroup');
+
+    if (adminCheckbox) {
+        adminCheckbox.addEventListener('change', function() {
+            toggleAdminMode(this.checked);
+        });
+    }
+
+    // Show admin toggle group only if current user is admin
+    if (adminToggleGroup) {
+        const authData = localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth');
+        if (authData) {
+            try {
+                const auth = JSON.parse(authData);
+                if (auth.isAdmin === true || auth.roleTemplate === 'admin') {
+                    adminToggleGroup.style.display = '';
+                }
+            } catch (e) {
+                console.error('Error parsing auth data for admin toggle:', e);
+            }
+        }
+    }
+}
+
 // Clear forms
 function clearEditForm() {
     document.getElementById("editUsername").value = "";
@@ -1226,6 +1294,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // Note: PagePermissionsUI removed - now using simplified system with only detailedPermissions
     // DetailedPermissionsUI is initialized in detailed-permissions-ui.js
     console.log("✅ User Management initialized with simplified permission system");
+
+    // Initialize admin toggle
+    initAdminToggle();
 });
 
 console.log(
