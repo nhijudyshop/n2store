@@ -755,6 +755,7 @@ class VariantGeneratorDialog {
 // ========================================
 // SETTINGS DIALOG
 // Validation settings with Firestore persistence
+// Rebuilt with inline styles for reliability
 // ========================================
 
 class SettingsDialog {
@@ -767,7 +768,6 @@ class SettingsDialog {
 
     /**
      * Load settings from Firestore, merged with defaults
-     * @returns {Object} settings
      */
     async loadFromFirestore() {
         const defaults = window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {};
@@ -777,7 +777,6 @@ class SettingsDialog {
             const doc = await db.doc(this.SETTINGS_DOC_PATH).get();
             if (doc.exists) {
                 const data = doc.data();
-                // Remove Firestore metadata fields
                 delete data.updatedAt;
                 return { ...defaults, ...data };
             }
@@ -789,7 +788,6 @@ class SettingsDialog {
 
     /**
      * Save settings to Firestore
-     * @param {Object} settings
      */
     async saveToFirestore(settings) {
         try {
@@ -806,28 +804,34 @@ class SettingsDialog {
     }
 
     /**
+     * Format price preview: value in 1000đ units → formatted VND
+     */
+    _fmtVND(val) {
+        const v = (parseInt(val, 10) || 0) * 1000;
+        if (window.PurchaseOrderConfig?.formatVND) {
+            return window.PurchaseOrderConfig.formatVND(v);
+        }
+        return new Intl.NumberFormat('vi-VN').format(v) + ' đ';
+    }
+
+    /**
      * Open settings dialog
-     * @param {Object} options - { settings, onSave }
      */
     async open(options = {}) {
         this.onSave = options.onSave;
-
-        // Use passed-in settings immediately (render dialog first, don't block on Firestore)
         const defaults = window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {};
         this.settings = { ...defaults, ...options.settings };
 
-        this.render();
-        this.show();
+        // Render immediately with current settings
+        this._createDialog();
 
-        // Then load from Firestore in background and update if different
+        // Load from Firestore in background
         try {
-            const firestoreSettings = await this.loadFromFirestore();
-            const merged = { ...firestoreSettings, ...options.settings };
+            const fsSettings = await this.loadFromFirestore();
+            const merged = { ...fsSettings, ...options.settings };
             if (JSON.stringify(merged) !== JSON.stringify(this.settings)) {
                 this.settings = merged;
-                // Re-render with Firestore data
-                this.render();
-                this.show();
+                this._updateFormValues();
             }
         } catch (e) {
             console.warn('[SettingsDialog] Firestore load failed, using defaults:', e);
@@ -836,261 +840,330 @@ class SettingsDialog {
 
     close() {
         if (this.modalElement) {
-            this.modalElement.classList.add('modal-overlay--exit');
+            this.modalElement.style.opacity = '0';
             setTimeout(() => {
-                this.modalElement.remove();
-                this.modalElement = null;
-            }, 200);
+                if (this.modalElement) {
+                    this.modalElement.remove();
+                    this.modalElement = null;
+                }
+            }, 150);
         }
     }
 
-    show() {
-        if (this.modalElement) {
-            this.modalElement.style.display = 'flex';
-        }
-    }
+    /**
+     * Create the dialog DOM from scratch
+     */
+    _createDialog() {
+        if (this.modalElement) this.modalElement.remove();
 
-    _formatPreview(value) {
-        const fmt = window.PurchaseOrderConfig?.formatVND;
-        if (!fmt) return (value * 1000) + ' đ';
-        return fmt(value * 1000);
-    }
+        const s = this.settings;
 
-    render() {
-        if (this.modalElement) {
-            this.modalElement.remove();
-        }
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100000;opacity:0;transition:opacity 0.2s';
 
-        const s = this.settings || {};
-        const fmt = (v) => {
-            try { return this._formatPreview(v); }
-            catch (e) { return (v * 1000) + ' đ'; }
-        };
+        // Build checkbox rows data
+        const checkboxes = [
+            { id: 'enableRequireProductName', label: 'Bắt buộc tên sản phẩm', checked: s.enableRequireProductName },
+            { id: 'enableRequireProductCode', label: 'Bắt buộc mã sản phẩm', checked: s.enableRequireProductCode },
+            { id: 'enableRequireProductImages', label: 'Bắt buộc hình ảnh sản phẩm', checked: s.enableRequireProductImages },
+            { id: 'enableRequirePositivePurchasePrice', label: 'Giá mua phải > 0', checked: s.enableRequirePositivePurchasePrice },
+            { id: 'enableRequirePositiveSellingPrice', label: 'Giá bán phải > 0', checked: s.enableRequirePositiveSellingPrice },
+            { id: 'enableRequireSellingGreaterThanPurchase', label: 'Giá bán phải > Giá mua', checked: s.enableRequireSellingGreaterThanPurchase },
+            { id: 'enableRequireAtLeastOneItem', label: 'Phải có ít nhất 1 sản phẩm', checked: s.enableRequireAtLeastOneItem },
+        ];
 
-        this.modalElement = document.createElement('div');
-        this.modalElement.className = 'modal-overlay';
-        this.modalElement.style.zIndex = '100000';
+        const checkboxHTML = checkboxes.map(cb => `
+            <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer;border-bottom:1px solid #f3f4f6">
+                <span style="font-size:14px;color:#374151">${cb.label}</span>
+                <input type="checkbox" id="${cb.id}" ${cb.checked ? 'checked' : ''}
+                    style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer">
+            </label>
+        `).join('');
 
-        try {
-        this.modalElement.innerHTML = `
-            <div class="modal modal--md" style="max-width: 600px; background: white; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
-                <div class="modal__header">
-                    <h2 class="modal__title">Cài đặt validation giá mua/bán</h2>
-                    <button type="button" class="modal__close" id="btnCloseSettings">
-                        <i data-lucide="x"></i>
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);width:90vw;max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+                <!-- Header -->
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e5e7eb">
+                    <h2 style="margin:0;font-size:17px;font-weight:600;color:#111827">Cài đặt validation giá mua/bán</h2>
+                    <button id="btnCloseSettings" style="background:none;border:none;cursor:pointer;padding:4px;color:#9ca3af;border-radius:6px"
+                        onmouseover="this.style.background='#f3f4f6';this.style.color='#374151'"
+                        onmouseout="this.style.background='none';this.style.color='#9ca3af'">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
 
-                <div class="modal__body" style="max-height: 70vh; overflow-y: auto;">
-                    <div class="settings-info-box">
+                <!-- Body -->
+                <div style="flex:1;overflow-y:auto;padding:20px">
+                    <!-- Info box -->
+                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:12px;color:#1e40af;margin-bottom:16px;line-height:1.6">
                         <strong>Cách hoạt động:</strong><br>
                         • Đặt giá trị 0 để không giới hạn<br>
                         • Hệ thống sẽ kiểm tra khi tạo đơn đặt hàng<br>
                         • Nếu vi phạm, sẽ hiển thị cảnh báo chi tiết
                     </div>
 
-                    <div class="settings-group">
-                        <h4 class="settings-group-title">Giá mua</h4>
-                        <div class="settings-price-row">
-                            <div class="form-group">
-                                <label class="form-label">Giá mua tối thiểu (1000đ)</label>
-                                <input type="number" class="form-input" id="minPurchasePrice"
-                                       value="${s.minPurchasePrice}" min="0" data-preview="previewMinPurchase">
-                                <div class="settings-price-preview" id="previewMinPurchase">= ${fmt(s.minPurchasePrice)}</div>
+                    <!-- Giá mua -->
+                    <div style="margin-bottom:20px">
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Giá mua</h4>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                            <div>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá mua tối thiểu (1000đ)</label>
+                                <input type="number" id="minPurchasePrice" value="${s.minPurchasePrice}" min="0"
+                                    style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
+                                <div id="previewMinPurchase" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.minPurchasePrice)}</div>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">Giá mua tối đa (1000đ)</label>
-                                <input type="number" class="form-input" id="maxPurchasePrice"
-                                       value="${s.maxPurchasePrice}" min="0" data-preview="previewMaxPurchase">
-                                <div class="settings-price-preview" id="previewMaxPurchase">= ${fmt(s.maxPurchasePrice)}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="settings-group">
-                        <h4 class="settings-group-title">Giá bán</h4>
-                        <div class="settings-price-row">
-                            <div class="form-group">
-                                <label class="form-label">Giá bán tối thiểu (1000đ)</label>
-                                <input type="number" class="form-input" id="minSellingPrice"
-                                       value="${s.minSellingPrice}" min="0" data-preview="previewMinSelling">
-                                <div class="settings-price-preview" id="previewMinSelling">= ${fmt(s.minSellingPrice)}</div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Giá bán tối đa (1000đ)</label>
-                                <input type="number" class="form-input" id="maxSellingPrice"
-                                       value="${s.maxSellingPrice}" min="0" data-preview="previewMaxSelling">
-                                <div class="settings-price-preview" id="previewMaxSelling">= ${fmt(s.maxSellingPrice)}</div>
+                            <div>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá mua tối đa (1000đ)</label>
+                                <input type="number" id="maxPurchasePrice" value="${s.maxPurchasePrice}" min="0"
+                                    style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
+                                <div id="previewMaxPurchase" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.maxPurchasePrice)}</div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="settings-group">
-                        <h4 class="settings-group-title">Chênh lệch (Margin)</h4>
-                        <div class="form-group">
-                            <label class="form-label">Chênh lệch tối thiểu giá bán - giá mua (1000đ)</label>
-                            <input type="number" class="form-input" id="minMargin"
-                                   value="${s.minMargin}" min="0" data-preview="previewMinMargin"
-                                   style="max-width: 280px;">
-                            <div class="settings-price-preview" id="previewMinMargin">= ${fmt(s.minMargin)}</div>
+                    <!-- Giá bán -->
+                    <div style="margin-bottom:20px">
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Giá bán</h4>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                            <div>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá bán tối thiểu (1000đ)</label>
+                                <input type="number" id="minSellingPrice" value="${s.minSellingPrice}" min="0"
+                                    style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
+                                <div id="previewMinSelling" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.minSellingPrice)}</div>
+                            </div>
+                            <div>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá bán tối đa (1000đ)</label>
+                                <input type="number" id="maxSellingPrice" value="${s.maxSellingPrice}" min="0"
+                                    style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
+                                <div id="previewMaxSelling" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.maxSellingPrice)}</div>
+                            </div>
                         </div>
-                        <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">
+                    </div>
+
+                    <!-- Chênh lệch -->
+                    <div style="margin-bottom:20px">
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Chênh lệch (Margin)</h4>
+                        <div>
+                            <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Chênh lệch tối thiểu giá bán - giá mua (1000đ)</label>
+                            <input type="number" id="minMargin" value="${s.minMargin}" min="0"
+                                style="width:100%;max-width:260px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
+                            <div id="previewMinMargin" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.minMargin)}</div>
+                        </div>
+                        <div style="font-size:12px;color:#9ca3af;margin-top:6px">
                             Ví dụ: Đặt 50 nghĩa là giá bán phải cao hơn giá mua ít nhất 50.000đ
                         </div>
                     </div>
 
-                    <div class="settings-group">
-                        <h4 class="settings-group-title">Quy tắc kiểm tra</h4>
+                    <!-- Quy tắc kiểm tra -->
+                    <div style="margin-bottom:20px">
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Quy tắc kiểm tra</h4>
+                        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:4px 12px">
+                            ${checkboxHTML}
+                        </div>
+                    </div>
 
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="enableRequireProductName"
-                                   ${s.enableRequireProductName ? 'checked' : ''}>
-                            <span>Bắt buộc tên sản phẩm</span>
-                        </label>
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="enableRequireProductCode"
-                                   ${s.enableRequireProductCode ? 'checked' : ''}>
-                            <span>Bắt buộc mã sản phẩm</span>
-                        </label>
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="enableRequireProductImages"
-                                   ${s.enableRequireProductImages ? 'checked' : ''}>
-                            <span>Bắt buộc hình ảnh sản phẩm</span>
-                        </label>
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="enableRequirePositivePurchasePrice"
-                                   ${s.enableRequirePositivePurchasePrice ? 'checked' : ''}>
-                            <span>Giá mua phải > 0</span>
-                        </label>
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="enableRequirePositiveSellingPrice"
-                                   ${s.enableRequirePositiveSellingPrice ? 'checked' : ''}>
-                            <span>Giá bán phải > 0</span>
-                        </label>
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="enableRequireSellingGreaterThanPurchase"
-                                   ${s.enableRequireSellingGreaterThanPurchase ? 'checked' : ''}>
-                            <span>Giá bán phải > Giá mua</span>
-                        </label>
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="enableRequireAtLeastOneItem"
-                                   ${s.enableRequireAtLeastOneItem ? 'checked' : ''}>
-                            <span>Phải có ít nhất 1 sản phẩm</span>
+                    <!-- Mã sản phẩm -->
+                    <div style="margin-bottom:20px">
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Mã sản phẩm</h4>
+                        <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer">
+                            <span style="font-size:14px;color:#374151">Tự động tạo mã sản phẩm</span>
+                            <input type="checkbox" id="autoGenerateCode" ${s.autoGenerateCode ? 'checked' : ''}
+                                style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer">
                         </label>
                     </div>
 
-                    <div class="settings-group">
-                        <h4 class="settings-group-title">Mã sản phẩm</h4>
-                        <label class="settings-checkbox">
-                            <input type="checkbox" id="autoGenerateCode"
-                                   ${s.autoGenerateCode ? 'checked' : ''}>
-                            <span>Tự động tạo mã sản phẩm</span>
-                        </label>
+                    <!-- Ví dụ validation -->
+                    <div style="margin-bottom:8px">
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Ví dụ validation</h4>
+                        <div id="validationExample" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;font-size:13px;color:#374151">
+                        </div>
                     </div>
                 </div>
 
-                <div class="modal__footer">
-                    <div class="settings-footer-left">
-                        <button class="btn btn-outline btn-reset" id="btnResetSettings">Đặt lại mặc định</button>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-outline" id="btnCancelSettings">Hủy</button>
-                            <button class="btn btn-primary" id="btnSaveSettings">
-                                <i data-lucide="save"></i>
-                                <span>Lưu cài đặt</span>
-                            </button>
-                        </div>
+                <!-- Footer -->
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid #e5e7eb;background:#f9fafb;gap:8px">
+                    <button id="btnResetSettings" style="background:none;border:1px solid #d1d5db;border-radius:6px;padding:8px 14px;font-size:13px;color:#6b7280;cursor:pointer"
+                        onmouseover="this.style.color='#dc2626';this.style.borderColor='#fca5a5'"
+                        onmouseout="this.style.color='#6b7280';this.style.borderColor='#d1d5db'">Đặt lại mặc định</button>
+                    <div style="display:flex;gap:8px">
+                        <button id="btnCancelSettings" style="background:none;border:1px solid #d1d5db;border-radius:6px;padding:8px 16px;font-size:13px;color:#374151;cursor:pointer"
+                            onmouseover="this.style.background='#f3f4f6'"
+                            onmouseout="this.style.background='none'">Hủy</button>
+                        <button id="btnSaveSettings" style="background:#2563eb;border:none;border-radius:6px;padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-weight:500"
+                            onmouseover="this.style.background='#1d4ed8'"
+                            onmouseout="this.style.background='#2563eb'">Lưu cài đặt</button>
                     </div>
                 </div>
             </div>
         `;
-        } catch (renderError) {
-            console.error('[SettingsDialog] Render error:', renderError);
-            this.modalElement.innerHTML = `
-                <div style="background: white; border-radius: 12px; padding: 24px; max-width: 500px; width: 90vw;">
-                    <h2 style="margin: 0 0 12px;">Cài đặt validation</h2>
-                    <p style="color: red;">Lỗi hiển thị: ${renderError.message}</p>
-                    <button id="btnCloseSettings" style="margin-top: 12px; padding: 8px 16px; cursor: pointer;">Đóng</button>
-                </div>
-            `;
-        }
 
-        document.body.appendChild(this.modalElement);
+        document.body.appendChild(overlay);
+        this.modalElement = overlay;
 
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
+        // Fade in
+        requestAnimationFrame(() => { overlay.style.opacity = '1'; });
 
-        this.bindEvents();
+        this._bindEvents();
+        this._updateValidationExample();
     }
 
-    bindEvents() {
-        // Close buttons
-        this.modalElement.querySelector('#btnCloseSettings')?.addEventListener('click', () => this.close());
-        this.modalElement.querySelector('#btnCancelSettings')?.addEventListener('click', () => this.close());
+    /**
+     * Update form values without re-creating the DOM
+     */
+    _updateFormValues() {
+        if (!this.modalElement) return;
+        const s = this.settings;
+        const fields = ['minPurchasePrice', 'maxPurchasePrice', 'minSellingPrice', 'maxSellingPrice', 'minMargin'];
+        fields.forEach(f => {
+            const input = this.modalElement.querySelector('#' + f);
+            if (input) {
+                input.value = s[f] || 0;
+                input.dispatchEvent(new Event('input'));
+            }
+        });
+        const boolFields = [
+            'enableRequireProductName', 'enableRequireProductCode', 'enableRequireProductImages',
+            'enableRequirePositivePurchasePrice', 'enableRequirePositiveSellingPrice',
+            'enableRequireSellingGreaterThanPurchase', 'enableRequireAtLeastOneItem', 'autoGenerateCode'
+        ];
+        boolFields.forEach(f => {
+            const input = this.modalElement.querySelector('#' + f);
+            if (input) input.checked = s[f] !== false;
+        });
+        this._updateValidationExample();
+    }
+
+    /**
+     * Update the live validation example section
+     */
+    _updateValidationExample() {
+        const el = this.modalElement?.querySelector('#validationExample');
+        if (!el) return;
+
+        const s = this._collectSettings();
+        const fmt = (v) => this._fmtVND(v);
+
+        // Example product: purchase=50, selling=120
+        const exPurchase = 50;
+        const exSelling = 120;
+        const exMargin = exSelling - exPurchase;
+
+        const checks = [];
+
+        // Price checks
+        if (s.minPurchasePrice > 0) {
+            const ok = exPurchase >= s.minPurchasePrice;
+            checks.push({ ok, text: `Giá mua ${fmt(exPurchase)} >= tối thiểu ${fmt(s.minPurchasePrice)}` });
+        }
+        if (s.maxPurchasePrice > 0) {
+            const ok = exPurchase <= s.maxPurchasePrice;
+            checks.push({ ok, text: `Giá mua ${fmt(exPurchase)} <= tối đa ${fmt(s.maxPurchasePrice)}` });
+        }
+        if (s.minSellingPrice > 0) {
+            const ok = exSelling >= s.minSellingPrice;
+            checks.push({ ok, text: `Giá bán ${fmt(exSelling)} >= tối thiểu ${fmt(s.minSellingPrice)}` });
+        }
+        if (s.maxSellingPrice > 0) {
+            const ok = exSelling <= s.maxSellingPrice;
+            checks.push({ ok, text: `Giá bán ${fmt(exSelling)} <= tối đa ${fmt(s.maxSellingPrice)}` });
+        }
+        if (s.minMargin > 0) {
+            const ok = exMargin >= s.minMargin;
+            checks.push({ ok, text: `Chênh lệch ${fmt(exMargin)} >= tối thiểu ${fmt(s.minMargin)}` });
+        }
+
+        // Boolean checks
+        if (s.enableRequireProductName) checks.push({ ok: true, text: 'Tên sản phẩm: "Áo thun basic"' });
+        if (s.enableRequireProductCode) checks.push({ ok: true, text: 'Mã sản phẩm: "N001"' });
+        if (s.enableRequireProductImages) checks.push({ ok: true, text: 'Hình ảnh: 1 ảnh' });
+        if (s.enableRequirePositivePurchasePrice) checks.push({ ok: exPurchase > 0, text: `Giá mua ${fmt(exPurchase)} > 0` });
+        if (s.enableRequirePositiveSellingPrice) checks.push({ ok: exSelling > 0, text: `Giá bán ${fmt(exSelling)} > 0` });
+        if (s.enableRequireSellingGreaterThanPurchase) checks.push({ ok: exSelling > exPurchase, text: `Giá bán > Giá mua (${fmt(exSelling)} > ${fmt(exPurchase)})` });
+
+        if (checks.length === 0) {
+            el.innerHTML = '<span style="color:#9ca3af">Chưa có quy tắc nào được bật. Đặt giá trị > 0 hoặc bật checkbox để xem ví dụ.</span>';
+            return;
+        }
+
+        const header = `<div style="margin-bottom:8px;font-weight:500">SP ví dụ: Giá mua = ${fmt(exPurchase)}, Giá bán = ${fmt(exSelling)}</div>`;
+        const rows = checks.map(c => {
+            const icon = c.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>';
+            const color = c.ok ? '#374151' : '#dc2626';
+            return `<div style="display:flex;gap:6px;align-items:center;padding:2px 0;color:${color}">${icon} ${c.text}</div>`;
+        }).join('');
+
+        el.innerHTML = header + rows;
+    }
+
+    /**
+     * Bind all events
+     */
+    _bindEvents() {
+        const el = this.modalElement;
+
+        // Close
+        el.querySelector('#btnCloseSettings')?.addEventListener('click', () => this.close());
+        el.querySelector('#btnCancelSettings')?.addEventListener('click', () => this.close());
 
         // Live preview for price inputs
-        this.modalElement.querySelectorAll('input[data-preview]').forEach(input => {
-            input.addEventListener('input', () => {
-                const previewId = input.dataset.preview;
-                const previewEl = this.modalElement.querySelector('#' + previewId);
-                if (previewEl) {
-                    const val = parseInt(input.value, 10) || 0;
-                    previewEl.textContent = '= ' + this._formatPreview(val);
-                }
+        const previewMap = {
+            minPurchasePrice: 'previewMinPurchase',
+            maxPurchasePrice: 'previewMaxPurchase',
+            minSellingPrice: 'previewMinSelling',
+            maxSellingPrice: 'previewMaxSelling',
+            minMargin: 'previewMinMargin'
+        };
+        Object.entries(previewMap).forEach(([inputId, previewId]) => {
+            el.querySelector('#' + inputId)?.addEventListener('input', (e) => {
+                const preview = el.querySelector('#' + previewId);
+                if (preview) preview.textContent = '= ' + this._fmtVND(e.target.value);
+                this._updateValidationExample();
             });
         });
 
-        // Reset to defaults
-        this.modalElement.querySelector('#btnResetSettings')?.addEventListener('click', () => {
-            const defaults = window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {};
-            // Reset all number inputs
-            const numberFields = ['minPurchasePrice', 'maxPurchasePrice', 'minSellingPrice', 'maxSellingPrice', 'minMargin'];
-            numberFields.forEach(field => {
-                const input = this.modalElement.querySelector('#' + field);
-                if (input) {
-                    input.value = defaults[field] || 0;
-                    // Trigger preview update
-                    input.dispatchEvent(new Event('input'));
-                }
-            });
-            // Reset all checkboxes
-            const checkboxFields = [
-                'enableRequireProductName', 'enableRequireProductCode', 'enableRequireProductImages',
-                'enableRequirePositivePurchasePrice', 'enableRequirePositiveSellingPrice',
-                'enableRequireSellingGreaterThanPurchase', 'enableRequireAtLeastOneItem',
-                'autoGenerateCode'
-            ];
-            checkboxFields.forEach(field => {
-                const input = this.modalElement.querySelector('#' + field);
-                if (input) input.checked = defaults[field] !== false;
-            });
-            // Also reset legacy fields
-            const legacyCheckboxes = { requirePriceImages: false };
-            Object.entries(legacyCheckboxes).forEach(([field, val]) => {
-                const input = this.modalElement.querySelector('#' + field);
-                if (input) input.checked = val;
-            });
+        // Checkboxes also update example
+        el.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', () => this._updateValidationExample());
+        });
 
+        // Reset
+        el.querySelector('#btnResetSettings')?.addEventListener('click', () => {
+            const defaults = window.PurchaseOrderValidation?.DEFAULT_VALIDATION_SETTINGS || {};
+            this.settings = { ...defaults };
+            this._updateFormValues();
             if (window.notificationManager) {
                 window.notificationManager.show('Đã đặt lại mặc định', 'info');
             }
         });
 
         // Save
-        this.modalElement.querySelector('#btnSaveSettings')?.addEventListener('click', async () => {
-            this.settings = this._collectSettings();
+        el.querySelector('#btnSaveSettings')?.addEventListener('click', async () => {
+            const btn = el.querySelector('#btnSaveSettings');
+            const origText = btn.textContent;
+            btn.textContent = 'Đang lưu...';
+            btn.disabled = true;
 
             try {
+                this.settings = this._collectSettings();
                 await this.saveToFirestore(this.settings);
-                if (this.onSave) {
-                    this.onSave(this.settings);
-                }
+                if (this.onSave) this.onSave(this.settings);
                 this.close();
             } catch (e) {
                 if (window.notificationManager) {
                     window.notificationManager.show('Lỗi lưu cài đặt: ' + e.message, 'error');
                 }
+            } finally {
+                if (btn) {
+                    btn.textContent = origText;
+                    btn.disabled = false;
+                }
             }
+        });
+
+        // Close on overlay click (outside dialog)
+        el.addEventListener('click', (e) => {
+            if (e.target === el) this.close();
         });
     }
 
@@ -1099,15 +1172,13 @@ class SettingsDialog {
      */
     _collectSettings() {
         const el = this.modalElement;
+        if (!el) return { ...this.settings };
         return {
-            // Price limits
             minPurchasePrice: parseInt(el.querySelector('#minPurchasePrice')?.value, 10) || 0,
             maxPurchasePrice: parseInt(el.querySelector('#maxPurchasePrice')?.value, 10) || 0,
             minSellingPrice: parseInt(el.querySelector('#minSellingPrice')?.value, 10) || 0,
             maxSellingPrice: parseInt(el.querySelector('#maxSellingPrice')?.value, 10) || 0,
             minMargin: parseInt(el.querySelector('#minMargin')?.value, 10) || 0,
-
-            // Boolean rules
             enableRequireProductName: el.querySelector('#enableRequireProductName')?.checked ?? true,
             enableRequireProductCode: el.querySelector('#enableRequireProductCode')?.checked ?? true,
             enableRequireProductImages: el.querySelector('#enableRequireProductImages')?.checked ?? true,
@@ -1115,9 +1186,6 @@ class SettingsDialog {
             enableRequirePositiveSellingPrice: el.querySelector('#enableRequirePositiveSellingPrice')?.checked ?? true,
             enableRequireSellingGreaterThanPurchase: el.querySelector('#enableRequireSellingGreaterThanPurchase')?.checked ?? true,
             enableRequireAtLeastOneItem: el.querySelector('#enableRequireAtLeastOneItem')?.checked ?? true,
-
-            // Legacy
-            requirePriceImages: el.querySelector('#requirePriceImages')?.checked ?? false,
             autoGenerateCode: el.querySelector('#autoGenerateCode')?.checked ?? true
         };
     }

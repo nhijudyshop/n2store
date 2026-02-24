@@ -596,8 +596,7 @@ const DEFAULT_VALIDATION_SETTINGS = {
     enableRequireSellingGreaterThanPurchase: true,
     enableRequireAtLeastOneItem: true,
 
-    // Legacy fields
-    requirePriceImages: false,
+    // Auto-generate product code
     autoGenerateCode: true
 };
 
