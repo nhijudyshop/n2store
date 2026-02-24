@@ -40,9 +40,9 @@ const NOTIFICATION_CONFIG = {
         loading: 'Đang tải',
     },
     zIndex: {
-        container: 99999,
+        container: 200000,
         overlay: 2999,
-        confirmOverlay: 10010,
+        confirmOverlay: 200001,
     },
 };
 
