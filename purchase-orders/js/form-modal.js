@@ -1396,7 +1396,7 @@ class PurchaseOrderFormModal {
                     </td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
                         <div style="display: flex; gap: 4px;">
-                            <input type="text" data-field="productCode" value="${item.productCode || ''}" placeholder="Mã SP" disabled style="
+                            <input type="text" data-field="productCode" value="${item.productCode || ''}" placeholder="Mã SP" readonly style="
                                 width: 80px;
                                 height: 36px;
                                 padding: 0 8px;
@@ -1406,6 +1406,7 @@ class PurchaseOrderFormModal {
                                 box-sizing: border-box;
                                 background: #f9fafb;
                                 color: #374151;
+                                cursor: default;
                             ">
                             ${(this.isEdit && item._isExistingItem) ? '' : `<button type="button" data-action="refreshCode" title="Cập nhật mã theo tên" style="
                                 width: 32px;
@@ -1951,10 +1952,17 @@ class PurchaseOrderFormModal {
         // Double-click on productCode input to enable editing
         tbody.querySelectorAll('input[data-field="productCode"]').forEach(input => {
             input.addEventListener('dblclick', (e) => {
-                e.target.disabled = false;
+                e.target.readOnly = false;
                 e.target.style.background = 'white';
+                e.target.style.cursor = 'text';
                 e.target.focus();
                 e.target.select();
+            });
+            // Re-lock on blur
+            input.addEventListener('blur', (e) => {
+                e.target.readOnly = true;
+                e.target.style.background = '#f9fafb';
+                e.target.style.cursor = 'default';
             });
         });
 
@@ -1999,8 +2007,9 @@ class PurchaseOrderFormModal {
                     if (item._manualCodeEdit) {
                         // Switch to edit mode (Check icon)
                         if (codeInput) {
-                            codeInput.disabled = false;
-                            codeInput.style.background = '';
+                            codeInput.readOnly = false;
+                            codeInput.style.background = 'white';
+                            codeInput.style.cursor = 'text';
                             codeInput.focus();
                         }
                         if (btn) {
@@ -2010,8 +2019,9 @@ class PurchaseOrderFormModal {
                     } else {
                         // Switch to read-only mode (Pencil icon)
                         if (codeInput) {
-                            codeInput.disabled = true;
+                            codeInput.readOnly = true;
                             codeInput.style.background = '#f9fafb';
+                            codeInput.style.cursor = 'default';
                         }
                         if (btn) {
                             btn.style.background = 'white';
