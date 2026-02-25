@@ -720,8 +720,8 @@ class PurchaseOrderController {
                 singleOrder.costsIncurred = parseFloat(overlay.querySelector('#poCostsIncurred').value) || 0;
                 singleOrder.tposNote = overlay.querySelector('#poNote').value || '';
 
-                // Step 1: Export MH (resolve codes + build workbook)
-                const result = await this.exportMuaHang(orders);
+                // Step 1: Export MH (resolve codes + build workbook, no download)
+                const result = await this.exportMuaHang(orders, { download: false });
 
                 if (result.exported === 0) {
                     this.ui.showToast('Không thể tạo đơn TPOS - Không có SP nào phù hợp', 'error');
@@ -917,7 +917,7 @@ class PurchaseOrderController {
      * @param {Array} orders - Orders to export (single order in array)
      * @returns {Promise<{exported: number, skipped: number, errors: string[]}>}
      */
-    async exportMuaHang(orders) {
+    async exportMuaHang(orders, { download = true } = {}) {
         if (typeof XLSX === 'undefined') {
             throw new Error('XLSX library not loaded');
         }
@@ -1028,7 +1028,9 @@ class PurchaseOrderController {
         const supplierLabel = ncc?.code || order.orderNumber || 'Export';
         const filename = `MuaHang_${supplierLabel}_${dd}-${mm}.xlsx`;
 
-        XLSX.writeFile(wb, filename);
+        if (download) {
+            XLSX.writeFile(wb, filename);
+        }
 
         return {
             exported: excelRows.length,
