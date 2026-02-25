@@ -1548,12 +1548,19 @@ class InventoryPickerDialog {
 
             const data = await response.json();
 
+            let image = data.ImageUrl || (data.Thumbnails && data.Thumbnails[2]) || '';
+
+            // If variant has no image, try to get parent product's image
+            if (!image && data.ProductTmplId) {
+                image = await this.fetchParentImage(data.ProductTmplId, token);
+            }
+
             // Map to our format - use original productId to preserve variant identity
             return {
                 id: productId,
                 code: data.DefaultCode || data.Barcode || '',
                 name: data.NameTemplate || data.Name || '',
-                image: data.ImageUrl || (data.Thumbnails && data.Thumbnails[2]) || '',
+                image: image,
                 qtyAvailable: data.QtyAvailable || 0,
                 purchasePrice: data.StandardPrice || 0,
                 sellingPrice: data.PriceVariant || data.ListPrice || 0,
@@ -1565,6 +1572,53 @@ class InventoryPickerDialog {
         } catch (error) {
             console.error(`Error fetching product ${productId}:`, error);
             return null;
+        }
+    }
+
+    /**
+     * Fetch parent product image by ProductTmplId
+     * Searches for sibling products with the same template that have an image
+     */
+    async fetchParentImage(templateId, token) {
+        try {
+            // Cache key for template images
+            if (!this._templateImageCache) this._templateImageCache = {};
+            if (this._templateImageCache[templateId]) {
+                return this._templateImageCache[templateId];
+            }
+
+            // Find a product with same ProductTmplId that has an image
+            const response = await fetch(
+                `${this.proxyUrl}/api/odata/Product?$filter=ProductTmplId eq ${templateId}&$top=5&$select=Id,ImageUrl,Thumbnails`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'feature-version': '2',
+                        'tposappversion': '6.2.6.1'
+                    }
+                }
+            );
+
+            if (!response.ok) return '';
+
+            const result = await response.json();
+            const products = result.value || [];
+
+            for (const p of products) {
+                const img = p.ImageUrl || (p.Thumbnails && p.Thumbnails[2]) || '';
+                if (img) {
+                    this._templateImageCache[templateId] = img;
+                    return img;
+                }
+            }
+
+            this._templateImageCache[templateId] = '';
+            return '';
+        } catch (error) {
+            console.warn('[InventoryPicker] Failed to fetch parent image:', error);
+            return '';
         }
     }
 
