@@ -107,7 +107,7 @@ window.ProductCodeGenerator = (function() {
     /**
      * Detect product category from name
      * @param {string} productName
-     * @returns {'N'|'P'|'Q'|'B'|null}
+     * @returns {'N'|'P'|'Q'|null}
      */
     function detectProductCategory(productName) {
         if (!productName || typeof productName !== 'string') {
@@ -117,11 +117,6 @@ window.ProductCodeGenerator = (function() {
         const tokens = tokenize(productName);
         if (tokens.length === 0) {
             return null;
-        }
-
-        // Category B: Social order products — name starts with "IB"
-        if (tokens[0] && tokens[0].startsWith('IB')) {
-            return 'B';
         }
 
         // Sequential token scanning
