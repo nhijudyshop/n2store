@@ -15,6 +15,7 @@ class PurchaseOrderTableRenderer {
         this.syncStatusMap = new Map(); // orderId -> { processing: number, failed: number }
         this.ordersToUnlock = new Map(); // orderId -> unlockTime
         this.pollingInterval = null;
+        this._eventsBound = false;
     }
 
     /**
@@ -654,7 +655,8 @@ class PurchaseOrderTableRenderer {
      * Bind event handlers to table
      */
     bindEvents() {
-        if (!this.container) return;
+        if (!this.container || this._eventsBound) return;
+        this._eventsBound = true;
 
         // Action buttons
         this.container.addEventListener('click', (e) => {
