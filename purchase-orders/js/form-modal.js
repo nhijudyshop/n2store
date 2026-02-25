@@ -1887,6 +1887,8 @@ class PurchaseOrderFormModal {
 
         // Debounce timer for auto code generation
         let codeGenTimer = null;
+        // Debounce timers for price auto ×1000
+        const priceTimers = {};
 
         // Input changes
         tbody.querySelectorAll('input[data-field]').forEach(input => {
@@ -1911,6 +1913,31 @@ class PurchaseOrderFormModal {
                     // Update price input red borders dynamically
                     if (field === 'purchasePrice' || field === 'sellingPrice') {
                         this.updatePriceInputBorders(row);
+
+                        // Debounced auto ×1000: wait 800ms after stop typing
+                        const timerKey = `${itemId}_${field}`;
+                        clearTimeout(priceTimers[timerKey]);
+                        priceTimers[timerKey] = setTimeout(() => {
+                            const inputStr = String(e.target.value).trim();
+                            let raw;
+                            if (inputStr.includes(',')) {
+                                raw = parseFloat(inputStr.replace(/\./g, '').replace(',', '.')) || 0;
+                            } else {
+                                raw = parseFloat(inputStr.replace(/\./g, '')) || 0;
+                            }
+                            if (raw >= 1 && raw <= 999) {
+                                raw = Math.round(raw * 1000);
+                                e.target.value = raw.toLocaleString('vi-VN');
+                                item[field] = e.target.value;
+                                this.updateTotals();
+                                if (field === 'purchasePrice') {
+                                    const qty = parseInt(item.quantity) || 0;
+                                    const subtotalCell = row?.querySelector('.subtotal-cell');
+                                    if (subtotalCell) subtotalCell.textContent = this.formatNumber(raw * qty) + ' đ';
+                                }
+                                this.updatePriceInputBorders(row);
+                            }
+                        }, 800);
                     }
 
                     // Auto-generate product code when product name changes
@@ -1945,7 +1972,6 @@ class PurchaseOrderFormModal {
             });
 
             // Auto-format number fields on blur (thousand separator with '.')
-            // For price fields: 3-digit input auto ×1000 (e.g. 150 → 150.000)
             if (['purchasePrice', 'sellingPrice', 'quantity'].includes(input.dataset.field) && input.type === 'text') {
                 input.addEventListener('blur', (e) => {
                     const field = e.target.dataset.field;
@@ -1959,14 +1985,13 @@ class PurchaseOrderFormModal {
                         raw = parseFloat(inputStr.replace(/\./g, '')) || 0;
                     }
 
-                    // Auto ×1000 for price fields when value is 1-999 (e.g. 150 → 150.000, 1,5 → 1.500)
+                    // Also apply ×1000 on blur in case user tabs out quickly
                     if ((field === 'purchasePrice' || field === 'sellingPrice') && raw >= 1 && raw <= 999) {
                         raw = Math.round(raw * 1000);
                     }
 
                     if (raw) {
                         e.target.value = raw.toLocaleString('vi-VN');
-                        // Update formData with the adjusted value
                         const row = e.target.closest('tr[data-item-id]');
                         const itemId = row?.dataset.itemId;
                         const item = this.formData.items.find(i => i.id === itemId);
@@ -1981,6 +2006,10 @@ class PurchaseOrderFormModal {
                             this.updatePriceInputBorders(row);
                         }
                     }
+
+                    // Clear any pending debounce timer
+                    const timerKey = `${e.target.closest('tr[data-item-id]')?.dataset.itemId}_${field}`;
+                    clearTimeout(priceTimers[timerKey]);
                 });
             }
         });
