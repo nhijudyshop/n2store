@@ -426,6 +426,12 @@ class PurchaseOrderController {
                 const orderId = await this.dataManager.createOrder(orderData);
                 this.ui.showToast('Tạo đơn hàng thành công!', 'success');
 
+                // Switch to the tab matching the new order's status
+                const targetTab = orderData.status || this.config.OrderStatus.AWAITING_PURCHASE;
+                if (this.currentTab !== targetTab) {
+                    this.handleTabChange(targetTab);
+                }
+
                 // Fire-and-forget: sync products to TPOS (only for confirmed orders)
                 if (orderData.status === 'AWAITING_PURCHASE' && window.TPOSProductCreator) {
                     window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
