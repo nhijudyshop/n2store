@@ -505,25 +505,32 @@ class PurchaseOrderController {
             const name = item.productName || '';
             const variant = item.variant || '';
             return `
-                <tr style="border-bottom: 1px solid #e5e7eb;" data-idx="${idx}">
-                    <td style="padding: 8px 6px; text-align: center; color: #6b7280; font-size: 13px; vertical-align: top; width: 36px;">${idx + 1}</td>
-                    <td style="padding: 8px 10px; font-size: 13px;">
-                        <div style="font-weight: 600; color: #1e293b;">[${code}] ${name}</div>
-                        ${variant ? `<div style="color: #9ca3af; font-size: 12px; margin-top: 2px;">${variant}</div>` : ''}
+                <tr style="border-bottom: 1px solid #dee2e6;" data-idx="${idx}">
+                    <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${idx + 1}</td>
+                    <td style="padding: 10px 12px; font-size: 14px; border-right: 1px solid #dee2e6;">
+                        <div style="font-weight: 700; color: #000;">[${code}] ${name}</div>
+                        <div style="color: #999; font-size: 12px; margin-top: 2px;">${variant || 'Ghi chú'}</div>
                     </td>
-                    <td style="padding: 8px 4px; text-align: center; width: 80px;">
+                    <td style="padding: 10px 4px; text-align: center; width: 100px; border-right: 1px solid #dee2e6;">
                         <input type="number" class="po-qty" data-idx="${idx}" value="${qty}" min="0" style="
-                            width: 60px; height: 30px; text-align: center; border: 1px solid #d1d5db;
-                            border-radius: 4px; font-size: 13px; padding: 0 4px;
+                            width: 70px; height: 32px; text-align: center; border: 1px solid #ccc;
+                            border-radius: 3px; font-size: 14px; padding: 0 4px;
                         ">
                     </td>
-                    <td style="padding: 8px 4px; text-align: right; width: 120px;">
+                    <td style="padding: 10px 4px; text-align: right; width: 140px; border-right: 1px solid #dee2e6;">
                         <input type="number" class="po-price" data-idx="${idx}" value="${price}" min="0" style="
-                            width: 100px; height: 30px; text-align: right; border: 1px solid #d1d5db;
-                            border-radius: 4px; font-size: 13px; padding: 0 8px;
+                            width: 110px; height: 32px; text-align: right; border: 1px solid #ccc;
+                            border-radius: 3px; font-size: 14px; padding: 0 8px;
                         ">
                     </td>
-                    <td style="padding: 8px 10px; text-align: right; font-size: 14px; font-weight: 600; width: 110px; white-space: nowrap;" class="po-line-total">${fmt(lineTotal)}</td>
+                    <td style="padding: 10px 10px; text-align: right; font-size: 14px; font-weight: 600; width: 120px; white-space: nowrap; border-right: 1px solid #dee2e6;" class="po-line-total">${fmt(lineTotal)}</td>
+                    <td style="padding: 10px 6px; text-align: center; width: 70px;">
+                        <span class="po-del-btn" data-idx="${idx}" style="
+                            display: inline-block; width: 28px; height: 28px; line-height: 28px;
+                            text-align: center; background: #dc3545; color: white;
+                            border-radius: 4px; cursor: pointer; font-size: 14px;
+                        " title="Xóa dòng">&#128465;</span>
+                    </td>
                 </tr>`;
         }).join('');
 
@@ -535,31 +542,34 @@ class PurchaseOrderController {
 
         overlay.innerHTML = `
             <div style="
-                background: white; border-radius: 12px; padding: 0;
-                max-width: 900px; width: 96%; max-height: 92vh; display: flex; flex-direction: column;
-                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+                background: white; border-radius: 4px; padding: 0;
+                max-width: 960px; width: 96%; max-height: 92vh; display: flex; flex-direction: column;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15); border: 1px solid #ccc;
             ">
                 <!-- Header -->
-                <div style="padding: 20px 24px 16px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="padding: 14px 20px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa;">
                     <div>
-                        <h3 style="margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #0f172a;">
+                        <h3 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; color: #333;">
                             Đơn mua hàng - ${singleOrder.orderNumber || ''}
                         </h3>
-                        <div style="font-size: 13px; color: #64748b;">NCC: <strong style="color: #334155;">${supplierDisplay}</strong></div>
+                        <div style="font-size: 13px; color: #666;">NCC: <strong style="color: #333;">${supplierDisplay}</strong></div>
                     </div>
-                    <div style="font-size: 12px; color: #94a3b8;">${new Date().toLocaleDateString('vi-VN')}</div>
+                    <div style="font-size: 12px; color: #999;">${new Date().toLocaleDateString('vi-VN')}</div>
                 </div>
 
                 <!-- Scrollable table -->
                 <div style="overflow-y: auto; flex: 1; min-height: 0;">
                     <table style="width: 100%; border-collapse: collapse;" id="poItemsTable">
                         <thead>
-                            <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
-                                <th style="padding: 10px 6px; text-align: center; font-size: 12px; font-weight: 700; color: #475569; width: 36px;">STT</th>
-                                <th style="padding: 10px 10px; text-align: left; font-size: 12px; font-weight: 700; color: #475569;">Sản phẩm</th>
-                                <th style="padding: 10px 4px; text-align: center; font-size: 12px; font-weight: 700; color: #475569; width: 80px;">Số lượng</th>
-                                <th style="padding: 10px 4px; text-align: right; font-size: 12px; font-weight: 700; color: #475569; width: 120px;">Đơn giá</th>
-                                <th style="padding: 10px 10px; text-align: right; font-size: 12px; font-weight: 700; color: #475569; width: 110px;">Tổng</th>
+                            <tr style="background: #d6dce4; border-bottom: 1px solid #bfc7d1;">
+                                <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 40px; border-right: 1px solid #bfc7d1;">STT</th>
+                                <th style="padding: 10px 12px; text-align: left; font-size: 13px; font-weight: 700; color: #333; border-right: 1px solid #bfc7d1;">Sản phẩm</th>
+                                <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 100px; border-right: 1px solid #bfc7d1;">Số lượng</th>
+                                <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 140px; border-right: 1px solid #bfc7d1;">Đơn giá</th>
+                                <th style="padding: 10px 10px; text-align: right; font-size: 13px; font-weight: 700; color: #333; width: 120px; border-right: 1px solid #bfc7d1;">Tổng</th>
+                                <th style="padding: 10px 6px; text-align: center; width: 70px;">
+                                    <span style="display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; background: #dc3545; color: white; border-radius: 4px; font-size: 14px;">&#128465;</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>${rowsHTML}</tbody>
@@ -567,63 +577,61 @@ class PurchaseOrderController {
                 </div>
 
                 <!-- Summary -->
-                <div style="padding: 16px 24px; border-top: 2px solid #cbd5e1; background: #f8fafc;">
+                <div style="padding: 12px 20px 16px; border-top: 1px solid #dee2e6;">
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
-                            <td style="padding: 6px 0; font-size: 14px; font-weight: 600; text-align: right;">Tổng số lượng: &nbsp;<span id="poTotalQty">0</span></td>
-                            <td style="padding: 6px 10px; font-size: 14px; font-weight: 700; text-align: right; width: 110px; color: #0f172a;" id="poSubtotal">0</td>
+                            <td style="padding: 6px 0; font-size: 14px; font-weight: 700; text-align: right; color: #333;">Tổng số lượng: &nbsp;<span id="poTotalQty" style="min-width: 40px; display: inline-block;">0</span></td>
+                            <td style="padding: 6px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;">Tổng: &nbsp;<span id="poSubtotal">0</span></td>
                         </tr>
                         <tr>
                             <td style="padding: 4px 0; text-align: right;">
-                                <span style="font-size: 13px; color: #64748b; margin-right: 8px;">Chiết khấu - Giảm giá</span>
-                                <input type="number" id="poDecreaseAmount" value="${singleOrder.discountAmount || 0}" min="0" style="
-                                    width: 120px; height: 30px; text-align: right; border: 1px solid #d1d5db;
-                                    border-radius: 4px; font-size: 13px; padding: 0 8px;
+                                <input type="number" id="poDecreaseAmount" value="${singleOrder.discountAmount || 0}" min="0" placeholder="Chiết khấu - Giảm giá" style="
+                                    width: 200px; height: 32px; text-align: left; border: 1px solid #ccc;
+                                    border-radius: 3px; font-size: 13px; padding: 0 8px;
                                 ">
                             </td>
-                            <td style="padding: 4px 10px; font-size: 14px; font-weight: 600; text-align: right; width: 110px;" id="poDecreaseDisplay">0</td>
+                            <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poDecreaseDisplay">0</td>
                         </tr>
                         <tr>
-                            <td style="padding: 4px 0; text-align: right;">
-                                <span style="font-size: 13px; color: #64748b; margin-right: 8px;">Cước phí</span>
+                            <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; color: #333;">Cước phí:
                                 <input type="number" id="poCostsIncurred" value="${singleOrder.shippingFee || 0}" min="0" style="
-                                    width: 120px; height: 30px; text-align: right; border: 1px solid #d1d5db;
-                                    border-radius: 4px; font-size: 13px; padding: 0 8px;
+                                    width: 120px; height: 32px; text-align: right; border: 1px solid #ccc;
+                                    border-radius: 3px; font-size: 13px; padding: 0 8px; margin-left: 8px;
                                 ">
                             </td>
-                            <td style="padding: 4px 10px; font-size: 14px; font-weight: 600; text-align: right; width: 110px;" id="poCostsDisplay">0</td>
+                            <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poCostsDisplay">0</td>
                         </tr>
                         <tr>
                             <td style="padding: 4px 0; text-align: right;">
-                                <span style="font-size: 13px; color: #64748b; margin-right: 8px;">Ghi chú</span>
+                                <span style="font-size: 13px; color: #666; margin-right: 8px;">Ghi chú</span>
                                 <input type="text" id="poNote" value="${singleOrder.notes || ''}" placeholder="Nhập ghi chú..." style="
-                                    width: 220px; height: 30px; border: 1px solid #d1d5db;
-                                    border-radius: 4px; font-size: 13px; padding: 0 8px;
+                                    width: 220px; height: 32px; border: 1px solid #ccc;
+                                    border-radius: 3px; font-size: 13px; padding: 0 8px;
                                 ">
                             </td>
                             <td></td>
                         </tr>
-                        <tr style="border-top: 2px solid #334155;">
-                            <td style="padding: 10px 0; font-size: 16px; font-weight: 700; text-align: right; color: #0f172a;">Tổng tiền:</td>
-                            <td style="padding: 10px 10px; font-size: 16px; font-weight: 700; text-align: right; width: 110px; color: #0f172a;" id="poFinalAmount">0</td>
+                        <tr>
+                            <td style="padding: 8px 0 4px; font-size: 16px; font-weight: 700; text-align: right; color: #333;">Tổng tiền:</td>
+                            <td style="padding: 8px 0 4px; font-size: 16px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poFinalAmount">0</td>
                         </tr>
                     </table>
                 </div>
 
                 <!-- Buttons -->
-                <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: flex-end;">
+                <div style="padding: 12px 20px; border-top: 1px solid #dee2e6; display: flex; gap: 8px; justify-content: flex-end; background: #f8f9fa;">
                     <button type="button" id="btnCancelPO" style="
-                        padding: 10px 20px; border: 1px solid #d1d5db; border-radius: 8px;
-                        background: white; cursor: pointer; font-size: 14px;
+                        padding: 8px 20px; border: 1px solid #ccc; border-radius: 4px;
+                        background: white; cursor: pointer; font-size: 14px; color: #333;
                     ">Hủy</button>
                     <button type="button" id="btnExportExcel" style="
-                        padding: 10px 20px; border: 1px solid #16a34a; border-radius: 8px;
-                        background: white; color: #16a34a; cursor: pointer; font-size: 14px; font-weight: 500;
+                        padding: 8px 20px; border: 1px solid #28a745; border-radius: 4px;
+                        background: white; color: #28a745; cursor: pointer; font-size: 14px; font-weight: 600;
                     ">Xuất Excel</button>
                     <button type="button" id="btnSubmitTPOS" style="
-                        padding: 10px 20px; border: none; border-radius: 8px;
-                        background: #16a34a; color: white; cursor: pointer;
-                        font-size: 14px; font-weight: 500;
+                        padding: 8px 20px; border: none; border-radius: 4px;
+                        background: #28a745; color: white; cursor: pointer;
+                        font-size: 14px; font-weight: 600;
                     " ${!ncc?.tposId ? 'disabled title="NCC chưa có TPOS ID"' : ''}>Tạo đơn TPOS</button>
                 </div>
             </div>
@@ -668,6 +676,17 @@ class PurchaseOrderController {
         // Cancel / close
         overlay.querySelector('#btnCancelPO').addEventListener('click', () => overlay.remove());
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        // Delete row buttons
+        overlay.querySelectorAll('.po-del-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const row = btn.closest('tr[data-idx]');
+                if (row) {
+                    row.remove();
+                    recalcAll();
+                }
+            });
+        });
 
         // Export Excel button
         overlay.querySelector('#btnExportExcel').addEventListener('click', async () => {
