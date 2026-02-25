@@ -524,12 +524,11 @@ class PurchaseOrderController {
                         ">
                     </td>
                     <td style="padding: 10px 10px; text-align: right; font-size: 14px; font-weight: 600; width: 120px; white-space: nowrap; border-right: 1px solid #dee2e6;" class="po-line-total">${fmt(lineTotal)}</td>
-                    <td style="padding: 10px 6px; text-align: center; width: 70px;">
+                    <td style="padding: 10px 6px; text-align: center; width: 50px;">
                         <span class="po-del-btn" data-idx="${idx}" style="
-                            display: inline-block; width: 28px; height: 28px; line-height: 28px;
-                            text-align: center; background: #dc3545; color: white;
-                            border-radius: 4px; cursor: pointer; font-size: 14px;
-                        " title="Xóa dòng">&#128465;</span>
+                            display: inline-block; width: 28px; height: 28px; line-height: 26px;
+                            text-align: center; color: #999; cursor: pointer; font-size: 18px;
+                        " title="Xóa dòng">&times;</span>
                     </td>
                 </tr>`;
         }).join('');
@@ -567,9 +566,7 @@ class PurchaseOrderController {
                                 <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 100px; border-right: 1px solid #bfc7d1;">Số lượng</th>
                                 <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 140px; border-right: 1px solid #bfc7d1;">Đơn giá</th>
                                 <th style="padding: 10px 10px; text-align: right; font-size: 13px; font-weight: 700; color: #333; width: 120px; border-right: 1px solid #bfc7d1;">Tổng</th>
-                                <th style="padding: 10px 6px; text-align: center; width: 70px;">
-                                    <span style="display: inline-block; width: 28px; height: 28px; line-height: 28px; text-align: center; background: #dc3545; color: white; border-radius: 4px; font-size: 14px;">&#128465;</span>
-                                </th>
+                                <th style="padding: 10px 6px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 50px;"></th>
                             </tr>
                         </thead>
                         <tbody>${rowsHTML}</tbody>
