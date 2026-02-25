@@ -1112,6 +1112,7 @@ class PurchaseOrderFormModal {
                                 text-align: right;
                                 box-sizing: border-box;
                             ">
+                            <div id="invoiceAmountPreview" style="font-size: 12px; color: #6b7280; text-align: right; margin-top: 2px; min-height: 16px;"></div>
                         </div>
                         <div style="min-width: 100px;">
                             <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
@@ -2003,16 +2004,32 @@ class PurchaseOrderFormModal {
             });
         });
 
-        // Also format discount, shipping, invoice inputs on blur
+        // Also format discount, shipping, invoice inputs on blur (with ×1000 for invoice)
         ['#inputDiscount', '#inputShipping', '#inputInvoiceAmount'].forEach(sel => {
             const el = this.modalElement.querySelector(sel);
             if (el) {
+                const isInvoice = sel === '#inputInvoiceAmount';
                 el.addEventListener('blur', (e) => {
-                    const raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
+                    const raw = isInvoice ? this.parsePrice(e.target.value) : (parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0);
                     if (raw) {
                         e.target.value = raw.toLocaleString('vi-VN');
                     }
+                    // Clear preview after blur formats the value
+                    if (isInvoice) {
+                        const preview = this.modalElement?.querySelector('#invoiceAmountPreview');
+                        if (preview) preview.textContent = '';
+                    }
                 });
+                // Realtime preview for invoice amount
+                if (isInvoice) {
+                    el.addEventListener('input', (e) => {
+                        const parsed = this.parsePrice(e.target.value);
+                        const preview = this.modalElement?.querySelector('#invoiceAmountPreview');
+                        if (preview) {
+                            preview.textContent = parsed ? parsed.toLocaleString('vi-VN') + ' đ' : '';
+                        }
+                    });
+                }
             }
         });
 
