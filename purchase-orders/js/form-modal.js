@@ -1408,21 +1408,18 @@ class PurchaseOrderFormModal {
                                 color: #374151;
                                 ${(this.isEdit && item._isExistingItem) ? 'cursor: not-allowed; opacity: 0.7;' : ''}
                             ">
-                            ${(this.isEdit && item._isExistingItem) ? '' : `<button type="button" data-action="editCode" style="
+                            ${(this.isEdit && item._isExistingItem) ? '' : `<button type="button" data-action="refreshCode" title="Cập nhật mã theo tên" style="
                                 width: 32px;
                                 height: 36px;
                                 border: 1px solid #d1d5db;
                                 border-radius: 6px;
-                                background: ${item._manualCodeEdit ? '#dcfce7' : 'white'};
+                                background: white;
                                 cursor: pointer;
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
                             ">
-                                ${item._manualCodeEdit
-                                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>'
-                                    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>'
-                                }
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                             </button>`}
                         </div>
                     </td>
@@ -1464,7 +1461,7 @@ class PurchaseOrderFormModal {
                             box-sizing: border-box;
                         ">
                     </td>
-                    <td style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #f3f4f6; font-weight: 600;">
+                    <td class="subtotal-cell" style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #f3f4f6; font-weight: 600;">
                         ${this.formatNumber(subtotal)} đ
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;" data-image-type="product">
@@ -1897,6 +1894,14 @@ class PurchaseOrderFormModal {
                     item[field] = e.target.value;
                     this.updateTotals();
 
+                    // Update per-row subtotal
+                    if (field === 'purchasePrice' || field === 'quantity') {
+                        const price = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+                        const qty = parseInt(item.quantity) || 0;
+                        const subtotalCell = row?.querySelector('.subtotal-cell');
+                        if (subtotalCell) subtotalCell.textContent = this.formatNumber(price * qty) + ' đ';
+                    }
+
                     // Update price input red borders dynamically
                     if (field === 'purchasePrice' || field === 'sellingPrice') {
                         this.updatePriceInputBorders(row);
@@ -1932,16 +1937,47 @@ class PurchaseOrderFormModal {
                     }
                 }
             });
+
+            // Auto-format number fields on blur (thousand separator with '.')
+            if (['purchasePrice', 'sellingPrice', 'quantity'].includes(input.dataset.field) && input.type === 'text') {
+                input.addEventListener('blur', (e) => {
+                    const raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
+                    if (raw) {
+                        e.target.value = raw.toLocaleString('vi-VN');
+                    }
+                });
+            }
+        });
+
+        // Also format discount, shipping, invoice inputs on blur
+        ['#inputDiscount', '#inputShipping', '#inputInvoiceAmount'].forEach(sel => {
+            const el = this.modalElement.querySelector(sel);
+            if (el) {
+                el.addEventListener('blur', (e) => {
+                    const raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
+                    if (raw) {
+                        e.target.value = raw.toLocaleString('vi-VN');
+                    }
+                });
+            }
         });
 
         // Action buttons
         tbody.querySelectorAll('button[data-action]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const row = e.target.closest('tr');
                 const itemId = row?.dataset.itemId;
                 const action = e.target.closest('button').dataset.action;
 
-                if (action === 'editCode' && itemId) {
+                if (action === 'refreshCode' && itemId) {
+                    const item = this.formData.items.find(i => i.id === itemId);
+                    if (item && item.productName?.trim()) {
+                        item._manualCodeEdit = false;
+                        await this.autoGenerateProductCode(item);
+                        const codeInput = row?.querySelector('input[data-field="productCode"]');
+                        if (codeInput) codeInput.value = item.productCode || '';
+                    }
+                } else if (action === 'editCode' && itemId) {
                     const item = this.formData.items.find(i => i.id === itemId);
                     if (!item) return;
 
@@ -2003,6 +2039,10 @@ class PurchaseOrderFormModal {
                                         newItem.purchasePrice = baseProduct.purchasePrice;
                                         newItem.sellingPrice = baseProduct.sellingPrice;
                                         newItem.quantity = baseProduct.quantity || 1;
+                                        // Copy parent's product images to variant
+                                        if (baseProduct.productImages?.length > 0) {
+                                            newItem.productImages = [...baseProduct.productImages];
+                                        }
                                     }
 
                                     this.refreshItemsTable();
