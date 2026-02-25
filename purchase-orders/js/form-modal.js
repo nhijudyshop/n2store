@@ -1706,6 +1706,11 @@ class PurchaseOrderFormModal {
             this.updateTotals();
         });
 
+        // Notes input
+        this.modalElement.querySelector('#inputNotes')?.addEventListener('input', (e) => {
+            this.formData.notes = e.target.value;
+        });
+
         // Save draft
         this.modalElement.querySelector('#btnSaveDraft')?.addEventListener('click', () => {
             this.handleSaveDraft();
@@ -2205,6 +2210,13 @@ class PurchaseOrderFormModal {
 
             const orderData = this.getFormData();
             orderData.status = 'AWAITING_PURCHASE';
+
+            console.log('[FormModal] Submit orderData:', {
+                notes: orderData.notes,
+                discountAmount: orderData.discountAmount,
+                shippingFee: orderData.shippingFee,
+                finalAmount: orderData.finalAmount
+            });
 
             await this.onSubmit?.(orderData);
             this.close();
