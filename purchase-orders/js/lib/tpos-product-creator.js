@@ -740,6 +740,13 @@ window.TPOSProductCreator = (function () {
             if (changed) {
                 await docRef.update({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
                 console.log(`[TPOSCreator] Updated ${updates.length} items with variant Barcodes`);
+
+                // Refresh table to show updated variant codes
+                if (window.purchaseOrderDataManager?.loadOrders) {
+                    window.purchaseOrderDataManager.loadOrders(
+                        window.purchaseOrderDataManager.currentStatus, true
+                    );
+                }
             }
         } catch (err) {
             console.error('[TPOSCreator] Failed to update variant barcodes:', err);
