@@ -923,15 +923,30 @@ class PurchaseOrderFormModal {
     /**
      * Calculate totals
      */
+    /**
+     * Parse price string: "," = decimal, "." = thousand separator, 1-999 auto ×1000
+     */
+    parsePrice(value) {
+        const str = String(value || '').trim();
+        let num;
+        if (str.includes(',')) {
+            num = parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        } else {
+            num = parseFloat(str.replace(/\./g, '')) || 0;
+        }
+        if (num >= 1 && num <= 999) num = Math.round(num * 1000);
+        return num;
+    }
+
     calculateTotals() {
         const totalQuantity = this.formData.items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
         const totalAmount = this.formData.items.reduce((sum, item) => {
-            const price = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+            const price = this.parsePrice(item.purchasePrice);
             const qty = parseInt(item.quantity) || 0;
             return sum + (price * qty);
         }, 0);
-        const discount = parseFloat(String(this.formData.discountAmount).replace(/[,.]/g, '')) || 0;
-        const shipping = parseFloat(String(this.formData.shippingFee).replace(/[,.]/g, '')) || 0;
+        const discount = this.parsePrice(this.formData.discountAmount);
+        const shipping = this.parsePrice(this.formData.shippingFee);
         const finalAmount = totalAmount - discount + shipping;
 
         return { totalQuantity, totalAmount, discount, shipping, finalAmount };
@@ -1097,6 +1112,7 @@ class PurchaseOrderFormModal {
                                 text-align: right;
                                 box-sizing: border-box;
                             ">
+                            <div id="invoiceAmountPreview" style="font-size: 12px; color: #6b7280; text-align: right; margin-top: 2px; min-height: 16px;"></div>
                         </div>
                         <div style="min-width: 100px;">
                             <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
@@ -1260,15 +1276,18 @@ class PurchaseOrderFormModal {
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 13px; color: #6b7280;">Giảm giá:</span>
-                            <input type="text" id="inputDiscount" value="${this.formatNumber(this.formData.discountAmount)}" placeholder="0" style="
-                                width: 100px;
-                                height: 32px;
-                                padding: 0 8px;
-                                border: 1px solid #d1d5db;
-                                border-radius: 6px;
-                                font-size: 13px;
-                                text-align: right;
-                            ">
+                            <div style="position: relative;">
+                                <input type="text" id="inputDiscount" value="${this.formatNumber(this.formData.discountAmount)}" placeholder="0" style="
+                                    width: 100px;
+                                    height: 32px;
+                                    padding: 0 8px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                    text-align: right;
+                                ">
+                                <div id="discountPreview" style="position: absolute; right: 0; font-size: 11px; color: #6b7280; white-space: nowrap;"></div>
+                            </div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="flex-shrink: 0;">
@@ -1278,15 +1297,18 @@ class PurchaseOrderFormModal {
                                 <circle cx="18.5" cy="18.5" r="2.5"></circle>
                             </svg>
                             <span style="font-size: 13px; color: #64748b; white-space: nowrap;">Tiền ship:</span>
-                            <input type="text" id="inputShipping" value="${this.formatNumber(this.formData.shippingFee)}" placeholder="0" style="
-                                width: 100px;
-                                height: 32px;
-                                padding: 0 8px;
-                                border: 1px solid #d1d5db;
-                                border-radius: 6px;
-                                font-size: 13px;
-                                text-align: right;
-                            ">
+                            <div style="position: relative;">
+                                <input type="text" id="inputShipping" value="${this.formatNumber(this.formData.shippingFee)}" placeholder="0" style="
+                                    width: 100px;
+                                    height: 32px;
+                                    padding: 0 8px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                    text-align: right;
+                                ">
+                                <div id="shippingPreview" style="position: absolute; right: 0; font-size: 11px; color: #6b7280; white-space: nowrap;"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -1900,9 +1922,9 @@ class PurchaseOrderFormModal {
                     item[field] = e.target.value;
                     this.updateTotals();
 
-                    // Update per-row subtotal
+                    // Update per-row subtotal (parsePrice handles ×1000)
                     if (field === 'purchasePrice' || field === 'quantity') {
-                        const price = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+                        const price = this.parsePrice(item.purchasePrice);
                         const qty = parseInt(item.quantity) || 0;
                         const subtotalCell = row?.querySelector('.subtotal-cell');
                         if (subtotalCell) subtotalCell.textContent = this.formatNumber(price * qty) + ' đ';
@@ -1944,12 +1966,28 @@ class PurchaseOrderFormModal {
                 }
             });
 
-            // Auto-format number fields on blur (thousand separator with '.')
+            // On blur: format display + apply ×1000 + sync formData
             if (['purchasePrice', 'sellingPrice', 'quantity'].includes(input.dataset.field) && input.type === 'text') {
                 input.addEventListener('blur', (e) => {
-                    const raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
+                    const field = e.target.dataset.field;
+                    const isPriceField = (field === 'purchasePrice' || field === 'sellingPrice');
+                    const raw = isPriceField ? this.parsePrice(e.target.value) : (parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0);
+
                     if (raw) {
                         e.target.value = raw.toLocaleString('vi-VN');
+                        const row = e.target.closest('tr[data-item-id]');
+                        const itemId = row?.dataset.itemId;
+                        const item = this.formData.items.find(i => i.id === itemId);
+                        if (item && field) {
+                            item[field] = e.target.value;
+                            this.updateTotals();
+                            if (field === 'purchasePrice') {
+                                const qty = parseInt(item.quantity) || 0;
+                                const subtotalCell = row?.querySelector('.subtotal-cell');
+                                if (subtotalCell) subtotalCell.textContent = this.formatNumber(raw * qty) + ' đ';
+                            }
+                            this.updatePriceInputBorders(row);
+                        }
                     }
                 });
             }
@@ -1972,17 +2010,29 @@ class PurchaseOrderFormModal {
             });
         });
 
-        // Also format discount, shipping, invoice inputs on blur
-        ['#inputDiscount', '#inputShipping', '#inputInvoiceAmount'].forEach(sel => {
+        // Format + ×1000 + preview for discount, shipping, invoice inputs
+        const previewMap = {
+            '#inputDiscount': '#discountPreview',
+            '#inputShipping': '#shippingPreview',
+            '#inputInvoiceAmount': '#invoiceAmountPreview'
+        };
+        Object.entries(previewMap).forEach(([sel, previewSel]) => {
             const el = this.modalElement.querySelector(sel);
-            if (el) {
-                el.addEventListener('blur', (e) => {
-                    const raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
-                    if (raw) {
-                        e.target.value = raw.toLocaleString('vi-VN');
-                    }
-                });
-            }
+            if (!el) return;
+            el.addEventListener('input', (e) => {
+                const parsed = this.parsePrice(e.target.value);
+                const preview = this.modalElement?.querySelector(previewSel);
+                if (preview) {
+                    preview.textContent = parsed ? parsed.toLocaleString('vi-VN') + ' đ' : '';
+                }
+            });
+            el.addEventListener('blur', (e) => {
+                const raw = this.parsePrice(e.target.value);
+                if (raw) e.target.value = raw.toLocaleString('vi-VN');
+                const preview = this.modalElement?.querySelector(previewSel);
+                if (preview) preview.textContent = '';
+                this.updateTotals();
+            });
         });
 
         // Action buttons

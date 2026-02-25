@@ -360,32 +360,74 @@
                         </div>
 
                         <!-- Products -->
-                        <div class="form-section">
+                        <div class="form-section" id="socialProductSection">
                             <h4><i class="fas fa-box"></i> Sản phẩm</h4>
-                            <div class="product-search-wrapper">
-                                <i class="fas fa-search"></i>
-                                <input
-                                    type="text"
-                                    id="productSearchInput"
-                                    placeholder="Tìm sản phẩm để thêm..."
-                                    oninput="searchProducts()"
-                                />
-                                <div class="product-search-results" id="productSearchResults"></div>
+
+                            <!-- Toolbar -->
+                            <div id="socialProductToolbar" style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center;">
+                                <input type="text" id="socialProductSearch"
+                                       placeholder="Tìm kiếm sản phẩm theo tên..."
+                                       style="flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
+                                <input type="text" id="socialOrderNote"
+                                       placeholder="Ghi chú thêm cho đơn hàng..."
+                                       style="flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
+                                <button id="btnSocialSettings" type="button"
+                                        style="padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer;"
+                                        title="Cài đặt validation giá">⚙</button>
+                                <button id="btnAddSocialItem" type="button"
+                                        onclick="window.purchaseOrderFormModal && (window.purchaseOrderFormModal.addItem(), window.purchaseOrderFormModal.refreshItemsTable())"
+                                        style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                    + Thêm sản phẩm
+                                </button>
+                                <button id="btnPickFromInventory" type="button"
+                                        style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                    Chọn từ Kho SP
+                                </button>
                             </div>
-                            <div class="products-list" id="orderProductsList">
-                                <div class="products-empty">
-                                    <i class="fas fa-shopping-basket"></i>
-                                    <p>Chưa có sản phẩm. Tìm kiếm để thêm.</p>
-                                </div>
+
+                            <!-- Bảng sản phẩm — PurchaseOrderFormModal.renderItemRows() render vào #itemsTableBody -->
+                            <div id="socialProductTableContainer" style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                    <thead>
+                                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                            <th style="padding: 8px; text-align: center; white-space: nowrap;">STT</th>
+                                            <th style="padding: 8px; text-align: left; min-width: 140px;">Tên SP</th>
+                                            <th style="padding: 8px; text-align: left; min-width: 100px;">Biến thể</th>
+                                            <th style="padding: 8px; text-align: left; min-width: 90px;">Mã SP</th>
+                                            <th style="padding: 8px; text-align: center; width: 60px;">SL</th>
+                                            <th style="padding: 8px; text-align: right; min-width: 100px;">Giá mua (VND)</th>
+                                            <th style="padding: 8px; text-align: right; min-width: 100px;">Giá bán (VND)</th>
+                                            <th style="padding: 8px; text-align: right; min-width: 100px;">Thành tiền (VND)</th>
+                                            <th style="padding: 8px; text-align: center; width: 70px;">Ảnh SP</th>
+                                            <th style="padding: 8px; text-align: center; width: 70px;">Ảnh Giá mua</th>
+                                            <th style="padding: 8px; text-align: center; width: 80px;">Thao tác</th>
+                                            <th style="padding: 8px; text-align: center; white-space: nowrap;">
+                                                <button type="button" id="btnToggleDebug" style="
+                                                    background: none; border: none; cursor: pointer; padding: 4px;
+                                                    color: #9ca3af; display: inline-flex; align-items: center; gap: 4px;
+                                                " title="Toggle Debug: Attr IDs">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                                    </svg>
+                                                </button>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="itemsTableBody">
+                                        <!-- renderItemRows() của PurchaseOrderFormModal sẽ render vào đây -->
+                                    </tbody>
+                                </table>
                             </div>
-                            <div class="products-summary" id="productsSummary">
+
+                            <!-- Totals -->
+                            <div class="products-summary" id="productsSummary" style="margin-top: 8px; display: flex; gap: 24px; justify-content: flex-end; font-size: 13px;">
                                 <div class="summary-row">
                                     <span>Tổng SL:</span>
-                                    <strong id="summaryQuantity">0 cái</strong>
+                                    <strong id="totalQuantity">0</strong>
                                 </div>
                                 <div class="summary-row total">
                                     <span>Tổng tiền:</span>
-                                    <strong id="summaryTotal">0đ</strong>
+                                    <strong id="totalAmount">0đ</strong>
                                 </div>
                             </div>
                         </div>
@@ -607,6 +649,67 @@
         <script src="../shared/js/shared-auth-manager.js"></script>
         <script src="../shared/js/notification-system.js"></script>
         <script src="js/managers/pancake-token-manager.js"></script>
+
+        <!-- Purchase Orders scripts (for reuse via Borrowed State pattern) -->
+        <script src="../purchase-orders/js/lib/tpos-search.js"></script>
+        <script src="../purchase-orders/js/lib/supplier-detector.js"></script>
+        <script src="../purchase-orders/js/lib/product-code-generator.js"></script>
+        <script src="../purchase-orders/js/lib/tpos-product-creator.js"></script>
+        <script src="../purchase-orders/js/config.js"></script>
+        <script src="../purchase-orders/js/service.js"></script>
+        <script src="../purchase-orders/js/dialogs.js"></script>
+        <script src="../purchase-orders/js/form-modal.js"></script>
+        <script>
+            // Khởi tạo instance dùng chung — PHẢI chạy trước tab-social-modal.js
+            window.purchaseOrderFormModal = new PurchaseOrderFormModal();
+
+            // Bind "Chọn từ Kho SP" button — reuse inventoryPickerDialog
+            document.getElementById('btnPickFromInventory')?.addEventListener('click', () => {
+                if (window.inventoryPickerDialog && window.purchaseOrderFormModal) {
+                    const fm = window.purchaseOrderFormModal;
+                    window.inventoryPickerDialog.open({
+                        onSelect: function(products) {
+                            // Remove empty items before adding
+                            fm.formData.items = fm.formData.items.filter(item =>
+                                item.productName?.trim() || item.productCode?.trim()
+                            );
+                            for (const product of products) {
+                                const item = fm.addItem();
+                                item.productName = product.name || '';
+                                item.productCode = product.code || '';
+                                item.purchasePrice = product.purchasePrice || 0;
+                                item.sellingPrice = product.sellingPrice || 0;
+                                if (product.tposProductId) item.tposProductId = product.tposProductId;
+                                if (product.tposProductTmplId) item.tposProductTmplId = product.tposProductTmplId;
+                                if (product.image) item.productImages = [product.image];
+                            }
+                            fm.refreshItemsTable();
+                        }
+                    });
+                }
+            });
+
+            // Bind Debug column toggle
+            document.getElementById('btnToggleDebug')?.addEventListener('click', () => {
+                if (!window.purchaseOrderFormModal) return;
+                const fm = window.purchaseOrderFormModal;
+                fm.showDebugColumn = !fm.showDebugColumn;
+                const th = document.getElementById('btnToggleDebug').closest('th');
+                const btn = document.getElementById('btnToggleDebug');
+                if (btn) {
+                    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+                        + (fm.showDebugColumn ? '<polyline points="15 18 9 12 15 6"></polyline>' : '<polyline points="9 18 15 12 9 6"></polyline>')
+                        + '</svg>';
+                }
+                const label = th?.querySelector('span');
+                if (fm.showDebugColumn && !label) {
+                    btn.insertAdjacentHTML('afterend', '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>');
+                } else if (!fm.showDebugColumn && label) {
+                    label.remove();
+                }
+                fm.refreshItemsTable();
+            });
+        </script>
 
         <!-- Tab Social Scripts -->
         <script src="js/tab-social/tab-social-core.js"></script>

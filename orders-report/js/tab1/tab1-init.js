@@ -343,6 +343,35 @@ window.addEventListener("DOMContentLoaded", async function () {
  *   4. If no dates → show modal
  *   5. Fetch orders 1 lần duy nhất
  */
+/**
+ * Wait for Firebase auth state to resolve (handles incognito/new sessions)
+ * Returns the current user (or null if not authenticated)
+ */
+function waitForAuthState() {
+    return new Promise((resolve) => {
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            resolve(null);
+            return;
+        }
+        // If auth already resolved, return immediately
+        const currentUser = firebase.auth().currentUser;
+        if (currentUser !== undefined) {
+            // currentUser is null (not logged in) or a user object - either way auth has resolved
+            // But we still need to wait for onAuthStateChanged to fire at least once
+        }
+        // Use onAuthStateChanged to wait for auth to fully initialize
+        const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
+            unsubscribe(); // Unsubscribe immediately after first call
+            resolve(user);
+        });
+        // Timeout after 5 seconds to avoid blocking forever
+        setTimeout(() => {
+            unsubscribe();
+            resolve(firebase.auth().currentUser);
+        }, 5000);
+    });
+}
+
 let appInitialized = false; // Guard flag
 // ⚡ OPTIMIZATION FIX: Track Firebase wait attempts to prevent infinite loops
 let firebaseWaitAttempts = 0;
@@ -378,6 +407,12 @@ async function initializeApp() {
 
         // Reset counter on successful Firebase connection
         firebaseWaitAttempts = 0;
+
+        // 1.5. Wait for Firebase Auth to resolve (critical for incognito tabs)
+        // Without this, currentUser is null and we get a wrong userId from localStorage
+        console.log('[APP] Waiting for Firebase Auth state...');
+        const authUser = await waitForAuthState();
+        console.log('[APP] Auth state resolved:', authUser ? authUser.uid : 'not authenticated');
 
         // Set current user ID
         window.campaignManager = window.campaignManager || {

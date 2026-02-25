@@ -5,26 +5,10 @@
 
 // ===== MODAL STATE =====
 let isEditMode = false;
-let currentOrderProducts = [];
-
-// ===== MOCK PRODUCTS FOR SEARCH =====
-const MOCK_PRODUCTS = [
-    { productId: 'p1', name: 'Áo thun trắng', code: 'AT001', price: 150000 },
-    { productId: 'p2', name: 'Quần jean xanh', code: 'QJ002', price: 350000 },
-    { productId: 'p3', name: 'Váy hoa', code: 'VH003', price: 450000 },
-    { productId: 'p4', name: 'Giày sneaker', code: 'GS004', price: 890000 },
-    { productId: 'p5', name: 'Túi xách', code: 'TX005', price: 550000 },
-    { productId: 'p6', name: 'Ví da', code: 'VD006', price: 250000 },
-    { productId: 'p7', name: 'Áo khoác', code: 'AK007', price: 750000 },
-    { productId: 'p8', name: 'Áo sơ mi trắng', code: 'ASM008', price: 280000 },
-    { productId: 'p9', name: 'Quần tây đen', code: 'QT009', price: 420000 },
-    { productId: 'p10', name: 'Đầm maxi', code: 'DM010', price: 680000 },
-];
 
 // ===== OPEN MODAL =====
 function openCreateOrderModal() {
     isEditMode = false;
-    currentOrderProducts = [];
 
     // Reset form
     document.getElementById('orderForm')?.reset();
@@ -51,9 +35,8 @@ function openCreateOrderModal() {
         title.innerHTML = '<i class="fas fa-plus-circle"></i> Tạo đơn hàng mới';
     }
 
-    // Clear products list
-    renderOrderProducts();
-    updateProductsSummary();
+    // Init product section with empty list
+    _initSocialProductSection([]);
 
     // Show modal
     const modal = document.getElementById('orderModalOverlay');
@@ -72,7 +55,7 @@ function openEditOrderModal(orderId) {
     }
 
     SocialOrderState.currentEditingOrder = order;
-    currentOrderProducts = [...(order.products || [])];
+    const mappedProducts = (order.products || []).map(_mapLegacyProduct);
 
     // Fill form
     document.getElementById('orderId').value = order.id;
@@ -90,9 +73,8 @@ function openEditOrderModal(orderId) {
         title.innerHTML = `<i class="fas fa-edit"></i> Sửa đơn hàng ${order.id}`;
     }
 
-    // Render products
-    renderOrderProducts();
-    updateProductsSummary();
+    // Init product section with existing products
+    _initSocialProductSection(mappedProducts);
 
     // Show modal
     const modal = document.getElementById('orderModalOverlay');
@@ -107,147 +89,83 @@ function closeOrderModal() {
         modal.classList.remove('show');
     }
 
-    // Clear search results
-    const searchResults = document.getElementById('productSearchResults');
-    if (searchResults) {
-        searchResults.classList.remove('show');
-        searchResults.innerHTML = '';
+    // Cleanup purchaseOrderFormModal reference
+    if (window.purchaseOrderFormModal) {
+        window.purchaseOrderFormModal.modalElement = null;
     }
 
     SocialOrderState.currentEditingOrder = null;
-    currentOrderProducts = [];
 }
 
-// ===== PRODUCT SEARCH =====
-function searchProducts() {
-    const input = document.getElementById('productSearchInput');
-    const resultsContainer = document.getElementById('productSearchResults');
+// ===== PRODUCT SECTION HELPERS (Borrowed State Pattern) =====
+function _mapLegacyProduct(p) {
+    return {
+        id: p.id || p.productId || `item_${Date.now()}_${Math.random()}`,
+        productName: p.productName || p.name || '',
+        variant: p.variant || '',
+        productCode: p.productCode || p.code || '',
+        quantity: p.quantity || 1,
+        purchasePrice: p.purchasePrice || 0,
+        sellingPrice: p.sellingPrice || p.price || 0,
+        productImages: p.productImages || [],
+        priceImages: p.priceImages || [],
+        selectedAttributeValueIds: p.selectedAttributeValueIds || []
+    };
+}
 
-    if (!input || !resultsContainer) return;
-
-    const term = input.value.toLowerCase().trim();
-
-    if (term.length < 1) {
-        resultsContainer.classList.remove('show');
-        resultsContainer.innerHTML = '';
+function _initSocialProductSection(existingProducts = []) {
+    if (!window.purchaseOrderFormModal) {
+        console.warn('[SocialModal] purchaseOrderFormModal not available');
         return;
     }
 
-    // Search mock products
-    const results = MOCK_PRODUCTS.filter(
-        (p) => p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term)
-    ).slice(0, 5);
+    // 1. Reset state
+    window.purchaseOrderFormModal.formData.items = [];
+    window.purchaseOrderFormModal.itemCounter = 0;
+    window.purchaseOrderFormModal.pendingImages = { invoice: [], products: {}, prices: {} };
 
-    if (results.length === 0) {
-        resultsContainer.innerHTML =
-            '<div class="product-search-item" style="color: #9ca3af;">Không tìm thấy sản phẩm</div>';
+    // 2. Trỏ modalElement vào container của modal social
+    window.purchaseOrderFormModal.modalElement = document.getElementById('orderModalOverlay');
+
+    // 3. Load items
+    if (existingProducts.length > 0) {
+        window.purchaseOrderFormModal.formData.items = existingProducts.map((p, i) => ({
+            id: p.id || `item_${Date.now()}_${i}`,
+            productName: p.productName || '',
+            variant: p.variant || '',
+            productCode: p.productCode || '',
+            quantity: p.quantity || 1,
+            purchasePrice: p.purchasePrice || 0,
+            sellingPrice: p.sellingPrice || 0,
+            productImages: p.productImages || [],
+            priceImages: p.priceImages || [],
+            selectedAttributeValueIds: p.selectedAttributeValueIds || [],
+            _isExistingItem: true
+        }));
+        window.purchaseOrderFormModal.itemCounter = existingProducts.length;
     } else {
-        resultsContainer.innerHTML = results
-            .map(
-                (p) => `
-            <div class="product-search-item" onclick="addProductToOrder('${p.productId}')">
-                <div>
-                    <div style="font-weight: 500;">${p.name}</div>
-                    <div style="font-size: 11px; color: #6b7280;">${p.code}</div>
-                </div>
-                <div style="font-weight: 600; color: #8b5cf6;">${formatCurrency(p.price)}</div>
-            </div>
-        `
-            )
-            .join('');
+        window.purchaseOrderFormModal.addItem();
     }
 
-    resultsContainer.classList.add('show');
+    // 4. Render + bind
+    window.purchaseOrderFormModal.refreshItemsTable();
 }
 
-function addProductToOrder(productId) {
-    const product = MOCK_PRODUCTS.find((p) => p.productId === productId);
-    if (!product) return;
-
-    // Check if already in list
-    const existing = currentOrderProducts.find((p) => p.productId === productId);
-    if (existing) {
-        existing.quantity += 1;
-    } else {
-        currentOrderProducts.push({
-            ...product,
-            quantity: 1,
-        });
-    }
-
-    // Clear search
-    document.getElementById('productSearchInput').value = '';
-    document.getElementById('productSearchResults').classList.remove('show');
-
-    // Re-render
-    renderOrderProducts();
-    updateProductsSummary();
-}
-
-function removeProductFromOrder(productId) {
-    currentOrderProducts = currentOrderProducts.filter((p) => p.productId !== productId);
-    renderOrderProducts();
-    updateProductsSummary();
-}
-
-function updateProductQuantity(productId, quantity) {
-    const product = currentOrderProducts.find((p) => p.productId === productId);
-    if (product) {
-        product.quantity = Math.max(1, parseInt(quantity) || 1);
-    }
-    updateProductsSummary();
-}
-
-// ===== RENDER PRODUCTS IN MODAL =====
-function renderOrderProducts() {
-    const container = document.getElementById('orderProductsList');
-    if (!container) return;
-
-    if (currentOrderProducts.length === 0) {
-        container.innerHTML = `
-            <div class="products-empty">
-                <i class="fas fa-shopping-basket"></i>
-                <p>Chưa có sản phẩm. Tìm kiếm để thêm.</p>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = currentOrderProducts
-        .map(
-            (p) => `
-        <div class="product-item">
-            <div class="product-item-info">
-                <div class="product-item-name">${p.name}</div>
-                <div class="product-item-code">${p.code}</div>
-            </div>
-            <div class="product-item-qty">
-                <span>x</span>
-                <input type="number" 
-                       min="1" 
-                       value="${p.quantity}" 
-                       onchange="updateProductQuantity('${p.productId}', this.value)"
-                       style="width: 50px; text-align: center;">
-            </div>
-            <div class="product-item-price">${formatCurrency(p.price * p.quantity)}</div>
-            <button class="product-item-remove" onclick="removeProductFromOrder('${p.productId}')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `
-        )
-        .join('');
-}
-
-function updateProductsSummary() {
-    const totalQty = currentOrderProducts.reduce((sum, p) => sum + p.quantity, 0);
-    const totalAmount = currentOrderProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
-
-    const qtyEl = document.getElementById('summaryQuantity');
-    const totalEl = document.getElementById('summaryTotal');
-
-    if (qtyEl) qtyEl.textContent = totalQty + ' cái';
-    if (totalEl) totalEl.textContent = formatCurrency(totalAmount);
+function _collectSocialProducts() {
+    if (!window.purchaseOrderFormModal) return [];
+    window.purchaseOrderFormModal.collectFormData();
+    return window.purchaseOrderFormModal.formData.items.map(item => ({
+        id: item.id,
+        productName: item.productName || '',
+        variant: item.variant || '',
+        productCode: item.productCode || '',
+        quantity: parseInt(item.quantity) || 1,
+        purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
+        sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
+        productImages: item.productImages || [],
+        priceImages: item.priceImages || [],
+        selectedAttributeValueIds: item.selectedAttributeValueIds || []
+    }));
 }
 
 // ===== SAVE ORDER =====
@@ -273,9 +191,13 @@ function saveOrder() {
         return;
     }
 
-    // Calculate totals
-    const totalQuantity = currentOrderProducts.reduce((sum, p) => sum + p.quantity, 0);
-    const totalAmount = currentOrderProducts.reduce((sum, p) => sum + p.price * p.quantity, 0);
+    // Calculate totals using borrowed state
+    const products = _collectSocialProducts();
+    const totals = window.purchaseOrderFormModal
+        ? window.purchaseOrderFormModal.calculateTotals()
+        : { totalQuantity: 0, totalAmount: 0 };
+    const totalQuantity = totals.totalQuantity;
+    const totalAmount = totals.totalAmount;
 
     // Generate post label from URL
     let postLabel = '';
@@ -306,13 +228,18 @@ function saveOrder() {
                 postUrl,
                 postLabel,
                 source,
-                products: [...currentOrderProducts],
+                products: products,
                 totalQuantity,
                 totalAmount,
                 note,
                 updatedAt: Date.now(),
             };
             showNotification('Đã cập nhật đơn hàng', 'success');
+
+            // Fire-and-forget: sync updated products to TPOS
+            if (window.TPOSProductCreator && products.length > 0) {
+                window.TPOSProductCreator.syncOrderToTPOS(orderId, products, '');
+            }
         }
     } else {
         // Create new order
@@ -325,7 +252,7 @@ function saveOrder() {
             postUrl,
             postLabel,
             source,
-            products: [...currentOrderProducts],
+            products: products,
             totalQuantity,
             totalAmount,
             tags: [],
@@ -344,6 +271,11 @@ function saveOrder() {
 
         SocialOrderState.orders.unshift(newOrder);
         showNotification('Đã tạo đơn hàng mới', 'success');
+
+        // Fire-and-forget: sync products to TPOS
+        if (window.TPOSProductCreator && products.length > 0) {
+            window.TPOSProductCreator.syncOrderToTPOS(newOrder.id, products, '');
+        }
     }
 
     // Close modal and refresh
@@ -356,13 +288,6 @@ document.addEventListener('click', function (e) {
     const modalOverlay = document.getElementById('orderModalOverlay');
     if (e.target === modalOverlay) {
         closeOrderModal();
-    }
-
-    // Close product search results when clicking outside
-    const searchResults = document.getElementById('productSearchResults');
-    const searchInput = document.getElementById('productSearchInput');
-    if (searchResults && !searchResults.contains(e.target) && e.target !== searchInput) {
-        searchResults.classList.remove('show');
     }
 });
 
@@ -645,6 +570,7 @@ function copyPostId(postId) {
     });
 }
 
+// ===== UTILITY =====
 function formatNumber(num) {
     if (num >= 1000) {
         return (num / 1000).toFixed(1) + 'K';
@@ -656,10 +582,6 @@ function formatNumber(num) {
 window.openCreateOrderModal = openCreateOrderModal;
 window.openEditOrderModal = openEditOrderModal;
 window.closeOrderModal = closeOrderModal;
-window.searchProducts = searchProducts;
-window.addProductToOrder = addProductToOrder;
-window.removeProductFromOrder = removeProductFromOrder;
-window.updateProductQuantity = updateProductQuantity;
 window.saveOrder = saveOrder;
 window.openPostSelectionModal = openPostSelectionModal;
 window.closePostSelectionModal = closePostSelectionModal;
