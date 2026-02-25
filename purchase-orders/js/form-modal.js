@@ -1945,11 +1945,33 @@ class PurchaseOrderFormModal {
             });
 
             // Auto-format number fields on blur (thousand separator with '.')
+            // For price fields: 3-digit input auto ×1000 (e.g. 150 → 150.000)
             if (['purchasePrice', 'sellingPrice', 'quantity'].includes(input.dataset.field) && input.type === 'text') {
                 input.addEventListener('blur', (e) => {
-                    const raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
+                    const field = e.target.dataset.field;
+                    let raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
+
+                    // Auto ×1000 for price fields when input is 1-3 digits (1-999)
+                    if ((field === 'purchasePrice' || field === 'sellingPrice') && raw >= 1 && raw <= 999) {
+                        raw = raw * 1000;
+                    }
+
                     if (raw) {
                         e.target.value = raw.toLocaleString('vi-VN');
+                        // Update formData with the adjusted value
+                        const row = e.target.closest('tr[data-item-id]');
+                        const itemId = row?.dataset.itemId;
+                        const item = this.formData.items.find(i => i.id === itemId);
+                        if (item && field) {
+                            item[field] = e.target.value;
+                            this.updateTotals();
+                            if (field === 'purchasePrice') {
+                                const qty = parseInt(item.quantity) || 0;
+                                const subtotalCell = row?.querySelector('.subtotal-cell');
+                                if (subtotalCell) subtotalCell.textContent = this.formatNumber(raw * qty) + ' đ';
+                            }
+                            this.updatePriceInputBorders(row);
+                        }
                     }
                 });
             }
