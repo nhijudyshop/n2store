@@ -1591,15 +1591,17 @@ class PurchaseOrderFormModal {
         if (!this.modalElement) return;
 
         // Close button (with unsaved changes check)
-        this.modalElement.querySelector('#btnCloseModal')?.addEventListener('click', () => {
+        this.modalElement.querySelector('#btnCloseModal')?.addEventListener('click', async () => {
             if (this.hasUnsavedChanges()) {
-                if (!confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?')) return;
+                const ok = await this.showConfirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?');
+                if (!ok) return;
             }
             this.close();
         });
-        this.modalElement.querySelector('#btnCancel')?.addEventListener('click', () => {
+        this.modalElement.querySelector('#btnCancel')?.addEventListener('click', async () => {
             if (this.hasUnsavedChanges()) {
-                if (!confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?')) return;
+                const ok = await this.showConfirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?');
+                if (!ok) return;
             }
             this.onCancel?.();
             this.close();
@@ -1719,10 +1721,11 @@ class PurchaseOrderFormModal {
         });
 
         // Escape key (with unsaved changes check) — stored for cleanup
-        this._globalKeydownHandler = (e) => {
+        this._globalKeydownHandler = async (e) => {
             if (e.key === 'Escape' && this.modalElement) {
                 if (this.hasUnsavedChanges()) {
-                    if (!confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?')) return;
+                    const ok = await this.showConfirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?');
+                    if (!ok) return;
                 }
                 this.close();
             }
@@ -2142,7 +2145,7 @@ class PurchaseOrderFormModal {
         this.collectFormData();
 
         if (!this.formData.supplier) {
-            alert('Vui lòng nhập tên nhà cung cấp');
+            this.showAlert('Vui lòng nhập tên nhà cung cấp', { title: 'Thiếu thông tin', type: 'warning' });
             return;
         }
 
@@ -2170,7 +2173,7 @@ class PurchaseOrderFormModal {
             this.close();
         } catch (error) {
             console.error('Save draft failed:', error);
-            alert('Không thể lưu nháp: ' + error.message);
+            this.showAlert('Không thể lưu nháp: ' + error.message, { title: 'Lỗi', type: 'error' });
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -2198,7 +2201,7 @@ class PurchaseOrderFormModal {
         if (window.notificationManager) {
             window.notificationManager.show(message, 'error');
         } else {
-            alert(message);
+            this.showAlert(message, { title: 'Lỗi xác thực', type: 'error' });
         }
     }
 
@@ -2284,7 +2287,7 @@ class PurchaseOrderFormModal {
             if (window.notificationManager) {
                 window.notificationManager.show('Không thể tạo đơn hàng: ' + error.message, 'error');
             } else {
-                alert('Không thể tạo đơn hàng: ' + error.message);
+                this.showAlert('Không thể tạo đơn hàng: ' + error.message, { title: 'Lỗi', type: 'error' });
             }
         } finally {
             if (btn) {
@@ -2361,6 +2364,118 @@ class PurchaseOrderFormModal {
         })));
 
         return result;
+    }
+
+    // ========================================
+    // CUSTOM DIALOG (replace native confirm/alert)
+    // ========================================
+
+    /**
+     * Show custom confirm dialog
+     * @param {string} message
+     * @param {Object} options - { title, confirmText, cancelText, type }
+     * @returns {Promise<boolean>}
+     */
+    showConfirm(message, options = {}) {
+        const {
+            title = 'Xác nhận',
+            confirmText = 'Đồng ý',
+            cancelText = 'Hủy',
+            type = 'warning' // warning, error, info
+        } = options;
+
+        const iconMap = {
+            warning: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            error: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+            info: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+
+        const colorMap = {
+            warning: { btn: '#f59e0b', hover: '#d97706' },
+            error: { btn: '#ef4444', hover: '#dc2626' },
+            info: { btn: '#3b82f6', hover: '#2563eb' }
+        };
+        const colors = colorMap[type] || colorMap.warning;
+
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100000;animation:fadeIn 0.15s ease';
+            overlay.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:scaleIn 0.15s ease">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        ${iconMap[type] || iconMap.warning}
+                        <h3 style="margin:0;font-size:16px;font-weight:600;color:#111827;">${title}</h3>
+                    </div>
+                    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;line-height:1.5;">${message}</p>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;">
+                        <button id="_dlgCancel" style="padding:8px 20px;border:1px solid #d1d5db;background:white;border-radius:8px;font-size:14px;cursor:pointer;color:#374151;transition:background 0.15s">${cancelText}</button>
+                        <button id="_dlgConfirm" style="padding:8px 20px;border:none;background:${colors.btn};color:white;border-radius:8px;font-size:14px;cursor:pointer;font-weight:500;transition:background 0.15s">${confirmText}</button>
+                    </div>
+                </div>
+            `;
+
+            const cleanup = (result) => {
+                overlay.remove();
+                resolve(result);
+            };
+
+            overlay.querySelector('#_dlgCancel').addEventListener('click', () => cleanup(false));
+            overlay.querySelector('#_dlgConfirm').addEventListener('click', () => cleanup(true));
+            overlay.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') cleanup(false);
+                if (e.key === 'Enter') cleanup(true);
+            });
+
+            document.body.appendChild(overlay);
+            overlay.querySelector('#_dlgConfirm').focus();
+        });
+    }
+
+    /**
+     * Show custom alert dialog
+     * @param {string} message
+     * @param {Object} options - { title, type }
+     * @returns {Promise<void>}
+     */
+    showAlert(message, options = {}) {
+        const {
+            title = 'Thông báo',
+            buttonText = 'Đã hiểu',
+            type = 'warning'
+        } = options;
+
+        const iconMap = {
+            warning: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            error: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+            success: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="16 10 11 15 8 12"/></svg>',
+            info: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+        };
+
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:100000;animation:fadeIn 0.15s ease';
+            overlay.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:scaleIn 0.15s ease">
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                        ${iconMap[type] || iconMap.warning}
+                        <h3 style="margin:0;font-size:16px;font-weight:600;color:#111827;">${title}</h3>
+                    </div>
+                    <p style="margin:0 0 24px;font-size:14px;color:#4b5563;line-height:1.5;white-space:pre-line;">${message}</p>
+                    <div style="display:flex;justify-content:flex-end;">
+                        <button id="_dlgOk" style="padding:8px 24px;border:none;background:#4f46e5;color:white;border-radius:8px;font-size:14px;cursor:pointer;font-weight:500;transition:background 0.15s">${buttonText}</button>
+                    </div>
+                </div>
+            `;
+
+            const cleanup = () => { overlay.remove(); resolve(); };
+            overlay.querySelector('#_dlgOk').addEventListener('click', cleanup);
+            overlay.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' || e.key === 'Enter') cleanup();
+            });
+
+            document.body.appendChild(overlay);
+            overlay.querySelector('#_dlgOk').focus();
+        });
     }
 }
 
