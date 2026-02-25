@@ -552,7 +552,10 @@ class PurchaseOrderFormModal {
                     // Will be handled by paste event
                 }
             });
-            area.addEventListener('paste', (e) => this.handlePaste(e, 'invoice'));
+            area.addEventListener('paste', (e) => {
+                e.stopPropagation();
+                this.handlePaste(e, 'invoice');
+            });
 
             // File input change
             fileInput.addEventListener('change', (e) => this.handleFileSelect(e, 'invoice'));
@@ -599,8 +602,11 @@ class PurchaseOrderFormModal {
                 area.style.color = '#9ca3af';
             });
 
-            // Paste on focus
-            area.addEventListener('paste', (e) => this.handlePaste(e, type, itemId));
+            // Paste on focus (stopPropagation prevents global handler from double-firing)
+            area.addEventListener('paste', (e) => {
+                e.stopPropagation();
+                this.handlePaste(e, type, itemId);
+            });
 
             // File input change
             fileInput.addEventListener('change', (e) => this.handleFileSelect(e, type, itemId));
@@ -766,6 +772,15 @@ class PurchaseOrderFormModal {
      * Close modal
      */
     close() {
+        // Remove global listeners to prevent duplicate handlers on next open
+        if (this._globalPasteHandler) {
+            document.removeEventListener('paste', this._globalPasteHandler);
+            this._globalPasteHandler = null;
+        }
+        if (this._globalKeydownHandler) {
+            document.removeEventListener('keydown', this._globalKeydownHandler);
+            this._globalKeydownHandler = null;
+        }
         if (this.modalElement) {
             this.modalElement.remove();
             this.modalElement = null;
@@ -1724,18 +1739,19 @@ class PurchaseOrderFormModal {
             this.handleSubmit();
         });
 
-        // Escape key (with unsaved changes check)
-        document.addEventListener('keydown', (e) => {
+        // Escape key (with unsaved changes check) — stored for cleanup
+        this._globalKeydownHandler = (e) => {
             if (e.key === 'Escape' && this.modalElement) {
                 if (this.hasUnsavedChanges()) {
                     if (!confirm('Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng?')) return;
                 }
                 this.close();
             }
-        });
+        };
+        document.addEventListener('keydown', this._globalKeydownHandler);
 
-        // Global paste handler - paste to hovered image area
-        document.addEventListener('paste', (e) => {
+        // Global paste handler - paste to hovered image area — stored for cleanup
+        this._globalPasteHandler = (e) => {
             // Only handle if modal is open and no input/textarea is focused
             if (!this.modalElement) return;
             const activeEl = document.activeElement;
@@ -1745,7 +1761,8 @@ class PurchaseOrderFormModal {
             if (this.hoveredImageArea) {
                 this.handlePaste(e, this.hoveredImageArea.type, this.hoveredImageArea.itemId);
             }
-        });
+        };
+        document.addEventListener('paste', this._globalPasteHandler);
 
         // Supplier autocomplete (NCCManager)
         const supplierInput = this.modalElement.querySelector('#inputSupplier');
