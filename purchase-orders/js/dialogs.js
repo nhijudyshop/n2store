@@ -1577,19 +1577,18 @@ class InventoryPickerDialog {
 
     /**
      * Fetch parent product image by ProductTmplId
-     * Searches for sibling products with the same template that have an image
+     * Uses ProductTemplate API to get the template's canonical image
+     * Logic: variant.ImageUrl → templateData.ImageUrl → ''
      */
     async fetchParentImage(templateId, token) {
         try {
-            // Cache key for template images
             if (!this._templateImageCache) this._templateImageCache = {};
-            if (this._templateImageCache[templateId]) {
+            if (this._templateImageCache[templateId] !== undefined) {
                 return this._templateImageCache[templateId];
             }
 
-            // Find a product with same ProductTmplId that has an image
             const response = await fetch(
-                `${this.proxyUrl}/api/odata/Product?$filter=ProductTmplId eq ${templateId}&$top=5&$select=Id,ImageUrl,Thumbnails`,
+                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})?$select=Id,ImageUrl`,
                 {
                     method: 'GET',
                     headers: {
@@ -1601,23 +1600,18 @@ class InventoryPickerDialog {
                 }
             );
 
-            if (!response.ok) return '';
-
-            const result = await response.json();
-            const products = result.value || [];
-
-            for (const p of products) {
-                const img = p.ImageUrl || (p.Thumbnails && p.Thumbnails[2]) || '';
-                if (img) {
-                    this._templateImageCache[templateId] = img;
-                    return img;
-                }
+            if (!response.ok) {
+                this._templateImageCache[templateId] = '';
+                return '';
             }
 
-            this._templateImageCache[templateId] = '';
-            return '';
+            const templateData = await response.json();
+            const img = templateData.ImageUrl || '';
+            this._templateImageCache[templateId] = img;
+            return img;
         } catch (error) {
-            console.warn('[InventoryPicker] Failed to fetch parent image:', error);
+            console.warn('[InventoryPicker] Failed to fetch template image:', error);
+            this._templateImageCache[templateId] = '';
             return '';
         }
     }
