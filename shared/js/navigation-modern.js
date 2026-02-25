@@ -175,6 +175,15 @@ const MENU_CONFIG = [
         permissionRequired: "lichsuchinhsua",
     },
     {
+        href: "../quy-trinh/index.html",
+        icon: "book-open",
+        text: "Quy Trình Nghiệp Vụ",
+        shortText: "Quy Trình",
+        pageIdentifier: "quy-trinh",
+        adminOnly: true,
+        permissionRequired: "quy-trinh",
+    },
+    {
         href: "../AI/gemini.html",
         icon: "bot",
         text: "Gemini AI Assistant",
@@ -387,7 +396,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Quản Trị",
         icon: "settings",
-        items: ["user-management", "balance-history", "invoice-compare", "lichsuchinhsua"]
+        items: ["user-management", "balance-history", "invoice-compare", "lichsuchinhsua", "quy-trinh"]
     },
     {
         name: "Khác",
