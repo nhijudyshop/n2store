@@ -502,7 +502,7 @@ class PurchaseOrderController {
 
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
 
-        // Build item rows with editable qty/price
+        // Build item rows with readonly qty/price (double-click to edit)
         const rowsHTML = items.map((item, idx) => {
             const qty = item.quantity || 0;
             const price = item.purchasePrice || 0;
@@ -510,25 +510,39 @@ class PurchaseOrderController {
             const code = item.productCode || '';
             const name = item.productName || '';
             const variant = item.variant || '';
+            const hasTposId = !!(item.tposProductId);
             return `
-                <tr style="border-bottom: 1px solid #dee2e6;" data-idx="${idx}">
+                <tr style="border-bottom: 1px solid #dee2e6;" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}">
                     <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${idx + 1}</td>
                     <td style="padding: 10px 12px; font-size: 14px; border-right: 1px solid #dee2e6;">
                         <div style="font-weight: 700; color: #000;">[${code}] ${name}</div>
                         <div style="color: #999; font-size: 12px; margin-top: 2px;">${variant || 'Ghi chú'}</div>
                     </td>
                     <td style="padding: 10px 4px; text-align: center; width: 100px; border-right: 1px solid #dee2e6;">
-                        <input type="number" class="po-qty" data-idx="${idx}" value="${qty}" min="0" style="
-                            width: 70px; height: 32px; text-align: center; border: 1px solid #ccc;
+                        <input type="number" class="po-qty" data-idx="${idx}" value="${qty}" min="0" readonly style="
+                            width: 70px; height: 32px; text-align: center; border: 1px solid #e5e7eb;
                             border-radius: 3px; font-size: 14px; padding: 0 4px;
+                            background: #f9fafb; cursor: default;
                         ">
                     </td>
-                    <td style="padding: 10px 4px; text-align: right; width: 160px; border-right: 1px solid #dee2e6;">
+                    <td style="padding: 10px 4px; text-align: right; width: 200px; border-right: 1px solid #dee2e6;">
                         <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
-                            <input type="number" class="po-price" data-idx="${idx}" value="${price}" min="0" style="
-                                width: 110px; height: 32px; text-align: right; border: 1px solid #ccc;
+                            <input type="number" class="po-price" data-idx="${idx}" data-original="${price}" value="${price}" min="0" readonly style="
+                                width: 110px; height: 32px; text-align: right; border: 1px solid #e5e7eb;
                                 border-radius: 3px; font-size: 14px; padding: 0 8px;
+                                background: #f9fafb; cursor: default;
                             ">
+                            <span class="po-price-actions" data-idx="${idx}" style="display: none; white-space: nowrap;">
+                                <button class="po-price-cancel" data-idx="${idx}" title="Hủy" style="
+                                    width: 26px; height: 26px; border: 1px solid #fca5a5; border-radius: 4px;
+                                    background: #fef2f2; color: #ef4444; cursor: pointer; font-size: 14px; line-height: 24px;
+                                ">&times;</button>
+                                <button class="po-price-save" data-idx="${idx}" title="Lưu giá lên TPOS" ${!hasTposId ? 'disabled' : ''} style="
+                                    width: 26px; height: 26px; border: 1px solid #86efac; border-radius: 4px;
+                                    background: #f0fdf4; color: #16a34a; cursor: pointer; font-size: 14px; line-height: 24px;
+                                    ${!hasTposId ? 'opacity: 0.4; cursor: not-allowed;' : ''}
+                                ">&#10003;</button>
+                            </span>
                             <input type="checkbox" class="po-bypass-zero" data-idx="${idx}" title="Cho phép giá 0" style="
                                 width: 16px; height: 16px; cursor: pointer; accent-color: #f59e0b;
                                 display: ${price === 0 ? 'block' : 'none'};
@@ -638,6 +652,14 @@ class PurchaseOrderController {
                     </div>
                 </div>
 
+                <!-- Editing warning -->
+                <div id="poEditingWarning" style="padding: 8px 20px; background: #dbeafe; border-top: 1px solid #bfdbfe; display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1e40af;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        <span>Đang chỉnh sửa đơn giá. Lưu hoặc hủy trước khi xuất.</span>
+                    </div>
+                </div>
+
                 <!-- Buttons -->
                 <div style="padding: 12px 20px; border-top: 1px solid #dee2e6; display: flex; gap: 8px; justify-content: flex-end; background: #f8f9fa;">
                     <button type="button" id="btnCancelPO" style="
@@ -659,8 +681,11 @@ class PurchaseOrderController {
 
         document.body.appendChild(overlay);
 
-        // Check zero-price items and toggle warning/buttons
-        const checkZeroPrices = () => {
+        // Track editing state
+        const editingPrices = new Set();
+
+        // Update button states based on zero-price and editing state
+        const updateButtonStates = () => {
             let zeroPriceCount = 0;
             overlay.querySelectorAll('tr[data-idx]').forEach(row => {
                 const price = parseFloat(row.querySelector('.po-price').value) || 0;
@@ -674,14 +699,28 @@ class PurchaseOrderController {
                 }
             });
 
-            const warning = overlay.querySelector('#poZeroPriceWarning');
+            const zeroWarning = overlay.querySelector('#poZeroPriceWarning');
+            const editWarning = overlay.querySelector('#poEditingWarning');
             const btnExcel = overlay.querySelector('#btnExportExcel');
             const btnTPOS = overlay.querySelector('#btnSubmitTPOS');
 
+            const isEditing = editingPrices.size > 0;
+            const isBlocked = zeroPriceCount > 0 || isEditing;
+
+            // Zero-price warning
             if (zeroPriceCount > 0) {
-                warning.style.display = 'block';
-                warning.querySelector('#poZeroPriceText').textContent =
+                zeroWarning.style.display = 'block';
+                zeroWarning.querySelector('#poZeroPriceText').textContent =
                     `Có ${zeroPriceCount} sản phẩm giá 0. Tick checkbox bên cạnh đơn giá để cho phép.`;
+            } else {
+                zeroWarning.style.display = 'none';
+            }
+
+            // Editing warning
+            editWarning.style.display = isEditing ? 'block' : 'none';
+
+            // Button states
+            if (isBlocked) {
                 btnExcel.disabled = true;
                 btnExcel.style.opacity = '0.5';
                 btnExcel.style.cursor = 'not-allowed';
@@ -691,7 +730,6 @@ class PurchaseOrderController {
                     btnTPOS.style.cursor = 'not-allowed';
                 }
             } else {
-                warning.style.display = 'none';
                 btnExcel.disabled = false;
                 btnExcel.style.opacity = '';
                 btnExcel.style.cursor = 'pointer';
@@ -701,6 +739,24 @@ class PurchaseOrderController {
                     btnTPOS.style.cursor = 'pointer';
                 }
             }
+        };
+
+        // Enable editing on an input
+        const enableInput = (input) => {
+            input.readOnly = false;
+            input.style.background = 'white';
+            input.style.border = '1px solid #3b82f6';
+            input.style.cursor = 'text';
+            input.focus();
+            input.select();
+        };
+
+        // Lock input back to readonly
+        const lockInput = (input) => {
+            input.readOnly = true;
+            input.style.background = '#f9fafb';
+            input.style.border = '1px solid #e5e7eb';
+            input.style.cursor = 'default';
         };
 
         // Recalculate all totals from current input values
@@ -714,7 +770,6 @@ class PurchaseOrderController {
                 totalQty += qty;
                 totalAmount += lineTotal;
                 row.querySelector('.po-line-total').textContent = fmt(lineTotal);
-                // Update item data for export
                 if (items[idx]) {
                     items[idx].quantity = qty;
                     items[idx].purchasePrice = price;
@@ -727,20 +782,126 @@ class PurchaseOrderController {
             overlay.querySelector('#poDecreaseDisplay').textContent = fmt(decrease);
             overlay.querySelector('#poCostsDisplay').textContent = fmt(costs);
             overlay.querySelector('#poFinalAmount').textContent = fmt(totalAmount - decrease + costs);
-            checkZeroPrices();
+            updateButtonStates();
         };
         recalcAll();
 
-        // Bind input events for live recalc
-        overlay.querySelectorAll('.po-qty, .po-price').forEach(input => {
+        // Double-click to edit qty
+        overlay.querySelectorAll('.po-qty').forEach(input => {
+            input.addEventListener('dblclick', () => {
+                enableInput(input);
+            });
+            input.addEventListener('blur', () => {
+                lockInput(input);
+                recalcAll();
+            });
+        });
+
+        // Double-click to edit price — shows X/Lưu buttons
+        overlay.querySelectorAll('.po-price').forEach(input => {
+            input.addEventListener('dblclick', () => {
+                const idx = input.dataset.idx;
+                enableInput(input);
+                editingPrices.add(idx);
+                const actions = overlay.querySelector(`.po-price-actions[data-idx="${idx}"]`);
+                if (actions) actions.style.display = 'inline-flex';
+                updateButtonStates();
+            });
             input.addEventListener('input', recalcAll);
         });
+
+        // Price cancel (X) button
+        overlay.querySelectorAll('.po-price-cancel').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = btn.dataset.idx;
+                const input = overlay.querySelector(`.po-price[data-idx="${idx}"]`);
+                if (input) {
+                    input.value = input.dataset.original;
+                    lockInput(input);
+                }
+                editingPrices.delete(idx);
+                const actions = overlay.querySelector(`.po-price-actions[data-idx="${idx}"]`);
+                if (actions) actions.style.display = 'none';
+                recalcAll();
+            });
+        });
+
+        // Price save (✓) button — calls TPOS UpdateStandPrice
+        overlay.querySelectorAll('.po-price-save').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const idx = btn.dataset.idx;
+                const row = overlay.querySelector(`tr[data-idx="${idx}"]`);
+                const input = overlay.querySelector(`.po-price[data-idx="${idx}"]`);
+                const tposId = parseInt(row?.dataset.tposId);
+                const tposTmplId = parseInt(row?.dataset.tposTmplId);
+                const newPrice = parseFloat(input?.value) || 0;
+
+                if (!tposId) {
+                    this.ui.showToast('Sản phẩm chưa có TPOS ID, không thể cập nhật giá', 'warning');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.textContent = '...';
+
+                try {
+                    const token = await window.inventoryPickerDialog?.getAuthToken();
+                    if (!token) throw new Error('Không có token');
+
+                    const proxyUrl = window.inventoryPickerDialog?.proxyUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    const code = items[idx]?.productCode || '';
+                    const name = items[idx]?.productName || '';
+
+                    const response = await fetch(`${proxyUrl}/api/odata/ProductTemplate/ODataService.UpdateStandPrice`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json;charset=UTF-8',
+                            'Accept': 'application/json',
+                            'feature-version': '2',
+                            'tposappversion': '6.2.6.1'
+                        },
+                        body: JSON.stringify({
+                            model: [{
+                                Id: tposId,
+                                ProductTmplId: tposTmplId,
+                                DefaultCode: code,
+                                Barcode: code,
+                                StandardPrice: newPrice,
+                                NameTemplate: name
+                            }]
+                        })
+                    });
+
+                    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+                    const result = await response.json();
+                    if (result.value === true) {
+                        this.ui.showToast(`Đã cập nhật giá ${code}: ${fmt(newPrice)} đ`, 'success');
+                        input.dataset.original = newPrice;
+                        lockInput(input);
+                        editingPrices.delete(idx);
+                        const actions = overlay.querySelector(`.po-price-actions[data-idx="${idx}"]`);
+                        if (actions) actions.style.display = 'none';
+                        recalcAll();
+                    } else {
+                        throw new Error('API trả về false');
+                    }
+                } catch (error) {
+                    console.error('[PO Preview] UpdateStandPrice failed:', error);
+                    this.ui.showToast('Lỗi cập nhật giá TPOS: ' + error.message, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '✓';
+                }
+            });
+        });
+
         overlay.querySelector('#poDecreaseAmount').addEventListener('input', recalcAll);
         overlay.querySelector('#poCostsIncurred').addEventListener('input', recalcAll);
 
         // Bypass checkboxes
         overlay.querySelectorAll('.po-bypass-zero').forEach(cb => {
-            cb.addEventListener('change', checkZeroPrices);
+            cb.addEventListener('change', updateButtonStates);
         });
 
         // Cancel / close
