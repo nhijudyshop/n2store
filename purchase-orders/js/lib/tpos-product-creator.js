@@ -1,11 +1,11 @@
-/**
+﻿/**
  * TPOS Product Creator
  * Creates products on TPOS after purchase order submission (fire-and-forget)
  *
- * Flow: handleCreateOrder() → Firestore save → syncOrderToTPOS() (fire-and-forget)
- *   → loadAttributeData() from CSV
- *   → groupOrderItems() by productCode
- *   → For each group: buildPayload() → POST TPOS API → updateSyncStatus()
+ * Flow: handleCreateOrder() â†’ Firestore save â†’ syncOrderToTPOS() (fire-and-forget)
+ *   â†’ loadAttributeData() from CSV
+ *   â†’ groupOrderItems() by productCode
+ *   â†’ For each group: buildPayload() â†’ POST TPOS API â†’ updateSyncStatus()
  *
  * Dependencies: TPOSClient (tpos-search.js), Firebase Firestore
  */
@@ -16,14 +16,14 @@ window.TPOSProductCreator = (function () {
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const TPOS_INSERT_URL = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.InsertV2?$expand=ProductVariants,UOM,UOMPO`;
 
-    // CSV file paths — auto-detect base path for cross-module reuse
-    const _csvBase = window.location.pathname.includes('/purchase-orders/') ? '' : 'purchase-orders/';
+    // CSV file paths â€” auto-detect base path for cross-module reuse
+    const _csvBase = window.location.pathname.includes('/purchase-orders/') ? '' : '../purchase-orders/';
     const ATTR_VALUES_CSV = `${_csvBase}product_attribute_values_rows.csv`;
     const ATTR_GROUPS_CSV = `${_csvBase}product_attributes_rows.csv`;
 
     // Cached attribute data
-    let attrValueMap = null; // UUID → { value, code, tpos_id, tpos_attribute_id, attribute_id, name_get, sequence }
-    let attrGroupMap = null; // attribute UUID → { name, display_order }
+    let attrValueMap = null; // UUID â†’ { value, code, tpos_id, tpos_attribute_id, attribute_id, name_get, sequence }
+    let attrGroupMap = null; // attribute UUID â†’ { name, display_order }
 
     // =====================================================
     // CSV LOADING & ATTRIBUTE MAPPING
@@ -48,7 +48,7 @@ window.TPOSProductCreator = (function () {
 
     /**
      * Load and cache attribute data from CSV files
-     * Builds lookup maps: attrValueMap (UUID → TPOS data) and attrGroupMap (UUID → attribute group)
+     * Builds lookup maps: attrValueMap (UUID â†’ TPOS data) and attrGroupMap (UUID â†’ attribute group)
      */
     async function loadAttributeData() {
         if (attrValueMap && attrGroupMap) return;
@@ -181,7 +181,7 @@ window.TPOSProductCreator = (function () {
     /** Shared UOM object */
     const UOM_OBJECT = {
         Id: 1,
-        Name: "Cái",
+        Name: "CÃ¡i",
         NameNoSign: null,
         Rounding: 0.001,
         Active: true,
@@ -189,10 +189,10 @@ window.TPOSProductCreator = (function () {
         FactorInv: 1,
         UOMType: "reference",
         CategoryId: 1,
-        CategoryName: "Đơn vị",
+        CategoryName: "ÄÆ¡n vá»‹",
         Description: null,
-        ShowUOMType: "Đơn vị gốc của nhóm này",
-        NameGet: "Cái",
+        ShowUOMType: "ÄÆ¡n vá»‹ gá»‘c cá»§a nhÃ³m nÃ y",
+        NameGet: "CÃ¡i",
         ShowFactor: 1,
         DateCreated: "2018-05-25T15:44:44.14+07:00"
     };
@@ -200,8 +200,8 @@ window.TPOSProductCreator = (function () {
     /** Shared Categ object */
     const CATEG_OBJECT = {
         Id: 2,
-        Name: "Có thể bán",
-        CompleteName: "Có thể bán",
+        Name: "CÃ³ thá»ƒ bÃ¡n",
+        CompleteName: "CÃ³ thá»ƒ bÃ¡n",
         ParentId: null,
         ParentCompleteName: null,
         ParentLeft: 0,
@@ -232,7 +232,7 @@ window.TPOSProductCreator = (function () {
             NameNoSign: null,
             Description: null,
             Type: "product",
-            ShowType: "Có thể lưu trữ",
+            ShowType: "CÃ³ thá»ƒ lÆ°u trá»¯",
             ListPrice: sellingPrice,
             DiscountSale: 0,
             DiscountPurchase: 0,
@@ -490,12 +490,12 @@ window.TPOSProductCreator = (function () {
     }
 
     // =====================================================
-    // IMAGE → BASE64 CONVERSION
+    // IMAGE â†’ BASE64 CONVERSION
     // =====================================================
 
     /**
      * Convert an image URL (Firebase Storage) to base64 string for TPOS Image field.
-     * Resizes to max 800×800 if blob > 500KB. Returns pure base64 (no prefix).
+     * Resizes to max 800Ã—800 if blob > 500KB. Returns pure base64 (no prefix).
      * @param {string} url - Firebase Storage download URL
      * @returns {Promise<string|null>} base64 string or null on failure
      */
@@ -600,14 +600,14 @@ window.TPOSProductCreator = (function () {
                     return { success: true, data, alreadyExists: false };
                 }
 
-                // 400 - product already exists → treat as success
+                // 400 - product already exists â†’ treat as success
                 if (response.status === 400) {
                     const errorText = await response.text();
                     console.log('[TPOSCreator] Product may already exist (400):', errorText);
                     return { success: true, data: null, alreadyExists: true };
                 }
 
-                // 429 - rate limited → retry
+                // 429 - rate limited â†’ retry
                 if (response.status === 429 && attempt < maxRetries) {
                     const waitMs = 2000 * (attempt + 1);
                     console.warn(`[TPOSCreator] Rate limited (429), retrying in ${waitMs}ms...`);
@@ -684,7 +684,7 @@ window.TPOSProductCreator = (function () {
      * @param {Array} allCombinations - Cartesian product combos (same order as request)
      */
     async function updateVariantBarcodes(orderId, groupItems, responseVariants, allCombinations) {
-        // Build tpos_id set for each combo (matches request order → response order)
+        // Build tpos_id set for each combo (matches request order â†’ response order)
         const comboTposIdSets = allCombinations.map(combo =>
             new Set(combo.map(v => v.tpos_id))
         );
@@ -731,7 +731,7 @@ window.TPOSProductCreator = (function () {
             for (const update of updates) {
                 const item = items.find(i => i.id === update.itemId);
                 if (item && update.barcode) {
-                    console.log(`[TPOSCreator] Variant code: ${item.productCode} → ${update.barcode}`);
+                    console.log(`[TPOSCreator] Variant code: ${item.productCode} â†’ ${update.barcode}`);
                     item.productCode = update.barcode;
                     item.tposProductId = update.tposVariantId;
                     changed = true;
@@ -759,7 +759,7 @@ window.TPOSProductCreator = (function () {
     // =====================================================
 
     /**
-     * Process a single group of items → create 1 TPOS product
+     * Process a single group of items â†’ create 1 TPOS product
      * @param {string} orderId - Firestore document ID
      * @param {Array} groupItems - items in this group (same productCode)
      */
@@ -840,7 +840,7 @@ window.TPOSProductCreator = (function () {
                 const tposId = result.data?.Id || null;
                 await updateSyncStatus(orderId, itemIds, 'success', tposId, null);
 
-                // Update variant Barcodes from TPOS response → Firebase items
+                // Update variant Barcodes from TPOS response â†’ Firebase items
                 if (allCombinations && result.data?.ProductVariants?.length > 0) {
                     await updateVariantBarcodes(orderId, groupItems, result.data.ProductVariants, allCombinations);
                 }
@@ -903,18 +903,18 @@ window.TPOSProductCreator = (function () {
             if (window.notificationManager) {
                 if (failCount === 0) {
                     window.notificationManager.show(
-                        `Đã đồng bộ ${successCount} sản phẩm lên TPOS thành công!`,
+                        `ÄÃ£ Ä‘á»“ng bá»™ ${successCount} sáº£n pháº©m lÃªn TPOS thÃ nh cÃ´ng!`,
                         'success'
                     );
                 } else if (successCount > 0) {
                     window.notificationManager.show(
-                        `Đồng bộ TPOS: ${successCount} thành công, ${failCount} thất bại`,
+                        `Äá»“ng bá»™ TPOS: ${successCount} thÃ nh cÃ´ng, ${failCount} tháº¥t báº¡i`,
                         'warning'
                     );
                 } else {
                     const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
                     window.notificationManager.show(
-                        `Đồng bộ TPOS thất bại: ${errors}`,
+                        `Äá»“ng bá»™ TPOS tháº¥t báº¡i: ${errors}`,
                         'error'
                     );
                 }
@@ -926,7 +926,7 @@ window.TPOSProductCreator = (function () {
             console.error('[TPOSCreator] Sync failed:', error);
             if (window.notificationManager) {
                 window.notificationManager.show(
-                    `Lỗi đồng bộ TPOS: ${error.message}`,
+                    `Lá»—i Ä‘á»“ng bá»™ TPOS: ${error.message}`,
                     'error'
                 );
             }

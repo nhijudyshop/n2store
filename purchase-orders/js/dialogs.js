@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PURCHASE ORDERS MODULE - DIALOGS
  * File: dialogs.js
  * Purpose: Order detail, variant generator, settings, inventory picker, shipping fee dialogs
@@ -78,7 +78,7 @@ class OrderDetailDialog {
             <div class="modal modal--lg">
                 <div class="modal__header">
                     <div>
-                        <h2 class="modal__title">Chi tiết đơn hàng</h2>
+                        <h2 class="modal__title">Chi tiáº¿t Ä‘Æ¡n hÃ ng</h2>
                         <p class="modal__subtitle">${order.orderNumber || order.id}</p>
                     </div>
                     <button type="button" class="modal__close" id="btnCloseDetail">
@@ -90,45 +90,45 @@ class OrderDetailDialog {
                     <!-- Order Info -->
                     <div class="detail-info-grid">
                         <div class="detail-info-item">
-                            <span class="detail-info-label">Nhà cung cấp</span>
-                            <span class="detail-info-value">${order.supplier?.name || 'Chưa cập nhật'}</span>
+                            <span class="detail-info-label">NhÃ  cung cáº¥p</span>
+                            <span class="detail-info-value">${order.supplier?.name || 'ChÆ°a cáº­p nháº­t'}</span>
                         </div>
                         <div class="detail-info-item">
-                            <span class="detail-info-label">Ngày đặt</span>
+                            <span class="detail-info-label">NgÃ y Ä‘áº·t</span>
                             <span class="detail-info-value">${config.formatDate(order.orderDate)}</span>
                         </div>
                         <div class="detail-info-item">
-                            <span class="detail-info-label">Trạng thái</span>
+                            <span class="detail-info-label">Tráº¡ng thÃ¡i</span>
                             <span class="detail-info-value">${config.getStatusBadgeHTML(order.status)}</span>
                         </div>
                         <div class="detail-info-item">
-                            <span class="detail-info-label">Tổng số lượng</span>
+                            <span class="detail-info-label">Tá»•ng sá»‘ lÆ°á»£ng</span>
                             <span class="detail-info-value">${totalQuantity}</span>
                         </div>
                     </div>
 
                     <!-- Items Table -->
                     <div class="detail-items-section">
-                        <h3 class="detail-section-title">Danh sách sản phẩm (${items.length})</h3>
+                        <h3 class="detail-section-title">Danh sÃ¡ch sáº£n pháº©m (${items.length})</h3>
                         <div class="detail-items-table-wrapper">
                             <table class="detail-items-table">
                                 <thead>
                                     <tr>
                                         <th>STT</th>
-                                        <th>Tên sản phẩm</th>
-                                        <th>Mã SP</th>
-                                        <th>Biến thể</th>
+                                        <th>TÃªn sáº£n pháº©m</th>
+                                        <th>MÃ£ SP</th>
+                                        <th>Biáº¿n thá»ƒ</th>
                                         <th class="text-center">SL</th>
-                                        <th class="text-right">Giá mua</th>
-                                        <th class="text-right">Thành tiền</th>
-                                        <th>Trạng thái sync</th>
+                                        <th class="text-right">GiÃ¡ mua</th>
+                                        <th class="text-right">ThÃ nh tiá»n</th>
+                                        <th>Tráº¡ng thÃ¡i sync</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     ${items.map((item, index) => `
                                         <tr class="${item.tposSyncStatus === 'failed' ? 'row-error' : ''}">
                                             <td>${index + 1}</td>
-                                            <td>${item.productName || 'Sản phẩm đã xóa'}</td>
+                                            <td>${item.productName || 'Sáº£n pháº©m Ä‘Ã£ xÃ³a'}</td>
                                             <td>${item.productCode || '-'}</td>
                                             <td>${item.variant || '-'}</td>
                                             <td class="text-center">${item.quantity || 0}</td>
@@ -147,19 +147,19 @@ class OrderDetailDialog {
                         <div class="detail-failed-section">
                             <h3 class="detail-section-title text-danger">
                                 <i data-lucide="alert-circle"></i>
-                                Sản phẩm lỗi đồng bộ (${failedItems.length})
+                                Sáº£n pháº©m lá»—i Ä‘á»“ng bá»™ (${failedItems.length})
                             </h3>
                             <ul class="failed-items-list">
                                 ${failedItems.map(item => `
                                     <li class="failed-item">
                                         <span class="failed-item-name">${item.productName}</span>
-                                        <span class="failed-item-error">${item.tposSyncError || 'Lỗi không xác định'}</span>
+                                        <span class="failed-item-error">${item.tposSyncError || 'Lá»—i khÃ´ng xÃ¡c Ä‘á»‹nh'}</span>
                                     </li>
                                 `).join('')}
                             </ul>
                             <button class="btn btn-warning" id="btnRetryFailed">
                                 <i data-lucide="refresh-cw"></i>
-                                <span>Thử lại đồng bộ</span>
+                                <span>Thá»­ láº¡i Ä‘á»“ng bá»™</span>
                             </button>
                         </div>
                     ` : ''}
@@ -167,19 +167,19 @@ class OrderDetailDialog {
                     <!-- Financial Summary -->
                     <div class="detail-summary">
                         <div class="detail-summary-row">
-                            <span>Tổng tiền hàng:</span>
+                            <span>Tá»•ng tiá»n hÃ ng:</span>
                             <span>${config.formatVND(calculatedTotal)}</span>
                         </div>
                         <div class="detail-summary-row">
-                            <span>Giảm giá:</span>
+                            <span>Giáº£m giÃ¡:</span>
                             <span>- ${config.formatVND(order.discountAmount || 0)}</span>
                         </div>
                         <div class="detail-summary-row">
-                            <span>Phí ship:</span>
+                            <span>PhÃ­ ship:</span>
                             <span>+ ${config.formatVND(order.shippingFee || 0)}</span>
                         </div>
                         <div class="detail-summary-row detail-summary-row--total">
-                            <span>THÀNH TIỀN:</span>
+                            <span>THÃ€NH TIá»€N:</span>
                             <span>${config.formatVND(order.finalAmount || 0)}</span>
                         </div>
                     </div>
@@ -187,20 +187,20 @@ class OrderDetailDialog {
                     <!-- Notes -->
                     ${order.notes ? `
                         <div class="detail-notes">
-                            <h3 class="detail-section-title">Ghi chú</h3>
+                            <h3 class="detail-section-title">Ghi chÃº</h3>
                             <p>${order.notes}</p>
                         </div>
                     ` : ''}
 
                     <!-- Timestamps -->
                     <div class="detail-timestamps">
-                        <span>Tạo lúc: ${config.formatDateTime(order.createdAt)}</span>
-                        <span>Cập nhật: ${config.formatDateTime(order.updatedAt)}</span>
+                        <span>Táº¡o lÃºc: ${config.formatDateTime(order.createdAt)}</span>
+                        <span>Cáº­p nháº­t: ${config.formatDateTime(order.updatedAt)}</span>
                     </div>
                 </div>
 
                 <div class="modal__footer">
-                    <button class="btn btn-outline" id="btnCloseDetailFooter">Đóng</button>
+                    <button class="btn btn-outline" id="btnCloseDetailFooter">ÄÃ³ng</button>
                 </div>
             </div>
         `;
@@ -224,13 +224,13 @@ class OrderDetailDialog {
 
         switch (status) {
             case 'success':
-                return '<span class="sync-badge sync-badge--success"><i data-lucide="check"></i> Đã đồng bộ</span>';
+                return '<span class="sync-badge sync-badge--success"><i data-lucide="check"></i> ÄÃ£ Ä‘á»“ng bá»™</span>';
             case 'processing':
-                return '<span class="sync-badge sync-badge--processing"><i data-lucide="loader-2" class="spin"></i> Đang xử lý</span>';
+                return '<span class="sync-badge sync-badge--processing"><i data-lucide="loader-2" class="spin"></i> Äang xá»­ lÃ½</span>';
             case 'failed':
-                return '<span class="sync-badge sync-badge--failed"><i data-lucide="alert-circle"></i> Lỗi</span>';
+                return '<span class="sync-badge sync-badge--failed"><i data-lucide="alert-circle"></i> Lá»—i</span>';
             case 'pending':
-                return '<span class="sync-badge sync-badge--pending">Chờ đồng bộ</span>';
+                return '<span class="sync-badge sync-badge--pending">Chá» Ä‘á»“ng bá»™</span>';
             default:
                 return '<span class="text-muted">-</span>';
         }
@@ -256,7 +256,7 @@ class OrderDetailDialog {
             if (this.onRetry) {
                 const btn = this.modalElement.querySelector('#btnRetryFailed');
                 btn.disabled = true;
-                btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Đang xử lý...';
+                btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Äang xá»­ lÃ½...';
                 if (typeof lucide !== 'undefined') lucide.createIcons();
 
                 await this.onRetry(this.order.id);
@@ -329,7 +329,7 @@ class VariantGeneratorDialog {
     async loadCSVData() {
         try {
             const basePath = window.location.pathname.includes('/purchase-orders/')
-                ? '' : 'purchase-orders/';
+                ? '' : '../purchase-orders/';
 
             const [attrsText, valsText] = await Promise.all([
                 fetch(`${basePath}product_attributes_rows.csv`).then(r => r.text()),
@@ -342,8 +342,8 @@ class VariantGeneratorDialog {
             // Sort attributes by display_order
             attrsRows.sort((a, b) => parseInt(a.display_order || 0) - parseInt(b.display_order || 0));
 
-            // Key mapping: attribute name → internal key
-            const keyMap = { 'Màu': 'color', 'Size Số': 'sizeNumber', 'Size Chữ': 'sizeLetter' };
+            // Key mapping: attribute name â†’ internal key
+            const keyMap = { 'MÃ u': 'color', 'Size Sá»‘': 'sizeNumber', 'Size Chá»¯': 'sizeLetter' };
 
             this.attributes = attrsRows
                 .filter(a => a.is_active === 'true')
@@ -388,9 +388,9 @@ class VariantGeneratorDialog {
             console.error('[VariantGenerator] Failed to load CSV:', error);
             // Fallback to hardcoded values
             this.attributeConfig = {
-                color: { name: 'Màu', values: ['Trắng', 'Đen', 'Đỏ', 'Xanh', 'Xám', 'Nude', 'Vàng', 'Hồng', 'Nâu', 'Cam', 'Tím', 'Be', 'Kem'] },
-                sizeNumber: { name: 'Size Số', values: ['1', '2', '3', '4', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'] },
-                sizeLetter: { name: 'Size Chữ', values: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize'] }
+                color: { name: 'MÃ u', values: ['Tráº¯ng', 'Äen', 'Äá»', 'Xanh', 'XÃ¡m', 'Nude', 'VÃ ng', 'Há»“ng', 'NÃ¢u', 'Cam', 'TÃ­m', 'Be', 'Kem'] },
+                sizeNumber: { name: 'Size Sá»‘', values: ['1', '2', '3', '4', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40'] },
+                sizeLetter: { name: 'Size Chá»¯', values: ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Freesize'] }
             };
             this.selected = { color: [], sizeNumber: [], sizeLetter: [] };
             this.searchFilters = { color: '', sizeNumber: '', sizeLetter: '' };
@@ -481,7 +481,7 @@ class VariantGeneratorDialog {
                 parts.push(this.selected[key].join(', '));
             }
         }
-        return parts.length > 0 ? parts.join(' | ') : 'Chưa chọn giá trị nào';
+        return parts.length > 0 ? parts.join(' | ') : 'ChÆ°a chá»n giÃ¡ trá»‹ nÃ o';
     }
 
     render() {
@@ -525,7 +525,7 @@ class VariantGeneratorDialog {
                     justify-content: space-between;
                     align-items: center;
                 ">
-                    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Tạo biến thể từ thuộc tính</h2>
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Táº¡o biáº¿n thá»ƒ tá»« thuá»™c tÃ­nh</h2>
                     <button type="button" id="btnCloseVariant" style="
                         background: none;
                         border: none;
@@ -562,7 +562,7 @@ class VariantGeneratorDialog {
                         <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
                             <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${config.name}</div>
                             <div style="padding: 8px;">
-                                <input type="text" placeholder="Tìm kiếm..." data-search="${key}" style="
+                                <input type="text" placeholder="TÃ¬m kiáº¿m..." data-search="${key}" style="
                                     width: 100%;
                                     padding: 8px 12px;
                                     border: 1px solid #d1d5db;
@@ -579,11 +579,11 @@ class VariantGeneratorDialog {
 
                         <!-- Variant Preview Column -->
                         <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
-                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Danh sách Biến Thể</div>
+                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Danh sÃ¡ch Biáº¿n Thá»ƒ</div>
                             <div style="flex: 1; overflow-y: auto; padding: 12px; max-height: 350px;" id="variantPreviewList">
                                 ${combinations.length > 0
                                     ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v.variant || v}</div>`).join('')
-                                    : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>'
+                                    : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chá»n giÃ¡ trá»‹ thuá»™c tÃ­nh<br>Ä‘á»ƒ táº¡o biáº¿n thá»ƒ</p>'
                                 }
                             </div>
                         </div>
@@ -606,7 +606,7 @@ class VariantGeneratorDialog {
                         background: white;
                         cursor: pointer;
                         font-size: 14px;
-                    ">Hủy</button>
+                    ">Há»§y</button>
                     <button type="button" id="btnGenerateVariants" style="
                         padding: 10px 20px;
                         border: none;
@@ -616,7 +616,7 @@ class VariantGeneratorDialog {
                         cursor: ${combinations.length > 0 ? 'pointer' : 'not-allowed'};
                         font-size: 14px;
                         font-weight: 500;
-                    " ${combinations.length === 0 ? 'disabled' : ''}>Tạo ${combinations.length} biến thể</button>
+                    " ${combinations.length === 0 ? 'disabled' : ''}>Táº¡o ${combinations.length} biáº¿n thá»ƒ</button>
                 </div>
             </div>
         `;
@@ -675,13 +675,13 @@ class VariantGeneratorDialog {
         if (previewEl) {
             previewEl.innerHTML = combinations.length > 0
                 ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v.variant || v}</div>`).join('')
-                : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>';
+                : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chá»n giÃ¡ trá»‹ thuá»™c tÃ­nh<br>Ä‘á»ƒ táº¡o biáº¿n thá»ƒ</p>';
         }
 
         // Update button
         const btnGenerate = this.modalElement?.querySelector('#btnGenerateVariants');
         if (btnGenerate) {
-            btnGenerate.textContent = `Tạo ${combinations.length} biến thể`;
+            btnGenerate.textContent = `Táº¡o ${combinations.length} biáº¿n thá»ƒ`;
             btnGenerate.disabled = combinations.length === 0;
             btnGenerate.style.background = combinations.length > 0 ? '#3b82f6' : '#9ca3af';
             btnGenerate.style.cursor = combinations.length > 0 ? 'pointer' : 'not-allowed';
@@ -804,14 +804,14 @@ class SettingsDialog {
     }
 
     /**
-     * Format price preview: value in 1000đ units → formatted VND
+     * Format price preview: value in 1000Ä‘ units â†’ formatted VND
      */
     _fmtVND(val) {
         const v = (parseInt(val, 10) || 0) * 1000;
         if (window.PurchaseOrderConfig?.formatVND) {
             return window.PurchaseOrderConfig.formatVND(v);
         }
-        return new Intl.NumberFormat('vi-VN').format(v) + ' đ';
+        return new Intl.NumberFormat('vi-VN').format(v) + ' Ä‘';
     }
 
     /**
@@ -864,13 +864,13 @@ class SettingsDialog {
 
         // Build checkbox rows data
         const checkboxes = [
-            { id: 'enableRequireProductName', label: 'Bắt buộc tên sản phẩm', checked: s.enableRequireProductName },
-            { id: 'enableRequireProductCode', label: 'Bắt buộc mã sản phẩm', checked: s.enableRequireProductCode },
-            { id: 'enableRequireProductImages', label: 'Bắt buộc hình ảnh sản phẩm', checked: s.enableRequireProductImages },
-            { id: 'enableRequirePositivePurchasePrice', label: 'Giá mua phải > 0', checked: s.enableRequirePositivePurchasePrice },
-            { id: 'enableRequirePositiveSellingPrice', label: 'Giá bán phải > 0', checked: s.enableRequirePositiveSellingPrice },
-            { id: 'enableRequireSellingGreaterThanPurchase', label: 'Giá bán phải > Giá mua', checked: s.enableRequireSellingGreaterThanPurchase },
-            { id: 'enableRequireAtLeastOneItem', label: 'Phải có ít nhất 1 sản phẩm', checked: s.enableRequireAtLeastOneItem },
+            { id: 'enableRequireProductName', label: 'Báº¯t buá»™c tÃªn sáº£n pháº©m', checked: s.enableRequireProductName },
+            { id: 'enableRequireProductCode', label: 'Báº¯t buá»™c mÃ£ sáº£n pháº©m', checked: s.enableRequireProductCode },
+            { id: 'enableRequireProductImages', label: 'Báº¯t buá»™c hÃ¬nh áº£nh sáº£n pháº©m', checked: s.enableRequireProductImages },
+            { id: 'enableRequirePositivePurchasePrice', label: 'GiÃ¡ mua pháº£i > 0', checked: s.enableRequirePositivePurchasePrice },
+            { id: 'enableRequirePositiveSellingPrice', label: 'GiÃ¡ bÃ¡n pháº£i > 0', checked: s.enableRequirePositiveSellingPrice },
+            { id: 'enableRequireSellingGreaterThanPurchase', label: 'GiÃ¡ bÃ¡n pháº£i > GiÃ¡ mua', checked: s.enableRequireSellingGreaterThanPurchase },
+            { id: 'enableRequireAtLeastOneItem', label: 'Pháº£i cÃ³ Ã­t nháº¥t 1 sáº£n pháº©m', checked: s.enableRequireAtLeastOneItem },
         ];
 
         const checkboxHTML = checkboxes.map(cb => `
@@ -885,7 +885,7 @@ class SettingsDialog {
             <div style="background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);width:90vw;max-width:560px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
                 <!-- Header -->
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e5e7eb">
-                    <h2 style="margin:0;font-size:17px;font-weight:600;color:#111827">Cài đặt validation giá mua/bán</h2>
+                    <h2 style="margin:0;font-size:17px;font-weight:600;color:#111827">CÃ i Ä‘áº·t validation giÃ¡ mua/bÃ¡n</h2>
                     <button id="btnCloseSettings" style="background:none;border:none;cursor:pointer;padding:4px;color:#9ca3af;border-radius:6px"
                         onmouseover="this.style.background='#f3f4f6';this.style.color='#374151'"
                         onmouseout="this.style.background='none';this.style.color='#9ca3af'">
@@ -897,24 +897,24 @@ class SettingsDialog {
                 <div style="flex:1;overflow-y:auto;padding:20px">
                     <!-- Info box -->
                     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:12px;color:#1e40af;margin-bottom:16px;line-height:1.6">
-                        <strong>Cách hoạt động:</strong><br>
-                        • Đặt giá trị 0 để không giới hạn<br>
-                        • Hệ thống sẽ kiểm tra khi tạo đơn đặt hàng<br>
-                        • Nếu vi phạm, sẽ hiển thị cảnh báo chi tiết
+                        <strong>CÃ¡ch hoáº¡t Ä‘á»™ng:</strong><br>
+                        â€¢ Äáº·t giÃ¡ trá»‹ 0 Ä‘á»ƒ khÃ´ng giá»›i háº¡n<br>
+                        â€¢ Há»‡ thá»‘ng sáº½ kiá»ƒm tra khi táº¡o Ä‘Æ¡n Ä‘áº·t hÃ ng<br>
+                        â€¢ Náº¿u vi pháº¡m, sáº½ hiá»ƒn thá»‹ cáº£nh bÃ¡o chi tiáº¿t
                     </div>
 
-                    <!-- Giá mua -->
+                    <!-- GiÃ¡ mua -->
                     <div style="margin-bottom:20px">
-                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Giá mua</h4>
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">GiÃ¡ mua</h4>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                             <div>
-                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá mua tối thiểu (1000đ)</label>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">GiÃ¡ mua tá»‘i thiá»ƒu (1000Ä‘)</label>
                                 <input type="number" id="minPurchasePrice" value="${s.minPurchasePrice}" min="0"
                                     style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
                                 <div id="previewMinPurchase" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.minPurchasePrice)}</div>
                             </div>
                             <div>
-                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá mua tối đa (1000đ)</label>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">GiÃ¡ mua tá»‘i Ä‘a (1000Ä‘)</label>
                                 <input type="number" id="maxPurchasePrice" value="${s.maxPurchasePrice}" min="0"
                                     style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
                                 <div id="previewMaxPurchase" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.maxPurchasePrice)}</div>
@@ -922,18 +922,18 @@ class SettingsDialog {
                         </div>
                     </div>
 
-                    <!-- Giá bán -->
+                    <!-- GiÃ¡ bÃ¡n -->
                     <div style="margin-bottom:20px">
-                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Giá bán</h4>
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">GiÃ¡ bÃ¡n</h4>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                             <div>
-                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá bán tối thiểu (1000đ)</label>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">GiÃ¡ bÃ¡n tá»‘i thiá»ƒu (1000Ä‘)</label>
                                 <input type="number" id="minSellingPrice" value="${s.minSellingPrice}" min="0"
                                     style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
                                 <div id="previewMinSelling" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.minSellingPrice)}</div>
                             </div>
                             <div>
-                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Giá bán tối đa (1000đ)</label>
+                                <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">GiÃ¡ bÃ¡n tá»‘i Ä‘a (1000Ä‘)</label>
                                 <input type="number" id="maxSellingPrice" value="${s.maxSellingPrice}" min="0"
                                     style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
                                 <div id="previewMaxSelling" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.maxSellingPrice)}</div>
@@ -941,41 +941,41 @@ class SettingsDialog {
                         </div>
                     </div>
 
-                    <!-- Chênh lệch -->
+                    <!-- ChÃªnh lá»‡ch -->
                     <div style="margin-bottom:20px">
-                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Chênh lệch (Margin)</h4>
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">ChÃªnh lá»‡ch (Margin)</h4>
                         <div>
-                            <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">Chênh lệch tối thiểu giá bán - giá mua (1000đ)</label>
+                            <label style="font-size:13px;color:#374151;display:block;margin-bottom:4px">ChÃªnh lá»‡ch tá»‘i thiá»ƒu giÃ¡ bÃ¡n - giÃ¡ mua (1000Ä‘)</label>
                             <input type="number" id="minMargin" value="${s.minMargin}" min="0"
                                 style="width:100%;max-width:260px;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;box-sizing:border-box">
                             <div id="previewMinMargin" style="font-size:12px;color:#9ca3af;margin-top:2px">= ${this._fmtVND(s.minMargin)}</div>
                         </div>
                         <div style="font-size:12px;color:#9ca3af;margin-top:6px">
-                            Ví dụ: Đặt 50 nghĩa là giá bán phải cao hơn giá mua ít nhất 50.000đ
+                            VÃ­ dá»¥: Äáº·t 50 nghÄ©a lÃ  giÃ¡ bÃ¡n pháº£i cao hÆ¡n giÃ¡ mua Ã­t nháº¥t 50.000Ä‘
                         </div>
                     </div>
 
-                    <!-- Quy tắc kiểm tra -->
+                    <!-- Quy táº¯c kiá»ƒm tra -->
                     <div style="margin-bottom:20px">
-                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Quy tắc kiểm tra</h4>
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Quy táº¯c kiá»ƒm tra</h4>
                         <div style="border:1px solid #e5e7eb;border-radius:8px;padding:4px 12px">
                             ${checkboxHTML}
                         </div>
                     </div>
 
-                    <!-- Mã sản phẩm -->
+                    <!-- MÃ£ sáº£n pháº©m -->
                     <div style="margin-bottom:20px">
-                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Mã sản phẩm</h4>
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">MÃ£ sáº£n pháº©m</h4>
                         <label style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;cursor:pointer">
-                            <span style="font-size:14px;color:#374151">Tự động tạo mã sản phẩm</span>
+                            <span style="font-size:14px;color:#374151">Tá»± Ä‘á»™ng táº¡o mÃ£ sáº£n pháº©m</span>
                             <input type="checkbox" id="autoGenerateCode" ${s.autoGenerateCode ? 'checked' : ''}
                                 style="width:18px;height:18px;accent-color:#2563eb;cursor:pointer">
                         </label>
                     </div>
 
-                    <!-- Ví dụ validation -->
+                    <!-- VÃ­ dá»¥ validation -->
                     <div style="margin-bottom:8px">
-                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">Ví dụ validation</h4>
+                        <h4 style="font-size:13px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px">VÃ­ dá»¥ validation</h4>
                         <div id="validationExample" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;font-size:13px;color:#374151">
                         </div>
                     </div>
@@ -985,14 +985,14 @@ class SettingsDialog {
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid #e5e7eb;background:#f9fafb;gap:8px">
                     <button id="btnResetSettings" style="background:none;border:1px solid #d1d5db;border-radius:6px;padding:8px 14px;font-size:13px;color:#6b7280;cursor:pointer"
                         onmouseover="this.style.color='#dc2626';this.style.borderColor='#fca5a5'"
-                        onmouseout="this.style.color='#6b7280';this.style.borderColor='#d1d5db'">Đặt lại mặc định</button>
+                        onmouseout="this.style.color='#6b7280';this.style.borderColor='#d1d5db'">Äáº·t láº¡i máº·c Ä‘á»‹nh</button>
                     <div style="display:flex;gap:8px">
                         <button id="btnCancelSettings" style="background:none;border:1px solid #d1d5db;border-radius:6px;padding:8px 16px;font-size:13px;color:#374151;cursor:pointer"
                             onmouseover="this.style.background='#f3f4f6'"
-                            onmouseout="this.style.background='none'">Hủy</button>
+                            onmouseout="this.style.background='none'">Há»§y</button>
                         <button id="btnSaveSettings" style="background:#2563eb;border:none;border-radius:6px;padding:8px 16px;font-size:13px;color:#fff;cursor:pointer;font-weight:500"
                             onmouseover="this.style.background='#1d4ed8'"
-                            onmouseout="this.style.background='#2563eb'">Lưu cài đặt</button>
+                            onmouseout="this.style.background='#2563eb'">LÆ°u cÃ i Ä‘áº·t</button>
                     </div>
                 </div>
             </div>
@@ -1054,41 +1054,41 @@ class SettingsDialog {
         // Price checks
         if (s.minPurchasePrice > 0) {
             const ok = exPurchase >= s.minPurchasePrice;
-            checks.push({ ok, text: `Giá mua ${fmt(exPurchase)} >= tối thiểu ${fmt(s.minPurchasePrice)}` });
+            checks.push({ ok, text: `GiÃ¡ mua ${fmt(exPurchase)} >= tá»‘i thiá»ƒu ${fmt(s.minPurchasePrice)}` });
         }
         if (s.maxPurchasePrice > 0) {
             const ok = exPurchase <= s.maxPurchasePrice;
-            checks.push({ ok, text: `Giá mua ${fmt(exPurchase)} <= tối đa ${fmt(s.maxPurchasePrice)}` });
+            checks.push({ ok, text: `GiÃ¡ mua ${fmt(exPurchase)} <= tá»‘i Ä‘a ${fmt(s.maxPurchasePrice)}` });
         }
         if (s.minSellingPrice > 0) {
             const ok = exSelling >= s.minSellingPrice;
-            checks.push({ ok, text: `Giá bán ${fmt(exSelling)} >= tối thiểu ${fmt(s.minSellingPrice)}` });
+            checks.push({ ok, text: `GiÃ¡ bÃ¡n ${fmt(exSelling)} >= tá»‘i thiá»ƒu ${fmt(s.minSellingPrice)}` });
         }
         if (s.maxSellingPrice > 0) {
             const ok = exSelling <= s.maxSellingPrice;
-            checks.push({ ok, text: `Giá bán ${fmt(exSelling)} <= tối đa ${fmt(s.maxSellingPrice)}` });
+            checks.push({ ok, text: `GiÃ¡ bÃ¡n ${fmt(exSelling)} <= tá»‘i Ä‘a ${fmt(s.maxSellingPrice)}` });
         }
         if (s.minMargin > 0) {
             const ok = exMargin >= s.minMargin;
-            checks.push({ ok, text: `Chênh lệch ${fmt(exMargin)} >= tối thiểu ${fmt(s.minMargin)}` });
+            checks.push({ ok, text: `ChÃªnh lá»‡ch ${fmt(exMargin)} >= tá»‘i thiá»ƒu ${fmt(s.minMargin)}` });
         }
 
         // Boolean checks
-        if (s.enableRequireProductName) checks.push({ ok: true, text: 'Tên sản phẩm: "Áo thun basic"' });
-        if (s.enableRequireProductCode) checks.push({ ok: true, text: 'Mã sản phẩm: "N001"' });
-        if (s.enableRequireProductImages) checks.push({ ok: true, text: 'Hình ảnh: 1 ảnh' });
-        if (s.enableRequirePositivePurchasePrice) checks.push({ ok: exPurchase > 0, text: `Giá mua ${fmt(exPurchase)} > 0` });
-        if (s.enableRequirePositiveSellingPrice) checks.push({ ok: exSelling > 0, text: `Giá bán ${fmt(exSelling)} > 0` });
-        if (s.enableRequireSellingGreaterThanPurchase) checks.push({ ok: exSelling > exPurchase, text: `Giá bán > Giá mua (${fmt(exSelling)} > ${fmt(exPurchase)})` });
+        if (s.enableRequireProductName) checks.push({ ok: true, text: 'TÃªn sáº£n pháº©m: "Ão thun basic"' });
+        if (s.enableRequireProductCode) checks.push({ ok: true, text: 'MÃ£ sáº£n pháº©m: "N001"' });
+        if (s.enableRequireProductImages) checks.push({ ok: true, text: 'HÃ¬nh áº£nh: 1 áº£nh' });
+        if (s.enableRequirePositivePurchasePrice) checks.push({ ok: exPurchase > 0, text: `GiÃ¡ mua ${fmt(exPurchase)} > 0` });
+        if (s.enableRequirePositiveSellingPrice) checks.push({ ok: exSelling > 0, text: `GiÃ¡ bÃ¡n ${fmt(exSelling)} > 0` });
+        if (s.enableRequireSellingGreaterThanPurchase) checks.push({ ok: exSelling > exPurchase, text: `GiÃ¡ bÃ¡n > GiÃ¡ mua (${fmt(exSelling)} > ${fmt(exPurchase)})` });
 
         if (checks.length === 0) {
-            el.innerHTML = '<span style="color:#9ca3af">Chưa có quy tắc nào được bật. Đặt giá trị > 0 hoặc bật checkbox để xem ví dụ.</span>';
+            el.innerHTML = '<span style="color:#9ca3af">ChÆ°a cÃ³ quy táº¯c nÃ o Ä‘Æ°á»£c báº­t. Äáº·t giÃ¡ trá»‹ > 0 hoáº·c báº­t checkbox Ä‘á»ƒ xem vÃ­ dá»¥.</span>';
             return;
         }
 
-        const header = `<div style="margin-bottom:8px;font-weight:500">SP ví dụ: Giá mua = ${fmt(exPurchase)}, Giá bán = ${fmt(exSelling)}</div>`;
+        const header = `<div style="margin-bottom:8px;font-weight:500">SP vÃ­ dá»¥: GiÃ¡ mua = ${fmt(exPurchase)}, GiÃ¡ bÃ¡n = ${fmt(exSelling)}</div>`;
         const rows = checks.map(c => {
-            const icon = c.ok ? '<span style="color:#16a34a">✓</span>' : '<span style="color:#dc2626">✗</span>';
+            const icon = c.ok ? '<span style="color:#16a34a">âœ“</span>' : '<span style="color:#dc2626">âœ—</span>';
             const color = c.ok ? '#374151' : '#dc2626';
             return `<div style="display:flex;gap:6px;align-items:center;padding:2px 0;color:${color}">${icon} ${c.text}</div>`;
         }).join('');
@@ -1133,7 +1133,7 @@ class SettingsDialog {
             this.settings = { ...defaults };
             this._updateFormValues();
             if (window.notificationManager) {
-                window.notificationManager.show('Đã đặt lại mặc định', 'info');
+                window.notificationManager.show('ÄÃ£ Ä‘áº·t láº¡i máº·c Ä‘á»‹nh', 'info');
             }
         });
 
@@ -1141,7 +1141,7 @@ class SettingsDialog {
         el.querySelector('#btnSaveSettings')?.addEventListener('click', async () => {
             const btn = el.querySelector('#btnSaveSettings');
             const origText = btn.textContent;
-            btn.textContent = 'Đang lưu...';
+            btn.textContent = 'Äang lÆ°u...';
             btn.disabled = true;
 
             try {
@@ -1151,7 +1151,7 @@ class SettingsDialog {
                 this.close();
             } catch (e) {
                 if (window.notificationManager) {
-                    window.notificationManager.show('Lỗi lưu cài đặt: ' + e.message, 'error');
+                    window.notificationManager.show('Lá»—i lÆ°u cÃ i Ä‘áº·t: ' + e.message, 'error');
                 }
             } finally {
                 if (btn) {
@@ -1287,7 +1287,7 @@ class InventoryPickerDialog {
 
             const token = await this.getAuthToken();
             if (!token) {
-                throw new Error('Không có token xác thực');
+                throw new Error('KhÃ´ng cÃ³ token xÃ¡c thá»±c');
             }
 
             // Fetch Excel file from TPOS
@@ -1326,18 +1326,18 @@ class InventoryPickerDialog {
             console.log('[InventoryPicker] Excel parsed, first row:', jsonData[0]);
 
             // Map Excel data to our format
-            // Excel columns: Id (*), Mã sản phẩm, Tên sản phẩm, Giá mua, Giá vốn (*)
+            // Excel columns: Id (*), MÃ£ sáº£n pháº©m, TÃªn sáº£n pháº©m, GiÃ¡ mua, GiÃ¡ vá»‘n (*)
             this.products = jsonData.map(row => {
                 // Find ID - try multiple possible column names
                 const id = row['Id (*)'] || row['ID'] || row['Id'] || row['id'] || 0;
                 // Find code
-                const code = row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '';
+                const code = row['MÃ£ sáº£n pháº©m'] || row['DefaultCode'] || row['MÃ£ SP'] || '';
                 // Find name
-                const name = row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '';
-                // Giá mua = Purchase price (what we pay to supplier)
-                const purchasePrice = parseFloat(row['Giá mua'] || row['Giá vốn (*)'] || row['Giá vốn'] || row['StandardPrice'] || 0) || 0;
-                // Giá bán = Selling price (we don't have this in Excel, will fetch from product details)
-                const sellingPrice = parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0) || 0;
+                const name = row['TÃªn sáº£n pháº©m'] || row['NameTemplate'] || row['TÃªn SP'] || '';
+                // GiÃ¡ mua = Purchase price (what we pay to supplier)
+                const purchasePrice = parseFloat(row['GiÃ¡ mua'] || row['GiÃ¡ vá»‘n (*)'] || row['GiÃ¡ vá»‘n'] || row['StandardPrice'] || 0) || 0;
+                // GiÃ¡ bÃ¡n = Selling price (we don't have this in Excel, will fetch from product details)
+                const sellingPrice = parseFloat(row['GiÃ¡ bÃ¡n'] || row['ListPrice'] || row['PriceVariant'] || 0) || 0;
 
                 return { id, code, name, purchasePrice, sellingPrice };
             }).filter(p => p.id); // Filter out empty rows
@@ -1350,7 +1350,7 @@ class InventoryPickerDialog {
             console.log(`[InventoryPicker] Loaded ${this.products.length} products from TPOS Excel`);
 
             if (window.notificationManager && forceReload) {
-                window.notificationManager.success(`Đã tải ${this.products.length} sản phẩm từ TPOS`);
+                window.notificationManager.success(`ÄÃ£ táº£i ${this.products.length} sáº£n pháº©m tá»« TPOS`);
             }
 
         } catch (error) {
@@ -1363,13 +1363,13 @@ class InventoryPickerDialog {
                 this.filteredProducts = [...this.products];
                 console.log(`[InventoryPicker] Error occurred, fallback to cache: ${this.products.length} products`);
                 if (window.notificationManager) {
-                    window.notificationManager.warning('Không thể tải từ TPOS, đang dùng dữ liệu đã lưu');
+                    window.notificationManager.warning('KhÃ´ng thá»ƒ táº£i tá»« TPOS, Ä‘ang dÃ¹ng dá»¯ liá»‡u Ä‘Ã£ lÆ°u');
                 }
             } else {
                 this.products = [];
                 this.filteredProducts = [];
                 if (window.notificationManager) {
-                    window.notificationManager.error('Không thể tải danh sách sản phẩm: ' + error.message);
+                    window.notificationManager.error('KhÃ´ng thá»ƒ táº£i danh sÃ¡ch sáº£n pháº©m: ' + error.message);
                 }
             }
         } finally {
@@ -1526,7 +1526,7 @@ class InventoryPickerDialog {
         try {
             const token = await this.getAuthToken();
             if (!token) {
-                throw new Error('Không có token xác thực');
+                throw new Error('KhÃ´ng cÃ³ token xÃ¡c thá»±c');
             }
 
             const response = await fetch(
@@ -1580,7 +1580,7 @@ class InventoryPickerDialog {
     /**
      * Fetch parent product image by ProductTmplId
      * Uses ProductTemplate API to get the template's canonical image
-     * Logic: variant.ImageUrl → templateData.ImageUrl → ''
+     * Logic: variant.ImageUrl â†’ templateData.ImageUrl â†’ ''
      */
     async fetchParentImage(templateId, token) {
         try {
@@ -1630,12 +1630,12 @@ class InventoryPickerDialog {
                 listContainer.innerHTML = `
                     <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
                         <div style="width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;"></div>
-                        <p>Đang tải sản phẩm từ TPOS...</p>
+                        <p>Äang táº£i sáº£n pháº©m tá»« TPOS...</p>
                     </div>
                     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
                 `;
             }
-            if (countText) countText.textContent = 'Đang tải...';
+            if (countText) countText.textContent = 'Äang táº£i...';
         }
     }
 
@@ -1695,9 +1695,9 @@ class InventoryPickerDialog {
                     justify-content: space-between;
                     align-items: center;
                 ">
-                    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Chọn sản phẩm từ kho</h2>
+                    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Chá»n sáº£n pháº©m tá»« kho</h2>
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <button type="button" id="btnReloadInventory" title="Tải lại danh sách sản phẩm từ TPOS" style="
+                        <button type="button" id="btnReloadInventory" title="Táº£i láº¡i danh sÃ¡ch sáº£n pháº©m tá»« TPOS" style="
                             background: none;
                             border: 1px solid #d1d5db;
                             padding: 6px 12px;
@@ -1715,7 +1715,7 @@ class InventoryPickerDialog {
                                 <polyline points="1 20 1 14 7 14"></polyline>
                                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                             </svg>
-                            Tải lại
+                            Táº£i láº¡i
                         </button>
                         <button type="button" id="btnCloseInventory" style="
                             background: none;
@@ -1738,7 +1738,7 @@ class InventoryPickerDialog {
 
                 <!-- Search -->
                 <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
-                    <input type="text" id="inventorySearchInput" placeholder="Tìm kiếm theo mã SP, tên, variant (tối thiểu 2 ký tự)..." style="
+                    <input type="text" id="inventorySearchInput" placeholder="TÃ¬m kiáº¿m theo mÃ£ SP, tÃªn, variant (tá»‘i thiá»ƒu 2 kÃ½ tá»±)..." style="
                         width: 100%;
                         padding: 10px 14px;
                         border: 1px solid #d1d5db;
@@ -1747,7 +1747,7 @@ class InventoryPickerDialog {
                         box-sizing: border-box;
                     ">
                     <p id="productCountText" style="margin: 8px 0 0; font-size: 13px; color: #6b7280;">
-                        Hiển thị ${this.filteredProducts.length} sản phẩm mới nhất
+                        Hiá»ƒn thá»‹ ${this.filteredProducts.length} sáº£n pháº©m má»›i nháº¥t
                     </p>
                 </div>
 
@@ -1766,7 +1766,7 @@ class InventoryPickerDialog {
                     background: #f9fafb;
                 ">
                     <div style="font-size: 13px; color: #6b7280;">
-                        Đã chọn: <span id="selectedCount" style="font-weight: 600; color: #3b82f6;">${this.selectedProducts.size}</span> sản phẩm
+                        ÄÃ£ chá»n: <span id="selectedCount" style="font-weight: 600; color: #3b82f6;">${this.selectedProducts.size}</span> sáº£n pháº©m
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button type="button" id="btnCancelInventory" style="
@@ -1776,7 +1776,7 @@ class InventoryPickerDialog {
                             background: white;
                             cursor: pointer;
                             font-size: 14px;
-                        ">Hủy</button>
+                        ">Há»§y</button>
                         <button type="button" id="btnAddSelectedProducts" style="
                             padding: 8px 16px;
                             border: none;
@@ -1786,7 +1786,7 @@ class InventoryPickerDialog {
                             cursor: pointer;
                             font-size: 14px;
                             font-weight: 500;
-                        ">Thêm sản phẩm đã chọn</button>
+                        ">ThÃªm sáº£n pháº©m Ä‘Ã£ chá»n</button>
                     </div>
                 </div>
             </div>
@@ -1800,7 +1800,7 @@ class InventoryPickerDialog {
         if (this.isLoading) {
             return `
                 <div style="padding: 60px 20px; text-align: center; color: #9ca3af;">
-                    <p>Đang tải sản phẩm...</p>
+                    <p>Äang táº£i sáº£n pháº©m...</p>
                 </div>
             `;
         }
@@ -1818,8 +1818,8 @@ class InventoryPickerDialog {
                         <circle cx="11" cy="11" r="8"></circle>
                         <path d="m21 21-4.3-4.3"></path>
                     </svg>
-                    <p>Nhập từ khóa tìm kiếm (tối thiểu 2 ký tự)</p>
-                    <p style="font-size: 12px; margin-top: 8px;">Có ${this.products.length} sản phẩm trong kho</p>
+                    <p>Nháº­p tá»« khÃ³a tÃ¬m kiáº¿m (tá»‘i thiá»ƒu 2 kÃ½ tá»±)</p>
+                    <p style="font-size: 12px; margin-top: 8px;">CÃ³ ${this.products.length} sáº£n pháº©m trong kho</p>
                 </div>
             `;
         }
@@ -1830,7 +1830,7 @@ class InventoryPickerDialog {
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin: 0 auto 12px; display: block; opacity: 0.5;">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                     </svg>
-                    <p>Không tìm thấy sản phẩm</p>
+                    <p>KhÃ´ng tÃ¬m tháº¥y sáº£n pháº©m</p>
                 </div>
             `;
         }
@@ -1839,12 +1839,12 @@ class InventoryPickerDialog {
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="background: #f9fafb;">
-                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 60px;">Hình ảnh</th>
-                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 80px;">Mã SP</th>
-                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Tên sản phẩm</th>
-                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 70px;">Tồn kho</th>
-                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá mua</th>
-                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá bán</th>
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 60px;">HÃ¬nh áº£nh</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 80px;">MÃ£ SP</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">TÃªn sáº£n pháº©m</th>
+                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 70px;">Tá»“n kho</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">GiÃ¡ mua</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">GiÃ¡ bÃ¡n</th>
                         <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 50px;"></th>
                     </tr>
                 </thead>
@@ -1906,7 +1906,7 @@ class InventoryPickerDialog {
         if (!value || value === 0) return '-';
         const num = parseFloat(value);
         if (isNaN(num)) return '-';
-        return num.toLocaleString('vi-VN') + ' đ';
+        return num.toLocaleString('vi-VN') + ' Ä‘';
     }
 
     /**
@@ -1919,7 +1919,7 @@ class InventoryPickerDialog {
             <div style="padding: 12px 16px; background: #f0f9ff; border-bottom: 1px solid #bfdbfe;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 13px; color: #1e40af; font-weight: 500;">
-                        Danh sách đã chọn (${selectedArray.length} sản phẩm)
+                        Danh sÃ¡ch Ä‘Ã£ chá»n (${selectedArray.length} sáº£n pháº©m)
                     </span>
                     <button type="button" id="btnClearSelected" style="
                         background: none;
@@ -1929,18 +1929,18 @@ class InventoryPickerDialog {
                         cursor: pointer;
                         padding: 4px 8px;
                         border-radius: 4px;
-                    ">Xóa tất cả</button>
+                    ">XÃ³a táº¥t cáº£</button>
                 </div>
             </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                 <thead>
                     <tr style="background: #f9fafb;">
-                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 60px;">Hình ảnh</th>
-                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 80px;">Mã SP</th>
-                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">Tên sản phẩm</th>
-                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 70px;">Tồn kho</th>
-                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá mua</th>
-                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá bán</th>
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 60px;">HÃ¬nh áº£nh</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 80px;">MÃ£ SP</th>
+                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb;">TÃªn sáº£n pháº©m</th>
+                        <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 70px;">Tá»“n kho</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">GiÃ¡ mua</th>
+                        <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">GiÃ¡ bÃ¡n</th>
                         <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 50px;"></th>
                     </tr>
                 </thead>
@@ -2026,19 +2026,19 @@ class InventoryPickerDialog {
         if (countText) {
             if (this.searchTerm.length < 2) {
                 if (this.selectedProducts.size > 0) {
-                    countText.textContent = `Đã chọn ${this.selectedProducts.size} sản phẩm`;
+                    countText.textContent = `ÄÃ£ chá»n ${this.selectedProducts.size} sáº£n pháº©m`;
                 } else {
-                    countText.textContent = `Có ${this.products.length} sản phẩm trong kho`;
+                    countText.textContent = `CÃ³ ${this.products.length} sáº£n pháº©m trong kho`;
                 }
             } else {
-                countText.textContent = `Tìm thấy ${this.filteredProducts.length} sản phẩm`;
+                countText.textContent = `TÃ¬m tháº¥y ${this.filteredProducts.length} sáº£n pháº©m`;
             }
         }
     }
 
     /**
      * Filter products by search term (min 2 characters)
-     * Search by: Mã SP (code) and Tên sản phẩm (name)
+     * Search by: MÃ£ SP (code) and TÃªn sáº£n pháº©m (name)
      * Only show results when searching to avoid lag with large lists
      */
     filterProducts(term) {
@@ -2145,13 +2145,13 @@ class InventoryPickerDialog {
             }
         }
 
-        // Update Tồn kho (4th column, index 3)
+        // Update Tá»“n kho (4th column, index 3)
         const cells = row.querySelectorAll('td');
         if (cells[3] && details.qtyAvailable !== undefined) {
             cells[3].textContent = details.qtyAvailable;
         }
 
-        // Update Giá bán (6th column, index 5)
+        // Update GiÃ¡ bÃ¡n (6th column, index 5)
         if (cells[5] && details.sellingPrice) {
             cells[5].textContent = this.formatPrice(details.sellingPrice);
         }
@@ -2303,7 +2303,7 @@ class ShippingFeeDialog {
         this.modalElement.innerHTML = `
             <div class="modal modal--xs">
                 <div class="modal__header">
-                    <h2 class="modal__title">Phí vận chuyển</h2>
+                    <h2 class="modal__title">PhÃ­ váº­n chuyá»ƒn</h2>
                     <button type="button" class="modal__close" id="btnCloseShipping">
                         <i data-lucide="x"></i>
                     </button>
@@ -2311,7 +2311,7 @@ class ShippingFeeDialog {
 
                 <div class="modal__body">
                     <div class="form-group">
-                        <label class="form-label">Nhập phí ship (VND)</label>
+                        <label class="form-label">Nháº­p phÃ­ ship (VND)</label>
                         <input type="text" class="form-input form-input--lg form-input--number"
                                id="shippingFeeInput"
                                placeholder="0"
@@ -2327,10 +2327,10 @@ class ShippingFeeDialog {
                 </div>
 
                 <div class="modal__footer">
-                    <button class="btn btn-outline" id="btnCancelShipping">Hủy</button>
+                    <button class="btn btn-outline" id="btnCancelShipping">Há»§y</button>
                     <button class="btn btn-primary" id="btnSaveShipping">
                         <i data-lucide="check"></i>
-                        <span>Xác nhận</span>
+                        <span>XÃ¡c nháº­n</span>
                     </button>
                 </div>
             </div>
@@ -2545,7 +2545,7 @@ class VariantDropdownSelector {
         if (this.variants.length === 0) {
             this.dropdown.innerHTML = `
                 <div class="variant-dropdown-empty">
-                    <p class="text-muted">Không có biến thể</p>
+                    <p class="text-muted">KhÃ´ng cÃ³ biáº¿n thá»ƒ</p>
                 </div>
             `;
             return;
