@@ -494,19 +494,9 @@ class PurchaseOrderController {
             ? `[${ncc.code}] ${ncc.name}`
             : (singleOrder.supplier?.name || 'Không rõ');
 
-        // Calculate totals
-        let totalQty = 0;
-        let totalAmount = 0;
-        for (const item of items) {
-            const qty = item.quantity || 0;
-            const price = item.purchasePrice || 0;
-            totalQty += qty;
-            totalAmount += qty * price;
-        }
-
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
 
-        // Build item rows
+        // Build item rows with editable qty/price
         const rowsHTML = items.map((item, idx) => {
             const qty = item.quantity || 0;
             const price = item.purchasePrice || 0;
@@ -515,48 +505,61 @@ class PurchaseOrderController {
             const name = item.productName || '';
             const variant = item.variant || '';
             return `
-                <tr style="border-bottom: 1px solid #e5e7eb;">
-                    <td style="padding: 10px 8px; text-align: center; color: #6b7280; font-size: 13px; vertical-align: top;">${idx + 1}</td>
-                    <td style="padding: 10px 8px; font-size: 13px;">
-                        <div style="font-weight: 500;">[${code}] ${name}</div>
-                        ${variant ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${variant}</div>` : ''}
+                <tr style="border-bottom: 1px solid #e5e7eb;" data-idx="${idx}">
+                    <td style="padding: 8px 6px; text-align: center; color: #6b7280; font-size: 13px; vertical-align: top; width: 36px;">${idx + 1}</td>
+                    <td style="padding: 8px 10px; font-size: 13px;">
+                        <div style="font-weight: 600; color: #1e293b;">[${code}] ${name}</div>
+                        ${variant ? `<div style="color: #9ca3af; font-size: 12px; margin-top: 2px;">${variant}</div>` : ''}
                     </td>
-                    <td style="padding: 10px 8px; text-align: center; font-size: 13px;">${qty}</td>
-                    <td style="padding: 10px 8px; text-align: right; font-size: 13px;">${fmt(price)}</td>
-                    <td style="padding: 10px 8px; text-align: right; font-size: 13px; font-weight: 500;">${fmt(lineTotal)}</td>
+                    <td style="padding: 8px 4px; text-align: center; width: 80px;">
+                        <input type="number" class="po-qty" data-idx="${idx}" value="${qty}" min="0" style="
+                            width: 60px; height: 30px; text-align: center; border: 1px solid #d1d5db;
+                            border-radius: 4px; font-size: 13px; padding: 0 4px;
+                        ">
+                    </td>
+                    <td style="padding: 8px 4px; text-align: right; width: 120px;">
+                        <input type="number" class="po-price" data-idx="${idx}" value="${price}" min="0" style="
+                            width: 100px; height: 30px; text-align: right; border: 1px solid #d1d5db;
+                            border-radius: 4px; font-size: 13px; padding: 0 8px;
+                        ">
+                    </td>
+                    <td style="padding: 8px 10px; text-align: right; font-size: 14px; font-weight: 600; width: 110px; white-space: nowrap;" class="po-line-total">${fmt(lineTotal)}</td>
                 </tr>`;
         }).join('');
 
         const overlay = document.createElement('div');
         overlay.style.cssText = `
-            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
             display: flex; align-items: center; justify-content: center; z-index: 5000;
         `;
 
         overlay.innerHTML = `
             <div style="
                 background: white; border-radius: 12px; padding: 0;
-                max-width: 700px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;
+                max-width: 900px; width: 96%; max-height: 92vh; display: flex; flex-direction: column;
                 box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
             ">
                 <!-- Header -->
-                <div style="padding: 20px 24px 12px; border-bottom: 1px solid #e5e7eb;">
-                    <h3 style="margin: 0 0 4px; font-size: 17px; font-weight: 600;">
-                        Đơn mua hàng - ${singleOrder.orderNumber || ''}
-                    </h3>
-                    <div style="font-size: 13px; color: #6b7280;">NCC: <strong>${supplierDisplay}</strong></div>
+                <div style="padding: 20px 24px 16px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h3 style="margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #0f172a;">
+                            Đơn mua hàng - ${singleOrder.orderNumber || ''}
+                        </h3>
+                        <div style="font-size: 13px; color: #64748b;">NCC: <strong style="color: #334155;">${supplierDisplay}</strong></div>
+                    </div>
+                    <div style="font-size: 12px; color: #94a3b8;">${new Date().toLocaleDateString('vi-VN')}</div>
                 </div>
 
                 <!-- Scrollable table -->
                 <div style="overflow-y: auto; flex: 1; min-height: 0;">
-                    <table style="width: 100%; border-collapse: collapse;">
+                    <table style="width: 100%; border-collapse: collapse;" id="poItemsTable">
                         <thead>
-                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                                <th style="padding: 10px 8px; text-align: center; font-size: 12px; font-weight: 600; color: #64748b; width: 40px;">STT</th>
-                                <th style="padding: 10px 8px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b;">Sản phẩm</th>
-                                <th style="padding: 10px 8px; text-align: center; font-size: 12px; font-weight: 600; color: #64748b; width: 60px;">SL</th>
-                                <th style="padding: 10px 8px; text-align: right; font-size: 12px; font-weight: 600; color: #64748b; width: 100px;">Đơn giá</th>
-                                <th style="padding: 10px 8px; text-align: right; font-size: 12px; font-weight: 600; color: #64748b; width: 100px;">Tổng</th>
+                            <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                                <th style="padding: 10px 6px; text-align: center; font-size: 12px; font-weight: 700; color: #475569; width: 36px;">STT</th>
+                                <th style="padding: 10px 10px; text-align: left; font-size: 12px; font-weight: 700; color: #475569;">Sản phẩm</th>
+                                <th style="padding: 10px 4px; text-align: center; font-size: 12px; font-weight: 700; color: #475569; width: 80px;">Số lượng</th>
+                                <th style="padding: 10px 4px; text-align: right; font-size: 12px; font-weight: 700; color: #475569; width: 120px;">Đơn giá</th>
+                                <th style="padding: 10px 10px; text-align: right; font-size: 12px; font-weight: 700; color: #475569; width: 110px;">Tổng</th>
                             </tr>
                         </thead>
                         <tbody>${rowsHTML}</tbody>
@@ -564,37 +567,47 @@ class PurchaseOrderController {
                 </div>
 
                 <!-- Summary -->
-                <div style="padding: 16px 24px; border-top: 2px solid #e2e8f0; background: #f8fafc;">
-                    <div style="display: flex; justify-content: flex-end; gap: 32px; margin-bottom: 12px; font-size: 13px;">
-                        <span style="color: #6b7280;">Tổng số lượng: <strong>${totalQty}</strong></span>
-                        <span>Tổng: <strong>${fmt(totalAmount)}</strong></span>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; max-width: 360px; margin-left: auto;">
-                        <label style="font-size: 13px; color: #374151; text-align: right;">Giảm giá:</label>
-                        <input type="number" id="poDecreaseAmount" value="${singleOrder.discountAmount || 0}" min="0" style="
-                            height: 32px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 6px;
-                            font-size: 13px; text-align: right; width: 100%; box-sizing: border-box;
-                        ">
-
-                        <label style="font-size: 13px; color: #374151; text-align: right;">Cước phí:</label>
-                        <input type="number" id="poCostsIncurred" value="${singleOrder.shippingFee || 0}" min="0" style="
-                            height: 32px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 6px;
-                            font-size: 13px; text-align: right; width: 100%; box-sizing: border-box;
-                        ">
-
-                        <label style="font-size: 13px; color: #374151; text-align: right;">Ghi chú:</label>
-                        <input type="text" id="poNote" value="${singleOrder.notes || ''}" placeholder="Nhập ghi chú..." style="
-                            height: 32px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 6px;
-                            font-size: 13px; width: 100%; box-sizing: border-box;
-                        ">
-                    </div>
-
-                    <div style="display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
-                        <span style="font-size: 15px; font-weight: 600;">
-                            Tổng tiền: <span id="poFinalAmount">${fmt(totalAmount - (singleOrder.discountAmount || 0) + (singleOrder.shippingFee || 0))}</span>
-                        </span>
-                    </div>
+                <div style="padding: 16px 24px; border-top: 2px solid #cbd5e1; background: #f8fafc;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 6px 0; font-size: 14px; font-weight: 600; text-align: right;">Tổng số lượng: &nbsp;<span id="poTotalQty">0</span></td>
+                            <td style="padding: 6px 10px; font-size: 14px; font-weight: 700; text-align: right; width: 110px; color: #0f172a;" id="poSubtotal">0</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 0; text-align: right;">
+                                <span style="font-size: 13px; color: #64748b; margin-right: 8px;">Chiết khấu - Giảm giá</span>
+                                <input type="number" id="poDecreaseAmount" value="${singleOrder.discountAmount || 0}" min="0" style="
+                                    width: 120px; height: 30px; text-align: right; border: 1px solid #d1d5db;
+                                    border-radius: 4px; font-size: 13px; padding: 0 8px;
+                                ">
+                            </td>
+                            <td style="padding: 4px 10px; font-size: 14px; font-weight: 600; text-align: right; width: 110px;" id="poDecreaseDisplay">0</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 0; text-align: right;">
+                                <span style="font-size: 13px; color: #64748b; margin-right: 8px;">Cước phí</span>
+                                <input type="number" id="poCostsIncurred" value="${singleOrder.shippingFee || 0}" min="0" style="
+                                    width: 120px; height: 30px; text-align: right; border: 1px solid #d1d5db;
+                                    border-radius: 4px; font-size: 13px; padding: 0 8px;
+                                ">
+                            </td>
+                            <td style="padding: 4px 10px; font-size: 14px; font-weight: 600; text-align: right; width: 110px;" id="poCostsDisplay">0</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 0; text-align: right;">
+                                <span style="font-size: 13px; color: #64748b; margin-right: 8px;">Ghi chú</span>
+                                <input type="text" id="poNote" value="${singleOrder.notes || ''}" placeholder="Nhập ghi chú..." style="
+                                    width: 220px; height: 30px; border: 1px solid #d1d5db;
+                                    border-radius: 4px; font-size: 13px; padding: 0 8px;
+                                ">
+                            </td>
+                            <td></td>
+                        </tr>
+                        <tr style="border-top: 2px solid #334155;">
+                            <td style="padding: 10px 0; font-size: 16px; font-weight: 700; text-align: right; color: #0f172a;">Tổng tiền:</td>
+                            <td style="padding: 10px 10px; font-size: 16px; font-weight: 700; text-align: right; width: 110px; color: #0f172a;" id="poFinalAmount">0</td>
+                        </tr>
+                    </table>
                 </div>
 
                 <!-- Buttons -->
@@ -603,6 +616,10 @@ class PurchaseOrderController {
                         padding: 10px 20px; border: 1px solid #d1d5db; border-radius: 8px;
                         background: white; cursor: pointer; font-size: 14px;
                     ">Hủy</button>
+                    <button type="button" id="btnExportExcel" style="
+                        padding: 10px 20px; border: 1px solid #16a34a; border-radius: 8px;
+                        background: white; color: #16a34a; cursor: pointer; font-size: 14px; font-weight: 500;
+                    ">Xuất Excel</button>
                     <button type="button" id="btnSubmitTPOS" style="
                         padding: 10px 20px; border: none; border-radius: 8px;
                         background: #16a34a; color: white; cursor: pointer;
@@ -614,21 +631,62 @@ class PurchaseOrderController {
 
         document.body.appendChild(overlay);
 
-        // Live recalculate final amount
-        const decreaseInput = overlay.querySelector('#poDecreaseAmount');
-        const costsInput = overlay.querySelector('#poCostsIncurred');
-        const finalSpan = overlay.querySelector('#poFinalAmount');
-        const recalc = () => {
-            const decrease = parseFloat(decreaseInput.value) || 0;
-            const costs = parseFloat(costsInput.value) || 0;
-            finalSpan.textContent = fmt(totalAmount - decrease + costs);
+        // Recalculate all totals from current input values
+        const recalcAll = () => {
+            let totalQty = 0, totalAmount = 0;
+            overlay.querySelectorAll('tr[data-idx]').forEach(row => {
+                const idx = parseInt(row.dataset.idx);
+                const qty = parseFloat(row.querySelector('.po-qty').value) || 0;
+                const price = parseFloat(row.querySelector('.po-price').value) || 0;
+                const lineTotal = qty * price;
+                totalQty += qty;
+                totalAmount += lineTotal;
+                row.querySelector('.po-line-total').textContent = fmt(lineTotal);
+                // Update item data for export
+                if (items[idx]) {
+                    items[idx].quantity = qty;
+                    items[idx].purchasePrice = price;
+                }
+            });
+            const decrease = parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
+            const costs = parseFloat(overlay.querySelector('#poCostsIncurred').value) || 0;
+            overlay.querySelector('#poTotalQty').textContent = totalQty;
+            overlay.querySelector('#poSubtotal').textContent = fmt(totalAmount);
+            overlay.querySelector('#poDecreaseDisplay').textContent = fmt(decrease);
+            overlay.querySelector('#poCostsDisplay').textContent = fmt(costs);
+            overlay.querySelector('#poFinalAmount').textContent = fmt(totalAmount - decrease + costs);
         };
-        decreaseInput.addEventListener('input', recalc);
-        costsInput.addEventListener('input', recalc);
+        recalcAll();
+
+        // Bind input events for live recalc
+        overlay.querySelectorAll('.po-qty, .po-price').forEach(input => {
+            input.addEventListener('input', recalcAll);
+        });
+        overlay.querySelector('#poDecreaseAmount').addEventListener('input', recalcAll);
+        overlay.querySelector('#poCostsIncurred').addEventListener('input', recalcAll);
 
         // Cancel / close
         overlay.querySelector('#btnCancelPO').addEventListener('click', () => overlay.remove());
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        // Export Excel button
+        overlay.querySelector('#btnExportExcel').addEventListener('click', async () => {
+            const btn = overlay.querySelector('#btnExportExcel');
+            btn.disabled = true;
+            btn.textContent = 'Đang xuất...';
+            try {
+                const result = await this.exportMuaHang(orders);
+                if (result.exported > 0) {
+                    this.ui.showToast(`Xuất Excel thành công! ${result.exported} SP`, 'success');
+                } else {
+                    this.ui.showToast('Không có SP nào phù hợp', 'error');
+                }
+            } catch (err) {
+                this.ui.showToast('Lỗi xuất Excel: ' + err.message, 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = 'Xuất Excel';
+        });
 
         // Submit to TPOS
         overlay.querySelector('#btnSubmitTPOS').addEventListener('click', async () => {
@@ -639,8 +697,8 @@ class PurchaseOrderController {
 
             try {
                 // Attach extra fields to order for TPOS
-                singleOrder.decreaseAmount = parseFloat(decreaseInput.value) || 0;
-                singleOrder.costsIncurred = parseFloat(costsInput.value) || 0;
+                singleOrder.decreaseAmount = parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
+                singleOrder.costsIncurred = parseFloat(overlay.querySelector('#poCostsIncurred').value) || 0;
                 singleOrder.tposNote = overlay.querySelector('#poNote').value || '';
 
                 // Step 1: Export MH (resolve codes + build workbook)
