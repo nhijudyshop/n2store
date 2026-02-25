@@ -590,10 +590,13 @@ class PurchaseOrderController {
                             <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poDecreaseDisplay">0</td>
                         </tr>
                         <tr>
-                            <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; color: #333;">Cước phí:
+                            <td style="padding: 4px 0; text-align: right;">
+                                <span style="font-size: 14px; color: #64748b; margin-right: 6px;">&#x1F69A;</span>
+                                <span style="font-size: 14px; font-weight: 600; color: #64748b;">Tiền ship:</span>
                                 <input type="number" id="poCostsIncurred" value="${singleOrder.shippingFee || 0}" min="0" style="
-                                    width: 120px; height: 32px; text-align: right; border: 1px solid #ccc;
-                                    border-radius: 3px; font-size: 13px; padding: 0 8px; margin-left: 8px;
+                                    width: 120px; height: 36px; text-align: right; border: 1px solid #e2e8f0;
+                                    border-radius: 8px; font-size: 14px; padding: 0 10px; margin-left: 8px;
+                                    background: #f8fafc;
                                 ">
                             </td>
                             <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poCostsDisplay">0</td>

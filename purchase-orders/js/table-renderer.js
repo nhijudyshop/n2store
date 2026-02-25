@@ -276,7 +276,7 @@ class PurchaseOrderTableRenderer {
                     <tr class="order-row order-row--first ${isSelected ? 'selected' : ''} ${isProcessing ? 'order-row--processing' : ''}"
                         data-order-id="${order.id}">
                         ${this.renderSpannedCells(order, rowSpan, isSelected, hasPriceMismatch, calculatedFinalAmount)}
-                        ${this.renderItemCells(item)}
+                        ${this.renderItemCells(item, order.notes)}
                         ${this.renderStatusCell(order, rowSpan)}
                         ${this.renderActionCell(order, rowSpan, isSelected, canEdit, canDelete, isProcessing)}
                     </tr>
@@ -338,6 +338,8 @@ class PurchaseOrderTableRenderer {
                                 Thành tiền: ${config.formatVND(calculatedFinalAmount)}
                             </div>
                         ` : ''}
+                        ${order.discountAmount ? `<div class="invoice-detail text-muted" style="font-size:11px;">Giảm: ${config.formatVND(order.discountAmount)}</div>` : ''}
+                        ${order.shippingFee ? `<div class="invoice-detail text-muted" style="font-size:11px;">Ship: ${config.formatVND(order.shippingFee)}</div>` : ''}
                     </div>
                 </div>
             </td>
@@ -349,7 +351,7 @@ class PurchaseOrderTableRenderer {
      * @param {Object} item - Order item data
      * @returns {string} HTML string
      */
-    renderItemCells(item) {
+    renderItemCells(item, orderNotes) {
         const config = window.PurchaseOrderConfig;
         const hasDeletedProduct = !item.productName;
         const productName = item.productName || 'Sản phẩm đã xóa';
@@ -395,6 +397,11 @@ class PurchaseOrderTableRenderer {
 
             <!-- Ghi chú item -->
             <td class="col-notes">
+                ${orderNotes ? `
+                    <div class="notes-hover" title="${orderNotes}" style="color: #4b5563; font-style: italic;">
+                        <span class="notes-text">${this.truncate(orderNotes, 20)}</span>
+                    </div>
+                ` : ''}
                 ${item.notes ? `
                     <div class="notes-hover" title="${item.notes}">
                         <span class="notes-text">${this.truncate(item.notes, 20)}</span>
