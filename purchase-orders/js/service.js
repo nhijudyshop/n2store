@@ -201,7 +201,8 @@ class PurchaseOrderService {
                 subtotal: (item.purchasePrice || 0) * (item.quantity || 1),
                 notes: item.notes || '',
                 tposSyncStatus: item.tposSyncStatus || null,
-                tposProductId: item.tposProductId || null
+                tposProductId: item.tposProductId || null,
+                tposProductTmplId: item.tposProductTmplId || null
             };
             console.log(`[PrepareItems] Item ${index + 1}: variant="${prepared.variant}", attrIds=${prepared.selectedAttributeValueIds.length}`);
             return prepared;

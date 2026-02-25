@@ -1565,6 +1565,8 @@ class InventoryPickerDialog {
                 purchasePrice: data.StandardPrice || 0,
                 sellingPrice: data.PriceVariant || data.ListPrice || 0,
                 variant: data.DisplayAttributeValues || '',
+                tposProductId: data.Id || null,
+                tposProductTmplId: data.ProductTmplId || null,
                 // Keep original data for reference
                 _raw: data
             };
