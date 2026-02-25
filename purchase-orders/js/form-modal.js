@@ -945,8 +945,8 @@ class PurchaseOrderFormModal {
             const qty = parseInt(item.quantity) || 0;
             return sum + (price * qty);
         }, 0);
-        const discount = parseFloat(String(this.formData.discountAmount).replace(/[,.]/g, '')) || 0;
-        const shipping = parseFloat(String(this.formData.shippingFee).replace(/[,.]/g, '')) || 0;
+        const discount = this.parsePrice(this.formData.discountAmount);
+        const shipping = this.parsePrice(this.formData.shippingFee);
         const finalAmount = totalAmount - discount + shipping;
 
         return { totalQuantity, totalAmount, discount, shipping, finalAmount };
@@ -1276,15 +1276,18 @@ class PurchaseOrderFormModal {
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 13px; color: #6b7280;">Giảm giá:</span>
-                            <input type="text" id="inputDiscount" value="${this.formatNumber(this.formData.discountAmount)}" placeholder="0" style="
-                                width: 100px;
-                                height: 32px;
-                                padding: 0 8px;
-                                border: 1px solid #d1d5db;
-                                border-radius: 6px;
-                                font-size: 13px;
-                                text-align: right;
-                            ">
+                            <div style="position: relative;">
+                                <input type="text" id="inputDiscount" value="${this.formatNumber(this.formData.discountAmount)}" placeholder="0" style="
+                                    width: 100px;
+                                    height: 32px;
+                                    padding: 0 8px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                    text-align: right;
+                                ">
+                                <div id="discountPreview" style="position: absolute; right: 0; font-size: 11px; color: #6b7280; white-space: nowrap;"></div>
+                            </div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="flex-shrink: 0;">
@@ -1294,15 +1297,18 @@ class PurchaseOrderFormModal {
                                 <circle cx="18.5" cy="18.5" r="2.5"></circle>
                             </svg>
                             <span style="font-size: 13px; color: #64748b; white-space: nowrap;">Tiền ship:</span>
-                            <input type="text" id="inputShipping" value="${this.formatNumber(this.formData.shippingFee)}" placeholder="0" style="
-                                width: 100px;
-                                height: 32px;
-                                padding: 0 8px;
-                                border: 1px solid #d1d5db;
-                                border-radius: 6px;
-                                font-size: 13px;
-                                text-align: right;
-                            ">
+                            <div style="position: relative;">
+                                <input type="text" id="inputShipping" value="${this.formatNumber(this.formData.shippingFee)}" placeholder="0" style="
+                                    width: 100px;
+                                    height: 32px;
+                                    padding: 0 8px;
+                                    border: 1px solid #d1d5db;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                    text-align: right;
+                                ">
+                                <div id="shippingPreview" style="position: absolute; right: 0; font-size: 11px; color: #6b7280; white-space: nowrap;"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -2004,33 +2010,29 @@ class PurchaseOrderFormModal {
             });
         });
 
-        // Also format discount, shipping, invoice inputs on blur (with ×1000 for invoice)
-        ['#inputDiscount', '#inputShipping', '#inputInvoiceAmount'].forEach(sel => {
+        // Format + ×1000 + preview for discount, shipping, invoice inputs
+        const previewMap = {
+            '#inputDiscount': '#discountPreview',
+            '#inputShipping': '#shippingPreview',
+            '#inputInvoiceAmount': '#invoiceAmountPreview'
+        };
+        Object.entries(previewMap).forEach(([sel, previewSel]) => {
             const el = this.modalElement.querySelector(sel);
-            if (el) {
-                const isInvoice = sel === '#inputInvoiceAmount';
-                el.addEventListener('blur', (e) => {
-                    const raw = isInvoice ? this.parsePrice(e.target.value) : (parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0);
-                    if (raw) {
-                        e.target.value = raw.toLocaleString('vi-VN');
-                    }
-                    // Clear preview after blur formats the value
-                    if (isInvoice) {
-                        const preview = this.modalElement?.querySelector('#invoiceAmountPreview');
-                        if (preview) preview.textContent = '';
-                    }
-                });
-                // Realtime preview for invoice amount
-                if (isInvoice) {
-                    el.addEventListener('input', (e) => {
-                        const parsed = this.parsePrice(e.target.value);
-                        const preview = this.modalElement?.querySelector('#invoiceAmountPreview');
-                        if (preview) {
-                            preview.textContent = parsed ? parsed.toLocaleString('vi-VN') + ' đ' : '';
-                        }
-                    });
+            if (!el) return;
+            el.addEventListener('input', (e) => {
+                const parsed = this.parsePrice(e.target.value);
+                const preview = this.modalElement?.querySelector(previewSel);
+                if (preview) {
+                    preview.textContent = parsed ? parsed.toLocaleString('vi-VN') + ' đ' : '';
                 }
-            }
+            });
+            el.addEventListener('blur', (e) => {
+                const raw = this.parsePrice(e.target.value);
+                if (raw) e.target.value = raw.toLocaleString('vi-VN');
+                const preview = this.modalElement?.querySelector(previewSel);
+                if (preview) preview.textContent = '';
+                this.updateTotals();
+            });
         });
 
         // Action buttons
