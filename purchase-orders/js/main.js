@@ -523,11 +523,17 @@ class PurchaseOrderController {
                             border-radius: 3px; font-size: 14px; padding: 0 4px;
                         ">
                     </td>
-                    <td style="padding: 10px 4px; text-align: right; width: 140px; border-right: 1px solid #dee2e6;">
-                        <input type="number" class="po-price" data-idx="${idx}" value="${price}" min="0" style="
-                            width: 110px; height: 32px; text-align: right; border: 1px solid #ccc;
-                            border-radius: 3px; font-size: 14px; padding: 0 8px;
-                        ">
+                    <td style="padding: 10px 4px; text-align: right; width: 160px; border-right: 1px solid #dee2e6;">
+                        <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
+                            <input type="number" class="po-price" data-idx="${idx}" value="${price}" min="0" style="
+                                width: 110px; height: 32px; text-align: right; border: 1px solid #ccc;
+                                border-radius: 3px; font-size: 14px; padding: 0 8px;
+                            ">
+                            <input type="checkbox" class="po-bypass-zero" data-idx="${idx}" title="Cho phép giá 0" style="
+                                width: 16px; height: 16px; cursor: pointer; accent-color: #f59e0b;
+                                display: ${price === 0 ? 'block' : 'none'};
+                            ">
+                        </div>
                     </td>
                     <td style="padding: 10px 10px; text-align: right; font-size: 14px; font-weight: 600; width: 120px; white-space: nowrap; border-right: 1px solid #dee2e6;" class="po-line-total">${fmt(lineTotal)}</td>
                     <td style="padding: 10px 6px; text-align: center; width: 50px;">
@@ -624,6 +630,14 @@ class PurchaseOrderController {
                     </table>
                 </div>
 
+                <!-- Zero-price warning -->
+                <div id="poZeroPriceWarning" style="padding: 8px 20px; background: #fef3c7; border-top: 1px solid #fde68a; display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #92400e;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span id="poZeroPriceText">Có sản phẩm giá 0. Tick checkbox bên cạnh đơn giá để cho phép.</span>
+                    </div>
+                </div>
+
                 <!-- Buttons -->
                 <div style="padding: 12px 20px; border-top: 1px solid #dee2e6; display: flex; gap: 8px; justify-content: flex-end; background: #f8f9fa;">
                     <button type="button" id="btnCancelPO" style="
@@ -638,12 +652,56 @@ class PurchaseOrderController {
                         padding: 8px 20px; border: none; border-radius: 4px;
                         background: #28a745; color: white; cursor: pointer;
                         font-size: 14px; font-weight: 600;
-                    " ${!ncc?.tposId ? 'disabled title="NCC chưa có TPOS ID"' : ''}>Tạo đơn TPOS</button>
+                    " ${!ncc?.tposId ? 'disabled data-ncc-disabled title="NCC chưa có TPOS ID"' : ''}>Tạo đơn TPOS</button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(overlay);
+
+        // Check zero-price items and toggle warning/buttons
+        const checkZeroPrices = () => {
+            let zeroPriceCount = 0;
+            overlay.querySelectorAll('tr[data-idx]').forEach(row => {
+                const price = parseFloat(row.querySelector('.po-price').value) || 0;
+                const bypass = row.querySelector('.po-bypass-zero');
+                if (bypass) {
+                    bypass.style.display = price === 0 ? 'block' : 'none';
+                    if (price !== 0) bypass.checked = false;
+                }
+                if (price === 0 && (!bypass || !bypass.checked)) {
+                    zeroPriceCount++;
+                }
+            });
+
+            const warning = overlay.querySelector('#poZeroPriceWarning');
+            const btnExcel = overlay.querySelector('#btnExportExcel');
+            const btnTPOS = overlay.querySelector('#btnSubmitTPOS');
+
+            if (zeroPriceCount > 0) {
+                warning.style.display = 'block';
+                warning.querySelector('#poZeroPriceText').textContent =
+                    `Có ${zeroPriceCount} sản phẩm giá 0. Tick checkbox bên cạnh đơn giá để cho phép.`;
+                btnExcel.disabled = true;
+                btnExcel.style.opacity = '0.5';
+                btnExcel.style.cursor = 'not-allowed';
+                if (!btnTPOS.hasAttribute('data-ncc-disabled')) {
+                    btnTPOS.disabled = true;
+                    btnTPOS.style.opacity = '0.5';
+                    btnTPOS.style.cursor = 'not-allowed';
+                }
+            } else {
+                warning.style.display = 'none';
+                btnExcel.disabled = false;
+                btnExcel.style.opacity = '';
+                btnExcel.style.cursor = 'pointer';
+                if (!btnTPOS.hasAttribute('data-ncc-disabled')) {
+                    btnTPOS.disabled = false;
+                    btnTPOS.style.opacity = '';
+                    btnTPOS.style.cursor = 'pointer';
+                }
+            }
+        };
 
         // Recalculate all totals from current input values
         const recalcAll = () => {
@@ -669,6 +727,7 @@ class PurchaseOrderController {
             overlay.querySelector('#poDecreaseDisplay').textContent = fmt(decrease);
             overlay.querySelector('#poCostsDisplay').textContent = fmt(costs);
             overlay.querySelector('#poFinalAmount').textContent = fmt(totalAmount - decrease + costs);
+            checkZeroPrices();
         };
         recalcAll();
 
@@ -678,6 +737,11 @@ class PurchaseOrderController {
         });
         overlay.querySelector('#poDecreaseAmount').addEventListener('input', recalcAll);
         overlay.querySelector('#poCostsIncurred').addEventListener('input', recalcAll);
+
+        // Bypass checkboxes
+        overlay.querySelectorAll('.po-bypass-zero').forEach(cb => {
+            cb.addEventListener('change', checkZeroPrices);
+        });
 
         // Cancel / close
         overlay.querySelector('#btnCancelPO').addEventListener('click', () => overlay.remove());
