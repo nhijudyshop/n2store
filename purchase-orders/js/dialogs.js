@@ -464,17 +464,10 @@ class VariantGeneratorDialog {
             return result;
         };
 
-        // Collect ALL selected value IDs across ALL attribute groups
-        // Per Section 9.14.4: every combo gets the SAME full array of IDs
-        const allSelectedAttributeValueIds = selectedArrays
-            .flat()
-            .map(v => v.id)
-            .filter(Boolean);
-
         const combinations = combine(selectedArrays);
         return combinations.map(combo => ({
             variant: combo.map(c => c.value).join(' / '),
-            selectedAttributeValueIds: allSelectedAttributeValueIds
+            selectedAttributeValueIds: combo.map(c => c.id).filter(Boolean)
         }));
     }
 
