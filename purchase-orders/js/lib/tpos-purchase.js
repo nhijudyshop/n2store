@@ -130,10 +130,10 @@ window.TPOSPurchase = (function() {
             amountTotal += (line.PriceUnit || 0) * (line.ProductQty || 0);
         }
 
-        const invoiceAmount = orderInfo.invoiceAmount || 0;
-        const discountAmount = orderInfo.discountAmount || 0;
-        const shippingFee = orderInfo.shippingFee || 0;
-        const finalAmount = invoiceAmount || amountTotal;
+        const decreaseAmount = orderInfo.decreaseAmount || orderInfo.discountAmount || 0;
+        const costsIncurred = orderInfo.costsIncurred || orderInfo.shippingFee || 0;
+        const tposNote = orderInfo.tposNote || orderInfo.notes || '';
+        const finalAmount = amountTotal - decreaseAmount + costsIncurred;
 
         // Build Partner object from Firebase data (full TPOS response)
         const partner = {
@@ -170,12 +170,12 @@ window.TPOSPurchase = (function() {
             TotalQuantity: 0,
             Amount: null,
             Discount: 0,
-            DiscountAmount: discountAmount,
-            DecreaseAmount: 0,
+            DiscountAmount: 0,
+            DecreaseAmount: decreaseAmount,
             AmountTax: 0,
             AmountUntaxed: amountTotal,
             TaxId: null,
-            Note: orderInfo.notes || '',
+            Note: tposNote,
             CompanyId: STATIC.CompanyId,
             JournalId: STATIC.JournalId,
             DateInvoice: toVNDateString(now),
@@ -199,7 +199,7 @@ window.TPOSPurchase = (function() {
             Address: null,
             DateCreated: toVNDateString(now),
             TaxView: null,
-            CostsIncurred: shippingFee,
+            CostsIncurred: costsIncurred,
             VatInvoiceNumber: null,
             ExchangeRate: null,
             DestConvertCurrencyUnitId: null,

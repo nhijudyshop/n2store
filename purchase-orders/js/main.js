@@ -478,201 +478,228 @@ class PurchaseOrderController {
             return;
         }
 
-        // Show export format dialog
-        this.showExportFormatDialog(order);
+        this.showPurchaseOrderPreview(order);
     }
 
     /**
-     * Show export format selection dialog
-     * @param {Object} order - Order to export (or array of orders for bulk)
+     * Show purchase order preview UI (replaces old export format dialog)
+     * Displays order items in TPOS-style table with editable Giảm giá, Cước phí, Ghi chú
      */
-    showExportFormatDialog(order) {
-        const isMultiple = Array.isArray(order);
-        const orders = isMultiple ? order : [order];
-        const title = isMultiple ? `Xuất ${orders.length} đơn hàng` : `Xuất đơn hàng ${order.orderNumber}`;
+    showPurchaseOrderPreview(order) {
+        const orders = Array.isArray(order) ? order : [order];
+        const singleOrder = orders[0];
+        const items = singleOrder.items || [];
+        const ncc = window.NCCManager?.findByName(singleOrder.supplier?.name);
+        const supplierDisplay = ncc
+            ? `[${ncc.code}] ${ncc.name}`
+            : (singleOrder.supplier?.name || 'Không rõ');
+
+        // Calculate totals
+        let totalQty = 0;
+        let totalAmount = 0;
+        for (const item of items) {
+            const qty = item.quantity || 0;
+            const price = item.purchasePrice || 0;
+            totalQty += qty;
+            totalAmount += qty * price;
+        }
+
+        const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
+
+        // Build item rows
+        const rowsHTML = items.map((item, idx) => {
+            const qty = item.quantity || 0;
+            const price = item.purchasePrice || 0;
+            const lineTotal = qty * price;
+            const code = item.productCode || '';
+            const name = item.productName || '';
+            const variant = item.variant || '';
+            return `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                    <td style="padding: 10px 8px; text-align: center; color: #6b7280; font-size: 13px; vertical-align: top;">${idx + 1}</td>
+                    <td style="padding: 10px 8px; font-size: 13px;">
+                        <div style="font-weight: 500;">[${code}] ${name}</div>
+                        ${variant ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${variant}</div>` : ''}
+                    </td>
+                    <td style="padding: 10px 8px; text-align: center; font-size: 13px;">${qty}</td>
+                    <td style="padding: 10px 8px; text-align: right; font-size: 13px;">${fmt(price)}</td>
+                    <td style="padding: 10px 8px; text-align: right; font-size: 13px; font-weight: 500;">${fmt(lineTotal)}</td>
+                </tr>`;
+        }).join('');
 
         const overlay = document.createElement('div');
         overlay.style.cssText = `
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 5000;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center; z-index: 5000;
         `;
 
         overlay.innerHTML = `
             <div style="
-                background: white;
-                border-radius: 12px;
-                padding: 24px;
-                max-width: 400px;
-                width: 90%;
-                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                background: white; border-radius: 12px; padding: 0;
+                max-width: 700px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
             ">
-                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">${title}</h3>
-                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">Chọn định dạng xuất Excel:</p>
-
-                <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
-                    <label style="
-                        display: flex;
-                        align-items: center;
-                        gap: 12px;
-                        padding: 16px;
-                        border: 2px solid #e5e7eb;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    " id="optionMH">
-                        <input type="radio" name="exportFormat" value="MH" checked style="width: 18px; height: 18px;">
-                        <div>
-                            <div style="font-weight: 600; margin-bottom: 4px;">📋 Mua Hàng (MH)</div>
-                            <div style="font-size: 12px; color: #6b7280;">4 cột: Mã SP, Số lượng, Đơn giá, Chiết khấu (TPOS import)</div>
-                        </div>
-                    </label>
-
-                    <label style="
-                        display: flex;
-                        align-items: center;
-                        gap: 12px;
-                        padding: 16px;
-                        border: 2px solid #e5e7eb;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    " id="optionTSP">
-                        <input type="radio" name="exportFormat" value="TSP" style="width: 18px; height: 18px;">
-                        <div>
-                            <div style="font-weight: 600; margin-bottom: 4px;">📦 Thêm SP (TSP)</div>
-                            <div style="font-size: 12px; color: #6b7280;">17 cột: Mã SP, Tên, Mô tả, Giá, Tồn kho...</div>
-                        </div>
-                    </label>
-
-                    <label style="
-                        display: flex;
-                        align-items: center;
-                        gap: 12px;
-                        padding: 16px;
-                        border: 2px solid #e5e7eb;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    " id="optionFull">
-                        <input type="radio" name="exportFormat" value="FULL" style="width: 18px; height: 18px;">
-                        <div>
-                            <div style="font-weight: 600; margin-bottom: 4px;">📊 Đầy đủ</div>
-                            <div style="font-size: 12px; color: #6b7280;">Tất cả thông tin đơn hàng và sản phẩm</div>
-                        </div>
-                    </label>
+                <!-- Header -->
+                <div style="padding: 20px 24px 12px; border-bottom: 1px solid #e5e7eb;">
+                    <h3 style="margin: 0 0 4px; font-size: 17px; font-weight: 600;">
+                        Đơn mua hàng - ${singleOrder.orderNumber || ''}
+                    </h3>
+                    <div style="font-size: 13px; color: #6b7280;">NCC: <strong>${supplierDisplay}</strong></div>
                 </div>
 
-                <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                    <button type="button" id="btnCancelExport" style="
-                        padding: 10px 20px;
-                        border: 1px solid #d1d5db;
-                        border-radius: 8px;
-                        background: white;
-                        cursor: pointer;
-                        font-size: 14px;
+                <!-- Scrollable table -->
+                <div style="overflow-y: auto; flex: 1; min-height: 0;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                                <th style="padding: 10px 8px; text-align: center; font-size: 12px; font-weight: 600; color: #64748b; width: 40px;">STT</th>
+                                <th style="padding: 10px 8px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b;">Sản phẩm</th>
+                                <th style="padding: 10px 8px; text-align: center; font-size: 12px; font-weight: 600; color: #64748b; width: 60px;">SL</th>
+                                <th style="padding: 10px 8px; text-align: right; font-size: 12px; font-weight: 600; color: #64748b; width: 100px;">Đơn giá</th>
+                                <th style="padding: 10px 8px; text-align: right; font-size: 12px; font-weight: 600; color: #64748b; width: 100px;">Tổng</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHTML}</tbody>
+                    </table>
+                </div>
+
+                <!-- Summary -->
+                <div style="padding: 16px 24px; border-top: 2px solid #e2e8f0; background: #f8fafc;">
+                    <div style="display: flex; justify-content: flex-end; gap: 32px; margin-bottom: 12px; font-size: 13px;">
+                        <span style="color: #6b7280;">Tổng số lượng: <strong>${totalQty}</strong></span>
+                        <span>Tổng: <strong>${fmt(totalAmount)}</strong></span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; max-width: 360px; margin-left: auto;">
+                        <label style="font-size: 13px; color: #374151; text-align: right;">Giảm giá:</label>
+                        <input type="number" id="poDecreaseAmount" value="${singleOrder.discountAmount || 0}" min="0" style="
+                            height: 32px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 6px;
+                            font-size: 13px; text-align: right; width: 100%; box-sizing: border-box;
+                        ">
+
+                        <label style="font-size: 13px; color: #374151; text-align: right;">Cước phí:</label>
+                        <input type="number" id="poCostsIncurred" value="${singleOrder.shippingFee || 0}" min="0" style="
+                            height: 32px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 6px;
+                            font-size: 13px; text-align: right; width: 100%; box-sizing: border-box;
+                        ">
+
+                        <label style="font-size: 13px; color: #374151; text-align: right;">Ghi chú:</label>
+                        <input type="text" id="poNote" value="${singleOrder.notes || ''}" placeholder="Nhập ghi chú..." style="
+                            height: 32px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 6px;
+                            font-size: 13px; width: 100%; box-sizing: border-box;
+                        ">
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                        <span style="font-size: 15px; font-weight: 600;">
+                            Tổng tiền: <span id="poFinalAmount">${fmt(totalAmount - (singleOrder.discountAmount || 0) + (singleOrder.shippingFee || 0))}</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: flex-end;">
+                    <button type="button" id="btnCancelPO" style="
+                        padding: 10px 20px; border: 1px solid #d1d5db; border-radius: 8px;
+                        background: white; cursor: pointer; font-size: 14px;
                     ">Hủy</button>
-                    <button type="button" id="btnConfirmExport" style="
-                        padding: 10px 20px;
-                        border: none;
-                        border-radius: 8px;
-                        background: #3b82f6;
-                        color: white;
-                        cursor: pointer;
-                        font-size: 14px;
-                        font-weight: 500;
-                    ">Xuất Excel</button>
+                    <button type="button" id="btnSubmitTPOS" style="
+                        padding: 10px 20px; border: none; border-radius: 8px;
+                        background: #16a34a; color: white; cursor: pointer;
+                        font-size: 14px; font-weight: 500;
+                    " ${!ncc?.tposId ? 'disabled title="NCC chưa có TPOS ID"' : ''}>Tạo đơn TPOS</button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(overlay);
 
-        // Hover effects
-        ['optionMH', 'optionTSP', 'optionFull'].forEach(id => {
-            const el = overlay.querySelector(`#${id}`);
-            el.addEventListener('mouseenter', () => el.style.borderColor = '#3b82f6');
-            el.addEventListener('mouseleave', () => {
-                const input = el.querySelector('input');
-                el.style.borderColor = input.checked ? '#3b82f6' : '#e5e7eb';
-            });
-            el.querySelector('input').addEventListener('change', () => {
-                ['optionMH', 'optionTSP', 'optionFull'].forEach(i => {
-                    overlay.querySelector(`#${i}`).style.borderColor = '#e5e7eb';
-                });
-                el.style.borderColor = '#3b82f6';
-            });
-        });
+        // Live recalculate final amount
+        const decreaseInput = overlay.querySelector('#poDecreaseAmount');
+        const costsInput = overlay.querySelector('#poCostsIncurred');
+        const finalSpan = overlay.querySelector('#poFinalAmount');
+        const recalc = () => {
+            const decrease = parseFloat(decreaseInput.value) || 0;
+            const costs = parseFloat(costsInput.value) || 0;
+            finalSpan.textContent = fmt(totalAmount - decrease + costs);
+        };
+        decreaseInput.addEventListener('input', recalc);
+        costsInput.addEventListener('input', recalc);
 
-        // Cancel button
-        overlay.querySelector('#btnCancelExport').addEventListener('click', () => {
-            overlay.remove();
-        });
+        // Cancel / close
+        overlay.querySelector('#btnCancelPO').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
-        // Overlay click
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
-
-        // Confirm button
-        overlay.querySelector('#btnConfirmExport').addEventListener('click', async () => {
-            const format = overlay.querySelector('input[name="exportFormat"]:checked').value;
-            overlay.remove();
+        // Submit to TPOS
+        overlay.querySelector('#btnSubmitTPOS').addEventListener('click', async () => {
+            const btn = overlay.querySelector('#btnSubmitTPOS');
+            btn.disabled = true;
+            btn.textContent = 'Đang tạo...';
+            btn.style.opacity = '0.6';
 
             try {
-                if (format === 'MH') {
-                    // Async export with 3-case variant resolution
-                    const result = await this.exportMuaHang(orders);
+                // Attach extra fields to order for TPOS
+                singleOrder.decreaseAmount = parseFloat(decreaseInput.value) || 0;
+                singleOrder.costsIncurred = parseFloat(costsInput.value) || 0;
+                singleOrder.tposNote = overlay.querySelector('#poNote').value || '';
 
-                    if (result.exported === 0) {
-                        this.ui.showToast('Không thể xuất Excel - Không có SP nào phù hợp', 'error');
-                        return;
-                    }
+                // Step 1: Export MH (resolve codes + build workbook)
+                const result = await this.exportMuaHang(orders);
 
-                    if (result.skipped > 0) {
-                        const errorDetails = result.errors.slice(0, 3).join('\n');
-                        this.ui.showToast(
-                            `⚠️ Xuất Excel với lỗi! Đã xuất ${result.exported} SP, bỏ qua ${result.skipped} SP\n${errorDetails}`,
-                            'warning'
-                        );
-                    } else {
-                        this.ui.showToast(`Xuất Excel thành công! Đã xuất ${result.exported} sản phẩm`, 'success');
-                    }
+                if (result.exported === 0) {
+                    this.ui.showToast('Không thể tạo đơn TPOS - Không có SP nào phù hợp', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Tạo đơn TPOS';
+                    btn.style.opacity = '';
+                    return;
+                }
 
-                    // Ask to push to TPOS if workbook available
-                    if (result.workbook && window.TPOSPurchase) {
-                        this.showTPOSPurchaseConfirm(result.workbook, result.order, result.exported, result.itemCodeMap);
-                    }
+                if (!ncc?.tposId) {
+                    this.ui.showToast('NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Tạo đơn TPOS';
+                    btn.style.opacity = '';
+                    return;
+                }
 
-                    // Auto-update status: AWAITING_PURCHASE → AWAITING_DELIVERY
-                    const order = orders[0];
-                    const config = window.PurchaseOrderConfig;
-                    if (order.status === config?.OrderStatus?.AWAITING_PURCHASE) {
+                // Step 2: Create on TPOS
+                const tposResult = await window.TPOSPurchase.createFromExcel(result.workbook, singleOrder);
+
+                overlay.remove();
+
+                if (tposResult.success) {
+                    this.ui.showToast(
+                        `Đã tạo đơn TPOS: ${tposResult.poNumber || 'ID ' + tposResult.poId} (${tposResult.linesCount} SP)`,
+                        'success'
+                    );
+
+                    // Update Firebase items with TPOS variant codes
+                    if (tposResult.orderLines && result.itemCodeMap && singleOrder.id) {
                         try {
-                            await this.dataManager.updateOrderStatus(order.id, config.OrderStatus.AWAITING_DELIVERY);
+                            await this.updateItemsWithTPOSCodes(singleOrder, tposResult.orderLines, result.itemCodeMap);
+                        } catch (err) {
+                            console.warn('[TPOSPurchase] Failed to update variant codes:', err);
+                        }
+                    }
+
+                    // Auto-update status
+                    const config = window.PurchaseOrderConfig;
+                    if (singleOrder.status === config?.OrderStatus?.AWAITING_PURCHASE) {
+                        try {
+                            await this.dataManager.updateOrderStatus(singleOrder.id, config.OrderStatus.AWAITING_DELIVERY);
                             this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'info');
-                            // Refresh order list
                             if (this.dataManager?.loadOrders) {
                                 this.dataManager.loadOrders(this.currentTab, true);
                             }
                         } catch (statusErr) {
-                            console.warn('[ExportMH] Auto-update status failed:', statusErr);
+                            console.warn('[PO Preview] Auto-update status failed:', statusErr);
                         }
                     }
-                } else if (format === 'TSP') {
-                    this.exportThemSP(orders);
-                    this.ui.showToast(`Xuất Excel (TSP) thành công!`, 'success');
-                } else {
-                    this.exportOrderToExcelFull(orders);
-                    this.ui.showToast(`Xuất Excel thành công!`, 'success');
                 }
             } catch (error) {
-                console.error('Export failed:', error);
-                this.ui.showToast('Lỗi khi xuất Excel! Vui lòng thử lại', 'error');
+                console.error('[PO Preview] Submit failed:', error);
+                this.ui.showToast('Lỗi tạo đơn TPOS: ' + error.message, 'error');
+                overlay.remove();
             }
         });
     }
@@ -1224,8 +1251,7 @@ class PurchaseOrderController {
                 return;
             }
 
-            // Show export format dialog
-            this.showExportFormatDialog(orders);
+            this.showPurchaseOrderPreview(orders);
         } catch (error) {
             console.error('Bulk export failed:', error);
             this.ui.showToast('Không thể xuất đơn hàng', 'error');
