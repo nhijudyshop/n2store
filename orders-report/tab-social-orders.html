@@ -401,6 +401,16 @@
                                             <th style="padding: 8px; text-align: center; width: 70px;">Ảnh SP</th>
                                             <th style="padding: 8px; text-align: center; width: 70px;">Ảnh Giá mua</th>
                                             <th style="padding: 8px; text-align: center; width: 80px;">Thao tác</th>
+                                            <th style="padding: 8px; text-align: center; white-space: nowrap;">
+                                                <button type="button" id="btnToggleDebug" style="
+                                                    background: none; border: none; cursor: pointer; padding: 4px;
+                                                    color: #9ca3af; display: inline-flex; align-items: center; gap: 4px;
+                                                " title="Toggle Debug: Attr IDs">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                                    </svg>
+                                                </button>
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody id="itemsTableBody">
@@ -644,6 +654,7 @@
         <script src="../purchase-orders/js/lib/tpos-search.js"></script>
         <script src="../purchase-orders/js/lib/supplier-detector.js"></script>
         <script src="../purchase-orders/js/lib/product-code-generator.js"></script>
+        <script src="../purchase-orders/js/lib/tpos-product-creator.js"></script>
         <script src="../purchase-orders/js/config.js"></script>
         <script src="../purchase-orders/js/service.js"></script>
         <script src="../purchase-orders/js/dialogs.js"></script>
@@ -651,6 +662,53 @@
         <script>
             // Khởi tạo instance dùng chung — PHẢI chạy trước tab-social-modal.js
             window.purchaseOrderFormModal = new PurchaseOrderFormModal();
+
+            // Bind "Chọn từ Kho SP" button — reuse inventoryPickerDialog
+            document.getElementById('btnPickFromInventory')?.addEventListener('click', () => {
+                if (window.inventoryPickerDialog && window.purchaseOrderFormModal) {
+                    const fm = window.purchaseOrderFormModal;
+                    window.inventoryPickerDialog.open({
+                        onSelect: function(products) {
+                            // Remove empty items before adding
+                            fm.formData.items = fm.formData.items.filter(item =>
+                                item.productName?.trim() || item.productCode?.trim()
+                            );
+                            for (const product of products) {
+                                const item = fm.addItem();
+                                item.productName = product.name || '';
+                                item.productCode = product.code || '';
+                                item.purchasePrice = product.purchasePrice || 0;
+                                item.sellingPrice = product.sellingPrice || 0;
+                                if (product.tposProductId) item.tposProductId = product.tposProductId;
+                                if (product.tposProductTmplId) item.tposProductTmplId = product.tposProductTmplId;
+                                if (product.image) item.productImages = [product.image];
+                            }
+                            fm.refreshItemsTable();
+                        }
+                    });
+                }
+            });
+
+            // Bind Debug column toggle
+            document.getElementById('btnToggleDebug')?.addEventListener('click', () => {
+                if (!window.purchaseOrderFormModal) return;
+                const fm = window.purchaseOrderFormModal;
+                fm.showDebugColumn = !fm.showDebugColumn;
+                const th = document.getElementById('btnToggleDebug').closest('th');
+                const btn = document.getElementById('btnToggleDebug');
+                if (btn) {
+                    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+                        + (fm.showDebugColumn ? '<polyline points="15 18 9 12 15 6"></polyline>' : '<polyline points="9 18 15 12 9 6"></polyline>')
+                        + '</svg>';
+                }
+                const label = th?.querySelector('span');
+                if (fm.showDebugColumn && !label) {
+                    btn.insertAdjacentHTML('afterend', '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>');
+                } else if (!fm.showDebugColumn && label) {
+                    label.remove();
+                }
+                fm.refreshItemsTable();
+            });
         </script>
 
         <!-- Tab Social Scripts -->

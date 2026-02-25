@@ -16,9 +16,10 @@ window.TPOSProductCreator = (function () {
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const TPOS_INSERT_URL = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.InsertV2?$expand=ProductVariants,UOM,UOMPO`;
 
-    // CSV file paths (relative to purchase-orders/)
-    const ATTR_VALUES_CSV = 'product_attribute_values_rows.csv';
-    const ATTR_GROUPS_CSV = 'product_attributes_rows.csv';
+    // CSV file paths — auto-detect base path for cross-module reuse
+    const _csvBase = window.location.pathname.includes('/purchase-orders/') ? '' : 'purchase-orders/';
+    const ATTR_VALUES_CSV = `${_csvBase}product_attribute_values_rows.csv`;
+    const ATTR_GROUPS_CSV = `${_csvBase}product_attributes_rows.csv`;
 
     // Cached attribute data
     let attrValueMap = null; // UUID → { value, code, tpos_id, tpos_attribute_id, attribute_id, name_get, sequence }

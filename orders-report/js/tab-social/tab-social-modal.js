@@ -235,6 +235,11 @@ function saveOrder() {
                 updatedAt: Date.now(),
             };
             showNotification('Đã cập nhật đơn hàng', 'success');
+
+            // Fire-and-forget: sync updated products to TPOS
+            if (window.TPOSProductCreator && products.length > 0) {
+                window.TPOSProductCreator.syncOrderToTPOS(orderId, products, '');
+            }
         }
     } else {
         // Create new order
@@ -266,6 +271,11 @@ function saveOrder() {
 
         SocialOrderState.orders.unshift(newOrder);
         showNotification('Đã tạo đơn hàng mới', 'success');
+
+        // Fire-and-forget: sync products to TPOS
+        if (window.TPOSProductCreator && products.length > 0) {
+            window.TPOSProductCreator.syncOrderToTPOS(newOrder.id, products, '');
+        }
     }
 
     // Close modal and refresh
