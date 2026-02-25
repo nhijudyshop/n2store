@@ -1396,7 +1396,7 @@ class PurchaseOrderFormModal {
                     </td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
                         <div style="display: flex; gap: 4px;">
-                            <input type="text" data-field="productCode" value="${item.productCode || ''}" placeholder="Mã SP" disabled style="
+                            <input type="text" data-field="productCode" value="${item.productCode || ''}" placeholder="Mã SP" ${(this.isEdit && item._isExistingItem) ? 'disabled' : ''} style="
                                 width: 80px;
                                 height: 36px;
                                 padding: 0 8px;
@@ -1404,7 +1404,7 @@ class PurchaseOrderFormModal {
                                 border-radius: 6px;
                                 font-size: 13px;
                                 box-sizing: border-box;
-                                background: ${(this.isEdit && item._isExistingItem) ? '#e5e7eb' : '#f9fafb'};
+                                background: ${(this.isEdit && item._isExistingItem) ? '#e5e7eb' : 'white'};
                                 color: #374151;
                                 ${(this.isEdit && item._isExistingItem) ? 'cursor: not-allowed; opacity: 0.7;' : ''}
                             ">
