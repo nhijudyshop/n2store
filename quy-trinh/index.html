@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quy Trình Nghiệp Vụ — N2Store</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<!-- Navigation Modern -->
+<script defer src="../shared/js/navigation-modern.js"></script>
 <style>
 /* ===== RESET & BASE ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -49,43 +56,12 @@ body { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--gray-700)
 #hamburger span { display: block; width: 22px; height: 2px; background: #fff; border-radius: 2px; transition: .3s; }
 
 /* ===== LAYOUT ===== */
-#layout { display: flex; padding-top: var(--header-h); min-height: 100vh; }
-
-/* ===== SIDEBAR ===== */
-#sidebar {
-  width: var(--sidebar-w); flex-shrink: 0; position: fixed;
-  top: var(--header-h); bottom: 0; left: 0; overflow-y: auto;
-  background: #fff; border-right: 1px solid var(--gray-200);
-  padding: 16px 0; z-index: 90;
-  scrollbar-width: thin; scrollbar-color: var(--gray-200) transparent;
-}
-#sidebar::-webkit-scrollbar { width: 4px; }
-#sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
-.sidebar-logo { padding: 8px 20px 16px; border-bottom: 1px solid var(--gray-100); margin-bottom: 8px; }
-.sidebar-logo .s-shop { font-size: 15px; font-weight: 700; color: var(--gray-900); }
-.sidebar-logo .s-sub { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
-.sidebar-label { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .8px; padding: 8px 20px 4px; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px; padding: 9px 20px;
-  cursor: pointer; transition: background .15s; border-left: 3px solid transparent;
-  text-decoration: none; color: var(--gray-700); font-size: 13px; font-weight: 500;
-}
-.nav-item:hover { background: var(--gray-50); }
-.nav-item.active { background: var(--gray-50); font-weight: 600; }
-.nav-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.nav-item[data-bp="1"] { --c: var(--bp1); }
-.nav-item[data-bp="2"] { --c: var(--bp2); }
-.nav-item[data-bp="3"] { --c: var(--bp3); }
-.nav-item[data-bp="4"] { --c: var(--bp4); }
-.nav-item[data-bp="5"] { --c: var(--bp5); }
-.nav-item[data-bp="6"] { --c: var(--bp6); }
-.nav-item[data-bp="7"] { --c: var(--bp7); }
-.nav-item[data-bp="8"] { --c: var(--bp8); }
-.nav-item.active { border-left-color: var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 6%, white); }
-.nav-dot { background: var(--c); }
+#layout { min-height: 100vh; }
 
 /* ===== MAIN CONTENT ===== */
-#main { margin-left: var(--sidebar-w); flex: 1; padding: 28px 32px 60px; max-width: 960px; }
+#main { margin-left: 260px; padding: 28px 32px 60px; max-width: 960px; transition: margin-left 0.3s ease; }
+.sidebar.collapsed ~ #layout #main,
+.sidebar.collapsed ~ * #main { margin-left: 0; }
 
 /* ===== OVERVIEW FLOWCHART ===== */
 .overview-section { margin-bottom: 40px; }
@@ -210,16 +186,12 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 .subsection { margin: 16px 0; }
 .subsection-title { font-size: 13px; font-weight: 700; color: var(--gray-900); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--cl); }
 
-/* ===== SIDEBAR OVERLAY ===== */
-#sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 85; }
-
 /* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  #main { margin-left: 0; }
+}
 @media (max-width: 768px) {
-  #hamburger { display: flex; }
-  #sidebar { transform: translateX(-100%); transition: transform .3s; }
-  #sidebar.open { transform: translateX(0); }
-  #sidebar-overlay.open { display: block; }
-  #main { margin-left: 0; padding: 20px 16px 60px; }
+  #main { padding: 20px 16px 60px; }
   .flow-grid { grid-template-columns: repeat(2, 1fr); }
   .flow-arrow-row span { margin: 0 calc(25% - 9px); }
   .pd-groups { grid-template-columns: 1fr; }
@@ -233,7 +205,7 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 
 /* ===== PRINT ===== */
 @media print {
-  #site-header, #sidebar, #hamburger, #sidebar-overlay { display: none !important; }
+  .sidebar, #site-header { display: none !important; }
   #main { margin-left: 0; padding: 0; max-width: 100%; }
   .bp-section { break-inside: avoid; page-break-inside: avoid; }
   .bp-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -244,55 +216,41 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 </head>
 <body>
 
-<!-- HEADER -->
-<header id="site-header">
-  <button id="hamburger" aria-label="Menu" onclick="toggleSidebar()">
-    <span></span><span></span><span></span>
-  </button>
-  <span class="shop-name">N2STORE</span>
-  <div class="divider"></div>
-  <span class="page-title">QUY TRÌNH NGHIỆP VỤ SHOP</span>
-  <span class="updated">Cập nhật: 2025</span>
-</header>
+<!-- Navigation Modern Sidebar (auto-generated by navigation-modern.js) -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+            <span>N2STORE</span>
+        </div>
+        <button class="sidebar-toggle" id="sidebarToggle">
+            <i data-lucide="panel-left-close"></i>
+        </button>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav">
+        <!-- Menu items will be auto-generated by navigation-modern.js -->
+    </nav>
+    <div class="sidebar-footer">
+        <div class="user-info">
+            <div class="user-avatar">
+                <i data-lucide="user-circle"></i>
+            </div>
+            <div class="user-details">
+                <div class="user-name" id="userName">Admin</div>
+                <div class="user-role" id="userRole">Quản trị viên</div>
+            </div>
+        </div>
+        <button class="btn-logout" id="btnLogout">
+            <i data-lucide="log-out"></i>
+            <span>Đăng xuất</span>
+        </button>
+    </div>
+</aside>
 
-<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
-
-<!-- SIDEBAR -->
-<nav id="sidebar">
-  <div class="sidebar-logo">
-    <div class="s-shop">👗 N2Store</div>
-    <div class="s-sub">Shop thời trang nữ online</div>
-  </div>
-  <div class="sidebar-label">Sơ đồ tổng quan</div>
-  <a class="nav-item" href="#overview" onclick="closeSidebar()">
-    <span class="nav-dot" style="background:#6366f1"></span> Luồng tổng quan
-  </a>
-  <div class="sidebar-label">Các bộ phận</div>
-  <a class="nav-item" data-bp="1" href="#bp1" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP1 — Nhập hàng &amp; Làm mã
-  </a>
-  <a class="nav-item" data-bp="2" href="#bp2" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP2 — Live Sale
-  </a>
-  <a class="nav-item" data-bp="3" href="#bp3" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP3 — Trả hàng theo phiếu
-  </a>
-  <a class="nav-item" data-bp="4" href="#bp4" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP4 — Chốt đơn (Sale)
-  </a>
-  <a class="nav-item" data-bp="5" href="#bp5" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP5 — Đi chợ &amp; Đối soát
-  </a>
-  <a class="nav-item" data-bp="6" href="#bp6" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP6 — Đóng đơn &amp; Giao shipper
-  </a>
-  <a class="nav-item" data-bp="7" href="#bp7" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP7 — CSKH
-  </a>
-  <a class="nav-item" data-bp="8" href="#bp8" onclick="closeSidebar()">
-    <span class="nav-dot"></span> BP8 — Check IB
-  </a>
-</nav>
+<!-- Fixed Toggle Button (shows when sidebar collapsed) -->
+<button class="sidebar-toggle-fixed" id="sidebarToggleFixed">
+    <i data-lucide="panel-right-open"></i>
+</button>
 
 <!-- MAIN -->
 <div id="layout">
@@ -1109,58 +1067,26 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 </div>
 
 <script>
-// ===== SIDEBAR TOGGLE =====
-function toggleSidebar() {
+// Navigation-modern.js handles sidebar toggle automatically via sidebarToggle button
+// Listen for sidebar collapse to adjust main content margin
+document.addEventListener('DOMContentLoaded', function() {
   const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
-  sidebar.classList.toggle('open');
-  overlay.classList.toggle('open');
-}
-function closeSidebar() {
-  if (window.innerWidth <= 768) {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebar-overlay').classList.remove('open');
-  }
-}
+  const main = document.getElementById('main');
+  if (!sidebar || !main) return;
 
-// ===== ACTIVE SECTION HIGHLIGHT =====
-const sections = document.querySelectorAll('.bp-section[id], #overview');
-const navItems = document.querySelectorAll('.nav-item[href]');
-
-function getActiveSection() {
-  const scrollY = window.scrollY + 80;
-  let active = null;
-  sections.forEach(sec => {
-    if (sec.offsetTop <= scrollY) active = sec.id;
-  });
-  return active;
-}
-
-function updateActiveNav() {
-  const activeId = getActiveSection();
-  navItems.forEach(item => {
-    const href = item.getAttribute('href').replace('#', '');
-    item.classList.toggle('active', href === activeId);
-  });
-}
-
-window.addEventListener('scroll', updateActiveNav, { passive: true });
-updateActiveNav();
-
-// ===== SMOOTH SCROLL =====
-navItems.forEach(item => {
-  item.addEventListener('click', function(e) {
-    const href = this.getAttribute('href');
-    if (href && href.startsWith('#')) {
-      e.preventDefault();
-      const target = document.querySelector(href);
-      if (target) {
-        const offset = 72;
-        const top = target.getBoundingClientRect().top + window.scrollY - offset;
-        window.scrollTo({ top, behavior: 'smooth' });
-      }
+  function updateMainMargin() {
+    if (window.innerWidth > 1024) {
+      main.style.marginLeft = sidebar.classList.contains('collapsed') ? '0' : '260px';
+    } else {
+      main.style.marginLeft = '0';
     }
-  });
+  }
+
+  // Observe sidebar class changes
+  const observer = new MutationObserver(updateMainMargin);
+  observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('resize', updateMainMargin);
+  updateMainMargin();
 });
 </script>
 </body>
