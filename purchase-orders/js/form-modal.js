@@ -1951,8 +1951,10 @@ class PurchaseOrderFormModal {
                     const field = e.target.dataset.field;
                     let raw = parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0;
 
-                    // Auto ×1000 for price fields when input is 1-3 digits (1-999)
-                    if ((field === 'purchasePrice' || field === 'sellingPrice') && raw >= 1 && raw <= 999) {
+                    // Auto ×1000 for price fields when input is pure digits 1-3 chars (1-999)
+                    // Skip if user already typed with separator (e.g. "1,500" or "1.500")
+                    const hasFormatting = /[,.]/.test(String(e.target.value).trim());
+                    if ((field === 'purchasePrice' || field === 'sellingPrice') && !hasFormatting && raw >= 1 && raw <= 999) {
                         raw = raw * 1000;
                     }
 
