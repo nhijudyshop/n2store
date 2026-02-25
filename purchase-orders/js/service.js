@@ -547,6 +547,8 @@ class PurchaseOrderService {
 
                 calculatedFields = {
                     totalAmount,
+                    discountAmount,
+                    shippingFee,
                     finalAmount,
                     totalItems: updateData.items.length,
                     totalQuantity: updateData.items.reduce((sum, item) => sum + (item.quantity || 0), 0),
@@ -570,9 +572,19 @@ class PurchaseOrderService {
                 }
             });
 
-            console.log('[PurchaseOrderService] Saving update - items:', (update.items || []).map(i => ({
-                name: i.productName, variant: i.variant, attrIds: (i.selectedAttributeValueIds || []).length
-            })));
+            // Ensure notes is included
+            if (updateData.notes !== undefined) {
+                update.notes = updateData.notes;
+            }
+
+            console.log('[PurchaseOrderService] Saving update:', {
+                discountAmount: update.discountAmount,
+                shippingFee: update.shippingFee,
+                notes: update.notes,
+                finalAmount: update.finalAmount,
+                totalAmount: update.totalAmount,
+                itemCount: (update.items || []).length
+            });
 
             await docRef.update(update);
 
