@@ -510,9 +510,8 @@ class PurchaseOrderController {
             const code = item.productCode || '';
             const name = item.productName || '';
             const variant = item.variant || '';
-            const hasTposId = !!(item.tposProductId);
             return `
-                <tr style="border-bottom: 1px solid #dee2e6;" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}">
+                <tr style="border-bottom: 1px solid #dee2e6;" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}" data-code="${code}">
                     <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${idx + 1}</td>
                     <td style="padding: 10px 12px; font-size: 14px; border-right: 1px solid #dee2e6;">
                         <div style="font-weight: 700; color: #000;">[${code}] ${name}</div>
@@ -537,10 +536,9 @@ class PurchaseOrderController {
                                     width: 26px; height: 26px; border: 1px solid #fca5a5; border-radius: 4px;
                                     background: #fef2f2; color: #ef4444; cursor: pointer; font-size: 14px; line-height: 24px;
                                 ">&times;</button>
-                                <button class="po-price-save" data-idx="${idx}" title="Lưu giá lên TPOS" ${!hasTposId ? 'disabled' : ''} style="
+                                <button class="po-price-save" data-idx="${idx}" title="Lưu giá lên TPOS" style="
                                     width: 26px; height: 26px; border: 1px solid #86efac; border-radius: 4px;
                                     background: #f0fdf4; color: #16a34a; cursor: pointer; font-size: 14px; line-height: 24px;
-                                    ${!hasTposId ? 'opacity: 0.4; cursor: not-allowed;' : ''}
                                 ">&#10003;</button>
                             </span>
                             <input type="checkbox" class="po-bypass-zero" data-idx="${idx}" title="Cho phép giá 0" style="
@@ -832,14 +830,11 @@ class PurchaseOrderController {
                 const idx = btn.dataset.idx;
                 const row = overlay.querySelector(`tr[data-idx="${idx}"]`);
                 const input = overlay.querySelector(`.po-price[data-idx="${idx}"]`);
-                const tposId = parseInt(row?.dataset.tposId);
-                const tposTmplId = parseInt(row?.dataset.tposTmplId);
+                let tposId = parseInt(row?.dataset.tposId) || 0;
+                let tposTmplId = parseInt(row?.dataset.tposTmplId) || 0;
                 const newPrice = parseFloat(input?.value) || 0;
-
-                if (!tposId) {
-                    this.ui.showToast('Sản phẩm chưa có TPOS ID, không thể cập nhật giá', 'warning');
-                    return;
-                }
+                const code = items[idx]?.productCode || row?.dataset.code || '';
+                const name = items[idx]?.productName || '';
 
                 btn.disabled = true;
                 btn.textContent = '...';
@@ -849,8 +844,31 @@ class PurchaseOrderController {
                     if (!token) throw new Error('Không có token');
 
                     const proxyUrl = window.inventoryPickerDialog?.proxyUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-                    const code = items[idx]?.productCode || '';
-                    const name = items[idx]?.productName || '';
+
+                    // If no TPOS ID, look up by product code
+                    if (!tposId && code) {
+                        const lookupResp = await fetch(
+                            `${proxyUrl}/api/odata/Product?$filter=DefaultCode eq '${code}'&$top=1&$select=Id,ProductTmplId`,
+                            { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'feature-version': '2', 'tposappversion': '6.2.6.1' } }
+                        );
+                        if (lookupResp.ok) {
+                            const lookupData = await lookupResp.json();
+                            const found = lookupData.value?.[0];
+                            if (found) {
+                                tposId = found.Id;
+                                tposTmplId = found.ProductTmplId || tposTmplId;
+                                row.dataset.tposId = tposId;
+                                row.dataset.tposTmplId = tposTmplId;
+                            }
+                        }
+                    }
+
+                    if (!tposId) {
+                        this.ui.showToast(`Không tìm thấy sản phẩm ${code} trên TPOS`, 'warning');
+                        btn.disabled = false;
+                        btn.textContent = '✓';
+                        return;
+                    }
 
                     const response = await fetch(`${proxyUrl}/api/odata/ProductTemplate/ODataService.UpdateStandPrice`, {
                         method: 'POST',
