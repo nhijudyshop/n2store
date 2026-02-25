@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Quy Trình Nghiệp Vụ — N2Store</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<!-- Navigation Modern -->
+<script defer src="../shared/js/navigation-modern.js"></script>
 <style>
 /* ===== RESET & BASE ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -52,15 +59,15 @@ body { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--gray-700)
 #layout { display: flex; padding-top: var(--header-h); min-height: 100vh; }
 
 /* ===== SIDEBAR ===== */
-#sidebar {
+#local-sidebar {
   width: var(--sidebar-w); flex-shrink: 0; position: fixed;
   top: var(--header-h); bottom: 0; left: 0; overflow-y: auto;
   background: #fff; border-right: 1px solid var(--gray-200);
   padding: 16px 0; z-index: 90;
   scrollbar-width: thin; scrollbar-color: var(--gray-200) transparent;
 }
-#sidebar::-webkit-scrollbar { width: 4px; }
-#sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+#local-sidebar::-webkit-scrollbar { width: 4px; }
+#local-sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
 .sidebar-logo { padding: 8px 20px 16px; border-bottom: 1px solid var(--gray-100); margin-bottom: 8px; }
 .sidebar-logo .s-shop { font-size: 15px; font-weight: 700; color: var(--gray-900); }
 .sidebar-logo .s-sub { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
@@ -211,14 +218,14 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 .subsection-title { font-size: 13px; font-weight: 700; color: var(--gray-900); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--cl); }
 
 /* ===== SIDEBAR OVERLAY ===== */
-#sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 85; }
+#local-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 85; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   #hamburger { display: flex; }
-  #sidebar { transform: translateX(-100%); transition: transform .3s; }
-  #sidebar.open { transform: translateX(0); }
-  #sidebar-overlay.open { display: block; }
+  #local-sidebar { transform: translateX(-100%); transition: transform .3s; }
+  #local-sidebar.open { transform: translateX(0); }
+  #local-overlay.open { display: block; }
   #main { margin-left: 0; padding: 20px 16px 60px; }
   .flow-grid { grid-template-columns: repeat(2, 1fr); }
   .flow-arrow-row span { margin: 0 calc(25% - 9px); }
@@ -233,12 +240,57 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 
 /* ===== PRINT ===== */
 @media print {
-  #site-header, #sidebar, #hamburger, #sidebar-overlay { display: none !important; }
+  #site-header, #local-sidebar, #hamburger, #local-overlay { display: none !important; }
   #main { margin-left: 0; padding: 0; max-width: 100%; }
   .bp-section { break-inside: avoid; page-break-inside: avoid; }
   .bp-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .callout { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .flow-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* ===== NAVIGATION MODERN SIDEBAR ===== */
+.sidebar {
+  position: fixed; left: 0; top: 0; width: 260px; height: 100vh;
+  background: #fff; border-right: 1px solid #e5e7eb;
+  z-index: 200; transition: transform 0.3s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar.collapsed { transform: translateX(-260px); }
+.sidebar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+}
+.sidebar-header .logo { display: flex; align-items: center; gap: 10px; }
+.sidebar-header .logo img { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+.sidebar-header .logo span { font-size: 16px; font-weight: 700; color: #111827; }
+.sidebar-toggle { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: #6b7280; }
+.sidebar-toggle:hover { background: #f3f4f6; }
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid #e5e7eb; flex-shrink: 0; }
+.sidebar-toggle-fixed {
+  position: fixed; top: 16px; left: 16px; z-index: 300;
+  background: #6366f1; color: #fff; border: none; border-radius: 8px;
+  width: 40px; height: 40px; cursor: pointer; display: none;
+  align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  transition: left 0.3s ease;
+}
+.sidebar-toggle-fixed.visible { display: flex; }
+.sidebar-toggle-fixed.sidebar-open { left: 276px; }
+/* Adjust layout when nav sidebar is present */
+body.nav-ready #site-header { left: 260px; transition: left 0.3s ease; }
+body.nav-ready #layout { padding-left: 260px; transition: padding-left 0.3s ease; }
+body.nav-ready #local-sidebar { left: 260px; transition: left 0.3s ease; }
+body.nav-collapsed #site-header { left: 0; }
+body.nav-collapsed #layout { padding-left: 0; }
+body.nav-collapsed #local-sidebar { left: 0; }
+@media (max-width: 1024px) {
+  .sidebar { transform: translateX(-260px); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-toggle-fixed { display: flex; left: 16px; }
+  .sidebar-toggle-fixed.sidebar-open { left: 276px; }
+  body.nav-ready #site-header { left: 0; }
+  body.nav-ready #layout { padding-left: 0; }
+  body.nav-ready #local-sidebar { left: 0; }
 }
 </style>
 </head>
@@ -246,7 +298,7 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 
 <!-- HEADER -->
 <header id="site-header">
-  <button id="hamburger" aria-label="Menu" onclick="toggleSidebar()">
+  <button id="hamburger" aria-label="Menu" onclick="toggleLocalSidebar()">
     <span></span><span></span><span></span>
   </button>
   <span class="shop-name">N2STORE</span>
@@ -255,41 +307,67 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
   <span class="updated">Cập nhật: 2025</span>
 </header>
 
-<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<div id="local-overlay" onclick="toggleLocalSidebar()"></div>
+
+<!-- Navigation Modern Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <img src="../shared/images/logo.jpg" alt="N2STORE" onerror="this.style.display='none'">
+      <span>N2STORE</span>
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Ẩn sidebar">
+      <i data-lucide="panel-left-close"></i>
+    </button>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav">
+    <!-- Menu items will be auto-generated by navigation-modern.js -->
+  </nav>
+  <div class="sidebar-footer">
+    <div style="font-size:12px;color:#6b7280;text-align:center;padding:4px 0">
+      <span id="navUserName">N2Store</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Fixed Toggle Button -->
+<button class="sidebar-toggle-fixed" id="sidebarToggleFixed" title="Mở menu">
+  <i data-lucide="menu"></i>
+</button>
 
 <!-- SIDEBAR -->
-<nav id="sidebar">
+<nav id="local-sidebar">
   <div class="sidebar-logo">
     <div class="s-shop">👗 N2Store</div>
     <div class="s-sub">Shop thời trang nữ online</div>
   </div>
   <div class="sidebar-label">Sơ đồ tổng quan</div>
-  <a class="nav-item" href="#overview" onclick="closeSidebar()">
+  <a class="nav-item" href="#overview" onclick="closeLocalSidebar()">
     <span class="nav-dot" style="background:#6366f1"></span> Luồng tổng quan
   </a>
   <div class="sidebar-label">Các bộ phận</div>
-  <a class="nav-item" data-bp="1" href="#bp1" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="1" href="#bp1" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP1 — Nhập hàng &amp; Làm mã
   </a>
-  <a class="nav-item" data-bp="2" href="#bp2" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="2" href="#bp2" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP2 — Live Sale
   </a>
-  <a class="nav-item" data-bp="3" href="#bp3" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="3" href="#bp3" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP3 — Trả hàng theo phiếu
   </a>
-  <a class="nav-item" data-bp="4" href="#bp4" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="4" href="#bp4" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP4 — Chốt đơn (Sale)
   </a>
-  <a class="nav-item" data-bp="5" href="#bp5" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="5" href="#bp5" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP5 — Đi chợ &amp; Đối soát
   </a>
-  <a class="nav-item" data-bp="6" href="#bp6" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="6" href="#bp6" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP6 — Đóng đơn &amp; Giao shipper
   </a>
-  <a class="nav-item" data-bp="7" href="#bp7" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="7" href="#bp7" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP7 — CSKH
   </a>
-  <a class="nav-item" data-bp="8" href="#bp8" onclick="closeSidebar()">
+  <a class="nav-item" data-bp="8" href="#bp8" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP8 — Check IB
   </a>
 </nav>
@@ -1109,17 +1187,17 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 </div>
 
 <script>
-// ===== SIDEBAR TOGGLE =====
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
+// ===== LOCAL SIDEBAR TOGGLE =====
+function toggleLocalSidebar() {
+  const sidebar = document.getElementById('local-sidebar');
+  const overlay = document.getElementById('local-overlay');
   sidebar.classList.toggle('open');
   overlay.classList.toggle('open');
 }
-function closeSidebar() {
+function closeLocalSidebar() {
   if (window.innerWidth <= 768) {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebar-overlay').classList.remove('open');
+    document.getElementById('local-sidebar').classList.remove('open');
+    document.getElementById('local-overlay').classList.remove('open');
   }
 }
 
@@ -1162,6 +1240,36 @@ navItems.forEach(item => {
     }
   });
 });
+
+// ===== NAVIGATION MODERN SIDEBAR TOGGLE =====
+const navSidebar = document.getElementById('sidebar');
+const navToggleBtn = document.getElementById('sidebarToggle');
+const navToggleFixed = document.getElementById('sidebarToggleFixed');
+
+function isNavCollapsed() {
+  return navSidebar.classList.contains('collapsed') || 
+         (window.innerWidth <= 1024 && !navSidebar.classList.contains('open'));
+}
+
+function toggleNavSidebar() {
+  if (window.innerWidth <= 1024) {
+    navSidebar.classList.toggle('open');
+    navToggleFixed.classList.toggle('sidebar-open', navSidebar.classList.contains('open'));
+  } else {
+    const collapsed = navSidebar.classList.toggle('collapsed');
+    document.body.classList.toggle('nav-collapsed', collapsed);
+    navToggleFixed.classList.toggle('visible', collapsed);
+  }
+}
+
+if (navToggleBtn) navToggleBtn.addEventListener('click', toggleNavSidebar);
+if (navToggleFixed) navToggleFixed.addEventListener('click', toggleNavSidebar);
+
+// Init nav state on desktop
+if (window.innerWidth > 1024) {
+  document.body.classList.add('nav-ready');
+  navToggleFixed.classList.remove('visible');
+}
 </script>
 </body>
 </html>
