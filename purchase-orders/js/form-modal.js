@@ -1270,26 +1270,24 @@ class PurchaseOrderFormModal {
                                 text-align: right;
                             ">
                         </div>
-                        <button type="button" id="btnAddShipping" style="
-                            height: 32px;
-                            padding: 0 12px;
-                            border: 1px solid #d1d5db;
-                            border-radius: 6px;
-                            background: white;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            gap: 6px;
-                            font-size: 13px;
-                        ">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" style="flex-shrink: 0;">
                                 <rect x="1" y="3" width="15" height="13"></rect>
                                 <polygon points="16,8 20,8 23,11 23,16 16,16 16,8"></polygon>
                                 <circle cx="5.5" cy="18.5" r="2.5"></circle>
                                 <circle cx="18.5" cy="18.5" r="2.5"></circle>
                             </svg>
-                            Thêm tiền ship
-                        </button>
+                            <span style="font-size: 13px; color: #64748b; white-space: nowrap;">Tiền ship:</span>
+                            <input type="text" id="inputShipping" value="${this.formatNumber(this.formData.shippingFee)}" placeholder="0" style="
+                                width: 100px;
+                                height: 32px;
+                                padding: 0 8px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                font-size: 13px;
+                                text-align: right;
+                            ">
+                        </div>
                     </div>
 
                     <div style="display: flex; align-items: center; gap: 16px;">
@@ -1696,31 +1694,10 @@ class PurchaseOrderFormModal {
             this.refreshItemsTable();
         });
 
-        // Add shipping fee button
-        this.modalElement.querySelector('#btnAddShipping')?.addEventListener('click', () => {
-            if (window.shippingFeeDialog) {
-                const currentFee = parseFloat(String(this.formData.shippingFee).replace(/[,.]/g, '')) || 0;
-                window.shippingFeeDialog.open({
-                    currentFee: currentFee,
-                    onSave: (fee) => {
-                        this.formData.shippingFee = fee;
-                        this.updateTotals();
-                        // Update shipping button to show current fee
-                        const btn = this.modalElement.querySelector('#btnAddShipping');
-                        if (btn && fee > 0) {
-                            btn.innerHTML = `
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="1" y="3" width="15" height="13"></rect>
-                                    <polygon points="16,8 20,8 23,11 23,16 16,16 16,8"></polygon>
-                                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
-                                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
-                                </svg>
-                                Ship: ${this.formatNumber(fee)} đ
-                            `;
-                        }
-                    }
-                });
-            }
+        // Shipping fee input
+        this.modalElement.querySelector('#inputShipping')?.addEventListener('input', (e) => {
+            this.formData.shippingFee = e.target.value;
+            this.updateTotals();
         });
 
         // Discount input
@@ -2256,6 +2233,7 @@ class PurchaseOrderFormModal {
         this.formData.invoiceAmount = this.modalElement?.querySelector('#inputInvoiceAmount')?.value || '';
         this.formData.notes = this.modalElement?.querySelector('#inputNotes')?.value || '';
         this.formData.discountAmount = this.modalElement?.querySelector('#inputDiscount')?.value || '';
+        this.formData.shippingFee = this.modalElement?.querySelector('#inputShipping')?.value || '';
 
         // Item-level fields: sync DOM input values back to formData.items
         const tbody = this.modalElement?.querySelector('#itemsTableBody');
