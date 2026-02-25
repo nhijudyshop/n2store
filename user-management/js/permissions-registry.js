@@ -39,41 +39,8 @@ const PAGES_REGISTRY = {
         }
     },
 
-    livestream: {
-        id: "livestream",
-        name: "Báo Cáo Livestream",
-        shortName: "Báo Cáo",
-        icon: "video",
-        href: "../livestream/index.html",
-        description: "Xem báo cáo và thống kê livestream",
-        adminOnly: false,
-        category: "sales",
-        detailedPermissions: {
-            view: { name: "Xem báo cáo", icon: "eye", description: "Xem thống kê livestream" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo ra file" },
-            edit: { name: "Chỉnh sửa", icon: "edit", description: "Sửa thông tin livestream" },
-            analytics: { name: "Phân tích chi tiết", icon: "trending-up", description: "Xem phân tích nâng cao" }
-        }
-    },
-
-    sanphamlive: {
-        id: "sanphamlive",
-        name: "Sản Phẩm Livestream",
-        shortName: "Sản Phẩm",
-        icon: "shopping-bag",
-        href: "../sanphamlive/index.html",
-        description: "Quản lý sản phẩm livestream",
-        adminOnly: true,
-        category: "sales",
-        detailedPermissions: {
-            view: { name: "Xem sản phẩm", icon: "eye", description: "Xem danh sách sản phẩm" },
-            add: { name: "Thêm sản phẩm", icon: "plus-circle", description: "Thêm sản phẩm mới" },
-            edit: { name: "Sửa sản phẩm", icon: "edit", description: "Chỉnh sửa thông tin sản phẩm" },
-            delete: { name: "Xóa sản phẩm", icon: "trash-2", description: "Xóa sản phẩm khỏi hệ thống" },
-            pricing: { name: "Chỉnh sửa giá", icon: "dollar-sign", description: "Thay đổi giá sản phẩm" },
-            stock: { name: "Quản lý tồn kho", icon: "package", description: "Cập nhật số lượng tồn" }
-        }
-    },
+    // REMOVED: livestream (module deleted - cleanup task 9.1)
+    // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
 
     ib: {
         id: "ib",
@@ -276,22 +243,32 @@ const PAGES_REGISTRY = {
         }
     },
 
-    "order-live-tracking": {
-        id: "order-live-tracking",
-        name: "Sổ Order Live",
-        shortName: "Order Live",
-        icon: "radio",
-        href: "../order-live-tracking/index.html",
-        description: "Theo dõi order live realtime",
+    "purchase-orders": {
+        id: "purchase-orders",
+        name: "Quản Lý Đặt Hàng",
+        shortName: "Đặt Hàng",
+        icon: "shopping-bag",
+        href: "../purchase-orders/index.html",
+        description: "Quản lý đơn đặt hàng từ nhà cung cấp",
         adminOnly: false,
         category: "orders",
         detailedPermissions: {
-            view: { name: "Xem order live", icon: "eye", description: "Xem đơn live realtime" },
-            track: { name: "Theo dõi", icon: "radio", description: "Theo dõi trạng thái live" },
-            update: { name: "Cập nhật", icon: "refresh-cw", description: "Cập nhật thông tin" },
-            export: { name: "Xuất dữ liệu", icon: "download", description: "Export order live" }
+            view: { name: "Xem đơn đặt hàng", icon: "eye", description: "Xem danh sách đơn đặt hàng" },
+            create: { name: "Tạo đơn đặt hàng", icon: "plus-circle", description: "Tạo đơn đặt hàng mới" },
+            edit: { name: "Sửa đơn đặt hàng", icon: "edit", description: "Chỉnh sửa đơn đặt hàng" },
+            delete: { name: "Xóa đơn đặt hàng", icon: "trash-2", description: "Xóa đơn đặt hàng" },
+            submit: { name: "Submit đơn", icon: "send", description: "Submit đơn nháp để xử lý" },
+            export: { name: "Xuất Excel", icon: "download", description: "Export đơn đặt hàng ra Excel" },
+            bulkActions: { name: "Thao tác hàng loạt", icon: "check-square", description: "Chọn nhiều đơn để export/xóa" },
+            syncTpos: { name: "Đồng bộ TPOS", icon: "refresh-cw", description: "Đồng bộ sản phẩm lên TPOS" },
+            uploadImages: { name: "Upload ảnh", icon: "image", description: "Tải lên ảnh sản phẩm, giá, hóa đơn" },
+            manageProducts: { name: "Quản lý sản phẩm", icon: "package", description: "Thêm/sửa sản phẩm trong đơn" },
+            receiveGoods: { name: "Nhận hàng", icon: "package-check", description: "Xác nhận nhận hàng từ NCC" },
+            updateStatus: { name: "Cập nhật trạng thái", icon: "refresh-cw", description: "Thay đổi trạng thái đơn hàng" }
         }
     },
+
+    // REMOVED: order-live-tracking (module deleted - cleanup task 9.1)
 
     // =====================================================
     // CATEGORY: REPORTS - Báo cáo & Thống kê
@@ -463,6 +440,23 @@ const PAGES_REGISTRY = {
             restore: { name: "Khôi phục", icon: "rotate-ccw", description: "Khôi phục dữ liệu cũ" },
             delete: { name: "Xóa lịch sử", icon: "trash-2", description: "Xóa log lịch sử" }
         }
+    },
+
+    "supplier-debt": {
+        id: "supplier-debt",
+        name: "Công Nợ Nhà Cung Cấp",
+        shortName: "CN NCC",
+        icon: "receipt",
+        href: "../supplier-debt/index.html",
+        description: "Quản lý công nợ nhà cung cấp",
+        adminOnly: false,
+        category: "admin",
+        detailedPermissions: {
+            payment: { name: "Đăng ký thanh toán", icon: "credit-card", description: "Tạo phiếu thanh toán cho NCC" },
+            deletePayment: { name: "Xóa thanh toán", icon: "trash-2", description: "Xóa phiếu thanh toán đã tạo" },
+            editNoteBill: { name: "Sửa ghi chú hóa đơn", icon: "edit", description: "Sửa ghi chú web cho bút toán BILL (mua hàng phát sinh)" },
+            editNotePayment: { name: "Sửa ghi chú thanh toán", icon: "edit-3", description: "Sửa ghi chú web cho bút toán CSH2 (thanh toán NCC)" }
+        }
     }
 };
 
@@ -511,13 +505,6 @@ const PAGE_CATEGORIES = {
 // PERMISSION TEMPLATES - Mẫu phân quyền theo vai trò
 // =====================================================
 const PERMISSION_TEMPLATES = {
-    admin: {
-        id: "admin",
-        name: "Admin - Toàn quyền",
-        icon: "crown",
-        description: "Có tất cả quyền trong hệ thống",
-        color: "#ef4444"
-    },
     manager: {
         id: "manager",
         name: "Manager - Quản lý",
@@ -686,14 +673,6 @@ function generateTemplatePermissions(templateId) {
         detailedPermissions[pageId] = {};
 
         switch (templateId) {
-            case "admin":
-                // Admin có tất cả quyền
-                pagePermissions.push(pageId);
-                Object.keys(page.detailedPermissions).forEach(subKey => {
-                    detailedPermissions[pageId][subKey] = true;
-                });
-                break;
-
             case "manager":
                 // Manager có hầu hết quyền, trừ delete user và restore history
                 pagePermissions.push(pageId);

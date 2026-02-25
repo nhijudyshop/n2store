@@ -309,7 +309,7 @@ class MoneyTransferApp {
             }
 
             const auth = this.getAuthState();
-            if (!auth || auth.checkLogin == "777") {
+            if (!PermissionHelper.canAccessPage('ck')) {
                 if (e.target.type === "checkbox") {
                     e.target.checked = false;
                 }

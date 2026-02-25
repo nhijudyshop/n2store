@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/tab1-chat-modal.css" />
     <link rel="stylesheet" href="css/tab1-sale-modal.css" />
     <link rel="stylesheet" href="css/tab1-bill-settings.css" />
+    <link rel="stylesheet" href="css/order-history.css" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils/decoding-utility.js"></script>
@@ -159,6 +160,12 @@
                 <i class="fas fa-file-invoice"></i>
                 Cài Đặt Bill
             </button>
+            <button class="btn-primary" id="tposAccountBtn" onclick="openTposAccountModal()"
+                style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
+                title="Cài đặt tài khoản TPOS cho tạo bill">
+                <i class="fas fa-user-cog"></i>
+                Tài khoản TPOS
+            </button>
 
             <!-- Hidden elements - moved to Campaign Settings Modal -->
             <div style="display: none;">
@@ -197,91 +204,34 @@
 
         </div>
 
-        <!-- Action Buttons Section (New) -->
-        <div class="action-buttons-section" style="padding: 16px 24px; display: none; gap: 12px; flex-wrap: wrap;"
-            id="actionButtonsSection">
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <span style="color: #6b7280; font-size: 13px; font-weight: 500;">
-                    <span id="selectedOrdersCount">0</span> đơn được chọn
-                </span>
-            </div>
-
-            <button class="btn-message-action" id="sendMessageBtn" onclick="openMessageTemplateModal()" style="
-                        padding: 10px 20px;
-                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        transition: all 0.2s;
-                    "
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.3)';"
-                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+        <!-- Action Buttons Section (Compact & Sticky) -->
+        <div class="action-buttons-section" id="actionButtonsSection">
+            <span class="selected-count-text">
+                <span id="selectedOrdersCount">0</span> đơn
+            </span>
+            <button class="btn-deselect-all" onclick="deselectAllOrders()" title="Bỏ chọn tất cả">
+                <i class="fas fa-times"></i>
+            </button>
+            <button class="btn-action-compact btn-action-message" id="sendMessageBtn" onclick="openMessageTemplateModal()">
                 <i class="fab fa-facebook-messenger"></i>
                 Gửi tin nhắn
             </button>
-            <button class="btn-message-action" id="sendOrderConfirmBtn" style="
-                        padding: 10px 20px;
-                        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        transition: all 0.2s;
-                    "
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.3)';"
-                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                <i class="fas fa-paper-plane"></i>
-                Gửi lại tin chốt đơn
-            </button>
-            <button class="btn-message-action" id="createSaleButtonBtn" onclick="openSaleButtonModal()" style="
-                        padding: 10px 20px;
-                        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        display: none;
-                        align-items: center;
-                        gap: 8px;
-                        transition: all 0.2s;
-                    "
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.3)';"
-                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+            <button class="btn-action-compact btn-action-sale" id="createSaleButtonBtn" onclick="openSaleButtonModal()"
+                title="Tạo phiếu bán hàng từ đơn đã chọn">
                 <i class="fas fa-shopping-cart"></i>
-                Tạo nút bán hàng
+                Tạo phiếu bán hàng
             </button>
-            <button class="btn-message-action" id="createFastSaleBtn" onclick="showFastSaleModal()" style="
-                        padding: 10px 20px;
-                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        font-size: 14px;
-                        font-weight: 500;
-                        cursor: pointer;
-                        display: none;
-                        align-items: center;
-                        gap: 8px;
-                        transition: all 0.2s;
-                    "
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.3)';"
-                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none';"
+            <button class="btn-action-compact btn-action-message" id="createFastSaleBtn" onclick="showFastSaleModal()"
                 title="Tạo nhanh phiếu bán hàng từ các đơn đã chọn">
                 <i class="fas fa-file-invoice-dollar"></i>
                 Tạo nhanh PBH (F9)
+            </button>
+            <button class="btn-action-compact" id="bulkRemoveTagBtn"
+                onclick="showBulkRemoveTagForSelectedModal()"
+                title="Xóa một tag khỏi tất cả đơn đang chọn"
+                style="display: none; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                <i class="fas fa-times-circle"></i>
+                Xóa Tag
             </button>
         </div>
 
@@ -303,7 +253,7 @@
                     </button>
                 </div>
 
-                <!-- TAG Filter with Search -->
+                <!-- TAG Filter with Multi-Select -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">TAG:</label>
                     <div class="tag-filter-dropdown" id="tagFilterDropdown">
@@ -311,16 +261,45 @@
                             <span id="tagFilterText">Tất cả</span>
                             <i class="fas fa-chevron-down"></i>
                         </div>
-                        <div class="tag-filter-menu" id="tagFilterMenu">
+                        <div class="tag-filter-menu" id="tagFilterMenu" style="min-width: 280px;">
                             <div class="tag-filter-search">
                                 <i class="fas fa-search"></i>
                                 <input type="text" id="tagFilterSearchInput" placeholder="Tìm tag..." oninput="filterTagOptions()">
                             </div>
-                            <div class="tag-filter-options" id="tagFilterOptions">
+                            <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">
+                                <button onclick="selectAllTagFilters()" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Chọn tất cả</button>
+                                <button onclick="clearTagFilters()" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;">Bỏ chọn</button>
+                            </div>
+                            <div class="tag-filter-options" id="tagFilterOptions" style="max-height: 300px; overflow-y: auto;">
                                 <!-- Options populated by JS -->
                             </div>
                         </div>
                         <input type="hidden" id="tagFilter" value="all">
+                    </div>
+                </div>
+
+                <!-- Exclude Tags Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
+                    <label style="font-size: 12px; font-weight: 500; color: #ef4444;">
+                        <i class="fas fa-eye-slash"></i> Ẩn:
+                    </label>
+                    <div class="tag-filter-dropdown exclude-tag-filter" id="excludeTagFilterDropdown">
+                        <div class="tag-filter-selected" onclick="toggleExcludeTagFilterDropdown()" id="excludeTagFilterSelected" style="border-color: #fecaca;">
+                            <span id="excludeTagFilterText">Không ẩn</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="tag-filter-menu" id="excludeTagFilterMenu" style="min-width: 280px;">
+                            <div class="tag-filter-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="excludeTagFilterSearchInput" placeholder="Tìm tag để ẩn..." oninput="filterExcludeTagOptions()">
+                            </div>
+                            <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">
+                                <button onclick="clearExcludeTagFilters()" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;"><i class="fas fa-times"></i> Bỏ ẩn tất cả</button>
+                            </div>
+                            <div class="tag-filter-options" id="excludeTagFilterOptions" style="max-height: 300px; overflow-y: auto;">
+                                <!-- Options populated by JS -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -360,18 +339,29 @@
                     </button>
                 </div>
             </div>
-            <!-- Excluded Tags Display -->
-            <div id="excludedTagsDisplay" style="display: none; padding: 8px 0; border-top: 1px solid #e5e7eb; margin-top: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span style="font-size: 12px; color: #6b7280;">
-                        <i class="fas fa-eye-slash" style="color: #ef4444;"></i> Đang ẩn:
-                    </span>
-                    <div id="excludedTagsDisplayList" style="display: flex; flex-wrap: wrap; gap: 4px;">
-                        <!-- Excluded tag names will be shown here -->
+            <!-- Active Filters Display -->
+            <div id="activeFiltersDisplay" style="display: none; padding: 8px 0; border-top: 1px solid #e5e7eb; margin-top: 8px;">
+                <!-- Selected Tags Display -->
+                <div id="selectedTagsDisplay" style="display: none; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-size: 12px; color: #6b7280;">
+                            <i class="fas fa-filter" style="color: #3b82f6;"></i> Đang lọc:
+                        </span>
+                        <div id="selectedTagsDisplayList" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                            <!-- Selected tag names will be shown here -->
+                        </div>
                     </div>
-                    <button onclick="openColumnSettingsModal()" style="padding: 2px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; color: #6b7280;">
-                        <i class="fas fa-edit"></i> Sửa
-                    </button>
+                </div>
+                <!-- Excluded Tags Display -->
+                <div id="excludedTagsDisplay" style="display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span style="font-size: 12px; color: #6b7280;">
+                            <i class="fas fa-eye-slash" style="color: #ef4444;"></i> Đang ẩn:
+                        </span>
+                        <div id="excludedTagsDisplayList" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                            <!-- Excluded tag names will be shown here -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -399,6 +389,7 @@
                             <th data-column="total">Tổng tiền</th>
                             <th data-column="quantity">SL</th>
                             <th data-column="created-date">Ngày tạo</th>
+                            <th data-column="invoice-status" style="min-width: 140px;">Phiếu bán hàng</th>
                             <th data-column="status">Trạng thái</th>
                         </tr>
                     </thead>
@@ -675,6 +666,10 @@
                     <label class="column-setting-item">
                         <input type="checkbox" data-column="created-date" />
                         <span>Ngày tạo</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="invoice-status" checked />
+                        <span>Phiếu bán hàng</span>
                     </label>
                     <label class="column-setting-item">
                         <input type="checkbox" data-column="status" checked />
@@ -1309,6 +1304,7 @@
     <script src="js/core/user-employee-loader.js"></script>
 
     <script src="js/core/token-manager.js"></script>
+    <script src="js/core/bill-token-manager.js"></script>
     <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
     <script src="js/core/indexeddb-storage.js"></script>
     <script src="js/core/cache.js"></script>
@@ -1347,6 +1343,8 @@
     <script src="js/utils/firebase-image-cache.js"></script>
     <!-- html2canvas for image generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- JsBarcode for barcode generation -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="js/utils/order-image-generator.js"></script>
     <script src="js/chat/message-template-manager.js"></script>
     <script src="js/utils/copy-template-helper.js"></script>
@@ -1422,6 +1420,15 @@
 
     <!-- 17. Fast Sale: Fast sale modal, bill settings (lines 24975-26905) -->
     <script src="js/tab1/tab1-fast-sale.js"></script>
+
+    <!-- BaseStore: shared state management base class -->
+    <script src="../shared/js/base-store.js"></script>
+
+    <!-- 17b. Fast Sale Invoice Status: StateCode column, manual bill send -->
+    <script src="js/tab1/tab1-fast-sale-invoice-status.js"></script>
+
+    <!-- 17c. Fast Sale Workflow: Cancel order, OK customer, failed order tags -->
+    <script src="js/tab1/tab1-fast-sale-workflow.js"></script>
 
     <!-- Legacy file (backup - comment out when using modular) -->
     <!-- <script src="js/tab1/tab1-orders.js"></script> -->
@@ -2240,7 +2247,7 @@
                         <h4 style="margin: 0; font-size: 15px; color: #374151;">
                             <i class="fas fa-users"></i> Danh sách tài khoản
                         </h4>
-                        <button onclick="showAddAccountForm()"
+                        <button id="btnAddAccount" onclick="showAddAccountForm()"
                             style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
                             <i class="fas fa-plus"></i> Thêm tài khoản
                         </button>
@@ -2318,12 +2325,94 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Page Access Tokens Section -->
+                <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                            <i class="fas fa-key"></i> Page Access Tokens
+                        </h4>
+                        <button id="btnAddPageToken" onclick="showAddPageTokenForm()"
+                            style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                            <i class="fas fa-plus"></i> Thêm Page Token
+                        </button>
+                    </div>
+
+                    <!-- Page Tokens List -->
+                    <div id="pageAccessTokensList"
+                        style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
+                        <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                            <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
+                            <div>Chưa có page token nào</div>
+                            <div style="font-size: 11px; margin-top: 4px;">Page token giúp gửi tin nhắn không bị giới hạn rate limit</div>
+                        </div>
+                    </div>
+
+                    <!-- Add Page Token Form (Hidden by default) -->
+                    <div id="addPageTokenForm"
+                        style="display: none; padding: 16px; background: #faf5ff; border-radius: 8px; border: 2px solid #8b5cf6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 14px; color: #374151;">
+                                <i class="fas fa-plus-circle"></i> Thêm Page Access Token
+                            </h4>
+                            <button onclick="hideAddPageTokenForm()"
+                                style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <!-- Page Selector -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                Chọn Page:
+                            </label>
+                            <select id="pageTokenPageSelector"
+                                style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                                <option value="">-- Đang tải pages... --</option>
+                            </select>
+                        </div>
+
+                        <!-- Token Input -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                Page Access Token:
+                            </label>
+                            <textarea id="newPageAccessTokenInput" placeholder="Paste page_access_token vào đây..."
+                                style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                            <div id="pageTokenValidationMessage" style="margin-top: 6px; font-size: 11px; display: none;"></div>
+                        </div>
+
+                        <!-- Instructions -->
+                        <div style="padding: 10px; background: #f3e8ff; border-left: 3px solid #8b5cf6; border-radius: 4px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #6b21a8; font-weight: 500; margin-bottom: 6px;">
+                                📋 Cách lấy Page Access Token:
+                            </div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #6b21a8;">
+                                <li>Vào <a href="https://pancake.vn" target="_blank" style="color: #7c3aed;">Pancake</a> → Chọn Page</li>
+                                <li>Vào Settings → Tools → API</li>
+                                <li>Copy "Page Access Token"</li>
+                            </ol>
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="generatePageTokenFromAPI()"
+                                style="flex: 1; padding: 8px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-magic"></i> Tự động tạo
+                            </button>
+                            <button onclick="addPageAccessTokenManual()"
+                                style="flex: 1; padding: 8px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-save"></i> Lưu Token
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="tag-modal-footer">
                 <button class="tag-btn-cancel" onclick="closePancakeSettingsModal()">
                     Đóng
                 </button>
-                <button class="tag-btn-cancel" onclick="clearAllPancakeAccounts()" style="background: #ef4444;">
+                <button id="btnClearAllAccounts" class="tag-btn-cancel" onclick="clearAllPancakeAccounts()" style="background: #ef4444;">
                     <i class="fas fa-trash"></i> Xóa tất cả
                 </button>
             </div>
@@ -2670,6 +2759,21 @@
                 style="background: white; padding: 12px 20px; border-bottom: 1px solid #e5e7eb; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
                 <button class="sale-btn sale-btn-teal" onclick="confirmAndPrintSale()">Xác nhận và in (F9)</button>
 
+                <!-- Bill Type Toggle -->
+                <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px; padding: 4px 12px; background: #f3f4f6; border-radius: 6px;">
+                    <span style="font-size: 12px; color: #6b7280;">Bill:</span>
+                    <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                        <input type="radio" name="saleBillType" id="saleBillTypeWeb" value="web" checked
+                            style="margin: 0; cursor: pointer;">
+                        <span style="font-size: 12px; color: #059669; font-weight: 500;">Web</span>
+                    </label>
+                    <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                        <input type="radio" name="saleBillType" id="saleBillTypeTpos" value="tpos"
+                            style="margin: 0; cursor: pointer;">
+                        <span style="font-size: 12px; color: #3b82f6; font-weight: 500;">TPOS</span>
+                    </label>
+                </div>
+
                 <!-- Customer Info -->
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 12px; color: #6b7280;">Tên khách hàng:</span>
@@ -2846,6 +2950,11 @@
                                 <button id="confirmDebtBtn" class="sale-btn sale-btn-teal"
                                     style="display: none; padding: 6px 12px; font-size: 12px;"
                                     onclick="confirmDebtUpdate()">Xác nhận</button>
+                                <button type="button" onclick="showCustomerWalletHistory()"
+                                    style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+                                    title="Xem lịch sử giao dịch ví khách hàng">
+                                    <i class="fas fa-wallet"></i> Ví Khách Hàng
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -2941,17 +3050,38 @@
             </div>
 
             <!-- Footer -->
-            <div class="merge-modal-footer">
-                <button class="merge-btn-cancel" onclick="closeFastSaleModal()">
-                    <i class="fas fa-times"></i> Đóng
-                </button>
-                <button class="merge-btn-confirm" id="confirmFastSaleBtn" onclick="confirmFastSale()">
-                    <i class="fas fa-check"></i> Lưu
-                </button>
-                <button class="merge-btn-confirm" id="confirmAndCheckFastSaleBtn" onclick="confirmAndCheckFastSale()"
-                    style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
-                    <i class="fas fa-check-double"></i> Lưu xác nhận
-                </button>
+            <div class="merge-modal-footer" id="fastSaleModalFooter" style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Buttons Row -->
+                <div class="fast-sale-footer-buttons" style="display: flex; align-items: center; gap: 12px; width: 100%; flex-wrap: wrap;">
+                    <!-- Bill Type Toggle -->
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: #f3f4f6; border-radius: 6px; margin-right: auto;">
+                        <span style="font-size: 12px; color: #6b7280;">Bill:</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                            <input type="radio" name="fastSaleBillType" id="fastSaleBillTypeWeb" value="web" checked
+                                style="margin: 0; cursor: pointer;">
+                            <span style="font-size: 12px; color: #059669; font-weight: 500;">Web</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; gap: 4px;">
+                            <input type="radio" name="fastSaleBillType" id="fastSaleBillTypeTpos" value="tpos"
+                                style="margin: 0; cursor: pointer;">
+                            <span style="font-size: 12px; color: #3b82f6; font-weight: 500;">TPOS</span>
+                        </label>
+                    </div>
+
+                    <button class="merge-btn-cancel" onclick="closeFastSaleModal()">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
+                    <button class="merge-btn-confirm" id="confirmAndCheckFastSaleBtn" onclick="confirmAndCheckFastSale()"
+                        style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                        <i class="fas fa-check-double"></i> Lưu xác nhận
+                    </button>
+                </div>
+
+                <!-- Status Message Container (hidden by default) -->
+                <div id="fastSaleStatusMessage" class="fast-sale-status-message" style="display: none;">
+                    <i class="fas fa-info-circle"></i>
+                    <span id="fastSaleStatusText"></span>
+                </div>
             </div>
         </div>
     </div>
@@ -3015,14 +3145,6 @@
                                 style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
                                 <i class="fas fa-print"></i> In hóa đơn
                             </button>
-                            <button class="merge-btn-confirm" id="printShippingBtn" onclick="printSuccessOrders('shipping')"
-                                style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);">
-                                <i class="fas fa-print"></i> In phiếu ship
-                            </button>
-                            <button class="merge-btn-confirm" id="printPickingBtn" onclick="printSuccessOrders('picking')"
-                                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                                <i class="fas fa-print"></i> In soạn hàng
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -3037,8 +3159,124 @@
         </div>
     </div>
 
+    <!-- TPOS Account Settings Modal -->
+    <div class="merge-modal" id="tposAccountModal">
+        <div class="merge-modal-content" style="max-width: 500px;">
+            <div class="merge-modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                <div class="merge-header-info">
+                    <h3><i class="fas fa-user-cog"></i> Tài khoản TPOS</h3>
+                    <p style="font-size: 13px; opacity: 0.9;">Cài đặt tài khoản TPOS cho tạo bill</p>
+                </div>
+                <button class="merge-close-btn" onclick="closeTposAccountModal()">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <!-- Current Status -->
+                <div id="tposAccountStatus" style="padding: 15px; background: #f3f4f6; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-info-circle" style="color: #6b7280;"></i>
+                        <span>Đang tải...</span>
+                    </div>
+                </div>
+
+                <!-- Auth Type Tabs -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="bill-settings-tab active" id="tposAuthTabPassword" onclick="switchTposAuthTab('password')">
+                        <i class="fas fa-key"></i> Username/Password
+                    </button>
+                    <button class="bill-settings-tab" id="tposAuthTabBearer" onclick="switchTposAuthTab('bearer')">
+                        <i class="fas fa-ticket-alt"></i> Bearer Token
+                    </button>
+                </div>
+
+                <!-- Password Auth Form -->
+                <div id="tposAuthPasswordForm">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">
+                            <i class="fas fa-user"></i> Username
+                        </label>
+                        <input type="text" id="tposUsername" class="form-control" placeholder="Nhập username TPOS"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">
+                            <i class="fas fa-lock"></i> Password
+                        </label>
+                        <input type="password" id="tposPassword" class="form-control" placeholder="Nhập password TPOS"
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    </div>
+                </div>
+
+                <!-- Bearer Token Form -->
+                <div id="tposAuthBearerForm" style="display: none;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #374151;">
+                            <i class="fas fa-ticket-alt"></i> Bearer Token
+                        </label>
+                        <textarea id="tposBearerToken" class="form-control" placeholder="Dán Bearer Token vào đây..."
+                            style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; min-height: 100px; resize: vertical;"></textarea>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+                            Lấy từ DevTools > Application > Local Storage > bearer_token_data hoặc từ API /token
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Test Result -->
+                <div id="tposTestResult" style="display: none; padding: 10px; border-radius: 6px; margin-bottom: 15px;"></div>
+            </div>
+            <div class="merge-modal-footer" style="display: flex; justify-content: space-between; gap: 10px;">
+                <button class="merge-btn-cancel" onclick="clearTposAccount()" style="background: #ef4444; color: white;">
+                    <i class="fas fa-trash"></i> Xóa
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="merge-btn-cancel" onclick="testTposAccount()">
+                        <i class="fas fa-vial"></i> Test
+                    </button>
+                    <button class="merge-btn-confirm" onclick="saveTposAccount()" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+                        <i class="fas fa-save"></i> Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bill Preview Modal (before sending) -->
+    <div class="merge-modal" id="billPreviewSendModal">
+        <div class="merge-modal-content" style="max-width: 450px; max-height: 90vh; overflow-y: auto;">
+            <div class="merge-modal-header" style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+                <div class="merge-header-info">
+                    <h3><i class="fab fa-facebook-messenger"></i> Xem trước bill</h3>
+                    <p style="font-size: 13px; opacity: 0.9;">Kiểm tra trước khi gửi cho khách</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button onclick="openBillSettingsFromPreview()" title="Cài đặt mẫu bill"
+                        style="background: rgba(255,255,255,0.2); border: none; width: 36px; height: 36px; border-radius: 8px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button class="merge-close-btn" onclick="closeBillPreviewSendModal()">&times;</button>
+                </div>
+            </div>
+            <div style="padding: 15px; background: #f9fafb;">
+                <div id="billPreviewSendContainer" style="border: 1px solid #e5e7eb; border-radius: 8px; background: white; min-height: 200px; max-height: 60vh; overflow: auto;">
+                    <p style="color: #9ca3af; padding: 40px; text-align: center;">Đang tạo bill...</p>
+                </div>
+            </div>
+            <div class="merge-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button class="merge-btn-cancel" onclick="closeBillPreviewSendModal()"><i class="fas fa-times"></i> Hủy</button>
+                <button class="merge-btn-confirm" id="billPreviewPrintBtn" onclick="printBillFromPreview()" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                    <i class="fas fa-print"></i> In bill
+                </button>
+                <button class="merge-btn-confirm" id="billPreviewPrintSendBtn" onclick="printAndSendBillFromPreview()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                    <i class="fas fa-print"></i> In & Gửi
+                </button>
+                <button class="merge-btn-confirm" id="billPreviewSendBtn" onclick="confirmSendBillFromPreview()" style="background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%);">
+                    <i class="fab fa-facebook-messenger"></i> Gửi bill
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Bill Template Settings Modal -->
-    <div class="merge-modal" id="billTemplateSettingsModal">
+    <div class="merge-modal" id="billTemplateSettingsModal" style="z-index: 1001;">
         <div class="merge-modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
             <div class="merge-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
                 <div class="merge-header-info">
@@ -3095,6 +3333,32 @@
                 </div>
                 <!-- Sections Tab -->
                 <div class="bill-settings-content" id="billSettingsSections" style="display: none;">
+                    <!-- Send Behavior Setting -->
+                    <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 10px; color: #0369a1;"><i class="fab fa-facebook-messenger"></i> Gửi bill qua Messenger</h4>
+                        <label class="bill-toggle-item" style="background: white; border: 1px solid #e0f2fe;">
+                            <input type="checkbox" id="billPreviewBeforeSend" checked>
+                            <span><i class="fas fa-eye"></i> Xem trước bill trước khi gửi (mặc định: bật)</span>
+                        </label>
+                        <p style="font-size: 12px; color: #64748b; margin-top: 8px; margin-bottom: 10px;">
+                            <i class="fas fa-info-circle"></i> Khi bật: Bấm nút Messenger sẽ hiện preview bill để xem trước, sau đó mới gửi.<br>
+                            <i class="fas fa-info-circle"></i> Khi tắt: Gửi bill ngay khi bấm nút Messenger.
+                        </p>
+                        <label class="bill-toggle-item" style="background: white; border: 1px solid #e0f2fe;">
+                            <input type="checkbox" id="billPreGenerateBills">
+                            <span><i class="fas fa-images"></i> Tự động tạo trước hình bill (mặc định: tắt)</span>
+                        </label>
+                        <p style="font-size: 12px; color: #64748b; margin-top: 8px; margin-bottom: 10px;">
+                            <i class="fas fa-info-circle"></i> Khi bật: Sau khi lưu đơn, tự động tạo + upload hình bill lên server để gửi nhanh hơn.
+                        </p>
+                        <label class="bill-toggle-item" style="background: white; border: 1px solid #e0f2fe;">
+                            <input type="checkbox" id="billAutoSendOnSuccess">
+                            <span><i class="fas fa-paper-plane"></i> Tự động gửi bill khi đơn thành công (mặc định: tắt)</span>
+                        </label>
+                        <p style="font-size: 12px; color: #64748b; margin-top: 8px; margin-bottom: 0;">
+                            <i class="fas fa-info-circle"></i> Khi bật: Tự động gửi bill ngay sau khi đơn "Đã thanh toán" hoặc "Đã xác nhận".
+                        </p>
+                    </div>
                     <h4 style="margin-bottom: 15px; color: #374151;"><i class="fas fa-eye"></i> Chọn các phần hiển thị</h4>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <label class="bill-toggle-item"><input type="checkbox" id="billShowHeader" checked><span><i class="fas fa-store"></i> Header (Shop, Hotline)</span></label>
@@ -3155,6 +3419,144 @@
             </div>
         </div>
     </div>
+
+    <!-- Bulk Remove Tag For Selected Modal -->
+    <div class="tag-modal" id="bulkRemoveTagForSelectedModal" style="display: none;">
+        <div class="tag-modal-content" style="max-width: 450px;">
+            <div class="tag-modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-times-circle"></i>
+                    Xóa Tag Hàng Loạt
+                </h3>
+                <button class="tag-modal-close" onclick="closeBulkRemoveTagForSelectedModal()" style="color: white;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tag-modal-body" style="padding: 20px;">
+                <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <p style="margin: 0; color: #991b1b; font-size: 14px;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i>
+                        Đang chọn <strong id="bulkRemoveTagSelectedCount">0</strong> đơn hàng
+                    </p>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                        <i class="fas fa-tag" style="margin-right: 6px;"></i>
+                        Chọn tag cần xóa:
+                    </label>
+                    <!-- Searchable Tag Dropdown -->
+                    <div class="bulk-remove-tag-dropdown" style="position: relative;">
+                        <div class="tag-filter-search" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px 6px 0 0; background: #f9fafb;">
+                            <i class="fas fa-search" style="color: #9ca3af; margin-right: 8px;"></i>
+                            <input type="text" id="bulkRemoveTagSearchInput" placeholder="Tìm tag..."
+                                oninput="filterBulkRemoveTagOptions()"
+                                style="border: none; outline: none; background: transparent; width: calc(100% - 30px); font-size: 14px;">
+                        </div>
+                        <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-left: 1px solid #d1d5db; border-right: 1px solid #d1d5db; background: #f3f4f6;">
+                            <button type="button" onclick="selectAllBulkRemoveTags()" style="flex: 1; padding: 6px 12px; font-size: 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">Chọn tất cả</button>
+                            <button type="button" onclick="clearBulkRemoveTags()" style="flex: 1; padding: 6px 12px; font-size: 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;">Bỏ chọn</button>
+                        </div>
+                        <div id="bulkRemoveTagOptions" style="max-height: 250px; overflow-y: auto; border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 6px 6px; background: white;">
+                            <!-- Options populated by JS -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="bulkRemoveTagSelect" value="">
+                </div>
+            </div>
+            <div class="tag-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 20px; border-top: 1px solid #e5e7eb; background: #f9fafb;">
+                <button onclick="closeBulkRemoveTagForSelectedModal()" style="padding: 10px 20px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                    <i class="fas fa-times" style="margin-right: 6px;"></i>
+                    Hủy
+                </button>
+                <button onclick="executeBulkRemoveTagForSelected()" style="padding: 10px 20px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                    <i class="fas fa-trash-alt" style="margin-right: 6px;"></i>
+                    Xóa Tag
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order History Button (Fixed in header) -->
+    <button class="order-history-btn" id="orderHistoryBtn" title="Lịch sử ra đơn">
+        <i class="fas fa-history"></i>
+        <span class="badge" style="display: none;">0</span>
+    </button>
+
+    <!-- Order History Modal -->
+    <div class="order-history-modal" id="orderHistoryModal">
+        <div class="modal-overlay"></div>
+        <div class="modal-container">
+            <div class="modal-header">
+                <div>
+                    <h3><i class="fas fa-history"></i> Lịch sử Ra đơn</h3>
+                    <div class="subtitle">Tự động xóa sau 14 ngày</div>
+                </div>
+                <button class="close-btn"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="filter-bar">
+                <select id="orderHistoryCampaign" style="min-width: 200px;">
+                    <option value="">-- Chọn chiến dịch --</option>
+                </select>
+                <input type="text" id="orderHistorySearch" placeholder="Tìm tên, SĐT, địa chỉ..." />
+                <select id="orderHistorySource">
+                    <option value="">Tất cả nguồn</option>
+                    <option value="fast-sale">Tạo nhanh PBH</option>
+                    <option value="sale-modal">Phiếu bán hàng</option>
+                </select>
+                <span class="filter-stats" id="orderHistoryFilterStats">0 bản ghi</span>
+            </div>
+
+            <div class="modal-body">
+                <table class="order-history-table">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Thời gian</th>
+                            <th>Khách hàng</th>
+                            <th>Địa chỉ</th>
+                            <th>SP</th>
+                            <th>Tổng tiền</th>
+                            <th>Nguồn</th>
+                            <th>User</th>
+                            <th>Xem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderHistoryTableBody">
+                        <tr>
+                            <td colspan="9">
+                                <div class="order-history-empty">
+                                    <i class="fas fa-history"></i>
+                                    <p>Chọn chiến dịch để xem lịch sử ra đơn</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-bar" id="orderHistoryPagination"></div>
+
+            <div class="modal-footer">
+                <div class="info">
+                    <i class="fas fa-info-circle"></i>
+                    Dữ liệu lưu tối đa 14 ngày • Chọn chiến dịch để xem
+                </div>
+                <div class="actions">
+                    <button class="btn-refresh" id="orderHistoryRefreshBtn">
+                        <i class="fas fa-sync-alt"></i> Tải lại
+                    </button>
+                    <button class="btn-close" id="orderHistoryCloseBtn">
+                        <i class="fas fa-times"></i> Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order History JS -->
+    <script src="js/tab1/tab1-order-history.js"></script>
 
 </body>
 

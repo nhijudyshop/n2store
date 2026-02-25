@@ -47,7 +47,11 @@
       "Bash(fi)",
       "Bash(done)",
       "Bash(for node in \"syncSearchKeyword\" \"productAssignments_v2_history\")",
-      "Bash(do echo \"=== $node ===\")"
+      "Bash(do echo \"=== $node ===\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:api.github.com)"
     ]
   }
 }

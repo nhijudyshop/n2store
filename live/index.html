@@ -31,8 +31,8 @@
             window.addEventListener('sharedModulesLoaded', () => {
                 if (window.authManager) {
                     window.getAuthState = () => window.authManager.getAuthData();
-                    window.setAuthState = (isLoggedIn, userType, checkLogin) => {
-                        window.authManager.saveAuthData({ isLoggedIn, userType, checkLogin, timestamp: Date.now() }, false);
+                    window.setAuthState = (isLoggedIn, userType, roleData) => {
+                        window.authManager.saveAuthData({ isLoggedIn, userType, roleData, timestamp: Date.now() }, false);
                     };
                     window.clearAuthState = () => {
                         sessionStorage.removeItem('loginindex_auth');
@@ -66,6 +66,9 @@
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js"></script>
     </head>
 
     <body>
@@ -73,8 +76,8 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i data-lucide="zap"></i>
-                    <span>N2Shop</span>
+                    <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+                    <span>N2STORE</span>
                 </div>
                 <button class="sidebar-toggle" id="sidebarToggle">
                     <i data-lucide="panel-left-close"></i>

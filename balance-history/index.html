@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/transfer-stats.css">
     <link rel="stylesheet" href="css/live-mode.css">
-    <link rel="stylesheet" href="css/accountant.css?v=20260123c">
+    <link rel="stylesheet" href="css/accountant.css?v=20260127a">
 </head>
 
 <body>
@@ -41,8 +41,8 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="logo">
-                <i data-lucide="zap"></i>
-                <span>N2Shop</span>
+                <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+                <span>N2STORE</span>
             </div>
             <button class="sidebar-toggle" id="sidebarToggle">
                 <i data-lucide="panel-left-close"></i>
@@ -592,10 +592,6 @@
                         <i data-lucide="check-circle" style="width:16px;height:16px"></i>
                         Đã Duyệt Hôm Nay
                     </button>
-                    <button class="acc-sub-tab" data-tab="adjustment" id="accTabAdjustment">
-                        <i data-lucide="wallet" style="width:16px;height:16px"></i>
-                        Điều Chỉnh Công Nợ
-                    </button>
                 </div>
 
                 <!-- ========== SUB-PANEL: Pending Queue ========== -->
@@ -671,6 +667,7 @@
                                     <th class="col-time">Giờ</th>
                                     <th class="col-amount">Số tiền</th>
                                     <th class="col-content">Nội dung CK</th>
+                                    <th class="col-staff-note">Ghi chú NV</th>
                                     <th class="col-customer">Khách hàng</th>
                                     <th class="col-staff">Nguồn</th>
                                     <th class="col-wait">Chờ</th>
@@ -679,7 +676,7 @@
                             </thead>
                             <tbody id="accPendingTableBody">
                                 <tr>
-                                    <td colspan="8" class="acc-loading">
+                                    <td colspan="9" class="acc-loading">
                                         <div class="loading-spinner"></div>
                                         <div>Đang tải...</div>
                                     </td>
@@ -739,11 +736,12 @@
                                     <th>Nguồn</th>
                                     <th>Duyệt bởi</th>
                                     <th>Ghi chú</th>
+                                    <th>Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody id="accApprovedTableBody">
                                 <tr>
-                                    <td colspan="7" class="acc-empty-state">
+                                    <td colspan="8" class="acc-empty-state">
                                         <div class="empty-text">Chọn ngày để xem</div>
                                     </td>
                                 </tr>
@@ -755,104 +753,6 @@
                     <div class="acc-pagination" id="accPaginationApproved"></div>
 
                 </div><!-- End Approved Panel -->
-
-                <!-- ========== SUB-PANEL: Manual Adjustment ========== -->
-                <div class="acc-sub-panel" data-panel="adjustment" id="accPanelAdjustment">
-
-                    <div class="acc-adjustment-container">
-
-                        <!-- Adjustment Form -->
-                        <div class="acc-adjustment-form">
-                            <div class="form-title">
-                                <i data-lucide="edit-3" style="width:20px;height:20px"></i>
-                                Điều Chỉnh Công Nợ
-                            </div>
-
-                            <form id="accAdjustmentForm">
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentPhone">Số điện thoại khách hàng</label>
-                                    <input type="tel" id="accAdjustmentPhone" placeholder="Nhập 10 số" maxlength="10">
-                                    <div class="acc-customer-lookup" id="accCustomerLookup"></div>
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentName">Tên khách hàng</label>
-                                    <input type="text" id="accAdjustmentName" placeholder="Tự động điền từ TPOS"
-                                        readonly style="background: #f9fafb;">
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentBalance">Số dư hiện tại</label>
-                                    <input type="text" id="accAdjustmentBalance" placeholder="--" readonly
-                                        style="background: #f9fafb;">
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label>Loại điều chỉnh</label>
-                                    <div class="acc-radio-group">
-                                        <label class="acc-radio-label add">
-                                            <input type="radio" name="adjustmentType" value="add">
-                                            <span>➕ Cộng ví</span>
-                                        </label>
-                                        <label class="acc-radio-label subtract">
-                                            <input type="radio" name="adjustmentType" value="subtract">
-                                            <span>➖ Trừ ví</span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentAmount">Số tiền (VNĐ)</label>
-                                    <input type="number" id="accAdjustmentAmount" placeholder="Nhập số tiền" min="1000"
-                                        step="1000">
-                                </div>
-
-                                <div class="acc-form-group">
-                                    <label for="accAdjustmentReason">Lý do điều chỉnh</label>
-                                    <textarea id="accAdjustmentReason"
-                                        placeholder="Nhập lý do chi tiết (tối thiểu 10 ký tự)"></textarea>
-                                    <div class="helper-text">VD: Hoàn tiền đơn #12345, Sửa sai match nhầm, Cộng khuyến
-                                        mãi...</div>
-                                </div>
-
-                                <button type="submit" class="acc-form-submit" id="accAdjustmentSubmit">
-                                    <i data-lucide="send" style="width:16px;height:16px"></i>
-                                    Thực hiện điều chỉnh
-                                </button>
-                            </form>
-                        </div>
-
-                        <!-- Adjustment History -->
-                        <div class="acc-adjustment-history">
-                            <div class="history-title">
-                                <i data-lucide="history" style="width:18px;height:18px"></i>
-                                Lịch sử điều chỉnh hôm nay
-                            </div>
-
-                            <table class="acc-adjustment-table">
-                                <thead>
-                                    <tr>
-                                        <th>Giờ</th>
-                                        <th>Số tiền</th>
-                                        <th>Khách hàng</th>
-                                        <th>Lý do</th>
-                                        <th>Người thực hiện</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="accAdjustmentHistoryBody">
-                                    <tr>
-                                        <td colspan="5" class="acc-text-muted"
-                                            style="text-align: center; padding: 20px;">
-                                            Chưa có điều chỉnh nào hôm nay
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                    </div>
-
-                </div><!-- End Adjustment Panel -->
 
             </div><!-- End Verification/Accountant Panel -->
 
@@ -925,6 +825,27 @@
                             <!-- Dynamically filled: amount, customer, content -->
                         </div>
 
+                        <!-- Change Customer Section (Collapsible) -->
+                        <div class="acc-change-customer-section" id="accChangeCustomerSection">
+                            <div class="acc-change-toggle" onclick="AccountantModule.toggleChangeCustomer()">
+                                <i data-lucide="user-cog" style="width:16px;height:16px"></i>
+                                <span id="accChangeToggleText">Thay đổi thông tin khách hàng</span>
+                                <i data-lucide="chevron-down" style="width:16px;height:16px" id="accChangeToggleIcon"></i>
+                            </div>
+                            <div class="acc-change-fields" id="accChangeFields" style="display:none">
+                                <div class="acc-form-group">
+                                    <label for="accApprovePhone">Số điện thoại mới</label>
+                                    <input type="tel" id="accApprovePhone" placeholder="Nhập 10 số" maxlength="10"
+                                        oninput="AccountantModule.lookupCustomerInApprove && AccountantModule.lookupCustomerInApprove(this.value)">
+                                    <div id="accApproveLookupResult" class="tpos-lookup"></div>
+                                </div>
+                                <div class="acc-form-group">
+                                    <label for="accApproveName">Tên khách hàng</label>
+                                    <input type="text" id="accApproveName" placeholder="Tự động điền từ TPOS">
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Note Input -->
                         <div class="acc-form-group">
                             <label for="accApproveNote">Ghi chú (tùy chọn)</label>
@@ -936,14 +857,20 @@
                         <div class="acc-form-group">
                             <label>Hình ảnh xác nhận chuyển khoản (tùy chọn)</label>
                             <div class="acc-image-upload-area" id="accApproveImageArea">
-                                <div class="acc-image-dropzone" id="accApproveDropzone">
+                                <!-- Paste/Drag Zone - Không click để chọn file -->
+                                <div class="acc-image-dropzone acc-paste-only" id="accApproveDropzone">
                                     <i data-lucide="image-plus" style="width:32px;height:32px"></i>
                                     <span>Paste (Ctrl+V) hoặc kéo thả hình vào đây</span>
-                                    <span class="acc-text-muted acc-text-sm">Hoặc click để chọn file</span>
-                                    <input type="file" id="accApproveImageInput"
-                                        accept="image/jpeg,image/png,image/gif,image/webp"
-                                        style="display:none">
                                 </div>
+
+                                <!-- Nút chọn file riêng biệt -->
+                                <button type="button" class="acc-btn acc-btn-secondary acc-btn-choose-image" id="accChooseImageBtn">
+                                    <i data-lucide="folder-open" style="width:16px;height:16px"></i>
+                                    Chọn ảnh từ máy tính
+                                </button>
+                                <input type="file" id="accApproveImageInput"
+                                    accept="image/jpeg,image/png,image/gif,image/webp"
+                                    style="display:none">
 
                                 <!-- Image Preview -->
                                 <div class="acc-image-preview" id="accApproveImagePreview" style="display:none">
@@ -968,6 +895,38 @@
                             onclick="AccountantModule.confirmApprove()">
                             <i data-lucide="check" style="width:14px;height:14px"></i>
                             Xác nhận duyệt
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manager Review Modal -->
+            <div class="acc-modal-overlay" id="accManagerReviewModal">
+                <div class="acc-modal" style="max-width: 450px;">
+                    <div class="acc-modal-header">
+                        <h3>✓ Kiểm tra giao dịch</h3>
+                        <button class="acc-modal-close">&times;</button>
+                    </div>
+                    <div class="acc-modal-body">
+                        <!-- Transaction Summary -->
+                        <div class="acc-approve-summary" id="accReviewSummary">
+                            <!-- Dynamically filled: amount, customer, date -->
+                        </div>
+
+                        <!-- Review Note Input -->
+                        <div class="acc-form-group">
+                            <label for="accReviewNote">Ghi chú kiểm tra (đơn hàng đã sử dụng)</label>
+                            <textarea id="accReviewNote"
+                                placeholder="VD: Đã dùng cho đơn hàng #12345, khách Nguyễn Văn A..."></textarea>
+                        </div>
+                    </div>
+                    <div class="acc-modal-footer">
+                        <button class="acc-btn acc-btn-secondary"
+                            onclick="document.getElementById('accManagerReviewModal').classList.remove('visible')">Hủy</button>
+                        <button class="acc-btn acc-btn-approve" id="accReviewConfirmBtn"
+                            onclick="AccountantModule.confirmManagerReview()">
+                            <i data-lucide="check" style="width:14px;height:14px"></i>
+                            Xác nhận đã kiểm tra
                         </button>
                     </div>
                 </div>

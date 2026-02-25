@@ -10,7 +10,7 @@
  * ```javascript
  * import { FIREBASE_CONFIG, initializeFirestore, initializeRealtimeDB } from '/shared/browser/firebase-config.js';
  *
- * // For Firestore (sanphamlive, inventory)
+ * // For Firestore (inventory, etc.)
  * const db = initializeFirestore();
  *
  * // For Realtime Database (soluong-live, order-management, issue-tracking)
@@ -97,6 +97,13 @@ export function initializeFirestore(options = {}) {
         return _firestoreDB;
     }
 
+    // Reuse instance from script-tag version if already initialized
+    if (typeof window !== 'undefined' && window.db && window.db.collection) {
+        _firestoreDB = window.db;
+        _isFirestoreInitialized = true;
+        return _firestoreDB;
+    }
+
     if (!initializeFirebaseApp()) {
         return null;
     }
@@ -105,17 +112,21 @@ export function initializeFirestore(options = {}) {
         _firestoreDB = firebase.firestore();
 
         if (enablePersistence) {
-            _firestoreDB.enablePersistence({ synchronizeTabs })
-                .then(() => {
-                    console.log('[Firestore] Offline persistence enabled');
-                })
-                .catch((err) => {
-                    if (err.code === 'failed-precondition') {
-                        console.warn('[Firestore] Multiple tabs open, persistence in first tab only');
-                    } else if (err.code === 'unimplemented') {
-                        console.warn('[Firestore] Browser does not support persistence');
-                    }
-                });
+            try {
+                _firestoreDB.enablePersistence({ synchronizeTabs })
+                    .then(() => {
+                        console.log('[Firestore] Offline persistence enabled');
+                    })
+                    .catch((err) => {
+                        if (err.code === 'failed-precondition') {
+                            console.warn('[Firestore] Multiple tabs open, persistence in first tab only');
+                        } else if (err.code === 'unimplemented') {
+                            console.warn('[Firestore] Browser does not support persistence');
+                        }
+                    });
+            } catch (e) {
+                console.warn('[Firestore] Persistence already enabled or unavailable');
+            }
         }
 
         _isFirestoreInitialized = true;

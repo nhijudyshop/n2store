@@ -465,6 +465,7 @@ textarea {
     font-size: 12px;
     color: #1e40af;
 }
+
 /* Reconcile Modal & Layout */
 .large-modal {
     width: 900px;
@@ -549,9 +550,20 @@ textarea {
 }
 
 /* Status Text */
-.text-success { color: #15803d; font-weight: 600; }
-.text-error { color: #b91c1c; font-weight: 600; }
-.text-warning { color: #b45309; font-weight: 600; }
+.text-success {
+    color: #15803d;
+    font-weight: 600;
+}
+
+.text-error {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.text-warning {
+    color: #b45309;
+    font-weight: 600;
+}
 
 .sticky-footer {
     display: flex;
@@ -640,11 +652,11 @@ textarea {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.toggle-switch input:checked + .toggle-slider {
+.toggle-switch input:checked+.toggle-slider {
     background-color: var(--primary-color);
 }
 
-.toggle-switch input:checked + .toggle-slider:before {
+.toggle-switch input:checked+.toggle-slider:before {
     transform: translateX(22px);
 }
 

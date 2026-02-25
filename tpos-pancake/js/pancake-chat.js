@@ -3955,23 +3955,24 @@ class PancakeChatManager {
         const uniquePhones = [...new Set(phones)];
 
         try {
-            const response = await fetch(`${this.proxyBaseUrl}/api/sepay/debt-summary-batch`, {
+            // Use wallet batch API instead of debt-summary-batch
+            const response = await fetch(`${this.proxyBaseUrl}/api/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phones: uniquePhones })
             });
 
             if (!response.ok) {
-                console.warn('[PANCAKE-CHAT] Debt API error:', response.status);
+                console.warn('[PANCAKE-CHAT] Wallet API error:', response.status);
                 return;
             }
 
             const result = await response.json();
             if (result.success && result.data) {
-                for (const [phone, info] of Object.entries(result.data)) {
-                    this.setDebtCache(this.normalizePhone(phone), info.total_debt || 0);
+                for (const [phone, walletData] of Object.entries(result.data)) {
+                    this.setDebtCache(this.normalizePhone(phone), walletData.total || 0);
                 }
-                console.log('[PANCAKE-CHAT] Loaded debt for', Object.keys(result.data).length, 'phones');
+                console.log('[PANCAKE-CHAT] Loaded wallet balance for', Object.keys(result.data).length, 'phones');
                 this.renderConversationList();
             }
         } catch (error) {

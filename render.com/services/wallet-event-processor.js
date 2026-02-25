@@ -432,7 +432,7 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
             const virtualCreditId = insertResult.rows[0].id;
             console.log(`[WALLET-PROCESSOR] Virtual credit record inserted successfully, id: ${virtualCreditId}`);
 
-            // Update wallet virtual_balance directly (skip wallet_transactions due to type constraint)
+            // Update wallet virtual_balance and record transaction
             console.log(`[WALLET-PROCESSOR] Updating wallet virtual_balance...`);
             const newVirtualBalance = parseFloat(wallet.virtual_balance || 0) + parseFloat(amount);
             const newTotalVirtualIssued = parseFloat(wallet.total_virtual_issued || 0) + parseFloat(amount);
@@ -446,6 +446,24 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
                 RETURNING *
             `, [wallet.id, newVirtualBalance, newTotalVirtualIssued]);
 
+            // Record wallet transaction for virtual credit issuance
+            await db.query(`
+                INSERT INTO wallet_transactions (
+                    phone, wallet_id, type, amount,
+                    balance_before, balance_after,
+                    virtual_balance_before, virtual_balance_after,
+                    source, reference_type, reference_id, note
+                ) VALUES ($1, $2, 'VIRTUAL_CREDIT', $3, $4, $4, $5, $6,
+                    'VIRTUAL_CREDIT_ISSUE', 'virtual_credit', $7, $8)
+            `, [
+                phone, wallet.id, amount,
+                parseFloat(wallet.balance || 0),           // balance unchanged
+                parseFloat(wallet.virtual_balance || 0),   // virtual_balance before
+                newVirtualBalance,                          // virtual_balance after
+                String(virtualCreditId),
+                reason
+            ]);
+
             await db.query('COMMIT');
 
             const updatedWallet = updateResult.rows[0];
@@ -455,7 +473,7 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
             walletEvents.emit('wallet-updated', {
                 phone,
                 wallet: updatedWallet,
-                type: 'VIRTUAL_CREDIT_ISSUED',
+                type: 'VIRTUAL_CREDIT',
                 amount,
                 ticketId,
                 reason,

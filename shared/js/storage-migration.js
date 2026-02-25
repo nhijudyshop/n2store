@@ -17,7 +17,6 @@
         tpos: 'tpos_',
         balanceHistory: 'balanceHistory_',
         soluong: 'soluong_',
-        hangdat: 'hangdat_',
         inventory: 'inventory_',
         customerHub: 'customerHub_',
         ck: 'ck_',
@@ -84,9 +83,6 @@
         'soluongCartHistoryExpanded': { module: 'soluong', newKey: 'soluong_cartHistoryExpanded' },
         'bearerToken': { module: 'soluong', newKey: 'soluong_bearerToken' },
         'tokenExpiry': { module: 'soluong', newKey: 'soluong_tokenExpiry' },
-
-        // Hangdat module
-        'filterCollapsed': { module: 'hangdat', newKey: 'hangdat_filterCollapsed' },
 
         // Customer-hub module
         'quickReplies': { module: 'customerHub', newKey: 'customerHub_quickReplies' },

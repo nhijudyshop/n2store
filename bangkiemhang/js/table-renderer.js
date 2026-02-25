@@ -165,16 +165,19 @@ function renderGroupedData(groupedData, tbody) {
             cells[8].appendChild(buttonGroup);
             tr.appendChild(cells[8]);
 
-            // Apply permissions
-            const auth = getAuthState();
-            if (auth) {
-                const editableElements = [receivedLabel, totalLabel];
-                applyRowPermissions(
-                    tr,
-                    editableElements,
-                    [editButton, deleteButton],
-                    parseInt(auth.checkLogin),
-                );
+            // Apply permissions via detailedPermissions
+            const canEdit = PermissionHelper.hasPermission('inventoryTracking', 'edit_shipment');
+            const canDelete = PermissionHelper.hasPermission('inventoryTracking', 'delete_shipment');
+            if (!canEdit) {
+                editableElements.forEach((element) => {
+                    element.style.opacity = "0.6";
+                    element.style.cursor = "not-allowed";
+                });
+                editButton.style.display = "none";
+                tr.style.opacity = "0.7";
+            }
+            if (!canDelete) {
+                deleteButton.style.display = "none";
             }
 
             tbody.appendChild(tr);
@@ -183,7 +186,9 @@ function renderGroupedData(groupedData, tbody) {
 }
 
 function applyRowPermissions(row, editableElements, buttons, userRole) {
-    if (userRole !== 0) {
+    // Legacy function kept for compatibility - now uses PermissionHelper
+    const canEdit = PermissionHelper.hasPermission('inventoryTracking', 'edit_shipment');
+    if (!canEdit) {
         editableElements.forEach((element) => {
             element.style.opacity = "0.6";
             element.style.cursor = "not-allowed";

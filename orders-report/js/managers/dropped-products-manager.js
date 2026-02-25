@@ -110,20 +110,17 @@
                 return;
             }
 
-            // Ensure Firebase is initialized
+            // Ensure Firebase is initialized (config from shared/js/firebase-config.js)
             if (!window.firebase.apps.length) {
                 console.log('[DROPPED-PRODUCTS] Firebase not initialized, initializing now...');
-                const firebaseConfig = {
-                    apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-                    authDomain: "n2shop-69e37.firebaseapp.com",
-                    databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-                    projectId: "n2shop-69e37",
-                    storageBucket: "n2shop-69e37-ne0q1",
-                    messagingSenderId: "598906493303",
-                    appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-                    measurementId: "G-TEJH3S2T1D",
-                };
-                window.firebase.initializeApp(firebaseConfig);
+                if (typeof FIREBASE_CONFIG !== 'undefined') {
+                    window.firebase.initializeApp(FIREBASE_CONFIG);
+                } else if (typeof firebaseConfig !== 'undefined') {
+                    window.firebase.initializeApp(firebaseConfig);
+                } else {
+                    console.error('[DROPPED-PRODUCTS] No Firebase config found. Ensure shared/js/firebase-config.js is loaded.');
+                    return;
+                }
             }
 
             // Get Firebase database reference

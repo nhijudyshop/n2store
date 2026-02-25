@@ -574,6 +574,7 @@ router.get('/verification-queue', async (req, res) => {
                 bh.transfer_amount as amount,
                 bh.transaction_date,
                 bh.account_number as bank_account,
+                bh.gateway,
                 bh.reference_code,
                 bh.linked_customer_phone,
                 bh.customer_id,
@@ -581,6 +582,7 @@ router.get('/verification-queue', async (req, res) => {
                 bh.verification_status,
                 bh.match_method,
                 bh.verification_note,
+                bh.staff_note,
                 bh.created_at,
                 c.name as customer_name,
                 pcm.matched_customers,
@@ -664,7 +666,7 @@ router.post('/:id/approve', async (req, res) => {
             UPDATE balance_history
             SET verification_status = 'APPROVED',
                 verified_by = $2,
-                verified_at = NOW(),
+                verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                 verification_note = COALESCE($3, verification_note)
         `;
         let updateParams = [id, verified_by, note];
@@ -675,7 +677,7 @@ router.post('/:id/approve', async (req, res) => {
                 UPDATE balance_history
                 SET verification_status = 'APPROVED',
                     verified_by = $2,
-                    verified_at = NOW(),
+                    verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                     verification_note = COALESCE($3, verification_note),
                     verification_image_url = $4
                 WHERE id = $1
@@ -796,7 +798,7 @@ router.post('/:id/reject', async (req, res) => {
             UPDATE balance_history
             SET verification_status = 'REJECTED',
                 verified_by = $2,
-                verified_at = NOW(),
+                verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                 verification_note = $3
             WHERE id = $1
         `, [id, verified_by, `REJECTED: ${reason}`]);
@@ -1117,6 +1119,10 @@ router.get('/approved-today', async (req, res) => {
                 bh.verification_note,
                 bh.verification_image_url,
                 bh.match_method,
+                bh.manager_reviewed,
+                bh.manager_review_note,
+                bh.reviewed_by,
+                bh.reviewed_at,
                 c.name as customer_name
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
@@ -1144,6 +1150,10 @@ router.get('/approved-today', async (req, res) => {
                         bh.verified_by,
                         bh.verification_note,
                         bh.match_method,
+                        bh.manager_reviewed,
+                        bh.manager_review_note,
+                        bh.reviewed_by,
+                        bh.reviewed_at,
                         c.name as customer_name
                     FROM balance_history bh
                     LEFT JOIN customers c ON bh.customer_id = c.id
@@ -1248,7 +1258,7 @@ router.post('/bulk-approve', async (req, res) => {
                     UPDATE balance_history
                     SET verification_status = 'APPROVED',
                         verified_by = $2,
-                        verified_at = NOW(),
+                        verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                         wallet_processed = TRUE,
                         verification_note = 'Bulk approved'
                     WHERE id = $1
@@ -1284,191 +1294,6 @@ router.post('/bulk-approve', async (req, res) => {
     } catch (error) {
         await db.query('ROLLBACK');
         handleError(res, error, 'Failed to bulk approve');
-    }
-});
-
-/**
- * POST /api/v2/wallet/manual-adjustment
- * Create a manual wallet adjustment (add or subtract)
- */
-router.post('/wallet/manual-adjustment', async (req, res) => {
-    const db = req.app.locals.chatDb;
-    const { phone, customer_name, type, amount, reason, performed_by } = req.body;
-
-    // Validation
-    if (!phone) {
-        return res.status(400).json({ success: false, error: 'phone is required' });
-    }
-
-    if (!type || !['add', 'subtract'].includes(type)) {
-        return res.status(400).json({ success: false, error: 'type must be "add" or "subtract"' });
-    }
-
-    if (!amount || amount <= 0) {
-        return res.status(400).json({ success: false, error: 'amount must be greater than 0' });
-    }
-
-    if (!reason || reason.length < 10) {
-        return res.status(400).json({ success: false, error: 'reason is required (min 10 chars)' });
-    }
-
-    if (!performed_by) {
-        return res.status(400).json({ success: false, error: 'performed_by is required' });
-    }
-
-    const normalizedPhone = normalizePhone(phone);
-    if (!normalizedPhone) {
-        return res.status(400).json({ success: false, error: 'Invalid phone number' });
-    }
-
-    try {
-        await db.query('BEGIN');
-
-        // 1. Get or create customer wallet
-        let walletResult = await db.query(
-            'SELECT * FROM customer_wallets WHERE phone = $1 FOR UPDATE',
-            [normalizedPhone]
-        );
-
-        if (walletResult.rows.length === 0) {
-            // Create wallet
-            walletResult = await db.query(`
-                INSERT INTO customer_wallets (phone, balance, total_deposits, total_spent)
-                VALUES ($1, 0, 0, 0)
-                RETURNING *
-            `, [normalizedPhone]);
-        }
-
-        const wallet = walletResult.rows[0];
-        const currentBalance = parseFloat(wallet.balance || 0);
-        const adjustAmount = parseFloat(amount);
-
-        // Check if subtract would make balance negative
-        if (type === 'subtract' && currentBalance < adjustAmount) {
-            await db.query('ROLLBACK');
-            return res.status(400).json({
-                success: false,
-                error: `Số dư không đủ. Hiện tại: ${currentBalance.toLocaleString()}đ, cần trừ: ${adjustAmount.toLocaleString()}đ`
-            });
-        }
-
-        // 2. Calculate new balance
-        const newBalance = type === 'add'
-            ? currentBalance + adjustAmount
-            : currentBalance - adjustAmount;
-
-        // 3. Update wallet
-        await db.query(`
-            UPDATE customer_wallets
-            SET balance = $2,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE phone = $1
-        `, [normalizedPhone, newBalance]);
-
-        // 4. Create wallet transaction record
-        const txResult = await db.query(`
-            INSERT INTO wallet_transactions (
-                phone, transaction_type, amount, balance_before, balance_after,
-                description, reference_type, performed_by, created_at
-            ) VALUES (
-                $1, 'MANUAL_ADJUSTMENT', $2, $3, $4,
-                $5, 'manual', $6, CURRENT_TIMESTAMP
-            )
-            RETURNING id
-        `, [
-            normalizedPhone,
-            type === 'add' ? adjustAmount : -adjustAmount,
-            currentBalance,
-            newBalance,
-            `${type === 'add' ? 'CỘNG' : 'TRỪ'}: ${reason}`,
-            performed_by
-        ]);
-
-        // 5. Log activity
-        await db.query(`
-            INSERT INTO customer_activities (
-                phone, activity_type, title, description, icon, color, created_at
-            ) VALUES (
-                $1, 'WALLET_ADJUSTMENT', $2, $3, $4, $5, CURRENT_TIMESTAMP
-            )
-        `, [
-            normalizedPhone,
-            `${type === 'add' ? 'Cộng' : 'Trừ'} ví: ${adjustAmount.toLocaleString()}đ`,
-            `${reason} - thực hiện bởi ${performed_by}`,
-            type === 'add' ? 'plus-circle' : 'minus-circle',
-            type === 'add' ? 'green' : 'red'
-        ]);
-
-        await db.query('COMMIT');
-
-        console.log(`[WALLET ADJUSTMENT] ${type.toUpperCase()} ${adjustAmount} for ${normalizedPhone} by ${performed_by}`);
-
-        res.json({
-            success: true,
-            message: `Đã ${type === 'add' ? 'cộng' : 'trừ'} ${adjustAmount.toLocaleString()}đ cho khách ${customer_name || normalizedPhone}`,
-            data: {
-                phone: normalizedPhone,
-                type,
-                amount: adjustAmount,
-                previous_balance: currentBalance,
-                new_balance: newBalance,
-                transaction_id: txResult.rows[0].id
-            }
-        });
-
-    } catch (error) {
-        await db.query('ROLLBACK');
-        handleError(res, error, 'Failed to process adjustment');
-    }
-});
-
-/**
- * GET /api/v2/wallet/adjustments-today
- * Get manual adjustments made today
- */
-router.get('/wallet/adjustments-today', async (req, res) => {
-    const db = req.app.locals.chatDb;
-
-    try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const result = await db.query(`
-            SELECT
-                wt.id,
-                wt.phone,
-                wt.amount,
-                wt.balance_before,
-                wt.balance_after,
-                wt.description,
-                wt.performed_by,
-                wt.created_at,
-                c.name as customer_name
-            FROM wallet_transactions wt
-            LEFT JOIN customers c ON wt.phone = c.phone
-            WHERE wt.transaction_type = 'MANUAL_ADJUSTMENT'
-              AND wt.created_at >= $1
-              AND wt.created_at < $2
-            ORDER BY wt.created_at DESC
-        `, [today, tomorrow]);
-
-        // Parse type from amount sign
-        const data = result.rows.map(row => ({
-            ...row,
-            type: parseFloat(row.amount) >= 0 ? 'add' : 'subtract',
-            amount: Math.abs(parseFloat(row.amount)),
-            reason: row.description?.replace(/^(CỘNG|TRỪ): /, '') || ''
-        }));
-
-        res.json({
-            success: true,
-            data
-        });
-
-    } catch (error) {
-        handleError(res, error, 'Failed to fetch adjustments');
     }
 });
 
@@ -1581,6 +1406,543 @@ router.put('/settings/auto-approve', async (req, res) => {
         });
     } catch (error) {
         handleError(res, error, 'Failed to update auto-approve setting');
+    }
+});
+
+// =====================================================
+// MANAGER REVIEW ENDPOINTS - Quản lý kiểm tra lần cuối
+// =====================================================
+
+/**
+ * POST /api/v2/balance-history/:id/manager-review
+ * Manager marks a transaction as reviewed with optional notes
+ * Used for final verification by management
+ */
+router.post('/:id/manager-review', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { manager_review_note, reviewed_by } = req.body;
+
+    if (!reviewed_by) {
+        return res.status(400).json({ success: false, error: 'reviewed_by is required' });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        // 1. Get transaction and verify it exists and is approved
+        const txResult = await db.query(
+            'SELECT * FROM balance_history WHERE id = $1 FOR UPDATE',
+            [parseInt(id)]
+        );
+
+        if (txResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Transaction not found' });
+        }
+
+        const tx = txResult.rows[0];
+
+        // Only allow review on approved transactions
+        if (tx.verification_status !== 'APPROVED') {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: `Chỉ có thể kiểm tra giao dịch đã được duyệt. Trạng thái hiện tại: ${tx.verification_status}`
+            });
+        }
+
+        // Check if already reviewed
+        if (tx.manager_reviewed) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'Giao dịch này đã được kiểm tra trước đó',
+                reviewed_by: tx.reviewed_by,
+                reviewed_at: tx.reviewed_at
+            });
+        }
+
+        // 2. Update transaction with manager review info
+        // Append manager note to verification_note with marker for frontend styling
+        const managerNoteText = manager_review_note ? `\n[QL: ${manager_review_note}]` : '\n[QL: Đã kiểm tra]';
+
+        await db.query(`
+            UPDATE balance_history
+            SET manager_reviewed = TRUE,
+                manager_review_note = $2,
+                reviewed_by = $3,
+                reviewed_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+                verification_note = COALESCE(verification_note, '') || $4
+            WHERE id = $1
+        `, [id, manager_review_note || '', reviewed_by, managerNoteText]);
+
+        await db.query('COMMIT');
+
+        console.log(`[MANAGER REVIEW] Transaction ${id} reviewed by ${reviewed_by}`);
+
+        res.json({
+            success: true,
+            message: 'Đã kiểm tra giao dịch thành công',
+            data: {
+                id: parseInt(id),
+                manager_reviewed: true,
+                manager_review_note: manager_review_note || '',
+                reviewed_by,
+                reviewed_at: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to mark transaction as reviewed');
+    }
+});
+
+// =====================================================
+// ADJUSTMENT ENDPOINTS - Điều chỉnh giao dịch đã duyệt
+// =====================================================
+
+/**
+ * GET /api/v2/balance-history/:id/can-adjust
+ * Kiểm tra giao dịch có thể điều chỉnh không
+ *
+ * Quy tắc nghiêm ngặt:
+ * - GD phải đã cộng ví (wallet_processed = TRUE)
+ * - KH CHƯA sử dụng công nợ (số dư >= số tiền deposit)
+ * - Không có WITHDRAW sau khi deposit
+ *
+ * Response:
+ * - canAdjust: boolean
+ * - reason: string (nếu không thể điều chỉnh)
+ * - transaction: thông tin GD gốc
+ * - wallet: thông tin ví KH
+ */
+router.get('/:id/can-adjust', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+
+    try {
+        // 1. Lấy thông tin giao dịch
+        const txResult = await db.query(`
+            SELECT
+                bh.id,
+                bh.transfer_amount,
+                bh.linked_customer_phone,
+                bh.customer_id,
+                bh.wallet_processed,
+                bh.verification_status,
+                bh.verified_at,
+                bh.verified_by,
+                bh.content,
+                bh.code as transaction_code,
+                c.name as customer_name
+            FROM balance_history bh
+            LEFT JOIN customers c ON bh.customer_id = c.id
+            WHERE bh.id = $1
+        `, [id]);
+
+        if (txResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Không tìm thấy giao dịch'
+            });
+        }
+
+        const tx = txResult.rows[0];
+
+        // 2. Kiểm tra GD đã cộng ví chưa
+        if (!tx.wallet_processed) {
+            return res.json({
+                success: true,
+                canAdjust: false,
+                reason: 'Giao dịch chưa được cộng vào ví, không cần điều chỉnh',
+                transaction: tx
+            });
+        }
+
+        // 3. Kiểm tra có SĐT KH không
+        if (!tx.linked_customer_phone) {
+            return res.json({
+                success: true,
+                canAdjust: false,
+                reason: 'Giao dịch không có thông tin khách hàng',
+                transaction: tx
+            });
+        }
+
+        // 4. Lấy số dư ví KH
+        const walletResult = await db.query(`
+            SELECT balance, virtual_balance
+            FROM customer_wallets
+            WHERE phone = $1
+        `, [tx.linked_customer_phone]);
+
+        const wallet = walletResult.rows[0] || { balance: 0, virtual_balance: 0 };
+        const currentBalance = parseFloat(wallet.balance || 0);
+        const depositedAmount = parseFloat(tx.transfer_amount);
+
+        // 5. Kiểm tra có giao dịch WITHDRAW sau deposit không
+        const withdrawResult = await db.query(`
+            SELECT COUNT(*) as count
+            FROM wallet_transactions
+            WHERE phone = $1
+            AND type IN ('WITHDRAW', 'ORDER_PAYMENT', 'VIRTUAL_DEBIT')
+            AND created_at > $2
+        `, [tx.linked_customer_phone, tx.verified_at]);
+
+        const hasWithdrawals = parseInt(withdrawResult.rows[0].count) > 0;
+
+        // 6. Kiểm tra đã có adjustment cho GD này chưa
+        const adjResult = await db.query(`
+            SELECT COUNT(*) as count
+            FROM wallet_adjustments
+            WHERE original_transaction_id = $1
+        `, [id]);
+
+        const hasAdjustment = parseInt(adjResult.rows[0].count) > 0;
+
+        // 7. Xác định có thể điều chỉnh không
+        let canAdjust = true;
+        let reason = '';
+        let usedAmount = 0;
+
+        if (hasWithdrawals) {
+            canAdjust = false;
+            reason = 'Khách hàng đã có giao dịch rút/thanh toán sau khi nạp tiền. Liên hệ Admin để cộng/trừ riêng lẻ.';
+        } else if (currentBalance < depositedAmount) {
+            canAdjust = false;
+            usedAmount = depositedAmount - currentBalance;
+            reason = `Khách hàng đã sử dụng ${usedAmount.toLocaleString()}đ công nợ. Không thể điều chỉnh. Liên hệ Admin để cộng/trừ riêng lẻ.`;
+        } else if (hasAdjustment) {
+            canAdjust = false;
+            reason = 'Giao dịch này đã được điều chỉnh trước đó.';
+        }
+
+        res.json({
+            success: true,
+            canAdjust,
+            reason,
+            transaction: {
+                id: tx.id,
+                amount: depositedAmount,
+                phone: tx.linked_customer_phone,
+                customer_name: tx.customer_name,
+                verified_at: tx.verified_at,
+                verified_by: tx.verified_by,
+                transaction_code: tx.transaction_code,
+                content: tx.content
+            },
+            wallet: {
+                current_balance: currentBalance,
+                deposited_amount: depositedAmount,
+                used_amount: usedAmount,
+                can_withdraw: currentBalance
+            },
+            hasWithdrawals,
+            hasAdjustment
+        });
+
+    } catch (error) {
+        handleError(res, error, 'Failed to check adjustment eligibility');
+    }
+});
+
+/**
+ * POST /api/v2/balance-history/:id/adjust
+ * Tạo điều chỉnh cho giao dịch đã duyệt
+ *
+ * Body:
+ * - adjustment_type: 'debit_only' | 'transfer_to_correct' | 'amount_correction'
+ * - correct_customer_phone: SĐT KH đúng (nếu transfer_to_correct)
+ * - amount: số tiền điều chỉnh (mặc định = số tiền GD gốc)
+ * - reason: lý do điều chỉnh (bắt buộc, min 10 ký tự)
+ * - performed_by: email người thực hiện
+ */
+router.post('/:id/adjust', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const {
+        adjustment_type,
+        correct_customer_phone,
+        amount,
+        reason,
+        performed_by
+    } = req.body;
+
+    // Validate input
+    if (!reason || reason.length < 10) {
+        return res.status(400).json({
+            success: false,
+            error: 'Lý do điều chỉnh phải có ít nhất 10 ký tự'
+        });
+    }
+
+    if (!performed_by) {
+        return res.status(400).json({
+            success: false,
+            error: 'Thiếu thông tin người thực hiện'
+        });
+    }
+
+    const validTypes = ['debit_only', 'transfer_to_correct', 'amount_correction'];
+    if (!validTypes.includes(adjustment_type)) {
+        return res.status(400).json({
+            success: false,
+            error: `Loại điều chỉnh không hợp lệ. Cho phép: ${validTypes.join(', ')}`
+        });
+    }
+
+    if (adjustment_type === 'transfer_to_correct' && !correct_customer_phone) {
+        return res.status(400).json({
+            success: false,
+            error: 'Thiếu SĐT khách hàng đúng'
+        });
+    }
+
+    try {
+        await db.query('BEGIN');
+
+        // 1. Lấy thông tin GD và lock row
+        const txResult = await db.query(`
+            SELECT
+                bh.id,
+                bh.transfer_amount,
+                bh.linked_customer_phone,
+                bh.customer_id,
+                bh.wallet_processed,
+                bh.verified_at,
+                c.name as customer_name
+            FROM balance_history bh
+            LEFT JOIN customers c ON bh.customer_id = c.id
+            WHERE bh.id = $1
+            FOR UPDATE OF bh
+        `, [id]);
+
+        if (txResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Không tìm thấy giao dịch' });
+        }
+
+        const tx = txResult.rows[0];
+
+        // 2. Kiểm tra wallet_processed
+        if (!tx.wallet_processed) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'Giao dịch chưa được cộng vào ví, không thể điều chỉnh'
+            });
+        }
+
+        // 3. Kiểm tra có thể điều chỉnh không (security check)
+        const walletResult = await db.query(`
+            SELECT balance FROM customer_wallets WHERE phone = $1 FOR UPDATE
+        `, [tx.linked_customer_phone]);
+
+        const currentBalance = parseFloat(walletResult.rows[0]?.balance || 0);
+        const depositedAmount = parseFloat(tx.transfer_amount);
+        const adjustAmount = amount ? parseFloat(amount) : depositedAmount;
+
+        // 4. Kiểm tra có WITHDRAW sau deposit không
+        const withdrawResult = await db.query(`
+            SELECT COUNT(*) as count
+            FROM wallet_transactions
+            WHERE phone = $1
+            AND type IN ('WITHDRAW', 'ORDER_PAYMENT', 'VIRTUAL_DEBIT')
+            AND created_at > $2
+        `, [tx.linked_customer_phone, tx.verified_at]);
+
+        if (parseInt(withdrawResult.rows[0].count) > 0) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'Khách hàng đã có giao dịch rút/thanh toán. Liên hệ Admin để điều chỉnh thủ công.'
+            });
+        }
+
+        // 5. Kiểm tra số dư đủ để trừ
+        if (currentBalance < adjustAmount) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: `Số dư không đủ để trừ. Số dư hiện tại: ${currentBalance.toLocaleString()}đ, cần trừ: ${adjustAmount.toLocaleString()}đ`
+            });
+        }
+
+        // 6. Kiểm tra đã có adjustment chưa
+        const existingAdj = await db.query(`
+            SELECT id FROM wallet_adjustments WHERE original_transaction_id = $1
+        `, [id]);
+
+        if (existingAdj.rows.length > 0) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'Giao dịch này đã được điều chỉnh trước đó'
+            });
+        }
+
+        // 7. Thực hiện điều chỉnh
+        const adjustments = [];
+        const now = new Date();
+
+        // 7a. Trừ ví KH sai
+        const newBalance = currentBalance - adjustAmount;
+        await db.query(`
+            UPDATE customer_wallets
+            SET balance = $1, updated_at = NOW()
+            WHERE phone = $2
+        `, [newBalance, tx.linked_customer_phone]);
+
+        // Log wallet transaction (use valid type and source from CHECK constraints)
+        await db.query(`
+            INSERT INTO wallet_transactions (
+                phone, wallet_id, type, amount,
+                balance_before, balance_after,
+                source, reference_type, reference_id, note
+            )
+            SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
+                   $3::numeric, $4::numeric,
+                   'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
+            FROM customer_wallets WHERE phone = $1::text
+        `, [
+            tx.linked_customer_phone,
+            -adjustAmount,  // Negative for debit
+            currentBalance,
+            newBalance,
+            String(id),
+            `Điều chỉnh trừ ví KH sai: ${reason}`
+        ]);
+
+        adjustments.push({
+            type: 'DEBIT',
+            phone: tx.linked_customer_phone,
+            amount: -adjustAmount
+        });
+
+        // 7b. Nếu chuyển sang KH đúng
+        if (adjustment_type === 'transfer_to_correct') {
+            const normalizedCorrectPhone = normalizePhone(correct_customer_phone);
+
+            // Lấy hoặc tạo KH đúng
+            const correctCustomer = await getOrCreateCustomerFromTPOS(db, normalizedCorrectPhone);
+
+            // Lấy ví KH đúng
+            let correctWallet = await db.query(`
+                SELECT id, balance FROM customer_wallets WHERE phone = $1 FOR UPDATE
+            `, [normalizedCorrectPhone]);
+
+            if (correctWallet.rows.length === 0) {
+                // Tạo ví mới
+                await db.query(`
+                    INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
+                    VALUES ($1, $2, 0, 0)
+                `, [normalizedCorrectPhone, correctCustomer.id]);
+                correctWallet = await db.query(`
+                    SELECT id, balance FROM customer_wallets WHERE phone = $1
+                `, [normalizedCorrectPhone]);
+            }
+
+            const correctCurrentBalance = parseFloat(correctWallet.rows[0].balance);
+            const correctNewBalance = correctCurrentBalance + adjustAmount;
+
+            // Cộng ví KH đúng
+            await db.query(`
+                UPDATE customer_wallets
+                SET balance = $1, updated_at = NOW()
+                WHERE phone = $2
+            `, [correctNewBalance, normalizedCorrectPhone]);
+
+            // Log wallet transaction (use valid type and source from CHECK constraints)
+            await db.query(`
+                INSERT INTO wallet_transactions (
+                    phone, wallet_id, type, amount,
+                    balance_before, balance_after,
+                    source, reference_type, reference_id, note
+                )
+                SELECT $1::text, id, 'ADJUSTMENT'::text, $2::numeric,
+                       $3::numeric, $4::numeric,
+                       'MANUAL_ADJUSTMENT'::text, 'balance_history'::text, $5::text, $6::text
+                FROM customer_wallets WHERE phone = $1::text
+            `, [
+                normalizedCorrectPhone,
+                adjustAmount,  // Positive for credit
+                correctCurrentBalance,
+                correctNewBalance,
+                String(id),
+                `Nhận điều chỉnh từ GD #${id}: ${reason}`
+            ]);
+
+            adjustments.push({
+                type: 'CREDIT',
+                phone: normalizedCorrectPhone,
+                amount: adjustAmount
+            });
+        }
+
+        // 8. Ghi nhận adjustment vào bảng wallet_adjustments
+        // Map adjustment_type từ frontend sang DB constraint
+        const dbAdjustmentType = adjustment_type === 'transfer_to_correct'
+            ? 'WRONG_MAPPING_DEBIT'  // Vì ta trừ từ KH sai và cộng cho KH đúng
+            : 'WRONG_MAPPING_DEBIT'; // debit_only = chỉ trừ từ KH sai
+
+        await db.query(`
+            INSERT INTO wallet_adjustments (
+                original_transaction_id,
+                adjustment_type,
+                wrong_customer_phone,
+                correct_customer_phone,
+                adjustment_amount,
+                reason,
+                created_by,
+                created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+            id,
+            dbAdjustmentType,
+            tx.linked_customer_phone,
+            adjustment_type === 'transfer_to_correct' ? normalizePhone(correct_customer_phone) : null,
+            adjustAmount,
+            reason,
+            performed_by,
+            now
+        ]);
+
+        // 9. Cập nhật balance_history với flag has_adjustment
+        await db.query(`
+            UPDATE balance_history
+            SET verification_note = COALESCE(verification_note, '') || ' [Đã điều chỉnh: ' || $1 || ']'
+            WHERE id = $2
+        `, [reason.substring(0, 50), id]);
+
+        // 10. Log customer activities (use WALLET_WITHDRAW since WALLET_ADJUSTMENT not in CHECK constraint)
+        await db.query(`
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description)
+            SELECT $1::text, id, 'WALLET_WITHDRAW'::text, $2::text, $3::text
+            FROM customers WHERE phone = $1::text
+        `, [
+            tx.linked_customer_phone,
+            'Điều chỉnh công nợ (trừ ví sai)',
+            `Trừ ${adjustAmount.toLocaleString()}đ từ GD #${id} - ${reason}`
+        ]);
+
+        await db.query('COMMIT');
+
+        console.log(`[ADJUSTMENT] Created adjustment for tx ${id} by ${performed_by}: ${adjustment_type}, amount: ${adjustAmount}`);
+
+        res.json({
+            success: true,
+            message: adjustment_type === 'transfer_to_correct'
+                ? `Đã điều chỉnh ${adjustAmount.toLocaleString()}đ từ ${tx.linked_customer_phone} sang ${correct_customer_phone}`
+                : `Đã trừ ${adjustAmount.toLocaleString()}đ từ ví ${tx.linked_customer_phone}`,
+            adjustments,
+            original_transaction_id: id
+        });
+
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to create adjustment');
     }
 });
 

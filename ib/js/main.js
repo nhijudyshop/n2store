@@ -167,7 +167,7 @@ class InboxApp {
         }
 
         // Ctrl+N for new form
-        if (e.ctrlKey && e.key === "n" && authManager.hasPermission(3)) {
+        if (e.ctrlKey && e.key === "n" && authManager.hasPagePermission('ib')) {
             e.preventDefault();
             if (window.formHandler) {
                 window.formHandler.toggleForm();

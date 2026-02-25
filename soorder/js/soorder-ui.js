@@ -5,16 +5,73 @@
 
 window.SoOrderUI = {
     // =====================================================
+    // TAB SWITCHING
+    // =====================================================
+
+    switchTab(tabName) {
+        const state = window.SoOrderState;
+        state.currentTab = tabName;
+
+        // Update button states
+        document.querySelectorAll('.tab-header-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+
+        // Update content visibility
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === `${tabName}TabContent`);
+        });
+
+        // Add styling class for returns
+        document.body.classList.toggle('returns-mode', tabName === 'returns');
+
+        // Load data for the active tab
+        this.loadCurrentTabData();
+
+        // Initialize Lucide icons for new tab
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    },
+
+    async loadCurrentTabData() {
+        const state = window.SoOrderState;
+        const mode = state.currentTab;
+
+        // Load data for current date
+        await window.SoOrderCRUD.loadDayData(state.currentDateString, mode);
+    },
+
+    // =====================================================
     // RENDER TABLE
     // =====================================================
 
-    renderTable() {
+    renderTable(mode = null) {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
         const utils = window.SoOrderUtils;
 
-        const tbody = elements.orderTableBody;
-        const thead = document.getElementById("tableHeader");
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        // Get appropriate elements based on mode
+        const tbody = isReturns
+            ? document.getElementById('returnTableBody')
+            : elements.orderTableBody;
+        const thead = isReturns
+            ? document.getElementById('returnTableHeader')
+            : document.getElementById("tableHeader");
+        const emptyState = isReturns
+            ? document.getElementById('returnEmptyState')
+            : elements.emptyState;
+        const tableContainer = isReturns
+            ? document.getElementById('returnTableContainer')
+            : elements.tableContainer;
+
+        // Get appropriate data based on mode
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+        const rangeData = isReturns ? state.returnsRangeData : state.rangeData;
 
         if (!tbody) return;
 
@@ -23,12 +80,12 @@ window.SoOrderUI = {
 
         // Check if in range mode
         if (state.isRangeMode) {
-            this.renderRangeTable(state.rangeData);
+            this.renderRangeTable(rangeData, currentMode);
             return;
         }
 
         // Single day mode
-        let orders = state.currentDayData?.orders || [];
+        let orders = dayData?.orders || [];
 
         // Apply unpaid filter if enabled
         if (state.showOnlyUnpaid) {
@@ -75,19 +132,17 @@ window.SoOrderUI = {
 
         // Show/hide empty state
         if (orders.length === 0) {
-            if (elements.emptyState) elements.emptyState.style.display = "flex";
-            if (elements.tableContainer)
-                elements.tableContainer.style.display = "none";
+            if (emptyState) emptyState.style.display = "flex";
+            if (tableContainer) tableContainer.style.display = "none";
             return;
         }
 
-        if (elements.emptyState) elements.emptyState.style.display = "none";
-        if (elements.tableContainer)
-            elements.tableContainer.style.display = "block";
+        if (emptyState) emptyState.style.display = "none";
+        if (tableContainer) tableContainer.style.display = "block";
 
         // Render rows
         orders.forEach((order, index) => {
-            const row = this.createOrderRow(order, index + 1);
+            const row = this.createOrderRow(order, index + 1, undefined, undefined, currentMode);
             tbody.appendChild(row);
         });
 
@@ -97,12 +152,27 @@ window.SoOrderUI = {
         }
     },
 
-    renderRangeTable(rangeData) {
+    renderRangeTable(rangeData, mode = null) {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
         const utils = window.SoOrderUtils;
-        const tbody = elements.orderTableBody;
-        const thead = document.getElementById("tableHeader");
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        const tbody = isReturns
+            ? document.getElementById('returnTableBody')
+            : elements.orderTableBody;
+        const thead = isReturns
+            ? document.getElementById('returnTableHeader')
+            : document.getElementById("tableHeader");
+        const emptyState = isReturns
+            ? document.getElementById('returnEmptyState')
+            : elements.emptyState;
+        const tableContainer = isReturns
+            ? document.getElementById('returnTableContainer')
+            : elements.tableContainer;
 
         if (!tbody) return;
 
@@ -131,15 +201,13 @@ window.SoOrderUI = {
         });
 
         if (totalOrders === 0) {
-            if (elements.emptyState) elements.emptyState.style.display = "flex";
-            if (elements.tableContainer)
-                elements.tableContainer.style.display = "none";
+            if (emptyState) emptyState.style.display = "flex";
+            if (tableContainer) tableContainer.style.display = "none";
             return;
         }
 
-        if (elements.emptyState) elements.emptyState.style.display = "none";
-        if (elements.tableContainer)
-            elements.tableContainer.style.display = "block";
+        if (emptyState) emptyState.style.display = "none";
+        if (tableContainer) tableContainer.style.display = "block";
 
         // Render rows grouped by date
         rangeData.forEach((dayData) => {
@@ -183,7 +251,7 @@ window.SoOrderUI = {
             orders.forEach((order, index) => {
                 // In range mode, pass hasHoliday to ensure consistent table structure
                 // But we'll need to check the specific day's holiday status for enabling/disabling fields
-                const row = this.createOrderRow(order, index + 1, hasHoliday, dayData.isHoliday);
+                const row = this.createOrderRow(order, index + 1, hasHoliday, dayData.isHoliday, currentMode);
 
                 // Add date column only for the first row of each day
                 if (index === 0) {
@@ -218,10 +286,16 @@ window.SoOrderUI = {
         }
     },
 
-    createOrderRow(order, stt, isHolidayOverride, actualDayIsHoliday) {
+    createOrderRow(order, stt, isHolidayOverride, actualDayIsHoliday, mode = null) {
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
-        const isHoliday = isHolidayOverride !== undefined ? isHolidayOverride : (state.currentDayData?.isHoliday || false);
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+
+        const isHoliday = isHolidayOverride !== undefined ? isHolidayOverride : (dayData?.isHoliday || false);
         const dayIsHoliday = actualDayIsHoliday !== undefined ? actualDayIsHoliday : isHoliday;
 
         const tr = document.createElement("tr");
@@ -246,7 +320,7 @@ window.SoOrderUI = {
         amountCheckbox.checked = order.isPaid;
         amountCheckbox.className = "paid-checkbox";
         amountCheckbox.onclick = () => {
-            window.SoOrderCRUD.togglePaidStatus(order.id);
+            window.SoOrderCRUD.togglePaidStatus(order.id, currentMode);
         };
 
         const amountSpan = document.createElement("span");
@@ -399,7 +473,7 @@ window.SoOrderUI = {
                 reconciledCheckbox.type = "checkbox";
                 reconciledCheckbox.checked = order.isReconciled;
                 reconciledCheckbox.onclick = () => {
-                    window.SoOrderCRUD.toggleReconciledStatus(order.id);
+                    window.SoOrderCRUD.toggleReconciledStatus(order.id, currentMode);
                 };
                 tdReconciled.appendChild(reconciledCheckbox);
             } else {
@@ -419,13 +493,13 @@ window.SoOrderUI = {
         btnEdit.className = "btn-icon btn-icon-sm";
         btnEdit.title = "Chỉnh sửa";
         btnEdit.innerHTML = '<i data-lucide="edit"></i>';
-        btnEdit.onclick = () => this.showEditModal(order.id);
+        btnEdit.onclick = () => this.showEditModal(order.id, currentMode);
 
         const btnDelete = document.createElement("button");
         btnDelete.className = "btn-icon btn-icon-sm";
         btnDelete.title = "Xóa";
         btnDelete.innerHTML = '<i data-lucide="trash-2"></i>';
-        btnDelete.onclick = () => this.showDeleteConfirm(order.id);
+        btnDelete.onclick = () => this.showDeleteConfirm(order.id, currentMode);
 
         tdActions.appendChild(btnEdit);
         tdActions.appendChild(btnDelete);
@@ -438,47 +512,95 @@ window.SoOrderUI = {
     // ADD FORM
     // =====================================================
 
-    showAddForm() {
-        const elements = window.SoOrderElements;
-        if (elements.addOrderFormContainer) {
-            elements.addOrderFormContainer.style.display = "block";
-        }
-        // Focus on supplier input
-        if (elements.addSupplier) {
-            setTimeout(() => elements.addSupplier.focus(), 100);
-        }
-    },
-
-    hideAddForm() {
-        const elements = window.SoOrderElements;
-        const utils = window.SoOrderUtils;
-        if (elements.addOrderFormContainer) {
-            elements.addOrderFormContainer.style.display = "none";
-        }
-        utils.clearAddForm();
-    },
-
-    async handleAddOrder() {
+    showAddForm(mode = null) {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
-        const isHoliday = state.currentDayData?.isHoliday || false;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        const formContainer = isReturns
+            ? document.getElementById('addReturnFormContainer')
+            : elements.addOrderFormContainer;
+        const supplierInput = isReturns
+            ? document.getElementById('addReturnSupplier')
+            : elements.addSupplier;
+
+        if (formContainer) {
+            formContainer.style.display = "block";
+        }
+        // Focus on supplier input
+        if (supplierInput) {
+            setTimeout(() => supplierInput.focus(), 100);
+        }
+    },
+
+    hideAddForm(mode = null) {
+        const state = window.SoOrderState;
+        const elements = window.SoOrderElements;
+        const utils = window.SoOrderUtils;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        const formContainer = isReturns
+            ? document.getElementById('addReturnFormContainer')
+            : elements.addOrderFormContainer;
+
+        if (formContainer) {
+            formContainer.style.display = "none";
+        }
+        utils.clearAddForm(currentMode);
+    },
+
+    async handleAddOrder(mode = null) {
+        const state = window.SoOrderState;
+        const elements = window.SoOrderElements;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+        const isHoliday = dayData?.isHoliday || false;
+
+        // Get appropriate input elements
+        const supplierInput = isReturns
+            ? document.getElementById('addReturnSupplier')
+            : elements.addSupplier;
+        const amountInput = isReturns
+            ? document.getElementById('addReturnAmount')
+            : elements.addAmount;
+        const differenceInput = isReturns
+            ? document.getElementById('addReturnDifference')
+            : elements.addDifference;
+        const noteInput = isReturns
+            ? document.getElementById('addReturnNote')
+            : elements.addNote;
+        const performerInput = isReturns
+            ? document.getElementById('addReturnPerformer')
+            : elements.addPerformer;
+        const isReconciledInput = isReturns
+            ? document.getElementById('addReturnIsReconciled')
+            : elements.addIsReconciled;
 
         const orderData = {
-            supplier: elements.addSupplier?.value || "",
-            amount: elements.addAmount?.value || 0,
-            difference: elements.addDifference?.value || 0,
-            note: elements.addNote?.value || "",
-            performer: isHoliday ? elements.addPerformer?.value || "" : "",
+            supplier: supplierInput?.value || "",
+            amount: amountInput?.value || 0,
+            difference: differenceInput?.value || 0,
+            note: noteInput?.value || "",
+            performer: isHoliday ? performerInput?.value || "" : "",
             isReconciled: isHoliday
-                ? elements.addIsReconciled?.checked || false
+                ? isReconciledInput?.checked || false
                 : false,
         };
 
         // Use NCC check processing
-        const success = await this.processOrderWithNCCCheck(orderData, false);
+        const success = await this.processOrderWithNCCCheck(orderData, false, currentMode);
 
         if (success) {
-            this.hideAddForm();
+            this.hideAddForm(currentMode);
         }
     },
 
@@ -486,15 +608,24 @@ window.SoOrderUI = {
     // EDIT MODAL
     // =====================================================
 
-    showEditModal(orderId) {
+    showEditModal(orderId, mode = null) {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
-        const order = state.currentDayData.orders.find((o) => o.id === orderId);
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+        const order = dayData?.orders?.find((o) => o.id === orderId);
 
         if (!order) return;
 
-        // Set editing order ID
-        state.editingOrderId = orderId;
+        // Set editing order ID based on mode
+        if (isReturns) {
+            state.editingReturnId = orderId;
+        } else {
+            state.editingOrderId = orderId;
+        }
 
         // Fill form
         if (elements.editSupplier) elements.editSupplier.value = order.supplier;
@@ -503,7 +634,7 @@ window.SoOrderUI = {
             elements.editDifference.value = order.difference;
         if (elements.editNote) elements.editNote.value = order.note || "";
 
-        const isHoliday = state.currentDayData?.isHoliday || false;
+        const isHoliday = dayData?.isHoliday || false;
         if (isHoliday) {
             if (elements.editPerformer)
                 elements.editPerformer.value = order.performer || "";
@@ -527,6 +658,7 @@ window.SoOrderUI = {
         const elements = window.SoOrderElements;
 
         state.editingOrderId = null;
+        state.editingReturnId = null;
 
         if (elements.editOrderModal) {
             elements.editOrderModal.style.display = "none";
@@ -536,9 +668,15 @@ window.SoOrderUI = {
     async handleUpdateOrder() {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
-        const isHoliday = state.currentDayData?.isHoliday || false;
 
-        if (!state.editingOrderId) return;
+        // Determine which mode based on which ID is set
+        const isReturns = state.editingReturnId !== null;
+        const currentMode = isReturns ? 'returns' : 'orders';
+        const editingId = isReturns ? state.editingReturnId : state.editingOrderId;
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+        const isHoliday = dayData?.isHoliday || false;
+
+        if (!editingId) return;
 
         const updatedData = {
             supplier: elements.editSupplier?.value || "",
@@ -552,7 +690,7 @@ window.SoOrderUI = {
         };
 
         // Use NCC check processing
-        const success = await this.processOrderWithNCCCheck(updatedData, true);
+        const success = await this.processOrderWithNCCCheck(updatedData, true, currentMode);
 
         if (success) {
             this.hideEditModal();
@@ -563,11 +701,19 @@ window.SoOrderUI = {
     // DELETE CONFIRM MODAL
     // =====================================================
 
-    showDeleteConfirm(orderId) {
+    showDeleteConfirm(orderId, mode = null) {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
 
-        state.deleteOrderId = orderId;
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        if (isReturns) {
+            state.deleteReturnId = orderId;
+        } else {
+            state.deleteOrderId = orderId;
+        }
 
         if (elements.deleteConfirmModal) {
             elements.deleteConfirmModal.style.display = "flex";
@@ -579,6 +725,7 @@ window.SoOrderUI = {
         const elements = window.SoOrderElements;
 
         state.deleteOrderId = null;
+        state.deleteReturnId = null;
 
         if (elements.deleteConfirmModal) {
             elements.deleteConfirmModal.style.display = "none";
@@ -588,11 +735,14 @@ window.SoOrderUI = {
     async handleDeleteOrder() {
         const state = window.SoOrderState;
 
-        if (!state.deleteOrderId) return;
+        // Determine which mode based on which ID is set
+        const isReturns = state.deleteReturnId !== null;
+        const currentMode = isReturns ? 'returns' : 'orders';
+        const deleteId = isReturns ? state.deleteReturnId : state.deleteOrderId;
 
-        const success = await window.SoOrderCRUD.deleteOrder(
-            state.deleteOrderId
-        );
+        if (!deleteId) return;
+
+        const success = await window.SoOrderCRUD.deleteOrder(deleteId, currentMode);
 
         if (success) {
             this.hideDeleteConfirm();
@@ -782,31 +932,49 @@ window.SoOrderUI = {
     // HOLIDAY COLUMNS VISIBILITY
     // =====================================================
 
-    toggleHolidayColumnsVisibility() {
+    toggleHolidayColumnsVisibility(mode = null) {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
-        const isHoliday = state.currentDayData?.isHoliday || false;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+        const isHoliday = dayData?.isHoliday || false;
+
+        // Get appropriate container for the current tab
+        const container = isReturns
+            ? document.getElementById('returnsTabContent')
+            : document.getElementById('ordersTabContent');
+
+        if (!container) return;
 
         // Show/hide holiday columns in table header
-        const holidayHeaders = document.querySelectorAll("th.holiday-col");
+        const holidayHeaders = container.querySelectorAll("th.holiday-col");
         holidayHeaders.forEach((header) => {
             header.style.display = isHoliday ? "table-cell" : "none";
         });
 
         // Show/hide holiday columns in table body
-        const holidayCells = document.querySelectorAll("td.holiday-col");
+        const holidayCells = container.querySelectorAll("td.holiday-col");
         holidayCells.forEach((cell) => {
             cell.style.display = isHoliday ? "table-cell" : "none";
         });
 
         // Show/hide holiday badge
-        if (elements.holidayBadge) {
-            elements.holidayBadge.style.display = isHoliday ? "inline-flex" : "none";
+        const holidayBadge = isReturns
+            ? document.getElementById('returnHolidayBadge')
+            : elements.holidayBadge;
+        if (holidayBadge) {
+            holidayBadge.style.display = isHoliday ? "inline-flex" : "none";
         }
 
         // Show/hide holiday fields in add form
-        if (elements.holidayFieldsAdd) {
-            elements.holidayFieldsAdd.style.display = isHoliday ? "flex" : "none";
+        const holidayFieldsAdd = isReturns
+            ? document.getElementById('returnHolidayFieldsAdd')
+            : elements.holidayFieldsAdd;
+        if (holidayFieldsAdd) {
+            holidayFieldsAdd.style.display = isHoliday ? "flex" : "none";
         }
         if (elements.holidayFieldsEdit) {
             elements.holidayFieldsEdit.style.display = isHoliday ? "block" : "none";
@@ -817,23 +985,42 @@ window.SoOrderUI = {
     // FOOTER SUMMARY
     // =====================================================
 
-    updateFooterSummary() {
+    updateFooterSummary(mode = null) {
         const state = window.SoOrderState;
         const elements = window.SoOrderElements;
         const utils = window.SoOrderUtils;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        // Get appropriate elements based on mode
+        const footerSummary = isReturns
+            ? document.getElementById('returnFooterSummary')
+            : elements.footerSummary;
+        const totalAmountEl = isReturns
+            ? document.getElementById('returnTotalAmount')
+            : elements.totalAmount;
+        const totalDifferenceEl = isReturns
+            ? document.getElementById('returnTotalDifference')
+            : elements.totalDifference;
+
+        // Get appropriate data based on mode
+        const dayData = isReturns ? state.currentReturnDayData : state.currentDayData;
+        const rangeData = isReturns ? state.returnsRangeData : state.rangeData;
 
         let orders = [];
 
         // Get orders based on mode
         if (state.isRangeMode) {
             // Collect all orders from range
-            state.rangeData.forEach((dayData) => {
-                if (dayData.orders) {
-                    orders = orders.concat(dayData.orders);
+            rangeData.forEach((data) => {
+                if (data.orders) {
+                    orders = orders.concat(data.orders);
                 }
             });
         } else {
-            orders = state.currentDayData?.orders || [];
+            orders = dayData?.orders || [];
         }
 
         // Apply unpaid filter if enabled
@@ -847,8 +1034,8 @@ window.SoOrderUI = {
         }
 
         if (orders.length === 0) {
-            if (elements.footerSummary) {
-                elements.footerSummary.style.display = "none";
+            if (footerSummary) {
+                footerSummary.style.display = "none";
             }
             return;
         }
@@ -863,24 +1050,24 @@ window.SoOrderUI = {
         });
 
         // Update DOM
-        if (elements.totalAmount) {
-            elements.totalAmount.textContent = utils.formatCurrency(totalAmount);
+        if (totalAmountEl) {
+            totalAmountEl.textContent = utils.formatCurrency(totalAmount);
         }
 
-        if (elements.totalDifference) {
-            elements.totalDifference.textContent = utils.formatCurrency(totalDifference);
+        if (totalDifferenceEl) {
+            totalDifferenceEl.textContent = utils.formatCurrency(totalDifference);
             // Color based on positive/negative
             if (totalDifference > 0) {
-                elements.totalDifference.style.color = "#10b981";
+                totalDifferenceEl.style.color = "#10b981";
             } else if (totalDifference < 0) {
-                elements.totalDifference.style.color = "#ef4444";
+                totalDifferenceEl.style.color = "#ef4444";
             } else {
-                elements.totalDifference.style.color = "#333";
+                totalDifferenceEl.style.color = "#333";
             }
         }
 
-        if (elements.footerSummary) {
-            elements.footerSummary.style.display = "flex";
+        if (footerSummary) {
+            footerSummary.style.display = "flex";
         }
     },
 
@@ -1285,11 +1472,16 @@ window.SoOrderUI = {
     },
 
     // Process order with NCC check
-    async processOrderWithNCCCheck(orderData, isEdit) {
+    async processOrderWithNCCCheck(orderData, isEdit, mode = null) {
         const crud = window.SoOrderCRUD;
         const state = window.SoOrderState;
         const utils = window.SoOrderUtils;
         const supplierName = orderData.supplier.trim();
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+        const editingId = isReturns ? state.editingReturnId : state.editingOrderId;
 
         // Parse Ax code from supplier name
         const code = crud.parseNCCCode(supplierName);
@@ -1318,9 +1510,9 @@ window.SoOrderUI = {
                     // Proceed with order operation (không tự động cập nhật tên NCC)
                     let success;
                     if (isEdit) {
-                        success = await crud.updateOrder(window.SoOrderState.editingOrderId, orderData);
+                        success = await crud.updateOrder(editingId, orderData, currentMode);
                     } else {
-                        success = await crud.addOrder(orderData);
+                        success = await crud.addOrder(orderData, currentMode);
                     }
 
                     resolve(success);
@@ -1331,9 +1523,9 @@ window.SoOrderUI = {
         // No conflict - proceed normally
         let success;
         if (isEdit) {
-            success = await crud.updateOrder(window.SoOrderState.editingOrderId, orderData);
+            success = await crud.updateOrder(editingId, orderData, currentMode);
         } else {
-            success = await crud.addOrder(orderData);
+            success = await crud.addOrder(orderData, currentMode);
         }
 
         return success;

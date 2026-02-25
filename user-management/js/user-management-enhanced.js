@@ -79,11 +79,11 @@ function showAccessDenied(reason = "") {
     }
 }
 
-// Firebase Configuration
+// Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js)
 function connectFirebase() {
     try {
         if (!firebase.apps.length) {
-            const config = {
+            const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : {
                 apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
                 authDomain: "n2shop-69e37.firebaseapp.com",
                 projectId: "n2shop-69e37",
@@ -92,10 +92,12 @@ function connectFirebase() {
                 appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
             };
 
-            const app = firebase.initializeApp(config);
-            db = firebase.firestore();
-            auth = firebase.auth();
+            firebase.initializeApp(config);
         }
+
+        // Always get db and auth references (even if app was already initialized by shared/js/firebase-config.js)
+        db = db || window.db || firebase.firestore();
+        auth = auth || firebase.auth();
 
         document.getElementById("firebaseStatus").textContent =
             "✅ Kết nối Firebase thành công!\nProject: n2shop-69e37\nTrạng thái: Admin Access Granted";
@@ -108,6 +110,7 @@ function connectFirebase() {
         document.getElementById("firebaseStatus").className = "output error";
     }
 }
+
 
 // Load users
 async function loadUsers() {
@@ -145,9 +148,9 @@ async function loadUsers() {
         }
 
         users.sort((a, b) => {
-            if (a.checkLogin !== b.checkLogin) {
-                return a.checkLogin - b.checkLogin;
-            }
+            const aIsAdmin = a.roleTemplate === 'admin' ? 0 : 1;
+            const bIsAdmin = b.roleTemplate === 'admin' ? 0 : 1;
+            if (aIsAdmin !== bIsAdmin) return aIsAdmin - bIsAdmin;
             return a.displayName.localeCompare(b.displayName);
         });
 
@@ -394,7 +397,6 @@ function renderUserList(users) {
     `;
 
     users.forEach((user) => {
-        // NEW: Get role info from roleTemplate instead of checkLogin
         const roleInfo = getRoleTemplateInfo(user.roleTemplate);
 
         // Count detailed permissions and derive page access count
@@ -472,46 +474,12 @@ function renderUserList(users) {
     lucide.createIcons();
 }
 
-// Helper functions
-function getRoleClass(checkLogin) {
-    const classes = {
-        0: "admin",
-        1: "user",
-        2: "limited",
-        3: "basic",
-        777: "guest",
-    };
-    return classes[checkLogin] || "user";
-}
 
-function getRoleIcon(checkLogin) {
-    const icons = {
-        0: "crown",
-        1: "user",
-        2: "lock",
-        3: "circle",
-        777: "user-x",
-    };
-    return icons[checkLogin] || "user";
-}
 
-function getRoleName(checkLogin) {
-    const names = {
-        0: "Admin",
-        1: "User",
-        2: "Limited",
-        3: "Basic",
-        777: "Guest",
-    };
-    return names[checkLogin] || "Unknown";
-}
 
-function getRoleText(checkLogin) {
-    return getRoleName(checkLogin);
-}
 
 /**
- * Lấy thông tin role từ roleTemplate (NEW SYSTEM)
+ * Lấy thông tin role từ roleTemplate
  * @param {string} roleTemplate - Template name (admin, manager, sales-team, etc.)
  * @returns {Object} - { name, icon, color }
  */
@@ -571,12 +539,20 @@ function editUser(username) {
     document.getElementById("editIdentifier").value = user.identifier || "";
     document.getElementById("editNewPassword").value = "";
 
-    // Load detailed permissions and roleTemplate (NEW SYSTEM)
+    // Load detailed permissions and roleTemplate
     if (window.editDetailedPermUI) {
         window.editDetailedPermUI.setPermissions(user.detailedPermissions || {});
         // Set the currentTemplate so it's saved correctly on update
         window.editDetailedPermUI.currentTemplate = user.roleTemplate || 'custom';
     }
+
+    // Set admin toggle state based on user data
+    const isAdmin = user.isAdmin === true || user.roleTemplate === 'admin';
+    const editIsAdminCheckbox = document.getElementById('editIsAdmin');
+    if (editIsAdminCheckbox) {
+        editIsAdminCheckbox.checked = isAdmin;
+    }
+    toggleAdminMode(isAdmin);
 
     document.querySelector('[data-tab="manage"]').click();
     document
@@ -592,7 +568,8 @@ function viewUserPermissions(username) {
     let report = `QUYỀN HẠN CHI TIẾT\n`;
     report += `${"=".repeat(60)}\n\n`;
     report += `Tài khoản: ${user.displayName} (${user.id})\n`;
-    report += `Vai trò: ${getRoleText(user.checkLogin)}\n\n`;
+    const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+    report += `Vai trò: ${roleInfo.name}\n\n`;
 
     const permissions = user.detailedPermissions || {};
     let totalGranted = 0;
@@ -648,6 +625,10 @@ async function updateUser() {
     // Get roleTemplate from UI (which template is currently applied)
     const roleTemplate = window.editDetailedPermUI?.currentTemplate || 'custom';
 
+    // Get isAdmin flag from checkbox
+    const isAdminCheckbox = document.getElementById('editIsAdmin');
+    const isAdmin = isAdminCheckbox ? isAdminCheckbox.checked : false;
+
     const loadingId = showFloatingAlert(
         "Đang cập nhật tài khoản...",
         "loading",
@@ -658,7 +639,8 @@ async function updateUser() {
             displayName: displayName,
             identifier: identifier,
             detailedPermissions: detailedPermissions,
-            roleTemplate: roleTemplate,
+            roleTemplate: isAdmin ? 'admin' : roleTemplate,
+            isAdmin: isAdmin,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
                 .username,
@@ -818,7 +800,6 @@ async function deleteUser(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
 
-    // NEW SYSTEM: Check roleTemplate instead of checkLogin
     const adminCount = users.filter((u) => u.roleTemplate === 'admin').length;
     if (user.roleTemplate === 'admin' && adminCount === 1) {
         showError(
@@ -837,7 +818,6 @@ async function deleteUser(username) {
         });
     }
 
-    // NEW SYSTEM: Display roleTemplate instead of checkLogin
     const roleInfo = getRoleTemplateInfo(user.roleTemplate);
     const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nNhóm quyền: ${roleInfo.name}\nQuyền chi tiết: ${permCount} quyền\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
 
@@ -904,7 +884,6 @@ async function loadPermissionsOverview() {
             const user = doc.data();
             totalUsers++;
 
-            // NEW SYSTEM: Use roleTemplate for role stats
             const roleInfo = getRoleTemplateInfo(user.roleTemplate);
             const role = roleInfo.name;
             roleStats[role] = (roleStats[role] || 0) + 1;
@@ -1031,7 +1010,8 @@ async function exportPermissions() {
                   )
                 : "N/A";
 
-            csv += `${user.id},"${user.displayName}","${getRoleText(user.checkLogin)}",`;
+            const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+            csv += `${user.id},"${user.displayName}","${roleInfo.name}",`;
 
             let totalPerms = 0;
             Object.values(DETAILED_PERMISSIONS).forEach((page) => {
@@ -1076,7 +1056,7 @@ async function exportUsers() {
 
     try {
         let csv =
-            "Username,Display Name,Role,Role Code,Total Permissions,Created Date,Updated Date\n";
+            "Username,Display Name,Role,Role Template,Total Permissions,Created Date,Updated Date\n";
 
         users.forEach((user) => {
             const createdDate = user.createdAt
@@ -1099,7 +1079,8 @@ async function exportUsers() {
                 });
             }
 
-            csv += `${user.id},"${user.displayName}","${getRoleText(user.checkLogin)}",${user.checkLogin},${permCount},"${createdDate}","${updatedDate}"\n`;
+            const roleInfo = getRoleTemplateInfo(user.roleTemplate);
+            csv += `${user.id},"${user.displayName}","${roleInfo.name}","${user.roleTemplate || 'custom'}",${permCount},"${createdDate}","${updatedDate}"\n`;
         });
 
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -1120,6 +1101,64 @@ async function exportUsers() {
         showSuccess("✅ Đã xuất file CSV thành công!");
     } catch (error) {
         showError("❌ Lỗi xuất file: " + error.message);
+    }
+}
+
+// =====================================================
+// ADMIN TOGGLE - isAdmin flag management
+// =====================================================
+
+/**
+ * Toggle admin mode for edit form
+ * When admin is ON: hide detailed permissions section, show ON badge, hide OFF badge
+ * When admin is OFF: show detailed permissions section, hide ON badge, show OFF badge
+ */
+function toggleAdminMode(isAdmin) {
+    const detailedPermissions = document.getElementById('editDetailedPermissions');
+    const adminBadge = document.getElementById('editAdminBadge');
+    const adminBadgeOff = document.getElementById('editAdminBadgeOff');
+
+    if (isAdmin) {
+        if (detailedPermissions) detailedPermissions.style.display = 'none';
+        if (adminBadge) adminBadge.style.display = 'inline-flex';
+        if (adminBadgeOff) adminBadgeOff.style.display = 'none';
+    } else {
+        if (detailedPermissions) detailedPermissions.style.display = '';
+        if (adminBadge) adminBadge.style.display = 'none';
+        if (adminBadgeOff) adminBadgeOff.style.display = '';
+    }
+}
+
+/**
+ * Initialize admin toggle checkbox event listener
+ * Only show admin toggle group if current logged-in user is admin
+ */
+function initAdminToggle() {
+    const adminCheckbox = document.getElementById('editIsAdmin');
+    const adminToggleGroup = document.getElementById('editAdminToggleGroup');
+
+    if (adminCheckbox) {
+        adminCheckbox.addEventListener('change', function() {
+            toggleAdminMode(this.checked);
+        });
+    }
+
+    // Show admin toggle group only if current user is admin
+    if (adminToggleGroup) {
+        const authData = localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth');
+        if (authData) {
+            try {
+                const auth = JSON.parse(authData);
+                const isCurrentUserAdmin = auth.isAdmin === true || auth.roleTemplate === 'admin';
+                const hasUserMgmtAccess = auth.detailedPermissions?.['user-management'] && 
+                    Object.values(auth.detailedPermissions['user-management']).some(v => v === true);
+                if (isCurrentUserAdmin || hasUserMgmtAccess) {
+                    adminToggleGroup.style.display = '';
+                }
+            } catch (e) {
+                console.error('Error parsing auth data for admin toggle:', e);
+            }
+        }
     }
 }
 
@@ -1223,6 +1262,9 @@ document.addEventListener("DOMContentLoaded", function () {
     // Note: PagePermissionsUI removed - now using simplified system with only detailedPermissions
     // DetailedPermissionsUI is initialized in detailed-permissions-ui.js
     console.log("✅ User Management initialized with simplified permission system");
+
+    // Initialize admin toggle
+    initAdminToggle();
 });
 
 console.log(

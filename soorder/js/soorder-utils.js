@@ -83,22 +83,40 @@ window.SoOrderUtils = {
     },
 
     // Show/hide loading state
-    showLoading(show = true) {
+    showLoading(show = true, mode = null) {
+        const state = window.SoOrderState;
         const elements = window.SoOrderElements;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        const tableContainer = isReturns
+            ? document.getElementById('returnTableContainer')
+            : elements.tableContainer;
+
         if (show) {
-            elements.tableContainer?.classList.add("loading");
+            tableContainer?.classList.add("loading");
         } else {
-            elements.tableContainer?.classList.remove("loading");
+            tableContainer?.classList.remove("loading");
         }
     },
 
     // Navigate to a specific date
-    navigateToDate(date) {
+    navigateToDate(date, mode = null) {
         const state = window.SoOrderState;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
 
         // Exit range mode
         state.isRangeMode = false;
-        state.rangeData = [];
+        if (isReturns) {
+            state.returnsRangeData = [];
+        } else {
+            state.rangeData = [];
+        }
         state.rangeStartDate = null;
         state.rangeEndDate = null;
 
@@ -108,48 +126,60 @@ window.SoOrderUtils = {
         // Store last viewed date for returning from range mode
         state.lastViewedDate = new Date(date);
 
-        // Clear active state from quick date buttons
-        const quickDateButtons = document.querySelectorAll(".btn-quick-date");
-        quickDateButtons.forEach((btn) => btn.classList.remove("active"));
+        // Clear active state from quick date buttons in the current tab
+        const tabContainer = isReturns
+            ? document.getElementById('returnsTabContent')
+            : document.getElementById('ordersTabContent');
+        if (tabContainer) {
+            const quickDateButtons = tabContainer.querySelectorAll(".btn-quick-date");
+            quickDateButtons.forEach((btn) => btn.classList.remove("active"));
+        }
 
         // Update date input and selector
         const elements = window.SoOrderElements;
-        if (elements.dateInput) {
-            elements.dateInput.value = state.currentDateString;
+        const dateInput = isReturns
+            ? document.getElementById('returnDateInput')
+            : elements.dateInput;
+        const dateSelector = isReturns
+            ? document.getElementById('returnDateSelector')
+            : elements.dateSelector;
+
+        if (dateInput) {
+            dateInput.value = state.currentDateString;
         }
 
         // Update the date selector dropdown - show date as first option text
-        if (elements.dateSelector) {
-            const currentOption = elements.dateSelector.querySelector('option[value="current"]');
+        if (dateSelector) {
+            const currentOption = dateSelector.querySelector('option[value="current"]');
             if (currentOption) {
                 currentOption.textContent = this.formatDateDisplay(date);
             }
-            elements.dateSelector.value = "current";
+            dateSelector.value = "current";
         }
 
         // Load data for this date
-        window.SoOrderCRUD.loadDayData(state.currentDateString);
+        window.SoOrderCRUD.loadDayData(state.currentDateString, currentMode);
     },
 
     // Navigate to previous day
-    gotoPrevDay() {
+    gotoPrevDay(mode = null) {
         const state = window.SoOrderState;
         const prevDay = new Date(state.currentDate);
         prevDay.setDate(prevDay.getDate() - 1);
-        this.navigateToDate(prevDay);
+        this.navigateToDate(prevDay, mode);
     },
 
     // Navigate to next day
-    gotoNextDay() {
+    gotoNextDay(mode = null) {
         const state = window.SoOrderState;
         const nextDay = new Date(state.currentDate);
         nextDay.setDate(nextDay.getDate() + 1);
-        this.navigateToDate(nextDay);
+        this.navigateToDate(nextDay, mode);
     },
 
     // Navigate to today
-    gotoToday() {
-        this.navigateToDate(new Date());
+    gotoToday(mode = null) {
+        this.navigateToDate(new Date(), mode);
     },
 
     // Calculate summary
@@ -270,13 +300,35 @@ window.SoOrderUtils = {
     },
 
     // Clear add form
-    clearAddForm() {
+    clearAddForm(mode = null) {
+        const state = window.SoOrderState;
         const elements = window.SoOrderElements;
-        if (elements.addSupplier) elements.addSupplier.value = "";
-        if (elements.addAmount) elements.addAmount.value = "";
-        if (elements.addDifference) elements.addDifference.value = "";
-        if (elements.addNote) elements.addNote.value = "";
-        if (elements.addPerformer) elements.addPerformer.value = "";
-        if (elements.addIsReconciled) elements.addIsReconciled.checked = false;
+
+        // Use current tab if mode not specified
+        const currentMode = mode || state.currentTab || 'orders';
+        const isReturns = currentMode === 'returns';
+
+        if (isReturns) {
+            const addReturnSupplier = document.getElementById('addReturnSupplier');
+            const addReturnAmount = document.getElementById('addReturnAmount');
+            const addReturnDifference = document.getElementById('addReturnDifference');
+            const addReturnNote = document.getElementById('addReturnNote');
+            const addReturnPerformer = document.getElementById('addReturnPerformer');
+            const addReturnIsReconciled = document.getElementById('addReturnIsReconciled');
+
+            if (addReturnSupplier) addReturnSupplier.value = "";
+            if (addReturnAmount) addReturnAmount.value = "";
+            if (addReturnDifference) addReturnDifference.value = "";
+            if (addReturnNote) addReturnNote.value = "";
+            if (addReturnPerformer) addReturnPerformer.value = "";
+            if (addReturnIsReconciled) addReturnIsReconciled.checked = false;
+        } else {
+            if (elements.addSupplier) elements.addSupplier.value = "";
+            if (elements.addAmount) elements.addAmount.value = "";
+            if (elements.addDifference) elements.addDifference.value = "";
+            if (elements.addNote) elements.addNote.value = "";
+            if (elements.addPerformer) elements.addPerformer.value = "";
+            if (elements.addIsReconciled) elements.addIsReconciled.checked = false;
+        }
     },
 };

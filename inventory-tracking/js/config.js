@@ -121,10 +121,10 @@ let globalState = {
     langMode: 'vi',  // 'vi' = Vietnamese (default), 'cn' = Chinese original
 };
 
-// Initialize Firebase
+// Initialize Firebase (using shared config from shared/js/firebase-config.js)
 let app, db, storage;
 try {
-    app = firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : (typeof firebaseConfig !== 'undefined') ? firebaseConfig : {apiKey:"AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",authDomain:"n2shop-69e37.firebaseapp.com",projectId:"n2shop-69e37",storageBucket:"n2shop-69e37-ne0q1",messagingSenderId:"598906493303",appId:"1:598906493303:web:46d6236a1fdc2eff33e972"});
+    app = firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : firebaseConfig);
     db = firebase.firestore();
     storage = firebase.storage();
     console.log('[CONFIG] Firebase initialized successfully');

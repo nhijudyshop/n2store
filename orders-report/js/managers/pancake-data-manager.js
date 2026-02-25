@@ -536,13 +536,14 @@ class PancakeDataManager {
             const url = window.API_CONFIG.buildUrl.pancake('pages/unread_conv_pages_count', `access_token=${token}`);
 
             // Use queuedFetch with deduplication key
+            // Don't use dedupeKey - Response objects can only be read once
             const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 }
-            }, 'fetchPagesWithUnreadCount');
+            }, null);
 
             console.log('[PANCAKE] Unread pages response status:', response.status);
 
@@ -1030,18 +1031,21 @@ class PancakeDataManager {
     getConversationByUserId(userId) {
         if (!userId) return null;
 
+        // Convert to string to handle type mismatch (Map keys may be stored as string)
+        const userIdStr = String(userId);
+
         // Try INBOX maps first (most common)
-        let conversation = this.inboxMapByPSID.get(userId);
+        let conversation = this.inboxMapByPSID.get(userIdStr) || this.inboxMapByPSID.get(userId);
         if (!conversation) {
-            conversation = this.inboxMapByFBID.get(userId);
+            conversation = this.inboxMapByFBID.get(userIdStr) || this.inboxMapByFBID.get(userId);
         }
 
         // Fallback to COMMENT maps
         if (!conversation) {
-            conversation = this.commentMapByFBID.get(userId);
+            conversation = this.commentMapByFBID.get(userIdStr) || this.commentMapByFBID.get(userId);
         }
         if (!conversation) {
-            conversation = this.commentMapByPSID.get(userId);
+            conversation = this.commentMapByPSID.get(userIdStr) || this.commentMapByPSID.get(userId);
         }
 
         // Last resort: Search by customers[].fb_id
@@ -1050,7 +1054,7 @@ class PancakeDataManager {
         // - order.Facebook_ASUserId doesn't match conversation.from.id
         // - The correct match is in customers[].fb_id
         if (!conversation) {
-            conversation = this.conversationsByCustomerFbId.get(userId);
+            conversation = this.conversationsByCustomerFbId.get(userIdStr) || this.conversationsByCustomerFbId.get(userId);
             if (conversation) {
                 console.log('[PANCAKE] ✅ Found conversation via customers[].fb_id:', {
                     userId,
@@ -1780,9 +1784,10 @@ class PancakeDataManager {
 
         // Find conversation in INBOX map
         const userId = order.Facebook_ASUserId;
-        let conversation = this.inboxMapByPSID.get(userId);
+        const userIdStr = String(userId);
+        let conversation = this.inboxMapByPSID.get(userIdStr) || this.inboxMapByPSID.get(userId);
         if (!conversation) {
-            conversation = this.inboxMapByFBID.get(userId);
+            conversation = this.inboxMapByFBID.get(userIdStr) || this.inboxMapByFBID.get(userId);
         }
 
         if (!conversation) {
@@ -1991,6 +1996,14 @@ class PancakeDataManager {
             let convId = conversationId;
             let customerId = null;
 
+            // Helper: extract post_id from conversation (may be in c.post_id or embedded in c.id)
+            const getConvPostId = (c) => {
+                if (c.post_id) return c.post_id;
+                // Conversation ID format: postId_commentId (e.g., "33430825583230191_1643258936832569")
+                if (c.id && c.id.includes('_')) return c.id.split('_')[0];
+                return null;
+            };
+
             // CRITICAL: Khi có postId, PHẢI tìm conversation match cả fb_id VÀ post_id
             // Vì cùng 1 khách hàng có thể comment trên NHIỀU post khác nhau
             if (!convId && postId) {
@@ -1999,7 +2012,7 @@ class PancakeDataManager {
                 // Bước 1: Tìm trong conversations đã load (memory)
                 const matchingConvInMemory = this.conversations.find(conv =>
                     conv.type === 'COMMENT' &&
-                    conv.post_id === postId &&
+                    getConvPostId(conv) === postId &&
                     (conv.from?.id === psid ||
                      conv.from_psid === psid ||
                      conv.customers?.some(c => c.fb_id === psid))
@@ -2015,7 +2028,7 @@ class PancakeDataManager {
                 if (!convId && psid) {
                     console.log('[PANCAKE] Not found in memory, fetching conversations by fb_id:', psid);
                     try {
-                        const result = await this.fetchConversationsByFbId(pageId, psid);
+                        const result = await this.fetchConversationsByCustomerFbId(pageId, psid);
                         if (result.success && result.conversations && result.conversations.length > 0) {
                             console.log('[PANCAKE] Direct fetch returned', result.conversations.length, 'conversations');
 
@@ -2031,7 +2044,7 @@ class PancakeDataManager {
                             // Find conversation matching BOTH post_id AND fb_id/psid
                             const matchingConv = result.conversations.find(c =>
                                 c.type === 'COMMENT' &&
-                                c.post_id === postId &&
+                                getConvPostId(c) === postId &&
                                 (c.from?.id === psid ||
                                  c.from_psid === psid ||
                                  c.customers?.some(cust => cust.fb_id === psid))
@@ -2044,7 +2057,7 @@ class PancakeDataManager {
                             } else {
                                 // Fallback: chỉ match post_id nếu không tìm thấy exact match
                                 const postOnlyMatch = result.conversations.find(c =>
-                                    c.type === 'COMMENT' && c.post_id === postId
+                                    c.type === 'COMMENT' && getConvPostId(c) === postId
                                 );
                                 if (postOnlyMatch) {
                                     convId = postOnlyMatch.id;
@@ -2443,7 +2456,51 @@ class PancakeDataManager {
             }
 
             const data = await response.json();
-            console.log('[PANCAKE] Upload response:', data);
+            console.log('[PANCAKE] Upload response:', JSON.stringify(data, null, 2));
+
+            // Handle session expired error (error_code 103) - retry with fresh token
+            if (data.error_code === 103 || data.message?.includes('session expired')) {
+                console.warn('[PANCAKE] ⚠️ Session expired, clearing token and retrying...');
+                // Clear cached token
+                if (window.pancakeTokenManager) {
+                    window.pancakeTokenManager.clearTokenFromLocalStorage();
+                    window.pancakeTokenManager._jwtToken = null;
+                    window.pancakeTokenManager._jwtExpiry = null;
+                }
+                // Retry once with fresh token
+                const newAccessToken = await this.getToken();
+                if (newAccessToken) {
+                    const retryUrl = window.API_CONFIG.buildUrl.pancake(
+                        `pages/${pageId}/contents`,
+                        `access_token=${newAccessToken}`
+                    );
+                    const retryFormData = new FormData();
+                    retryFormData.append('file', file, file.name || 'image.jpg');
+                    console.log('[PANCAKE] 🔄 Retrying upload with fresh token...');
+                    const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
+                        method: 'POST',
+                        body: retryFormData
+                    }, 3, true);
+                    if (retryResponse.ok) {
+                        const retryData = await retryResponse.json();
+                        console.log('[PANCAKE] Retry response:', JSON.stringify(retryData, null, 2));
+                        if (retryData.data?.[0]?.id) {
+                            const retryContentData = retryData.data[0];
+                            return {
+                                content_url: retryContentData.content_url || null,
+                                content_id: retryContentData.id,
+                                id: retryContentData.id,
+                                content_preview_url: retryContentData.content_preview_url || null,
+                                fb_id: retryContentData.fb_id || null,
+                                width: retryContentData.image_data?.width || null,
+                                height: retryContentData.image_data?.height || null
+                            };
+                        }
+                    }
+                }
+                pancakeError = new Error('Session expired and retry failed');
+                throw pancakeError;
+            }
 
             // Pancake API response format (wrapped in data array):
             // {
@@ -2470,7 +2527,8 @@ class PancakeDataManager {
 
             // Validate response
             if (!result.content_id) {
-                console.error('[PANCAKE] ❌ Upload response missing content_id:', data);
+                console.error('[PANCAKE] ❌ Upload response missing content_id. Full response:', JSON.stringify(data, null, 2));
+                console.error('[PANCAKE] contentData parsed:', JSON.stringify(contentData, null, 2));
                 pancakeError = new Error('Upload response missing content_id');
                 throw pancakeError;
             }

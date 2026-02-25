@@ -153,6 +153,68 @@ export class CustomerProfileModule {
         idEl.textContent = `ID: #${customer.id || customer.phone?.replace(/\D/g, '').slice(-6) || '000000'}`;
         phoneEl.textContent = customer.phone;
         addressEl.textContent = customer.address || 'Chưa có địa chỉ';
+
+        // Render aliases section if customer has aliases
+        this._renderAliasesSection(customer);
+    }
+
+    /**
+     * Render aliases (reference names) section
+     * @param {Object} customer - Customer data
+     */
+    _renderAliasesSection(customer) {
+        // Get or create aliases container
+        let aliasesContainer = this.container.querySelector('#customer-aliases-section');
+
+        // Get aliases array
+        let aliases = customer.aliases || [];
+        if (typeof aliases === 'string') {
+            try {
+                aliases = JSON.parse(aliases);
+            } catch (e) {
+                aliases = [];
+            }
+        }
+        if (!Array.isArray(aliases)) {
+            aliases = [];
+        }
+
+        // Create aliases section if it doesn't exist
+        if (!aliasesContainer) {
+            const header = this.container.querySelector('header');
+            if (!header) return;
+
+            aliasesContainer = document.createElement('div');
+            aliasesContainer.id = 'customer-aliases-section';
+            aliasesContainer.className = 'px-6 py-2 bg-slate-50 dark:bg-slate-800 border-b border-border-light dark:border-border-dark flex items-center gap-3 flex-wrap';
+            header.after(aliasesContainer);
+        }
+
+        // Build aliases HTML
+        const aliasesHtml = aliases.map((alias, index) => {
+            const isPrimary = alias === customer.name;
+            return `
+                <span class="alias-tag ${isPrimary ? 'primary' : ''}"
+                      title="${isPrimary ? 'Tên chính' : 'Tên tham khảo'}">
+                    ${alias}
+                    ${!isPrimary ? `
+                        <button class="remove-alias-btn" onclick="window.removeCustomerAlias('${customer.phone}', '${alias.replace(/'/g, "\\'")}')" title="Xóa tên này">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">close</span>
+                        </button>
+                    ` : ''}
+                </span>
+            `;
+        }).join('');
+
+        aliasesContainer.innerHTML = `
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Tên tham khảo:</span>
+            ${aliasesHtml || '<span class="text-xs text-slate-400 italic">Chưa có</span>'}
+            <button id="add-alias-btn" class="inline-flex items-center gap-1 px-2 py-1 border border-dashed border-slate-300 dark:border-slate-600 rounded text-xs text-slate-500 hover:text-primary hover:border-primary transition-colors"
+                    onclick="window.showAddAliasDialog('${customer.phone}')">
+                <span class="material-symbols-outlined" style="font-size: 14px;">add</span>
+                Thêm
+            </button>
+        `;
     }
 
     _renderCustomerInfoCard(customer) {
@@ -1009,3 +1071,94 @@ export class CustomerProfileModule {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
     }
 }
+
+// =====================================================
+// GLOBAL ALIAS MANAGEMENT FUNCTIONS
+// =====================================================
+
+/**
+ * Show dialog to add a new alias
+ * @param {string} phone - Customer phone
+ */
+window.showAddAliasDialog = function(phone) {
+    const alias = prompt('Nhập tên tham khảo mới (Facebook nickname):');
+    if (alias && alias.trim()) {
+        window.addCustomerAlias(phone, alias.trim());
+    }
+};
+
+/**
+ * Add an alias to a customer
+ * @param {string} phone - Customer phone
+ * @param {string} alias - New alias name
+ */
+window.addCustomerAlias = async function(phone, alias) {
+    try {
+        const response = await fetch(`/api/sepay/customer/${phone}/alias`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ alias })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('[ALIAS] Added alias:', alias, 'for phone:', phone);
+
+            // Reload the customer profile to show updated aliases
+            // Try to find and call the module's render function
+            if (window.customerProfileModule && typeof window.customerProfileModule.render === 'function') {
+                window.customerProfileModule.render(phone);
+            } else {
+                // Fallback: reload the page
+                location.reload();
+            }
+        } else {
+            alert('Lỗi: ' + (result.error || 'Không thể thêm tên'));
+        }
+    } catch (error) {
+        console.error('[ALIAS] Error adding alias:', error);
+        alert('Lỗi kết nối server');
+    }
+};
+
+/**
+ * Remove an alias from a customer
+ * @param {string} phone - Customer phone
+ * @param {string} alias - Alias to remove
+ */
+window.removeCustomerAlias = async function(phone, alias) {
+    if (!confirm(`Xóa tên "${alias}" khỏi danh sách tham khảo?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/sepay/customer/${phone}/alias`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ alias })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('[ALIAS] Removed alias:', alias, 'from phone:', phone);
+
+            // Reload the customer profile to show updated aliases
+            if (window.customerProfileModule && typeof window.customerProfileModule.render === 'function') {
+                window.customerProfileModule.render(phone);
+            } else {
+                location.reload();
+            }
+        } else {
+            alert('Lỗi: ' + (result.error || 'Không thể xóa tên'));
+        }
+    } catch (error) {
+        console.error('[ALIAS] Error removing alias:', error);
+        alert('Lỗi kết nối server');
+    }
+};

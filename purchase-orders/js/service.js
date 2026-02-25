@@ -47,9 +47,16 @@ class PurchaseOrderService {
             this.db = firebase.firestore();
             this.storage = firebase.storage();
 
-            // Get current user from auth manager if available
-            if (window.sharedAuthManager) {
-                this.currentUser = await window.sharedAuthManager.getCurrentUser();
+            // Get current user from shared authManager
+            if (window.authManager) {
+                const authState = window.authManager.getAuthState?.() || window.authManager.getUserInfo?.();
+                if (authState) {
+                    this.currentUser = {
+                        uid: authState.userId || authState.userType || 'anonymous',
+                        displayName: authState.userName || authState.userType?.split('-')[0] || 'User',
+                        email: authState.email || ''
+                    };
+                }
             }
 
             this.initialized = true;
@@ -178,22 +185,28 @@ class PurchaseOrderService {
     prepareItems(items) {
         const config = window.PurchaseOrderConfig;
 
-        return items.map((item, index) => ({
-            id: item.id || config.generateUUID(),
-            position: index + 1,
-            productCode: item.productCode || '',
-            productName: item.productName || '',
-            variant: item.variant || '',
-            productImages: item.productImages || [],
-            priceImages: item.priceImages || [],
-            purchasePrice: item.purchasePrice || 0,
-            sellingPrice: item.sellingPrice || 0,
-            quantity: item.quantity || 1,
-            subtotal: (item.purchasePrice || 0) * (item.quantity || 1),
-            notes: item.notes || '',
-            tposSyncStatus: item.tposSyncStatus || null,
-            tposProductId: item.tposProductId || null
-        }));
+        return items.map((item, index) => {
+            const prepared = {
+                id: item.id || config.generateUUID(),
+                position: index + 1,
+                productCode: item.productCode || '',
+                productName: item.productName || '',
+                variant: item.variant || '',
+                selectedAttributeValueIds: item.selectedAttributeValueIds || [],
+                productImages: item.productImages || [],
+                priceImages: item.priceImages || [],
+                purchasePrice: item.purchasePrice || 0,
+                sellingPrice: item.sellingPrice || 0,
+                quantity: item.quantity || 1,
+                subtotal: (item.purchasePrice || 0) * (item.quantity || 1),
+                notes: item.notes || '',
+                tposSyncStatus: item.tposSyncStatus || null,
+                tposProductId: item.tposProductId || null,
+                tposProductTmplId: item.tposProductTmplId || null
+            };
+            console.log(`[PrepareItems] Item ${index + 1}: variant="${prepared.variant}", attrIds=${prepared.selectedAttributeValueIds.length}`);
+            return prepared;
+        });
     }
 
     /**
@@ -535,6 +548,8 @@ class PurchaseOrderService {
 
                 calculatedFields = {
                     totalAmount,
+                    discountAmount,
+                    shippingFee,
                     finalAmount,
                     totalItems: updateData.items.length,
                     totalQuantity: updateData.items.reduce((sum, item) => sum + (item.quantity || 0), 0),
@@ -556,6 +571,20 @@ class PurchaseOrderService {
                 if (update[key] === undefined) {
                     delete update[key];
                 }
+            });
+
+            // Ensure notes is included
+            if (updateData.notes !== undefined) {
+                update.notes = updateData.notes;
+            }
+
+            console.log('[PurchaseOrderService] Saving update:', {
+                discountAmount: update.discountAmount,
+                shippingFee: update.shippingFee,
+                notes: update.notes,
+                finalAmount: update.finalAmount,
+                totalAmount: update.totalAmount,
+                itemCount: (update.items || []).length
             });
 
             await docRef.update(update);

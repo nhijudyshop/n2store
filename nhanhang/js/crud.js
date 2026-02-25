@@ -9,9 +9,7 @@
 async function addReceipt(event) {
     event.preventDefault();
 
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền thêm phiếu nhận", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'create', { alertMessage: 'Không có quyền thêm phiếu nhận' })) {
         return;
     }
 
@@ -159,9 +157,7 @@ function clearReceiptForm() {
 async function updateReceipt(event) {
     event.preventDefault();
 
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền cập nhật phiếu nhận", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'edit', { alertMessage: 'Không có quyền cập nhật phiếu nhận' })) {
         return;
     }
 
@@ -221,6 +217,16 @@ async function updateReceipt(event) {
         data.data[index].soKg = soKg;
         data.data[index].soKien = soKien;
 
+        // Update datetime if provided – convert "YYYY-MM-DDTHH:MM" → "DD/MM/YYYY, HH:MM"
+        const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");
+        if (editThoiGianNhanInput && editThoiGianNhanInput.value) {
+            const dt = new Date(editThoiGianNhanInput.value);
+            if (!isNaN(dt.getTime())) {
+                const pad = (n) => String(n).padStart(2, "0");
+                data.data[index].thoiGianNhan = `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}/${dt.getFullYear()}, ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+            }
+        }
+
         // Handle image update
         if (editCapturedImageBlob) {
             // Có ảnh mới được chụp - upload ảnh mới
@@ -275,12 +281,7 @@ async function updateReceipt(event) {
 
 // Delete receipt by ID
 async function deleteReceiptByID(event) {
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error(
-            "Không đủ quyền thực hiện chức năng này.",
-            3000,
-        );
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'cancel', { alertMessage: 'Không đủ quyền thực hiện chức năng này.' })) {
         return;
     }
 
@@ -375,9 +376,7 @@ async function migrateDataWithIDs() {
 
 // Open edit modal
 function openEditModal(event) {
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền chỉnh sửa phiếu nhận", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'edit', { alertMessage: 'Không có quyền chỉnh sửa phiếu nhận' })) {
         return;
     }
 
@@ -407,6 +406,19 @@ function openEditModal(event) {
     editTenNguoiNhanInput.value = receiptData.tenNguoiNhan || "";
     editSoKgInput.value = receiptData.soKg || 0;
     editSoKienInput.value = receiptData.soKien || 0;
+
+    // Populate datetime field – convert "DD/MM/YYYY, HH:MM" → "YYYY-MM-DDTHH:MM"
+    const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");
+    if (editThoiGianNhanInput && receiptData.thoiGianNhan) {
+        const parsed = parseVietnameseDate(receiptData.thoiGianNhan);
+        if (parsed) {
+            const pad = (n) => String(n).padStart(2, "0");
+            const localValue = `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+            editThoiGianNhanInput.value = localValue;
+        } else {
+            editThoiGianNhanInput.value = "";
+        }
+    }
 
     // Handle current image
     editCurrentImageUrl = receiptData.anhNhanHang || null;
@@ -448,7 +460,7 @@ function openEditModal(event) {
 
     // Show modal
     if (editModal) {
-        editModal.style.display = "block";
+        editModal.style.display = "flex";
     }
 
     notificationManager.info("Đã mở form chỉnh sửa", 1500);
@@ -473,4 +485,7 @@ function closeEditModalFunction() {
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
     editCurrentImageUrl = null;
+
+    const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");
+    if (editThoiGianNhanInput) editThoiGianNhanInput.value = "";
 }

@@ -5,6 +5,9 @@ const db = require('../db/pool');
 const { ensureCustomerWithTPOS } = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
 
+// Import pending withdrawals processor
+const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
+
 // Chạy mỗi giờ để expire virtual credits
 cron.schedule('0 * * * *', async () => {
     console.log('[CRON] Running expire_virtual_credits...');
@@ -212,3 +215,56 @@ cron.schedule('0 9 * * *', async () => {
 });
 
 console.log('[CRON] Scheduler started');
+
+// =====================================================
+// PENDING WALLET WITHDRAWALS - Retry every 5 minutes
+// =====================================================
+// Ensures no lost transactions from network failures
+cron.schedule('*/5 * * * *', async () => {
+    console.log('[CRON] Running retry-pending-withdrawals...');
+    try {
+        // Get pending records older than 1 minute (to avoid racing with immediate processing)
+        const pendingResult = await db.query(`
+            SELECT id, order_id, phone, amount, retry_count, max_retries
+            FROM pending_wallet_withdrawals
+            WHERE status = 'PENDING'
+              AND created_at < NOW() - INTERVAL '1 minute'
+              AND retry_count < max_retries
+            ORDER BY created_at ASC
+            LIMIT 50
+        `);
+
+        if (pendingResult.rows.length === 0) {
+            console.log('[CRON] No pending withdrawals to retry');
+            return;
+        }
+
+        console.log(`[CRON] Found ${pendingResult.rows.length} pending withdrawals to retry`);
+
+        let successCount = 0;
+        let failCount = 0;
+        let retryLaterCount = 0;
+
+        for (const pending of pendingResult.rows) {
+            try {
+                const result = await processWithdrawal(db, pending.id);
+
+                if (result.success) {
+                    successCount++;
+                } else if (result.status === 'FAILED') {
+                    failCount++;
+                } else {
+                    retryLaterCount++;
+                }
+            } catch (error) {
+                console.error(`[CRON] Error processing pending #${pending.id}:`, error.message);
+                retryLaterCount++;
+            }
+        }
+
+        console.log(`[CRON] ✅ Pending withdrawals: ${successCount} success, ${failCount} failed, ${retryLaterCount} retry later`);
+
+    } catch (error) {
+        console.error('[CRON] ❌ Error in retry-pending-withdrawals:', error.message);
+    }
+});

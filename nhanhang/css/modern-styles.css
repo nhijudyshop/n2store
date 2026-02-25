@@ -153,6 +153,13 @@ button {
     height: 28px;
 }
 
+.sidebar-logo-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
 .sidebar-toggle {
     width: 36px;
     height: 36px;
@@ -1156,16 +1163,17 @@ button {
     font-size: 0.875rem;
 }
 
-.date-input-wrapper input[type="date"] {
+.date-input-wrapper input[type="text"] {
     width: 100%;
     padding: var(--spacing-md);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     font-family: inherit;
     font-size: 0.875rem;
+    letter-spacing: 0.05em;
 }
 
-.date-input-wrapper input[type="date"]:focus {
+.date-input-wrapper input[type="text"]:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgb(99 102 241 / 0.1);

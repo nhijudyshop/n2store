@@ -74,7 +74,8 @@ function sanitizeForFirebase(obj) {
 }
 
 // Chunk size for splitting large orders arrays (to stay under 1MB Firestore limit)
-const ORDERS_CHUNK_SIZE = 200; // ~200 orders per chunk to stay well under 1MB
+// Reduced from 200 to 100 because orders with detailed data can be ~7KB each
+const ORDERS_CHUNK_SIZE = 100; // ~100 orders per chunk to stay safely under 1MB
 
 // Save data to Firestore by table name - with chunking for large datasets
 async function saveToFirebase(tableName, data) {

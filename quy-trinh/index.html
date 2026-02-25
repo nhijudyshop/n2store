@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quy Trình Nghiệp Vụ — N2Store</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Lucide Icons -->
+<script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<!-- Core utilities (Auth + Firebase config) -->
+<script type="module" src="../shared/esm/compat.js"></script>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<!-- Navigation Modern -->
+<script defer src="../shared/js/navigation-modern.js"></script>
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bp1: #6366f1; --bp1-light: #eef2ff; --bp1-dark: #4f46e5;
+  --bp2: #ec4899; --bp2-light: #fdf2f8; --bp2-dark: #db2777;
+  --bp3: #f59e0b; --bp3-light: #fffbeb; --bp3-dark: #d97706;
+  --bp4: #10b981; --bp4-light: #ecfdf5; --bp4-dark: #059669;
+  --bp5: #3b82f6; --bp5-light: #eff6ff; --bp5-dark: #2563eb;
+  --bp6: #8b5cf6; --bp6-light: #f5f3ff; --bp6-dark: #7c3aed;
+  --bp7: #ef4444; --bp7-light: #fef2f2; --bp7-dark: #dc2626;
+  --bp8: #14b8a6; --bp8-light: #f0fdfa; --bp8-dark: #0d9488;
+  --sidebar-w: 260px;
+  --header-h: 60px;
+  --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+  --gray-300: #d1d5db; --gray-500: #6b7280; --gray-700: #374151; --gray-900: #111827;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08); --shadow-md: 0 4px 12px rgba(0,0,0,.1);
+  --radius: 10px; --radius-sm: 6px;
+}
+html { scroll-behavior: smooth; }
+body { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--gray-700); background: var(--gray-50); line-height: 1.6; }
+
+/* ===== HEADER ===== */
+#site-header {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--header-h); z-index: 100;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 100%);
+  display: flex; align-items: center; padding: 0 20px; gap: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25);
+}
+#site-header .shop-name {
+  font-size: 18px; font-weight: 800; color: #fff; letter-spacing: .5px;
+  background: linear-gradient(90deg, #a5b4fc, #f9a8d4);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+#site-header .page-title { font-size: 13px; color: rgba(255,255,255,.75); font-weight: 500; }
+#site-header .divider { width: 1px; height: 28px; background: rgba(255,255,255,.2); }
+#site-header .updated { margin-left: auto; font-size: 11px; color: rgba(255,255,255,.5); }
+#hamburger {
+  display: none; background: none; border: none; cursor: pointer;
+  flex-direction: column; gap: 5px; padding: 4px;
+}
+#hamburger span { display: block; width: 22px; height: 2px; background: #fff; border-radius: 2px; transition: .3s; }
+
+/* ===== LAYOUT ===== */
+#layout { display: flex; padding-top: var(--header-h); min-height: 100vh; }
+
+/* ===== SIDEBAR ===== */
+#local-sidebar {
+  width: var(--sidebar-w); flex-shrink: 0; position: fixed;
+  top: var(--header-h); bottom: 0; left: 0; overflow-y: auto;
+  background: #fff; border-right: 1px solid var(--gray-200);
+  padding: 16px 0; z-index: 90;
+  scrollbar-width: thin; scrollbar-color: var(--gray-200) transparent;
+}
+#local-sidebar::-webkit-scrollbar { width: 4px; }
+#local-sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+.sidebar-logo { padding: 8px 20px 16px; border-bottom: 1px solid var(--gray-100); margin-bottom: 8px; }
+.sidebar-logo .s-shop { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+.sidebar-logo .s-sub { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+.sidebar-label { font-size: 10px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .8px; padding: 8px 20px 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 20px;
+  cursor: pointer; transition: background .15s; border-left: 3px solid transparent;
+  text-decoration: none; color: var(--gray-700); font-size: 13px; font-weight: 500;
+}
+.nav-item:hover { background: var(--gray-50); }
+.nav-item.active { background: var(--gray-50); font-weight: 600; }
+.nav-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.nav-item[data-bp="1"] { --c: var(--bp1); }
+.nav-item[data-bp="2"] { --c: var(--bp2); }
+.nav-item[data-bp="3"] { --c: var(--bp3); }
+.nav-item[data-bp="4"] { --c: var(--bp4); }
+.nav-item[data-bp="5"] { --c: var(--bp5); }
+.nav-item[data-bp="6"] { --c: var(--bp6); }
+.nav-item[data-bp="7"] { --c: var(--bp7); }
+.nav-item[data-bp="8"] { --c: var(--bp8); }
+.nav-item.active { border-left-color: var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 6%, white); }
+.nav-dot { background: var(--c); }
+
+/* ===== MAIN CONTENT ===== */
+#main { margin-left: var(--sidebar-w); flex: 1; padding: 28px 32px 60px; max-width: 960px; }
+
+/* ===== OVERVIEW FLOWCHART ===== */
+.overview-section { margin-bottom: 40px; }
+.overview-section h2 { font-size: 20px; font-weight: 700; color: var(--gray-900); margin-bottom: 20px; }
+.flow-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden;
+}
+.flow-row { display: contents; }
+.flow-box {
+  padding: 14px 12px; text-align: center; position: relative;
+  border-right: 1px solid var(--gray-100);
+}
+.flow-box:last-child { border-right: none; }
+.flow-box .fb-num { font-size: 10px; font-weight: 700; color: #fff; background: var(--c); border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.flow-box .fb-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+.flow-box .fb-title { font-size: 11px; font-weight: 600; color: var(--gray-900); line-height: 1.3; }
+.flow-box .fb-sub { font-size: 10px; color: var(--gray-500); margin-top: 2px; }
+.flow-box[data-bp="1"] { --c: var(--bp1); background: var(--bp1-light); }
+.flow-box[data-bp="2"] { --c: var(--bp2); background: var(--bp2-light); }
+.flow-box[data-bp="3"] { --c: var(--bp3); background: var(--bp3-light); }
+.flow-box[data-bp="4"] { --c: var(--bp4); background: var(--bp4-light); }
+.flow-box[data-bp="5"] { --c: var(--bp5); background: var(--bp5-light); }
+.flow-box[data-bp="6"] { --c: var(--bp6); background: var(--bp6-light); }
+.flow-box[data-bp="7"] { --c: var(--bp7); background: var(--bp7-light); }
+.flow-box[data-bp="8"] { --c: var(--bp8); background: var(--bp8-light); }
+.flow-arrow-row { display: flex; justify-content: center; align-items: center; padding: 6px 0; background: #fff; grid-column: 1 / -1; }
+.flow-arrow-row span { font-size: 18px; color: var(--gray-300); margin: 0 calc(12.5% - 9px); }
+
+/* ===== SECTION ===== */
+.bp-section { margin-bottom: 48px; scroll-margin-top: calc(var(--header-h) + 20px); }
+.bp-header {
+  border-radius: var(--radius) var(--radius) 0 0; padding: 20px 24px;
+  background: linear-gradient(135deg, var(--c) 0%, var(--cd) 100%);
+  display: flex; align-items: center; gap: 14px;
+}
+.bp-header .bp-icon { font-size: 28px; }
+.bp-header .bp-title { font-size: 18px; font-weight: 700; color: #fff; }
+.bp-header .bp-badge { font-size: 11px; background: rgba(255,255,255,.2); color: #fff; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+.bp-body { background: #fff; border-radius: 0 0 var(--radius) var(--radius); box-shadow: var(--shadow-md); padding: 24px; }
+
+.bp-section[data-bp="1"] { --c: var(--bp1); --cd: var(--bp1-dark); --cl: var(--bp1-light); }
+.bp-section[data-bp="2"] { --c: var(--bp2); --cd: var(--bp2-dark); --cl: var(--bp2-light); }
+.bp-section[data-bp="3"] { --c: var(--bp3); --cd: var(--bp3-dark); --cl: var(--bp3-light); }
+.bp-section[data-bp="4"] { --c: var(--bp4); --cd: var(--bp4-dark); --cl: var(--bp4-light); }
+.bp-section[data-bp="5"] { --c: var(--bp5); --cd: var(--bp5-dark); --cl: var(--bp5-light); }
+.bp-section[data-bp="6"] { --c: var(--bp6); --cd: var(--bp6-dark); --cl: var(--bp6-light); }
+.bp-section[data-bp="7"] { --c: var(--bp7); --cd: var(--bp7-dark); --cl: var(--bp7-light); }
+.bp-section[data-bp="8"] { --c: var(--bp8); --cd: var(--bp8-dark); --cl: var(--bp8-light); }
+
+/* ===== STEPS ===== */
+.step { display: flex; gap: 16px; margin-bottom: 20px; }
+.step:last-child { margin-bottom: 0; }
+.step-badge {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--c); color: #fff; font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 2px;
+}
+.step-content { flex: 1; }
+.step-title { font-size: 14px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px; }
+.step-title em { font-style: normal; color: var(--c); }
+.step-body ul { padding-left: 18px; }
+.step-body li { margin-bottom: 5px; line-height: 1.6; }
+.step-body p { margin-bottom: 6px; }
+.step-divider { border: none; border-top: 1px dashed var(--gray-200); margin: 20px 0; }
+
+/* ===== CALLOUT BOXES ===== */
+.callout { border-radius: var(--radius-sm); padding: 12px 16px; margin: 12px 0; display: flex; gap: 10px; align-items: flex-start; }
+.callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.callout-body { flex: 1; font-size: 13px; line-height: 1.6; }
+.callout-body strong { display: block; font-weight: 600; margin-bottom: 3px; }
+.callout.warn { background: #fffbeb; border-left: 4px solid #f59e0b; }
+.callout.danger { background: #fef2f2; border-left: 4px solid #ef4444; }
+.callout.tip { background: #ecfdf5; border-left: 4px solid #10b981; }
+.callout.info { background: #eff6ff; border-left: 4px solid #3b82f6; }
+
+/* ===== PERSONNEL DIAGRAM ===== */
+.personnel-diagram { margin: 16px 0; }
+.pd-title { font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; }
+.pd-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pd-group { border: 2px solid var(--gray-200); border-radius: var(--radius); overflow: hidden; }
+.pd-group-header { padding: 10px 14px; font-size: 12px; font-weight: 700; color: #fff; }
+.pd-group.inside .pd-group-header { background: var(--bp2); }
+.pd-group.outside .pd-group-header { background: var(--bp5); }
+.pd-group-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pd-person { background: var(--gray-50); border-radius: var(--radius-sm); padding: 8px 12px; border-left: 3px solid var(--gray-300); }
+.pd-person.inside { border-left-color: var(--bp2); }
+.pd-person.outside { border-left-color: var(--bp5); }
+.pd-person .pd-role { font-size: 12px; font-weight: 600; color: var(--gray-900); }
+.pd-person .pd-desc { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+
+/* ===== DECISION FLOWCHART ===== */
+.flowchart { display: flex; flex-direction: column; align-items: center; gap: 0; margin: 16px 0; }
+.fc-node { text-align: center; }
+.fc-rect { background: var(--bp5-light); border: 2px solid var(--bp5); border-radius: var(--radius-sm); padding: 10px 20px; font-size: 12px; font-weight: 600; color: var(--bp5-dark); min-width: 200px; display: inline-block; }
+.fc-diamond-wrap { position: relative; display: inline-block; margin: 4px 0; }
+.fc-diamond {
+  width: 160px; height: 60px; background: #fffbeb; border: 2px solid #f59e0b;
+  transform: perspective(200px) rotateX(10deg); border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: #92400e; text-align: center; padding: 4px 12px;
+}
+.fc-arrow { font-size: 18px; color: var(--gray-300); line-height: 1; padding: 2px 0; }
+.fc-branches { display: flex; gap: 24px; align-items: flex-start; margin: 4px 0; }
+.fc-branch { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.fc-branch-label { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-bottom: 4px; }
+.fc-branch-label.yes { background: #dcfce7; color: #166534; }
+.fc-branch-label.no { background: #fee2e2; color: #991b1b; }
+.fc-end { background: var(--bp4-light); border: 2px solid var(--bp4); border-radius: 20px; padding: 8px 20px; font-size: 12px; font-weight: 600; color: var(--bp4-dark); display: inline-block; }
+
+/* ===== TAG / BADGE ===== */
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin: 2px; }
+.tag-ok { background: #dcfce7; color: #166534; }
+.tag-warn { background: #fef9c3; color: #854d0e; }
+.tag-danger { background: #fee2e2; color: #991b1b; }
+.tag-info { background: #dbeafe; color: #1e40af; }
+
+/* ===== INLINE CODE ===== */
+code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: monospace; color: var(--bp6-dark); }
+
+/* ===== SUBSECTION ===== */
+.subsection { margin: 16px 0; }
+.subsection-title { font-size: 13px; font-weight: 700; color: var(--gray-900); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--cl); }
+
+/* ===== SIDEBAR OVERLAY ===== */
+#local-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 85; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  #hamburger { display: flex; }
+  #local-sidebar { transform: translateX(-100%); transition: transform .3s; }
+  #local-sidebar.open { transform: translateX(0); }
+  #local-overlay.open { display: block; }
+  #main { margin-left: 0; padding: 20px 16px 60px; }
+  .flow-grid { grid-template-columns: repeat(2, 1fr); }
+  .flow-arrow-row span { margin: 0 calc(25% - 9px); }
+  .pd-groups { grid-template-columns: 1fr; }
+  .fc-branches { flex-direction: column; align-items: center; }
+}
+@media (max-width: 480px) {
+  .flow-grid { grid-template-columns: 1fr 1fr; }
+  #main { padding: 16px 12px 60px; }
+  .bp-body { padding: 16px; }
+}
+
+/* ===== PRINT ===== */
+@media print {
+  #site-header, #local-sidebar, #hamburger, #local-overlay { display: none !important; }
+  #main { margin-left: 0; padding: 0; max-width: 100%; }
+  .bp-section { break-inside: avoid; page-break-inside: avoid; }
+  .bp-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .callout { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .flow-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* ===== NAVIGATION MODERN SIDEBAR ===== */
+.sidebar {
+  position: fixed; left: 0; top: 0; width: 260px; height: 100vh;
+  background: #fff; border-right: 1px solid #e5e7eb;
+  z-index: 200; transition: transform 0.3s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.sidebar.collapsed { transform: translateX(-260px); }
+.sidebar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
+}
+.sidebar-header .logo { display: flex; align-items: center; gap: 10px; }
+.sidebar-header .logo img { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+.sidebar-header .logo span { font-size: 16px; font-weight: 700; color: #111827; }
+.sidebar-toggle { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: #6b7280; }
+.sidebar-toggle:hover { background: #f3f4f6; }
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid #e5e7eb; flex-shrink: 0; }
+.sidebar-toggle-fixed {
+  position: fixed; top: 16px; left: 16px; z-index: 300;
+  background: #6366f1; color: #fff; border: none; border-radius: 8px;
+  width: 40px; height: 40px; cursor: pointer; display: none;
+  align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  transition: left 0.3s ease;
+}
+.sidebar-toggle-fixed.visible { display: flex; }
+.sidebar-toggle-fixed.sidebar-open { left: 276px; }
+/* Adjust layout when nav sidebar is present */
+body.nav-ready #site-header { left: 260px; transition: left 0.3s ease; }
+body.nav-ready #layout { padding-left: 260px; transition: padding-left 0.3s ease; }
+body.nav-ready #local-sidebar { left: 260px; transition: left 0.3s ease; }
+body.nav-collapsed #site-header { left: 0; }
+body.nav-collapsed #layout { padding-left: 0; }
+body.nav-collapsed #local-sidebar { left: 0; }
+@media (max-width: 1024px) {
+  .sidebar { transform: translateX(-260px); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-toggle-fixed { display: flex; left: 16px; }
+  .sidebar-toggle-fixed.sidebar-open { left: 276px; }
+  body.nav-ready #site-header { left: 0; }
+  body.nav-ready #layout { padding-left: 0; }
+  body.nav-ready #local-sidebar { left: 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="site-header">
+  <button id="hamburger" aria-label="Menu" onclick="toggleLocalSidebar()">
+    <span></span><span></span><span></span>
+  </button>
+  <span class="shop-name">N2STORE</span>
+  <div class="divider"></div>
+  <span class="page-title">QUY TRÌNH NGHIỆP VỤ SHOP</span>
+  <span class="updated">Cập nhật: 2025</span>
+</header>
+
+<div id="local-overlay" onclick="toggleLocalSidebar()"></div>
+
+<!-- Navigation Modern Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <img src="../shared/images/logo.jpg" alt="N2STORE" onerror="this.style.display='none'">
+      <span>N2STORE</span>
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Ẩn sidebar">
+      <i data-lucide="panel-left-close"></i>
+    </button>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav">
+    <!-- Menu items will be auto-generated by navigation-modern.js -->
+  </nav>
+  <div class="sidebar-footer">
+    <div style="font-size:12px;color:#6b7280;text-align:center;padding:4px 0">
+      <span id="navUserName">N2Store</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Fixed Toggle Button -->
+<button class="sidebar-toggle-fixed" id="sidebarToggleFixed" title="Mở menu">
+  <i data-lucide="menu"></i>
+</button>
+
+<!-- SIDEBAR -->
+<nav id="local-sidebar">
+  <div class="sidebar-logo">
+    <div class="s-shop">👗 N2Store</div>
+    <div class="s-sub">Shop thời trang nữ online</div>
+  </div>
+  <div class="sidebar-label">Sơ đồ tổng quan</div>
+  <a class="nav-item" href="#overview" onclick="closeLocalSidebar()">
+    <span class="nav-dot" style="background:#6366f1"></span> Luồng tổng quan
+  </a>
+  <div class="sidebar-label">Các bộ phận</div>
+  <a class="nav-item" data-bp="1" href="#bp1" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP1 — Nhập hàng &amp; Làm mã
+  </a>
+  <a class="nav-item" data-bp="2" href="#bp2" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP2 — Live Sale
+  </a>
+  <a class="nav-item" data-bp="3" href="#bp3" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP3 — Trả hàng theo phiếu
+  </a>
+  <a class="nav-item" data-bp="4" href="#bp4" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP4 — Chốt đơn (Sale)
+  </a>
+  <a class="nav-item" data-bp="5" href="#bp5" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP5 — Đi chợ &amp; Đối soát
+  </a>
+  <a class="nav-item" data-bp="6" href="#bp6" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP6 — Đóng đơn &amp; Giao shipper
+  </a>
+  <a class="nav-item" data-bp="7" href="#bp7" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP7 — CSKH
+  </a>
+  <a class="nav-item" data-bp="8" href="#bp8" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> BP8 — Check IB
+  </a>
+</nav>
+
+<!-- MAIN -->
+<div id="layout">
+<main id="main">
+
+<!-- OVERVIEW FLOWCHART -->
+<section id="overview" class="overview-section" style="scroll-margin-top:80px">
+  <h2>📊 Sơ đồ luồng tổng quan</h2>
+  <div class="flow-grid">
+    <div class="flow-box" data-bp="1">
+      <span class="fb-num">1</span>
+      <span class="fb-icon">📦</span>
+      <div class="fb-title">Nhập hàng &amp; Làm mã</div>
+      <div class="fb-sub">Nhận, cân, phân loại, dán tem</div>
+    </div>
+    <div class="flow-box" data-bp="2">
+      <span class="fb-num">2</span>
+      <span class="fb-icon">📱</span>
+      <div class="fb-title">Live Sale</div>
+      <div class="fb-sub">Nhận oder, bấm phiếu, check CK</div>
+    </div>
+    <div class="flow-box" data-bp="3">
+      <span class="fb-num">3</span>
+      <span class="fb-icon">🛒</span>
+      <div class="fb-title">Trả hàng theo phiếu</div>
+      <div class="fb-sub">Trả hàng, đưa lên kệ STT</div>
+    </div>
+    <div class="flow-box" data-bp="4">
+      <span class="fb-num">4</span>
+      <span class="fb-icon">✅</span>
+      <div class="fb-title">Chốt đơn (Sale)</div>
+      <div class="fb-sub">Gộp đơn, xác nhận, ra bill</div>
+    </div>
+    <div class="flow-arrow-row">
+      <span>↓</span><span>↓</span><span>↓</span><span>↓</span>
+    </div>
+    <div class="flow-box" data-bp="5">
+      <span class="fb-num">5</span>
+      <span class="fb-icon">🏪</span>
+      <div class="fb-title">Đi chợ &amp; Đối soát</div>
+      <div class="fb-sub">Lấy hàng theo STT, kiểm tra mã</div>
+    </div>
+    <div class="flow-box" data-bp="6">
+      <span class="fb-num">6</span>
+      <span class="fb-icon">📫</span>
+      <div class="fb-title">Đóng đơn &amp; Giao shipper</div>
+      <div class="fb-sub">Đóng gói, quét mã, gọi ship</div>
+    </div>
+    <div class="flow-box" data-bp="7">
+      <span class="fb-num">7</span>
+      <span class="fb-icon">🎧</span>
+      <div class="fb-title">CSKH</div>
+      <div class="fb-sub">Xử lý bưu cục, hoàn hàng</div>
+    </div>
+    <div class="flow-box" data-bp="8">
+      <span class="fb-num">8</span>
+      <span class="fb-icon">💬</span>
+      <div class="fb-title">Check IB</div>
+      <div class="fb-sub">Bán ngoài live, đổi trả</div>
+    </div>
+  </div>
+</section>
+
+<!-- BP1: NHẬP HÀNG & LÀM MÃ -->
+<section id="bp1" class="bp-section" data-bp="1">
+  <div class="bp-header">
+    <span class="bp-icon">📦</span>
+    <div>
+      <div class="bp-title">Bộ phận 1 — Nhập hàng &amp; Làm mã</div>
+    </div>
+    <span class="bp-badge">7 bước</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="step">
+      <div class="step-badge">1</div>
+      <div class="step-content">
+        <div class="step-title">Nhận hàng &amp; Cân hàng</div>
+        <div class="step-body">
+          <ul>
+            <li>Khi hàng hóa được gửi về shop, bạn phụ trách nhận hàng sẽ <strong>cân cục hàng</strong> xem bao nhiêu ký.</li>
+            <li>Đưa số liệu <strong>CÂN NẶNG + HÌNH ẢNH CÂN NẶNG</strong> lên web của shop.</li>
+            <li>Sau khi cân xong mới đưa cục hàng vào trong khu làm hàng (khu làm mã).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">2</div>
+      <div class="step-content">
+        <div class="step-title">Khui hàng &amp; Phân loại theo nhà cung cấp</div>
+        <div class="step-body">
+          <ul>
+            <li>Khui cục hàng ra, bên trong sẽ có nhiều cục hàng nhỏ của nhiều nhà cung cấp khác nhau.</li>
+            <li>Phân chia hàng theo từng nhà cung cấp.</li>
+            <li>Đếm số lượng sản phẩm của từng nhà.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">3</div>
+      <div class="step-content">
+        <div class="step-title">Đối soát với bill nhà cung cấp</div>
+        <div class="step-body">
+          <ul>
+            <li>Bạn làm mã chính đối soát số lượng thực tế so với bill bên nhà cung cấp gửi.</li>
+            <li>Kiểm tra xem có khớp về: <strong>số lượng</strong>, <strong>sản phẩm</strong>, <strong>giá nhập</strong> hay không.</li>
+          </ul>
+          <div class="callout danger">
+            <span class="callout-icon">⚠️</span>
+            <div class="callout-body"><strong>Lưu ý quan trọng</strong>Nếu có sai lệch phải xử lý với nhà cung cấp trước khi tiếp tục các bước sau.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">4</div>
+      <div class="step-content">
+        <div class="step-title">Nhập sản phẩm lên web shop</div>
+        <div class="step-body">
+          <ul>
+            <li>Nhập đầy đủ thông tin: <strong>tên sản phẩm + giá bán + giá nhập + số lượng + hình ảnh sản phẩm</strong> vào web của shop.</li>
+            <li>Sau khi nhập xong <strong>xuất excel</strong> từ web.</li>
+            <li>Vào <code>Tpos</code> để mua hàng (tức là mua sản phẩm để in ra tem mã vạch cho sản phẩm đó).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">5</div>
+      <div class="step-content">
+        <div class="step-title">Rút mẫu &amp; Dán tem mã</div>
+        <div class="step-body">
+          <ul>
+            <li>Tất cả sản phẩm mới về shop sẽ được <strong>rút 1 cái</strong> để ủi và làm mẫu live.</li>
+            <li>Khi tất cả sản phẩm đã được dán tem mã đầy đủ sẽ được đưa vào kệ.</li>
+          </ul>
+          <div class="callout warn">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body"><strong>Lưu ý</strong>Hàng đăng bài bán, hàng về để đi đơn trả khách thì <strong>không cần rút mẫu</strong> (tùy vào sản phẩm về là hàng mới để live hay hàng cũ về để trả hàng).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">6</div>
+      <div class="step-content">
+        <div class="step-title">Sắp xếp hàng vào kệ</div>
+        <div class="step-body">
+          <ul>
+            <li>Phân chia theo mục sản phẩm:</li>
+          </ul>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <span class="tag tag-info">👖 Quần → kệ quần</span>
+            <span class="tag tag-info">👕 Áo → kệ áo</span>
+            <span class="tag tag-info">👗 Set, đầm, v.v. → đúng khu vực</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">7</div>
+      <div class="step-content">
+        <div class="step-title">Đưa mẫu lên lầu (phòng live)</div>
+        <div class="step-body">
+          <ul>
+            <li>Sản phẩm được rút mẫu để ủi sẽ được đưa lên lầu.</li>
+            <li>Phân theo từng sào của khu vực sản phẩm đó.</li>
+            <li>Để mẫu live — khi xuống live sẽ lựa mẫu vào live.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BP2: LIVE SALE -->
+<section id="bp2" class="bp-section" data-bp="2">
+  <div class="bp-header">
+    <span class="bp-icon">📱</span>
+    <div>
+      <div class="bp-title">Bộ phận 2 — Live Sale</div>
+    </div>
+    <span class="bp-badge">5–6 nhân sự</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="callout info">
+      <span class="callout-icon">👥</span>
+      <div class="callout-body"><strong>Nhân sự khu vực live</strong>Tối thiểu 5–6 người, mục tiêu giảm bớt số lượng theo thời gian tối ưu quy trình.</div>
+    </div>
+
+    <!-- Personnel Diagram -->
+    <div class="personnel-diagram">
+      <div class="pd-title">Sơ đồ nhân sự live</div>
+      <div class="pd-groups">
+        <div class="pd-group inside">
+          <div class="pd-group-header">🎥 TRONG PHÒNG LIVE — 2 bạn</div>
+          <div class="pd-group-body">
+            <div class="pd-person inside">
+              <div class="pd-role">Bạn 1 — Cầm đồ cho mẫu</div>
+              <div class="pd-desc">Đứng trong phụ cầm đồ cho mẫu live</div>
+            </div>
+            <div class="pd-person inside">
+              <div class="pd-role">Bạn 2 — Nói phụ mẫu live</div>
+              <div class="pd-desc">Báo lại số ký và tên sản phẩm để khách dễ comment đặt hàng</div>
+            </div>
+          </div>
+        </div>
+        <div class="pd-group outside">
+          <div class="pd-group-header">🖥️ NGOÀI KHU VỰC LIVE — 3 bạn</div>
+          <div class="pd-group-body">
+            <div class="pd-person outside">
+              <div class="pd-role">Bạn 1 — Nhận oder</div>
+              <div class="pd-desc">Bấm phiếu khách đặt hàng + đặt hàng nhà cung cấp</div>
+            </div>
+            <div class="pd-person outside">
+              <div class="pd-role">Bạn 2 — Phân phiếu</div>
+              <div class="pd-desc">Phân phiếu theo sản phẩm, ghi tên + mã, báo live cọc 100k</div>
+            </div>
+            <div class="pd-person outside">
+              <div class="pd-role">Bạn 3 — Ngồi máy</div>
+              <div class="pd-desc">Check chuyển khoản + nhập giỏ hàng + xử lý khách mới</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+
+    <div class="subsection">
+      <div class="subsection-title">Chi tiết nhiệm vụ từng bạn ngoài khu vực live</div>
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp2)">1</div>
+        <div class="step-content">
+          <div class="step-title">Bạn 1 — Nhận oder (bấm phiếu + đặt hàng nhà cung cấp)</div>
+          <div class="step-body">
+            <ul>
+              <li>Bấm phiếu khách đặt hàng ra.</li>
+              <li>Đặt hàng sản phẩm với nhà cung cấp (nhận oder số lượng sản phẩm).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <hr class="step-divider">
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp2)">2</div>
+        <div class="step-content">
+          <div class="step-title">Bạn 2 — Phân phiếu</div>
+          <div class="step-body">
+            <ul>
+              <li>Phân phiếu theo từng sản phẩm.</li>
+              <li>Ghi tên + mã sản phẩm lên phiếu.</li>
+              <li>Báo lại trên live: <em>"Khách mới cọc trước 100k để shop giữ hàng"</em></li>
+              <li>Chuyền phiếu ra cho bạn ngồi máy.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <hr class="step-divider">
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp2)">3</div>
+        <div class="step-content">
+          <div class="step-title">Bạn 3 — Ngồi máy (check chuyển khoản + nhập giỏ hàng)</div>
+          <div class="step-body">
+            <ul>
+              <li><strong>Check khách báo chuyển khoản:</strong> vào web shop xem lịch sử biến động số dư, kiểm tra đúng số tiền khách chuyển chưa, sau đó nhắn báo khách ví dụ: <em>"Dạ đã nhận 100k ACB 23/2"</em></li>
+              <li><strong>Check khách boom</strong> (khách có lịch sử boom hàng).</li>
+              <li><strong>Nhập sản phẩm vào giỏ hàng của khách:</strong> Nhập mã sản phẩm (ví dụ: <code>N1234</code>) → Nhập STT của khách hàng trên phiếu → Nhập hết thì bấm <code>Update</code> là hoàn thành.</li>
+              <li><strong>Khách mới:</strong> nhắn tin báo khách chuyển khoản + nhập thông tin khách hàng vào hệ thống.</li>
+              <li><strong>Khách đã có thông tin và đã chuyển khoản:</strong> đưa ngược lại cho bạn phân phiếu để bỏ vào cục phiếu của mẫu đó.</li>
+            </ul>
+            <div class="callout danger">
+              <span class="callout-icon">🚫</span>
+              <div class="callout-body"><strong>Khách không cọc</strong>Gửi phiếu lại để báo trừ sản phẩm đó (khi nào khách chuyển khoản thì báo để đặt hàng lại). Hạn chế khách lạ đặt hàng sau live mà không có thông tin.</div>
+            </div>
+            <div class="callout tip">
+              <span class="callout-icon">✅</span>
+              <div class="callout-body"><strong>Sau khi nhập hết sản phẩm</strong>Đưa lại cọc phiếu cho bạn nhận oder để khi hàng về trả hàng theo từng phiếu của khách.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+    <div class="callout warn">
+      <span class="callout-icon">📢</span>
+      <div class="callout-body"><strong>Sau khi kết thúc live</strong>Có bạn xuống xin thông tin lại hoặc nhắc lại khách để khách chuyển khoản → tránh mất khách hoặc mất đơn hàng.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BP3: TRẢ HÀNG THEO PHIẾU -->
+<section id="bp3" class="bp-section" data-bp="3">
+  <div class="bp-header">
+    <span class="bp-icon">🛒</span>
+    <div>
+      <div class="bp-title">Bộ phận 3 — Trả hàng theo phiếu (Nhận oder)</div>
+    </div>
+    <span class="bp-badge">Nhận oder</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="callout info">
+      <span class="callout-icon">📅</span>
+      <div class="callout-body"><strong>Lịch làm việc thông thường</strong>Shop live <strong>2 ngày</strong>, làm đơn <strong>1 ngày</strong>.</div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">Quy trình trả hàng</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp3)">1</div>
+        <div class="step-content">
+          <div class="step-title">Nhận hàng từ bộ phận làm mã</div>
+          <div class="step-body">
+            <ul>
+              <li>Khi kết thúc buổi live, hàng về thì bên làm mã làm xong hoàn tất sản phẩm có mã.</li>
+              <li>Bạn nhận oder xuống và trả hàng theo từng mẫu, từng phiếu khách đặt.</li>
+              <li>Trả hàng hết phiếu thì dừng.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <hr class="step-divider">
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp3)">2</div>
+        <div class="step-content">
+          <div class="step-title">Xử lý khi hết hàng còn phiếu</div>
+          <div class="step-body">
+            <div class="callout danger">
+              <span class="callout-icon">⚠️</span>
+              <div class="callout-body"><strong>Hết hàng mà còn phiếu đặt</strong>Bắt buộc bạn nhận oder phải <strong>đặt lại số lượng đang còn thiếu</strong> để trả cho đủ.</div>
+            </div>
+            <div class="callout warn">
+              <span class="callout-icon">📞</span>
+              <div class="callout-body"><strong>Trường hợp hết hàng hoàn toàn</strong>Bạn nhận oder phải nhắn tin cho khách biết để <strong>hủy mẫu</strong> hoặc <strong>đổi màu</strong> nếu có.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <hr class="step-divider">
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp3)">3</div>
+        <div class="step-content">
+          <div class="step-title">Đưa hàng lên kệ theo STT — "ĐI CHỢ"</div>
+          <div class="step-body">
+            <ul>
+              <li>Khi sản phẩm đã có phiếu tên khách hàng → chuyển sang bước đi chợ.</li>
+              <li><strong>2 bạn phụ trách đi chợ:</strong> đưa hàng lên kệ theo đúng STT.</li>
+            </ul>
+            <div class="callout tip">
+              <span class="callout-icon">🗂️</span>
+              <div class="callout-body">Hàng trên kệ phải được sắp xếp đúng STT để bộ phận đi chợ có thể lấy nhanh và chính xác.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BP4: CHỐT ĐƠN -->
+<section id="bp4" class="bp-section" data-bp="4">
+  <div class="bp-header">
+    <span class="bp-icon">✅</span>
+    <div>
+      <div class="bp-title">Bộ phận 4 — Chốt đơn (Sale)</div>
+    </div>
+    <span class="bp-badge">3 bạn sale</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="subsection">
+      <div class="subsection-title">Quy trình chốt đơn</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp4)">1</div>
+        <div class="step-content">
+          <div class="step-title">Gộp đơn &amp; Đẩy tin nhắn</div>
+          <div class="step-body">
+            <ul>
+              <li>Vào web shop: gộp đơn xong.</li>
+              <li>Đẩy tin nhắn chốt đơn cho khách xác nhận.</li>
+              <li>Chia số đơn cho từng bạn sale → bạn sale nào làm số bao nhiêu chịu trách nhiệm với đơn đó.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <hr class="step-divider">
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp4)">2</div>
+        <div class="step-content">
+          <div class="step-title">Xử lý phản hồi khách</div>
+          <div class="step-body">
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+              <div style="background:var(--bp4-light);border-radius:var(--radius-sm);padding:12px;border-left:4px solid var(--bp4)">
+                <div style="font-weight:700;color:var(--bp4-dark);margin-bottom:6px">✅ Khách xác nhận OKI</div>
+                <ul style="padding-left:18px">
+                  <li>Gắn thẻ <span class="tag tag-ok">OK [tên bạn sale]</span></li>
+                  <li>Ra bill đi đơn</li>
+                  <li>Báo cho 2 bạn ở ngoài khu vực đi chợ vào lấy bill đi đơn đúng theo STT trên bill</li>
+                </ul>
+              </div>
+              <div style="background:#fffbeb;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #f59e0b">
+                <div style="font-weight:700;color:#92400e;margin-bottom:6px">⏳ Khách chưa OKI</div>
+                <ul style="padding-left:18px">
+                  <li>Gắn thẻ <span class="tag tag-warn">XỬ LÝ ĐƠN [tên bạn sale]</span></li>
+                  <li>Nhắn tin hối khách hoặc gọi để chốt đơn</li>
+                </ul>
+              </div>
+              <div style="background:var(--bp7-light);border-radius:var(--radius-sm);padding:12px;border-left:4px solid var(--bp7)">
+                <div style="font-weight:700;color:var(--bp7-dark);margin-bottom:6px">🚫 Khách không phản hồi sau nhiều lần liên hệ</div>
+                <ul style="padding-left:18px">
+                  <li>Bắt buộc <strong>xả đơn</strong></li>
+                  <li>Note boom khách đó trên <code>Tpos</code> (tránh khách boom lại vào live mới đặt hàng tiếp)</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <hr class="step-divider">
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp4)">3</div>
+        <div class="step-content">
+          <div class="step-title">Bàn giao đơn xử lý khi lên live tiếp</div>
+          <div class="step-body">
+            <div class="callout warn">
+              <span class="callout-icon">🔄</span>
+              <div class="callout-body"><strong>Khi tiếp tục lên live mà vẫn còn đơn xử lý</strong>Phải bàn giao lại cho bạn nhận trách nhiệm xử lý những đơn sau live để xử lý tiếp. Không được bỏ sót đơn.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BP5: ĐI CHỢ & ĐỐI SOÁT -->
+<section id="bp5" class="bp-section" data-bp="5">
+  <div class="bp-header">
+    <span class="bp-icon">🏪</span>
+    <div>
+      <div class="bp-title">Bộ phận 5 — Đi chợ &amp; Đối soát hàng</div>
+    </div>
+    <span class="bp-badge">2 bạn đi chợ</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="subsection">
+      <div class="subsection-title">Khu vực đi chợ — 2 bạn phụ trách</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp5)">1</div>
+        <div class="step-content">
+          <div class="step-title">Nhận bill &amp; Đi chợ</div>
+          <div class="step-body">
+            <ul>
+              <li>Nhận bill từ bạn sale.</li>
+              <li>Đi chợ theo đúng STT.</li>
+              <li>Check lại số lượng của kệ đó xem có khớp với STT không.</li>
+              <li>Bỏ bao đem vào trong tới khu đối soát sản phẩm trên <code>Tpos</code>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+
+    <div class="subsection">
+      <div class="subsection-title">Khu vực đối soát — Sơ đồ xử lý</div>
+
+      <!-- Decision Flowchart -->
+      <div class="flowchart">
+        <div class="fc-node"><div class="fc-rect">📦 Nhận bao hàng từ đi chợ</div></div>
+        <div class="fc-arrow">↓</div>
+        <div class="fc-node">
+          <div class="fc-diamond-wrap">
+            <div class="fc-diamond">Đơn đủ &amp; đúng mã sản phẩm?</div>
+          </div>
+        </div>
+        <div class="fc-arrow">↓</div>
+        <div class="fc-branches">
+          <div class="fc-branch">
+            <span class="fc-branch-label yes">✅ Đúng</span>
+            <div class="fc-arrow">↓</div>
+            <div class="fc-end">→ Khu gói hàng</div>
+          </div>
+          <div class="fc-branch">
+            <span class="fc-branch-label no">❌ Sai mã</span>
+            <div class="fc-arrow">↓</div>
+            <div class="fc-node">
+              <div class="fc-diamond-wrap">
+                <div class="fc-diamond">Bạn đi chợ lấy đúng STT?</div>
+              </div>
+            </div>
+            <div class="fc-arrow">↓</div>
+            <div class="fc-branches" style="gap:16px">
+              <div class="fc-branch">
+                <span class="fc-branch-label yes">✅ Đúng STT</span>
+                <div class="fc-arrow">↓</div>
+                <div style="background:#fef9c3;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:11px;font-weight:600;color:#92400e;text-align:center;max-width:160px">Báo bạn làm đơn STT đó kiểm tra sai mã → sửa lại</div>
+              </div>
+              <div class="fc-branch">
+                <span class="fc-branch-label no">❌ Sai STT</span>
+                <div class="fc-arrow">↓</div>
+                <div style="background:#fee2e2;border:1px solid #ef4444;border-radius:6px;padding:8px 12px;font-size:11px;font-weight:600;color:#991b1b;text-align:center;max-width:160px">Báo bạn đi chợ check lại hàng trên kệ có bị lấy nhầm sản phẩm của STT khách không</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- BP6: ĐÓNG ĐƠN & GIAO SHIPPER -->
+<section id="bp6" class="bp-section" data-bp="6">
+  <div class="bp-header">
+    <span class="bp-icon">📫</span>
+    <div>
+      <div class="bp-title">Bộ phận 6 — Đóng đơn &amp; Giao shipper</div>
+    </div>
+    <span class="bp-badge">3 bước</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="step">
+      <div class="step-badge" style="background:var(--bp6)">1</div>
+      <div class="step-content">
+        <div class="step-title">Đóng gói</div>
+        <div class="step-body">
+          <ul>
+            <li>Nhận bao hàng đã được đối soát thành công.</li>
+            <li>Kiểm tra lại số lượng thực tế xem có khớp với trên bill không.</li>
+            <li>Đóng vào bao và <strong>dán bill niêm yết bao hàng lại</strong>.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge" style="background:var(--bp6)">2</div>
+      <div class="step-content">
+        <div class="step-title">Phân đơn theo khu vực</div>
+        <div class="step-body">
+          <ul>
+            <li>Phân đơn theo: <span class="tag tag-info">🏙️ THÀNH PHỐ</span> và <span class="tag tag-info">🗺️ TỈNH</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge" style="background:var(--bp6)">3</div>
+      <div class="step-content">
+        <div class="step-title">Xuất excel &amp; Quét mã vận đơn</div>
+        <div class="step-body">
+          <ul>
+            <li>Vào <code>Tpos</code> xuất excel theo từng khu vực.</li>
+            <li>Highlight lên để quét mã vận đơn.</li>
+          </ul>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+            <div style="background:var(--bp6-light);border-radius:var(--radius-sm);padding:10px 14px;border-left:3px solid var(--bp6)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp6-dark);margin-bottom:4px">📋 Đơn không có trong excel</div>
+              <p style="font-size:12px">Để riêng ra và đưa lại vào trong cho bạn làm đơn đó.</p>
+            </div>
+            <div style="background:var(--bp6-light);border-radius:var(--radius-sm);padding:10px 14px;border-left:3px solid var(--bp6)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp6-dark);margin-bottom:4px">🔍 Tích đơn xong hết mà thiếu đơn</div>
+              <p style="font-size:12px">Vào trong báo các bạn check lại tại sao không thấy đơn:</p>
+              <ul style="font-size:12px;padding-left:16px;margin-top:4px">
+                <li>Nếu đơn có vấn đề: báo xóa bill.</li>
+                <li>Đơn chưa đóng vào bao: đóng đơn rồi đưa ra ngoài.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="callout tip">
+            <span class="callout-icon">🚚</span>
+            <div class="callout-body"><strong>Khi đã đủ đơn</strong>Gọi ship qua lấy hàng.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BP7: CSKH -->
+<section id="bp7" class="bp-section" data-bp="7">
+  <div class="bp-header">
+    <span class="bp-icon">🎧</span>
+    <div>
+      <div class="bp-title">Bộ phận 7 — CSKH (Chăm sóc khách hàng — Xử lý đơn bưu cục &amp; ship)</div>
+    </div>
+    <span class="bp-badge">Trực liên tục</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="callout info">
+      <span class="callout-icon">🎯</span>
+      <div class="callout-body"><strong>Nhiệm vụ chính</strong>Ngồi trực để liên hệ và xử lý những đơn ở bưu cục và bên ship khi khách liên hệ và giao hàng được cho khách.</div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">Xử lý đơn tại bưu cục</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp7)">1</div>
+        <div class="step-content">
+          <div class="step-title">Theo dõi &amp; xử lý đơn tại bưu cục</div>
+          <div class="step-body">
+            <ul>
+              <li>Khi đơn hàng đang ở bưu cục gặp vấn đề (khách không nhận, không liên lạc được, v.v.), bạn CSKH phải <strong>chủ động liên hệ bưu cục</strong> để nắm tình trạng đơn.</li>
+              <li>Phối hợp với bưu cục để hỗ trợ giao lại hoặc xử lý theo từng trường hợp cụ thể.</li>
+              <li>Theo dõi và cập nhật trạng thái đơn liên tục cho đến khi đơn được giao thành công hoặc xác nhận hoàn.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+
+    <div class="subsection">
+      <div class="subsection-title">Xử lý đơn cần hoàn</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp7)">2</div>
+        <div class="step-content">
+          <div class="step-title">Nhập thông tin &amp; xử lý hoàn</div>
+          <div class="step-body">
+            <ul>
+              <li>Đối với những đơn liên hệ nhiều lần hoặc không thể liên hệ được khách, <strong>bắt buộc phải hoàn</strong>.</li>
+              <li>Bạn CSKH nhập vào web thông tin khách + đơn hàng để chuẩn bị nhận hoàn.</li>
+              <li>Khi hàng hoàn về: nhập nhận trả hàng là xong → toàn bộ hóa đơn có những sản phẩm đó được hoàn trả lại vào kho sản phẩm + <strong>khách được lưu boom</strong>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+
+    <div class="subsection">
+      <div class="subsection-title">Nhận hàng hoàn từ shipper</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp7)">3</div>
+        <div class="step-content">
+          <div class="step-title">Kiểm tra &amp; nhận hàng hoàn</div>
+          <div class="step-body">
+            <ul>
+              <li>Khi bên ship mang hàng hoàn về shop: bạn nhận đủ số đơn, kiểm tra khớp với tờ giấy hàng hoàn ship đưa không.</li>
+              <li>Sau đó đưa vào trong cho bạn bên bộ phận CSKH trả hàng hoàn.</li>
+              <li>Khi đã trả hàng hoàn xong: check lại số tiền và <strong>báo lên group là nhận đủ hàng trong giấy hoàn đơn</strong>.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+
+    <div class="subsection">
+      <div class="subsection-title">Xử lý hàng hoàn sau khi trả xong</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp7)">4</div>
+        <div class="step-content">
+          <div class="step-title">Đưa hàng hoàn lên phòng live</div>
+          <div class="step-body">
+            <ul>
+              <li>Hàng hoàn khi được trả xong sẽ đưa lên phòng live.</li>
+              <li>Có bạn chuyên về hàng boom / hàng hoàn:</li>
+            </ul>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:10px">
+              <div style="background:var(--bp7-light);border-radius:var(--radius-sm);padding:10px;text-align:center;border:1px solid #fca5a5">
+                <div style="font-size:20px;margin-bottom:4px">🪝</div>
+                <div style="font-size:12px;font-weight:600;color:var(--bp7-dark)">Lấy ra móc mẫu lại lên</div>
+              </div>
+              <div style="background:var(--bp7-light);border-radius:var(--radius-sm);padding:10px;text-align:center;border:1px solid #fca5a5">
+                <div style="font-size:20px;margin-bottom:4px">🔀</div>
+                <div style="font-size:12px;font-weight:600;color:var(--bp7-dark)">Xào hàng lẻ</div>
+              </div>
+              <div style="background:var(--bp7-light);border-radius:var(--radius-sm);padding:10px;text-align:center;border:1px solid #fca5a5">
+                <div style="font-size:20px;margin-bottom:4px">🏷️</div>
+                <div style="font-size:12px;font-weight:600;color:var(--bp7-dark)">Note ký hiệu <code>SL</code> nếu có số lượng</div>
+              </div>
+              <div style="background:var(--bp7-light);border-radius:var(--radius-sm);padding:10px;text-align:center;border:1px solid #fca5a5">
+                <div style="font-size:20px;margin-bottom:4px">📦</div>
+                <div style="font-size:12px;font-weight:600;color:var(--bp7-dark)">Hàng có SL: để lên kệ trong phòng live</div>
+              </div>
+            </div>
+            <div class="callout tip">
+              <span class="callout-icon">💡</span>
+              <div class="callout-body">Khi live sale cũng biết <code>SL</code> mà báo khách — giúp tăng tỷ lệ chốt đơn cho hàng hoàn.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- BP8: CHECK IB -->
+<section id="bp8" class="bp-section" data-bp="8">
+  <div class="bp-header">
+    <span class="bp-icon">💬</span>
+    <div>
+      <div class="bp-title">Bộ phận 8 — Check IB (Tin nhắn — Bán ngoài live)</div>
+    </div>
+    <span class="bp-badge">IB &amp; Đổi trả</span>
+  </div>
+  <div class="bp-body">
+
+    <div class="callout info">
+      <span class="callout-icon">🎯</span>
+      <div class="callout-body"><strong>Nhiệm vụ chính</strong>Bán những sản phẩm đăng bài hoặc nhận sản phẩm trên live sau khi đã tắt live (khách coi lại và vào IB để hỏi hàng). Hỗ trợ khách khi nhận đơn về có vấn đề cần xử lý.</div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-title">Xử lý đơn hàng đăng bài (hàng oder)</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp8)">1</div>
+        <div class="step-content">
+          <div class="step-title">Nhận oder &amp; Gắn thẻ chờ</div>
+          <div class="step-body">
+            <ul>
+              <li>Nhận oder và báo khách chờ <strong>1–2 ngày</strong>.</li>
+              <li>Vào web nhập thông tin khách hàng.</li>
+              <li>Gắn thẻ chờ sản phẩm: <span class="tag tag-info">"TÊN SẢN PHẨM KHÁCH ĐẶT"</span></li>
+              <li>Khi hàng về: vào thẻ chờ món đó và <strong>ra đơn đồng loạt</strong> để đi đơn (gắn thẻ dành cho hàng oder).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+
+    <div class="subsection">
+      <div class="subsection-title">Xử lý đơn hàng có sẵn</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp8)">2</div>
+        <div class="step-content">
+          <div class="step-title">Đi đơn ngay</div>
+          <div class="step-body">
+            <ul>
+              <li>Note tên khách lên trên bao sản phẩm đó.</li>
+              <li>Đi đơn luôn.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="step-divider">
+
+    <div class="subsection">
+      <div class="subsection-title">Hỗ trợ đổi trả</div>
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp8)">3</div>
+        <div class="step-content">
+          <div class="step-title">Xử lý đổi size / lỗi sản phẩm</div>
+          <div class="step-body">
+            <p>Khách nhận hàng về có vấn đề bị lỗi hoặc muốn đổi size (chật / rộng):</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+              <div style="background:var(--bp8-light);border-radius:var(--radius-sm);padding:12px;border:2px solid var(--bp8)">
+                <div style="font-size:16px;margin-bottom:6px">🏙️</div>
+                <div style="font-weight:700;font-size:12px;color:var(--bp8-dark);margin-bottom:4px">Khách ở TP</div>
+                <p style="font-size:12px">Đi đơn <strong>thu về</strong> (shop gửi hàng mới, thu hàng cũ).</p>
+              </div>
+              <div style="background:var(--bp8-light);border-radius:var(--radius-sm);padding:12px;border:2px solid var(--bp8)">
+                <div style="font-size:16px;margin-bottom:6px">🗺️</div>
+                <div style="font-weight:700;font-size:12px;color:var(--bp8-dark);margin-bottom:4px">Khách ở tỉnh</div>
+                <p style="font-size:12px">Khách <strong>gửi sản phẩm cần đổi lên shop</strong>, nhận được sẽ trừ tiền sau.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+// ===== LOCAL SIDEBAR TOGGLE =====
+function toggleLocalSidebar() {
+  const sidebar = document.getElementById('local-sidebar');
+  const overlay = document.getElementById('local-overlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('open');
+}
+function closeLocalSidebar() {
+  if (window.innerWidth <= 768) {
+    document.getElementById('local-sidebar').classList.remove('open');
+    document.getElementById('local-overlay').classList.remove('open');
+  }
+}
+
+// ===== ACTIVE SECTION HIGHLIGHT =====
+const sections = document.querySelectorAll('.bp-section[id], #overview');
+const navItems = document.querySelectorAll('.nav-item[href]');
+
+function getActiveSection() {
+  const scrollY = window.scrollY + 80;
+  let active = null;
+  sections.forEach(sec => {
+    if (sec.offsetTop <= scrollY) active = sec.id;
+  });
+  return active;
+}
+
+function updateActiveNav() {
+  const activeId = getActiveSection();
+  navItems.forEach(item => {
+    const href = item.getAttribute('href').replace('#', '');
+    item.classList.toggle('active', href === activeId);
+  });
+}
+
+window.addEventListener('scroll', updateActiveNav, { passive: true });
+updateActiveNav();
+
+// ===== SMOOTH SCROLL =====
+navItems.forEach(item => {
+  item.addEventListener('click', function(e) {
+    const href = this.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      e.preventDefault();
+      const target = document.querySelector(href);
+      if (target) {
+        const offset = 72;
+        const top = target.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    }
+  });
+});
+
+// ===== NAVIGATION MODERN SIDEBAR TOGGLE =====
+const navSidebar = document.getElementById('sidebar');
+const navToggleBtn = document.getElementById('sidebarToggle');
+const navToggleFixed = document.getElementById('sidebarToggleFixed');
+
+function isNavCollapsed() {
+  return navSidebar.classList.contains('collapsed') || 
+         (window.innerWidth <= 1024 && !navSidebar.classList.contains('open'));
+}
+
+function toggleNavSidebar() {
+  if (window.innerWidth <= 1024) {
+    navSidebar.classList.toggle('open');
+    navToggleFixed.classList.toggle('sidebar-open', navSidebar.classList.contains('open'));
+  } else {
+    const collapsed = navSidebar.classList.toggle('collapsed');
+    document.body.classList.toggle('nav-collapsed', collapsed);
+    navToggleFixed.classList.toggle('visible', collapsed);
+  }
+}
+
+if (navToggleBtn) navToggleBtn.addEventListener('click', toggleNavSidebar);
+if (navToggleFixed) navToggleFixed.addEventListener('click', toggleNavSidebar);
+
+// Init nav state on desktop
+if (window.innerWidth > 1024) {
+  document.body.classList.add('nav-ready');
+  navToggleFixed.classList.remove('visible');
+}
+</script>
+</body>
+</html>

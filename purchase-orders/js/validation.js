@@ -577,6 +577,135 @@ function clearAllValidation(form) {
 }
 
 // ========================================
+// DEFAULT VALIDATION SETTINGS
+// ========================================
+const DEFAULT_VALIDATION_SETTINGS = {
+    // Price limits (units of 1000 VND; 0 = no limit)
+    minPurchasePrice: 0,
+    maxPurchasePrice: 0,
+    minSellingPrice: 0,
+    maxSellingPrice: 0,
+    minMargin: 0,
+
+    // Boolean rules (all default to true = enabled)
+    enableRequireProductName: true,
+    enableRequireProductCode: true,
+    enableRequireProductImages: true,
+    enableRequirePositivePurchasePrice: true,
+    enableRequirePositiveSellingPrice: true,
+    enableRequireSellingGreaterThanPurchase: true,
+    enableRequireAtLeastOneItem: true,
+
+    // Auto-generate product code
+    autoGenerateCode: true
+};
+
+// ========================================
+// SETTINGS-AWARE VALIDATION FUNCTIONS
+// ========================================
+
+/**
+ * Validate item prices against configurable settings
+ * Settings use units of 1000 VND (user enters 50 → means 50,000đ)
+ * Item prices are in actual VND
+ * @param {number} purchasePrice - Purchase price in VND
+ * @param {number} sellingPrice - Selling price in VND
+ * @param {number} itemNumber - 1-based item index
+ * @param {Object} settings - ValidationSettings
+ * @returns {string[]} Array of error messages
+ */
+function validatePriceSettings(purchasePrice, sellingPrice, itemNumber, settings) {
+    const errors = [];
+    const fmt = window.PurchaseOrderConfig?.formatVND || ((v) => v + ' đ');
+
+    // Min purchase price
+    if (settings.minPurchasePrice > 0 && purchasePrice < settings.minPurchasePrice * 1000) {
+        errors.push(`Dòng ${itemNumber}: Giá mua (${fmt(purchasePrice)}) thấp hơn tối thiểu (${fmt(settings.minPurchasePrice * 1000)})`);
+    }
+    // Max purchase price
+    if (settings.maxPurchasePrice > 0 && purchasePrice > settings.maxPurchasePrice * 1000) {
+        errors.push(`Dòng ${itemNumber}: Giá mua (${fmt(purchasePrice)}) vượt quá tối đa (${fmt(settings.maxPurchasePrice * 1000)})`);
+    }
+    // Min selling price
+    if (settings.minSellingPrice > 0 && sellingPrice < settings.minSellingPrice * 1000) {
+        errors.push(`Dòng ${itemNumber}: Giá bán (${fmt(sellingPrice)}) thấp hơn tối thiểu (${fmt(settings.minSellingPrice * 1000)})`);
+    }
+    // Max selling price
+    if (settings.maxSellingPrice > 0 && sellingPrice > settings.maxSellingPrice * 1000) {
+        errors.push(`Dòng ${itemNumber}: Giá bán (${fmt(sellingPrice)}) vượt quá tối đa (${fmt(settings.maxSellingPrice * 1000)})`);
+    }
+    // Min margin (selling - purchase)
+    if (settings.minMargin > 0) {
+        const margin = sellingPrice - purchasePrice;
+        if (margin < settings.minMargin * 1000) {
+            errors.push(`Dòng ${itemNumber}: Chênh lệch (${fmt(margin)}) thấp hơn mức tối thiểu (${fmt(settings.minMargin * 1000)})`);
+        }
+    }
+
+    return errors;
+}
+
+/**
+ * Validate items against 7 configurable rules
+ * @param {Array} items - Form items
+ * @param {Object} settings - ValidationSettings
+ * @returns {Object} { isValid: boolean, invalidFields: string[] }
+ */
+function validateItemsWithSettings(items, settings) {
+    const invalidFields = [];
+    const fmt = window.PurchaseOrderConfig?.formatVND || ((v) => v + ' đ');
+
+    // Rule 1: At least one item
+    if (settings.enableRequireAtLeastOneItem) {
+        const nonEmptyItems = (items || []).filter(i => i.productName && i.productName.trim());
+        if (nonEmptyItems.length === 0) {
+            invalidFields.push('Phải có ít nhất 1 sản phẩm');
+        }
+    }
+
+    if (items && items.length > 0) {
+        items.forEach((item, index) => {
+            // Skip empty rows
+            if (!item.productName || !item.productName.trim()) return;
+
+            const num = index + 1;
+            const purchasePrice = parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0;
+            const sellingPrice = parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0;
+
+            // Rule 2: Product name
+            if (settings.enableRequireProductName && (!item.productName || !item.productName.trim())) {
+                invalidFields.push(`Dòng ${num}: Thiếu tên sản phẩm`);
+            }
+            // Rule 3: Product code
+            if (settings.enableRequireProductCode && (!item.productCode || !item.productCode.trim())) {
+                invalidFields.push(`Dòng ${num}: Thiếu mã sản phẩm`);
+            }
+            // Rule 4: Purchase price > 0
+            if (settings.enableRequirePositivePurchasePrice && purchasePrice <= 0) {
+                invalidFields.push(`Dòng ${num}: Giá mua phải > 0`);
+            }
+            // Rule 5: Selling price > 0
+            if (settings.enableRequirePositiveSellingPrice && sellingPrice <= 0) {
+                invalidFields.push(`Dòng ${num}: Giá bán phải > 0`);
+            }
+            // Rule 6: Selling > Purchase
+            if (settings.enableRequireSellingGreaterThanPurchase && sellingPrice > 0 && purchasePrice > 0 && sellingPrice <= purchasePrice) {
+                invalidFields.push(`Dòng ${num}: Giá bán (${fmt(sellingPrice)}) phải lớn hơn giá mua (${fmt(purchasePrice)})`);
+            }
+            // Rule 7: Product images
+            if (settings.enableRequireProductImages && (!item.productImages || item.productImages.length === 0)) {
+                invalidFields.push(`Dòng ${num}: Thiếu hình ảnh sản phẩm`);
+            }
+        });
+    }
+
+    return {
+        isValid: invalidFields.length === 0,
+        invalidFields
+    };
+}
+
+// ========================================
 // EXPORT TO GLOBAL SCOPE
 // ========================================
 window.PurchaseOrderValidation = {
@@ -599,6 +728,11 @@ window.PurchaseOrderValidation = {
     validateStatusTransition,
     validateCanEdit,
     validateCanDelete,
+
+    // Settings-aware validation
+    DEFAULT_VALIDATION_SETTINGS,
+    validatePriceSettings,
+    validateItemsWithSettings,
 
     // UI Helpers
     displayValidationErrors,

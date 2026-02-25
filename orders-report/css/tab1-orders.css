@@ -1194,14 +1194,15 @@ body {
     }
 }
 
-/* ===== SEARCH BOX STYLES ===== */
+/* ===== SEARCH BOX STYLES - Compact ===== */
 .search-section {
     background: white;
-    padding: 16px;
+    padding: 12px 16px;
     border-radius: 8px;
-    margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     display: none;
+    border: 1px solid #e5e7eb;
 }
 
 .search-section.active {
@@ -1210,22 +1211,25 @@ body {
 
 .search-wrapper {
     position: relative;
-    max-width: 600px;
+    max-width: 280px;
+    min-width: 200px;
 }
 
 .search-input {
     width: 100%;
-    padding: 12px 48px 12px 42px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 14px;
+    padding: 8px 36px 8px 36px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
     transition: all 0.2s;
+    background: #f9fafb;
 }
 
 .search-input:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    background: white;
 }
 
 .search-input::placeholder {
@@ -1234,23 +1238,23 @@ body {
 
 .search-icon {
     position: absolute;
-    left: 14px;
+    left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #6b7280;
-    font-size: 16px;
+    color: #9ca3af;
+    font-size: 14px;
 }
 
 .search-clear {
     position: absolute;
-    right: 12px;
+    right: 8px;
     top: 50%;
     transform: translateY(-50%);
     background: none;
     border: none;
     color: #9ca3af;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 4px;
     border-radius: 4px;
     transition: all 0.2s;
     display: none;
@@ -1261,13 +1265,13 @@ body {
 }
 
 .search-clear:hover {
-    background: #f3f4f6;
-    color: #374151;
+    background: #fee2e2;
+    color: #ef4444;
 }
 
 .search-info {
     margin-top: 8px;
-    font-size: 13px;
+    font-size: 12px;
     color: #6b7280;
     display: flex;
     justify-content: space-between;
@@ -1277,11 +1281,28 @@ body {
 .search-result-count {
     font-weight: 600;
     color: #3b82f6;
+    font-size: 13px;
 }
 
 .search-tips {
-    font-size: 12px;
+    font-size: 11px;
     color: #9ca3af;
+}
+
+/* Search filter select - compact */
+.search-filter-select {
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #f9fafb;
+    cursor: pointer;
+    min-width: 90px;
+}
+
+.search-filter-select:focus {
+    outline: none;
+    border-color: #3b82f6;
 }
 
 /* Highlight search results */
@@ -3649,6 +3670,94 @@ button[onclick*="showAddProductForm"] {
     opacity: 0.5;
     cursor: not-allowed;
     transform: none;
+}
+
+/* Fast Sale Status Message */
+.fast-sale-status-message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    width: 100%;
+    animation: slideInUp 0.2s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fast-sale-status-message i {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.fast-sale-status-message span {
+    flex: 1;
+}
+
+/* Info variant (blue) - general information */
+.fast-sale-status-message.info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+}
+
+.fast-sale-status-message.info i {
+    color: #3b82f6;
+}
+
+/* Warning variant (amber) - user action needed */
+.fast-sale-status-message.warning {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+}
+
+.fast-sale-status-message.warning i {
+    color: #f59e0b;
+}
+
+/* Error variant (red) - critical issues */
+.fast-sale-status-message.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+
+.fast-sale-status-message.error i {
+    color: #ef4444;
+}
+
+/* Success variant (green) - ready to submit */
+.fast-sale-status-message.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+.fast-sale-status-message.success i {
+    color: #22c55e;
+}
+
+/* Loading variant (processing) */
+.fast-sale-status-message.loading {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    color: #4b5563;
+}
+
+.fast-sale-status-message.loading i {
+    color: #6b7280;
 }
 
 /* Cluster Card */
@@ -6495,4 +6604,145 @@ td[data-column].hidden {
     color: #dc2626;
     font-size: 13px;
     line-height: 1.5;
+}
+
+/* Invoice Status Column Styles */
+.invoice-status-cell {
+    min-width: 180px;
+}
+
+.state-code-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.state-code-badge.badge-empty {
+    background: #e0f2fe;
+}
+
+.btn-send-bill-messenger {
+    transition: all 0.2s ease;
+}
+
+.btn-send-bill-messenger:hover {
+    background: #006acc !important;
+    transform: scale(1.05);
+}
+
+.btn-send-bill-messenger:disabled {
+    background: #9ca3af !important;
+    cursor: not-allowed;
+}
+
+.bill-sent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+
+/* StateCode color classes */
+.text-info-lt { color: #17a2b8; }
+.text-warning-dk { color: #e67e22; }
+.text-danger { color: #dc3545; }
+.text-danger-dker { color: #c0392b; }
+.text-success-dk { color: #27ae60; }
+.text-secondary { color: #6c757d; }
+
+/* =====================================================
+   FIXED ACTION BUTTONS SECTION - Compact & Fixed at top
+   Hiển thị khi chọn checkbox và fixed khi scroll
+   ===================================================== */
+.action-buttons-section {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Add padding to body when action bar is visible */
+body.action-bar-visible {
+    padding-top: 48px;
+}
+
+/* Selected Count Text */
+.selected-count-text {
+    color: #4338ca;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 4px 10px;
+    background: #e0e7ff;
+    border-radius: 12px;
+}
+
+/* Deselect All Button - Compact */
+.btn-deselect-all {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: #fee2e2;
+    color: #dc2626;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.btn-deselect-all:hover {
+    background: #fecaca;
+    transform: scale(1.05);
+}
+
+/* Compact Action Buttons */
+.btn-action-compact {
+    padding: 6px 14px;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.btn-action-compact:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.btn-action-message {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.btn-action-message:hover {
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.btn-action-sale {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.btn-action-sale:hover {
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }

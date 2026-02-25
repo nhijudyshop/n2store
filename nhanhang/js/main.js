@@ -18,13 +18,26 @@ function applyFiltersToData(dataArray) {
     const filterUser = filterUserSelect.value;
     const filterDate = dateFilterSelect.value;
 
-    console.log("=== FILTER DEBUG ===");
-    console.log("Filter settings:", {
-        filterUser,
-        filterDate,
-        customDateRange,
-    });
-    console.log("Total records:", dataArray.length);
+    // Helper: chuyển Date thành "YYYY-MM-DD" string - so sánh chuỗi tránh mọi vấn đề timezone
+    function toDateStr(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    }
+
+    // Tính các mốc ngày theo giờ Việt Nam
+    const vnNow = getVietnamDate();
+    const vnY = vnNow.getFullYear(), vnM = vnNow.getMonth(), vnD = vnNow.getDate();
+
+    const todayStr     = toDateStr(new Date(vnY, vnM, vnD));
+    const yesterdayStr = toDateStr(new Date(vnY, vnM, vnD - 1));
+
+    const dayOfWeek    = vnNow.getDay(); // 0=CN
+    const daysToMon    = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const mondayStr    = toDateStr(new Date(vnY, vnM, vnD - daysToMon));
+    const sundayStr    = toDateStr(new Date(vnY, vnM, vnD - daysToMon + 6));
+    const monthAgoStr  = toDateStr(new Date(vnY, vnM - 1, vnD));
 
     return dataArray.filter((receipt) => {
         const matchUser =
@@ -34,82 +47,31 @@ function applyFiltersToData(dataArray) {
         if (filterDate !== "all") {
             const receiptDate = parseVietnameseDate(receipt.thoiGianNhan);
 
-            // DEBUG: Log first 3 records
-            if (dataArray.indexOf(receipt) < 3) {
-                console.log("Receipt:", {
-                    tenNguoiNhan: receipt.tenNguoiNhan,
-                    thoiGianNhan: receipt.thoiGianNhan,
-                    parsedDate: receiptDate,
-                    dateType: receiptDate
-                        ? receiptDate.constructor.name
-                        : "null",
-                });
-            }
-
-            if (receiptDate) {
-                const today = new Date();
-                const todayStart = new Date(
-                    today.getFullYear(),
-                    today.getMonth(),
-                    today.getDate(),
-                );
+            if (!receiptDate) {
+                // Không parse được ngày → không khớp bộ lọc ngày
+                matchDate = false;
+            } else {
+                // So sánh chuỗi YYYY-MM-DD: không bị ảnh hưởng timezone
+                const receiptStr = toDateStr(receiptDate);
 
                 if (filterDate === "today") {
-                    const receiptDateStart = new Date(
-                        receiptDate.getFullYear(),
-                        receiptDate.getMonth(),
-                        receiptDate.getDate(),
-                    );
-                    matchDate =
-                        receiptDateStart.getTime() === todayStart.getTime();
+                    matchDate = receiptStr === todayStr;
                 } else if (filterDate === "yesterday") {
-                    const yesterday = new Date(
-                        todayStart.getTime() - 24 * 60 * 60 * 1000,
-                    );
-                    const receiptDateStart = new Date(
-                        receiptDate.getFullYear(),
-                        receiptDate.getMonth(),
-                        receiptDate.getDate(),
-                    );
-                    matchDate =
-                        receiptDateStart.getTime() === yesterday.getTime();
+                    matchDate = receiptStr === yesterdayStr;
                 } else if (filterDate === "week") {
-                    const vnNow = getVietnamDate();
-                    const dayOfWeek = vnNow.getDay();
-
-                    // Tính từ Thứ 2 đến Chủ nhật
-                    const monday = new Date(today);
-                    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                    monday.setDate(monday.getDate() - daysToMonday);
-
-                    const sunday = new Date(monday);
-                    sunday.setDate(sunday.getDate() + 6);
-                    sunday.setHours(23, 59, 59, 999);
-
-                    matchDate = receiptDate >= monday && receiptDate <= sunday;
+                    matchDate = receiptStr >= mondayStr && receiptStr <= sundayStr;
                 } else if (filterDate === "month") {
-                    const monthAgo = new Date(
-                        todayStart.getFullYear(),
-                        todayStart.getMonth() - 1,
-                        todayStart.getDate(),
-                    );
-                    matchDate = receiptDate >= monthAgo;
+                    matchDate = receiptStr >= monthAgoStr;
                 } else if (
                     filterDate === "custom" &&
                     customDateRange.start &&
                     customDateRange.end
                 ) {
-                    const receiptDateStart = new Date(
-                        receiptDate.getFullYear(),
-                        receiptDate.getMonth(),
-                        receiptDate.getDate(),
-                    );
-                    const startDate = new Date(customDateRange.start);
-                    const endDate = new Date(customDateRange.end);
-                    endDate.setHours(23, 59, 59, 999); // Include end date fully
+                    // customDateRange.start/end là "YYYY-MM-DD" từ input type="date"
+                    // So sánh chuỗi trực tiếp - chính xác 100%
                     matchDate =
-                        receiptDateStart >= startDate &&
-                        receiptDateStart <= endDate;
+                        receiptStr >= customDateRange.start &&
+                        receiptStr <= customDateRange.end;
                 }
             }
         }
@@ -301,10 +263,9 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
     actionContainer.appendChild(deleteButton);
     cellActions.appendChild(actionContainer);
 
-    // Apply permissions
-    const auth = getAuthState();
-    if (auth) {
-        applyRowPermissions(tr, [], deleteButton, parseInt(auth.checkLogin));
+    // Apply permissions via detailedPermissions
+    if (!PermissionHelper.hasPermission('nhanhang', 'cancel')) {
+        deleteButton.style.display = "none";
     }
 
     // Append all cells
@@ -427,7 +388,8 @@ function renderDataToTable(dataArray) {
 }
 
 function applyRowPermissions(row, inputs, button, userRole) {
-    if (userRole !== 0) {
+    // Legacy function kept for compatibility - now uses PermissionHelper
+    if (!PermissionHelper.hasPermission('nhanhang', 'cancel')) {
         inputs.forEach((input) => (input.disabled = true));
         button.style.display = "none";
     } else {
@@ -483,6 +445,39 @@ function toggleDateRangeInputs() {
     }
 }
 
+/**
+ * Parse dd/mm/yyyy string to YYYY-MM-DD string
+ * Returns null if invalid
+ */
+function parseDDMMYYYYtoISO(str) {
+    if (!str) return null;
+    const match = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+    const [, dd, mm, yyyy] = match;
+    // Validate date
+    const d = parseInt(dd, 10), m = parseInt(mm, 10), y = parseInt(yyyy, 10);
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+    const testDate = new Date(y, m - 1, d);
+    if (testDate.getDate() !== d || testDate.getMonth() !== m - 1) return null;
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Auto-format date input as user types: dd/mm/yyyy
+ */
+function autoFormatDateInput(input) {
+    input.addEventListener("input", function (e) {
+        let val = this.value.replace(/[^\d]/g, "");
+        if (val.length > 8) val = val.substring(0, 8);
+        if (val.length >= 5) {
+            val = val.substring(0, 2) + "/" + val.substring(2, 4) + "/" + val.substring(4);
+        } else if (val.length >= 3) {
+            val = val.substring(0, 2) + "/" + val.substring(2);
+        }
+        this.value = val;
+    });
+}
+
 function applyDateRangeFilter() {
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
@@ -495,10 +490,18 @@ function applyDateRangeFilter() {
         return;
     }
 
-    const startDate = new Date(startDateInput.value);
-    const endDate = new Date(endDateInput.value);
+    const startISO = parseDDMMYYYYtoISO(startDateInput.value);
+    const endISO = parseDDMMYYYYtoISO(endDateInput.value);
 
-    if (startDate > endDate) {
+    if (!startISO || !endISO) {
+        notificationManager.warning(
+            "Định dạng ngày không hợp lệ. Vui lòng nhập dd/mm/yyyy",
+            3000,
+        );
+        return;
+    }
+
+    if (startISO > endISO) {
         notificationManager.warning(
             "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc",
             3000,
@@ -506,12 +509,12 @@ function applyDateRangeFilter() {
         return;
     }
 
-    customDateRange.start = startDateInput.value;
-    customDateRange.end = endDateInput.value;
+    customDateRange.start = startISO;
+    customDateRange.end = endISO;
 
     applyFilters();
     notificationManager.success(
-        `Đã lọc từ ${formatDate(startDate)} đến ${formatDate(endDate)}`,
+        `Đã lọc từ ${startDateInput.value} đến ${endDateInput.value}`,
         2500,
     );
 }
@@ -534,9 +537,7 @@ async function initializeWithMigration() {
 }
 
 function toggleForm() {
-    const auth = getAuthState();
-    if (!auth || auth.checkLogin == "777") {
-        notificationManager.error("Không có quyền truy cập biểu mẫu", 3000);
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'create', { alertMessage: 'Không có quyền truy cập biểu mẫu' })) {
         return;
     }
     const dataForm = document.getElementById("dataForm");
@@ -609,17 +610,19 @@ function initializeFilterEvents() {
         applyDateRangeBtn.addEventListener("click", applyDateRangeFilter);
     }
 
-    // Allow Enter key in date inputs
+    // Auto-format dd/mm/yyyy + Enter key to apply
     const startDateInput = document.getElementById("startDate");
     const endDateInput = document.getElementById("endDate");
 
     if (startDateInput) {
+        autoFormatDateInput(startDateInput);
         startDateInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter") applyDateRangeFilter();
         });
     }
 
     if (endDateInput) {
+        autoFormatDateInput(endDateInput);
         endDateInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter") applyDateRangeFilter();
         });

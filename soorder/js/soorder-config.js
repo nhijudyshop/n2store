@@ -3,15 +3,19 @@
 // File: soorder-config.js
 // =====================================================
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
+// Firebase is initialized by ../shared/js/firebase-config.js (loaded in index.html)
 
-// Initialize Firebase (using global firebaseConfig)
-const app = !firebase.apps.length ? firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : (typeof firebaseConfig !== 'undefined') ? firebaseConfig : {apiKey:"AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",authDomain:"n2shop-69e37.firebaseapp.com",projectId:"n2shop-69e37",storageBucket:"n2shop-69e37-ne0q1",messagingSenderId:"598906493303",appId:"1:598906493303:web:46d6236a1fdc2eff33e972"}) : firebase.app();
-const db = firebase.firestore();
+// Get Firebase instances from shared config (already initialized by shared/js/firebase-config.js)
+const app = firebase.app();
+const db = getFirestore();
 
 // Collection reference - using new structure
 // Each document represents one day: { date, isHoliday, orders: [] }
 const orderLogsCollectionRef = db.collection("order-logs");
+
+// Return logs collection - for tracking returned items
+// Same structure as order-logs
+const returnLogsCollectionRef = db.collection("return-logs");
 
 // NCC names collection - stores supplier names with Ax codes
 // Each document: { code: "A1", name: "A1 Tên gợi nhớ" }
@@ -19,12 +23,22 @@ const nccNamesCollectionRef = db.collection("ncc-names");
 
 // Global state
 window.SoOrderState = {
+    // Tab state
+    currentTab: 'orders', // 'orders' | 'returns'
+
     currentDate: new Date(),
     currentDateString: "",
     currentDayData: null, // { date, isHoliday, orders }
     editingOrderId: null,
     deleteOrderId: null,
     differenceNoteOrderId: null, // Order ID for difference note modal
+
+    // Returns tab state (mirrors order state)
+    currentReturnDayData: null,
+    editingReturnId: null,
+    deleteReturnId: null,
+    differenceNoteReturnId: null,
+    returnsRangeData: [], // Array of day data for returns range
 
     // Date range state
     isRangeMode: false, // Whether we're viewing a date range
@@ -154,10 +168,10 @@ window.SoOrderElements = {
 
 // Export for other modules
 window.SoOrderConfig = {
-    firebaseConfig: (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG :
-                    (typeof firebaseConfig !== 'undefined') ? firebaseConfig : null,
+    firebaseConfig: (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : null,
     app,
     db,
     orderLogsCollectionRef,
+    returnLogsCollectionRef,
     nccNamesCollectionRef,
 };

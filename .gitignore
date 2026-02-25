@@ -41,7 +41,9 @@ temp/
 .parcel-cache/
 
 # Package manager
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 dynamic-headers.json
+
+# Windows reserved filenames
+nul

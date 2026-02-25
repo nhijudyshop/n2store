@@ -132,16 +132,17 @@ async function fetchDebtForPhone(phone) {
     if (!normalizedPhone) return 0;
 
     try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        // Use wallet balance API instead of debt-summary
+        const response = await fetch(`${QR_API_URL}/api/v2/wallet/balance?phone=${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
-        if (result.success && result.data) {
-            const totalDebt = result.data.total_debt || 0;
-            saveDebtToCache(normalizedPhone, totalDebt);
-            return totalDebt;
+        if (result.success) {
+            const totalBalance = result.balance || 0;
+            saveDebtToCache(normalizedPhone, totalBalance);
+            return totalBalance;
         }
     } catch (error) {
-        console.error('[DEBT] Error fetching:', error);
+        console.error('[WALLET] Error fetching balance:', error);
     }
 
     return 0;
@@ -209,14 +210,14 @@ function updateDebtCells(phone, debt) {
 }
 
 /**
- * Batch fetch debts for multiple phones using NEW batch API
+ * Batch fetch wallet balances for multiple phones using wallet batch API
  * Reduces 80 API calls → 1 API call!
  * @param {Array<string>} phones - Array of phone numbers
  */
 async function batchFetchDebts(phones) {
     // Validate input
     if (!phones || !Array.isArray(phones)) {
-        console.warn('[DEBT-BATCH] Invalid input - phones must be an array');
+        console.warn('[WALLET-BATCH] Invalid input - phones must be an array');
         return;
     }
 
@@ -225,18 +226,18 @@ async function batchFetchDebts(phones) {
 
     // Double-check before API call to prevent 400 errors
     if (!Array.isArray(uncachedPhones) || uncachedPhones.length === 0) {
-        console.log('[DEBT-BATCH] No uncached phones to fetch, skipping API call');
+        console.log('[WALLET-BATCH] No uncached phones to fetch, skipping API call');
         return;
     }
 
-    console.log(`[DEBT-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
+    console.log(`[WALLET-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
 
     try {
-        // Call batch API - ONE request for ALL phones!
+        // Call wallet batch API - ONE request for ALL phones!
         const requestBody = JSON.stringify({ phones: uncachedPhones });
-        console.log('[DEBT-BATCH] Request body:', requestBody);
+        console.log('[WALLET-BATCH] Request body:', requestBody);
 
-        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary-batch`, {
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: requestBody
@@ -245,7 +246,7 @@ async function batchFetchDebts(phones) {
         // Check response status first
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`[DEBT-BATCH] ❌ HTTP ${response.status}: ${errorText}`);
+            console.error(`[WALLET-BATCH] ❌ HTTP ${response.status}: ${errorText}`);
             // Fallback: set all to 0
             for (const phone of uncachedPhones) {
                 updateDebtCells(phone, 0);
@@ -256,13 +257,14 @@ async function batchFetchDebts(phones) {
         const result = await response.json();
 
         if (result.success && result.data) {
-            console.log(`[DEBT-BATCH] ✅ Received ${result.count || Object.keys(result.data).length} results`);
+            console.log(`[WALLET-BATCH] ✅ Received ${Object.keys(result.data).length} results`);
 
             // Update cache and UI for all phones
-            for (const [phone, debtData] of Object.entries(result.data)) {
-                const totalDebt = debtData.total_debt || 0;
-                saveDebtToCache(phone, totalDebt);
-                updateDebtCells(phone, totalDebt);
+            for (const [phone, walletData] of Object.entries(result.data)) {
+                // Total = balance + virtualBalance
+                const totalBalance = walletData.total || 0;
+                saveDebtToCache(phone, totalBalance);
+                updateDebtCells(phone, totalBalance);
             }
 
             // Handle phones that weren't in the response (set to 0)
@@ -273,14 +275,14 @@ async function batchFetchDebts(phones) {
                 }
             }
         } else {
-            console.error('[DEBT-BATCH] ❌ API error:', result.error);
+            console.error('[WALLET-BATCH] ❌ API error:', result.error);
             // Fallback: set all to 0
             for (const phone of uncachedPhones) {
                 updateDebtCells(phone, 0);
             }
         }
     } catch (error) {
-        console.error('[DEBT-BATCH] ❌ Network error:', error);
+        console.error('[WALLET-BATCH] ❌ Network error:', error);
         // Fallback: set all to 0
         for (const phone of uncachedPhones) {
             updateDebtCells(phone, 0);
@@ -698,7 +700,23 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
     // Add change event to update shipping fee
     select.onchange = function () {
         const selectedOption = this.options[this.selectedIndex];
-        const fee = parseFloat(selectedOption.dataset.fee) || 0;
+        let fee = parseFloat(selectedOption.dataset.fee) || 0;
+        const carrierName = selectedOption.dataset.name || '';
+
+        // Free shipping logic
+        const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+        const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+        const isTinh = carrierName.includes('TỈNH');
+
+        if (isThanhPho && finalTotal > 1500000) {
+            fee = 0;
+            console.log(`[SALE-MODAL] Free shipping applied: THÀNH PHỐ carrier, finalTotal ${finalTotal.toLocaleString('vi-VN')}đ > 1,500,000đ`);
+        }
+        if (isTinh && finalTotal > 3000000) {
+            fee = 0;
+            console.log(`[SALE-MODAL] Free shipping applied: TỈNH carrier, finalTotal ${finalTotal.toLocaleString('vi-VN')}đ > 3,000,000đ`);
+        }
+
         const shippingFeeInput = document.getElementById('saleShippingFee');
         if (shippingFeeInput) {
             shippingFeeInput.value = fee;
@@ -787,6 +805,16 @@ function smartSelectDeliveryPartner(address, extraAddress = null) {
         return;
     }
 
+    // If address is detected as province (not HCM/Hanoi), select SHIP TỈNH immediately
+    if (districtInfo.isProvince) {
+        console.log('[SMART-DELIVERY] Address is in province, selecting SHIP TỈNH');
+        selectCarrierByName(select, 'SHIP TỈNH', false);
+        if (window.notificationManager) {
+            window.notificationManager.success(`Tự động chọn: SHIP TỈNH (${districtInfo.cityName || 'tỉnh'})`, 2000);
+        }
+        return;
+    }
+
     // Try to find matching carrier based on district
     const matchedCarrier = findMatchingCarrier(select, districtInfo);
 
@@ -807,7 +835,9 @@ function smartSelectDeliveryPartner(address, extraAddress = null) {
 
 /**
  * Extract district information from address string or ExtraAddress object
- * @returns {object|null} - { districtName, districtNumber, wardName, cityName }
+ * IMPORTANT: Reads address from END to START to correctly identify province/city first
+ * This prevents false matches like "ấp bình thạnh" being matched as "Bình Thạnh" district
+ * @returns {object|null} - { districtName, districtNumber, wardName, cityName, isProvince }
  */
 function extractDistrictFromAddress(address, extraAddress) {
     let result = {
@@ -815,6 +845,7 @@ function extractDistrictFromAddress(address, extraAddress) {
         districtNumber: null,
         wardName: null,
         cityName: null,
+        isProvince: false, // true if address is outside HCM/Hanoi
         originalText: address
     };
 
@@ -833,56 +864,172 @@ function extractDistrictFromAddress(address, extraAddress) {
         }
         if (extraAddress.City?.name) {
             result.cityName = extraAddress.City.name;
+            // Check if city is a province (not HCM or Hanoi)
+            const cityNorm = extraAddress.City.name.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (!cityNorm.includes('ho chi minh') && !cityNorm.includes('ha noi') &&
+                !cityNorm.includes('hcm') && !cityNorm.includes('sai gon')) {
+                result.isProvince = true;
+                console.log('[SMART-DELIVERY] ExtraAddress indicates province:', extraAddress.City.name);
+            }
         }
     }
 
-    // Also parse from address string as fallback/supplement
+    // Parse from address string - READ FROM END TO START
     if (address) {
-        const normalizedAddress = address.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics for matching
+        // =====================================================
+        // STEP 1: Clean and normalize address
+        // =====================================================
+        let cleanedAddress = address
+            // Remove phone numbers (10-11 digit sequences)
+            .replace(/\b0\d{9,10}\b/g, '')
+            // Remove standalone "D." or "d." that might be abbreviations
+            .replace(/\bD\.\s*/gi, '')
+            // Clean up bad punctuation: "/." or "./" or multiple dots
+            .replace(/[/.]{2,}/g, ' ')
+            .replace(/\.\s+\./g, ' ')
+            // Normalize multiple spaces to single space
+            .replace(/\s{2,}/g, ' ')
+            // Trim
+            .trim();
 
-        // Try to match district patterns
-        // "Quận 1", "Q1", "Q.1", "Quan 1", "District 1"
+        const normalizedAddress = cleanedAddress.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove Vietnamese diacritics
+
+        // List of 61 provinces (excluding HCM and Hanoi which need district matching)
+        // Include both "có space" và "không space" variants (e.g., "an giang" và "angiang")
+        const provinces = [
+            // 5 thành phố trực thuộc TW (trừ HCM, Hà Nội)
+            'hai phong', 'haiphong', 'da nang', 'danang', 'can tho', 'cantho',
+            // Miền Bắc
+            'ha giang', 'hagiang', 'cao bang', 'caobang', 'bac kan', 'backan',
+            'tuyen quang', 'tuyenquang', 'lao cai', 'laocai',
+            'dien bien', 'dienbien', 'lai chau', 'laichau', 'son la', 'sonla',
+            'yen bai', 'yenbai', 'hoa binh', 'hoabinh',
+            'thai nguyen', 'thainguyen', 'lang son', 'langson',
+            'quang ninh', 'quangninh', 'bac giang', 'bacgiang',
+            'phu tho', 'phutho', 'vinh phuc', 'vinhphuc',
+            'bac ninh', 'bacninh', 'hai duong', 'haiduong',
+            'hung yen', 'hungyen', 'thai binh', 'thaibinh',
+            'ha nam', 'hanam', 'nam dinh', 'namdinh', 'ninh binh', 'ninhbinh',
+            // Miền Trung
+            'thanh hoa', 'thanhhoa', 'nghe an', 'nghean',
+            'ha tinh', 'hatinh', 'quang binh', 'quangbinh',
+            'quang tri', 'quangtri', 'thua thien hue', 'thuathienhue',
+            'quang nam', 'quangnam', 'quang ngai', 'quangngai',
+            'binh dinh', 'binhdinh', 'phu yen', 'phuyen',
+            'khanh hoa', 'khanhhoa', 'ninh thuan', 'ninhthuan',
+            'binh thuan', 'binhthuan',
+            // Tây Nguyên
+            'kon tum', 'kontum', 'gia lai', 'gialai',
+            'dak lak', 'daklak', 'dac lak', 'daclak',
+            'dak nong', 'daknong', 'dac nong', 'dacnong',
+            'lam dong', 'lamdong',
+            // Đông Nam Bộ (trừ HCM)
+            'binh phuoc', 'binhphuoc', 'tay ninh', 'tayninh',
+            'binh duong', 'binhduong', 'dong nai', 'dongnai',
+            'ba ria', 'baria', 'vung tau', 'vungtau', 'ba ria vung tau', 'bariavungtau',
+            // Tây Nam Bộ
+            'long an', 'longan', 'tien giang', 'tiengiang',
+            'ben tre', 'bentre', 'tra vinh', 'travinh',
+            'vinh long', 'vinhlong', 'dong thap', 'dongthap',
+            'an giang', 'angiang', 'kien giang', 'kiengiang',
+            'hau giang', 'haugiang', 'soc trang', 'soctrang',
+            'bac lieu', 'baclieu', 'ca mau', 'camau'
+        ];
+
+        // Split address into parts and check FROM END
+        // Address format: "số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
+        const parts = normalizedAddress.split(/[,\s]+/).filter(p => p.length > 1);
+
+        // Check last 3-4 parts for province name (reading from end)
+        const endParts = parts.slice(-4).join(' ');
+
+        for (const province of provinces) {
+            // Check if province name appears at the END of address
+            if (endParts.includes(province)) {
+                result.isProvince = true;
+                result.cityName = province;
+                console.log('[SMART-DELIVERY] Detected province from address END:', province);
+                return result; // Province detected, no need to find district
+            }
+        }
+
+        // =====================================================
+        // STEP 2: Extract district number with improved patterns
+        // =====================================================
+        // Try to match district patterns - more comprehensive
+        // "Quận 1", "Q1", "Q.1", "Quan 1", "quan7", "q.7", "District 1"
         const districtPatterns = [
-            /quan\s*(\d+)/i,
-            /q\.?\s*(\d+)/i,
-            /district\s*(\d+)/i
+            /quan\s*\.?\s*(\d+)/i,       // "quan 7", "quân  7", "quan.7"
+            /q\s*\.?\s*(\d+)/i,          // "q7", "q.7", "q 7", "Q.10"
+            /district\s*(\d+)/i,          // "district 7"
+            /\bq(\d+)\b/i,               // "Q7" as word boundary
         ];
 
         for (const pattern of districtPatterns) {
             const match = normalizedAddress.match(pattern);
             if (match) {
                 result.districtNumber = match[1];
+                console.log(`[SMART-DELIVERY] Extracted district number: ${match[1]} from pattern: ${pattern}`);
                 break;
             }
         }
 
-        // Match named districts (without diacritics)
+        // =====================================================
+        // STEP 3: Match named districts (HCM - 22 quận/huyện)
+        // Quận số: 1, 3, 4, 5, 6, 7, 8, 10, 11, 12 (handled by districtPatterns above)
+        // Quận tên + TP Thủ Đức + Huyện: listed below
+        // =====================================================
         const namedDistricts = [
-            { normalized: 'binh chanh', original: 'Bình Chánh' },
+            // 6 Quận có tên
             { normalized: 'binh tan', original: 'Bình Tân' },
             { normalized: 'binh thanh', original: 'Bình Thạnh' },
             { normalized: 'go vap', original: 'Gò Vấp' },
             { normalized: 'phu nhuan', original: 'Phú Nhuận' },
             { normalized: 'tan binh', original: 'Tân Bình' },
             { normalized: 'tan phu', original: 'Tân Phú' },
+            // TP Thủ Đức (merged from Q2, Q9, Thủ Đức cũ)
             { normalized: 'thu duc', original: 'Thủ Đức' },
-            { normalized: 'nha be', original: 'Nhà Bè' },
-            { normalized: 'hoc mon', original: 'Hóc Môn' },
+            { normalized: 'tp thu duc', original: 'Thủ Đức' },
+            { normalized: 'thanh pho thu duc', original: 'Thủ Đức' },
+            // 5 Huyện ngoại thành
+            { normalized: 'binh chanh', original: 'Bình Chánh' },
+            { normalized: 'can gio', original: 'Cần Giờ' },
             { normalized: 'cu chi', original: 'Củ Chi' },
-            { normalized: 'can gio', original: 'Cần Giờ' }
+            { normalized: 'hoc mon', original: 'Hóc Môn' },
+            { normalized: 'nha be', original: 'Nhà Bè' }
         ];
 
+        // Only match named districts if they appear AFTER common address prefixes
+        // This prevents "ấp bình thạnh" from matching "Bình Thạnh" district
         for (const district of namedDistricts) {
-            if (normalizedAddress.includes(district.normalized)) {
+            // Check if district name appears with proper context (after quan/huyen/phuong/xa)
+            // or at the end of address (last 3 parts)
+            const lastThreeParts = parts.slice(-3).join(' ');
+
+            // Pattern: district name should be preceded by address markers or be near the end
+            // Also handle "Q.Bình Thạnh" or "q binh thanh" format
+            const districtPattern = new RegExp(
+                `(quan|huyen|phuong|xa|thi tran|tp|thanh pho|q\\.?)?\\s*${district.normalized}(?:\\s|,|$)`,
+                'i'
+            );
+
+            // Additional check: district name at end without "ap/xom/thon" prefix
+            const hasApPrefix = normalizedAddress.includes(`ap ${district.normalized}`) ||
+                                normalizedAddress.includes(`xom ${district.normalized}`) ||
+                                normalizedAddress.includes(`thon ${district.normalized}`);
+
+            if (!hasApPrefix && (districtPattern.test(lastThreeParts) || lastThreeParts.endsWith(district.normalized))) {
                 result.districtName = district.original;
+                console.log('[SMART-DELIVERY] Matched district from address END:', district.original);
                 break;
             }
         }
     }
 
-    // Return null if we couldn't extract any district info
-    if (!result.districtName && !result.districtNumber) {
+    // Return null if we couldn't extract any district info AND it's not marked as province
+    if (!result.districtName && !result.districtNumber && !result.isProvince) {
         return null;
     }
 
@@ -891,7 +1038,11 @@ function extractDistrictFromAddress(address, extraAddress) {
 
 /**
  * Find matching carrier based on district information
- * Parses carrier names to find coverage areas in parentheses
+ * Mapping based on actual carrier options:
+ * - 20k: Q1,3,4,5,6,7,8,10,11 + Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp
+ * - 30k: Q2,12 + Bình Tân, Thủ Đức
+ * - 35k THÀNH PHỐ: Bình Chánh, Q9, Nhà Bè, Hóc Môn
+ * - 35k SHIP TỈNH: Củ Chi, Cần Giờ + all provinces
  * @param {HTMLSelectElement} select - The delivery partner dropdown
  * @param {object} districtInfo - Extracted district information
  * @returns {object|null} - { id, name } of matching carrier
@@ -899,79 +1050,94 @@ function extractDistrictFromAddress(address, extraAddress) {
 function findMatchingCarrier(select, districtInfo) {
     console.log('[SMART-DELIVERY] Searching for carrier matching:', districtInfo);
 
-    let bestMatch = null;
-    let bestMatchScore = 0;
+    // Define carrier groups based on coverage
+    const CARRIER_20K = ['1', '3', '4', '5', '6', '7', '8', '10', '11']; // Q numbers
+    const CARRIER_20K_NAMED = ['phu nhuan', 'binh thanh', 'tan phu', 'tan binh', 'go vap'];
 
-    for (let i = 0; i < select.options.length; i++) {
-        const option = select.options[i];
-        if (!option.value) continue; // Skip placeholder
+    const CARRIER_30K = ['2', '12']; // Q numbers
+    const CARRIER_30K_NAMED = ['binh tan', 'thu duc'];
 
-        const carrierName = option.dataset.name || option.text;
+    const CARRIER_35K_TP = ['9']; // Q9
+    const CARRIER_35K_TP_NAMED = ['binh chanh', 'nha be', 'hoc mon'];
 
-        // Skip non-matching carriers (GỘP, BÁN HÀNG SHOP)
-        if (carrierName.includes('GỘP') || carrierName === 'BÁN HÀNG SHOP') {
-            continue;
-        }
+    // Củ Chi, Cần Giờ → SHIP TỈNH (not in any THÀNH PHỐ carrier)
+    const SHIP_TINH_NAMED = ['cu chi', 'can gio'];
 
-        // Extract coverage area from carrier name (text in parentheses)
-        const coverageMatch = carrierName.match(/\(([^)]+)\)/);
-        if (!coverageMatch) continue;
+    // Determine which carrier group to match
+    let targetGroup = null;
+    const districtNum = districtInfo.districtNumber;
+    const districtName = districtInfo.districtName?.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
 
-        const coverageArea = coverageMatch[1].toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-        let matchScore = 0;
-
-        // Check if district number matches
-        if (districtInfo.districtNumber) {
-            // Look for the number in coverage area
-            // Need to be careful: "1" shouldn't match "10" or "11"
-            const districtNum = districtInfo.districtNumber;
-
-            // Pattern to match standalone numbers or numbers at word boundaries
-            // For coverage like "1 3 4 5 6 7 8 10 11" or "Q2-12-Bình Tân"
-            const numPatterns = [
-                new RegExp(`\\b${districtNum}\\b`),           // Word boundary
-                new RegExp(`^${districtNum}\\s`),             // Start of string
-                new RegExp(`\\s${districtNum}\\s`),           // Space surrounded
-                new RegExp(`\\s${districtNum}$`),             // End of string
-                new RegExp(`-${districtNum}-`),               // Dash surrounded
-                new RegExp(`^${districtNum}-`),               // Start with dash
-                new RegExp(`-${districtNum}$`),               // End with dash
-                new RegExp(`q${districtNum}\\b`, 'i'),        // Q prefix (Q9, Q2)
-            ];
-
-            for (const pattern of numPatterns) {
-                if (pattern.test(coverageArea) || pattern.test(carrierName)) {
-                    matchScore = 10;
-                    console.log(`[SMART-DELIVERY] District number ${districtNum} matched in: ${carrierName}`);
-                    break;
-                }
-            }
-        }
-
-        // Check if district name matches
-        if (districtInfo.districtName && matchScore === 0) {
-            const normalizedDistrictName = districtInfo.districtName.toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-            if (coverageArea.includes(normalizedDistrictName)) {
-                matchScore = 8;
-                console.log(`[SMART-DELIVERY] District name "${districtInfo.districtName}" matched in: ${carrierName}`);
-            }
-        }
-
-        // Update best match
-        if (matchScore > bestMatchScore) {
-            bestMatchScore = matchScore;
-            bestMatch = {
-                id: option.value,
-                name: carrierName
-            };
+    // Check by district number first
+    if (districtNum) {
+        if (CARRIER_20K.includes(districtNum)) {
+            targetGroup = '20k';
+        } else if (CARRIER_30K.includes(districtNum)) {
+            targetGroup = '30k';
+        } else if (CARRIER_35K_TP.includes(districtNum)) {
+            targetGroup = '35k_tp';
         }
     }
 
-    return bestMatch;
+    // Check by district name if not matched by number
+    if (!targetGroup && districtName) {
+        if (CARRIER_20K_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = '20k';
+        } else if (CARRIER_30K_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = '30k';
+        } else if (CARRIER_35K_TP_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = '35k_tp';
+        } else if (SHIP_TINH_NAMED.some(d => districtName.includes(d))) {
+            targetGroup = 'ship_tinh'; // Củ Chi, Cần Giờ → SHIP TỈNH
+        }
+    }
+
+    console.log('[SMART-DELIVERY] Target carrier group:', targetGroup);
+
+    if (!targetGroup) {
+        return null; // Will fall back to SHIP TỈNH
+    }
+
+    // Find the matching carrier option
+    // Use fee value (from data-fee attribute) for reliable matching instead of price in name
+    for (let i = 0; i < select.options.length; i++) {
+        const option = select.options[i];
+        if (!option.value) continue;
+
+        const carrierName = option.dataset.name || option.text;
+        const carrierNorm = carrierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const carrierFee = parseFloat(option.dataset.fee) || 0;
+
+        // Skip GỘP and BÁN HÀNG SHOP
+        if (carrierNorm.includes('gop') || carrierName === 'BÁN HÀNG SHOP') {
+            continue;
+        }
+
+        // Match by fee value AND carrier type (THÀNH PHỐ vs SHIP TỈNH)
+        // 20k: Inner city districts
+        if (targetGroup === '20k' && carrierFee === 20000 && carrierNorm.includes('thanh pho')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 20k carrier:', carrierName, '(fee:', carrierFee, ')');
+            return { id: option.value, name: carrierName };
+        }
+        // 30k: Q2, Q12, Bình Tân, Thủ Đức
+        if (targetGroup === '30k' && carrierFee === 30000 && carrierNorm.includes('thanh pho')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 30k carrier:', carrierName, '(fee:', carrierFee, ')');
+            return { id: option.value, name: carrierName };
+        }
+        // 35k THÀNH PHỐ: Q9, Bình Chánh, Nhà Bè, Hóc Môn
+        if (targetGroup === '35k_tp' && carrierFee === 35000 && carrierNorm.includes('thanh pho')) {
+            console.log('[SMART-DELIVERY] ✅ Matched 35k THÀNH PHỐ carrier:', carrierName, '(fee:', carrierFee, ')');
+            return { id: option.value, name: carrierName };
+        }
+        // SHIP TỈNH: Củ Chi, Cần Giờ, all provinces
+        if (targetGroup === 'ship_tinh' && carrierNorm.includes('ship tinh')) {
+            console.log('[SMART-DELIVERY] ✅ Matched SHIP TỈNH carrier:', carrierName, '(fee:', carrierFee, ')');
+            return { id: option.value, name: carrierName };
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -1045,16 +1211,42 @@ async function openSaleButtonModal() {
     currentSaleOrderData = order;
     console.log('[SALE-MODAL] Selected order:', order);
 
+    // Reset form fields to avoid stale data from previous order
+    const discountEl = document.getElementById('saleDiscount');
+    if (discountEl) discountEl.value = 0;
+    const receiverNoteEl = document.getElementById('saleReceiverNote');
+    if (receiverNoteEl) receiverNoteEl.value = '';
+    const prepaidEl = document.getElementById('salePrepaidAmount');
+    if (prepaidEl) prepaidEl.value = 0;
+    const prepaidDateEl = document.getElementById('salePrepaidDate');
+    if (prepaidDateEl) prepaidDateEl.value = '';
+
     // Show modal with loading state
     const modal = document.getElementById('saleButtonModal');
     modal.style.display = 'flex';
+
+    // Reset confirm button state (in case it was disabled from previous session)
+    const confirmBtn = document.querySelector('.sale-btn-teal');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Xác nhận và in (F9)';
+    }
+
+    // Restore bill type preference from localStorage (default: 'web')
+    const savedBillType = localStorage.getItem('saleBillTypePreference') || 'web';
+    const billTypeWeb = document.getElementById('saleBillTypeWeb');
+    const billTypeTpos = document.getElementById('saleBillTypeTpos');
+    if (billTypeWeb && billTypeTpos) {
+        billTypeWeb.checked = savedBillType === 'web';
+        billTypeTpos.checked = savedBillType === 'tpos';
+    }
 
     // Check if user is admin and enable/disable Công nợ field accordingly
     const prepaidAmountField = document.getElementById('salePrepaidAmount');
     const confirmDebtBtn = document.getElementById('confirmDebtBtn');
 
-    // Check admin access via checkLogin level (0 = admin)
-    let isAdmin = window.authManager?.hasPermission(0) || false;
+    // Check admin access via roleTemplate
+    let isAdmin = window.authManager?.isAdminTemplate?.() || false;
 
     if (prepaidAmountField) {
         if (isAdmin) {
@@ -1114,7 +1306,7 @@ async function openSaleButtonModal() {
     // Fetch realtime debt for the phone number (same as debt column in table)
     const phone = order.Telephone || order.PartnerPhone;
     if (phone) {
-        fetchDebtForSaleModal(phone);
+        await fetchDebtForSaleModal(phone);
     }
 
     // Populate delivery carrier dropdown (async, with localStorage cache)
@@ -1157,6 +1349,9 @@ async function openSaleButtonModal() {
 
     // Initialize product search for this modal
     initSaleProductSearch();
+
+    // Auto-fill notes from existing data (wallet, tags)
+    autoFillSaleNote();
 }
 
 /**
@@ -1468,7 +1663,8 @@ function populatePartnerData(partner) {
 }
 
 /**
- * Fetch realtime debt for sale modal (same source as debt column in table)
+ * Fetch realtime wallet balance for sale modal
+ * Uses wallet API to get customer's available balance (prepaid + virtual credit)
  * @param {string} phone - Phone number
  */
 async function fetchDebtForSaleModal(phone) {
@@ -1484,35 +1680,46 @@ async function fetchDebtForSaleModal(phone) {
     }
 
     try {
-        // Use the same API as the debt column in table
-        const response = await fetch(`${QR_API_URL}/api/sepay/debt-summary?phone=${encodeURIComponent(normalizedPhone)}`);
+        // Use wallet API to get customer's available balance
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
         if (result.success && result.data) {
-            const totalDebt = result.data.total_debt || 0;
-            console.log('[SALE-MODAL] Realtime debt for phone:', normalizedPhone, '=', totalDebt);
+            // Total balance = real balance + virtual balance
+            // API returns snake_case: balance, virtual_balance
+            const realBalance = parseFloat(result.data.balance) || 0;
+            const virtualBalance = parseFloat(result.data.virtual_balance) || 0;
+            const totalBalance = realBalance + virtualBalance;
+            console.log('[SALE-MODAL] Wallet balance for phone:', normalizedPhone, '=', totalBalance, '(real:', realBalance, '+ virtual:', virtualBalance, ')');
 
-            // Update prepaid amount field
+            // Update prepaid amount field with total available balance
             if (prepaidAmountField) {
-                prepaidAmountField.value = totalDebt > 0 ? totalDebt : 0;
+                prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
             }
 
-            // Also update the "Nợ cũ" display to show realtime debt
+            // Also update the "Nợ cũ" display to show wallet balance
             if (oldDebtField) {
-                oldDebtField.textContent = formatCurrencyVND(totalDebt);
+                oldDebtField.textContent = formatCurrencyVND(totalBalance);
             }
 
             // Cache it for later use
-            saveDebtToCache(normalizedPhone, totalDebt);
+            saveDebtToCache(normalizedPhone, totalBalance);
 
             // Also update debt column in orders table to keep them in sync
-            updateDebtCellsInTable(normalizedPhone, totalDebt);
+            updateDebtCellsInTable(normalizedPhone, totalBalance);
 
             // Update remaining balance after prepaid amount changes
             updateSaleRemainingBalance();
+        } else {
+            // No wallet found, set to 0
+            console.log('[SALE-MODAL] No wallet data for phone:', normalizedPhone);
+            if (prepaidAmountField) {
+                prepaidAmountField.value = 0;
+            }
+            updateSaleRemainingBalance();
         }
     } catch (error) {
-        console.error('[SALE-MODAL] Error fetching realtime debt:', error);
+        console.error('[SALE-MODAL] Error fetching wallet balance:', error);
         // Fallback to 0 on error
         if (prepaidAmountField) {
             prepaidAmountField.value = 0;
@@ -1520,7 +1727,116 @@ async function fetchDebtForSaleModal(phone) {
         // Update remaining balance even on error
         updateSaleRemainingBalance();
     }
+
+    // Note: Auto-fill notes is now called from openSaleModal after orderDetails are loaded
 }
+/**
+ * Auto-fill notes from existing data (no extra API calls)
+ * Uses: salePrepaidAmount (wallet), order.Tags (discount/merge)
+ */
+function autoFillSaleNote() {
+    const noteField = document.getElementById('saleReceiverNote');
+    if (!noteField || noteField.value.trim()) return; // Skip if already has value
+
+    const order = currentSaleOrderData;
+    if (!order) return;
+
+    const noteParts = [];
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    // 1. CK from wallet balance (already fetched to salePrepaidAmount)
+    const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+    if (walletBalance > 0) {
+        const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
+        noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
+    }
+
+    // Parse order tags
+    let orderTags = [];
+    try {
+        if (order.Tags) {
+            orderTags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : order.Tags;
+            if (!Array.isArray(orderTags)) orderTags = [];
+        }
+    } catch (e) {
+        orderTags = [];
+    }
+
+    // 2. GG from saleDiscount field (already calculated by populateSaleOrderLinesFromAPI)
+    const totalDiscount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
+    if (totalDiscount > 0) {
+        const discountStr = totalDiscount >= 1000 ? `${Math.round(totalDiscount / 1000)}K` : totalDiscount;
+        noteParts.push(`GG ${discountStr}`);
+    }
+
+    // 3. Gộp from merge tag
+    const mergeTag = orderTags.find(tag =>
+        (tag.Name || '').toLowerCase().startsWith('gộp ')
+    );
+    if (mergeTag) {
+        const numbers = mergeTag.Name.match(/\d+/g);
+        if (numbers && numbers.length > 1) {
+            noteParts.push(`ĐƠN GỘP ${numbers.join(' + ')}`);
+        }
+    }
+
+    // 4. Freeship - check if free shipping applies
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+
+    if (carrierSelect && carrierSelect.value) {
+        const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
+        const carrierName = selectedOption?.dataset?.name || '';
+        const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+        const isTinh = carrierName.includes('TỈNH');
+
+        // Check freeship conditions
+        if ((isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000)) {
+            noteParts.push('FREESHIP');
+        }
+    }
+
+    // Set note
+    if (noteParts.length > 0) {
+        noteField.value = noteParts.join(', ');
+        console.log('[SALE-MODAL] Auto-filled note:', noteField.value);
+    }
+}
+
+/**
+ * Show customer wallet history modal
+ * Opens the wallet detail modal for the current customer
+ */
+function showCustomerWalletHistory() {
+    const phoneField = document.getElementById('saleReceiverPhone');
+    if (!phoneField || !phoneField.value) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Không có số điện thoại khách hàng');
+        }
+        return;
+    }
+
+    const phone = normalizePhoneForQR(phoneField.value);
+    if (!phone) {
+        if (window.notificationManager) {
+            window.notificationManager.warning('Số điện thoại không hợp lệ');
+        }
+        return;
+    }
+
+    // Use WalletIntegration to show wallet modal
+    if (typeof WalletIntegration !== 'undefined' && WalletIntegration.showWalletModal) {
+        WalletIntegration.showWalletModal(phone);
+    } else {
+        if (window.notificationManager) {
+            window.notificationManager.error('Chức năng xem ví chưa sẵn sàng');
+        }
+    }
+}
+
+// Export functions to window
+window.showCustomerWalletHistory = showCustomerWalletHistory;
 
 /**
  * Populate order items (products) into the modal
@@ -1579,6 +1895,53 @@ function populateSaleOrderItems(order) {
 }
 
 /**
+ * Parse discount from product note (e.g., "100k" = 100000)
+ * Helper for populateSaleOrderLinesFromAPI highlighting
+ */
+function parseDiscountFromNoteForDisplay(note) {
+    if (!note || typeof note !== 'string') return 0;
+    const cleanNote = note.trim().toLowerCase();
+    if (!cleanNote) return 0;
+
+    // Pattern 1: "100k" or "100K" -> 100000
+    const kMatch = cleanNote.match(/^(\d+(?:[.,]\d+)?)\s*k$/i);
+    if (kMatch) {
+        const num = parseFloat(kMatch[1].replace(',', '.'));
+        return Math.round(num * 1000);
+    }
+
+    // Pattern 2: Plain number "100000" or "100.000" or "100"
+    const plainMatch = cleanNote.match(/^(\d{1,3}(?:[.,]\d{3})*|\d+)$/);
+    if (plainMatch) {
+        const numStr = plainMatch[1].replace(/[.,]/g, '');
+        const num = parseInt(numStr, 10);
+        if (num >= 1000) return num;
+        // Small numbers treated as shorthand "k" (e.g., "100" = 100k = 100000)
+        if (num > 0) return num * 1000;
+    }
+    return 0;
+}
+
+/**
+ * Check if current sale order has "GIẢM GIÁ" tag
+ */
+function currentSaleOrderHasDiscountTag() {
+    if (!currentSaleOrderData?.Tags) return false;
+    try {
+        const tags = typeof currentSaleOrderData.Tags === 'string'
+            ? JSON.parse(currentSaleOrderData.Tags)
+            : currentSaleOrderData.Tags;
+        if (Array.isArray(tags)) {
+            return tags.some(tag => {
+                const tagName = (tag.Name || '').toUpperCase();
+                return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
+            });
+        }
+    } catch (e) {}
+    return false;
+}
+
+/**
  * Populate order lines from API response (orderLines with Product, ProductUOM)
  */
 function populateSaleOrderLinesFromAPI(orderLines) {
@@ -1599,8 +1962,12 @@ function populateSaleOrderLinesFromAPI(orderLines) {
     // Store order lines for editing
     currentSaleOrderData.orderLines = orderLines;
 
+    // Check if order has discount tag
+    const hasDiscountTag = currentSaleOrderHasDiscountTag();
+
     let totalQuantity = 0;
     let totalAmount = 0;
+    let totalDiscount = 0;
 
     const itemsHTML = orderLines.map((item, index) => {
         const qty = item.ProductUOMQty || item.Quantity || 1;
@@ -1609,8 +1976,23 @@ function populateSaleOrderLinesFromAPI(orderLines) {
 
         // Get product info from nested Product object or direct field
         const productName = item.Product?.NameGet || item.ProductName || '';
-        const productNote = item.Note || 'Ghi chú';
+        const productNote = item.Note || '';
         const productUOM = item.ProductUOMName || item.ProductUOM?.Name || 'Cái';
+
+        // Check for discount in note (only if order has discount tag)
+        // notePrice = giá bán thực tế (e.g., "100k" = 100000)
+        // discount = (PriceUnit - notePrice) * Quantity (e.g., (180000 - 100000) * 2 = 160000)
+        const notePrice = hasDiscountTag ? parseDiscountFromNoteForDisplay(productNote) : 0;
+        const discountPerUnit = notePrice > 0 ? Math.max(0, price - notePrice) : 0;
+        const productDiscount = discountPerUnit * qty;
+        const isDiscountedProduct = productDiscount > 0;
+        if (isDiscountedProduct) totalDiscount += productDiscount;
+
+        // Highlight style for discounted products
+        const rowStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : '';
+        const noteStyle = isDiscountedProduct
+            ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+            : 'font-size: 11px; color: #6b7280;';
 
         // Get product image (prefer thumbnail 128x128, fallback to ImageUrl)
         const productImage = item.Product?.Thumbnails?.[1] || item.Product?.ImageUrl || '';
@@ -1621,15 +2003,22 @@ function populateSaleOrderLinesFromAPI(orderLines) {
         totalQuantity += qty;
         totalAmount += total;
 
+        // Note display with discount badge
+        const noteDisplay = productNote
+            ? (isDiscountedProduct
+                ? `<span style="${noteStyle}"><i class="fas fa-tag"></i> -${discountPerUnit.toLocaleString('vi-VN')}đ (${productNote})</span>`
+                : `<div style="${noteStyle}">${productNote}</div>`)
+            : '<div style="font-size: 11px; color: #9ca3af;">Ghi chú</div>';
+
         return `
-            <tr>
+            <tr style="${rowStyle}">
                 <td>${index + 1}</td>
                 <td>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         ${imageHTML}
                         <div>
                             <div class="sale-product-name">${productName}</div>
-                            <div style="font-size: 11px; color: #6b7280;">${productNote}</div>
+                            ${noteDisplay}
                         </div>
                     </div>
                 </td>
@@ -1650,6 +2039,22 @@ function populateSaleOrderLinesFromAPI(orderLines) {
     }).join('');
 
     container.innerHTML = itemsHTML;
+
+    // Auto-fill saleDiscount field if order has discount tag
+    if (hasDiscountTag && totalDiscount > 0) {
+        console.log(`[SALE-MODAL] Order has discount tag. Total discount: ${totalDiscount.toLocaleString('vi-VN')}đ`);
+        const discountInput = document.getElementById('saleDiscount');
+        if (discountInput) {
+            discountInput.value = totalDiscount;
+        }
+        // Update discount display if exists
+        const discountEl = document.getElementById('saleDiscountFromTag');
+        if (discountEl) {
+            discountEl.textContent = `-${totalDiscount.toLocaleString('vi-VN')}`;
+            discountEl.parentElement.style.display = 'flex';
+        }
+    }
+
     updateSaleTotals(totalQuantity, totalAmount);
 }
 
@@ -1756,6 +2161,29 @@ function updateSaleTotals(quantity, amount) {
     const finalTotal = amount - discount;
     document.getElementById('saleFinalTotal').textContent = formatNumber(finalTotal);
 
+    // Check free shipping based on carrier and finalTotal
+    const carrierSelect = document.getElementById('saleDeliveryPartner');
+    const shippingFeeInput = document.getElementById('saleShippingFee');
+    if (carrierSelect && shippingFeeInput && carrierSelect.value) {
+        const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
+        const carrierName = selectedOption?.dataset?.name || '';
+        const baseFee = parseFloat(selectedOption?.dataset?.fee) || 0;
+
+        const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
+        const isTinh = carrierName.includes('TỈNH');
+
+        if (isThanhPho && finalTotal > 1500000) {
+            shippingFeeInput.value = 0;
+            console.log(`[SALE-TOTALS] Free shipping: THÀNH PHỐ, ${finalTotal.toLocaleString('vi-VN')}đ > 1,500,000đ`);
+        } else if (isTinh && finalTotal > 3000000) {
+            shippingFeeInput.value = 0;
+            console.log(`[SALE-TOTALS] Free shipping: TỈNH, ${finalTotal.toLocaleString('vi-VN')}đ > 3,000,000đ`);
+        } else if (parseFloat(shippingFeeInput.value) === 0 && baseFee > 0) {
+            // Restore base fee if previously set to 0 but no longer qualifies
+            shippingFeeInput.value = baseFee;
+        }
+    }
+
     // Update COD = Tổng tiền hàng + Phí ship
     // 🔥 FIX: Use proper check to allow 0 value (0 is valid, empty is not)
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
@@ -1860,4 +2288,8 @@ window.addEventListener('beforeunload', () => {
 // Export realtime functions
 window.connectDebtRealtime = connectDebtRealtime;
 window.disconnectDebtRealtime = disconnectDebtRealtime;
+
+// Export sale modal functions
+window.openSaleButtonModal = openSaleButtonModal;
+window.closeSaleButtonModal = closeSaleButtonModal;
 

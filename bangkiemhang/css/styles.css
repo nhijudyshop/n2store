@@ -88,6 +88,13 @@ body {
     height: 28px;
 }
 
+.sidebar-logo-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
 .sidebar-toggle {
     width: 36px;
     height: 36px;

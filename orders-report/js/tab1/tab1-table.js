@@ -327,9 +327,8 @@ function renderTable() {
         return;
     }
 
-    // Check if user has admin access via checkLogin level (0 = admin)
-    // hasPermission(0) returns true only if checkLogin === 0
-    let isAdmin = window.authManager?.hasPermission(0) || false;
+    // Check if user has admin access via roleTemplate
+    let isAdmin = window.authManager?.isAdminTemplate?.() || false;
 
     // Group by employee if ranges are configured AND user is NOT admin
     if (!isAdmin && employeeRanges.length > 0) {
@@ -651,6 +650,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Listen for failed orders updates to update comment column badges
+window.addEventListener('failedOrdersUpdated', (event) => {
+    const failedIds = new Set(event.detail?.failedOrderIds || []);
+    console.log('[TABLE] Failed orders updated, updating comment badges:', failedIds.size);
+
+    // Update comment column cells
+    document.querySelectorAll('td[data-column="comments"][data-order-id]').forEach(td => {
+        const orderId = td.getAttribute('data-order-id');
+        const isFailed = failedIds.has(orderId);
+        const currentlyShowingFailed = td.querySelector('.fa-exclamation-triangle') !== null;
+
+        // Only update if state changed
+        if (isFailed && !currentlyShowingFailed) {
+            // Mark as failed with quick fix button
+            td.innerHTML = `
+                <button onclick="window.messageTemplateManager?.openQuickCommentReply('${orderId}')"
+                    style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s;"
+                    onmouseover="this.style.background='linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)'; this.style.transform='scale(1.02)'"
+                    onmouseout="this.style.background='linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'; this.style.transform='scale(1)'"
+                    title="Click để gửi tin nhắn qua comment">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 10px;"></i>
+                    <span>Gửi lại</span>
+                    <i class="fas fa-comment-dots" style="font-size: 10px; margin-left: 2px;"></i>
+                </button>`;
+            td.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
+        } else if (!isFailed && currentlyShowingFailed) {
+            // Clear failed state
+            td.innerHTML = '−';
+            td.style.color = '#9ca3af';
+            td.title = 'Click để xem bình luận';
+        }
+    });
+
+    // Update merged order comment badges
+    document.querySelectorAll('.merged-detail-row[data-order-id]').forEach(row => {
+        const orderId = row.getAttribute('data-order-id');
+        const isCommentsColumn = row.closest('td[data-column="comments"]') !== null;
+        if (!isCommentsColumn) return;
+
+        const isFailed = failedIds.has(orderId);
+        const badgeSpan = row.querySelector('.merged-badge-placeholder, span[style*="fef2f2"]');
+        if (!badgeSpan) return;
+
+        const currentlyShowingFailed = row.querySelector('.fa-exclamation-triangle') !== null;
+
+        if (isFailed && !currentlyShowingFailed) {
+            badgeSpan.outerHTML = `
+                <button onclick="event.stopPropagation(); window.messageTemplateManager?.openQuickCommentReply('${orderId}')"
+                    style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #dc2626; font-size: 10px; font-weight: 500; cursor: pointer;"
+                    title="Click để gửi lại qua comment">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i>
+                    <span>Gửi lại</span>
+                </button>`;
+            row.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
+        } else if (!isFailed && currentlyShowingFailed) {
+            badgeSpan.outerHTML = '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+            row.title = '';
+        }
+    });
+});
+
 function handleTableScroll(e) {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
 
@@ -846,6 +906,7 @@ function renderByEmployee() {
                                 <th data-column="total">Tổng tiền</th>
                                 <th data-column="quantity">SL</th>
                                 <th data-column="created-date">Ngày tạo</th>
+                                <th data-column="invoice-status" style="min-width: 140px;">Phiếu bán hàng</th>
                                 <th data-column="status">Trạng thái</th>
                             </tr>
                         </thead>
@@ -864,9 +925,26 @@ function renderByEmployee() {
     const employeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
     employeeSelectAlls.forEach(checkbox => {
         checkbox.addEventListener('change', function () {
+            const isChecked = this.checked;
             const section = this.closest('.employee-section');
             const checkboxes = section.querySelectorAll('tbody input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.checked = this.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = isChecked;
+                if (isChecked) {
+                    selectedOrderIds.add(cb.value);
+                } else {
+                    selectedOrderIds.delete(cb.value);
+                }
+            });
+
+            // Update main selectAll checkbox state
+            const mainSelectAll = document.getElementById('selectAll');
+            if (mainSelectAll) {
+                const allEmployeeSelectAlls = tableContainer.querySelectorAll('.employee-select-all');
+                const allChecked = Array.from(allEmployeeSelectAlls).every(cb => cb.checked);
+                mainSelectAll.checked = allChecked;
+            }
+
             updateActionButtons();
         });
     });
@@ -989,6 +1067,7 @@ function createRowHTML(order) {
             ${renderMergedTotalColumn(order)}
             ${renderMergedQuantityColumn(order)}
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
+            <td data-column="invoice-status">${window.renderInvoiceStatusCell ? window.renderInvoiceStatusCell(order) : '<span style="color: #9ca3af;">−</span>'}</td>
             <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}" style="cursor: pointer;" onclick="openOrderStatusModal('${order.Id}', '${order.Status}')" data-order-id="${order.Id}" title="Click để thay đổi trạng thái">${highlight(order.StatusText || order.Status)}</span></td>
         </tr>`;
 }
@@ -1151,6 +1230,7 @@ function renderMessagesColumn(order) {
 }
 
 // Render comments column - simple placeholder, badge added by notifier
+// Also shows warning badge for failed message orders
 function renderCommentsColumn(order) {
     // Extract channelId from Facebook_PostId (format: pageId_postId)
     const channelId = order.Facebook_PostId ? order.Facebook_PostId.split('_')[0] : '';
@@ -1161,11 +1241,26 @@ function renderCommentsColumn(order) {
         return '<td data-column="comments" style="text-align: center; color: #9ca3af;">−</td>';
     }
 
+    // Check if this order failed message sending
+    const isFailed = window.messageTemplateManager?.isOrderFailed(order.Id);
+
     // Render clickable cell with placeholder "-"
     // Badge "X MỚI" will be set by new-messages-notifier.js based on pending_customers data
     const clickHandler = `openCommentModal('${order.Id}', '${channelId}', '${psid}')`;
 
-    return `<td data-column="comments" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem bình luận">−</td>`;
+    if (isFailed) {
+        // Show warning badge for failed orders
+        return `<td data-column="comments" data-order-id="${order.Id}" onclick="${clickHandler}"
+            style="cursor: pointer; text-align: center; position: relative;"
+            title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận">
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #dc2626; font-size: 11px; font-weight: 500;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 10px;"></i>
+                Cần gửi lại
+            </span>
+        </td>`;
+    }
+
+    return `<td data-column="comments" data-order-id="${order.Id}" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem bình luận">−</td>`;
 }
 
 // #region ═══════════════════════════════════════════════════════════════════════
@@ -1199,13 +1294,27 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const cursorStyle = clickHandler ? 'cursor: pointer;' : 'cursor: default;';
         const hoverStyle = clickHandler ? `onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'"` : '';
 
+        // Check if this order failed message sending (only for comments column)
+        const isFailed = columnType === 'comments' && window.messageTemplateManager?.isOrderFailed(originalOrder.Id);
+
+        // Badge content - show warning for failed orders
+        const badgeContent = isFailed
+            ? `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i> Cần gửi
+               </span>`
+            : '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+
+        const titleAttr = isFailed
+            ? 'title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận"'
+            : '';
+
         return `
-            <div class="merged-detail-row" data-psid="${psid}" data-page-id="${channelId}" data-stt="${originalOrder.SessionIndex}"
+            <div class="merged-detail-row" data-psid="${psid}" data-page-id="${channelId}" data-stt="${originalOrder.SessionIndex}" data-order-id="${originalOrder.Id}"
                  ${clickHandler ? `onclick="${clickHandler}; event.stopPropagation();"` : ''}
                  style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; min-height: 28px; ${cursorStyle} transition: background 0.2s;"
-                 ${hoverStyle}>
+                 ${hoverStyle} ${titleAttr}>
                 <span style="font-size: 11px; color: #6b7280; font-weight: 500; min-width: 55px; flex-shrink: 0;">STT ${originalOrder.SessionIndex}:</span>
-                <span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>
+                ${badgeContent}
             </div>
         `;
     }).join('');
@@ -1631,46 +1740,8 @@ function sendDataToTab2() {
 }
 
 // =====================================================
-// HELPER: CHECK IF ORDER SHOULD BE SELECTABLE
-// =====================================================
-// =====================================================
-// HELPER: CHECK IF ORDER SHOULD BE SELECTABLE
-// =====================================================
 // SELECTION MANAGEMENT (STATE-BASED)
 // =====================================================
-
-
-function isOrderSelectable(orderId) {
-    // O(1) via OrderStore with fallback
-    const order = window.OrderStore?.get(orderId) || allData.find(o => o.Id === orderId);
-    if (!order) return true; // Nếu không tìm thấy, cho phép select
-
-    // Kiểm tra số lượng = 0
-    if (order.TotalQuantity === 0) {
-        console.log(`[SELECT] Skipping order ${order.Code}: TotalQuantity = 0`);
-        return false;
-    }
-
-    // Kiểm tra tag "GIỎ TRỐNG"
-    if (order.Tags) {
-        try {
-            const tags = JSON.parse(order.Tags);
-            if (Array.isArray(tags)) {
-                const hasEmptyCartTag = tags.some(tag =>
-                    tag.Name && tag.Name.toUpperCase() === "GIỎ TRỐNG"
-                );
-                if (hasEmptyCartTag) {
-                    console.log(`[SELECT] Skipping order ${order.Code}: Has "GIỎ TRỐNG" tag`);
-                    return false;
-                }
-            }
-        } catch (e) {
-            // Nếu parse lỗi, cho phép select
-        }
-    }
-
-    return true;
-}
 
 function handleSelectAll() {
     const isChecked = document.getElementById("selectAll").checked;
@@ -1678,16 +1749,22 @@ function handleSelectAll() {
     if (isChecked) {
         // Select ALL displayed data (not just visible rows)
         displayedData.forEach(order => {
-            selectedOrderIds.add(order.Id);
+            selectedOrderIds.add(String(order.Id));
         });
     } else {
         // Deselect ALL
         selectedOrderIds.clear();
     }
 
-    // Update visible checkboxes
+    // Update visible checkboxes in main table
     const checkboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
     checkboxes.forEach((cb) => {
+        cb.checked = isChecked;
+    });
+
+    // Update checkboxes in employee sections (when grouped by employee)
+    const employeeSections = document.querySelectorAll('.employee-section tbody input[type="checkbox"]');
+    employeeSections.forEach((cb) => {
         cb.checked = isChecked;
     });
 
@@ -1722,6 +1799,7 @@ document.addEventListener('change', function (e) {
 function updateActionButtons() {
     const actionButtonsSection = document.getElementById('actionButtonsSection');
     const selectedCountSpan = document.getElementById('selectedOrdersCount');
+    const sendMessageBtn = document.getElementById('sendMessageBtn');
     const createSaleButtonBtn = document.getElementById('createSaleButtonBtn');
     const createFastSaleBtn = document.getElementById('createFastSaleBtn');
     const checkedCount = selectedOrderIds.size;
@@ -1729,8 +1807,15 @@ function updateActionButtons() {
     if (checkedCount > 0) {
         actionButtonsSection.style.display = 'flex';
         selectedCountSpan.textContent = checkedCount.toLocaleString('vi-VN');
+        document.body.classList.add('action-bar-visible');
     } else {
         actionButtonsSection.style.display = 'none';
+        document.body.classList.remove('action-bar-visible');
+    }
+
+    // Show send message button when any orders are selected
+    if (sendMessageBtn) {
+        sendMessageBtn.style.display = checkedCount > 0 ? 'flex' : 'none';
     }
 
     // Show "Tạo nút bán hàng" button only when exactly 1 order is selected
@@ -1742,6 +1827,50 @@ function updateActionButtons() {
     if (createFastSaleBtn) {
         createFastSaleBtn.style.display = checkedCount > 1 ? 'flex' : 'none';
     }
+
+    // Show "Xóa Tag" button when any orders are selected
+    const bulkRemoveTagBtn = document.getElementById('bulkRemoveTagBtn');
+    if (bulkRemoveTagBtn) {
+        bulkRemoveTagBtn.style.display = checkedCount > 0 ? 'flex' : 'none';
+    }
+}
+
+// =====================================================
+// DESELECT ALL ORDERS
+// Bỏ chọn tất cả các checkbox đã chọn
+// =====================================================
+function deselectAllOrders() {
+    // Clear the selected IDs set
+    selectedOrderIds.clear();
+
+    // Uncheck all checkboxes in the main table
+    const mainCheckboxes = document.querySelectorAll('#tableBody input[type="checkbox"]');
+    mainCheckboxes.forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Also uncheck in employee sections
+    const employeeCheckboxes = document.querySelectorAll('.employee-section input[type="checkbox"]');
+    employeeCheckboxes.forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Uncheck all employee "Select All" checkboxes
+    const employeeSelectAlls = document.querySelectorAll('.employee-select-all');
+    employeeSelectAlls.forEach(cb => {
+        cb.checked = false;
+    });
+
+    // Uncheck main "Select All" checkbox
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+    }
+
+    // Update action buttons visibility (will hide the section)
+    updateActionButtons();
+
+    console.log('[DESELECT] All orders deselected');
 }
 
 async function handleClearCache() {

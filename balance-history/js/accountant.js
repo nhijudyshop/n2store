@@ -29,15 +29,13 @@
     // =====================================================
 
     const state = {
-        currentSubTab: 'pending', // pending | approved | adjustment
+        currentSubTab: 'pending', // pending | approved
         pendingQueue: [],
         approvedToday: [],
-        adjustmentsToday: [],
         selectedIds: new Set(),
         pagination: {
             pending: { page: 1, totalPages: 1, total: 0 },
-            approved: { page: 1, totalPages: 1, total: 0 },
-            adjustments: { page: 1, totalPages: 1, total: 0 }
+            approved: { page: 1, totalPages: 1, total: 0 }
         },
         filters: {
             pending: { startDate: '', endDate: '', search: '' },
@@ -47,8 +45,7 @@
             pending: 0,
             pendingOverdue: 0,
             approvedToday: 0,
-            rejectedToday: 0,
-            adjustmentsToday: 0
+            rejectedToday: 0
         },
         refreshTimer: null,
         isLoading: false,
@@ -134,19 +131,16 @@
         statPending: null,
         statApproved: null,
         statRejected: null,
-        statAdjustment: null,
         alertBar: null,
 
         // Sub-tabs
         subTabs: null,
         tabPending: null,
         tabApproved: null,
-        tabAdjustment: null,
 
         // Panels
         panelPending: null,
         panelApproved: null,
-        panelAdjustment: null,
 
         // Pending queue
         pendingTable: null,
@@ -159,20 +153,6 @@
         approvedTable: null,
         approvedTableBody: null,
         approvedDateFilter: null,
-
-        // Adjustment form
-        adjustmentForm: null,
-        adjustmentPhone: null,
-        adjustmentName: null,
-        adjustmentBalance: null,
-        adjustmentType: null,
-        adjustmentAmount: null,
-        adjustmentReason: null,
-        adjustmentSubmit: null,
-        customerLookup: null,
-
-        // Adjustment history
-        adjustmentHistoryBody: null,
 
         // Modals
         rejectModal: null,
@@ -221,19 +201,16 @@
         elements.statPending = document.getElementById('accStatPending');
         elements.statApproved = document.getElementById('accStatApproved');
         elements.statRejected = document.getElementById('accStatRejected');
-        elements.statAdjustment = document.getElementById('accStatAdjustment');
         elements.alertBar = document.getElementById('accAlertBar');
 
         // Sub-tabs
         elements.subTabs = document.getElementById('accSubTabs');
         elements.tabPending = document.getElementById('accTabPending');
         elements.tabApproved = document.getElementById('accTabApproved');
-        elements.tabAdjustment = document.getElementById('accTabAdjustment');
 
         // Panels
         elements.panelPending = document.getElementById('accPanelPending');
         elements.panelApproved = document.getElementById('accPanelApproved');
-        elements.panelAdjustment = document.getElementById('accPanelAdjustment');
 
         // Pending queue
         elements.pendingTableBody = document.getElementById('accPendingTableBody');
@@ -253,19 +230,6 @@
 
         // Approved table
         elements.approvedTableBody = document.getElementById('accApprovedTableBody');
-
-        // Adjustment form
-        elements.adjustmentForm = document.getElementById('accAdjustmentForm');
-        elements.adjustmentPhone = document.getElementById('accAdjustmentPhone');
-        elements.adjustmentName = document.getElementById('accAdjustmentName');
-        elements.adjustmentBalance = document.getElementById('accAdjustmentBalance');
-        elements.adjustmentAmount = document.getElementById('accAdjustmentAmount');
-        elements.adjustmentReason = document.getElementById('accAdjustmentReason');
-        elements.adjustmentSubmit = document.getElementById('accAdjustmentSubmit');
-        elements.customerLookup = document.getElementById('accCustomerLookup');
-
-        // Adjustment history
-        elements.adjustmentHistoryBody = document.getElementById('accAdjustmentHistoryBody');
 
         // Modals
         elements.rejectModal = document.getElementById('accRejectModal');
@@ -303,16 +267,6 @@
         // Select all checkbox
         if (elements.selectAllCheckbox) {
             elements.selectAllCheckbox.addEventListener('change', handleSelectAll);
-        }
-
-        // Adjustment form submit
-        if (elements.adjustmentForm) {
-            elements.adjustmentForm.addEventListener('submit', handleAdjustmentSubmit);
-        }
-
-        // Phone input for customer lookup
-        if (elements.adjustmentPhone) {
-            elements.adjustmentPhone.addEventListener('input', debounce(handlePhoneLookup, 500));
         }
 
         // Approved date filter
@@ -353,12 +307,8 @@
         // APPROVE MODAL EVENT LISTENERS
         // =====================================================
 
-        // Dropzone click to open file picker
+        // Dropzone for paste and drag-drop only (không click để chọn file)
         if (elements.approveDropzone) {
-            elements.approveDropzone.addEventListener('click', () => {
-                elements.approveImageInput?.click();
-            });
-
             // Drag and drop
             elements.approveDropzone.addEventListener('dragover', (e) => {
                 e.preventDefault();
@@ -376,6 +326,14 @@
                 if (files.length > 0 && files[0].type.startsWith('image/')) {
                     handleApproveImageSelect(files[0]);
                 }
+            });
+        }
+
+        // Nút "Chọn ảnh từ máy tính" riêng biệt
+        const chooseImageBtn = document.getElementById('accChooseImageBtn');
+        if (chooseImageBtn) {
+            chooseImageBtn.addEventListener('click', () => {
+                elements.approveImageInput?.click();
             });
         }
 
@@ -410,6 +368,29 @@
         if (autoApproveCheckbox) {
             autoApproveCheckbox.addEventListener('change', (e) => {
                 toggleAutoApprove(e.target.checked);
+            });
+        }
+
+        // Nút Điều chỉnh trong bảng Đã Duyệt (event delegation)
+        if (elements.approvedTableBody) {
+            elements.approvedTableBody.addEventListener('click', async (e) => {
+                const adjustBtn = e.target.closest('.acc-adjust-btn');
+                if (adjustBtn) {
+                    e.preventDefault();
+                    const txId = adjustBtn.dataset.id;
+                    const amount = adjustBtn.dataset.amount;
+                    const phone = adjustBtn.dataset.phone;
+                    const name = adjustBtn.dataset.name;
+                    await openAdjustmentModal(txId, amount, phone, name);
+                }
+
+                // Manager Review button handler
+                const reviewBtn = e.target.closest('.acc-review-btn');
+                if (reviewBtn) {
+                    e.preventDefault();
+                    const txId = reviewBtn.dataset.id;
+                    openManagerReviewModal(txId);
+                }
             });
         }
     }
@@ -512,9 +493,6 @@
             case 'approved':
                 loadApprovedToday();
                 break;
-            case 'adjustment':
-                loadAdjustmentsToday();
-                break;
         }
 
         // Reinitialize Lucide icons
@@ -545,7 +523,7 @@
     }
 
     function renderDashboard() {
-        const { pending, pendingOverdue, approvedToday, rejectedToday, adjustmentsToday } = state.stats;
+        const { pending, pendingOverdue, approvedToday, rejectedToday } = state.stats;
 
         // Update stat cards
         if (elements.statPending) {
@@ -563,10 +541,6 @@
 
         if (elements.statRejected) {
             elements.statRejected.querySelector('.stat-value').textContent = rejectedToday;
-        }
-
-        if (elements.statAdjustment) {
-            elements.statAdjustment.querySelector('.stat-value').textContent = adjustmentsToday;
         }
 
         // Update alert bar
@@ -648,7 +622,7 @@
         if (state.pendingQueue.length === 0) {
             elements.pendingTableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="acc-empty-state">
+                    <td colspan="9" class="acc-empty-state">
                         <div class="empty-icon">✅</div>
                         <div class="empty-text">Không có giao dịch nào chờ duyệt</div>
                     </td>
@@ -685,12 +659,12 @@
                     <td class="col-time">${timeStr}</td>
                     <td class="col-amount amount-in">${amountFormatted}</td>
                     <td class="col-content"><span class="content-tooltip" data-tooltip="${(tx.content || '').replace(/"/g, '&quot;')}">${truncate(tx.content || '', 30)}</span></td>
+                    <td class="col-staff-note">${tx.staff_note || ''}</td>
                     <td class="col-customer">
                         ${hasCustomer ? `
                             <div class="acc-customer-info">
                                 <span class="customer-name">${tx.customer_name || 'Chưa có tên'}</span>
                                 <span class="customer-phone">${tx.linked_customer_phone}</span>
-                                ${canChange ? `<span class="btn-change" onclick="AccountantModule.showChangeModal(${tx.id}, '${escapedPhone}', '${escapedName}')">Thay đổi</span>` : ''}
                             </div>
                         ` : `<span class="acc-text-muted">Chưa gán KH</span>`}
                     </td>
@@ -745,7 +719,8 @@
     }
 
     /**
-     * Format date/time as "HH:MM DD/MM" in Vietnam timezone
+     * Format date/time as "HH:MM DD/MM"
+     * Uses same approach as main.js - toLocaleString without explicit timezone
      * @param {string|Date} dateInput
      * @returns {string}
      */
@@ -754,19 +729,14 @@
         const date = new Date(dateInput);
         if (isNaN(date.getTime())) return 'N/A';
 
-        // Use Vietnam timezone explicitly
-        const options = {
-            timeZone: 'Asia/Ho_Chi_Minh',
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit'
-        };
+        // Use same approach as main.js - toLocaleString without explicit timezone
+        // This uses browser's local timezone (consistent with balance-history page)
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
 
-        const parts = new Intl.DateTimeFormat('vi-VN', options).formatToParts(date);
-        const get = (type) => parts.find(p => p.type === type)?.value || '';
-
-        return `${get('hour')}:${get('minute')} ${get('day')}/${get('month')}`;
+        return `${hours}:${minutes} ${day}/${month}`;
     }
 
     /**
@@ -886,11 +856,27 @@
             transactionId: transactionId,
             imageUrl: null,
             imageFile: null,
-            isUploading: false
+            isUploading: false,
+            originalPhone: tx.linked_customer_phone || '',
+            originalName: tx.customer_name || '',
+            changeCustomerExpanded: false
         };
 
-        // Reset form
-        if (elements.approveNote) elements.approveNote.value = '';
+        // Reset change customer section
+        resetChangeCustomerSection(tx);
+
+        // Generate default note: "ĐÃ NHẬN [amount]K [bank] [DD/MM]"
+        const amountNum = parseFloat(tx.amount || 0);
+        const amountK = Math.round(amountNum / 1000);
+        const amountStr = amountK + 'K';
+        const bank = (tx.gateway || 'ACB').toUpperCase();
+        const txDate = new Date(tx.transaction_date);
+        const day = String(txDate.getDate()).padStart(2, '0');
+        const month = String(txDate.getMonth() + 1).padStart(2, '0');
+        const defaultNote = `ĐÃ NHẬN ${amountStr} ${bank} ${day}/${month}`;
+
+        // Set default note
+        if (elements.approveNote) elements.approveNote.value = defaultNote;
         clearApproveImage();
 
         // Show transaction summary
@@ -949,6 +935,11 @@
             }
             if (elements.approveDropzone) {
                 elements.approveDropzone.style.display = 'none';
+            }
+            // Hide choose image button
+            const chooseImageBtn = document.getElementById('accChooseImageBtn');
+            if (chooseImageBtn) {
+                chooseImageBtn.style.display = 'none';
             }
 
             // Reinitialize icons for remove button
@@ -1055,6 +1046,11 @@
         if (elements.approveDropzone) {
             elements.approveDropzone.style.display = 'flex';
         }
+        // Show choose image button
+        const chooseImageBtn = document.getElementById('accChooseImageBtn');
+        if (chooseImageBtn) {
+            chooseImageBtn.style.display = 'flex';
+        }
         if (elements.approveImageInput) {
             elements.approveImageInput.value = '';
         }
@@ -1068,7 +1064,125 @@
     }
 
     /**
+     * Reset change customer section in approve modal
+     */
+    function resetChangeCustomerSection(tx) {
+        const changeFields = document.getElementById('accChangeFields');
+        const changeToggle = document.querySelector('.acc-change-toggle');
+        const phoneInput = document.getElementById('accApprovePhone');
+        const nameInput = document.getElementById('accApproveName');
+        const lookupResult = document.getElementById('accApproveLookupResult');
+
+        // Collapse section
+        if (changeFields) changeFields.style.display = 'none';
+        if (changeToggle) changeToggle.classList.remove('expanded');
+
+        // Pre-fill with current customer info
+        if (phoneInput) phoneInput.value = tx?.linked_customer_phone || '';
+        if (nameInput) nameInput.value = tx?.customer_name || '';
+        if (lookupResult) {
+            lookupResult.innerHTML = '';
+            lookupResult.className = 'tpos-lookup';
+        }
+
+        state.approveModal.changeCustomerExpanded = false;
+    }
+
+    /**
+     * Toggle change customer section visibility
+     */
+    function toggleChangeCustomer() {
+        const changeFields = document.getElementById('accChangeFields');
+        const changeToggle = document.querySelector('.acc-change-toggle');
+
+        if (!changeFields || !changeToggle) return;
+
+        const isExpanded = state.approveModal.changeCustomerExpanded;
+
+        if (isExpanded) {
+            changeFields.style.display = 'none';
+            changeToggle.classList.remove('expanded');
+        } else {
+            changeFields.style.display = 'block';
+            changeToggle.classList.add('expanded');
+            // Focus on phone input
+            const phoneInput = document.getElementById('accApprovePhone');
+            if (phoneInput) {
+                setTimeout(() => phoneInput.focus(), 100);
+            }
+        }
+
+        state.approveModal.changeCustomerExpanded = !isExpanded;
+
+        // Reinitialize icons
+        if (window.lucide) lucide.createIcons();
+    }
+
+    /**
+     * Lookup customer in approve modal (similar to lookupCustomerForChange)
+     */
+    async function lookupCustomerInApprove(phone) {
+        const lookupResult = document.getElementById('accApproveLookupResult');
+        if (!lookupResult) return;
+
+        const normalized = phone.replace(/\D/g, '');
+        if (normalized.length !== 10) {
+            lookupResult.innerHTML = '';
+            return;
+        }
+
+        lookupResult.innerHTML = '<div class="tpos-loading"><span class="loading-spinner"></span> Đang tìm...</div>';
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${normalized}`);
+            const result = await response.json();
+
+            const phoneGroups = result.data || [];
+            const customers = phoneGroups.flatMap(group => group.customers || []);
+
+            if (!result.success || !customers.length) {
+                lookupResult.innerHTML = '<div class="tpos-result error">Không tìm thấy KH</div>';
+                return;
+            }
+
+            if (customers.length === 1) {
+                const customer = customers[0];
+                document.getElementById('accApproveName').value = customer.name || '';
+                lookupResult.innerHTML = `<div class="tpos-result">✅ ${customer.name}</div>`;
+            } else {
+                const options = customers.map(c =>
+                    `<option value="${c.name}">${c.name} - ${c.phone || ''}</option>`
+                ).join('');
+                lookupResult.innerHTML = `
+                    <div class="tpos-multiple">
+                        <span>⚠️ Tìm thấy ${customers.length} KH</span>
+                        <select id="accApproveCustomerSelect" onchange="document.getElementById('accApproveName').value = this.value">
+                            <option value="">-- Chọn KH --</option>
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('[ACCOUNTANT] Customer lookup error:', error);
+            lookupResult.innerHTML = '<div class="tpos-result error">Lỗi kết nối TPOS</div>';
+        }
+    }
+
+    /**
+     * Check if customer info has changed
+     */
+    function hasCustomerChanged() {
+        const phoneInput = document.getElementById('accApprovePhone');
+        const newPhone = phoneInput?.value?.replace(/\D/g, '') || '';
+        const originalPhone = (state.approveModal.originalPhone || '').replace(/\D/g, '');
+
+        return newPhone !== originalPhone && newPhone.length === 10;
+    }
+
+    /**
      * Confirm approval with note and optional image
+     * If customer info changed, update phone first then approve
      */
     async function confirmApprove() {
         const transactionId = state.approveModal.transactionId;
@@ -1086,6 +1200,11 @@
         const userInfo = window.authManager?.getUserInfo() || {};
         const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
 
+        // Check if customer info changed
+        const customerChanged = hasCustomerChanged();
+        const newPhone = document.getElementById('accApprovePhone')?.value?.replace(/\D/g, '') || '';
+        const newName = document.getElementById('accApproveName')?.value?.trim() || '';
+
         // Disable button
         if (elements.approveConfirmBtn) {
             elements.approveConfirmBtn.disabled = true;
@@ -1093,23 +1212,49 @@
         }
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    verified_by: performedBy,
-                    note: note,
-                    verification_image_url: imageUrl || null
-                })
-            });
+            // If customer changed, update phone first (this API also approves)
+            if (customerChanged) {
+                const changeResponse = await fetch(`${API_BASE_URL}/api/sepay/transaction/${transactionId}/phone`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: newPhone,
+                        customer_name: newName || null,
+                        entered_by: performedBy,
+                        is_accountant_correction: true,
+                        note: note,
+                        verification_image_url: imageUrl || null
+                    })
+                });
 
-            const result = await response.json();
+                const changeResult = await changeResponse.json();
 
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to approve');
+                if (!changeResult.success) {
+                    throw new Error(changeResult.error || 'Failed to update customer');
+                }
+
+                showNotification(`Đã thay đổi SĐT thành ${newPhone} và duyệt giao dịch`, 'success');
+            } else {
+                // Normal approval without customer change
+                const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${transactionId}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        verified_by: performedBy,
+                        note: note,
+                        verification_image_url: imageUrl || null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to approve');
+                }
+
+                showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
             }
 
-            showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
             closeAllModals();
 
             // Refresh data
@@ -1239,6 +1384,9 @@
     // CHANGE PHONE MODAL
     // =====================================================
 
+    /**
+     * Show change modal - now opens approve modal with change section expanded
+     */
     function showChangeModal(transactionId, currentPhone, currentName) {
         // Permission check
         if (!window.authManager?.hasDetailedPermission('balance-history', 'approveTransaction')) {
@@ -1253,25 +1401,30 @@
             return;
         }
 
-        if (!elements.changeModal) return;
+        // Open approve modal instead
+        showApproveModal(transactionId);
 
-        elements.changeModal.dataset.txId = transactionId;
-        document.getElementById('accChangePhone').value = currentPhone || '';
-        document.getElementById('accChangeName').value = currentName || '';
+        // Expand change customer section after modal is shown
+        setTimeout(() => {
+            const changeFields = document.getElementById('accChangeFields');
+            const changeToggle = document.querySelector('.acc-change-toggle');
 
-        // Reset lookup state
-        const lookupResult = document.getElementById('accChangeLookupResult');
-        if (lookupResult) {
-            lookupResult.innerHTML = '';
-            lookupResult.className = '';
-        }
+            if (changeFields && changeToggle) {
+                changeFields.style.display = 'block';
+                changeToggle.classList.add('expanded');
+                state.approveModal.changeCustomerExpanded = true;
 
-        elements.changeModal.classList.add('visible');
+                // Focus on phone input
+                const phoneInput = document.getElementById('accApprovePhone');
+                if (phoneInput) {
+                    phoneInput.focus();
+                    phoneInput.select();
+                }
 
-        // Trigger lookup if phone is valid
-        if (currentPhone?.replace(/\D/g, '').length === 10) {
-            lookupCustomerForChange(currentPhone);
-        }
+                // Reinitialize icons
+                if (window.lucide) lucide.createIcons();
+            }
+        }, 100);
     }
 
     async function lookupCustomerForChange(phone) {
@@ -1423,7 +1576,7 @@
         if (state.approvedToday.length === 0) {
             elements.approvedTableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="acc-empty-state">
+                    <td colspan="8" class="acc-empty-state">
                         <div class="empty-icon">📋</div>
                         <div class="empty-text">Chưa có giao dịch được duyệt ngày này</div>
                     </td>
@@ -1437,8 +1590,31 @@
             const verifiedAt = formatDateTime(tx.verified_at);
             const txDate = formatDateTime(tx.transaction_date);
 
+            // Check if transaction has been manager reviewed
+            const isReviewed = tx.manager_reviewed || false;
+            const reviewNote = tx.manager_review_note || '';
+            const reviewedBy = tx.reviewed_by || '';
+            const reviewedAt = tx.reviewed_at ? formatDateTime(tx.reviewed_at) : '';
+
+            // Row class - add reviewed class if applicable
+            const rowClass = isReviewed ? 'acc-row-reviewed' : '';
+
             // Dịch ghi chú
             let note = tx.verification_note || '';
+            let hasAdjustment = false;
+            let managerNote = '';
+
+            // Extract manager note [QL: ...] if exists
+            const managerNoteMatch = note.match(/\[QL:\s*([^\]]*)\]/);
+            if (managerNoteMatch) {
+                managerNote = managerNoteMatch[1] || 'Đã kiểm tra';
+                // Remove manager note from main note
+                note = note.replace(/\n?\[QL:[^\]]*\]/, '').trim();
+            }
+
+            if (note.includes('[Đã điều chỉnh:')) {
+                hasAdjustment = true;
+            }
             if (note.includes('Auto-approved by accountant')) {
                 // Format: Auto-approved by accountant [user] at [time]
                 // Rút gọn vì đã có cột Duyệt bởi
@@ -1459,10 +1635,26 @@
                     </div>
                 `;
             }
-            noteHtml += `<span class="acc-approve-note">${note}</span></div>`;
+            noteHtml += `<span class="acc-approve-note">${note}</span>`;
+
+            // Add manager note with orange styling if exists
+            if (managerNote) {
+                noteHtml += `<span class="acc-manager-note" title="Quản lý: ${reviewedBy} lúc ${reviewedAt}">QL: ${managerNote}</span>`;
+            }
+            noteHtml += '</div>';
+
+            // Review button - show different state based on reviewed status
+            const reviewBtnHtml = isReviewed
+                ? `<span class="acc-reviewed-label" title="Đã kiểm tra bởi ${reviewedBy} lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
+                : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
+
+            // Nút Điều chỉnh - disable nếu đã có adjustment
+            const adjustBtnHtml = hasAdjustment
+                ? `<span class="badge badge-secondary" title="Giao dịch đã được điều chỉnh">✓ Đã điều chỉnh</span>`
+                : `<button class="btn btn-sm btn-outline-warning acc-adjust-btn" data-id="${tx.id}" data-amount="${tx.amount}" data-phone="${tx.linked_customer_phone || ''}" data-name="${tx.customer_name || ''}" title="Điều chỉnh nếu phát hiện sai">⚠️ Điều chỉnh</button>`;
 
             return `
-                <tr>
+                <tr class="${rowClass}">
                     <td>${verifiedAt}</td>
                     <td>${txDate}</td>
                     <td class="amount-in">${amount}</td>
@@ -1475,211 +1667,7 @@
                     <td>${getMatchMethodBadge(tx.match_method)}</td>
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
                     <td>${noteHtml}</td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    // =====================================================
-    // MANUAL ADJUSTMENT
-    // =====================================================
-
-    async function handlePhoneLookup(e) {
-        const phone = e.target.value.replace(/\D/g, '');
-
-        if (phone.length !== 10) {
-            if (elements.customerLookup) {
-                elements.customerLookup.classList.remove('visible');
-            }
-            if (elements.adjustmentName) elements.adjustmentName.value = '';
-            if (elements.adjustmentBalance) elements.adjustmentBalance.value = '';
-            return;
-        }
-
-        try {
-            // Use TPOS search API for accurate customer names
-            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${phone}`);
-            const result = await response.json();
-
-            // API returns { success, data: [{ phone, count, customers: [...] }] }
-            const phoneGroups = result.data || [];
-            const customers = phoneGroups.flatMap(group => group.customers || []);
-
-            if (!result.success || !customers.length) {
-                if (elements.customerLookup) {
-                    elements.customerLookup.classList.add('visible');
-                    elements.customerLookup.innerHTML = '<span class="acc-text-danger">Không tìm thấy KH</span>';
-                }
-                return;
-            }
-
-            const customer = customers[0];
-
-            if (elements.adjustmentName) {
-                elements.adjustmentName.value = customer.name || '';
-            }
-
-            // Get wallet balance
-            const balanceResponse = await fetch(`${API_BASE_URL}/api/v2/wallet/balance?phone=${phone}`);
-            const balanceResult = await balanceResponse.json();
-
-            const balance = balanceResult.success ? (balanceResult.balance || 0) : 0;
-            if (elements.adjustmentBalance) {
-                elements.adjustmentBalance.value = balance.toLocaleString('vi-VN') + 'đ';
-            }
-
-            if (elements.customerLookup) {
-                elements.customerLookup.classList.add('visible');
-                elements.customerLookup.innerHTML = `
-                    <span class="lookup-name">✅ ${customer.name}</span>
-                    <span class="lookup-balance">Số dư: ${balance.toLocaleString('vi-VN')}đ</span>
-                `;
-            }
-
-        } catch (error) {
-            console.error('[ACCOUNTANT] Phone lookup error:', error);
-        }
-    }
-
-    async function handleAdjustmentSubmit(e) {
-        e.preventDefault();
-
-        const phone = elements.adjustmentPhone?.value?.replace(/\D/g, '');
-        const name = elements.adjustmentName?.value?.trim();
-        const typeRadio = document.querySelector('input[name="adjustmentType"]:checked');
-        const type = typeRadio?.value;
-        const amount = parseFloat(elements.adjustmentAmount?.value || 0);
-        const reason = elements.adjustmentReason?.value?.trim();
-
-        // Validation
-        if (!phone || phone.length !== 10) {
-            showNotification('Vui lòng nhập số điện thoại hợp lệ (10 số)', 'error');
-            return;
-        }
-
-        if (!type) {
-            showNotification('Vui lòng chọn loại điều chỉnh', 'error');
-            return;
-        }
-
-        if (!amount || amount <= 0) {
-            showNotification('Vui lòng nhập số tiền hợp lệ', 'error');
-            return;
-        }
-
-        if (!reason || reason.length < 10) {
-            showNotification('Vui lòng nhập lý do (ít nhất 10 ký tự)', 'error');
-            return;
-        }
-
-        // Permission check
-        if (!window.authManager?.hasDetailedPermission('balance-history', 'adjustWallet')) {
-            showNotification('Bạn không có quyền điều chỉnh công nợ', 'error');
-            return;
-        }
-
-        const userInfo = window.authManager?.getUserInfo() || {};
-        const performedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
-
-        if (!confirm(`Xác nhận ${type === 'add' ? 'CỘNG' : 'TRỪ'} ${amount.toLocaleString('vi-VN')}đ cho khách ${name || phone}?\n\nLý do: ${reason}`)) {
-            return;
-        }
-
-        if (elements.adjustmentSubmit) {
-            elements.adjustmentSubmit.disabled = true;
-            elements.adjustmentSubmit.textContent = 'Đang xử lý...';
-        }
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/wallet/manual-adjustment`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    phone: phone,
-                    customer_name: name,
-                    type: type, // 'add' or 'subtract'
-                    amount: amount,
-                    reason: reason,
-                    performed_by: performedBy
-                })
-            });
-
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to adjust');
-            }
-
-            showNotification(`Đã ${type === 'add' ? 'cộng' : 'trừ'} ${amount.toLocaleString('vi-VN')}đ cho ${name || phone}`, 'success');
-
-            // Reset form
-            elements.adjustmentForm.reset();
-            if (elements.customerLookup) {
-                elements.customerLookup.classList.remove('visible');
-            }
-
-            // Refresh
-            loadDashboardStats();
-            loadAdjustmentsToday();
-
-        } catch (error) {
-            console.error('[ACCOUNTANT] Adjustment error:', error);
-            showNotification(`Lỗi: ${error.message}`, 'error');
-        } finally {
-            if (elements.adjustmentSubmit) {
-                elements.adjustmentSubmit.disabled = false;
-                elements.adjustmentSubmit.textContent = 'Thực hiện điều chỉnh';
-            }
-        }
-    }
-
-    async function loadAdjustmentsToday() {
-        if (!elements.adjustmentHistoryBody) return;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/v2/wallet/adjustments-today`);
-            const result = await response.json();
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to load');
-            }
-
-            state.adjustmentsToday = result.data;
-            renderAdjustmentsToday();
-
-        } catch (error) {
-            console.error('[ACCOUNTANT] Load adjustments error:', error);
-            elements.adjustmentHistoryBody.innerHTML = `<tr><td colspan="6" class="acc-text-danger">Lỗi: ${error.message}</td></tr>`;
-        }
-    }
-
-    function renderAdjustmentsToday() {
-        if (!elements.adjustmentHistoryBody) return;
-
-        if (state.adjustmentsToday.length === 0) {
-            elements.adjustmentHistoryBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="acc-text-muted" style="text-align: center; padding: 20px;">
-                        Chưa có điều chỉnh nào hôm nay
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        elements.adjustmentHistoryBody.innerHTML = state.adjustmentsToday.map(adj => {
-            const time = formatDateTime(adj.created_at);
-            const amount = parseFloat(adj.amount || 0).toLocaleString('vi-VN') + 'đ';
-            const typeClass = adj.type === 'add' ? 'type-add' : 'type-subtract';
-            const typeIcon = adj.type === 'add' ? '+' : '-';
-
-            return `
-                <tr>
-                    <td>${time}</td>
-                    <td class="${typeClass}">${typeIcon}${amount}</td>
-                    <td>${adj.customer_name || adj.phone}</td>
-                    <td>${adj.reason || ''}</td>
-                    <td>${adj.performed_by || 'N/A'}</td>
+                    <td class="acc-action-cell">${reviewBtnHtml} ${adjustBtnHtml}</td>
                 </tr>
             `;
         }).join('');
@@ -1881,6 +1869,436 @@
     }
 
     // =====================================================
+    // TRANSACTION ADJUSTMENT (Điều chỉnh GD đã duyệt)
+    // =====================================================
+
+    /**
+     * Mở modal điều chỉnh giao dịch
+     * @param {string} txId - ID giao dịch
+     * @param {string} amount - Số tiền
+     * @param {string} phone - SĐT khách hàng
+     * @param {string} name - Tên khách hàng
+     */
+    async function openAdjustmentModal(txId, amount, phone, name) {
+        console.log('[ACCOUNTANT] openAdjustmentModal called with:', { txId, amount, phone, name });
+        try {
+            showNotification('Đang kiểm tra...', 'info');
+
+            // Gọi API kiểm tra có thể điều chỉnh không
+            console.log('[ACCOUNTANT] Calling can-adjust API...');
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/can-adjust`);
+            const result = await response.json();
+            console.log('[ACCOUNTANT] can-adjust API response:', result);
+
+            if (!result.success) {
+                showNotification(`Lỗi: ${result.error}`, 'error');
+                return;
+            }
+
+            if (!result.canAdjust) {
+                // Hiển thị modal thông báo không thể điều chỉnh
+                console.log('[ACCOUNTANT] Cannot adjust, showing blocked modal');
+                showAdjustmentBlockedModal(result);
+                return;
+            }
+
+            // Có thể điều chỉnh - hiển thị modal form
+            console.log('[ACCOUNTANT] Can adjust, showing form modal');
+            showAdjustmentFormModal(txId, result.transaction, result.wallet);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] openAdjustmentModal error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Hiển thị modal khi không thể điều chỉnh
+     */
+    function showAdjustmentBlockedModal(result) {
+        const { reason, transaction, wallet, hasWithdrawals } = result;
+
+        const modalHtml = `
+            <div class="acc-modal-overlay" id="accAdjustBlockedModal">
+                <div class="acc-modal" style="max-width: 500px;">
+                    <div class="acc-modal-header">
+                        <h3>⛔ Không thể điều chỉnh</h3>
+                        <button class="acc-modal-close" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
+                    </div>
+                    <div class="acc-modal-body">
+                        <div class="acc-blocked-reason">
+                            <p><strong>${reason}</strong></p>
+                        </div>
+
+                        <div class="acc-blocked-details" style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px;">
+                            <h4>Thông tin giao dịch:</h4>
+                            <p>Số tiền: <strong>${parseFloat(transaction.amount).toLocaleString()}đ</strong></p>
+                            <p>Khách hàng: <strong>${transaction.customer_name || transaction.phone}</strong></p>
+                            <p>SĐT: <strong>${transaction.phone}</strong></p>
+                            ${wallet ? `
+                                <p>Số dư hiện tại: <strong>${parseFloat(wallet.current_balance).toLocaleString()}đ</strong></p>
+                                ${wallet.used_amount > 0 ? `<p>Đã sử dụng: <strong class="text-danger">${parseFloat(wallet.used_amount).toLocaleString()}đ</strong></p>` : ''}
+                            ` : ''}
+                        </div>
+
+                        <div class="acc-blocked-action" style="margin-top: 16px; padding: 12px; background: #fff3cd; border-radius: 8px;">
+                            <p><strong>Giải pháp:</strong></p>
+                            <p>Liên hệ Admin để cộng/trừ công nợ riêng lẻ qua Customer Hub.</p>
+                        </div>
+                    </div>
+                    <div class="acc-modal-footer">
+                        <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.closeAdjustmentModal()">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Add visible class to show modal
+        document.getElementById('accAdjustBlockedModal').classList.add('visible');
+    }
+
+    /**
+     * Hiển thị modal form điều chỉnh
+     */
+    function showAdjustmentFormModal(txId, transaction, wallet) {
+        const modalHtml = `
+            <div class="acc-modal-overlay" id="accAdjustFormModal">
+                <div class="acc-modal" style="max-width: 550px;">
+                    <div class="acc-modal-header">
+                        <h3>⚠️ Điều chỉnh giao dịch</h3>
+                        <button class="acc-modal-close" onclick="AccountantModule.closeAdjustmentModal()">&times;</button>
+                    </div>
+                    <div class="acc-modal-body">
+                        <div class="acc-adjust-info" style="padding: 12px; background: #e7f3ff; border-radius: 8px; margin-bottom: 16px;">
+                            <h4>Giao dịch gốc:</h4>
+                            <p>Mã GD: <strong>#${transaction.id}</strong></p>
+                            <p>Số tiền: <strong>${parseFloat(transaction.amount).toLocaleString()}đ</strong></p>
+                            <p>Khách hàng: <strong>${transaction.customer_name || 'N/A'}</strong> (${transaction.phone})</p>
+                            <p>Duyệt bởi: <strong>${transaction.verified_by || 'N/A'}</strong></p>
+                        </div>
+
+                        <form id="accAdjustForm">
+                            <input type="hidden" id="accAdjustTxId" value="${txId}">
+                            <input type="hidden" id="accAdjustAmount" value="${transaction.amount}">
+                            <input type="hidden" id="accAdjustWrongPhone" value="${transaction.phone}">
+
+                            <div class="form-group">
+                                <label><strong>Loại điều chỉnh:</strong></label>
+                                <div class="acc-adjust-types">
+                                    <label class="acc-radio-label">
+                                        <input type="radio" name="adjustType" value="debit_only" checked>
+                                        <span>Chỉ trừ ví khách sai (không biết khách đúng)</span>
+                                    </label>
+                                    <label class="acc-radio-label">
+                                        <input type="radio" name="adjustType" value="transfer_to_correct">
+                                        <span>Chuyển từ khách sai sang khách đúng</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group" id="accCorrectCustomerGroup" style="display: none;">
+                                <label>SĐT khách hàng đúng:</label>
+                                <input type="text" id="accCorrectPhone" class="form-control" placeholder="0901234567" maxlength="10">
+                                <div id="accCorrectCustomerLookup" class="acc-customer-lookup" style="display: none;"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label><strong>Lý do điều chỉnh:</strong> <span class="text-danger">*</span></label>
+                                <textarea id="accAdjustReason" class="form-control" rows="3" placeholder="Nhập lý do điều chỉnh (ít nhất 10 ký tự)..." minlength="10" required></textarea>
+                                <small class="text-muted">Ví dụ: Duyệt nhầm cho khách A, thực tế là khách B.</small>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="acc-modal-footer">
+                        <button class="acc-btn acc-btn-secondary" onclick="AccountantModule.closeAdjustmentModal()">Hủy</button>
+                        <button class="acc-btn acc-btn-danger" onclick="AccountantModule.confirmAdjustment()">Xác nhận điều chỉnh</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Add visible class to show modal
+        console.log('[ACCOUNTANT] showAdjustmentFormModal - adding visible class');
+        const modal = document.getElementById('accAdjustFormModal');
+        console.log('[ACCOUNTANT] Modal element:', modal);
+        if (modal) {
+            modal.classList.add('visible');
+            console.log('[ACCOUNTANT] Modal visible class added');
+        } else {
+            console.error('[ACCOUNTANT] Modal element not found!');
+        }
+
+        // Add event listeners
+        document.querySelectorAll('input[name="adjustType"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const correctGroup = document.getElementById('accCorrectCustomerGroup');
+                if (e.target.value === 'transfer_to_correct') {
+                    correctGroup.style.display = 'block';
+                } else {
+                    correctGroup.style.display = 'none';
+                }
+            });
+        });
+
+        // Phone lookup for correct customer
+        const correctPhoneInput = document.getElementById('accCorrectPhone');
+        if (correctPhoneInput) {
+            correctPhoneInput.addEventListener('input', debounce(lookupCorrectCustomer, 500));
+        }
+    }
+
+    /**
+     * Lookup khách hàng đúng
+     */
+    async function lookupCorrectCustomer(e) {
+        const phone = e.target.value.replace(/\D/g, '');
+        const lookupDiv = document.getElementById('accCorrectCustomerLookup');
+
+        if (phone.length !== 10) {
+            lookupDiv.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${phone}`);
+            const result = await response.json();
+
+            const customers = (result.data || []).flatMap(g => g.customers || []);
+
+            if (customers.length > 0) {
+                const c = customers[0];
+                lookupDiv.innerHTML = `
+                    <div class="acc-customer-found" style="padding: 8px; background: #d4edda; border-radius: 4px;">
+                        <strong>${c.name}</strong><br>
+                        <small>${c.phone}</small>
+                    </div>
+                `;
+                lookupDiv.style.display = 'block';
+            } else {
+                lookupDiv.innerHTML = `
+                    <div class="acc-customer-not-found" style="padding: 8px; background: #fff3cd; border-radius: 4px;">
+                        Khách hàng mới - sẽ được tạo tự động
+                    </div>
+                `;
+                lookupDiv.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('[ACCOUNTANT] lookupCorrectCustomer error:', error);
+        }
+    }
+
+    /**
+     * Xác nhận điều chỉnh
+     */
+    async function confirmAdjustment() {
+        const txId = document.getElementById('accAdjustTxId')?.value;
+        const adjustType = document.querySelector('input[name="adjustType"]:checked')?.value;
+        const correctPhone = document.getElementById('accCorrectPhone')?.value;
+        const reason = document.getElementById('accAdjustReason')?.value?.trim();
+
+        if (!reason || reason.length < 10) {
+            showNotification('Lý do điều chỉnh phải có ít nhất 10 ký tự', 'error');
+            return;
+        }
+
+        if (adjustType === 'transfer_to_correct' && (!correctPhone || correctPhone.length !== 10)) {
+            showNotification('Vui lòng nhập SĐT khách hàng đúng (10 số)', 'error');
+            return;
+        }
+
+        const confirmBtn = document.querySelector('#accAdjustFormModal .acc-btn-danger');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = 'Đang xử lý...';
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${txId}/adjust`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    adjustment_type: adjustType,
+                    correct_customer_phone: adjustType === 'transfer_to_correct' ? correctPhone : null,
+                    reason,
+                    performed_by: window.authManager?.getUserInfo()?.username || 'accountant'
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Lỗi điều chỉnh');
+            }
+
+            showNotification(result.message || 'Điều chỉnh thành công!', 'success');
+            closeAdjustmentModal();
+
+            // Reload bảng Đã Duyệt
+            await loadApprovedToday(state.pagination.approved.page);
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] confirmAdjustment error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = 'Xác nhận điều chỉnh';
+            }
+        }
+    }
+
+    /**
+     * Đóng modal điều chỉnh
+     */
+    function closeAdjustmentModal() {
+        const blockedModal = document.getElementById('accAdjustBlockedModal');
+        const formModal = document.getElementById('accAdjustFormModal');
+        if (blockedModal) blockedModal.remove();
+        if (formModal) formModal.remove();
+    }
+
+    /**
+     * Debounce helper
+     */
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // =====================================================
+    // MANAGER REVIEW FUNCTIONS
+    // =====================================================
+
+    let currentReviewTxId = null;
+
+    /**
+     * Open the manager review modal
+     * @param {string|number} txId - Transaction ID
+     */
+    function openManagerReviewModal(txId) {
+        currentReviewTxId = txId;
+
+        // Find transaction in state
+        const tx = state.approvedToday.find(t => t.id == txId);
+        if (!tx) {
+            showNotification('Không tìm thấy giao dịch', 'error');
+            return;
+        }
+
+        // Populate summary
+        const summaryEl = document.getElementById('accReviewSummary');
+        if (summaryEl) {
+            const amount = parseFloat(tx.amount || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + 'đ';
+            summaryEl.innerHTML = `
+                <div class="summary-row">
+                    <span class="summary-label">Số tiền:</span>
+                    <span class="summary-value amount-in">${amount}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Khách hàng:</span>
+                    <span class="summary-value">${tx.customer_name || 'N/A'} - ${tx.linked_customer_phone || ''}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Nội dung CK:</span>
+                    <span class="summary-value">${tx.content || ''}</span>
+                </div>
+                <div class="summary-row">
+                    <span class="summary-label">Ngày GD:</span>
+                    <span class="summary-value">${formatDateTime(tx.transaction_date)}</span>
+                </div>
+            `;
+        }
+
+        // Clear previous note
+        const noteEl = document.getElementById('accReviewNote');
+        if (noteEl) noteEl.value = '';
+
+        // Show modal
+        const modal = document.getElementById('accManagerReviewModal');
+        if (modal) {
+            modal.classList.add('visible');
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    /**
+     * Confirm manager review
+     */
+    async function confirmManagerReview() {
+        if (!currentReviewTxId) return;
+
+        const noteEl = document.getElementById('accReviewNote');
+        const reviewNote = noteEl?.value?.trim() || '';
+        const confirmBtn = document.getElementById('accReviewConfirmBtn');
+
+        // Get current user info
+        const userInfo = window.authManager?.getAuthState() || {};
+        const reviewedBy = userInfo.email || userInfo.displayName || userInfo.username || 'Unknown';
+
+        // Disable button while processing
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:14px;height:14px"></i> Đang xử lý...';
+        }
+
+        try {
+            // API call to backend
+            const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${currentReviewTxId}/manager-review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    manager_review_note: reviewNote,
+                    reviewed_by: reviewedBy
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to save review');
+            }
+
+            // Update local state
+            const txIndex = state.approvedToday.findIndex(t => t.id == currentReviewTxId);
+            if (txIndex !== -1) {
+                state.approvedToday[txIndex].manager_reviewed = true;
+                state.approvedToday[txIndex].manager_review_note = reviewNote;
+                state.approvedToday[txIndex].reviewed_by = reviewedBy;
+                state.approvedToday[txIndex].reviewed_at = new Date().toISOString();
+            }
+
+            // Close modal and re-render
+            document.getElementById('accManagerReviewModal')?.classList.remove('visible');
+            renderApprovedToday();
+
+            showNotification('Đã kiểm tra giao dịch thành công', 'success');
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Manager review error:', error);
+            showNotification(`Lỗi: ${error.message}`, 'error');
+        } finally {
+            // Re-enable button
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px"></i> Xác nhận đã kiểm tra';
+                if (window.lucide) lucide.createIcons();
+            }
+            currentReviewTxId = null;
+        }
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -1890,7 +2308,6 @@
         loadDashboardStats,
         loadPendingQueue,
         loadApprovedToday,
-        loadAdjustmentsToday,
         approve,
         bulkApprove,
         showRejectModal,
@@ -1907,9 +2324,19 @@
         showApproveModal,
         confirmApprove,
         clearApproveImage,
+        // Change customer in approve modal
+        toggleChangeCustomer,
+        lookupCustomerInApprove,
         // Auto-approve toggle
         loadAutoApproveSetting,
-        toggleAutoApprove
+        toggleAutoApprove,
+        // Adjustment functions (điều chỉnh GD đã duyệt)
+        openAdjustmentModal,
+        confirmAdjustment,
+        closeAdjustmentModal,
+        // Manager Review functions (quản lý kiểm tra)
+        openManagerReviewModal,
+        confirmManagerReview
     };
 
     // Auto-initialize when DOM is ready

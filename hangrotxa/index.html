@@ -37,6 +37,9 @@
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js"></script>
     </head>
 
     <body>
@@ -44,8 +47,8 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i data-lucide="zap"></i>
-                    <span>N2Shop</span>
+                    <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+                    <span>N2STORE</span>
                 </div>
                 <button class="sidebar-toggle" id="sidebarToggle">
                     <i data-lucide="panel-left-close"></i>
@@ -446,6 +449,9 @@
         <div id="tooltip" class="tooltip"></div>
 
         <!-- Scripts - LOAD IN CORRECT ORDER -->
+
+        <!-- Shared Permission Helper -->
+        <script src="../shared/js/permissions-helper.js"></script>
 
         <!-- Load modular JS files in correct order -->
         <script src="js/hangrotxa-config.js"></script>

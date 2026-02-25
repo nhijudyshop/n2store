@@ -8,7 +8,8 @@ class MessageTemplateManager {
         this.filteredTemplates = [];
         this.selectedTemplate = null;
         this.isLoading = false;
-        this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/MailTemplate?$filter=(Active+eq+true)';
+        // Firestore collection for templates (replacing TPOS API)
+        this.TEMPLATES_COLLECTION = 'message_templates';
         this.currentOrder = null;
         this.selectedOrders = [];
         this.DEBUG_MODE = true; // Enable debug logging
@@ -22,7 +23,77 @@ class MessageTemplateManager {
             error: 0,
             errors: []
         };
+        // Track failed orders for comment watermark in table
+        this.failedOrderIds = new Set();
+        this._loadFailedOrderIds();
         this.init();
+    }
+
+    // =====================================================
+    // FAILED ORDERS TRACKING (for comment watermark)
+    // =====================================================
+
+    _loadFailedOrderIds() {
+        try {
+            const stored = localStorage.getItem('failed_message_orders');
+            if (stored) {
+                const data = JSON.parse(stored);
+                // Only keep entries from last 24 hours
+                const now = Date.now();
+                const validEntries = data.filter(entry => (now - entry.timestamp) < 24 * 60 * 60 * 1000);
+                this.failedOrderIds = new Set(validEntries.map(e => e.orderId));
+                // Save cleaned data
+                if (validEntries.length !== data.length) {
+                    this._saveFailedOrderIds();
+                }
+                this.log(`📋 Loaded ${this.failedOrderIds.size} failed order IDs from storage`);
+            }
+        } catch (e) {
+            console.warn('[MESSAGE] Error loading failed order IDs:', e);
+        }
+    }
+
+    _saveFailedOrderIds() {
+        try {
+            const now = Date.now();
+            const data = Array.from(this.failedOrderIds).map(orderId => ({
+                orderId,
+                timestamp: now
+            }));
+            localStorage.setItem('failed_message_orders', JSON.stringify(data));
+        } catch (e) {
+            console.warn('[MESSAGE] Error saving failed order IDs:', e);
+        }
+    }
+
+    addFailedOrders(orderIds) {
+        orderIds.forEach(id => this.failedOrderIds.add(id));
+        this._saveFailedOrderIds();
+        this.log(`📋 Added ${orderIds.length} failed orders, total: ${this.failedOrderIds.size}`);
+        // Dispatch event to update table UI
+        window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
+            detail: { failedOrderIds: Array.from(this.failedOrderIds) }
+        }));
+    }
+
+    removeFailedOrder(orderId) {
+        if (this.failedOrderIds.has(orderId)) {
+            this.failedOrderIds.delete(orderId);
+            this._saveFailedOrderIds();
+            this.log(`✅ Removed order ${orderId} from failed list`);
+            // Dispatch event to update table UI
+            window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
+                detail: { failedOrderIds: Array.from(this.failedOrderIds) }
+            }));
+        }
+    }
+
+    isOrderFailed(orderId) {
+        return this.failedOrderIds.has(orderId);
+    }
+
+    getFailedOrderIds() {
+        return Array.from(this.failedOrderIds);
     }
 
     log(...args) {
@@ -98,68 +169,88 @@ class MessageTemplateManager {
                         </div>
                     </div>
 
-                    <!-- Footer -->
-                    <div class="message-modal-footer">
-                        <div class="message-result-count" id="messageResultCount">
-                            <strong>0</strong> template
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                            <!-- Thread Input -->
-                            <div style="display: flex; align-items: center; gap: 6px;" title="Số nhân viên gửi đồng thời (Max 5)">
-                                <i class="fas fa-users" style="color: #6b7280;"></i>
-                                <input type="number" id="messageThreadCount" value="1" min="1" max="5" onkeydown="return false" style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
-                                <span style="font-size: 13px; color: #6b7280;">người</span>
+                    <!-- Footer - Redesigned for better UX -->
+                    <div class="message-modal-footer" style="flex-direction: column; gap: 16px; padding: 20px 24px;">
+                        <!-- Hidden inputs for compatibility -->
+                        <input type="radio" name="sendMode" value="text" checked id="sendModeText" style="display: none;">
+                        <input type="radio" name="sendMode" value="image" id="sendModeImage" disabled style="display: none;">
+                        <input type="radio" name="apiMode" value="tpage" id="apiModeTPage" disabled style="display: none;">
+                        <input type="radio" name="apiMode" value="pancake" checked id="apiModePancake" style="display: none;">
+
+                        <!-- Row 1: Settings -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+                            <!-- Left: Template count -->
+                            <div class="message-result-count" id="messageResultCount" style="font-size: 14px;">
+                                <strong>0</strong> template
                             </div>
 
-                            <!-- Delay Input -->
-                            <div style="display: flex; align-items: center; gap: 6px;" title="Thời gian nghỉ giữa các tin nhắn (giây)">
-                                <i class="fas fa-clock" style="color: #6b7280;"></i>
-                                <input type="number" id="messageSendDelay" value="1" min="0" step="0.5" onkeydown="return false" style="width: 50px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px;">
-                                <span style="font-size: 13px; color: #6b7280;">s</span>
-                            </div>
-
-                            <!-- Send Mode Toggle -->
-                            <div style="display: flex; gap: 15px; align-items: center;">
-                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                    <input type="radio" name="sendMode" value="text" checked id="sendModeText" style="cursor: pointer;">
-                                    <i class="fas fa-align-left" style="color: #6366f1;"></i>
-                                    <span>Gửi text</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                    <input type="radio" name="sendMode" value="image" id="sendModeImage" style="cursor: pointer;">
-                                    <i class="fas fa-image" style="color: #ec4899;"></i>
-                                    <span>Gửi ảnh</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- API Mode Toggle (T-Page / Pancake) -->
-                        <div style="display: flex; gap: 15px; align-items: center; padding: 8px 12px; background: #f3f4f6; border-radius: 8px;">
-                            <span style="font-size: 13px; color: #6b7280; font-weight: 500;">API:</span>
-                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                <input type="radio" name="apiMode" value="tpage" checked id="apiModeTPage" style="cursor: pointer;">
-                                <i class="fas fa-rocket" style="color: #10b981;"></i>
-                                <span>T-Page</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px;">
-                                <input type="radio" name="apiMode" value="pancake" id="apiModePancake" style="cursor: pointer;">
-                                <i class="fab fa-facebook-messenger" style="color: #6366f1;"></i>
-                                <span>Pancake</span>
-                            </label>
-                        </div>
-
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <div id="messageProgressContainer" style="display: none; flex: 1; min-width: 200px; margin-right: 10px;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; color: #6b7280;">
-                                    <span id="messageProgressText">Đang gửi...</span>
-                                    <span id="messageProgressPercent">0%</span>
+                            <!-- Center: Settings group -->
+                            <div style="display: flex; align-items: center; gap: 24px; padding: 10px 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; border: 1px solid #e2e8f0;">
+                                <!-- Account Count -->
+                                <div style="display: flex; align-items: center; gap: 8px;" title="Số tài khoản Pancake sẵn sàng gửi">
+                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-users" style="color: white; font-size: 14px;"></i>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Accounts</span>
+                                        <input type="number" id="messageThreadCount" value="0" readonly style="width: 40px; padding: 2px 0; border: none; background: transparent; font-size: 16px; font-weight: 700; color: #1e293b; cursor: default;">
+                                    </div>
                                 </div>
-                                <div style="height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
-                                    <div id="messageProgressBar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s;"></div>
+
+                                <div style="width: 1px; height: 32px; background: #e2e8f0;"></div>
+
+                                <!-- Delay -->
+                                <div style="display: flex; align-items: center; gap: 8px;" title="Thời gian nghỉ giữa các tin nhắn">
+                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-clock" style="color: white; font-size: 14px;"></i>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Delay</span>
+                                        <div style="display: flex; align-items: baseline; gap: 2px;">
+                                            <input type="number" id="messageSendDelay" value="1" min="0" step="0.5" style="width: 35px; padding: 2px 0; border: none; background: transparent; font-size: 16px; font-weight: 700; color: #1e293b;">
+                                            <span style="font-size: 12px; color: #64748b;">giây</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="width: 1px; height: 32px; background: #e2e8f0;"></div>
+
+                                <!-- API Badge -->
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fab fa-facebook-messenger" style="color: white; font-size: 14px;"></i>
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">API</span>
+                                        <span style="font-size: 14px; font-weight: 600; color: #6366f1;">Pancake</span>
+                                    </div>
                                 </div>
                             </div>
-                            <button class="message-btn-cancel" id="messageBtnCancel">Hủy</button>
-                            <button class="message-btn-send" id="messageBtnSend">
+
+                            <!-- Right: History button -->
+                            <button class="message-btn-history" id="messageBtnHistory" style="padding: 10px 16px; background: white; border: 2px solid #e2e8f0; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: #475569; transition: all 0.2s;" title="Xem lịch sử gửi tin">
+                                <i class="fas fa-history" style="color: #6366f1;"></i>
+                                Lịch sử
+                            </button>
+                        </div>
+
+                        <!-- Row 2: Progress bar (hidden by default) -->
+                        <div id="messageProgressContainer" style="display: none; background: white; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                            <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+                                <span id="messageProgressText" style="color: #475569; font-weight: 500;">Đang gửi...</span>
+                                <span id="messageProgressPercent" style="color: #6366f1; font-weight: 600;">0%</span>
+                            </div>
+                            <div style="height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                                <div id="messageProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.3s; border-radius: 4px;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Action buttons -->
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button class="message-btn-cancel" id="messageBtnCancel" style="padding: 12px 24px; background: white; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-weight: 500; color: #64748b; cursor: pointer; transition: all 0.2s;">
+                                Hủy
+                            </button>
+                            <button class="message-btn-send" id="messageBtnSend" style="padding: 12px 28px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 10px; font-size: 14px; font-weight: 600; color: white; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);">
                                 <i class="fas fa-paper-plane"></i>
                                 Gửi tin nhắn
                             </button>
@@ -171,6 +262,42 @@ class MessageTemplateManager {
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         this.log('✅ Modal DOM created');
+
+        // Create History Modal
+        this.createHistoryModalDOM();
+    }
+
+    createHistoryModalDOM() {
+        if (document.getElementById('messageHistoryModal')) return;
+
+        const historyModalHTML = `
+            <div class="message-modal-overlay" id="messageHistoryModal">
+                <div class="message-modal" style="max-width: 950px; width: 95%;">
+                    <div class="message-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <h3>
+                            <i class="fas fa-history"></i>
+                            Lịch sử gửi tin nhắn
+                        </h3>
+                        <button class="message-modal-close" id="closeHistoryModal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="message-modal-body" id="historyModalBody" style="max-height: 65vh; overflow-y: auto; padding: 20px;">
+                        <div class="message-loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Đang tải lịch sử...</p>
+                        </div>
+                    </div>
+                    <div class="message-modal-footer" style="justify-content: space-between; padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb;">
+                        <div style="font-size: 13px; color: #6b7280;">
+                            <i class="fas fa-info-circle"></i> Lịch sử tự động xóa sau 7 ngày
+                        </div>
+                        <button class="message-btn-cancel" id="closeHistoryBtn">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', historyModalHTML);
     }
 
     attachEventListeners() {
@@ -207,6 +334,25 @@ class MessageTemplateManager {
 
         document.getElementById('messageBtnSend')?.addEventListener('click', () => {
             this.sendMessage();
+        });
+
+        // History button
+        document.getElementById('messageBtnHistory')?.addEventListener('click', () => {
+            this.openHistoryModal();
+        });
+
+        document.getElementById('closeHistoryModal')?.addEventListener('click', () => {
+            this.closeHistoryModal();
+        });
+
+        document.getElementById('closeHistoryBtn')?.addEventListener('click', () => {
+            this.closeHistoryModal();
+        });
+
+        document.getElementById('messageHistoryModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'messageHistoryModal') {
+                this.closeHistoryModal();
+            }
         });
 
         document.addEventListener('keydown', (e) => {
@@ -290,6 +436,35 @@ class MessageTemplateManager {
                 modalTitle.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi tin nhắn Facebook';
             }
         }
+
+        // Update account count display
+        this.updateAccountCountDisplay();
+    }
+
+    /**
+     * Update account count display from PancakeTokenManager
+     */
+    updateAccountCountDisplay() {
+        const threadCountInput = document.getElementById('messageThreadCount');
+        if (!threadCountInput) return;
+
+        let accountCount = 0;
+        if (window.pancakeTokenManager) {
+            const validAccounts = window.pancakeTokenManager.getValidAccountsForSending();
+            accountCount = validAccounts.length;
+        }
+
+        threadCountInput.value = accountCount;
+        this.log('📊 Valid Pancake accounts:', accountCount);
+
+        // Disable send button if no accounts
+        const sendBtn = document.getElementById('messageBtnSend');
+        if (sendBtn && this.mode === 'send') {
+            if (accountCount === 0) {
+                sendBtn.disabled = true;
+                sendBtn.title = 'Không có tài khoản Pancake nào sẵn sàng';
+            }
+        }
     }
 
     isModalOpen() {
@@ -299,7 +474,7 @@ class MessageTemplateManager {
     async loadTemplates() {
         this.log('');
         this.log('='.repeat(60));
-        this.log('🔄 LOADING TEMPLATES FROM API');
+        this.log('🔄 LOADING TEMPLATES FROM FIRESTORE');
         this.log('='.repeat(60));
 
         this.isLoading = true;
@@ -309,107 +484,55 @@ class MessageTemplateManager {
         bodyEl.innerHTML = `
             <div class="message-loading">
                 <i class="fas fa-spinner fa-spin"></i>
-                <p>Đang tải danh sách template từ API...</p>
-                <p style="font-size: 12px; color: #9ca3af; margin-top: 8px;">
-                    Check Network tab để xem request
-                </p>
+                <p>Đang tải danh sách template...</p>
             </div>
         `;
 
         try {
-            this.log('🌐 API URL:', this.API_URL);
-            this.log('🔑 TokenManager:', window.tokenManager ? 'Available' : 'NOT FOUND');
-
-            let response;
-            let fetchMethod = 'unknown';
-
-            if (window.tokenManager && typeof window.tokenManager.authenticatedFetch === 'function') {
-                this.log('✅ Using TokenManager.authenticatedFetch()');
-                fetchMethod = 'TokenManager';
-
-                try {
-                    this.log('📡 Calling API with Bearer token...');
-                    response = await window.tokenManager.authenticatedFetch(this.API_URL, {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    this.log('📥 Response received:', response.status, response.statusText);
-                } catch (tokenError) {
-                    this.log('❌ TokenManager error:', tokenError);
-                    throw new Error(`Token authentication failed: ${tokenError.message}`);
-                }
-            } else {
-                this.log('⚠️ TokenManager not available');
-                this.log('⚠️ Trying direct fetch (will likely fail due to CORS/Auth)...');
-                fetchMethod = 'Direct Fetch';
-
-                response = await fetch(this.API_URL, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                this.log('📥 Response received:', response.status, response.statusText);
+            // Check Firebase
+            if (!window.firebase || !window.firebase.firestore) {
+                throw new Error('Firebase chưa được khởi tạo');
             }
 
-            this.log('📊 Response status:', response.status);
-            this.log('📊 Response ok:', response.ok);
-            this.log('📊 Fetch method used:', fetchMethod);
+            const db = window.firebase.firestore();
+            const templatesRef = db.collection(this.TEMPLATES_COLLECTION);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                this.log('❌ Response error:', errorText);
-                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+            // Get all active templates, ordered by name
+            const snapshot = await templatesRef
+                .where('active', '==', true)
+                .orderBy('order', 'asc')
+                .get();
+
+            this.log('📊 Firestore query completed');
+            this.log('  - Documents found:', snapshot.size);
+
+            // If no templates exist, seed default templates
+            if (snapshot.empty) {
+                this.log('📋 No templates found, seeding defaults...');
+                await this._seedDefaultTemplates();
+                // Reload after seeding
+                return this.loadTemplates();
             }
 
-            this.log('📄 Parsing JSON response...');
-            const data = await response.json();
-
-            this.log('📊 Response data structure:');
-            this.log('  - @odata.context:', data['@odata.context'] ? 'Present' : 'Missing');
-            this.log('  - value:', Array.isArray(data.value) ? `Array[${data.value.length}]` : typeof data.value);
-
-            if (!data.value || !Array.isArray(data.value)) {
-                this.log('❌ Invalid data structure');
-                this.log('   Expected: { value: [...] }');
-                this.log('   Received:', typeof data);
-                throw new Error('Invalid API response: expected data.value array');
-            }
-
-            // Filter to only include Messenger templates
-            const allTemplates = data.value;
-            this.templates = allTemplates.filter(t => {
-                const typeId = (t.TypeId || '').toLowerCase();
-                return typeId.includes('messenger');
-            });
+            // Map documents to template objects
+            this.templates = snapshot.docs.map(doc => ({
+                Id: doc.id,
+                ...doc.data()
+            }));
             this.filteredTemplates = [...this.templates];
-
-            this.log('📊 Total templates from API:', allTemplates.length);
-            this.log('📊 Messenger templates only:', this.templates.length);
 
             this.log('');
             this.log('✅ SUCCESS! Templates loaded:');
             this.log('  - Total templates:', this.templates.length);
 
             if (this.templates.length > 0) {
-                this.log('  - Sample template names:');
-                this.templates.slice(0, 3).forEach((t, i) => {
-                    this.log(`    ${i + 1}. ${t.Name} (${t.TypeId})`);
+                this.log('  - Template names:');
+                this.templates.forEach((t, i) => {
+                    this.log(`    ${i + 1}. ${t.Name}`);
                 });
             }
 
             this.log('='.repeat(60));
-            this.log('');
-
-            // Show success notification
-            if (window.notificationManager) {
-                window.notificationManager.success(
-                    `Đã tải ${this.templates.length} template từ API`,
-                    2000
-                );
-            }
 
             // Render templates
             this.renderTemplates();
@@ -417,12 +540,7 @@ class MessageTemplateManager {
         } catch (error) {
             this.log('');
             this.log('❌ ERROR LOADING TEMPLATES');
-            this.log('='.repeat(60));
-            this.log('Error type:', error.name);
-            this.log('Error message:', error.message);
-            this.log('Error stack:', error.stack);
-            this.log('='.repeat(60));
-            this.log('');
+            this.log('Error:', error.message);
 
             // Show error in modal
             bodyEl.innerHTML = `
@@ -434,38 +552,16 @@ class MessageTemplateManager {
                     <p style="color: #6b7280; font-size: 14px; margin-bottom: 16px;">
                         ${this.escapeHtml(error.message)}
                     </p>
-                    <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: left;">
-                        <p style="font-size: 13px; color: #991b1b; margin: 0;">
-                            <strong>Có thể do:</strong><br>
-                            • TokenManager chưa được khởi tạo<br>
-                            • Token hết hạn (refresh trang)<br>
-                            • API không phản hồi<br>
-                            • Lỗi network/CORS
-                        </p>
-                    </div>
-                    <button 
-                        onclick="messageTemplateManager.loadTemplates()" 
-                        style="
-                            padding: 10px 20px;
-                            background: #6366f1;
-                            color: white;
-                            border: none;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-weight: 500;
-                        "
-                    >
+                    <button
+                        onclick="messageTemplateManager.loadTemplates()"
+                        style="padding: 10px 20px; background: #6366f1; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500;">
                         <i class="fas fa-redo"></i> Thử lại
                     </button>
                 </div>
             `;
 
-            // Show error notification
             if (window.notificationManager) {
-                window.notificationManager.error(
-                    `Lỗi tải template: ${error.message}`,
-                    5000
-                );
+                window.notificationManager.error(`Lỗi tải template: ${error.message}`, 5000);
             }
 
         } finally {
@@ -489,50 +585,57 @@ class MessageTemplateManager {
                 <div class="message-no-results">
                     <i class="fas fa-search"></i>
                     <p>Không tìm thấy template nào</p>
+                    <button onclick="messageTemplateManager.openNewTemplateForm()"
+                        style="margin-top: 12px; padding: 10px 20px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-plus"></i> Tạo template mới
+                    </button>
                 </div>
             `;
             return;
         }
 
         const templatesHTML = templates.map(template => {
-            // CHỈ LẤY BodyPlain, không lấy BodyHtml
-            const content = template.BodyPlain || 'Không có nội dung';
-            const date = new Date(template.DateCreated).toLocaleDateString('vi-VN');
+            // Support both Firestore (Content) and legacy TPOS (BodyPlain)
+            const content = template.Content || (template.Content || template.BodyPlain) || 'Không có nội dung';
+            const date = template.createdAt?.toDate
+                ? template.createdAt.toDate().toLocaleDateString('vi-VN')
+                : (template.DateCreated ? new Date(template.DateCreated).toLocaleDateString('vi-VN') : '');
 
             // Convert \n thành <br> để giữ line breaks
             const contentWithBreaks = this.escapeHtml(content).replace(/\n/g, '<br>');
 
-            // Kiểm tra nếu content dài (nhiều hơn 8 dòng ~ 200 chars)
-            // để hiển thị nút "Xem thêm"
+            // Kiểm tra nếu content dài
             const needsExpand = content.length > 200;
 
             return `
-                <div class="message-template-item ${this.selectedTemplate?.Id === template.Id ? 'selected' : ''}" 
+                <div class="message-template-item ${this.selectedTemplate?.Id === template.Id ? 'selected' : ''}"
                      data-template-id="${template.Id}"
-                     onclick="messageTemplateManager.selectTemplate(${template.Id})">
+                     onclick="messageTemplateManager.selectTemplate('${template.Id}')">
                     <div class="message-template-header">
                         <div class="message-template-name">
                             ${this.escapeHtml(template.Name)}
                         </div>
-                        <span class="message-template-type ${this.getTypeClass(template.TypeId)}">
-                            ${template.TypeId}
-                        </span>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button onclick="event.stopPropagation(); messageTemplateManager.openNewTemplateForm(messageTemplateManager.templates.find(t => t.Id === '${template.Id}'))"
+                                style="padding: 4px 10px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; font-size: 12px; cursor: pointer; color: #6b7280;"
+                                title="Chỉnh sửa template">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <span class="message-template-type type-messenger">MESSENGER</span>
+                        </div>
                     </div>
                     <div class="message-template-content" data-full-content="${this.escapeHtml(content)}">
                         ${contentWithBreaks}
                     </div>
                     <div class="message-template-actions">
                         ${needsExpand ? `
-                            <button class="message-expand-btn" onclick="event.stopPropagation(); messageTemplateManager.toggleExpand(${template.Id})">
+                            <button class="message-expand-btn" onclick="event.stopPropagation(); messageTemplateManager.toggleExpand('${template.Id}')">
                                 <i class="fas fa-chevron-down"></i>
                                 <span class="expand-text">Xem thêm</span>
                             </button>
                         ` : '<div></div>'}
                         <div class="message-template-meta">
-                            <span>
-                                <i class="fas fa-calendar"></i>
-                                ${date}
-                            </span>
+                            ${date ? `<span><i class="fas fa-calendar"></i> ${date}</span>` : ''}
                         </div>
                     </div>
                 </div>
@@ -544,7 +647,8 @@ class MessageTemplateManager {
     }
 
     selectTemplate(templateId) {
-        const template = this.templates.find(t => t.Id === templateId);
+        // Support both string (Firestore) and number (legacy) IDs
+        const template = this.templates.find(t => String(t.Id) === String(templateId));
         if (!template) {
             this.log('❌ Template not found:', templateId);
             return;
@@ -608,7 +712,7 @@ class MessageTemplateManager {
             this.filteredTemplates = this.templates.filter(template => {
                 const name = (template.Name || '').toLowerCase();
                 // CHỈ TÌM TRONG BodyPlain
-                const content = (template.BodyPlain || '').toLowerCase();
+                const content = ((template.Content || template.BodyPlain) || '').toLowerCase();
                 const type = (template.TypeId || '').toLowerCase();
 
                 return name.includes(searchLower) ||
@@ -662,40 +766,48 @@ class MessageTemplateManager {
         const delaySeconds = delayInput ? parseFloat(delayInput.value) || 1 : 1;
         const delay = delaySeconds * 1000;
 
-        // Get concurrency
-        const threadInput = document.getElementById('messageThreadCount');
-        let concurrency = threadInput ? parseInt(threadInput.value) || 1 : 1;
-        if (concurrency > 5) concurrency = 5;
-        if (concurrency < 1) concurrency = 1;
+        // Get ALL valid accounts for multi-account sending
+        const validAccounts = window.pancakeTokenManager?.getValidAccountsForSending() || [];
+        if (validAccounts.length === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Không có tài khoản Pancake nào sẵn sàng. Vui lòng thêm tài khoản trong Cài đặt.');
+            }
+            return;
+        }
 
-        this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Threads:', concurrency);
+        // Pre-load page access tokens from Firestore to ensure they're in memory
+        this.log('🔑 Pre-loading page access tokens...');
+        try {
+            await window.pancakeTokenManager.loadPageAccessTokens();
+            const pageTokenCount = Object.keys(window.pancakeTokenManager.pageAccessTokens || {}).length;
+            this.log(`🔑 Page access tokens loaded: ${pageTokenCount} pages`);
+        } catch (e) {
+            this.log('⚠️ Warning: Could not pre-load page tokens:', e.message);
+        }
 
-        // SEND MODE - send via Pancake API
+        this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Accounts:', validAccounts.length);
+        this.log('📋 Valid accounts:', validAccounts.map(a => a.name).join(', '));
+
+        // SEND MODE - send via Pancake API with ALL accounts
         try {
             const ordersCount = this.selectedOrders.length;
-            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API (Parallel Mode)');
+            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API (Multi-Account Mode)');
 
-            // Get Pancake token first (ONE TIME)
-            const token = await window.pancakeTokenManager.getToken();
-            if (!token) {
-                throw new Error('Không tìm thấy Pancake token. Vui lòng cài đặt token trong Settings.');
-            }
-
-            // Get employee signature (ONE TIME)
-            const auth = window.authManager ? window.authManager.getAuthState() : null;
-            const displayName = auth && auth.displayName ? auth.displayName : null;
+            // NOTE: No employee signature for multi-account sending
 
             // Get template content (ONE TIME)
-            const templateContent = this.selectedTemplate.BodyPlain || 'Không có nội dung';
+            const templateContent = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || 'Không có nội dung';
 
-            // Initialize State
+            // Initialize State with tracking arrays for Firestore
             this.sendingState = {
                 isRunning: true,
                 total: ordersCount,
                 completed: 0,
                 success: 0,
                 error: 0,
-                errors: []
+                errors: [],
+                successOrders: [], // Track success orders with details
+                errorOrders: []    // Track error orders with details
             };
 
             // Update UI
@@ -706,58 +818,105 @@ class MessageTemplateManager {
                 sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang gửi...`;
             }
 
-            // Context object to pass to workers
-            const context = {
-                token,
-                displayName,
-                templateContent,
-                sendMode
-            };
+            // =====================================================
+            // MULTI-ACCOUNT ROUND-ROBIN DISTRIBUTION
+            // Distribute orders to accounts evenly
+            // =====================================================
+            const accountQueues = validAccounts.map(() => []);
 
-            // Concurrency Control
-            const CONCURRENCY_LIMIT = concurrency; // User defined limit
-            const queue = [...this.selectedOrders];
-            const total = queue.length;
-            // Worker Function
-            const worker = async () => {
-                while (queue.length > 0) {
-                    const order = queue.shift();
-                    try {
-                        // Delay before processing
-                        if (delay > 0) {
-                            await new Promise(r => setTimeout(r, delay));
+            // Round-robin distribution of orders to accounts
+            this.selectedOrders.forEach((order, index) => {
+                const accountIndex = index % validAccounts.length;
+                accountQueues[accountIndex].push(order);
+            });
+
+            this.log('📊 Order distribution:');
+            validAccounts.forEach((account, i) => {
+                this.log(`  - ${account.name}: ${accountQueues[i].length} orders`);
+            });
+
+            // Worker Function for each account
+            const createWorker = (account, queue) => {
+                const context = {
+                    token: account.token,
+                    displayName: null, // No signature for multi-account sending
+                    templateContent,
+                    sendMode
+                };
+
+                return async () => {
+                    this.log(`🚀 Worker started for account: ${account.name} (${queue.length} orders)`);
+
+                    for (const order of queue) {
+                        try {
+                            // Delay before processing
+                            if (delay > 0) {
+                                await new Promise(r => setTimeout(r, delay));
+                            }
+
+                            await this._processSingleOrder(order, context);
+                            this.sendingState.success++;
+
+                            // Track success order with details
+                            this.sendingState.successOrders.push({
+                                stt: order.SessionIndex || order.stt || order.STT || '',
+                                code: order.code || order.Id || '',
+                                customerName: order.customerName || '',
+                                account: account.name
+                            });
+
+                            this.log(`✅ [${account.name}] Sent successfully to order ${order.code || order.Id}`);
+                        } catch (err) {
+                            this.sendingState.error++;
+
+                            // Track error with full details
+                            let errorMessage = err.message;
+                            if (err.is24HourError) {
+                                errorMessage = 'Đã quá 24h - Vui lòng dùng COMMENT';
+                            } else if (err.isUserUnavailable) {
+                                errorMessage = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
+                            }
+
+                            // Track error order with details (including Facebook fields for comment reply)
+                            this.sendingState.errorOrders.push({
+                                orderId: order.Id || '',
+                                stt: order.SessionIndex || order.stt || order.STT || '',
+                                code: order.code || order.Id || '',
+                                customerName: order.customerName || '',
+                                account: account.name,
+                                error: errorMessage,
+                                is24HourError: err.is24HourError || false,
+                                isUserUnavailable: err.isUserUnavailable || false,
+                                // Facebook fields for comment reply
+                                Facebook_PostId: order.Facebook_PostId || order.raw?.Facebook_PostId || '',
+                                Facebook_CommentId: order.Facebook_CommentId || order.raw?.Facebook_CommentId || '',
+                                Facebook_ASUserId: order.Facebook_ASUserId || order.raw?.Facebook_ASUserId || ''
+                            });
+
+                            // Also keep old format for backward compatibility
+                            this.sendingState.errors.push({
+                                order: order.code || order.Id,
+                                error: errorMessage,
+                                account: account.name,
+                                is24HourError: err.is24HourError,
+                                isUserUnavailable: err.isUserUnavailable
+                            });
+
+                            this.log(`❌ [${account.name}] Error sending to order ${order.code}:`, err);
+                        } finally {
+                            this.sendingState.completed++;
+                            this.updateProgressUI();
                         }
-
-                        await this._processSingleOrder(order, context);
-                        this.sendingState.success++;
-                        this.log(`✅ Sent successfully to order ${order.code || order.Id}`);
-                    } catch (err) {
-                        this.sendingState.error++;
-
-                        // Track 24-hour policy errors and user unavailable errors specially
-                        const errorInfo = { order: order.code || order.Id, error: err.message };
-                        if (err.is24HourError) {
-                            errorInfo.is24HourError = true;
-                            errorInfo.error = 'Đã quá 24h - Vui lòng dùng COMMENT';
-                        } else if (err.isUserUnavailable) {
-                            errorInfo.isUserUnavailable = true;
-                            errorInfo.error = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
-                        }
-                        this.sendingState.errors.push(errorInfo);
-
-                        this.log(`❌ Error sending to order ${order.code}:`, err);
-                    } finally {
-                        this.sendingState.completed++;
-                        this.updateProgressUI();
                     }
-                }
+
+                    this.log(`✅ Worker finished for account: ${account.name}`);
+                };
             };
 
-            // Start Workers
-            const workers = [];
-            for (let i = 0; i < Math.min(CONCURRENCY_LIMIT, ordersCount); i++) {
-                workers.push(worker());
-            }
+            // Start ALL workers (one per account) in parallel
+            const workers = validAccounts.map((account, i) =>
+                createWorker(account, accountQueues[i])()
+            );
 
             // Wait for all workers to finish
             await Promise.all(workers);
@@ -781,11 +940,12 @@ class MessageTemplateManager {
             this.log('\n📊 Summary:');
             this.log(`  ✅ Success: ${this.sendingState.success}/${ordersCount}`);
             this.log(`  ❌ Errors: ${this.sendingState.error}/${ordersCount}`);
+            this.log(`  👥 Accounts used: ${validAccounts.length}`);
 
             if (window.notificationManager) {
                 if (this.sendingState.success > 0) {
                     window.notificationManager.success(
-                        `Đã gửi thành công ${this.sendingState.success}/${ordersCount} tin nhắn!`,
+                        `Đã gửi thành công ${this.sendingState.success}/${ordersCount} tin nhắn! (${validAccounts.length} accounts)`,
                         3000,
                         `Template: ${this.selectedTemplate.Name}`
                     );
@@ -819,6 +979,28 @@ class MessageTemplateManager {
                         );
                     }
                 }
+            }
+
+            // Save campaign to Firestore for history
+            await this.saveCampaignToFirestore({
+                templateName: this.selectedTemplate?.Name || 'Unknown',
+                templateId: this.selectedTemplate?.Id || null,
+                templateContent: templateContent,
+                totalOrders: ordersCount,
+                successCount: this.sendingState.success,
+                errorCount: this.sendingState.error,
+                successOrders: this.sendingState.successOrders,
+                errorOrders: this.sendingState.errorOrders,
+                accountsUsed: validAccounts.map(a => a.name),
+                delay: delaySeconds
+            });
+
+            // Track failed orders for comment watermark in table
+            if (this.sendingState.errorOrders.length > 0) {
+                const failedIds = this.sendingState.errorOrders
+                    .map(o => o.orderId)
+                    .filter(id => id); // Filter out empty IDs
+                this.addFailedOrders(failedIds);
             }
 
             this.closeModal();
@@ -878,7 +1060,7 @@ class MessageTemplateManager {
             this.log('  - Employee:', displayName || '(Anonymous)');
 
             // Get template content
-            const templateContent = this.selectedTemplate.BodyPlain || '';
+            const templateContent = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || '';
             this.log('  - Template:', this.selectedTemplate.Name);
 
             // Initialize state
@@ -933,7 +1115,8 @@ class MessageTemplateManager {
                             name: detail.ProductNameGet || detail.ProductName,
                             quantity: detail.Quantity || 0,
                             price: detail.Price || 0,
-                            total: (detail.Quantity || 0) * (detail.Price || 0)
+                            total: (detail.Quantity || 0) * (detail.Price || 0),
+                            note: detail.Note || ''
                         })) || []
                     };
 
@@ -1089,7 +1272,8 @@ class MessageTemplateManager {
                     quantity: detail.Quantity || 0,
                     price: detail.Price || 0,
                     total: (detail.Quantity || 0) * (detail.Price || 0),
-                    imageUrl: detail.ImageUrl || ''
+                    imageUrl: detail.ImageUrl || '',
+                    note: detail.Note || ''
                 })) || []
             };
         }
@@ -1134,7 +1318,16 @@ class MessageTemplateManager {
         }
 
         // Get page_access_token for Official API (pages.fm)
-        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        // First try cached token, then generate using worker's account token if needed
+        let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+        if (!pageAccessToken) {
+            // Try generate using worker's account token (multi-account sending)
+            const accountToken = token || window.pancakeTokenManager?.currentToken;
+            if (accountToken && window.pancakeTokenManager) {
+                this.log(`🔑 Generating page_access_token for page ${channelId} using account token...`);
+                pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+            }
+        }
         if (!pageAccessToken) {
             throw new Error(`Không tìm thấy page_access_token cho page ${channelId}`);
         }
@@ -1566,7 +1759,8 @@ class MessageTemplateManager {
                         name: detail.ProductNameGet || detail.ProductName,
                         quantity: detail.Quantity || 0,
                         price: detail.Price || 0,
-                        total: (detail.Quantity || 0) * (detail.Price || 0)
+                        total: (detail.Quantity || 0) * (detail.Price || 0),
+                        note: detail.Note || ''
                     })) || []
                 }
             };
@@ -1622,6 +1816,169 @@ class MessageTemplateManager {
         }
     }
 
+    /**
+     * Parse discount price from product note
+     * Patterns:
+     * - "150k" hoặc "150K" ở BẤT KỲ vị trí nào → LUÔN là giá sale
+     * - "hồng 150k", "150k hồng", "màu đỏ 200K size M" → đều detect được
+     * - Số đứng đầu không có k (e.g., "150 hồng") → cũng là giá sale
+     * @returns {Object|null} - { discountPrice, displayText, remainingNote }
+     */
+    parseDiscountPrice(note) {
+        if (!note || typeof note !== 'string') return null;
+
+        const trimmedNote = note.trim();
+        if (!trimmedNote) return null;
+
+        let priceValue = null;
+        let remainingNote = '';
+
+        // Pattern 1: số + k/K ở BẤT KỲ vị trí nào (e.g., "hồng 150k", "150K đỏ")
+        // Đây là pattern ưu tiên cao nhất vì "số + k" LUÔN là giá sale
+        const kAnywherePattern = /(\d+)k/i;
+        let match = trimmedNote.match(kAnywherePattern);
+        if (match) {
+            priceValue = parseInt(match[1], 10);
+            // Loại bỏ phần "số + k" khỏi note để lấy remaining
+            remainingNote = trimmedNote.replace(/\d+k/i, '').trim();
+        }
+
+        // Pattern 2: số đứng đầu không có k (e.g., "150", "150 hồng")
+        if (!priceValue) {
+            const numStartPattern = /^(\d+)\b\s*(.*)/;
+            match = trimmedNote.match(numStartPattern);
+            if (match) {
+                priceValue = parseInt(match[1], 10);
+                remainingNote = match[2] ? match[2].trim() : '';
+            }
+        }
+
+        if (priceValue && priceValue > 0) {
+            const discountPrice = priceValue * 1000;
+            return {
+                discountPrice: discountPrice,
+                displayText: priceValue.toString(),
+                remainingNote: remainingNote
+            };
+        }
+
+        return null;
+    }
+
+    /**
+     * Format a single product line with discount detection
+     */
+    formatProductLineWithDiscount(product) {
+        const discountInfo = this.parseDiscountPrice(product.note);
+
+        if (discountInfo) {
+            const originalPricePerItem = product.price;
+            const discountPricePerItem = discountInfo.discountPrice;
+            const discountPerItem = originalPricePerItem - discountPricePerItem;
+            const totalDiscount = discountPerItem * product.quantity;
+
+            const productLine = `- ${product.name} x${product.quantity} = ${this.formatCurrency(product.total)}`;
+
+            let saleLine = `  📝Sale ${discountInfo.displayText}`;
+            if (discountInfo.remainingNote) {
+                saleLine += ` (${discountInfo.remainingNote})`;
+            }
+
+            return {
+                line: productLine + '\n' + saleLine,
+                hasDiscount: true,
+                discountData: {
+                    originalTotal: product.total,
+                    totalDiscount: totalDiscount
+                }
+            };
+        } else {
+            let line = `- ${product.name} x${product.quantity} = ${this.formatCurrency(product.total)}`;
+            if (product.note && product.note.trim()) {
+                line += `\n  📝 ${product.note.trim()}`;
+            }
+            return {
+                line: line,
+                hasDiscount: false,
+                discountData: null
+            };
+        }
+    }
+
+    /**
+     * Calculate shipping fee from address using carrier mapping logic
+     * @param {string} address - Customer address
+     * @param {object} extraAddress - Extra address data from TPOS (optional)
+     * @returns {{fee: number, isProvince: boolean}} - Shipping fee and province flag
+     */
+    getShippingFeeFromAddress(address, extraAddress = null) {
+        // Use global extractDistrictFromAddress if available (from tab1-qr-debt.js)
+        if (!window.extractDistrictFromAddress) {
+            this.log('⚠️ extractDistrictFromAddress not available, using default 35k');
+            return { fee: 35000, isProvince: true };
+        }
+
+        const districtInfo = window.extractDistrictFromAddress(address, extraAddress);
+        this.log('📍 District info for shipping:', districtInfo);
+
+        // Define carrier groups (same as tab1-qr-debt.js)
+        const CARRIER_20K = ['1', '3', '4', '5', '6', '7', '8', '10', '11'];
+        const CARRIER_20K_NAMED = ['phu nhuan', 'binh thanh', 'tan phu', 'tan binh', 'go vap'];
+
+        const CARRIER_30K = ['2', '12'];
+        const CARRIER_30K_NAMED = ['binh tan', 'thu duc'];
+
+        const CARRIER_35K_TP = ['9'];
+        const CARRIER_35K_TP_NAMED = ['binh chanh', 'nha be', 'hoc mon'];
+
+        // Province → 35k + isProvince = true
+        if (districtInfo.isProvince) {
+            this.log('📍 Province detected → 35k (TỈNH)');
+            return { fee: 35000, isProvince: true };
+        }
+
+        const districtNum = districtInfo.districtNumber;
+        const districtName = (districtInfo.districtName || '')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+        // Check by district number first
+        if (districtNum) {
+            if (CARRIER_20K.includes(districtNum)) {
+                this.log('📍 District Q' + districtNum + ' → 20k (THÀNH PHỐ)');
+                return { fee: 20000, isProvince: false };
+            }
+            if (CARRIER_30K.includes(districtNum)) {
+                this.log('📍 District Q' + districtNum + ' → 30k (THÀNH PHỐ)');
+                return { fee: 30000, isProvince: false };
+            }
+            if (CARRIER_35K_TP.includes(districtNum)) {
+                this.log('📍 District Q' + districtNum + ' → 35k (THÀNH PHỐ)');
+                return { fee: 35000, isProvince: false };
+            }
+        }
+
+        // Check by district name
+        if (districtName) {
+            if (CARRIER_20K_NAMED.some(d => districtName.includes(d))) {
+                this.log('📍 District ' + districtInfo.districtName + ' → 20k (THÀNH PHỐ)');
+                return { fee: 20000, isProvince: false };
+            }
+            if (CARRIER_30K_NAMED.some(d => districtName.includes(d))) {
+                this.log('📍 District ' + districtInfo.districtName + ' → 30k (THÀNH PHỐ)');
+                return { fee: 30000, isProvince: false };
+            }
+            if (CARRIER_35K_TP_NAMED.some(d => districtName.includes(d))) {
+                this.log('📍 District ' + districtInfo.districtName + ' → 35k (THÀNH PHỐ)');
+                return { fee: 35000, isProvince: false };
+            }
+        }
+
+        // Default to 35k (ship tỉnh)
+        this.log('📍 No match found → default 35k (TỈNH)');
+        return { fee: 35000, isProvince: true };
+    }
+
     replacePlaceholders(content, orderData) {
         let result = content;
 
@@ -1652,14 +2009,76 @@ class MessageTemplateManager {
             result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
         }
 
-        // Replace order details (products) - bao gồm Tổng tiền
+        // Replace order details (products) - with discount detection
         if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
-            const productList = orderData.products
-                .map(p => `- ${p.name} x${p.quantity} = ${this.formatCurrency(p.total)}`)
-                .join('\n');
-            // Thêm Tổng tiền vào cuối danh sách sản phẩm
-            const totalAmount = orderData.totalAmount ? this.formatCurrency(orderData.totalAmount) : '0đ';
-            const productListWithTotal = `${productList}\n\nTổng tiền: ${totalAmount}`;
+            let totalDiscountAmount = 0;
+            let hasAnyDiscount = false;
+
+            const formattedProducts = orderData.products.map(p => {
+                const formatted = this.formatProductLineWithDiscount(p);
+                if (formatted.hasDiscount && formatted.discountData) {
+                    hasAnyDiscount = true;
+                    totalDiscountAmount += formatted.discountData.totalDiscount;
+                }
+                return formatted;
+            });
+
+            const productList = formattedProducts.map(fp => fp.line).join('\n');
+
+            // Calculate shipping fee from address
+            const { fee: baseShippingFee, isProvince } = this.getShippingFeeFromAddress(orderData.address, orderData.extraAddress);
+
+            // Calculate order total (after discount if any)
+            const orderTotal = hasAnyDiscount
+                ? (orderData.totalAmount || 0) - totalDiscountAmount
+                : (orderData.totalAmount || 0);
+
+            // Check freeship conditions:
+            // 1. THÀNH PHỐ (20k/30k/35k) + total > 1.500.000đ → freeship
+            // 2. TỈNH + total > 3.000.000đ → freeship
+            let shippingFee = baseShippingFee;
+            let isFreeship = false;
+            if (!isProvince && orderTotal > 1500000) {
+                shippingFee = 0;
+                isFreeship = true;
+                this.log('🎁 FREESHIP: THÀNH PHỐ + total > 1.5tr');
+            } else if (isProvince && orderTotal > 3000000) {
+                shippingFee = 0;
+                isFreeship = true;
+                this.log('🎁 FREESHIP: TỈNH + total > 3tr');
+            }
+            this.log('📦 Shipping fee:', shippingFee, isFreeship ? '(FREESHIP)' : '');
+
+            // Format shipping line
+            const shipLine = isFreeship
+                ? `Phí ship: FREESHIP 🎁`
+                : `Phí ship: ${this.formatCurrency(shippingFee)}`;
+
+            // Format total section based on whether discounts exist
+            let totalSection;
+            if (hasAnyDiscount) {
+                const originalTotal = orderData.totalAmount || 0;
+                const afterDiscount = originalTotal - totalDiscountAmount;
+                const finalTotal = afterDiscount + shippingFee;
+
+                totalSection = [
+                    `Tổng : ${this.formatCurrency(originalTotal)}`,
+                    `Giảm giá: ${this.formatCurrency(totalDiscountAmount)}`,
+                    `Tổng tiền: ${this.formatCurrency(afterDiscount)}`,
+                    shipLine,
+                    `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
+                ].join('\n');
+            } else {
+                const totalAmount = orderData.totalAmount || 0;
+                const finalTotal = totalAmount + shippingFee;
+                totalSection = [
+                    `Tổng tiền: ${this.formatCurrency(totalAmount)}`,
+                    shipLine,
+                    `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
+                ].join('\n');
+            }
+
+            const productListWithTotal = `${productList}\n\n${totalSection}`;
             result = result.replace(/{order\.details}/g, productListWithTotal);
         } else {
             result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
@@ -1782,7 +2201,7 @@ class MessageTemplateManager {
         }
 
         // Get template content (plain text only)
-        let content = this.selectedTemplate.BodyPlain || '';
+        let content = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || '';
 
         // If we have order data, replace placeholders
         if (this.currentOrder) {
@@ -1981,10 +2400,16 @@ class MessageTemplateManager {
                     address: fullOrder.Partner?.Address || fullOrder.Address,
                     totalAmount: fullOrder.TotalAmount,
                     PartnerId: fullOrder.PartnerId || fullOrder.Partner?.Id,
+                    // STT from SessionIndex (the table row number)
+                    SessionIndex: fullOrder.SessionIndex || null,
+                    // Facebook fields for comment reply (if available)
+                    Facebook_PostId: fullOrder.Facebook_PostId || null,
+                    Facebook_CommentId: fullOrder.Facebook_CommentId || null,
+                    Facebook_ASUserId: fullOrder.Facebook_ASUserId || null,
                     // Keep raw data for getChatInfoForOrder
                     raw: fullOrder
                 });
-                this.log('  - Found full order:', fullOrder.Code);
+                this.log('  - Found full order:', fullOrder.Code, 'STT:', fullOrder.SessionIndex);
             } else {
                 // Fallback to DOM scraping (should rarely happen if allData is synced)
                 const row = checkbox.closest('tr');
@@ -2008,13 +2433,292 @@ class MessageTemplateManager {
         return selectedOrders;
     }
 
-    openNewTemplateForm() {
-        if (window.notificationManager) {
-            window.notificationManager.info(
-                'Chức năng tạo template mới đang được phát triển',
-                3000
-            );
+    openNewTemplateForm(editTemplate = null) {
+        this._showTemplateEditorModal(editTemplate);
+    }
+
+    /**
+     * Show template editor modal (create or edit)
+     */
+    _showTemplateEditorModal(template = null) {
+        const isEdit = !!template;
+        const modalId = 'templateEditorModal';
+
+        // Remove existing modal
+        document.getElementById(modalId)?.remove();
+
+        const modalHTML = `
+            <div id="${modalId}" class="message-modal-overlay active" style="z-index: 10003;">
+                <div class="message-modal" style="max-width: 750px; width: 95%;">
+                    <div class="message-modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 16px 24px;">
+                        <h3 style="font-size: 17px;">
+                            <i class="fas fa-${isEdit ? 'edit' : 'plus'}"></i>
+                            ${isEdit ? 'Chỉnh sửa template' : 'Tạo template mới'}
+                        </h3>
+                        <button onclick="document.getElementById('${modalId}').remove()" class="message-modal-close">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="message-modal-body" style="padding: 24px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151; font-size: 14px;">
+                                <i class="fas fa-tag" style="color: #6b7280; margin-right: 6px;"></i>
+                                Tên template <span style="color: #ef4444;">*</span>
+                            </label>
+                            <input type="text" id="templateName" value="${template?.Name || ''}"
+                                placeholder="VD: Chốt đơn, Xác nhận địa chỉ, Cảm ơn khách..."
+                                style="width: 100%; padding: 12px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; box-sizing: border-box;">
+                        </div>
+
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151; font-size: 14px;">
+                                <i class="fas fa-comment-alt" style="color: #6b7280; margin-right: 6px;"></i>
+                                Nội dung tin nhắn <span style="color: #ef4444;">*</span>
+                            </label>
+                            <textarea id="templateContent" rows="10"
+                                placeholder="Nhập nội dung tin nhắn...&#10;&#10;Sử dụng các biến bên dưới để tự động điền thông tin khách hàng."
+                                style="width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; resize: vertical; line-height: 1.6; box-sizing: border-box;">${template?.Content || ''}</textarea>
+                        </div>
+
+                        <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #7dd3fc; border-radius: 10px; padding: 16px;">
+                            <div style="font-weight: 600; color: #0369a1; margin-bottom: 12px; font-size: 14px;">
+                                <i class="fas fa-magic"></i> Click để chèn biến vào nội dung:
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                                <div onclick="document.getElementById('templateContent').value += '{partner.name}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{partner.name}</code>
+                                    <span style="font-size: 13px; color: #374151;">Tên khách hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{partner.address}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{partner.address}</code>
+                                    <span style="font-size: 13px; color: #374151;">Địa chỉ giao hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{order.details}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{order.details}</code>
+                                    <span style="font-size: 13px; color: #374151;">Chi tiết sản phẩm</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{order.total}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{order.total}</code>
+                                    <span style="font-size: 13px; color: #374151;">Tổng tiền đơn hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{order.code}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{order.code}</code>
+                                    <span style="font-size: 13px; color: #374151;">Mã đơn hàng</span>
+                                </div>
+                                <div onclick="document.getElementById('templateContent').value += '{partner.phone}'; document.getElementById('templateContent').focus();"
+                                    style="display: flex; align-items: center; gap: 10px; background: white; padding: 10px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #bae6fd; transition: all 0.2s;"
+                                    onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#60a5fa'"
+                                    onmouseout="this.style.background='white'; this.style.borderColor='#bae6fd'">
+                                    <code style="background: #0ea5e9; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;">{partner.phone}</code>
+                                    <span style="font-size: 13px; color: #374151;">Số điện thoại</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="message-modal-footer" style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between;">
+                        <div>
+                            ${isEdit ? `
+                                <button onclick="window.messageTemplateManager?.deleteTemplate('${template?.Id}')"
+                                    style="padding: 10px 18px; background: #fee2e2; color: #dc2626; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 14px;">
+                                    <i class="fas fa-trash"></i> Xóa
+                                </button>
+                            ` : ''}
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button onclick="document.getElementById('${modalId}').remove()"
+                                style="padding: 10px 24px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 14px;">
+                                Hủy
+                            </button>
+                            <button onclick="window.messageTemplateManager?.saveTemplate('${template?.Id || ''}')"
+                                id="saveTemplateBtn"
+                                style="padding: 10px 24px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                                <i class="fas fa-save"></i> ${isEdit ? 'Cập nhật' : 'Tạo mới'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Focus on name input
+        setTimeout(() => document.getElementById('templateName')?.focus(), 100);
+    }
+
+    /**
+     * Save template (create or update)
+     */
+    async saveTemplate(templateId = '') {
+        const nameInput = document.getElementById('templateName');
+        const contentInput = document.getElementById('templateContent');
+        const saveBtn = document.getElementById('saveTemplateBtn');
+
+        const name = nameInput?.value?.trim();
+        const content = contentInput?.value?.trim();
+
+        if (!name) {
+            window.notificationManager?.warning('Vui lòng nhập tên template');
+            nameInput?.focus();
+            return;
         }
+        if (!content) {
+            window.notificationManager?.warning('Vui lòng nhập nội dung tin nhắn');
+            contentInput?.focus();
+            return;
+        }
+
+        // Disable button
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
+        }
+
+        try {
+            const db = window.firebase.firestore();
+            const templatesRef = db.collection(this.TEMPLATES_COLLECTION);
+
+            const templateData = {
+                Name: name,
+                Content: content,
+                active: true,
+                updatedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if (templateId) {
+                // Update existing
+                await templatesRef.doc(templateId).update(templateData);
+                window.notificationManager?.success('Đã cập nhật template');
+            } else {
+                // Create new
+                templateData.createdAt = window.firebase.firestore.FieldValue.serverTimestamp();
+                templateData.order = this.templates.length + 1;
+                await templatesRef.add(templateData);
+                window.notificationManager?.success('Đã tạo template mới');
+            }
+
+            // Close modal and reload
+            document.getElementById('templateEditorModal')?.remove();
+            await this.loadTemplates();
+
+        } catch (error) {
+            console.error('Error saving template:', error);
+            window.notificationManager?.error('Lỗi lưu template: ' + error.message);
+
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<i class="fas fa-save"></i> ${templateId ? 'Cập nhật' : 'Tạo mới'}`;
+            }
+        }
+    }
+
+    /**
+     * Delete template
+     */
+    async deleteTemplate(templateId) {
+        if (!templateId) return;
+
+        const confirmed = confirm('Bạn có chắc muốn xóa template này?');
+        if (!confirmed) return;
+
+        try {
+            const db = window.firebase.firestore();
+            await db.collection(this.TEMPLATES_COLLECTION).doc(templateId).delete();
+
+            window.notificationManager?.success('Đã xóa template');
+
+            // Close modal and reload
+            document.getElementById('templateEditorModal')?.remove();
+            await this.loadTemplates();
+
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            window.notificationManager?.error('Lỗi xóa template: ' + error.message);
+        }
+    }
+
+    /**
+     * Seed default templates on first load
+     */
+    async _seedDefaultTemplates() {
+        const db = window.firebase.firestore();
+        const templatesRef = db.collection(this.TEMPLATES_COLLECTION);
+        const batch = db.batch();
+
+        const defaultTemplates = [
+            {
+                Name: 'Chốt đơn',
+                Content: `Dạ chào chị {partner.name},
+
+Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
+
+{order.details}
+
+Đơn hàng của mình sẽ được gửi về địa chỉ "{partner.address}"
+
+Chị xác nhận giúp em để em gửi hàng nha ạ! 🙏`,
+                order: 1,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            },
+            {
+                Name: 'Xác nhận địa chỉ',
+                Content: `Dạ chị {partner.name} ơi,
+
+Em xác nhận lại địa chỉ nhận hàng của chị là:
+📍 {partner.address}
+
+Chị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?`,
+                order: 2,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            },
+            {
+                Name: 'Thông báo giao hàng',
+                Content: `Dạ chị {partner.name} ơi,
+
+Đơn hàng #{order.code} của chị đã được giao cho đơn vị vận chuyển rồi ạ.
+
+Chị chú ý điện thoại để nhận hàng nha! 📦`,
+                order: 3,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            },
+            {
+                Name: 'Cảm ơn khách hàng',
+                Content: `Dạ cảm ơn chị {partner.name} đã ủng hộ shop ạ! 🙏❤️
+
+Chị dùng hàng có gì thắc mắc cứ inbox shop em hỗ trợ nha.
+
+Chúc chị một ngày vui vẻ! 😊`,
+                order: 4,
+                active: true,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+            }
+        ];
+
+        defaultTemplates.forEach(template => {
+            const docRef = templatesRef.doc();
+            batch.set(docRef, template);
+        });
+
+        await batch.commit();
+        this.log('✅ Seeded', defaultTemplates.length, 'default templates');
     }
 
     getTypeClass(typeId) {
@@ -2124,6 +2828,715 @@ class MessageTemplateManager {
 
         } catch (error) {
             this.log('❌ Error clearing history:', error);
+        }
+    }
+
+    // =====================================================
+    // FIRESTORE CAMPAIGN HISTORY - Auto delete after 7 days
+    // =====================================================
+
+    /**
+     * Save campaign results to Firestore
+     * @param {Object} campaignData - Campaign data with success/error details
+     */
+    async saveCampaignToFirestore(campaignData) {
+        try {
+            if (!window.firebase || !window.firebase.firestore) {
+                this.log('⚠️ Firestore not available, skipping campaign save');
+                return null;
+            }
+
+            const db = window.firebase.firestore();
+            const campaignsRef = db.collection('message_campaigns');
+
+            // Add TTL timestamp (7 days from now)
+            const now = new Date();
+            const expireAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+            const campaign = {
+                ...campaignData,
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+                expireAt: expireAt, // For TTL auto-delete
+                localCreatedAt: now.toISOString()
+            };
+
+            const docRef = await campaignsRef.add(campaign);
+            this.log('✅ Campaign saved to Firestore:', docRef.id);
+            return docRef.id;
+
+        } catch (error) {
+            this.log('❌ Error saving campaign to Firestore:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Load campaign history from Firestore (last 7 days)
+     * @returns {Array} Array of campaigns
+     */
+    async loadCampaignsFromFirestore() {
+        try {
+            if (!window.firebase || !window.firebase.firestore) {
+                this.log('⚠️ Firestore not available');
+                return [];
+            }
+
+            const db = window.firebase.firestore();
+            const campaignsRef = db.collection('message_campaigns');
+
+            // Get campaigns from last 7 days, newest first
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+            const snapshot = await campaignsRef
+                .where('expireAt', '>', sevenDaysAgo)
+                .orderBy('expireAt', 'desc')
+                .limit(50)
+                .get();
+
+            const campaigns = [];
+            snapshot.forEach(doc => {
+                campaigns.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            // Sort by localCreatedAt descending (newest first)
+            campaigns.sort((a, b) => {
+                const dateA = new Date(a.localCreatedAt || 0);
+                const dateB = new Date(b.localCreatedAt || 0);
+                return dateB - dateA;
+            });
+
+            this.log('📋 Loaded campaigns from Firestore:', campaigns.length);
+            return campaigns;
+
+        } catch (error) {
+            this.log('❌ Error loading campaigns from Firestore:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Delete old campaigns (called manually or by Cloud Function)
+     */
+    async cleanupOldCampaigns() {
+        try {
+            if (!window.firebase || !window.firebase.firestore) return;
+
+            const db = window.firebase.firestore();
+            const campaignsRef = db.collection('message_campaigns');
+
+            const now = new Date();
+            const snapshot = await campaignsRef
+                .where('expireAt', '<', now)
+                .limit(100)
+                .get();
+
+            if (snapshot.empty) {
+                this.log('📋 No expired campaigns to delete');
+                return;
+            }
+
+            const batch = db.batch();
+            snapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+
+            this.log('🗑️ Deleted', snapshot.size, 'expired campaigns');
+
+        } catch (error) {
+            this.log('❌ Error cleaning up campaigns:', error);
+        }
+    }
+
+    /**
+     * Open history modal
+     */
+    async openHistoryModal() {
+        this.log('📂 Opening history modal...');
+
+        const modal = document.getElementById('messageHistoryModal');
+        const body = document.getElementById('historyModalBody');
+
+        if (!modal || !body) return;
+
+        // Use .active class for proper centering (see CSS: .message-modal-overlay.active)
+        modal.classList.add('active');
+        body.innerHTML = `
+            <div class="message-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Đang tải lịch sử...</p>
+            </div>
+        `;
+
+        // Cleanup old campaigns first
+        await this.cleanupOldCampaigns();
+
+        // Load campaigns
+        const campaigns = await this.loadCampaignsFromFirestore();
+
+        if (campaigns.length === 0) {
+            body.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #6b7280;">
+                    <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                    <p>Chưa có lịch sử gửi tin nhắn</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Store campaigns for comment sending
+        this._historyCampaigns = campaigns;
+
+        // Render campaigns
+        this.renderHistoryList(campaigns, body);
+    }
+
+    /**
+     * Close history modal
+     */
+    closeHistoryModal() {
+        const modal = document.getElementById('messageHistoryModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    /**
+     * Render history list in modal
+     * @param {Array} campaigns - Array of campaign objects
+     * @param {HTMLElement} container - Container element
+     */
+    renderHistoryList(campaigns, container) {
+        let html = '';
+
+        campaigns.forEach((campaign, index) => {
+            const date = campaign.localCreatedAt
+                ? new Date(campaign.localCreatedAt).toLocaleString('vi-VN')
+                : 'N/A';
+
+            const successCount = campaign.successOrders?.length || 0;
+            const errorCount = campaign.errorOrders?.length || 0;
+            const total = successCount + errorCount;
+
+            html += `
+                <div class="history-campaign-item" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 12px; background: #fff;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div>
+                            <strong style="font-size: 15px;">${campaign.templateName || 'Không có tên'}</strong>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
+                                <i class="fas fa-calendar"></i> ${date}
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <span style="background: #dcfce7; color: #16a34a; padding: 4px 10px; border-radius: 12px; font-size: 13px;">
+                                <i class="fas fa-check"></i> ${successCount} thành công
+                            </span>
+                            <span style="background: #fee2e2; color: #dc2626; padding: 4px 10px; border-radius: 12px; font-size: 13px;">
+                                <i class="fas fa-times"></i> ${errorCount} thất bại
+                            </span>
+                        </div>
+                    </div>
+
+                    ${errorCount > 0 ? `
+                    <details style="margin-top: 8px;">
+                        <summary style="cursor: pointer; color: #dc2626; font-size: 13px; padding: 8px 0;">
+                            <i class="fas fa-exclamation-triangle"></i> Xem ${errorCount} đơn thất bại (click để mở)
+                        </summary>
+                        <div style="margin-top: 8px;">
+                            <div style="margin-bottom: 8px; display: flex; justify-content: flex-end;">
+                                <button onclick="window.messageTemplateManager?.sendFailedOrdersViaComment(${index})"
+                                    id="btnCommentAll_${index}"
+                                    style="padding: 6px 14px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px;"
+                                    title="Gửi tất cả đơn thất bại qua comment">
+                                    <i class="fas fa-comments"></i> Gửi tất cả qua Comment
+                                </button>
+                            </div>
+                            <div style="max-height: 200px; overflow-y: auto;">
+                                <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #f9fafb;">
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">STT</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Mã đơn</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Khách hàng</th>
+                                            <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Lỗi</th>
+                                            <th style="padding: 8px; text-align: center; border-bottom: 1px solid #e5e7eb; width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${(campaign.errorOrders || []).map((order, i) => `
+                                            <tr style="border-bottom: 1px solid #f3f4f6;" id="errorRow_${index}_${i}">
+                                                <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
+                                                <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
+                                                <td style="padding: 8px;">${order.customerName || 'N/A'}</td>
+                                                <td style="padding: 8px; color: #dc2626; font-size: 11px;">${order.error || 'Không xác định'}</td>
+                                                <td style="padding: 8px; text-align: center;">
+                                                    <button onclick="window.messageTemplateManager?.sendSingleOrderViaComment(${index}, ${i})"
+                                                        id="btnComment_${index}_${i}"
+                                                        style="padding: 4px 8px; background: #f59e0b; color: white; border: none; border-radius: 4px; font-size: 11px; cursor: pointer;"
+                                                        title="Gửi qua comment">
+                                                        <i class="fas fa-comment"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </details>
+                    ` : ''}
+
+                    ${successCount > 0 ? `
+                    <details style="margin-top: 8px;">
+                        <summary style="cursor: pointer; color: #16a34a; font-size: 13px; padding: 8px 0;">
+                            <i class="fas fa-check-circle"></i> Xem ${successCount} đơn thành công (click để mở)
+                        </summary>
+                        <div style="margin-top: 8px; max-height: 200px; overflow-y: auto;">
+                            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="background: #f9fafb;">
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">STT</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Mã đơn</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Khách hàng</th>
+                                        <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb;">Account</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${(campaign.successOrders || []).map((order, i) => `
+                                        <tr style="border-bottom: 1px solid #f3f4f6;">
+                                            <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
+                                            <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
+                                            <td style="padding: 8px;">${order.customerName || 'N/A'}</td>
+                                            <td style="padding: 8px; color: #6b7280; font-size: 11px;">${order.account || 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    // =====================================================
+    // SEND FAILED ORDERS VIA COMMENT
+    // =====================================================
+
+    /**
+     * Send a single failed order via comment reply
+     * @param {number} campaignIndex - Index of campaign in _historyCampaigns
+     * @param {number} orderIndex - Index of error order in campaign.errorOrders
+     */
+    async sendSingleOrderViaComment(campaignIndex, orderIndex) {
+        const campaign = this._historyCampaigns?.[campaignIndex];
+        if (!campaign) {
+            window.notificationManager?.error('Không tìm thấy chiến dịch');
+            return;
+        }
+
+        const errorOrder = campaign.errorOrders?.[orderIndex];
+        if (!errorOrder) {
+            window.notificationManager?.error('Không tìm thấy đơn hàng');
+            return;
+        }
+
+        const btn = document.getElementById(`btnComment_${campaignIndex}_${orderIndex}`);
+        const row = document.getElementById(`errorRow_${campaignIndex}_${orderIndex}`);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        }
+
+        try {
+            await this._sendOrderViaCommentReply(errorOrder, campaign.templateContent);
+
+            // Mark row as success
+            if (row) {
+                row.style.background = '#f0fdf4';
+                row.querySelector('td:last-child').innerHTML = '<i class="fas fa-check" style="color: #16a34a;"></i>';
+            }
+            window.notificationManager?.show(`Comment sent: ${errorOrder.code}`, 'success');
+        } catch (err) {
+            if (row) {
+                row.querySelector('td:last-child').innerHTML = `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
+            }
+            window.notificationManager?.error(`Lỗi ${errorOrder.code}: ${err.message}`);
+        }
+    }
+
+    /**
+     * Send ALL failed orders via comment reply
+     * @param {number} campaignIndex - Index of campaign in _historyCampaigns
+     */
+    async sendFailedOrdersViaComment(campaignIndex) {
+        const campaign = this._historyCampaigns?.[campaignIndex];
+        if (!campaign || !campaign.errorOrders?.length) {
+            window.notificationManager?.error('Không có đơn thất bại để gửi');
+            return;
+        }
+
+        const btn = document.getElementById(`btnCommentAll_${campaignIndex}`);
+        const originalHTML = btn?.innerHTML;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+        const templateContent = campaign.templateContent;
+
+        for (let i = 0; i < campaign.errorOrders.length; i++) {
+            const errorOrder = campaign.errorOrders[i];
+            const row = document.getElementById(`errorRow_${campaignIndex}_${i}`);
+            const rowBtn = document.getElementById(`btnComment_${campaignIndex}_${i}`);
+
+            if (rowBtn) {
+                rowBtn.disabled = true;
+                rowBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+
+            try {
+                await this._sendOrderViaCommentReply(errorOrder, templateContent);
+                successCount++;
+
+                if (row) {
+                    row.style.background = '#f0fdf4';
+                    row.querySelector('td:last-child').innerHTML = '<i class="fas fa-check" style="color: #16a34a;"></i>';
+                }
+            } catch (err) {
+                errorCount++;
+                console.error(`[COMMENT-SEND] Error for ${errorOrder.code}:`, err.message);
+
+                if (row) {
+                    row.querySelector('td:last-child').innerHTML = `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
+                }
+            }
+
+            // Small delay between sends
+            await new Promise(r => setTimeout(r, 1000));
+
+            // Update button progress
+            if (btn) {
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${i + 1}/${campaign.errorOrders.length}`;
+            }
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+
+        window.notificationManager?.show(
+            `Comment: ${successCount} OK, ${errorCount} lỗi`,
+            errorCount === 0 ? 'success' : 'warning'
+        );
+    }
+
+    /**
+     * Core: Send one order via comment reply
+     * @param {Object} errorOrder - { orderId, code, customerName, ... }
+     * @param {string} templateContent - Template text with placeholders
+     */
+    async _sendOrderViaCommentReply(errorOrder, templateContent) {
+        const orderId = errorOrder.orderId;
+        if (!orderId) {
+            throw new Error('Không có orderId (đơn cũ chưa lưu orderId)');
+        }
+
+        // 1. Fetch full order data from TPOS
+        const fullOrderData = await this.fetchFullOrderData(orderId);
+        const raw = fullOrderData.raw;
+
+        const facebookPostId = raw.Facebook_PostId;
+        const facebookCommentId = raw.Facebook_CommentId;
+        const psid = raw.Facebook_ASUserId;
+
+        if (!facebookCommentId) {
+            throw new Error('Đơn không có Facebook_CommentId');
+        }
+        if (!facebookPostId) {
+            throw new Error('Đơn không có Facebook_PostId');
+        }
+
+        // 2. Parse channelId (pageId) from Facebook_PostId
+        const channelId = facebookPostId.split('_')[0];
+
+        // 3. Get page_access_token
+        let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+        if (!pageAccessToken) {
+            pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        }
+        if (!pageAccessToken) {
+            throw new Error(`Không có page_access_token cho page ${channelId}`);
+        }
+
+        // 4. Get latest customer comment from Pancake API
+        // IMPORTANT: Must use Pancake internal comment ID, NOT TPOS Facebook_CommentId
+        const postId = facebookPostId.split('_').slice(1).join('_'); // postId part
+        const commentsResult = await window.pancakeDataManager?.fetchComments(
+            channelId, psid, null, postId
+        );
+
+        if (!commentsResult?.comments?.length) {
+            throw new Error('Không tìm thấy cuộc hội thoại comment trên Pancake');
+        }
+
+        // Find the latest comment from customer (not page owner)
+        const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+        if (customerComments.length === 0) {
+            throw new Error('Không tìm thấy comment nào từ khách hàng');
+        }
+
+        const latestComment = customerComments[customerComments.length - 1];
+        const latestCommentId = latestComment.Id; // Pancake internal ID
+        console.log('[COMMENT-SEND] Using latest customer comment:', latestCommentId, 'Message:', latestComment.Message?.substring(0, 50));
+
+        // 5. Replace placeholders in template
+        let messageContent = this.replacePlaceholders(templateContent || '', fullOrderData.converted);
+
+        // 6. Build reply_comment payload
+        const conversationId = latestCommentId;
+        const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+            `pages/${channelId}/conversations/${conversationId}/messages`,
+            pageAccessToken
+        );
+
+        const payload = {
+            action: 'reply_comment',
+            message_id: latestCommentId,
+            message: messageContent
+        };
+
+        console.log('[COMMENT-SEND] Sending reply_comment:', { channelId, conversationId, latestCommentId, message: messageContent.substring(0, 50) + '...' });
+
+        // 7. Send API request
+        const response = await API_CONFIG.smartFetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        }, 1, true);
+
+        const result = await response.json();
+
+        if (!response.ok || result.success === false || result.error) {
+            const errorMsg = result.message || result.error?.message || result.error || 'Lỗi gửi comment';
+            throw new Error(errorMsg);
+        }
+
+        console.log('[COMMENT-SEND] Success for order:', errorOrder.code);
+
+        // Remove from failed orders list (clear watermark in table)
+        if (orderId) {
+            this.removeFailedOrder(orderId);
+        }
+        return result;
+    }
+
+    /**
+     * Open quick comment reply modal for a failed order
+     * Called from the "Gửi lại" button in orders table
+     * @param {string} orderId - Order ID
+     */
+    async openQuickCommentReply(orderId) {
+        this.log('🔄 Opening quick comment reply for order:', orderId);
+
+        try {
+            // Show loading notification
+            if (window.notificationManager) {
+                window.notificationManager.info('Đang tải thông tin đơn hàng...', 2000);
+            }
+
+            // Fetch full order data
+            const fullOrderData = await this.fetchFullOrderData(orderId);
+            const raw = fullOrderData.raw;
+            const orderCode = raw.Code || orderId;
+
+            // Check if order has Facebook data for comment reply
+            if (!raw.Facebook_CommentId && !raw.Facebook_PostId) {
+                if (window.notificationManager) {
+                    window.notificationManager.warning(
+                        'Đơn này không có thông tin bình luận Facebook',
+                        4000,
+                        `Đơn: ${orderCode}`
+                    );
+                }
+                return;
+            }
+
+            // Create quick template selection modal
+            this._showQuickTemplateModal(orderId, orderCode, fullOrderData);
+
+        } catch (error) {
+            console.error('[QUICK-COMMENT] Error:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error(
+                    'Lỗi tải thông tin đơn hàng: ' + error.message,
+                    4000
+                );
+            }
+        }
+    }
+
+    /**
+     * Show quick template selection modal
+     */
+    _showQuickTemplateModal(orderId, orderCode, fullOrderData) {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('quickCommentModal');
+        if (existingModal) existingModal.remove();
+
+        // Get templates
+        const templates = this.templates || [];
+        const messengerTemplates = templates.filter(t =>
+            (t.TypeId || '').toLowerCase().includes('messenger') ||
+            (t.Type || '').toLowerCase().includes('messenger')
+        );
+
+        const templateOptions = messengerTemplates.length > 0 ? messengerTemplates : templates.slice(0, 10);
+
+        const modalHTML = `
+            <div id="quickCommentModal" class="message-modal-overlay active" style="z-index: 10002;">
+                <div class="message-modal" style="max-width: 500px; width: 90%;">
+                    <div class="message-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 16px 20px;">
+                        <h3 style="font-size: 16px;">
+                            <i class="fas fa-comment-dots"></i>
+                            Gửi tin nhắn qua Comment
+                        </h3>
+                        <button onclick="document.getElementById('quickCommentModal').remove()" class="message-modal-close">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="message-modal-body" style="padding: 20px;">
+                        <div style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                            <div style="font-weight: 600; color: #0369a1;">Đơn hàng: ${orderCode}</div>
+                            <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">
+                                ${fullOrderData.converted?.customerName || 'N/A'} - ${fullOrderData.converted?.phone || 'N/A'}
+                            </div>
+                        </div>
+
+                        <label style="display: block; font-weight: 500; margin-bottom: 8px; color: #374151;">
+                            <i class="fas fa-file-alt"></i> Chọn mẫu tin nhắn:
+                        </label>
+                        <select id="quickTemplateSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: white;">
+                            ${templateOptions.map(t => `<option value="${t.Id}">${t.Name}</option>`).join('')}
+                        </select>
+
+                        <div id="quickTemplatePreview" style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; font-size: 13px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; color: #4b5563;">
+                            ${templateOptions[0]?.Content || 'Chọn mẫu tin nhắn...'}
+                        </div>
+                    </div>
+                    <div class="message-modal-footer" style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
+                        <button onclick="document.getElementById('quickCommentModal').remove()"
+                            style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
+                            Hủy
+                        </button>
+                        <button onclick="window.messageTemplateManager?._executeQuickCommentSend('${orderId}')"
+                            id="quickSendBtn"
+                            style="padding: 10px 20px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-paper-plane"></i> Gửi qua Comment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Add change event for template preview
+        const select = document.getElementById('quickTemplateSelect');
+        const preview = document.getElementById('quickTemplatePreview');
+        select?.addEventListener('change', () => {
+            const selectedTemplate = templateOptions.find(t => t.Id === select.value);
+            if (selectedTemplate && preview) {
+                // Replace placeholders with actual data for preview
+                let previewContent = this.replacePlaceholders(selectedTemplate.Content || '', fullOrderData.converted);
+                preview.textContent = previewContent;
+            }
+        });
+
+        // Trigger initial preview
+        if (select && templateOptions[0]) {
+            const initialPreview = this.replacePlaceholders(templateOptions[0].Content || '', fullOrderData.converted);
+            if (preview) preview.textContent = initialPreview;
+        }
+
+        // Store fullOrderData for send
+        this._quickCommentOrderData = fullOrderData;
+    }
+
+    /**
+     * Execute quick comment send
+     */
+    async _executeQuickCommentSend(orderId) {
+        const select = document.getElementById('quickTemplateSelect');
+        const sendBtn = document.getElementById('quickSendBtn');
+
+        if (!select || !this._quickCommentOrderData) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi: Thiếu dữ liệu', 3000);
+            }
+            return;
+        }
+
+        const selectedTemplate = (this.templates || []).find(t => t.Id === select.value);
+        if (!selectedTemplate) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Vui lòng chọn mẫu tin nhắn', 3000);
+            }
+            return;
+        }
+
+        // Disable button and show loading
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        }
+
+        try {
+            // Create error order object for _sendOrderViaCommentReply
+            const errorOrder = {
+                orderId: orderId,
+                code: this._quickCommentOrderData.raw?.Code || orderId
+            };
+
+            await this._sendOrderViaCommentReply(errorOrder, selectedTemplate.Content);
+
+            // Close modal
+            document.getElementById('quickCommentModal')?.remove();
+
+            if (window.notificationManager) {
+                window.notificationManager.success(
+                    'Đã gửi tin nhắn qua comment thành công!',
+                    3000,
+                    `Đơn: ${errorOrder.code}`
+                );
+            }
+
+        } catch (error) {
+            console.error('[QUICK-COMMENT] Send error:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error(
+                    'Lỗi gửi comment: ' + error.message,
+                    5000
+                );
+            }
+
+            // Re-enable button
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi qua Comment';
+            }
         }
     }
 }

@@ -34,6 +34,9 @@
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js"></script>
+
         <!-- XLSX -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     </head>
@@ -42,8 +45,8 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i data-lucide="zap"></i>
-                    <span>N2Shop</span>
+                    <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+                    <span>N2STORE</span>
                 </div>
                 <button class="sidebar-toggle" id="sidebarToggle">
                     <i data-lucide="panel-left-close"></i>
@@ -288,6 +291,7 @@
         </div>
 
         <!-- Scripts - Page modules (shared loaded via esm/compat.js) -->
+        <script src="../shared/js/permissions-helper.js"></script>
         <script defer src="js/config.js"></script>
         <script defer src="js/utils.js"></script>
         <script defer src="js/ui-components.js"></script>

@@ -187,10 +187,10 @@ var newMetadata = {
     cacheControl: "public,max-age=31536000",
 };
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
+// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded in index.html)
 
-// Initialize Firebase (using global firebaseConfig)
-const app = !firebase.apps.length ? firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : (typeof firebaseConfig !== 'undefined') ? firebaseConfig : {apiKey:"AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",authDomain:"n2shop-69e37.firebaseapp.com",projectId:"n2shop-69e37",storageBucket:"n2shop-69e37-ne0q1",messagingSenderId:"598906493303",appId:"1:598906493303:web:46d6236a1fdc2eff33e972"}) : firebase.app();
+// Initialize Firebase (using shared config)
+const app = !firebase.apps.length ? firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : firebaseConfig) : firebase.app();
 const db = firebase.firestore();
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("nhanhang");
@@ -363,11 +363,17 @@ function isAuthenticated() {
 }
 
 function hasPermission(requiredLevel) {
-    const auth = getAuthState();
-    if (!auth) return false;
-
-    const userLevel = parseInt(auth.checkLogin);
-    return userLevel <= requiredLevel;
+    // Legacy function - now delegates to PermissionHelper
+    // Maps legacy levels to detailedPermissions:
+    // Level 0: admin (delete/cancel), Level 1: edit, Level 2+: view
+    switch (requiredLevel) {
+        case 0:
+            return PermissionHelper.hasPermission('nhanhang', 'cancel');
+        case 1:
+            return PermissionHelper.hasPermission('nhanhang', 'edit');
+        default:
+            return PermissionHelper.hasPermission('nhanhang', 'view');
+    }
 }
 
 function getUserName() {

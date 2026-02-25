@@ -354,6 +354,7 @@ window.OrderStore = OrderStore;
 let currentPage = 1;
 const itemsPerPage = 50;
 let selectedOrderIds = new Set();
+window.selectedOrderIds = selectedOrderIds; // Expose globally for bulk operations
 let isLoading = false;
 let loadingAborted = false;
 let isRendering = false; // Flag to prevent duplicate renders during scroll

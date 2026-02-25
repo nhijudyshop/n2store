@@ -1065,6 +1065,7 @@ Hệ thống quản lý các sự vụ phát sinh **sau khi bán hàng**, giúp:
 |------------|---------------------|----------------|-------|---------|---------|
 | `BOOM` | - | `PENDING_GOODS` | 🔵 1 | = Toàn bộ COD | Tất cả SP hoàn về |
 | `FIX_COD` | `REJECT_PARTIAL` | `PENDING_GOODS` | 🔵 1 | = Giá SP bị từ chối | Một phần SP hoàn về |
+| `FIX_COD` | `RETURN_OLD_ORDER` | `PENDING_GOODS` | 🔵 1 | = Giá SP đơn cũ trả | Trả hàng đơn cũ khi giao đơn mới |
 | `FIX_COD` | `WRONG_SHIP` | `PENDING_FINANCE` | 🟡 3 | = COD gốc - COD mới | Không lấy hàng thừa về |
 | `FIX_COD` | `CUSTOMER_DEBT` | `PENDING_FINANCE` | 🟡 3 | = COD gốc - COD mới | Trừ nợ cũ của khách |
 | `FIX_COD` | `DISCOUNT` | `PENDING_FINANCE` | 🟡 3 | = COD gốc - COD mới | Shipper deal giảm giá |

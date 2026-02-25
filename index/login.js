@@ -154,17 +154,8 @@ class CacheManager {
 // MAIN LOGIN SYSTEM
 // =====================================================
 document.addEventListener("DOMContentLoaded", function () {
-    const firebaseConfig = {
-        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-        authDomain: "n2shop-69e37.firebaseapp.com",
-        projectId: "n2shop-69e37",
-        storageBucket: "n2shop-69e37-ne0q1",
-        messagingSenderId: "598906493303",
-        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-        measurementId: "G-TEJH3S2T1D",
-    };
-
-    const app = firebase.initializeApp(firebaseConfig);
+    // Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js)
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
     const db = firebase.firestore();
     const auth = firebase.auth();
 
@@ -354,6 +345,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // Load detailed permissions and roleTemplate (NEW SYSTEM)
             let detailedPermissions = {};
             let roleTemplate = 'custom';
+            let isAdminFlag = false;
 
             const cachedPermissions = authCache.get(
                 `${username}_detailed_permissions`,
@@ -364,6 +356,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 console.log("✔ Sử dụng detailedPermissions từ cache");
                 detailedPermissions = cachedPermissions.detailedPermissions || {};
                 roleTemplate = cachedPermissions.roleTemplate || 'custom';
+                isAdminFlag = cachedPermissions.isAdmin === true || roleTemplate === 'admin';
             } else {
                 console.log("⚡ Fetching detailedPermissions từ Firestore");
                 try {
@@ -374,11 +367,12 @@ document.addEventListener("DOMContentLoaded", function () {
                         const userData = userDoc.data();
                         detailedPermissions = userData.detailedPermissions || {};
                         roleTemplate = userData.roleTemplate || 'custom';
+                        isAdminFlag = userData.isAdmin === true || roleTemplate === 'admin'; // backward compatible
 
                         // Cache permissions
                         authCache.set(
                             `${username}_detailed_permissions`,
-                            { detailedPermissions, roleTemplate },
+                            { detailedPermissions, roleTemplate, isAdmin: isAdminFlag },
                             "permissions",
                         );
                         console.log(
@@ -435,6 +429,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 // NEW PERMISSION SYSTEM - Only detailedPermissions
                 detailedPermissions: detailedPermissions,
                 roleTemplate: roleTemplate,
+                isAdmin: isAdminFlag,  // NEW: Admin flag for bypass
                 isRemembered: rememberMe,
             };
 

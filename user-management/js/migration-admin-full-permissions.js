@@ -1,10 +1,10 @@
 // =====================================================
-// MIGRATION SCRIPT: Update Admin Users with Full detailedPermissions
+// MIGRATION SCRIPT: Update Admin Users with isAdmin Flag
 //
-// PURPOSE: Migrate from admin bypass system to unified detailedPermissions
-// - All users (including Admin) now use detailedPermissions
-// - Admin template = all permissions set to true
-// - NO bypass based on roleTemplate
+// PURPOSE: Migrate admin users to use isAdmin flag for bypass
+// - Adds isAdmin: true to admin user documents
+// - Keeps detailedPermissions for rollback
+// - Uses PAGES_REGISTRY as Single Source of Truth
 //
 // USAGE:
 // 1. Mở trang User Management
@@ -12,10 +12,10 @@
 // 3. Mở Console (F12) và chạy: await migrateAdminUsers()
 // =====================================================
 
-// Firebase config (same as user-management-enhanced.js)
+// Firebase config - use shared config if available (loaded via shared/js/firebase-config.js)
 // Use window scope to avoid redeclaration errors
 if (!window._MIGRATION_FIREBASE_CONFIG) {
-    window._MIGRATION_FIREBASE_CONFIG = {
+    window._MIGRATION_FIREBASE_CONFIG = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : {
         apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
         authDomain: "n2shop-69e37.firebaseapp.com",
         projectId: "n2shop-69e37",
@@ -61,190 +61,16 @@ window.ensureFirebaseConnected = async function() {
 
 /**
  * Generate full detailedPermissions object with all permissions = true
- * Based on PAGES_REGISTRY
+ * Uses PAGES_REGISTRY as Single Source of Truth
  */
 window.generateFullAdminPermissions = function() {
-    // All pages and their permissions
-    const fullPermissions = {
-        // SALES
-        live: {
-            view: true,
-            upload: true,
-            edit: true,
-            delete: true
-        },
-        livestream: {
-            view: true,
-            export: true,
-            edit: true,
-            analytics: true
-        },
-        sanphamlive: {
-            view: true,
-            add: true,
-            edit: true,
-            delete: true,
-            pricing: true,
-            stock: true
-        },
-        ib: {
-            view: true,
-            reply: true,
-            assign: true,
-            archive: true,
-            export: true,
-            delete: true
-        },
-
-        // WAREHOUSE
-        nhanhang: {
-            view: true,
-            create: true,
-            confirm: true,
-            edit: true,
-            cancel: true,
-            weigh: true,
-            delete: true
-        },
-        inventoryTracking: {
-            tab_tracking: true,
-            tab_congNo: true,
-            create_shipment: true,
-            edit_shipment: true,
-            delete_shipment: true,
-            view_chiPhiHangVe: true,
-            edit_chiPhiHangVe: true,
-            view_ghiChuAdmin: true,
-            edit_ghiChuAdmin: true,
-            edit_soMonThieu: true,
-            create_prepayment: true,
-            edit_prepayment: true,
-            delete_prepayment: true,
-            create_otherExpense: true,
-            edit_otherExpense: true,
-            delete_otherExpense: true,
-            edit_invoice_from_finance: true,
-            edit_shipping_from_finance: true,
-            export_data: true
-        },
-        "purchase-orders": {
-            view: true,
-            create: true,
-            edit: true,
-            delete: true,
-            status_change: true,
-            copy: true,
-            export: true,
-            upload_images: true
-        },
-        hangrotxa: {
-            view: true,
-            mark: true,
-            approve: true,
-            price: true,
-            delete: true
-        },
-        hanghoan: {
-            view: true,
-            approve: true,
-            reject: true,
-            refund: true,
-            update: true,
-            export: true
-        },
-        "product-search": {
-            view: true,
-            viewStock: true,
-            viewPrice: true,
-            export: true
-        },
-        "soluong-live": {
-            view: true,
-            edit: true,
-            adjust: true,
-            export: true
-        },
-
-        // ORDERS
-        ck: {
-            view: true,
-            verify: true,
-            edit: true,
-            export: true,
-            delete: true
-        },
-        "order-management": {
-            view: true,
-            create: true,
-            edit: true,
-            updateStatus: true,
-            cancel: true,
-            export: true,
-            print: true
-        },
-        "order-log": {
-            view: true,
-            add: true,
-            edit: true,
-            delete: true,
-            export: true
-        },
-        "order-live-tracking": {
-            view: true,
-            track: true,
-            update: true,
-            export: true
-        },
-
-        // REPORTS
-        baocaosaleonline: {
-            view: true,
-            viewRevenue: true,
-            viewDetails: true,
-            export: true,
-            compare: true
-        },
-        "tpos-pancake": {
-            view: true,
-            sync: true,
-            import: true,
-            export: true,
-            configure: true
-        },
-
-        // ADMIN
-        "user-management": {
-            view: true,
-            create: true,
-            edit: true,
-            delete: true,
-            permissions: true,
-            resetPassword: true,
-            manageTemplates: true
-        },
-        "balance-history": {
-            view: true,
-            viewDetails: true,
-            export: true,
-            adjust: true
-        },
-        "invoice-compare": {
-            view: true,
-            compare: true,
-            import: true,
-            export: true,
-            resolve: true
-        },
-        lichsuchinhsua: {
-            view: true,
-            viewDetails: true,
-            export: true,
-            restore: true,
-            delete: true
-        }
-    };
-
-    return fullPermissions;
+    // Use PAGES_REGISTRY if available (Single Source of Truth)
+    if (typeof PermissionsRegistry !== 'undefined' && typeof PermissionsRegistry.generateFullDetailedPermissions === 'function') {
+        return PermissionsRegistry.generateFullDetailedPermissions();
+    }
+    // Fallback: empty object if PAGES_REGISTRY not loaded
+    console.warn('[Migration] PermissionsRegistry not available, returning empty permissions');
+    return {};
 };
 
 /**
@@ -256,6 +82,52 @@ window.countPermissions = function(perms) {
         count += Object.values(pagePerms).filter(v => v === true).length;
     });
     return count;
+};
+
+/**
+ * Update the current user's local auth data to reflect admin status.
+ * Solves the chicken-and-egg problem: after Firestore migration, local
+ * storage still has stale auth data without isAdmin flag.
+ */
+window.updateLocalAuthAsAdmin = function() {
+    const AUTH_KEY = "loginindex_auth";
+    let source = null;
+    let raw = null;
+
+    // Try localStorage first, then sessionStorage
+    raw = localStorage.getItem(AUTH_KEY);
+    if (raw) {
+        source = "localStorage";
+    } else {
+        raw = sessionStorage.getItem(AUTH_KEY);
+        if (raw) {
+            source = "sessionStorage";
+        }
+    }
+
+    if (!raw || !source) {
+        console.warn("[Migration] No auth data found in localStorage or sessionStorage under key:", AUTH_KEY);
+        return null;
+    }
+
+    try {
+        const authData = JSON.parse(raw);
+        authData.isAdmin = true;
+        authData.roleTemplate = 'admin';
+
+        const updated = JSON.stringify(authData);
+        if (source === "localStorage") {
+            localStorage.setItem(AUTH_KEY, updated);
+        } else {
+            sessionStorage.setItem(AUTH_KEY, updated);
+        }
+
+        console.log(`[Migration] ✅ Local auth updated in ${source}: isAdmin=true, roleTemplate='admin'`);
+        return authData;
+    } catch (error) {
+        console.error("[Migration] Failed to update local auth data:", error);
+        return null;
+    }
 };
 
 /**
@@ -312,9 +184,10 @@ window.migrateAdminUsers = async function() {
 
             // Update user with full permissions and admin template
             batch.update(userRef, {
-                roleTemplate: 'admin',
-                detailedPermissions: fullPermissions,
-                migrationNote: `Migrated to full detailedPermissions on ${new Date().toISOString()}`,
+                isAdmin: true,  // NEW: Admin flag for bypass
+                roleTemplate: 'admin',  // Kept for backward compatible
+                detailedPermissions: fullPermissions,  // Kept for rollback
+                migrationNote: `Migrated to isAdmin flag on ${new Date().toISOString()}`,
                 lastModified: new Date().toISOString()
             });
 
@@ -329,6 +202,9 @@ window.migrateAdminUsers = async function() {
 
         // Commit batch
         await batch.commit();
+
+        // Update current user's local auth data so admin toggle works immediately
+        window.updateLocalAuthAsAdmin();
 
         console.log("========================================");
         console.log("MIGRATION COMPLETE!");
@@ -422,9 +298,10 @@ window.migrateSingleUser = async function(username) {
         }
 
         await userRef.update({
+            isAdmin: true,  // NEW: Admin flag for bypass
             roleTemplate: 'admin',
-            detailedPermissions: fullPermissions,
-            migrationNote: `Migrated to full detailedPermissions on ${new Date().toISOString()}`,
+            detailedPermissions: fullPermissions,  // Kept for rollback
+            migrationNote: `Migrated to isAdmin flag on ${new Date().toISOString()}`,
             lastModified: new Date().toISOString()
         });
 
@@ -446,4 +323,5 @@ console.log("  - previewMigration() : Preview users to migrate");
 console.log("  - migrateAdminUsers() : Migrate all admin users");
 console.log("  - migrateSingleUser('username') : Migrate single user");
 console.log("  - generateFullAdminPermissions() : Get full permissions object");
+console.log("  - updateLocalAuthAsAdmin() : Update local auth data with admin flag");
 console.log("========================================");

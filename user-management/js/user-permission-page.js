@@ -12,18 +12,8 @@ const AVAILABLE_PAGES = [
         name: "HÌNH ẢNH LIVE ĐẦY ĐỦ",
         description: "Xem và quản lý hình ảnh live stream",
     },
-    {
-        id: "livestream",
-        icon: "video",
-        name: "BÁO CÁO LIVESTREAM",
-        description: "Xem báo cáo và thống kê livestream",
-    },
-    {
-        id: "sanphamlive",
-        icon: "shopping-bag",
-        name: "SẢN PHẨM LIVESTREAM",
-        description: "Xem thống kê sản phẩm livestream",
-    },
+    // REMOVED: livestream (module deleted - cleanup task 9.1)
+    // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
     {
         id: "nhanhang",
         icon: "package",
@@ -55,12 +45,6 @@ const AVAILABLE_PAGES = [
         description: "Xử lý hàng hoàn trả",
     },
     {
-        id: "hangdat",
-        icon: "file-text",
-        name: "HÀNG ĐẶT",
-        description: "Quản lý đơn hàng đặt trước",
-    },
-    {
         id: "bangkiemhang",
         icon: "check-square",
         name: "BẢNG KIỂM HÀNG",
@@ -80,26 +64,10 @@ const AVAILABLE_PAGES = [
     },
 ];
 
-// Permission templates
+// Permission templates — "admin" removed (admin is now a separate isAdmin flag)
 const PERMISSION_TEMPLATES = {
-    admin: [
-        "live",
-        "livestream",
-        "sanphamlive",
-        "nhanhang",
-        "hangrotxa",
-        "ib",
-        "ck",
-        "hanghoan",
-        "hangdat",
-        "bangkiemhang",
-        "user-management",
-        "history",
-    ],
     manager: [
         "live",
-        "livestream",
-        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
@@ -109,8 +77,6 @@ const PERMISSION_TEMPLATES = {
     ],
     staff: [
         "live",
-        "livestream",
-        "sanphamlive",
         "nhanhang",
         "hangrotxa",
         "ib",
@@ -241,8 +207,12 @@ function checkAdminAccess() {
             return false;
         }
 
+        // Admin bypass
+        if (auth.isAdmin === true || auth.roleTemplate === 'admin') {
+            hasPermission = true;
+        }
         // Check for specific user-management permission in detailedPermissions
-        if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
+        else if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
             const userMgmtPerms = auth.detailedPermissions['user-management'];
             hasPermission = Object.values(userMgmtPerms).some(v => v === true);
         }
@@ -313,7 +283,7 @@ function connectFirebase() {
     try {
         if (!firebase.apps.length) {
             console.log("Initializing Firebase...");
-            const config = {
+            const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : {
                 apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
                 authDomain: "n2shop-69e37.firebaseapp.com",
                 projectId: "n2shop-69e37",
@@ -498,6 +468,14 @@ function editUser(username) {
     document.getElementById("editCheckLogin").value = user.checkLogin;
     document.getElementById("editNewPassword").value = "";
 
+    // Set isAdmin toggle
+    const adminCheckbox = document.getElementById('editIsAdmin');
+    const isAdmin = user.isAdmin === true || user.roleTemplate === 'admin';
+    if (adminCheckbox) {
+        adminCheckbox.checked = isAdmin;
+        toggleAdminMode(isAdmin);
+    }
+
     const userPermissions = user.pagePermissions || [];
     setUserPermissions(userPermissions, "perm_");
 
@@ -559,14 +537,24 @@ async function updateUser() {
     );
 
     try {
+        // Check isAdmin toggle
+        const adminCheckbox = document.getElementById('editIsAdmin');
+        const isAdmin = adminCheckbox ? adminCheckbox.checked : false;
+
         let updateData = {
             displayName: displayName,
             checkLogin: checkLogin,
+            isAdmin: isAdmin,  // NEW: Admin flag
             pagePermissions: selectedPermissions,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
+            updatedBy: JSON.parse(localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth"))
                 .username,
         };
+
+        // If admin, set roleTemplate to 'admin'
+        if (isAdmin) {
+            updateData.roleTemplate = 'admin';
+        }
 
         if (newPassword) {
             const salt = CryptoJS.lib.WordArray.random(128 / 8).toString();
@@ -914,6 +902,11 @@ function clearEditForm() {
     document.getElementById("editDisplayName").value = "";
     document.getElementById("editCheckLogin").value = "1";
     document.getElementById("editNewPassword").value = "";
+    const adminCheckbox = document.getElementById('editIsAdmin');
+    if (adminCheckbox) {
+        adminCheckbox.checked = false;
+        toggleAdminMode(false);
+    }
     setUserPermissions([], "perm_");
     const output = document.getElementById("editOutput");
     output.style.display = "none";
@@ -931,6 +924,44 @@ function clearCreateForm() {
     output.style.display = "none";
     output.textContent = "";
     output.className = "output";
+}
+
+// =====================================================
+// ADMIN TOGGLE - isAdmin flag management
+// =====================================================
+
+/**
+ * Toggle admin mode for edit form
+ * When admin is ON: hide template dropdown and permissions grid
+ * When admin is OFF: show template dropdown and permissions grid
+ */
+function toggleAdminMode(isAdmin) {
+    const templateSection = document.getElementById('editTemplateSection');
+    const permissionsSection = document.getElementById('editPermissionsSection');
+    const adminBadge = document.getElementById('editAdminBadge');
+
+    if (isAdmin) {
+        if (templateSection) templateSection.style.display = 'none';
+        if (permissionsSection) permissionsSection.style.display = 'none';
+        if (adminBadge) adminBadge.style.display = 'inline-flex';
+    } else {
+        if (templateSection) templateSection.style.display = '';
+        if (permissionsSection) permissionsSection.style.display = '';
+        if (adminBadge) adminBadge.style.display = 'none';
+    }
+}
+
+/**
+ * Initialize admin toggle checkbox event listener
+ * Call this after the edit form HTML is rendered
+ */
+function initAdminToggle() {
+    const adminCheckbox = document.getElementById('editIsAdmin');
+    if (adminCheckbox) {
+        adminCheckbox.addEventListener('change', function() {
+            toggleAdminMode(this.checked);
+        });
+    }
 }
 
 // Hash generation functions

@@ -1623,8 +1623,8 @@ class TposChatManager {
         const uniquePhones = [...new Set(phones)];
 
         try {
-            // Use batch API
-            const response = await fetch(`${this.proxyBaseUrl}/api/sepay/debt-summary-batch`, {
+            // Use wallet batch API instead of debt-summary-batch
+            const response = await fetch(`${this.proxyBaseUrl}/api/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1633,20 +1633,20 @@ class TposChatManager {
             });
 
             if (!response.ok) {
-                console.warn('[TPOS-CHAT] Debt API error:', response.status);
+                console.warn('[TPOS-CHAT] Wallet API error:', response.status);
                 return;
             }
 
             const result = await response.json();
             if (result.success && result.data) {
                 // Store in debt cache with smart caching
-                for (const [phone, info] of Object.entries(result.data)) {
-                    this.setDebtCache(this.normalizePhone(phone), info.total_debt || 0);
+                for (const [phone, walletData] of Object.entries(result.data)) {
+                    this.setDebtCache(this.normalizePhone(phone), walletData.total || 0);
                 }
 
-                console.log('[TPOS-CHAT] Loaded debt for', Object.keys(result.data).length, 'phones');
+                console.log('[TPOS-CHAT] Loaded wallet balance for', Object.keys(result.data).length, 'phones');
 
-                // Re-render to show debt
+                // Re-render to show balance
                 this.renderComments();
             }
         } catch (error) {

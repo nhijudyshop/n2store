@@ -1,6 +1,6 @@
 // js/config.js - Configuration & Firebase Setup
 
-// firebaseConfig is provided by ../shared/js/firebase-config.js (loaded via core-loader.js)
+// Firebase is initialized by ../shared/js/firebase-config.js (loaded in index.html)
 
 // Application Configuration
 const APP_CONFIG = {
@@ -11,13 +11,10 @@ const APP_CONFIG = {
     AUTH_STORAGE_KEY: "loginindex_auth",
 };
 
-// Initialize Firebase (using global firebaseConfig)
-if (!firebase.apps.length) {
-    firebase.initializeApp((typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : (typeof firebaseConfig !== 'undefined') ? firebaseConfig : {apiKey:"AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",authDomain:"n2shop-69e37.firebaseapp.com",databaseURL:"https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"n2shop-69e37",storageBucket:"n2shop-69e37-ne0q1",messagingSenderId:"598906493303",appId:"1:598906493303:web:46d6236a1fdc2eff33e972"});
-}
+// Get Firebase instances from shared config (already initialized by shared/js/firebase-config.js)
 const app = firebase.app();
-const db = firebase.firestore();
-const database = firebase.database(); // Realtime Database for Pancake accounts
+const db = getFirestore();
+const database = getRealtimeDB(); // Realtime Database for Pancake accounts
 const storageRef = firebase.storage().ref();
 const collectionRef = db.collection("livestream_reports");
 const historyCollectionRef = db.collection("edit_history");

@@ -9,6 +9,18 @@
 window.openPancakeSettingsModal = async function() {
     document.getElementById('pancakeSettingsModal').style.display = 'flex';
 
+    // Check admin permission and show/hide buttons accordingly
+    const isAdmin = isUserAdmin();
+
+    // Hide/show add/delete buttons for non-admin
+    const btnAddAccount = document.getElementById('btnAddAccount');
+    const btnAddPageToken = document.getElementById('btnAddPageToken');
+    const btnClearAllAccounts = document.getElementById('btnClearAllAccounts');
+
+    if (btnAddAccount) btnAddAccount.style.display = isAdmin ? 'inline-block' : 'none';
+    if (btnAddPageToken) btnAddPageToken.style.display = isAdmin ? 'inline-block' : 'none';
+    if (btnClearAllAccounts) btnClearAllAccounts.style.display = isAdmin ? 'inline-block' : 'none';
+
     // Load accounts list
     if (window.pancakeTokenManager) {
         await window.pancakeTokenManager.initialize();
@@ -175,6 +187,7 @@ window.refreshAccountsList = async function() {
         const accounts = window.pancakeTokenManager.getAllAccounts();
         const activeAccountId = window.pancakeTokenManager.activeAccountId;
         const listDiv = document.getElementById('pancakeAccountsList');
+        const isAdmin = isUserAdmin();
 
         if (!accounts || Object.keys(accounts).length === 0) {
             listDiv.innerHTML = `
@@ -228,10 +241,12 @@ window.refreshAccountsList = async function() {
                                 <i class="fas fa-star"></i> Đang dùng
                             </span>
                         ` : ''}
-                        <button onclick="deleteAccount('${accountId}')"
-                            style="padding: 4px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
-                            <i class="fas fa-trash"></i> Xóa
-                        </button>
+                        ${isAdmin ? `
+                            <button onclick="deleteAccount('${accountId}')"
+                                style="padding: 4px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                                <i class="fas fa-trash"></i> Xóa
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -250,9 +265,41 @@ window.refreshAccountsList = async function() {
     }
 };
 
+// Helper function to check if user is admin
+function isUserAdmin() {
+    // Check via authManager using roleTemplate
+    if (window.authManager?.isAdminTemplate) {
+        return window.authManager.isAdminTemplate();
+    }
+    // Fallback: check localStorage directly
+    try {
+        const authData = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}');
+        return authData.roleTemplate === 'admin';
+    } catch {
+        return false;
+    }
+}
+
+// Helper function to check admin permission
+function checkAdminPermission(action = 'thực hiện thao tác này') {
+    if (!isUserAdmin()) {
+        const message = `⛔ Chỉ Admin mới có quyền ${action}`;
+        if (window.notificationManager) {
+            window.notificationManager.show(message, 'error');
+        } else {
+            alert(message);
+        }
+        return false;
+    }
+    return true;
+}
+
 // Add Account From Cookie
 window.addAccountFromCookie = async function() {
     try {
+        // Admin check
+        if (!checkAdminPermission('thêm tài khoản Pancake')) return;
+
         if (!window.pancakeTokenManager) {
             throw new Error('PancakeTokenManager not available');
         }
@@ -297,6 +344,9 @@ window.addAccountFromCookie = async function() {
 // Add Account Manual
 window.addAccountManual = async function() {
     try {
+        // Admin check
+        if (!checkAdminPermission('thêm tài khoản Pancake')) return;
+
         const tokenInput = document.getElementById('newAccountTokenInput').value.trim();
 
         if (!tokenInput) {
@@ -338,7 +388,7 @@ window.addAccountManual = async function() {
     }
 };
 
-// Select Account
+// Select Account (cho phép tất cả user chọn account để dùng)
 window.selectAccount = async function(accountId) {
     try {
         if (!window.pancakeTokenManager) {
@@ -377,6 +427,9 @@ window.selectAccount = async function(accountId) {
 
 // Delete Account
 window.deleteAccount = async function(accountId) {
+    // Admin check
+    if (!checkAdminPermission('xóa tài khoản Pancake')) return;
+
     if (!confirm('Bạn có chắc muốn xóa tài khoản này?')) {
         return;
     }
@@ -413,6 +466,9 @@ window.deleteAccount = async function(accountId) {
 
 // Clear All Accounts
 window.clearAllPancakeAccounts = async function() {
+    // Admin check
+    if (!checkAdminPermission('xóa tất cả tài khoản Pancake')) return;
+
     if (!confirm('Bạn có chắc muốn xóa TẤT CẢ tài khoản?')) {
         return;
     }
@@ -483,137 +539,18 @@ window.loadAvailableTags = async function() {
     }
 };
 
-/**
- * Toggle tag filter dropdown
- */
-window.toggleTagFilterDropdown = function() {
-    const dropdown = document.getElementById('tagFilterDropdown');
-    if (!dropdown) return;
-
-    const isOpen = dropdown.classList.contains('open');
-
-    // Close all other dropdowns
-    document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
-
-    if (!isOpen) {
-        dropdown.classList.add('open');
-        // Load tags if not loaded
-        if (!window.availableTags || window.availableTags.length === 0) {
-            window.loadAvailableTags();
-        } else {
-            window.populateTagFilterOptions();
-        }
-        // Focus search input
-        setTimeout(() => {
-            const searchInput = document.getElementById('tagFilterSearchInput');
-            if (searchInput) searchInput.focus();
-        }, 100);
-    }
-};
-
-/**
- * Close tag filter dropdown
- */
-window.closeTagFilterDropdown = function() {
-    const dropdown = document.getElementById('tagFilterDropdown');
-    if (dropdown) dropdown.classList.remove('open');
-};
-
-/**
- * Populate tag filter options
- */
-window.populateTagFilterOptions = function(searchTerm = '') {
-    const optionsContainer = document.getElementById('tagFilterOptions');
-    if (!optionsContainer) return;
-
-    const tags = window.availableTags || [];
-    const currentValue = document.getElementById('tagFilter')?.value || 'all';
-    const search = searchTerm.toLowerCase().trim();
-
-    // Filter tags by search term
-    let filteredTags = tags;
-    if (search) {
-        filteredTags = tags.filter(tag =>
-            (tag.Name || '').toLowerCase().includes(search)
-        );
-    }
-
-    // Limit to 12 tags if not searching
-    const displayTags = search ? filteredTags : filteredTags.slice(0, TAG_FILTER_LIMIT);
-
-    // Build options HTML
-    let html = `
-        <div class="tag-filter-option ${currentValue === 'all' ? 'selected' : ''}"
-             onclick="selectTagFilterOption('all', 'Tất cả')">
-            <span class="tag-name">Tất cả</span>
-        </div>
-    `;
-
-    displayTags.forEach(tag => {
-        const isSelected = String(currentValue) === String(tag.Id);
-        const colorStyle = tag.Color ? `background-color: ${tag.Color}` : 'background-color: #9ca3af';
-        html += `
-            <div class="tag-filter-option ${isSelected ? 'selected' : ''}"
-                 onclick="selectTagFilterOption('${tag.Id}', '${(tag.Name || '').replace(/'/g, "\\'")}')">
-                <span class="tag-color-dot" style="${colorStyle}"></span>
-                <span class="tag-name">${tag.Name || 'Unnamed'}</span>
-            </div>
-        `;
-    });
-
-    // Show "more" message if limited
-    if (!search && filteredTags.length > TAG_FILTER_LIMIT) {
-        html += `<div style="padding: 8px 12px; font-size: 11px; color: #9ca3af; text-align: center;">
-            Gõ để tìm thêm ${filteredTags.length - TAG_FILTER_LIMIT} tag khác...
-        </div>`;
-    }
-
-    optionsContainer.innerHTML = html;
-};
-
-/**
- * Filter tag options based on search input
- */
-window.filterTagOptions = function() {
-    const searchInput = document.getElementById('tagFilterSearchInput');
-    const searchTerm = searchInput ? searchInput.value : '';
-    window.populateTagFilterOptions(searchTerm);
-};
-
-/**
- * Select a tag filter option
- */
-window.selectTagFilterOption = function(tagId, tagName) {
-    // Update hidden input
-    const hiddenInput = document.getElementById('tagFilter');
-    if (hiddenInput) hiddenInput.value = tagId;
-
-    // Update display text
-    const displayText = document.getElementById('tagFilterText');
-    if (displayText) displayText.textContent = tagName;
-
-    // Close dropdown
-    window.closeTagFilterDropdown();
-
-    // Clear search
-    const searchInput = document.getElementById('tagFilterSearchInput');
-    if (searchInput) searchInput.value = '';
-
-    // Trigger table search
-    if (typeof performTableSearch === 'function') {
-        performTableSearch();
-    }
-
-    console.log(`[TAG-FILTER] Selected: ${tagName} (ID: ${tagId})`);
-};
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(event) {
-    const dropdown = document.getElementById('tagFilterDropdown');
-    if (dropdown && !dropdown.contains(event.target)) {
-        window.closeTagFilterDropdown();
-    }
-});
+// ====== MULTI-SELECT TAG FILTER ======
+// NOTE: Tag filter functions have been moved to tab1-tags.js for earlier loading
+// The following functions are now defined in tab1-tags.js:
+// - toggleTagFilterDropdown, closeTagFilterDropdown
+// - populateTagFilterOptions, filterTagOptions
+// - toggleTagFilterOption, selectAllTagFilters, clearTagFilters
+// - getSelectedTagFilters, saveSelectedTagFilters
+// - toggleExcludeTagFilterDropdown, closeExcludeTagFilterDropdown
+// - populateExcludeTagFilterOptions, filterExcludeTagOptions
+// - toggleExcludeTagFilterOption, clearExcludeTagFilters
+// - getExcludedTagFilters, saveExcludedTagFilters
+// - updateExcludedTagsMainDisplay, removeExcludedTagFromMain
 
 // ====== TAG SETTINGS ======
 const TAG_SETTINGS_KEY = 'tagSettingsCustomData';
@@ -906,5 +843,283 @@ document.addEventListener('DOMContentLoaded', function () {
         window.updateRealtimeCheckbox();
     });
 });
+
+// ====== PAGE ACCESS TOKEN MANAGEMENT ======
+
+// Show Add Page Token Form
+window.showAddPageTokenForm = async function() {
+    // Admin check
+    if (!checkAdminPermission('thêm Page Access Token')) return;
+
+    document.getElementById('addPageTokenForm').style.display = 'block';
+    document.getElementById('newPageAccessTokenInput').value = '';
+    document.getElementById('pageTokenValidationMessage').style.display = 'none';
+
+    // Load pages to selector
+    await loadPagesToSelector();
+};
+
+// Hide Add Page Token Form
+window.hideAddPageTokenForm = function() {
+    document.getElementById('addPageTokenForm').style.display = 'none';
+    document.getElementById('newPageAccessTokenInput').value = '';
+    document.getElementById('pageTokenValidationMessage').style.display = 'none';
+};
+
+// Load pages to selector dropdown
+async function loadPagesToSelector() {
+    const selector = document.getElementById('pageTokenPageSelector');
+    if (!selector) return;
+
+    selector.innerHTML = '<option value="">-- Đang tải pages... --</option>';
+
+    try {
+        if (!window.pancakeDataManager) {
+            throw new Error('PancakeDataManager not available');
+        }
+
+        // Fetch pages from Pancake
+        const pages = await window.pancakeDataManager.fetchPages(true);
+
+        if (!pages || pages.length === 0) {
+            selector.innerHTML = '<option value="">-- Không có page nào --</option>';
+            return;
+        }
+
+        let options = '<option value="">-- Chọn page --</option>';
+        pages.forEach(page => {
+            options += `<option value="${page.id}" data-name="${page.name}">${page.name} (${page.id})</option>`;
+        });
+        selector.innerHTML = options;
+
+        console.log('[PAGE-TOKEN] Loaded', pages.length, 'pages to selector');
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error loading pages:', error);
+        selector.innerHTML = '<option value="">-- Lỗi tải pages --</option>';
+    }
+}
+
+// Generate page token from API
+window.generatePageTokenFromAPI = async function() {
+    try {
+        // Admin check
+        if (!checkAdminPermission('tạo Page Access Token')) return;
+
+        const selector = document.getElementById('pageTokenPageSelector');
+        const pageId = selector.value;
+
+        if (!pageId) {
+            throw new Error('Vui lòng chọn page trước');
+        }
+
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const pageName = selector.options[selector.selectedIndex].dataset.name || '';
+
+        // Show loading
+        const messageDiv = document.getElementById('pageTokenValidationMessage');
+        messageDiv.innerHTML = '<span style="color: #3b82f6;"><i class="fas fa-spinner fa-spin"></i> Đang tạo token...</span>';
+        messageDiv.style.display = 'block';
+
+        // Generate token via API
+        const newToken = await window.pancakeTokenManager.generatePageAccessToken(pageId);
+
+        if (newToken) {
+            // Show in textarea
+            document.getElementById('newPageAccessTokenInput').value = newToken;
+            messageDiv.innerHTML = '<span style="color: #10b981;">✅ Token đã được tạo và lưu tự động!</span>';
+
+            // Refresh list
+            await refreshPageTokensList();
+
+            if (window.notificationManager) {
+                window.notificationManager.show('✅ Đã tạo Page Access Token!', 'success');
+            }
+        } else {
+            throw new Error('Không thể tạo token. Kiểm tra quyền admin của account.');
+        }
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error generating token:', error);
+        const messageDiv = document.getElementById('pageTokenValidationMessage');
+        messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Lỗi: ${error.message}</span>`;
+        messageDiv.style.display = 'block';
+
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ ' + error.message, 'error');
+        }
+    }
+};
+
+// Add page access token manually
+window.addPageAccessTokenManual = async function() {
+    try {
+        // Admin check
+        if (!checkAdminPermission('thêm Page Access Token')) return;
+
+        const selector = document.getElementById('pageTokenPageSelector');
+        const pageId = selector.value;
+        const token = document.getElementById('newPageAccessTokenInput').value.trim();
+
+        if (!pageId) {
+            throw new Error('Vui lòng chọn page');
+        }
+
+        if (!token) {
+            throw new Error('Vui lòng nhập Page Access Token');
+        }
+
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const pageName = selector.options[selector.selectedIndex].dataset.name || '';
+
+        // Save token
+        const success = await window.pancakeTokenManager.savePageAccessToken(pageId, token, pageName);
+
+        if (success) {
+            const messageDiv = document.getElementById('pageTokenValidationMessage');
+            messageDiv.innerHTML = '<span style="color: #10b981;">✅ Token đã được lưu!</span>';
+            messageDiv.style.display = 'block';
+
+            // Refresh list and hide form
+            await refreshPageTokensList();
+            setTimeout(() => window.hideAddPageTokenForm(), 1500);
+
+            if (window.notificationManager) {
+                window.notificationManager.show('✅ Đã lưu Page Access Token!', 'success');
+            }
+        } else {
+            throw new Error('Không thể lưu token');
+        }
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error saving token:', error);
+        const messageDiv = document.getElementById('pageTokenValidationMessage');
+        messageDiv.innerHTML = `<span style="color: #ef4444;">❌ Lỗi: ${error.message}</span>`;
+        messageDiv.style.display = 'block';
+
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ ' + error.message, 'error');
+        }
+    }
+};
+
+// Refresh page tokens list
+window.refreshPageTokensList = async function() {
+    const listDiv = document.getElementById('pageAccessTokensList');
+    if (!listDiv) return;
+
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        const tokens = window.pancakeTokenManager.getAllPageAccessTokens();
+        const isAdmin = isUserAdmin();
+
+        if (!tokens || tokens.length === 0) {
+            listDiv.innerHTML = `
+                <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                    <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
+                    <div>Chưa có page token nào</div>
+                    <div style="font-size: 11px; margin-top: 4px;">Page token giúp gửi tin nhắn không bị giới hạn rate limit</div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        tokens.forEach(item => {
+            const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleDateString('vi-VN') : 'N/A';
+            const tokenPreview = item.token ? (item.token.substring(0, 20) + '...') : 'N/A';
+
+            html += `
+                <div style="padding: 10px; background: white; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 4px;">
+                                <i class="fas fa-file-alt" style="color: #8b5cf6;"></i>
+                                ${item.pageName || 'Page ' + item.pageId}
+                            </div>
+                            <div style="font-size: 11px; color: #6b7280; font-family: monospace;">
+                                ID: ${item.pageId}
+                            </div>
+                            <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">
+                                Token: ${tokenPreview} | Lưu: ${savedDate}
+                            </div>
+                        </div>
+                        ${isAdmin ? `
+                            <button onclick="deletePageAccessToken('${item.pageId}')"
+                                style="padding: 4px 8px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+
+        listDiv.innerHTML = html;
+        console.log('[PAGE-TOKEN] Displayed', tokens.length, 'page tokens');
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error refreshing page tokens list:', error);
+        listDiv.innerHTML = `
+            <div style="text-align: center; color: #ef4444; padding: 20px;">
+                <i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 8px;"></i>
+                <div>Lỗi: ${error.message}</div>
+            </div>
+        `;
+    }
+};
+
+// Delete page access token
+window.deletePageAccessToken = async function(pageId) {
+    // Admin check
+    if (!checkAdminPermission('xóa Page Access Token')) return;
+
+    if (!confirm('Bạn có chắc muốn xóa Page Access Token này?')) {
+        return;
+    }
+
+    try {
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager not available');
+        }
+
+        // Remove from pageAccessTokens
+        delete window.pancakeTokenManager.pageAccessTokens[pageId];
+
+        // Save to storage
+        await window.pancakeTokenManager.savePageAccessTokensToStorage();
+
+        // Sync to Firebase if available
+        if (window.pancakeTokenManager.pageTokensRef) {
+            await window.pancakeTokenManager.pageTokensRef.set({
+                data: window.pancakeTokenManager.pageAccessTokens
+            }, { merge: true });
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.show('✅ Đã xóa Page Access Token!', 'success');
+        }
+
+        // Refresh list
+        await refreshPageTokensList();
+    } catch (error) {
+        console.error('[PAGE-TOKEN] Error deleting token:', error);
+        if (window.notificationManager) {
+            window.notificationManager.show('❌ Lỗi: ' + error.message, 'error');
+        }
+    }
+};
+
+// Update openPancakeSettingsModal to also refresh page tokens list
+const originalOpenPancakeSettingsModal = window.openPancakeSettingsModal;
+window.openPancakeSettingsModal = async function() {
+    await originalOpenPancakeSettingsModal();
+    await window.refreshPageTokensList();
+};
 
 console.log('[TAB1-PANCAKE-SETTINGS] Module loaded');

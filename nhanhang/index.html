@@ -27,6 +27,9 @@
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js"></script>
+
         <!-- External Libraries -->
         <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
@@ -40,8 +43,8 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i data-lucide="package"></i>
-                    <span>N2Shop</span>
+                    <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+                    <span>N2STORE</span>
                 </div>
                 <button class="sidebar-toggle" id="sidebarToggle">
                     <i data-lucide="panel-left-close"></i>
@@ -327,11 +330,11 @@
                 >
                     <div class="date-input-wrapper">
                         <label for="startDate">Từ ngày:</label>
-                        <input type="date" id="startDate" />
+                        <input type="text" id="startDate" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric" />
                     </div>
                     <div class="date-input-wrapper">
                         <label for="endDate">Đến ngày:</label>
-                        <input type="date" id="endDate" />
+                        <input type="text" id="endDate" placeholder="dd/mm/yyyy" maxlength="10" inputmode="numeric" />
                     </div>
                     <button
                         type="button"
@@ -425,6 +428,19 @@
                                 min="0"
                                 step="any"
                                 required
+                            />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <i data-lucide="clock"></i>
+                                Thời gian nhận
+                            </label>
+                            <input
+                                type="datetime-local"
+                                id="editThoiGianNhan"
                             />
                         </div>
                     </div>
@@ -550,6 +566,7 @@
         </div>
 
         <!-- Scripts -->
+        <script src="../shared/js/permissions-helper.js"></script>
         <script src="js/config.js"></script>
         <script src="js/utility.js?v=20260118"></script>
         <script src="js/ui.js"></script>

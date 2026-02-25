@@ -40,9 +40,9 @@ const NOTIFICATION_CONFIG = {
         loading: 'Đang tải',
     },
     zIndex: {
-        container: 99999,
+        container: 200000,
         overlay: 2999,
-        confirmOverlay: 10010,
+        confirmOverlay: 200001,
     },
 };
 
@@ -80,6 +80,7 @@ class NotificationManager {
         this.container = document.createElement('div');
         this.container.id = 'notification-container';
         this.container.className = 'toast-container';
+        this.container.style.zIndex = String(this.config.zIndex.container);
         document.body.appendChild(this.container);
     }
 
@@ -93,6 +94,9 @@ class NotificationManager {
                 return null;
             }
         }
+
+        // Re-append to end of body so container is always above any modals
+        document.body.appendChild(this.container);
 
         const {
             showOverlay = false,

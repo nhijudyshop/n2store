@@ -7,7 +7,8 @@
 // ========================================
 // FIREBASE CONFIGURATION
 // ========================================
-// Ensure Firebase config is available before service initialization
+// FIREBASE_CONFIG is provided by shared/js/firebase-config.js (loaded in index.html)
+// Fallback only if shared config is not loaded
 if (!window.FIREBASE_CONFIG) {
     window.FIREBASE_CONFIG = {
         apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
@@ -155,7 +156,7 @@ function canEditOrder(status) {
  * @returns {boolean}
  */
 function canDeleteOrder(status) {
-    return status === OrderStatus.DRAFT || status === OrderStatus.CANCELLED;
+    return status === OrderStatus.DRAFT || status === OrderStatus.AWAITING_PURCHASE || status === OrderStatus.AWAITING_DELIVERY || status === OrderStatus.CANCELLED;
 }
 
 /**

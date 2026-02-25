@@ -95,17 +95,8 @@
     let autoAddVariants = true; // Auto-add all product variants when selecting a product
     let productNotes = {}; // Store notes for products in preview (like tab2)
 
-    // Firebase Configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-        authDomain: "n2shop-69e37.firebaseapp.com",
-        databaseURL: "https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "n2shop-69e37",
-        storageBucket: "n2shop-69e37-ne0q1",
-        messagingSenderId: "598906493303",
-        appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-        measurementId: "G-TEJH3S2T1D"
-    };
+    // Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js)
+    // FIREBASE_CONFIG and firebaseConfig are provided by shared/js/firebase-config.js
 
     // Initialize Firebase
     if (!firebase.apps.length) {
@@ -1257,7 +1248,7 @@
      * Clear cache và reload Tab1, sau đó nhận dữ liệu mới khi Tab1 load xong
      * Tab3 KHÔNG reload - chỉ nhận data mới từ Tab1
      */
-    window.reloadWithCacheClear = function() {
+    window.reloadWithCacheClear = function () {
         console.log('[RELOAD] 🔄 Reload with cache clear requested...');
 
         // 1. Clear cache trực tiếp (cùng localStorage với Tab1)
@@ -1295,7 +1286,7 @@
     /**
      * Open Export Excel Modal
      */
-    window.openExportExcelModal = function() {
+    window.openExportExcelModal = function () {
         console.log('[EXPORT] 📊 Opening Export Excel Modal...');
 
         // Initialize Bootstrap modal if not exists
@@ -1328,7 +1319,7 @@
     /**
      * Close Export Excel Modal
      */
-    window.closeExportExcelModal = function() {
+    window.closeExportExcelModal = function () {
         if (exportExcelModal) {
             exportExcelModal.hide();
         }
@@ -1368,7 +1359,7 @@
      * Export Orders to Excel
      * Load 3000 orders from TPOS and export to Excel file
      */
-    window.exportOrdersToExcel = async function() {
+    window.exportOrdersToExcel = async function () {
         console.log('[EXPORT] 📊 Starting export to Excel...');
 
         const skipRange = document.getElementById('exportSkipRange');
@@ -1589,7 +1580,10 @@
             userStorageManager = window.userStorageManager;
             if (!userStorageManager) {
                 console.warn('[INIT] ⚠️ UserStorageManager not available, creating fallback');
-                userStorageManager = { getUserFirebasePath: (path) => `${path}/guest` };
+                userStorageManager = {
+                    getUserFirebasePath: (path) => `${path}/guest`,
+                    getUserIdentifier: () => 'guest'
+                };
             }
             console.log('[INIT] 📱 User identifier:', userStorageManager.getUserIdentifier ? userStorageManager.getUserIdentifier() : 'guest');
 
@@ -3187,11 +3181,11 @@
                                         </thead>
                                         <tbody>
                                             ${existingProducts.map(p => {
-                const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
-                const noteKey = `${stt}-${p.productId}`;
-                const rawNote = productNotes[noteKey] || p.note || '';
-                const existingNote = filterNonEncodedNotes(rawNote);
-                return `
+                    const willBeUpdated = productsWithStatus.some(ap => ap.productId === p.productId);
+                    const noteKey = `${stt}-${p.productId}`;
+                    const rawNote = productNotes[noteKey] || p.note || '';
+                    const existingNote = filterNonEncodedNotes(rawNote);
+                    return `
                                                     <tr class="${willBeUpdated ? 'table-warning' : ''}">
                                                         <td>
                                                             <div class="d-flex align-items-center gap-2">
@@ -3218,7 +3212,7 @@
                                                         </td>
                                                     </tr>
                                                 `;
-            }).join('')}
+                }).join('')}
                                         </tbody>
                                     </table>
                                 ` : '<div class="text-center text-muted py-3 border rounded"><i class="fas fa-inbox fa-2x mb-2"></i><p class="mb-0">Không có sản phẩm có sẵn</p><small>(Tất cả sản phẩm đều là mới)</small></div>'}
@@ -3760,7 +3754,9 @@
             const previousSelection = userFilterSelect.value;
             console.log('[HISTORY-V2] Preserving selection:', previousSelection);
 
-            const currentUser = userStorageManager ? userStorageManager.getUserIdentifier() : null;
+            const currentUser = (userStorageManager && typeof userStorageManager.getUserIdentifier === 'function')
+                ? userStorageManager.getUserIdentifier()
+                : null;
             console.log('[HISTORY-V2] Current user:', currentUser);
 
             const allUsers = await loadAllUsersForFilterV2();
@@ -3825,8 +3821,29 @@
                 </div>
             `;
 
+            // Check and sync any pending records first
+            const pendingCount = await getPendingHistoryCount();
+            if (pendingCount > 0) {
+                console.log(`[HISTORY-V2] Found ${pendingCount} pending records, attempting sync...`);
+                container.innerHTML = `
+                    <div class="history-loading">
+                        <div class="spinner-border text-warning" role="status">
+                            <span class="visually-hidden">Syncing...</span>
+                        </div>
+                        <p class="text-muted mt-3">Đang đồng bộ ${pendingCount} bản ghi chưa lưu...</p>
+                    </div>
+                `;
+                await syncPendingHistoryV2();
+            }
+
             await populateUserFilterV2();
             await loadUploadHistoryV2();
+
+            // Show remaining pending count if any
+            const remainingPending = await getPendingHistoryCount();
+            if (remainingPending > 0) {
+                updatePendingSyncIndicator(remainingPending);
+            }
 
         } catch (error) {
             console.error('[HISTORY-V2] ❌ Error opening history modal:', error);
@@ -3844,6 +3861,49 @@
                 </div>
             `;
         }
+    };
+
+    /**
+     * Update pending sync indicator in modal header
+     */
+    function updatePendingSyncIndicator(count) {
+        const modalHeader = document.querySelector('#uploadHistoryV2Modal .modal-header');
+        if (!modalHeader) return;
+
+        // Remove existing indicator
+        const existing = modalHeader.querySelector('.pending-sync-indicator');
+        if (existing) existing.remove();
+
+        if (count > 0) {
+            const indicator = document.createElement('div');
+            indicator.className = 'pending-sync-indicator ms-3';
+            indicator.innerHTML = `
+                <span class="badge bg-warning text-dark" title="Có ${count} bản ghi chưa đồng bộ">
+                    <i class="fas fa-exclamation-triangle"></i> ${count} chưa đồng bộ
+                </span>
+                <button class="btn btn-sm btn-outline-warning ms-2" onclick="retrySyncPendingHistory()" title="Thử đồng bộ lại">
+                    <i class="fas fa-sync"></i>
+                </button>
+            `;
+            modalHeader.querySelector('.modal-title').after(indicator);
+        }
+    }
+
+    /**
+     * Retry sync pending history (called from UI button)
+     */
+    window.retrySyncPendingHistory = async function () {
+        showNotification('🔄 Đang đồng bộ...', 'info');
+        const result = await syncPendingHistoryV2();
+
+        if (result.synced > 0) {
+            // Reload history to show newly synced records
+            await loadUploadHistoryV2();
+        }
+
+        // Update indicator
+        const remaining = await getPendingHistoryCount();
+        updatePendingSyncIndicator(remaining);
     };
 
     /**
@@ -3902,19 +3962,26 @@
                             if (!record || typeof record !== 'object') return;
                             if (!record.timestamp && !record.uploadId && !record.uploadStatus) return;
 
+                            // Ensure uploadedSTTs is always a valid array
+                            let validatedUploadedSTTs = [];
+                            if (Array.isArray(record.uploadedSTTs)) {
+                                validatedUploadedSTTs = record.uploadedSTTs.filter(stt => stt != null).map(stt => String(stt));
+                            }
+
                             uploadHistoryRecordsV2.push({
                                 uploadId: record.uploadId || uploadKey,
+                                firebaseKey: uploadKey, // Key thực sự trong Firebase để query
                                 timestamp: record.timestamp || 0,
                                 uploadStatus: record.uploadStatus || 'unknown',
                                 totalSTTs: record.totalSTTs || 0,
                                 totalAssignments: record.totalAssignments || 0,
                                 successCount: record.successCount || 0,
                                 failCount: record.failCount || 0,
-                                uploadedSTTs: record.uploadedSTTs || [],
+                                uploadedSTTs: validatedUploadedSTTs,
                                 note: record.note || '',
                                 committedAt: record.committedAt || null,
                                 restoredAt: record.restoredAt || null,
-                                userId: record.userId || userId,
+                                userId: record.userId || userId || 'guest',
                                 beforeSnapshot: record.beforeSnapshot || null
                             });
                         });
@@ -3923,19 +3990,27 @@
             } else {
                 uploadHistoryRecordsV2 = Object.keys(data).map(key => {
                     const record = data[key];
+
+                    // Ensure uploadedSTTs is always a valid array
+                    let validatedUploadedSTTs = [];
+                    if (Array.isArray(record.uploadedSTTs)) {
+                        validatedUploadedSTTs = record.uploadedSTTs.filter(stt => stt != null).map(stt => String(stt));
+                    }
+
                     return {
                         uploadId: record.uploadId || key,
+                        firebaseKey: key, // Key thực sự trong Firebase để query
                         timestamp: record.timestamp || 0,
                         uploadStatus: record.uploadStatus || 'unknown',
                         totalSTTs: record.totalSTTs || 0,
                         totalAssignments: record.totalAssignments || 0,
                         successCount: record.successCount || 0,
                         failCount: record.failCount || 0,
-                        uploadedSTTs: record.uploadedSTTs || [],
+                        uploadedSTTs: validatedUploadedSTTs,
                         note: record.note || '',
                         committedAt: record.committedAt || null,
                         restoredAt: record.restoredAt || null,
-                        userId: record.userId || (selectedUser !== 'current' ? selectedUser : undefined),
+                        userId: record.userId || selectedUser || 'guest',
                         beforeSnapshot: record.beforeSnapshot || null
                     };
                 });
@@ -3948,7 +4023,19 @@
             }
 
             filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
-            console.log(`[HISTORY-V2] ✅ Loaded ${uploadHistoryRecordsV2.length} history records`);
+
+            // Enhanced logging with timestamp range for debugging
+            if (uploadHistoryRecordsV2.length > 0) {
+                const newest = new Date(uploadHistoryRecordsV2[0].timestamp);
+                const oldest = new Date(uploadHistoryRecordsV2[uploadHistoryRecordsV2.length - 1].timestamp);
+                console.log(`[HISTORY-V2] ✅ Loaded ${uploadHistoryRecordsV2.length} records`, {
+                    newest: newest.toLocaleString('vi-VN'),
+                    oldest: oldest.toLocaleString('vi-VN'),
+                    uploadIds: uploadHistoryRecordsV2.slice(0, 5).map(r => r.uploadId)
+                });
+            } else {
+                console.log('[HISTORY-V2] ✅ Loaded 0 history records');
+            }
 
             filterUploadHistoryV2();
 
@@ -3968,50 +4055,81 @@
         const searchSTT = document.getElementById('historyV2SearchSTT').value.trim();
         const searchProduct = document.getElementById('historyV2SearchProduct').value.trim();
 
-        console.log('[HISTORY-V2] 🔍 Filtering history:', { status, dateFrom, dateTo, searchSTT, searchProduct });
+        // Enhanced debug logging
+        console.log('[HISTORY-V2] 🔍 Pre-filter state:', {
+            totalUnfiltered: uploadHistoryRecordsV2.length,
+            filters: { status, dateFrom, dateTo, searchSTT, searchProduct }
+        });
 
         filteredHistoryRecordsV2 = [...uploadHistoryRecordsV2];
 
+        // Filter by status
         if (status && status !== 'all') {
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.uploadStatus === status);
+            console.log('[HISTORY-V2] After status filter:', filteredHistoryRecordsV2.length);
         }
 
+        // Filter by dateFrom with NaN check
         if (dateFrom) {
-            // datetime-local format: YYYY-MM-DDTHH:MM
             const fromTimestamp = new Date(dateFrom).getTime();
-            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp >= fromTimestamp);
+            if (!isNaN(fromTimestamp)) {
+                filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
+                    const recordTime = record.timestamp || 0;
+                    return recordTime >= fromTimestamp;
+                });
+                console.log('[HISTORY-V2] After dateFrom filter:', filteredHistoryRecordsV2.length);
+            } else {
+                console.warn('[HISTORY-V2] Invalid dateFrom value:', dateFrom);
+            }
         }
 
+        // Filter by dateTo with NaN check
         if (dateTo) {
-            // datetime-local format: YYYY-MM-DDTHH:MM - use exact time selected
             const toTimestamp = new Date(dateTo).getTime();
-            filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => record.timestamp <= toTimestamp);
+            if (!isNaN(toTimestamp)) {
+                filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
+                    const recordTime = record.timestamp || 0;
+                    return recordTime <= toTimestamp;
+                });
+                console.log('[HISTORY-V2] After dateTo filter:', filteredHistoryRecordsV2.length);
+            } else {
+                console.warn('[HISTORY-V2] Invalid dateTo value:', dateTo);
+            }
         }
 
+        // Filter by STT with defensive null check
         if (searchSTT) {
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
-                return record.uploadedSTTs.some(stt => stt.toString().includes(searchSTT));
+                // Defensive check for uploadedSTTs
+                if (!Array.isArray(record.uploadedSTTs) || record.uploadedSTTs.length === 0) {
+                    return false;
+                }
+                return record.uploadedSTTs.some(stt =>
+                    stt != null && stt.toString().includes(searchSTT)
+                );
             });
+            console.log('[HISTORY-V2] After STT filter:', filteredHistoryRecordsV2.length);
         }
 
+        // Filter by product with defensive null check
         if (searchProduct) {
             filteredHistoryRecordsV2 = filteredHistoryRecordsV2.filter(record => {
-                // Check if the upload contains the searched product code
-                if (record.beforeSnapshot && record.beforeSnapshot.assignments) {
-                    return record.beforeSnapshot.assignments.some(assignment => {
-                        const productCode = String(assignment.productCode || '');
-                        const productId = String(assignment.productId || '');
-                        const productName = String(assignment.productName || '');
-
-                        // Search in product code, product ID, or product name (case-insensitive)
-                        const searchLower = searchProduct.toLowerCase();
-                        return productCode.toLowerCase().includes(searchLower) ||
-                               productId.toLowerCase().includes(searchLower) ||
-                               productName.toLowerCase().includes(searchLower);
-                    });
+                // Check if beforeSnapshot has valid assignments array
+                const assignments = record.beforeSnapshot?.assignments;
+                if (!Array.isArray(assignments) || assignments.length === 0) {
+                    return false;
                 }
-                return false;
+                return assignments.some(assignment => {
+                    const productCode = String(assignment.productCode || '');
+                    const productId = String(assignment.productId || '');
+                    const productName = String(assignment.productName || '');
+                    const searchLower = searchProduct.toLowerCase();
+                    return productCode.toLowerCase().includes(searchLower) ||
+                        productId.toLowerCase().includes(searchLower) ||
+                        productName.toLowerCase().includes(searchLower);
+                });
             });
+            console.log('[HISTORY-V2] After product filter:', filteredHistoryRecordsV2.length);
         }
 
         currentHistoryPageV2 = 1;
@@ -4024,7 +4142,19 @@
             renderUploadHistoryListV2();
         }
 
-        console.log(`[HISTORY-V2] ✅ Filtered to ${filteredHistoryRecordsV2.length} records`);
+        console.log(`[HISTORY-V2] ✅ Final filtered count: ${filteredHistoryRecordsV2.length} records`);
+    };
+
+    /**
+     * Clear all history V2 filters and reload
+     */
+    window.clearHistoryV2Filters = function () {
+        document.getElementById('historyV2StatusFilter').value = 'all';
+        document.getElementById('historyV2DateFrom').value = '';
+        document.getElementById('historyV2DateTo').value = '';
+        document.getElementById('historyV2SearchSTT').value = '';
+        document.getElementById('historyV2SearchProduct').value = '';
+        filterUploadHistoryV2();
     };
 
     /**
@@ -4034,11 +4164,27 @@
         const container = document.getElementById('historyV2ListContainer');
 
         if (filteredHistoryRecordsV2.length === 0) {
+            // Check if any filters are active
+            const hasFilters = document.getElementById('historyV2StatusFilter').value !== 'all' ||
+                document.getElementById('historyV2DateFrom').value ||
+                document.getElementById('historyV2DateTo').value ||
+                document.getElementById('historyV2SearchSTT').value.trim() ||
+                document.getElementById('historyV2SearchProduct').value.trim();
+
             container.innerHTML = `
                 <div class="history-empty-state">
                     <i class="fas fa-inbox"></i>
                     <p>Không tìm thấy lịch sử upload nào</p>
-                    <p class="small">Lịch sử sẽ được lưu tự động sau mỗi lần upload</p>
+                    ${hasFilters ? `
+                        <p class="small text-muted">
+                            Đã tải ${uploadHistoryRecordsV2.length} bản ghi, nhưng không phù hợp với bộ lọc.
+                        </p>
+                        <button class="btn btn-sm btn-outline-secondary mt-2" onclick="clearHistoryV2Filters()">
+                            <i class="fas fa-times"></i> Xóa bộ lọc
+                        </button>
+                    ` : `
+                        <p class="small">Lịch sử sẽ được lưu tự động sau mỗi lần upload</p>
+                    `}
                 </div>
             `;
             document.getElementById('historyV2Pagination').innerHTML = '';
@@ -4110,10 +4256,10 @@
                 </div>
 
                 <div class="history-actions">
-                    <button class="btn btn-sm btn-info" onclick="compareCartHistoryV2('${record.uploadId}', '${record.userId || ''}')">
+                    <button class="btn btn-sm btn-info" onclick="compareCartHistoryV2('${record.firebaseKey || record.uploadId}', '${record.userId || ''}')">
                         <i class="fas fa-balance-scale"></i> So Sánh Giỏ
                     </button>
-                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetailV2('${record.uploadId}', '${record.userId || ''}')">
+                    <button class="btn btn-sm btn-primary" onclick="viewUploadHistoryDetailV2('${record.firebaseKey || record.uploadId}', '${record.userId || ''}')">
                         <i class="fas fa-eye"></i> Xem Chi Tiết
                     </button>
                 </div>
@@ -4315,8 +4461,8 @@
             filteredSTTs = filteredSTTs.filter(([stt, data]) => {
                 return Array.from(data.products.values()).some(product => {
                     return product.productCode.toLowerCase().includes(searchLower) ||
-                           product.productId.toLowerCase().includes(searchLower) ||
-                           product.productName.toLowerCase().includes(searchLower);
+                        product.productId.toLowerCase().includes(searchLower) ||
+                        product.productName.toLowerCase().includes(searchLower);
                 });
             });
         }
@@ -4441,8 +4587,8 @@
     /**
      * View upload history detail V2
      */
-    window.viewUploadHistoryDetailV2 = async function (uploadId, userId = '') {
-        console.log('[HISTORY-V2] 👁️ Viewing detail for:', uploadId, 'userId:', userId);
+    window.viewUploadHistoryDetailV2 = async function (firebaseKey, userId = '') {
+        console.log('[HISTORY-V2] 👁️ Viewing detail for firebaseKey:', firebaseKey, 'userId:', userId);
 
         try {
             const detailModal = new bootstrap.Modal(document.getElementById('uploadHistoryV2DetailModal'));
@@ -4461,21 +4607,46 @@
                 </div>
             `;
 
-            let historyPath;
-            if (userId && userId !== '') {
-                historyPath = `productAssignments_v2_history/${userId}`;
-            } else {
-                historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+            // Xác định userId - fallback to 'guest' nếu không có
+            const effectiveUserId = (userId && userId !== '') ? userId : 'guest';
+            let historyPath = `productAssignments_v2_history/${effectiveUserId}`;
+            console.log('[HISTORY-V2] Loading detail from path:', `${historyPath}/${firebaseKey}`);
+
+            let snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+            let record = snapshot.val();
+
+            // Nếu không tìm thấy và userId khác guest, thử tìm ở guest
+            if (!record && effectiveUserId !== 'guest') {
+                console.log('[HISTORY-V2] ⚠️ Not found, trying guest path...');
+                historyPath = 'productAssignments_v2_history/guest';
+                snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+                record = snapshot.val();
             }
-            console.log('[HISTORY-V2] Loading detail from path:', historyPath);
-            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
-            const record = snapshot.val();
+
+            // Nếu vẫn không tìm thấy, thử với user hiện tại
+            if (!record) {
+                const currentUserPath = getUserFirebasePathV2('productAssignments_v2_history');
+                if (currentUserPath !== historyPath) {
+                    console.log('[HISTORY-V2] ⚠️ Not found, trying current user path:', currentUserPath);
+                    snapshot = await database.ref(`${currentUserPath}/${firebaseKey}`).once('value');
+                    record = snapshot.val();
+                }
+            }
 
             if (!record) {
-                throw new Error('Không tìm thấy record');
+                const errorInfo = {
+                    firebaseKey,
+                    userId: effectiveUserId,
+                    triedPaths: [
+                        `productAssignments_v2_history/${effectiveUserId}/${firebaseKey}`,
+                        `productAssignments_v2_history/guest/${firebaseKey}`
+                    ]
+                };
+                console.error('[HISTORY-V2] ❌ Record not found:', errorInfo);
+                throw new Error(`Không tìm thấy record (key: ${firebaseKey.slice(-8)}, user: ${effectiveUserId})`);
             }
 
-            const shortId = uploadId.slice(-8);
+            const shortId = firebaseKey.slice(-8);
             titleEl.innerHTML = `<i class="fas fa-info-circle"></i> Chi Tiết Upload #${shortId}`;
 
             bodyEl.innerHTML = renderUploadHistoryDetailV2(record);
@@ -4488,7 +4659,12 @@
             bodyEl.innerHTML = `
                 <div class="alert alert-danger" role="alert">
                     <i class="fas fa-exclamation-triangle"></i>
-                    Lỗi: ${error.message}
+                    <strong>Lỗi:</strong> ${error.message}
+                    <hr>
+                    <small class="text-muted">
+                        Có thể record này đã bị xóa hoặc được lưu với user khác.<br>
+                        Thử chọn "Tất cả người dùng" trong bộ lọc và tìm lại.
+                    </small>
                 </div>
             `;
         }
@@ -4933,8 +5109,8 @@
     /**
      * Compare Cart History V2
      */
-    window.compareCartHistoryV2 = async function (uploadId, userId = '') {
-        console.log('[HISTORY-V2-COMPARE] 🔍 Comparing cart for uploadId:', uploadId, 'userId:', userId);
+    window.compareCartHistoryV2 = async function (firebaseKey, userId = '') {
+        console.log('[HISTORY-V2-COMPARE] 🔍 Comparing cart for firebaseKey:', firebaseKey, 'userId:', userId);
 
         try {
             const compareModal = new bootstrap.Modal(document.getElementById('compareCartHistoryV2Modal'));
@@ -4950,18 +5126,36 @@
                 </div>
             `;
 
-            let historyPath;
-            if (userId && userId !== '') {
-                historyPath = `productAssignments_v2_history/${userId}`;
-            } else {
-                historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+            // Xác định userId - fallback to 'guest' nếu không có
+            const effectiveUserId = (userId && userId !== '') ? userId : 'guest';
+            let historyPath = `productAssignments_v2_history/${effectiveUserId}`;
+            console.log('[HISTORY-V2-COMPARE] Loading from path:', `${historyPath}/${firebaseKey}`);
+
+            let snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+            let record = snapshot.val();
+
+            // Nếu không tìm thấy và userId khác guest, thử tìm ở guest
+            if (!record && effectiveUserId !== 'guest') {
+                console.log('[HISTORY-V2-COMPARE] ⚠️ Not found, trying guest path...');
+                historyPath = 'productAssignments_v2_history/guest';
+                snapshot = await database.ref(`${historyPath}/${firebaseKey}`).once('value');
+                record = snapshot.val();
             }
-            console.log('[HISTORY-V2-COMPARE] Loading from path:', historyPath);
-            const snapshot = await database.ref(`${historyPath}/${uploadId}`).once('value');
-            const record = snapshot.val();
+
+            // Nếu vẫn không tìm thấy, thử với user hiện tại
+            if (!record) {
+                const currentUserPath = getUserFirebasePathV2('productAssignments_v2_history');
+                if (currentUserPath !== historyPath) {
+                    console.log('[HISTORY-V2-COMPARE] ⚠️ Not found, trying current user path:', currentUserPath);
+                    snapshot = await database.ref(`${currentUserPath}/${firebaseKey}`).once('value');
+                    record = snapshot.val();
+                }
+            }
 
             if (!record || !record.beforeSnapshot) {
-                throw new Error('Không tìm thấy dữ liệu snapshot');
+                const errorInfo = { firebaseKey, userId: effectiveUserId };
+                console.error('[HISTORY-V2-COMPARE] ❌ Record or snapshot not found:', errorInfo);
+                throw new Error(`Không tìm thấy dữ liệu snapshot (key: ${firebaseKey.slice(-8)}, user: ${effectiveUserId})`);
             }
 
             console.log('[HISTORY-V2-COMPARE] ✅ Loaded record:', record);
@@ -4977,6 +5171,11 @@
                 <div class="alert alert-danger" role="alert">
                     <i class="fas fa-exclamation-triangle"></i>
                     <strong>Lỗi:</strong> ${error.message}
+                    <hr>
+                    <small class="text-muted">
+                        Có thể record này đã bị xóa hoặc không có snapshot.<br>
+                        Thử chọn "Tất cả người dùng" trong bộ lọc và tìm lại.
+                    </small>
                 </div>
             `;
         }
@@ -4987,11 +5186,15 @@
      * Called from saveToUploadHistory() - completely separate from tab-upload-tpos
      */
     async function saveToUploadHistoryV2(uploadId, results, status) {
+        let historyRecord = null; // Defined outside try block for catch scope access
+
         try {
             console.log('[HISTORY-V2-SAVE] 💾 Saving to V2 database...');
 
-            // Get current user ID
-            const currentUserId = userStorageManager ? userStorageManager.getUserIdentifier() : 'guest';
+            // Get current user ID (Safe access)
+            const currentUserId = (window.userStorageManager && typeof window.userStorageManager.getUserIdentifier === 'function')
+                ? window.userStorageManager.getUserIdentifier()
+                : 'guest';
 
             // Get beforeSnapshot (current state before any deletions)
             const beforeSnapshot = {
@@ -5028,7 +5231,7 @@
             }
 
             // Build history record (GIỐNG 100% tab-upload-tpos structure)
-            const historyRecord = {
+            historyRecord = {
                 uploadId: uploadId,
                 timestamp: Date.now(),
                 userId: currentUserId,
@@ -5069,15 +5272,155 @@
 
             // Save to V2 database path
             const historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+            console.log('[HISTORY-V2-SAVE] Saving to path:', `${historyPath}/${uploadId}`);
             await database.ref(`${historyPath}/${uploadId}`).set(historyRecord);
 
             console.log('[HISTORY-V2-SAVE] ✅ Saved to V2 database:', uploadId);
 
+            // Clean up any pending backup for this uploadId (if previously failed but now succeeded)
+            if (window.indexedDBStorage) {
+                try {
+                    await window.indexedDBStorage.removeItem(`pending_history_v2_${uploadId}`);
+                } catch (e) { /* ignore */ }
+            }
+
+            return true;
+
         } catch (error) {
             console.error('[HISTORY-V2-SAVE] ❌ Error saving V2 history:', error);
-            // Don't throw - history is for audit, not critical
+
+            // Fallback: Save to IndexedDB for later retry
+            try {
+                if (window.indexedDBStorage) {
+                    // Only save if historyRecord was successfully created
+                    if (historyRecord) {
+                        // Thêm thông tin lỗi vào record để có thể xem lại
+                        historyRecord.saveError = {
+                            message: error.message,
+                            timestamp: Date.now(),
+                            code: error.code || 'UNKNOWN'
+                        };
+
+                        const pendingRecord = {
+                            uploadId: uploadId,
+                            historyRecord: historyRecord,
+                            error: error.message,
+                            failedAt: Date.now(),
+                            retryCount: 0
+                        };
+                        await window.indexedDBStorage.setItem(`pending_history_v2_${uploadId}`, pendingRecord);
+                        console.log('[HISTORY-V2-SAVE] 💾 Saved to IndexedDB for later retry:', uploadId);
+                        showNotification('⚠️ Lịch sử upload đã được lưu tạm. Sẽ đồng bộ lên server sau.', 'warning');
+                    } else {
+                        console.error('[HISTORY-V2-SAVE] Cannot save to IndexedDB because historyRecord is null');
+                        showNotification('⚠️ Không thể lưu lịch sử upload (Dữ liệu bị lỗi).', 'error');
+                    }
+                } else {
+                    showNotification('⚠️ Không thể lưu lịch sử upload. Vui lòng kiểm tra kết nối mạng.', 'error');
+                }
+            } catch (fallbackError) {
+                console.error('[HISTORY-V2-SAVE] ❌ Fallback to IndexedDB also failed:', fallbackError);
+                showNotification('⚠️ Không thể lưu lịch sử upload. Vui lòng kiểm tra kết nối mạng.', 'error');
+            }
+
+            return false;
         }
     }
+
+    /**
+     * Sync pending history records from IndexedDB to Firebase
+     * Call this when user opens history modal or manually triggers sync
+     */
+    async function syncPendingHistoryV2() {
+        if (!window.indexedDBStorage) {
+            console.log('[HISTORY-V2-SYNC] IndexedDB not available');
+            return { synced: 0, failed: 0, pending: 0 };
+        }
+
+        try {
+            console.log('[HISTORY-V2-SYNC] 🔄 Checking for pending history records...');
+
+            // Get all pending history keys
+            const allKeys = await window.indexedDBStorage.getKeys('pending_history_v2_*');
+            if (!allKeys || allKeys.length === 0) {
+                console.log('[HISTORY-V2-SYNC] ✅ No pending records to sync');
+                return { synced: 0, failed: 0, pending: 0 };
+            }
+
+            console.log(`[HISTORY-V2-SYNC] Found ${allKeys.length} pending records`);
+
+            let synced = 0;
+            let failed = 0;
+
+            for (const key of allKeys) {
+                try {
+                    const pendingRecord = await window.indexedDBStorage.getItem(key);
+                    if (!pendingRecord || !pendingRecord.historyRecord) {
+                        // Invalid record, remove it
+                        await window.indexedDBStorage.removeItem(key);
+                        continue;
+                    }
+
+                    const { uploadId, historyRecord } = pendingRecord;
+                    const historyPath = getUserFirebasePathV2('productAssignments_v2_history');
+
+                    // Try to save to Firebase
+                    await database.ref(`${historyPath}/${uploadId}`).set(historyRecord);
+
+                    // Success! Remove from IndexedDB
+                    await window.indexedDBStorage.removeItem(key);
+                    synced++;
+                    console.log(`[HISTORY-V2-SYNC] ✅ Synced: ${uploadId}`);
+
+                } catch (syncError) {
+                    console.error(`[HISTORY-V2-SYNC] ❌ Failed to sync ${key}:`, syncError);
+
+                    // Update retry count
+                    try {
+                        const pendingRecord = await window.indexedDBStorage.getItem(key);
+                        if (pendingRecord) {
+                            pendingRecord.retryCount = (pendingRecord.retryCount || 0) + 1;
+                            pendingRecord.lastRetryAt = Date.now();
+                            pendingRecord.lastError = syncError.message;
+                            await window.indexedDBStorage.setItem(key, pendingRecord);
+                        }
+                    } catch (e) { /* ignore */ }
+
+                    failed++;
+                }
+            }
+
+            const remaining = allKeys.length - synced;
+            console.log(`[HISTORY-V2-SYNC] 📊 Result: ${synced} synced, ${failed} failed, ${remaining} remaining`);
+
+            if (synced > 0) {
+                showNotification(`✅ Đã đồng bộ ${synced} lịch sử upload lên server`, 'success');
+            }
+
+            return { synced, failed, pending: remaining };
+
+        } catch (error) {
+            console.error('[HISTORY-V2-SYNC] ❌ Error during sync:', error);
+            return { synced: 0, failed: 0, pending: -1 };
+        }
+    }
+
+    /**
+     * Get count of pending history records
+     */
+    async function getPendingHistoryCount() {
+        if (!window.indexedDBStorage) return 0;
+        try {
+            const keys = await window.indexedDBStorage.getKeys('pending_history_v2_*');
+            return keys ? keys.length : 0;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    // Expose sync function globally
+    window.syncPendingHistoryV2 = syncPendingHistoryV2;
+    window.getPendingHistoryCount = getPendingHistoryCount;
 
     // #region ═══════════════════════════════════════════════════════════════════
     // ║                 SECTION 12: PRODUCT REMOVAL FEATURE                     ║
@@ -5095,7 +5438,7 @@
     // ===================================================================
     // MODAL CONTROLS
     // ===================================================================
-    window.openRemoveProductModal = function() {
+    window.openRemoveProductModal = function () {
         const modalEl = document.getElementById('removeProductModal');
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
@@ -5105,7 +5448,7 @@
         renderRemovalTable();
     };
 
-    window.closeRemoveProductModal = function() {
+    window.closeRemoveProductModal = function () {
         const modalEl = document.getElementById('removeProductModal');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
@@ -5115,7 +5458,7 @@
     // PRODUCT SEARCH FOR REMOVAL - CLONE 100% FROM MAIN UI
     // ===================================================================
     // Wrap in DOMContentLoaded to ensure modal HTML exists
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Product Search Input Handler (GIỐNG Y HỆT line 1571-1587)
         const removalSearchInput = document.getElementById('removalProductSearch');
         if (removalSearchInput) {
@@ -5446,7 +5789,7 @@
     // ===================================================================
     // ADD STT TO REMOVAL
     // ===================================================================
-    window.addSTTToRemoval = async function(removalId, stt) {
+    window.addSTTToRemoval = async function (removalId, stt) {
         if (!stt || !stt.trim()) return;
 
         stt = stt.trim();
@@ -5546,7 +5889,7 @@
     // ===================================================================
     // REMOVE STT FROM REMOVAL
     // ===================================================================
-    window.removeSTTFromRemoval = function(removalId, index) {
+    window.removeSTTFromRemoval = function (removalId, index) {
         const removal = removals.find(r => r.id === removalId);
         if (!removal || !removal.sttList) return;
 
@@ -5561,7 +5904,7 @@
     // ===================================================================
     // REMOVE PRODUCT FROM REMOVAL LIST
     // ===================================================================
-    window.removeProductFromRemovalList = function(removalId) {
+    window.removeProductFromRemovalList = function (removalId) {
         if (!confirm('Bạn có chắc muốn xóa sản phẩm này khỏi danh sách gỡ?')) return;
 
         removals = removals.filter(r => r.id !== removalId);
@@ -5573,7 +5916,7 @@
     // ===================================================================
     // CLEAR ALL REMOVALS
     // ===================================================================
-    window.clearAllRemovals = function() {
+    window.clearAllRemovals = function () {
         if (!confirm('Bạn có chắc muốn xóa tất cả sản phẩm trong danh sách gỡ?')) return;
 
         removals = [];
@@ -5627,7 +5970,7 @@
     // ===================================================================
     // PREVIEW REMOVAL
     // ===================================================================
-    window.previewRemoval = function() {
+    window.previewRemoval = function () {
         buildRemovalData();
 
         const stts = Object.keys(removalUploadData);
@@ -5647,7 +5990,7 @@
         renderRemovalPreview();
     };
 
-    window.switchRemovalViewMode = function(mode) {
+    window.switchRemovalViewMode = function (mode) {
         currentRemovalViewMode = mode;
 
         // Update button states
@@ -5697,13 +6040,13 @@
                                 </thead>
                                 <tbody>
                                     ${data.products.map(p => {
-                                        const statusIcon = p.canRemove ? '✅' : '⚠️';
-                                        const statusText = p.canRemove
-                                            ? (p.action === 'remove' ? 'Xóa hoàn toàn' : 'Giảm số lượng')
-                                            : (p.skipReason || 'Bỏ qua');
-                                        const rowClass = p.canRemove ? '' : 'table-warning';
+                    const statusIcon = p.canRemove ? '✅' : '⚠️';
+                    const statusText = p.canRemove
+                        ? (p.action === 'remove' ? 'Xóa hoàn toàn' : 'Giảm số lượng')
+                        : (p.skipReason || 'Bỏ qua');
+                    const rowClass = p.canRemove ? '' : 'table-warning';
 
-                                        return `
+                    return `
                                             <tr class="${rowClass}">
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
@@ -5720,7 +6063,7 @@
                                                 <td><small>${statusIcon} ${statusText}</small></td>
                                             </tr>
                                         `;
-                                    }).join('')}
+                }).join('')}
                                 </tbody>
                             </table>
                         </div>
@@ -5780,14 +6123,14 @@
                                 </thead>
                                 <tbody>
                                     ${group.stts.map(s => {
-                                        const orderInfo = removalUploadData[s.stt].orderInfo;
-                                        const statusIcon = s.canRemove ? '✅' : '⚠️';
-                                        const statusText = s.canRemove
-                                            ? (s.action === 'remove' ? 'Xóa' : 'Giảm')
-                                            : 'Bỏ qua';
-                                        const rowClass = s.canRemove ? '' : 'table-warning';
+                    const orderInfo = removalUploadData[s.stt].orderInfo;
+                    const statusIcon = s.canRemove ? '✅' : '⚠️';
+                    const statusText = s.canRemove
+                        ? (s.action === 'remove' ? 'Xóa' : 'Giảm')
+                        : 'Bỏ qua';
+                    const rowClass = s.canRemove ? '' : 'table-warning';
 
-                                        return `
+                    return `
                                             <tr class="${rowClass}">
                                                 <td><strong>${s.stt}</strong></td>
                                                 <td>${orderInfo.CustomerName}</td>
@@ -5796,7 +6139,7 @@
                                                 <td><small>${statusIcon} ${statusText}</small></td>
                                             </tr>
                                         `;
-                                    }).join('')}
+                }).join('')}
                                 </tbody>
                             </table>
                         </div>
@@ -5812,7 +6155,7 @@
         document.getElementById('removalSelectedCount').textContent = selectedRemovalSTTs.size;
     }
 
-    window.toggleRemovalSTT = function(stt, checked) {
+    window.toggleRemovalSTT = function (stt, checked) {
         if (checked) {
             selectedRemovalSTTs.add(stt);
         } else {
@@ -5824,7 +6167,7 @@
     // ===================================================================
     // EXECUTE REMOVAL - MAIN FUNCTION
     // ===================================================================
-    window.executeRemoval = async function() {
+    window.executeRemoval = async function () {
         const stts = Array.from(selectedRemovalSTTs);
 
         if (stts.length === 0) {
@@ -6191,12 +6534,12 @@
                         </div>
                         <ul class="mb-0" style="font-size:13px;">
                             ${r.removedProducts.map(p => {
-                                if (p.action === 'removed') {
-                                    return `<li>${p.productCode}: <strong>Đã xóa hoàn toàn</strong></li>`;
-                                } else {
-                                    return `<li>${p.productCode}: Giảm từ <strong>${p.from}</strong> → <strong>${p.to}</strong></li>`;
-                                }
-                            }).join('')}
+                    if (p.action === 'removed') {
+                        return `<li>${p.productCode}: <strong>Đã xóa hoàn toàn</strong></li>`;
+                    } else {
+                        return `<li>${p.productCode}: Giảm từ <strong>${p.from}</strong> → <strong>${p.to}</strong></li>`;
+                    }
+                }).join('')}
                         </ul>
                         ${skippedCount > 0 ? `<small class="text-muted">(${skippedCount} sản phẩm bỏ qua)</small>` : ''}
                     </div>

@@ -71,15 +71,19 @@ function initializeFirestore(options = {}) {
         _firestoreDB = firebase.firestore();
 
         if (enablePersistence) {
-            _firestoreDB.enablePersistence({ synchronizeTabs })
-                .then(() => console.log('[Firestore] Offline persistence enabled'))
-                .catch((err) => {
-                    if (err.code === 'failed-precondition') {
-                        console.warn('[Firestore] Multiple tabs open, persistence in first tab only');
-                    } else if (err.code === 'unimplemented') {
-                        console.warn('[Firestore] Browser does not support persistence');
-                    }
-                });
+            try {
+                _firestoreDB.enablePersistence({ synchronizeTabs })
+                    .then(() => console.log('[Firestore] Offline persistence enabled'))
+                    .catch((err) => {
+                        if (err.code === 'failed-precondition') {
+                            console.warn('[Firestore] Multiple tabs open, persistence in first tab only');
+                        } else if (err.code === 'unimplemented') {
+                            console.warn('[Firestore] Browser does not support persistence');
+                        }
+                    });
+            } catch (e) {
+                console.warn('[Firestore] Persistence already enabled or unavailable');
+            }
         }
 
         window.db = _firestoreDB;
@@ -188,3 +192,9 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 console.log('[Firebase Config] Module loaded');
+
+// Auto-initialize Firebase when script loads
+if (typeof firebase !== 'undefined') {
+    initializeFirebaseApp();
+    initializeFirestore();
+}

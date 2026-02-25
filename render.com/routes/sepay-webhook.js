@@ -11,8 +11,8 @@ const fetch = require('node-fetch');
 const AbortController = globalThis.AbortController || require('abort-controller');
 
 // NEW: Import customer and wallet services for realtime processing
-const { searchCustomerByPhone } = require('../services/tpos-customer-service');
-const { getOrCreateCustomerFromTPOS } = require('../services/customer-creation-service');
+const { searchCustomerByPhone, searchAllCustomersByPhone } = require('../services/tpos-customer-service');
+const { getOrCreateCustomerFromTPOS, getOrCreateCustomerWithAliases, collectAllNamesFromTPOS } = require('../services/customer-creation-service');
 const { processDeposit } = require('../services/wallet-event-processor');
 const adminSettingsService = require('../services/admin-settings-service');
 
@@ -478,9 +478,11 @@ router.get('/history', async (req, res) => {
                 bh.debt_added, bh.is_hidden, bh.linked_customer_phone,
                 bh.match_method, bh.verification_status, bh.verified_by, bh.verified_at,
                 bh.wallet_processed, bh.customer_id,
+                bh.display_name,
                 -- Priority 1: Get from customers table (Source of Truth)
                 COALESCE(c.phone, bci.customer_phone) as customer_phone,
-                COALESCE(c.name, bci.customer_name) as customer_name,
+                COALESCE(bh.display_name, c.name, bci.customer_name) as customer_name,
+                c.aliases as customer_aliases,
                 bci.unique_code as qr_code,
                 bci.extraction_note,
                 -- Pending match info
@@ -515,10 +517,23 @@ router.get('/history', async (req, res) => {
         queryParams.push(limit, offset);
         const dataResult = await db.query(paginatedQuery, queryParams);
 
-        // Transform data to include pending_match flags
+        // Transform data to include pending_match flags and aliases
         const transformedData = dataResult.rows.map(row => {
             let customerName = row.customer_name;
             let customerPhone = row.customer_phone;
+            let customerAliases = row.customer_aliases || [];
+
+            // Ensure aliases is an array
+            if (typeof customerAliases === 'string') {
+                try {
+                    customerAliases = JSON.parse(customerAliases);
+                } catch (e) {
+                    customerAliases = [];
+                }
+            }
+            if (!Array.isArray(customerAliases)) {
+                customerAliases = [];
+            }
 
             // If resolved from pending match, get customer info from resolution_notes
             if (row.pending_match_status === 'resolved' && row.pending_resolution_notes) {
@@ -539,6 +554,8 @@ router.get('/history', async (req, res) => {
                 // Override customer info from resolved pending match
                 customer_name: customerName,
                 customer_phone: customerPhone,
+                // Customer aliases for name selector
+                customer_aliases: customerAliases,
                 // Flag: has pending match that needs resolution
                 has_pending_match: row.pending_match_status === 'pending',
                 // Flag: was skipped
@@ -1242,9 +1259,10 @@ async function processDebtUpdate(db, transactionId) {
                      wallet_processed = $4,
                      verification_status = $5::text,
                      match_method = 'qr_code',
-                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
+                     display_name = COALESCE(display_name, $6),
+                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus]
+                [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus, customerName]
             );
 
             console.log('[DEBT-UPDATE] ✅ Success (QR method):', {
@@ -1341,23 +1359,18 @@ async function processDebtUpdate(db, transactionId) {
         //     [uniqueCode, exactPhone, customerName, extractResult.note, ...]
         // );
 
-        // NEW: Create/Update customer with TPOS data + process wallet realtime
+        // NEW: Create/Update customer with TPOS data + collect ALL names (aliases)
         let customerId = null;
-        let tposData = null;
+        let allNames = [];
         let walletProcessedSuccess = false; // Track if wallet was actually credited
 
         try {
-            // Fetch full TPOS data for customer creation
-            const tposResult = await searchCustomerByPhone(exactPhone);
-            if (tposResult.success && tposResult.customer) {
-                tposData = tposResult.customer;
-                customerName = tposData.name || customerName;
-            }
-
-            // Create or update customer with full TPOS data
-            const customerResult = await getOrCreateCustomerFromTPOS(db, exactPhone, tposData);
+            // Use getOrCreateCustomerWithAliases to collect ALL names from TPOS
+            const customerResult = await getOrCreateCustomerWithAliases(db, exactPhone, null);
             customerId = customerResult.customerId;
-            console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+            customerName = customerResult.customerName || customerName;
+            allNames = customerResult.allNames || [];
+            console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, aliases: ${allNames.length}`);
 
             // Process wallet deposit immediately ONLY if auto-approve is enabled
             if (autoApproveEnabled && amount > 0) {
@@ -1396,9 +1409,10 @@ async function processDebtUpdate(db, transactionId) {
                  wallet_processed = $4,
                  verification_status = $5::text,
                  match_method = 'exact_phone',
-                 verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
+                 display_name = COALESCE(display_name, $6),
+                 verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact]
+            [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact, customerName]
         );
 
         console.log('[DEBT-UPDATE] ✅ Success (exact phone method):', {
@@ -1493,22 +1507,17 @@ async function processDebtUpdate(db, transactionId) {
 
             // NEW: Create/Update customer with TPOS data + process wallet realtime
             let customerId = null;
-            let tposData = null;
             let customerName = firstCustomer.name;
             let walletProcessedSuccess = false; // Track if wallet deposit actually succeeded
+            let allNames = [];
 
             try {
-                // Fetch full TPOS data for customer creation
-                const tposResult = await searchCustomerByPhone(fullPhone);
-                if (tposResult.success && tposResult.customer) {
-                    tposData = tposResult.customer;
-                    customerName = tposData.name || customerName;
-                }
-
-                // Create or update customer with full TPOS data
-                const customerResult = await getOrCreateCustomerFromTPOS(db, fullPhone, tposData);
+                // Use getOrCreateCustomerWithAliases to collect ALL names from TPOS
+                const customerResult = await getOrCreateCustomerWithAliases(db, fullPhone, null);
                 customerId = customerResult.customerId;
-                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}`);
+                customerName = customerResult.customerName || customerName;
+                allNames = customerResult.allNames || [];
+                console.log(`[DEBT-UPDATE] Customer ${customerResult.created ? 'created' : 'found'}: ID ${customerId}, aliases: ${allNames.length}`);
 
                 // Process wallet deposit immediately ONLY if auto-approve is enabled
                 if (autoApproveEnabled && amount > 0) {
@@ -1546,9 +1555,10 @@ async function processDebtUpdate(db, transactionId) {
                      wallet_processed = $4,
                      verification_status = $5::text,
                      match_method = 'single_match',
-                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
+                     display_name = COALESCE(display_name, $6),
+                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
-                [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
+                [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle, customerName]
             );
 
             if (updateResult.rowCount === 0) {
@@ -1562,9 +1572,10 @@ async function processDebtUpdate(db, transactionId) {
                          wallet_processed = $4,
                          verification_status = $5::text,
                          match_method = 'single_match',
-                         verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN NOW() ELSE NULL END
+                         display_name = COALESCE(display_name, $6),
+                         verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE NULL END
                      WHERE id = $1`,
-                    [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle]
+                    [transactionId, fullPhone, customerId, walletProcessedSuccess, verificationStatusSingle, customerName]
                 );
                 console.log('[DEBT-UPDATE] ✅ Force updated balance_history');
             } else {
@@ -2808,11 +2819,12 @@ router.get('/pending-matches', async (req, res) => {
  * Body:
  *   - customer_id: The selected customer ID
  *   - resolved_by: Admin username (optional)
+ *   - staff_note: Note from staff when resolving (optional)
  */
 router.post('/pending-matches/:id/resolve', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { customer_id, resolved_by = 'admin' } = req.body;
+    const { customer_id, resolved_by = 'admin', staff_note } = req.body;
 
     if (!customer_id) {
         return res.status(400).json({
@@ -2966,12 +2978,13 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
                  customer_id = COALESCE($3, customer_id),
                  verification_status = 'PENDING_VERIFICATION',
                  match_method = 'pending_match',
-                 verification_note = 'Chờ kế toán duyệt (NV chọn từ dropdown)'
+                 verification_note = 'Chờ kế toán duyệt (NV chọn từ dropdown)',
+                 staff_note = COALESCE($4, staff_note)
              WHERE id = $1 AND linked_customer_phone IS NULL`,
-            [match.transaction_id, selectedCustomer.phone, customerId]
+            [match.transaction_id, selectedCustomer.phone, customerId, staff_note || null]
         );
 
-        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId);
+        console.log('[RESOLVE-MATCH] ✅ Linked transaction', match.transaction_id, 'to phone:', selectedCustomer.phone, 'customer_id:', customerId, staff_note ? `staff_note: "${staff_note}"` : '');
 
         // 5. DO NOT process wallet immediately - needs accountant approval first
         // According to verification workflow: NV chọn từ dropdown → PENDING_VERIFICATION → Kế toán duyệt → mới process wallet
@@ -3364,16 +3377,31 @@ router.put('/customer-info/:unique_code', async (req, res) => {
  * PUT /api/sepay/transaction/:id/phone
  * Update linked_customer_phone for a specific transaction
  * This allows moving a transaction's debt from one phone to another
- * Body: { 
+ * Body: {
  *   phone: string,
  *   is_manual_entry?: boolean - If true, sets verification_status = 'PENDING_VERIFICATION' for accountant approval
  *   entered_by?: string - Email/name of the person entering the phone (for audit trail)
+ *   customer_name?: string - Customer name (optional)
+ *   is_accountant_correction?: boolean - If true, this is an accountant correction with note + image
+ *   note?: string - Custom note from accountant
+ *   verification_image_url?: string - Image URL for verification
+ *   staff_note?: string - Note from staff when assigning phone in Live Mode
  * }
  */
 router.put('/transaction/:id/phone', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { phone, name, is_manual_entry = false, entered_by = 'staff' } = req.body;
+    const {
+        phone,
+        name,
+        customer_name,
+        is_manual_entry = false,
+        entered_by = 'staff',
+        is_accountant_correction = false,
+        note,
+        verification_image_url,
+        staff_note
+    } = req.body;
 
     try {
         // Validate inputs
@@ -3432,16 +3460,33 @@ router.put('/transaction/:id/phone', async (req, res) => {
             // Manual entry by staff → requires accountant approval
             // Set verification_status = 'PENDING_VERIFICATION', match_method = 'manual_entry'
             // Do NOT set wallet_processed = TRUE (will be set after approval)
-            updateQuery = `UPDATE balance_history 
-                SET linked_customer_phone = $1, 
+            updateQuery = `UPDATE balance_history
+                SET linked_customer_phone = $1,
                     match_method = 'manual_entry',
                     verification_status = 'PENDING_VERIFICATION',
                     verification_note = $3,
-                    wallet_processed = FALSE
-                WHERE id = $2 
+                    wallet_processed = FALSE,
+                    staff_note = COALESCE($4, staff_note)
+                WHERE id = $2
                 RETURNING *`;
-            updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`];
-            console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval`);
+            updateParams = [newPhone, id, `Manual entry by ${entered_by} at ${new Date().toISOString()}`, staff_note || null];
+            console.log(`[TRANSACTION-PHONE-UPDATE] Manual entry - requires accountant approval${staff_note ? `, staff_note: "${staff_note}"` : ''}`);
+        } else if (is_accountant_correction) {
+            // Accountant correction with custom note and optional image
+            const finalNote = note || `Thay đổi SĐT bởi ${entered_by}`;
+            updateQuery = `UPDATE balance_history
+                SET linked_customer_phone = $1,
+                    customer_name = COALESCE($5, customer_name),
+                    match_method = 'manual_link',
+                    verification_status = 'APPROVED',
+                    verified_by = $3,
+                    verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
+                    verification_note = $4,
+                    verification_image_url = COALESCE($6, verification_image_url)
+                WHERE id = $2
+                RETURNING *`;
+            updateParams = [newPhone, id, entered_by, finalNote, customer_name || name || null, verification_image_url || null];
+            console.log(`[TRANSACTION-PHONE-UPDATE] Accountant correction with custom note/image - auto-approving`);
         } else {
             // Accountant/admin editing → AUTO-APPROVE immediately
             // Set verification_status = 'APPROVED', match_method = 'manual_link'
@@ -3451,7 +3496,7 @@ router.put('/transaction/:id/phone', async (req, res) => {
                     match_method = 'manual_link',
                     verification_status = 'APPROVED',
                     verified_by = $3,
-                    verified_at = NOW(),
+                    verified_at = (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh'),
                     verification_note = $4
                 WHERE id = $2
                 RETURNING *`;
@@ -3620,12 +3665,12 @@ router.put('/transaction/:id/phone', async (req, res) => {
 /**
  * PUT /api/sepay/transaction/:id/hidden
  * Toggle hidden status of a transaction
- * Body: { hidden: boolean }
+ * Body: { hidden: boolean, staff_note?: string }
  */
 router.put('/transaction/:id/hidden', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
-    const { hidden } = req.body;
+    const { hidden, staff_note } = req.body;
 
     try {
         // Validate inputs
@@ -3643,11 +3688,17 @@ router.put('/transaction/:id/hidden', async (req, res) => {
             });
         }
 
-        // Update the transaction's hidden status
-        const updateResult = await db.query(
-            'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden',
-            [hidden, id]
-        );
+        // Update the transaction's hidden status and staff_note if provided
+        let query, params;
+        if (staff_note !== undefined) {
+            query = 'UPDATE balance_history SET is_hidden = $1, staff_note = $2 WHERE id = $3 RETURNING id, is_hidden, staff_note';
+            params = [hidden, staff_note, id];
+        } else {
+            query = 'UPDATE balance_history SET is_hidden = $1 WHERE id = $2 RETURNING id, is_hidden, staff_note';
+            params = [hidden, id];
+        }
+
+        const updateResult = await db.query(query, params);
 
         if (updateResult.rows.length === 0) {
             return res.status(404).json({
@@ -3656,7 +3707,7 @@ router.put('/transaction/:id/hidden', async (req, res) => {
             });
         }
 
-        console.log(`[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}`);
+        console.log(`[TRANSACTION-HIDDEN] Transaction #${id}: is_hidden = ${hidden}${staff_note ? `, staff_note = "${staff_note}"` : ''}`);
 
         res.json({
             success: true,
@@ -4251,6 +4302,282 @@ router.put('/transfer-stats/:id', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to edit'
+        });
+    }
+});
+
+// =====================================================
+// ALIASES MANAGEMENT ENDPOINTS
+// For Multiple Reference Names per Phone Number feature
+// =====================================================
+
+/**
+ * GET /api/sepay/customer/:phone/aliases
+ * Get all aliases (reference names) for a customer by phone
+ */
+router.get('/customer/:phone/aliases', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.params;
+
+    try {
+        // Normalize phone
+        const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+        if (normalizedPhone.length !== 10) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid phone number'
+            });
+        }
+
+        const result = await db.query(
+            'SELECT id, phone, name, aliases FROM customers WHERE phone = $1',
+            [normalizedPhone]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({
+                success: true,
+                phone: normalizedPhone,
+                name: null,
+                aliases: []
+            });
+        }
+
+        const customer = result.rows[0];
+        let aliases = customer.aliases || [];
+
+        // Ensure aliases is an array
+        if (typeof aliases === 'string') {
+            try {
+                aliases = JSON.parse(aliases);
+            } catch (e) {
+                aliases = [];
+            }
+        }
+        if (!Array.isArray(aliases)) {
+            aliases = [];
+        }
+
+        res.json({
+            success: true,
+            phone: normalizedPhone,
+            name: customer.name,
+            aliases: aliases
+        });
+
+    } catch (error) {
+        console.error('[ALIASES] Error getting aliases:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get aliases'
+        });
+    }
+});
+
+/**
+ * POST /api/sepay/customer/:phone/alias
+ * Add a new alias for a customer
+ */
+router.post('/customer/:phone/alias', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.params;
+    const { alias } = req.body;
+
+    try {
+        // Validate input
+        if (!alias || alias.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                error: 'Alias is required'
+            });
+        }
+
+        // Normalize phone
+        const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+        if (normalizedPhone.length !== 10) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid phone number'
+            });
+        }
+
+        // Check if customer exists
+        const customerResult = await db.query(
+            'SELECT id, aliases FROM customers WHERE phone = $1',
+            [normalizedPhone]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Customer not found'
+            });
+        }
+
+        // Add alias using the SQL function
+        const addResult = await db.query(
+            'SELECT add_customer_alias($1, $2) as added',
+            [normalizedPhone, alias.trim()]
+        );
+
+        const added = addResult.rows[0]?.added ?? false;
+
+        if (added) {
+            console.log(`[ALIASES] Added alias "${alias}" for ${normalizedPhone}`);
+        } else {
+            console.log(`[ALIASES] Alias "${alias}" already exists for ${normalizedPhone}`);
+        }
+
+        // Get updated aliases
+        const updatedResult = await db.query(
+            'SELECT aliases FROM customers WHERE phone = $1',
+            [normalizedPhone]
+        );
+
+        res.json({
+            success: true,
+            added: added,
+            aliases: updatedResult.rows[0]?.aliases || []
+        });
+
+    } catch (error) {
+        console.error('[ALIASES] Error adding alias:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to add alias'
+        });
+    }
+});
+
+/**
+ * DELETE /api/sepay/customer/:phone/alias
+ * Remove an alias from a customer
+ */
+router.delete('/customer/:phone/alias', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.params;
+    const { alias } = req.body;
+
+    try {
+        // Validate input
+        if (!alias || alias.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                error: 'Alias is required'
+            });
+        }
+
+        // Normalize phone
+        const normalizedPhone = phone.replace(/\D/g, '').slice(-10);
+        if (normalizedPhone.length !== 10) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid phone number'
+            });
+        }
+
+        // Remove alias using the SQL function
+        const removeResult = await db.query(
+            'SELECT remove_customer_alias($1, $2) as removed',
+            [normalizedPhone, alias.trim()]
+        );
+
+        const removed = removeResult.rows[0]?.removed ?? false;
+
+        if (removed) {
+            console.log(`[ALIASES] Removed alias "${alias}" from ${normalizedPhone}`);
+        } else {
+            console.log(`[ALIASES] Alias "${alias}" not found for ${normalizedPhone}`);
+        }
+
+        // Get updated aliases
+        const updatedResult = await db.query(
+            'SELECT aliases FROM customers WHERE phone = $1',
+            [normalizedPhone]
+        );
+
+        res.json({
+            success: true,
+            removed: removed,
+            aliases: updatedResult.rows[0]?.aliases || []
+        });
+
+    } catch (error) {
+        console.error('[ALIASES] Error removing alias:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to remove alias'
+        });
+    }
+});
+
+/**
+ * PUT /api/sepay/transaction/:id/display-name
+ * Update display_name for a specific transaction
+ * This is for display only - does NOT affect wallet operations
+ */
+router.put('/transaction/:id/display-name', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { display_name, add_to_aliases = true } = req.body;
+
+    try {
+        // Validate input
+        if (!display_name || display_name.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                error: 'Display name is required'
+            });
+        }
+
+        // Get transaction to verify it exists and get linked phone
+        const txResult = await db.query(
+            'SELECT id, linked_customer_phone, customer_id FROM balance_history WHERE id = $1',
+            [id]
+        );
+
+        if (txResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Transaction not found'
+            });
+        }
+
+        const tx = txResult.rows[0];
+
+        // Update display_name
+        await db.query(
+            'UPDATE balance_history SET display_name = $1 WHERE id = $2',
+            [display_name.trim(), id]
+        );
+
+        console.log(`[ALIASES] Updated display_name for TX #${id}: "${display_name}"`);
+
+        // Optionally add to customer aliases if phone is linked
+        if (add_to_aliases && tx.linked_customer_phone) {
+            try {
+                await db.query(
+                    'SELECT add_customer_alias($1, $2)',
+                    [tx.linked_customer_phone, display_name.trim()]
+                );
+                console.log(`[ALIASES] Also added "${display_name}" to aliases for ${tx.linked_customer_phone}`);
+            } catch (aliasError) {
+                console.error('[ALIASES] Could not add to aliases:', aliasError.message);
+                // Non-fatal error - display_name was still updated
+            }
+        }
+
+        res.json({
+            success: true,
+            transaction_id: id,
+            display_name: display_name.trim()
+        });
+
+    } catch (error) {
+        console.error('[ALIASES] Error updating display_name:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to update display name'
         });
     }
 });

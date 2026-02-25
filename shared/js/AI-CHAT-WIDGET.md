@@ -66,7 +66,7 @@ Widget tự động nhận diện loại trang để cung cấp ngữ cảnh cho
 
 | URL Pattern | Loại Trang | Dữ Liệu Trích Xuất |
 |-------------|------------|-------------------|
-| `order-management`, `hangdat` | `order` | Đơn hàng, thống kê |
+| `order-management`, `order-list` | `order` | Đơn hàng, thống kê |
 | `sanphamlive`, `product` | `product` | Sản phẩm, số lượng |
 | `customer-hub` | `customer` | Thông tin khách hàng |
 | `inventory`, `bangkiemhang` | `inventory` | Kho hàng |

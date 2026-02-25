@@ -5,6 +5,76 @@
  */
 
 // ========================================
+// UTILITY: Variant Matching (Section 15.6)
+// ========================================
+
+/**
+ * Compare two variant strings order-insensitively and format-insensitively.
+ * Supports comma, pipe, slash, and parenthesis formats.
+ * e.g. "ĐEN, 4, XL" matches "(Đen) (4) (XL)" or "Đen | 4 | XL" or "Đen / 4 / XL"
+ */
+function variantsMatch(variant1, variant2) {
+    if (!variant1 || !variant2) return false;
+
+    const removeDiacritics = window.ProductCodeGenerator?.removeVietnameseDiacritics
+        || ((s) => s);
+
+    const normalize = (str) =>
+        removeDiacritics(str.trim())
+            .toUpperCase()
+            .replace(/[()]/g, '')
+            .replace(/\s+/g, ' ');
+
+    const parts1 = variant1.split(/[,|\/]/).map(normalize).filter(p => p.length > 0).sort();
+    const parts2 = variant2.split(/[,|\/]/).map(normalize).filter(p => p.length > 0).sort();
+
+    return parts1.length === parts2.length && parts1.every((part, idx) => part === parts2[idx]);
+}
+
+// ========================================
+// UTILITY: Products CSV Loader (for variant lookup)
+// ========================================
+
+let _productsCSVCache = null;
+
+/**
+ * Load and parse products_rows.csv
+ * @returns {Promise<Array<{product_code: string, variant: string, base_product_code: string}>>}
+ */
+async function loadProductsCSV() {
+    if (_productsCSVCache) return _productsCSVCache;
+
+    try {
+        const response = await fetch('products_rows.csv');
+        if (!response.ok) {
+            console.warn('[ExportMH] products_rows.csv fetch failed:', response.status);
+            return [];
+        }
+        const text = await response.text();
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) return [];
+
+        const headers = lines[0].split(',');
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',');
+            const row = {};
+            headers.forEach((h, idx) => {
+                row[h.trim()] = (values[idx] || '').trim();
+            });
+            rows.push(row);
+        }
+
+        _productsCSVCache = rows;
+        console.log(`[ExportMH] Loaded ${rows.length} products from CSV`);
+        return rows;
+    } catch (error) {
+        console.error('[ExportMH] Failed to load products CSV:', error);
+        return [];
+    }
+}
+
+// ========================================
 // MAIN CONTROLLER CLASS
 // ========================================
 class PurchaseOrderController {
@@ -54,16 +124,21 @@ class PurchaseOrderController {
             // Initialize service
             await this.service.initialize();
 
-            // Initialize table renderer
+            // Initialize table renderer with all handlers (matches React app)
             this.tableRenderer.init(this.elements.tableContainer, {
                 onEdit: (orderId) => this.handleEditOrder(orderId),
                 onExport: (orderId) => this.handleExportOrder(orderId),
                 onCopy: (orderId) => this.handleCopyOrder(orderId),
                 onDelete: (orderId) => this.handleDeleteOrder(orderId),
                 onSelect: (orderId, selected) => this.handleSelectOrder(orderId, selected),
+                onSelectAll: (selected) => this.handleSelectAll(selected),
                 onRowClick: (orderId) => this.handleRowClick(orderId),
                 onViewInvoice: (images) => this.handleViewInvoice(images),
-                onViewImages: (itemId) => this.handleViewImages(itemId)
+                onViewImages: (itemId) => this.handleViewImages(itemId),
+                onViewDetail: (orderId) => this.handleViewDetail(orderId),
+                onBulkExport: () => this.handleBulkExport(),
+                onBulkDelete: () => this.handleBulkDelete(),
+                onClearSelection: () => this.handleClearSelection()
             });
 
             // Subscribe to data manager events
@@ -71,6 +146,13 @@ class PurchaseOrderController {
 
             // Bind UI events
             this.bindEvents();
+
+            // Pre-load NCC names for supplier autocomplete
+            if (window.NCCManager) {
+                window.NCCManager.loadNCCNames().catch(err =>
+                    console.warn('[Init] NCC names load failed:', err)
+                );
+            }
 
             // Load initial data
             await this.loadInitialData();
@@ -334,10 +416,26 @@ class PurchaseOrderController {
      * Handle create order
      */
     handleCreateOrder() {
+        if (!this.formModal) {
+            this.ui.showToast('Form modal chưa sẵn sàng. Vui lòng tải lại trang.', 'error');
+            return;
+        }
+
         this.formModal.openCreate({
             onSubmit: async (orderData) => {
-                await this.dataManager.createOrder(orderData);
+                const orderId = await this.dataManager.createOrder(orderData);
                 this.ui.showToast('Tạo đơn hàng thành công!', 'success');
+
+                // Switch to the tab matching the new order's status
+                const targetTab = orderData.status || this.config.OrderStatus.AWAITING_PURCHASE;
+                if (this.currentTab !== targetTab) {
+                    this.handleTabChange(targetTab);
+                }
+
+                // Fire-and-forget: sync products to TPOS (only for confirmed orders)
+                if (orderData.status === 'AWAITING_PURCHASE' && window.TPOSProductCreator) {
+                    window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
+                }
             },
             onCancel: () => {
                 // Nothing to do
@@ -386,61 +484,980 @@ class PurchaseOrderController {
             return;
         }
 
-        try {
-            this.exportOrderToExcel(order);
-            this.ui.showToast('Xuất Excel thành công!', 'success');
-        } catch (error) {
-            console.error('Export failed:', error);
-            this.ui.showToast('Không thể xuất Excel', 'error');
+        this.showPurchaseOrderPreview(order);
+    }
+
+    /**
+     * Show purchase order preview UI (replaces old export format dialog)
+     * Displays order items in TPOS-style table with editable Giảm giá, Cước phí, Ghi chú
+     */
+    showPurchaseOrderPreview(order) {
+        const orders = Array.isArray(order) ? order : [order];
+        const singleOrder = orders[0];
+        const items = singleOrder.items || [];
+        const ncc = window.NCCManager?.findByName(singleOrder.supplier?.name);
+        const supplierDisplay = ncc
+            ? `[${ncc.code}] ${ncc.name}`
+            : (singleOrder.supplier?.name || 'Không rõ');
+
+        const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
+
+        // Build item rows with readonly qty/price (double-click to edit)
+        const rowsHTML = items.map((item, idx) => {
+            const qty = item.quantity || 0;
+            const price = item.purchasePrice || 0;
+            const lineTotal = qty * price;
+            const code = item.productCode || '';
+            const name = item.productName || '';
+            const variant = item.variant || '';
+            return `
+                <tr style="border-bottom: 1px solid #dee2e6;" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}" data-code="${code}">
+                    <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${idx + 1}</td>
+                    <td style="padding: 10px 12px; font-size: 14px; border-right: 1px solid #dee2e6;">
+                        <div style="font-weight: 700; color: #000;">[${code}] ${name}</div>
+                        <div style="color: #999; font-size: 12px; margin-top: 2px;">${variant || 'Ghi chú'}</div>
+                    </td>
+                    <td style="padding: 10px 4px; text-align: center; width: 100px; border-right: 1px solid #dee2e6;">
+                        <input type="number" class="po-qty" data-idx="${idx}" value="${qty}" min="0" readonly style="
+                            width: 70px; height: 32px; text-align: center; border: 1px solid #e5e7eb;
+                            border-radius: 3px; font-size: 14px; padding: 0 4px;
+                            background: #f9fafb; cursor: default;
+                        ">
+                    </td>
+                    <td style="padding: 10px 4px; text-align: right; width: 200px; border-right: 1px solid #dee2e6;">
+                        <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
+                            <input type="number" class="po-price" data-idx="${idx}" data-original="${price}" value="${price}" min="0" readonly style="
+                                width: 110px; height: 32px; text-align: right; border: 1px solid #e5e7eb;
+                                border-radius: 3px; font-size: 14px; padding: 0 8px;
+                                background: #f9fafb; cursor: default;
+                            ">
+                            <span class="po-price-actions" data-idx="${idx}" style="display: none; white-space: nowrap;">
+                                <button class="po-price-cancel" data-idx="${idx}" title="Hủy" style="
+                                    width: 26px; height: 26px; border: 1px solid #fca5a5; border-radius: 4px;
+                                    background: #fef2f2; color: #ef4444; cursor: pointer; font-size: 14px; line-height: 24px;
+                                ">&times;</button>
+                                <button class="po-price-save" data-idx="${idx}" title="Lưu giá lên TPOS" style="
+                                    width: 26px; height: 26px; border: 1px solid #86efac; border-radius: 4px;
+                                    background: #f0fdf4; color: #16a34a; cursor: pointer; font-size: 14px; line-height: 24px;
+                                ">&#10003;</button>
+                            </span>
+                            <input type="checkbox" class="po-bypass-zero" data-idx="${idx}" title="Cho phép giá 0" style="
+                                width: 16px; height: 16px; cursor: pointer; accent-color: #f59e0b;
+                                display: ${price === 0 ? 'block' : 'none'};
+                            ">
+                        </div>
+                    </td>
+                    <td style="padding: 10px 10px; text-align: right; font-size: 14px; font-weight: 600; width: 120px; white-space: nowrap; border-right: 1px solid #dee2e6;" class="po-line-total">${fmt(lineTotal)}</td>
+                    <td style="padding: 10px 6px; text-align: center; width: 50px;">
+                        <span class="po-del-btn" data-idx="${idx}" style="
+                            display: inline-block; width: 28px; height: 28px; line-height: 26px;
+                            text-align: center; color: #999; cursor: pointer; font-size: 18px;
+                        " title="Xóa dòng">&times;</span>
+                    </td>
+                </tr>`;
+        }).join('');
+
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+            display: flex; align-items: center; justify-content: center; z-index: 5000;
+        `;
+
+        overlay.innerHTML = `
+            <div style="
+                background: white; border-radius: 4px; padding: 0;
+                max-width: 960px; width: 96%; max-height: 92vh; display: flex; flex-direction: column;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.15); border: 1px solid #ccc;
+            ">
+                <!-- Header -->
+                <div style="padding: 14px 20px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center; background: #f8f9fa;">
+                    <div>
+                        <h3 style="margin: 0 0 2px; font-size: 16px; font-weight: 700; color: #333;">
+                            Đơn mua hàng - ${singleOrder.orderNumber || ''}
+                        </h3>
+                        <div style="font-size: 13px; color: #666;">NCC: <strong style="color: #333;">${supplierDisplay}</strong></div>
+                    </div>
+                    <div style="font-size: 12px; color: #999;">${new Date().toLocaleDateString('vi-VN')}</div>
+                </div>
+
+                <!-- Scrollable table -->
+                <div style="overflow-y: auto; flex: 1; min-height: 0;">
+                    <table style="width: 100%; border-collapse: collapse;" id="poItemsTable">
+                        <thead>
+                            <tr style="background: #d6dce4; border-bottom: 1px solid #bfc7d1;">
+                                <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 40px; border-right: 1px solid #bfc7d1;">STT</th>
+                                <th style="padding: 10px 12px; text-align: left; font-size: 13px; font-weight: 700; color: #333; border-right: 1px solid #bfc7d1;">Sản phẩm</th>
+                                <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 100px; border-right: 1px solid #bfc7d1;">Số lượng</th>
+                                <th style="padding: 10px 8px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 140px; border-right: 1px solid #bfc7d1;">Đơn giá</th>
+                                <th style="padding: 10px 10px; text-align: right; font-size: 13px; font-weight: 700; color: #333; width: 120px; border-right: 1px solid #bfc7d1;">Tổng</th>
+                                <th style="padding: 10px 6px; text-align: center; font-size: 13px; font-weight: 700; color: #333; width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHTML}</tbody>
+                    </table>
+                </div>
+
+                <!-- Summary -->
+                <div style="padding: 12px 20px 16px; border-top: 1px solid #dee2e6;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 6px 0; font-size: 14px; font-weight: 700; text-align: right; color: #333;">Tổng số lượng: &nbsp;<span id="poTotalQty" style="min-width: 40px; display: inline-block;">0</span></td>
+                            <td style="padding: 6px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;">Tổng: &nbsp;<span id="poSubtotal">0</span></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 0; text-align: right;">
+                                <input type="number" id="poDecreaseAmount" value="${singleOrder.discountAmount || 0}" min="0" placeholder="Chiết khấu - Giảm giá" style="
+                                    width: 200px; height: 32px; text-align: left; border: 1px solid #ccc;
+                                    border-radius: 3px; font-size: 13px; padding: 0 8px;
+                                ">
+                            </td>
+                            <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poDecreaseDisplay">0</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 0; text-align: right;">
+                                <span style="font-size: 14px; color: #64748b; margin-right: 6px;">&#x1F69A;</span>
+                                <span style="font-size: 14px; font-weight: 600; color: #64748b;">Tiền ship:</span>
+                                <input type="number" id="poCostsIncurred" value="${singleOrder.shippingFee || 0}" min="0" style="
+                                    width: 120px; height: 36px; text-align: right; border: 1px solid #e2e8f0;
+                                    border-radius: 8px; font-size: 14px; padding: 0 10px; margin-left: 8px;
+                                    background: #f8fafc;
+                                ">
+                            </td>
+                            <td style="padding: 4px 0; font-size: 14px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poCostsDisplay">0</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 4px 0; text-align: right;">
+                                <span style="font-size: 13px; color: #666; margin-right: 8px;">Ghi chú</span>
+                                <input type="text" id="poNote" value="${singleOrder.notes || ''}" placeholder="Nhập ghi chú..." style="
+                                    width: 220px; height: 32px; border: 1px solid #ccc;
+                                    border-radius: 3px; font-size: 13px; padding: 0 8px;
+                                ">
+                            </td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0 4px; font-size: 16px; font-weight: 700; text-align: right; color: #333;">Tổng tiền:</td>
+                            <td style="padding: 8px 0 4px; font-size: 16px; font-weight: 700; text-align: right; width: 190px; color: #333;" id="poFinalAmount">0</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Zero-price warning -->
+                <div id="poZeroPriceWarning" style="padding: 8px 20px; background: #fef3c7; border-top: 1px solid #fde68a; display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #92400e;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span id="poZeroPriceText">Có sản phẩm giá 0. Tick checkbox bên cạnh đơn giá để cho phép.</span>
+                    </div>
+                </div>
+
+                <!-- Editing warning -->
+                <div id="poEditingWarning" style="padding: 8px 20px; background: #dbeafe; border-top: 1px solid #bfdbfe; display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #1e40af;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        <span>Đang chỉnh sửa đơn giá. Lưu hoặc hủy trước khi xuất.</span>
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div style="padding: 12px 20px; border-top: 1px solid #dee2e6; display: flex; gap: 8px; justify-content: flex-end; background: #f8f9fa;">
+                    <button type="button" id="btnCancelPO" style="
+                        padding: 8px 20px; border: 1px solid #ccc; border-radius: 4px;
+                        background: white; cursor: pointer; font-size: 14px; color: #333;
+                    ">Hủy</button>
+                    <button type="button" id="btnExportExcel" style="
+                        padding: 8px 20px; border: 1px solid #28a745; border-radius: 4px;
+                        background: white; color: #28a745; cursor: pointer; font-size: 14px; font-weight: 600;
+                    ">Xuất Excel</button>
+                    <button type="button" id="btnSubmitTPOS" style="
+                        padding: 8px 20px; border: none; border-radius: 4px;
+                        background: #28a745; color: white; cursor: pointer;
+                        font-size: 14px; font-weight: 600;
+                    " ${!ncc?.tposId ? 'disabled data-ncc-disabled title="NCC chưa có TPOS ID"' : ''}>Tạo đơn TPOS</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Track editing state
+        const editingPrices = new Set();
+
+        // Update button states based on zero-price and editing state
+        const updateButtonStates = () => {
+            let zeroPriceCount = 0;
+            overlay.querySelectorAll('tr[data-idx]').forEach(row => {
+                const price = parseFloat(row.querySelector('.po-price').value) || 0;
+                const bypass = row.querySelector('.po-bypass-zero');
+                if (bypass) {
+                    bypass.style.display = price === 0 ? 'block' : 'none';
+                    if (price !== 0) bypass.checked = false;
+                }
+                if (price === 0 && (!bypass || !bypass.checked)) {
+                    zeroPriceCount++;
+                }
+            });
+
+            const zeroWarning = overlay.querySelector('#poZeroPriceWarning');
+            const editWarning = overlay.querySelector('#poEditingWarning');
+            const btnExcel = overlay.querySelector('#btnExportExcel');
+            const btnTPOS = overlay.querySelector('#btnSubmitTPOS');
+
+            const isEditing = editingPrices.size > 0;
+            const isBlocked = zeroPriceCount > 0 || isEditing;
+
+            // Zero-price warning
+            if (zeroPriceCount > 0) {
+                zeroWarning.style.display = 'block';
+                zeroWarning.querySelector('#poZeroPriceText').textContent =
+                    `Có ${zeroPriceCount} sản phẩm giá 0. Tick checkbox bên cạnh đơn giá để cho phép.`;
+            } else {
+                zeroWarning.style.display = 'none';
+            }
+
+            // Editing warning
+            editWarning.style.display = isEditing ? 'block' : 'none';
+
+            // Button states
+            if (isBlocked) {
+                btnExcel.disabled = true;
+                btnExcel.style.opacity = '0.5';
+                btnExcel.style.cursor = 'not-allowed';
+                if (!btnTPOS.hasAttribute('data-ncc-disabled')) {
+                    btnTPOS.disabled = true;
+                    btnTPOS.style.opacity = '0.5';
+                    btnTPOS.style.cursor = 'not-allowed';
+                }
+            } else {
+                btnExcel.disabled = false;
+                btnExcel.style.opacity = '';
+                btnExcel.style.cursor = 'pointer';
+                if (!btnTPOS.hasAttribute('data-ncc-disabled')) {
+                    btnTPOS.disabled = false;
+                    btnTPOS.style.opacity = '';
+                    btnTPOS.style.cursor = 'pointer';
+                }
+            }
+        };
+
+        // Enable editing on an input
+        const enableInput = (input) => {
+            input.readOnly = false;
+            input.style.background = 'white';
+            input.style.border = '1px solid #3b82f6';
+            input.style.cursor = 'text';
+            input.focus();
+            input.select();
+        };
+
+        // Lock input back to readonly
+        const lockInput = (input) => {
+            input.readOnly = true;
+            input.style.background = '#f9fafb';
+            input.style.border = '1px solid #e5e7eb';
+            input.style.cursor = 'default';
+        };
+
+        // Recalculate all totals from current input values
+        const recalcAll = () => {
+            let totalQty = 0, totalAmount = 0;
+            overlay.querySelectorAll('tr[data-idx]').forEach(row => {
+                const idx = parseInt(row.dataset.idx);
+                const qty = parseFloat(row.querySelector('.po-qty').value) || 0;
+                const price = parseFloat(row.querySelector('.po-price').value) || 0;
+                const lineTotal = qty * price;
+                totalQty += qty;
+                totalAmount += lineTotal;
+                row.querySelector('.po-line-total').textContent = fmt(lineTotal);
+                if (items[idx]) {
+                    items[idx].quantity = qty;
+                    items[idx].purchasePrice = price;
+                }
+            });
+            const decrease = parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
+            const costs = parseFloat(overlay.querySelector('#poCostsIncurred').value) || 0;
+            overlay.querySelector('#poTotalQty').textContent = totalQty;
+            overlay.querySelector('#poSubtotal').textContent = fmt(totalAmount);
+            overlay.querySelector('#poDecreaseDisplay').textContent = fmt(decrease);
+            overlay.querySelector('#poCostsDisplay').textContent = fmt(costs);
+            overlay.querySelector('#poFinalAmount').textContent = fmt(totalAmount - decrease + costs);
+            updateButtonStates();
+        };
+        recalcAll();
+
+        // Double-click to edit qty
+        overlay.querySelectorAll('.po-qty').forEach(input => {
+            input.addEventListener('dblclick', () => {
+                enableInput(input);
+            });
+            input.addEventListener('blur', () => {
+                lockInput(input);
+                recalcAll();
+            });
+        });
+
+        // Double-click to edit price — shows X/Lưu buttons
+        overlay.querySelectorAll('.po-price').forEach(input => {
+            input.addEventListener('dblclick', () => {
+                const idx = input.dataset.idx;
+                enableInput(input);
+                editingPrices.add(idx);
+                const actions = overlay.querySelector(`.po-price-actions[data-idx="${idx}"]`);
+                if (actions) actions.style.display = 'inline-flex';
+                updateButtonStates();
+            });
+            input.addEventListener('input', recalcAll);
+        });
+
+        // Price cancel (X) button
+        overlay.querySelectorAll('.po-price-cancel').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = btn.dataset.idx;
+                const input = overlay.querySelector(`.po-price[data-idx="${idx}"]`);
+                if (input) {
+                    input.value = input.dataset.original;
+                    lockInput(input);
+                }
+                editingPrices.delete(idx);
+                const actions = overlay.querySelector(`.po-price-actions[data-idx="${idx}"]`);
+                if (actions) actions.style.display = 'none';
+                recalcAll();
+            });
+        });
+
+        // Price save (✓) button — calls TPOS UpdateStandPrice
+        overlay.querySelectorAll('.po-price-save').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const idx = btn.dataset.idx;
+                const row = overlay.querySelector(`tr[data-idx="${idx}"]`);
+                const input = overlay.querySelector(`.po-price[data-idx="${idx}"]`);
+                let tposId = parseInt(row?.dataset.tposId) || 0;
+                let tposTmplId = parseInt(row?.dataset.tposTmplId) || 0;
+                const newPrice = parseFloat(input?.value) || 0;
+                const code = items[idx]?.productCode || row?.dataset.code || '';
+                const name = items[idx]?.productName || '';
+
+                btn.disabled = true;
+                btn.textContent = '...';
+
+                try {
+                    const token = await window.inventoryPickerDialog?.getAuthToken();
+                    if (!token) throw new Error('Không có token');
+
+                    const proxyUrl = window.inventoryPickerDialog?.proxyUrl || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+                    // If no TPOS ID, look up by product code
+                    if (!tposId && code) {
+                        const lookupResp = await fetch(
+                            `${proxyUrl}/api/odata/Product?$filter=DefaultCode eq '${code}'&$top=1&$select=Id,ProductTmplId`,
+                            { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'feature-version': '2', 'tposappversion': '6.2.6.1' } }
+                        );
+                        if (lookupResp.ok) {
+                            const lookupData = await lookupResp.json();
+                            const found = lookupData.value?.[0];
+                            if (found) {
+                                tposId = found.Id;
+                                tposTmplId = found.ProductTmplId || tposTmplId;
+                                row.dataset.tposId = tposId;
+                                row.dataset.tposTmplId = tposTmplId;
+                            }
+                        }
+                    }
+
+                    if (!tposId) {
+                        this.ui.showToast(`Không tìm thấy sản phẩm ${code} trên TPOS`, 'warning');
+                        btn.disabled = false;
+                        btn.textContent = '✓';
+                        return;
+                    }
+
+                    const response = await fetch(`${proxyUrl}/api/odata/ProductTemplate/ODataService.UpdateStandPrice`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json;charset=UTF-8',
+                            'Accept': 'application/json',
+                            'feature-version': '2',
+                            'tposappversion': '6.2.6.1'
+                        },
+                        body: JSON.stringify({
+                            model: [{
+                                Id: tposId,
+                                ProductTmplId: tposTmplId,
+                                DefaultCode: code,
+                                Barcode: code,
+                                StandardPrice: newPrice,
+                                NameTemplate: name
+                            }]
+                        })
+                    });
+
+                    if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+                    const result = await response.json();
+                    if (result.value === true) {
+                        this.ui.showToast(`Đã cập nhật giá ${code}: ${fmt(newPrice)} đ`, 'success');
+                        input.dataset.original = newPrice;
+                        lockInput(input);
+                        editingPrices.delete(idx);
+                        const actions = overlay.querySelector(`.po-price-actions[data-idx="${idx}"]`);
+                        if (actions) actions.style.display = 'none';
+                        recalcAll();
+                    } else {
+                        throw new Error('API trả về false');
+                    }
+                } catch (error) {
+                    console.error('[PO Preview] UpdateStandPrice failed:', error);
+                    this.ui.showToast('Lỗi cập nhật giá TPOS: ' + error.message, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '✓';
+                }
+            });
+        });
+
+        overlay.querySelector('#poDecreaseAmount').addEventListener('input', recalcAll);
+        overlay.querySelector('#poCostsIncurred').addEventListener('input', recalcAll);
+
+        // Bypass checkboxes
+        overlay.querySelectorAll('.po-bypass-zero').forEach(cb => {
+            cb.addEventListener('change', updateButtonStates);
+        });
+
+        // Cancel / close
+        overlay.querySelector('#btnCancelPO').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        // Delete row buttons
+        overlay.querySelectorAll('.po-del-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const row = btn.closest('tr[data-idx]');
+                if (row) {
+                    row.remove();
+                    recalcAll();
+                }
+            });
+        });
+
+        // Export Excel button
+        overlay.querySelector('#btnExportExcel').addEventListener('click', async () => {
+            const btn = overlay.querySelector('#btnExportExcel');
+            btn.disabled = true;
+            btn.textContent = 'Đang xuất...';
+            try {
+                const result = await this.exportMuaHang(orders);
+                if (result.exported > 0) {
+                    this.ui.showToast(`Xuất Excel thành công! ${result.exported} SP`, 'success');
+                } else {
+                    this.ui.showToast('Không có SP nào phù hợp', 'error');
+                }
+            } catch (err) {
+                this.ui.showToast('Lỗi xuất Excel: ' + err.message, 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = 'Xuất Excel';
+        });
+
+        // Submit to TPOS
+        overlay.querySelector('#btnSubmitTPOS').addEventListener('click', async () => {
+            const btn = overlay.querySelector('#btnSubmitTPOS');
+            btn.disabled = true;
+            btn.textContent = 'Đang tạo...';
+            btn.style.opacity = '0.6';
+
+            try {
+                // Attach extra fields to order for TPOS
+                singleOrder.decreaseAmount = parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
+                singleOrder.costsIncurred = parseFloat(overlay.querySelector('#poCostsIncurred').value) || 0;
+                singleOrder.tposNote = overlay.querySelector('#poNote').value || '';
+
+                // Step 1: Export MH (resolve codes + build workbook, no download)
+                const result = await this.exportMuaHang(orders, { download: false });
+
+                if (result.exported === 0) {
+                    this.ui.showToast('Không thể tạo đơn TPOS - Không có SP nào phù hợp', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Tạo đơn TPOS';
+                    btn.style.opacity = '';
+                    return;
+                }
+
+                if (!ncc?.tposId) {
+                    this.ui.showToast('NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Tạo đơn TPOS';
+                    btn.style.opacity = '';
+                    return;
+                }
+
+                // Step 2: Create on TPOS
+                const tposResult = await window.TPOSPurchase.createFromExcel(result.workbook, singleOrder);
+
+                overlay.remove();
+
+                if (tposResult.success) {
+                    this.ui.showToast(
+                        `Đã tạo đơn TPOS: ${tposResult.poNumber || 'ID ' + tposResult.poId} (${tposResult.linesCount} SP)`,
+                        'success'
+                    );
+
+                    // Update Firebase items with TPOS variant codes
+                    if (tposResult.orderLines && result.itemCodeMap && singleOrder.id) {
+                        try {
+                            await this.updateItemsWithTPOSCodes(singleOrder, tposResult.orderLines, result.itemCodeMap);
+                        } catch (err) {
+                            console.warn('[TPOSPurchase] Failed to update variant codes:', err);
+                        }
+                    }
+
+                    // Auto-update status
+                    const config = window.PurchaseOrderConfig;
+                    if (singleOrder.status === config?.OrderStatus?.AWAITING_PURCHASE) {
+                        try {
+                            await this.dataManager.updateOrderStatus(singleOrder.id, config.OrderStatus.AWAITING_DELIVERY);
+                            this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'info');
+                            if (this.dataManager?.loadOrders) {
+                                this.dataManager.loadOrders(this.currentTab, true);
+                            }
+                        } catch (statusErr) {
+                            console.warn('[PO Preview] Auto-update status failed:', statusErr);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[PO Preview] Submit failed:', error);
+                this.ui.showToast('Lỗi tạo đơn TPOS: ' + error.message, 'error');
+                overlay.remove();
+            }
+        });
+    }
+
+    /**
+     * Show confirm dialog to push Excel to TPOS as purchase order
+     */
+    showTPOSPurchaseConfirm(workbook, order, exportedCount, itemCodeMap) {
+        // Check if NCC has tposId
+        const ncc = window.NCCManager?.findByName(order.supplier?.name);
+        if (!ncc?.tposId) {
+            console.log('[TPOSPurchase] NCC not found or no tposId, skipping TPOS confirm');
+            return;
+        }
+
+        const confirmOverlay = document.createElement('div');
+        confirmOverlay.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center; z-index: 5001;
+        `;
+        confirmOverlay.innerHTML = `
+            <div style="
+                background: white; border-radius: 12px; padding: 24px;
+                max-width: 420px; width: 90%;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            ">
+                <h3 style="margin: 0 0 12px; font-size: 16px; font-weight: 600;">
+                    Tạo đơn mua hàng trên TPOS?
+                </h3>
+                <p style="color: #6b7280; font-size: 14px; margin: 0 0 8px;">
+                    Đã xuất <strong>${exportedCount}</strong> sản phẩm. Bạn có muốn tạo đơn mua hàng trực tiếp trên TPOS?
+                </p>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 13px;">
+                    <div><strong>NCC:</strong> ${ncc.name}</div>
+                    <div><strong>TPOS ID:</strong> ${ncc.tposId}</div>
+                    <div><strong>Số SP:</strong> ${exportedCount}</div>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button id="btnSkipTPOS" style="
+                        padding: 10px 20px; border: 1px solid #d1d5db; border-radius: 8px;
+                        background: white; cursor: pointer; font-size: 14px;
+                    ">Bỏ qua</button>
+                    <button id="btnConfirmTPOS" style="
+                        padding: 10px 20px; border: none; border-radius: 8px;
+                        background: #16a34a; color: white; cursor: pointer;
+                        font-size: 14px; font-weight: 500;
+                    ">Tạo đơn TPOS</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(confirmOverlay);
+
+        confirmOverlay.querySelector('#btnSkipTPOS').addEventListener('click', () => {
+            confirmOverlay.remove();
+        });
+        confirmOverlay.addEventListener('click', (e) => {
+            if (e.target === confirmOverlay) confirmOverlay.remove();
+        });
+
+        confirmOverlay.querySelector('#btnConfirmTPOS').addEventListener('click', async () => {
+            const btn = confirmOverlay.querySelector('#btnConfirmTPOS');
+            btn.disabled = true;
+            btn.textContent = 'Đang tạo...';
+            btn.style.opacity = '0.6';
+
+            const result = await window.TPOSPurchase.createFromExcel(workbook, order);
+
+            confirmOverlay.remove();
+
+            if (result.success) {
+                this.ui.showToast(
+                    `Đã tạo đơn TPOS: ${result.poNumber || 'ID ' + result.poId} (${result.linesCount} SP)`,
+                    'success'
+                );
+
+                // Update Firebase items with TPOS variant codes
+                if (result.orderLines && itemCodeMap && order.id) {
+                    try {
+                        await this.updateItemsWithTPOSCodes(order, result.orderLines, itemCodeMap);
+                    } catch (err) {
+                        console.warn('[TPOSPurchase] Failed to update variant codes:', err);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Update Firebase order items with resolved product codes from TPOS PurchaseByExcel response
+     * Maps OrderLine.Product.Barcode + Product.Id back to original items
+     */
+    async updateItemsWithTPOSCodes(order, orderLines, itemCodeMap) {
+        if (!order.id || !order.items) return;
+
+        const updatedItems = [...order.items];
+        let updatedCount = 0;
+
+        for (let i = 0; i < orderLines.length && i < itemCodeMap.length; i++) {
+            const line = orderLines[i];
+            const mapping = itemCodeMap[i];
+            const barcode = line.Product?.Barcode || line.Product?.DefaultCode;
+            const tposProductId = line.Product?.Id || line.ProductId;
+
+            if (barcode && mapping.itemIndex < updatedItems.length) {
+                const item = updatedItems[mapping.itemIndex];
+                if (item.productCode !== barcode || !item.tposProductId) {
+                    updatedItems[mapping.itemIndex] = {
+                        ...item,
+                        productCode: barcode,
+                        tposProductId: tposProductId
+                    };
+                    updatedCount++;
+                }
+            }
+        }
+
+        if (updatedCount > 0) {
+            const db = firebase.firestore();
+            await db.collection('purchase_orders').doc(order.id).update({
+                items: updatedItems
+            });
+            console.log(`[TPOSPurchase] Updated ${updatedCount} items with TPOS variant codes`);
+
+            this.ui.showToast(`Đã cập nhật ${updatedCount} mã biến thể từ TPOS`, 'info');
+
+            // Refresh table to show updated codes
+            if (this.dataManager?.loadOrders) {
+                this.dataManager.loadOrders(this.currentTab, true);
+            }
         }
     }
 
     /**
-     * Export order to Excel using XLSX library
-     * @param {Object} order
+     * Export "Mua Hàng" format - TPOS-importable 4 columns (Section 15)
+     * Columns: Mã sản phẩm (*), Số lượng (*), Đơn giá, Chiết khấu (%)
+     * Uses 3-case product code resolution with variant matching
+     * @param {Array} orders - Orders to export (single order in array)
+     * @returns {Promise<{exported: number, skipped: number, errors: string[]}>}
      */
-    exportOrderToExcel(order) {
+    async exportMuaHang(orders, { download = true } = {}) {
         if (typeof XLSX === 'undefined') {
             throw new Error('XLSX library not loaded');
         }
 
-        // Prepare data
-        const data = [
-            ['ĐƠN ĐẶT HÀNG', '', '', '', '', ''],
-            ['Mã đơn:', order.orderNumber, '', 'Ngày đặt:', this.config.formatDate(order.orderDate)],
-            ['Nhà cung cấp:', order.supplier?.name || '', '', 'Trạng thái:', this.config.STATUS_LABELS[order.status]],
-            [''],
-            ['STT', 'Tên sản phẩm', 'Mã SP', 'Biến thể', 'SL', 'Giá mua', 'Giá bán', 'Thành tiền']
+        const order = orders[0];
+        const allItems = order.items || [];
+        if (allItems.length === 0) {
+            return { exported: 0, skipped: 0, errors: ['Đơn hàng không có sản phẩm nào'] };
+        }
+
+        // Load products CSV for variant lookup (CASE 3)
+        const productsCSV = await loadProductsCSV();
+
+        const excelRows = [];
+        const skippedErrors = [];
+        const itemCodeMap = []; // Track resolved code → item index for TPOS update
+
+        for (let i = 0; i < allItems.length; i++) {
+            const item = allItems[i];
+            let productCode = null;
+
+            // CASE 1: Already has tposProductId → use productCode directly
+            if (item.tposProductId) {
+                productCode = item.productCode;
+            }
+            // CASE 2: No variant → use productCode directly
+            else if (!item.variant || item.variant.trim() === '') {
+                productCode = item.productCode;
+            }
+            // CASE 3: Has variant + no tposProductId → 3-step fallback
+            else {
+                // Step 1: Find variant match in products CSV by base_product_code
+                const candidates = productsCSV.filter(
+                    row => row.base_product_code === item.productCode
+                        && row.variant && row.variant.trim() !== ''
+                );
+
+                const matched = candidates.find(
+                    row => variantsMatch(row.variant, item.variant)
+                );
+
+                if (matched) {
+                    productCode = matched.product_code;
+                } else {
+                    // Step 2: Check if productCode exists as exact product_code in CSV
+                    const exactMatch = productsCSV.find(
+                        row => row.product_code === item.productCode
+                    );
+
+                    if (exactMatch) {
+                        productCode = item.productCode;
+                    } else {
+                        // Step 3: Search TPOS API
+                        try {
+                            const tposResults = await window.TPOSClient?.searchProduct(item.productCode);
+                            if (tposResults && tposResults.length > 0) {
+                                productCode = item.productCode;
+                            }
+                        } catch (err) {
+                            console.warn('[ExportMH] TPOS search failed for', item.productCode, err);
+                        }
+                    }
+                }
+
+                // All steps failed → skip
+                if (!productCode) {
+                    const candidateCodes = candidates.map(c => c.product_code).slice(0, 3).join(', ');
+                    skippedErrors.push(
+                        `❌ ${item.productCode} - ${item.productName || ''} (Variant: ${item.variant}${candidateCodes ? ', Có trong kho: [' + candidateCodes + ']' : ''})`
+                    );
+                    continue;
+                }
+            }
+
+            itemCodeMap.push({ itemIndex: i, resolvedCode: productCode });
+
+            excelRows.push({
+                'Mã sản phẩm (*)': productCode,
+                'Số lượng (*)': item.quantity || 0,
+                'Đơn giá': item.purchasePrice || 0,
+                'Chiết khấu (%)': 0
+            });
+        }
+
+        if (excelRows.length === 0) {
+            return { exported: 0, skipped: skippedErrors.length, errors: skippedErrors };
+        }
+
+        // Create workbook with json_to_sheet (preserves column headers as keys)
+        const ws = XLSX.utils.json_to_sheet(excelRows);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 25 },  // Mã sản phẩm
+            { wch: 12 },  // Số lượng
+            { wch: 12 },  // Đơn giá
+            { wch: 14 }   // Chiết khấu
         ];
 
-        // Add items
-        (order.items || []).forEach((item, index) => {
-            data.push([
-                index + 1,
-                item.productName,
-                item.productCode,
-                item.variant,
-                item.quantity,
-                item.purchasePrice,
-                item.sellingPrice,
-                item.subtotal
-            ]);
-        });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Mua Hàng');
 
-        // Add totals
-        data.push(['']);
-        data.push(['', '', '', '', '', '', 'Tổng tiền:', order.totalAmount]);
-        data.push(['', '', '', '', '', '', 'Giảm giá:', order.discountAmount]);
-        data.push(['', '', '', '', '', '', 'Phí ship:', order.shippingFee]);
-        data.push(['', '', '', '', '', '', 'THÀNH TIỀN:', order.finalAmount]);
+        // Filename: MuaHang_{AxCode}_{DD-MM}.xlsx (e.g. MuaHang_A12_24-02.xlsx)
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const ncc = window.NCCManager?.findByName(order.supplier?.name);
+        const supplierLabel = ncc?.code || order.orderNumber || 'Export';
+        const filename = `MuaHang_${supplierLabel}_${dd}-${mm}.xlsx`;
+
+        if (download) {
+            XLSX.writeFile(wb, filename);
+        }
+
+        return {
+            exported: excelRows.length,
+            skipped: skippedErrors.length,
+            errors: skippedErrors,
+            workbook: wb,
+            order: order,
+            itemCodeMap: itemCodeMap
+        };
+    }
+
+    /**
+     * Export "Thêm SP" format - 17 columns for adding products to TPOS
+     * @param {Array} orders - Orders to export
+     */
+    exportThemSP(orders) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('XLSX library not loaded');
+        }
+
+        const data = [];
+
+        // Header row - 17 columns matching TPOS import template
+        data.push([
+            'Mã sản phẩm',      // 1
+            'Tên sản phẩm',     // 2
+            'Mô tả',            // 3
+            'Danh mục',         // 4
+            'Giá bán',          // 5
+            'Giá vốn',          // 6
+            'Tồn kho',          // 7
+            'Đơn vị tính',      // 8
+            'Barcode',          // 9
+            'Trọng lượng (g)',  // 10
+            'Dài (cm)',         // 11
+            'Rộng (cm)',        // 12
+            'Cao (cm)',         // 13
+            'Thương hiệu',      // 14
+            'Xuất xứ',          // 15
+            'Ghi chú',          // 16
+            'Hình ảnh URL'      // 17
+        ]);
+
+        orders.forEach(order => {
+            (order.items || []).forEach((item) => {
+                const productName = item.variant
+                    ? `${item.productName} - ${item.variant}`
+                    : item.productName;
+
+                data.push([
+                    item.productCode || '',           // Mã sản phẩm
+                    productName || '',                // Tên sản phẩm
+                    '',                               // Mô tả
+                    '',                               // Danh mục
+                    item.sellingPrice || 0,           // Giá bán
+                    item.purchasePrice || 0,          // Giá vốn
+                    item.quantity || 0,               // Tồn kho
+                    'Cái',                            // Đơn vị tính
+                    '',                               // Barcode
+                    '',                               // Trọng lượng
+                    '',                               // Dài
+                    '',                               // Rộng
+                    '',                               // Cao
+                    order.supplier?.name || '',       // Thương hiệu (using supplier)
+                    '',                               // Xuất xứ
+                    `Đơn hàng: ${order.orderNumber}`, // Ghi chú
+                    (item.productImages || [])[0] || '' // Hình ảnh URL
+                ]);
+            });
+        });
 
         // Create workbook
         const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 15 },  // Mã SP
+            { wch: 40 },  // Tên SP
+            { wch: 30 },  // Mô tả
+            { wch: 15 },  // Danh mục
+            { wch: 12 },  // Giá bán
+            { wch: 12 },  // Giá vốn
+            { wch: 10 },  // Tồn kho
+            { wch: 10 },  // Đơn vị
+            { wch: 15 },  // Barcode
+            { wch: 12 },  // Trọng lượng
+            { wch: 8 },   // Dài
+            { wch: 8 },   // Rộng
+            { wch: 8 },   // Cao
+            { wch: 20 },  // Thương hiệu
+            { wch: 15 },  // Xuất xứ
+            { wch: 25 },  // Ghi chú
+            { wch: 50 }   // Hình ảnh URL
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Thêm SP');
+
+        // Filename
+        const filename = orders.length === 1
+            ? `TSP_${orders[0].orderNumber}.xlsx`
+            : `TSP_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+
+        XLSX.writeFile(wb, filename);
+    }
+
+    /**
+     * Export full order details to Excel
+     * @param {Array} orders - Orders to export
+     */
+    exportOrderToExcelFull(orders) {
+        if (typeof XLSX === 'undefined') {
+            throw new Error('XLSX library not loaded');
+        }
+
+        const data = [];
+
+        orders.forEach((order, orderIndex) => {
+            if (orderIndex > 0) {
+                data.push(['']); // Separator between orders
+            }
+
+            // Order header
+            data.push(['ĐƠN ĐẶT HÀNG', '', '', '', '', '', '', '']);
+            data.push(['Mã đơn:', order.orderNumber, '', 'Ngày đặt:', this.config.formatDate(order.orderDate), '', '', '']);
+            data.push(['Nhà cung cấp:', order.supplier?.name || '', '', 'Trạng thái:', this.config.STATUS_LABELS[order.status] || order.status, '', '', '']);
+            data.push(['Ghi chú:', order.notes || '', '', '', '', '', '', '']);
+            data.push(['']);
+
+            // Items header
+            data.push(['STT', 'Tên sản phẩm', 'Mã SP', 'Biến thể', 'SL', 'Giá mua', 'Giá bán', 'Thành tiền']);
+
+            // Add items
+            (order.items || []).forEach((item, index) => {
+                data.push([
+                    index + 1,
+                    item.productName || '',
+                    item.productCode || '',
+                    item.variant || '',
+                    item.quantity || 0,
+                    item.purchasePrice || 0,
+                    item.sellingPrice || 0,
+                    item.subtotal || ((item.purchasePrice || 0) * (item.quantity || 0))
+                ]);
+            });
+
+            // Add totals
+            data.push(['']);
+            data.push(['', '', '', '', '', '', 'Tổng tiền:', order.totalAmount || 0]);
+            data.push(['', '', '', '', '', '', 'Giảm giá:', order.discountAmount || 0]);
+            data.push(['', '', '', '', '', '', 'Phí ship:', order.shippingFee || 0]);
+            data.push(['', '', '', '', '', '', 'THÀNH TIỀN:', order.finalAmount || 0]);
+        });
+
+        // Create workbook
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 5 },   // STT
+            { wch: 35 },  // Tên SP
+            { wch: 12 },  // Mã SP
+            { wch: 15 },  // Biến thể
+            { wch: 6 },   // SL
+            { wch: 12 },  // Giá mua
+            { wch: 12 },  // Giá bán
+            { wch: 15 }   // Thành tiền
+        ];
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Đơn hàng');
 
-        // Download
-        XLSX.writeFile(wb, `${order.orderNumber}.xlsx`);
+        // Filename
+        const filename = orders.length === 1
+            ? `${orders[0].orderNumber}.xlsx`
+            : `DonHang_${new Date().toISOString().slice(0, 10)}_${orders.length}don.xlsx`;
+
+        XLSX.writeFile(wb, filename);
     }
 
     /**
@@ -513,12 +1530,138 @@ class PurchaseOrderController {
     }
 
     /**
+     * Handle select all
+     * @param {boolean} selected
+     */
+    handleSelectAll(selected) {
+        if (selected) {
+            // Select all current orders
+            const orders = this.dataManager.getCurrentPageOrders();
+            orders.forEach(order => {
+                if (!this.dataManager.selectedIds.has(order.id)) {
+                    this.dataManager.toggleSelection(order.id);
+                }
+            });
+        } else {
+            // Deselect all
+            this.dataManager.clearSelection();
+        }
+        this.renderTableForCurrentPage();
+    }
+
+    /**
+     * Handle clear selection
+     */
+    handleClearSelection() {
+        this.dataManager.clearSelection();
+        this.renderTableForCurrentPage();
+    }
+
+    /**
+     * Handle bulk export
+     */
+    async handleBulkExport() {
+        const selectedIds = Array.from(this.dataManager.selectedIds);
+        if (selectedIds.length === 0) return;
+
+        try {
+            // Gather all selected orders
+            const orders = [];
+            for (const orderId of selectedIds) {
+                const order = await this.dataManager.getOrder(orderId);
+                if (order) {
+                    orders.push(order);
+                }
+            }
+
+            if (orders.length === 0) {
+                this.ui.showToast('Không tìm thấy đơn hàng nào', 'error');
+                return;
+            }
+
+            this.showPurchaseOrderPreview(orders);
+        } catch (error) {
+            console.error('Bulk export failed:', error);
+            this.ui.showToast('Không thể xuất đơn hàng', 'error');
+        }
+    }
+
+    /**
+     * Handle bulk delete
+     */
+    async handleBulkDelete() {
+        const selectedIds = Array.from(this.dataManager.selectedIds);
+        if (selectedIds.length === 0) return;
+
+        const confirmed = await this.ui.showConfirmDialog({
+            title: 'Xóa nhiều đơn hàng',
+            message: `Bạn có chắc muốn xóa ${selectedIds.length} đơn hàng? Hành động này không thể hoàn tác.`,
+            confirmText: `Xóa ${selectedIds.length} đơn`,
+            type: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            let deletedCount = 0;
+            let skippedCount = 0;
+
+            for (const orderId of selectedIds) {
+                const order = await this.dataManager.getOrder(orderId);
+                if (order && this.config.canDeleteOrder(order.status)) {
+                    await this.dataManager.deleteOrder(orderId);
+                    deletedCount++;
+                } else {
+                    skippedCount++;
+                }
+            }
+
+            this.dataManager.clearSelection();
+
+            if (skippedCount > 0) {
+                this.ui.showToast(`Đã xóa ${deletedCount} đơn, bỏ qua ${skippedCount} đơn không thể xóa`, 'warning');
+            } else {
+                this.ui.showToast(`Đã xóa ${deletedCount} đơn hàng`, 'success');
+            }
+        } catch (error) {
+            console.error('Bulk delete failed:', error);
+            this.ui.showToast('Không thể xóa đơn hàng', 'error');
+        }
+    }
+
+    /**
      * Handle row click
      * @param {string} orderId
      */
     handleRowClick(orderId) {
         // Could open detail view or quick edit
         console.log('Row clicked:', orderId);
+    }
+
+    /**
+     * Handle view order detail (double click)
+     * @param {string} orderId
+     */
+    async handleViewDetail(orderId) {
+        const order = await this.dataManager.getOrder(orderId);
+
+        if (!order) {
+            this.ui.showToast('Không tìm thấy đơn hàng', 'error');
+            return;
+        }
+
+        // Open detail dialog
+        window.orderDetailDialog.open(order, {
+            onRetry: async (id) => {
+                try {
+                    // Reset sync status for failed items and trigger re-sync
+                    await this.dataManager.retrySyncFailedItems(id);
+                    this.ui.showToast('Đang thử lại đồng bộ...', 'info');
+                } catch (error) {
+                    this.ui.showToast('Không thể thử lại đồng bộ', 'error');
+                }
+            }
+        });
     }
 
     /**

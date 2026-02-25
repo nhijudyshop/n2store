@@ -164,8 +164,8 @@ class TableManager {
 
         const auth = authManager.getAuthState();
 
-        // Special handling for user type 777
-        if (auth && auth.checkLogin == "777") {
+        // Check if user has no access to ib page
+        if (!PermissionHelper.canAccessPage('ib')) {
             this.createHiddenRow(row);
             return;
         }
