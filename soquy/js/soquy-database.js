@@ -124,23 +124,46 @@ const SoquyDatabase = (function () {
                 vouchers.push({ id: doc.id, ...doc.data() });
             });
 
-            // Apply all filters client-side
+            console.log('[SoquyDB] Raw vouchers from Firestore:', vouchers.length);
+
+            // Fund type filter
             if (state.fundType !== config.FUND_TYPES.ALL) {
                 vouchers = vouchers.filter(v => v.fundType === state.fundType);
+                console.log('[SoquyDB] After fundType filter (' + state.fundType + '):', vouchers.length);
             }
+
+            // Time filter
+            const { startDate, endDate } = getDateRange();
+            if (startDate && endDate) {
+                vouchers = vouchers.filter(v => {
+                    const vDate = toDate(v.voucherDateTime);
+                    return vDate >= startDate && vDate <= endDate;
+                });
+                console.log('[SoquyDB] After time filter:', vouchers.length);
+            }
+
+            // Status filter
             if (state.statusFilter.length > 0) {
                 vouchers = vouchers.filter(v => state.statusFilter.includes(v.status));
+                console.log('[SoquyDB] After status filter (' + state.statusFilter.join(',') + '):', vouchers.length);
             }
+
+            // Voucher type filter (when only one type is selected)
             if (state.voucherTypeFilter.length === 1) {
                 vouchers = vouchers.filter(v => v.type === state.voucherTypeFilter[0]);
+                console.log('[SoquyDB] After voucherType filter:', vouchers.length);
             }
+
+            // Business accounting filter
             if (state.businessAccounting === config.BUSINESS_ACCOUNTING.YES) {
                 vouchers = vouchers.filter(v => v.businessAccounting === true);
             } else if (state.businessAccounting === config.BUSINESS_ACCOUNTING.NO) {
                 vouchers = vouchers.filter(v => v.businessAccounting === false);
             }
 
-            vouchers = applyClientSideFilters(vouchers);
+            // NOTE: Search, category, creator, employee filters are applied locally
+            // in applyLocalFilters() (soquy-ui.js) to avoid re-fetching on every keystroke.
+
             return vouchers;
         } catch (error) {
             console.error('[SoquyDB] Error fetching vouchers:', error);
@@ -148,69 +171,8 @@ const SoquyDatabase = (function () {
         }
     }
 
-    /**
-     * Apply client-side filters (time, search, category, creator, employee)
-     */
-    function applyClientSideFilters(vouchers) {
-        // Time filter
-        const { startDate, endDate } = getDateRange();
-        if (startDate && endDate) {
-            vouchers = vouchers.filter(v => {
-                const vDate = toDate(v.voucherDateTime);
-                return vDate >= startDate && vDate <= endDate;
-            });
-        }
-
-        // Search by voucher code, category, person, note
-        if (state.searchQuery.trim()) {
-            const query = state.searchQuery.trim().toLowerCase();
-            vouchers = vouchers.filter(v =>
-                String(v.code || '').toLowerCase().includes(query) ||
-                String(v.category || '').toLowerCase().includes(query) ||
-                String(v.personName || '').toLowerCase().includes(query) ||
-                String(v.note || '').toLowerCase().includes(query) ||
-                String(v.createdBy || '').toLowerCase().includes(query) ||
-                String(v.collector || '').toLowerCase().includes(query) ||
-                String(v.transferContent || '').toLowerCase().includes(query)
-            );
-        }
-
-        // Category filter
-        if (state.categoryFilter) {
-            const cat = state.categoryFilter.toLowerCase();
-            vouchers = vouchers.filter(v =>
-                String(v.category || '').toLowerCase().includes(cat)
-            );
-        }
-
-        // Creator filter
-        if (state.creatorFilter) {
-            const creator = state.creatorFilter.toLowerCase();
-            vouchers = vouchers.filter(v =>
-                String(v.createdBy || '').toLowerCase().includes(creator)
-            );
-        }
-
-        // Employee filter
-        if (state.employeeFilter) {
-            const emp = state.employeeFilter.toLowerCase();
-            vouchers = vouchers.filter(v =>
-                String(v.collector || '').toLowerCase().includes(emp)
-            );
-        }
-
-        // Status filter (for multi-status when both are checked)
-        if (state.statusFilter.length > 0) {
-            vouchers = vouchers.filter(v => state.statusFilter.includes(v.status));
-        }
-
-        // Voucher type filter (when both are checked, show all)
-        if (state.voucherTypeFilter.length === 1) {
-            vouchers = vouchers.filter(v => v.type === state.voucherTypeFilter[0]);
-        }
-
-        return vouchers;
-    }
+    // NOTE: Local filters (search, category, creator, employee) are handled
+    // by applyLocalFilters() in soquy-ui.js to avoid re-fetching from Firestore.
 
     /**
      * Get date range based on current time filter
@@ -388,16 +350,30 @@ const SoquyDatabase = (function () {
     async function importVouchers(rows) {
         const results = { success: 0, errors: [] };
 
+        console.log('[SoquyDB] Starting import of', rows.length, 'rows');
+        console.log('[SoquyDB] Current state.fundType:', state.fundType);
+        if (rows.length > 0) {
+            console.log('[SoquyDB] Excel columns:', Object.keys(rows[0]));
+            console.log('[SoquyDB] First row data:', JSON.stringify(rows[0]));
+        }
+
         for (let i = 0; i < rows.length; i++) {
             try {
                 const row = rows[i];
                 const voucherType = detectVoucherType(row);
-                const fundType = detectFundType(row) || state.fundType;
+                const detectedFund = detectFundType(row);
+                const fundType = detectedFund || state.fundType;
                 const effectiveFund = fundType === config.FUND_TYPES.ALL
                     ? config.FUND_TYPES.CASH : fundType;
 
-                const voucherCode = await getNextVoucherCode(voucherType, effectiveFund);
+                // Use Excel code if provided, otherwise generate new one
+                const excelCode = String(row['Mã phiếu'] || row['code'] || '').trim();
+                const voucherCode = excelCode || await getNextVoucherCode(voucherType, effectiveFund);
                 const now = new Date();
+
+                // Parse date from Excel
+                const rawDateTime = row['Thời gian'] || row['voucherDateTime'];
+                const parsedDateTime = parseImportDateTime(rawDateTime);
 
                 const voucher = {
                     code: voucherCode,
@@ -418,7 +394,7 @@ const SoquyDatabase = (function () {
                     branch: String(row['Chi nhánh'] || row['branch'] || '').trim(),
                     businessAccounting: parseBoolean(row['Hạch toán KQKD'] || row['businessAccounting'], true),
                     status: config.VOUCHER_STATUS.PAID,
-                    voucherDateTime: parseImportDateTime(row['Thời gian'] || row['voucherDateTime'])
+                    voucherDateTime: parsedDateTime
                         || firebase.firestore.Timestamp.fromDate(now),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -426,6 +402,8 @@ const SoquyDatabase = (function () {
                     cancelledAt: null,
                     cancelReason: ''
                 };
+
+                console.log(`[SoquyDB] Row ${i + 1}: code=${voucher.code}, type=${voucher.type}, fundType=${voucher.fundType}, status=${voucher.status}, dateTime=`, voucher.voucherDateTime);
 
                 await config.soquyCollectionRef.add(voucher);
 
@@ -449,19 +427,34 @@ const SoquyDatabase = (function () {
     }
 
     function detectVoucherType(row) {
-        const type = (row['Loại'] || row['type'] || '').toLowerCase();
+        // 1. Check explicit type column
+        const type = String(row['Loại'] || row['type'] || '').toLowerCase();
         if (type.includes('thu') || type === 'receipt') return config.VOUCHER_TYPES.RECEIPT;
         if (type.includes('chi') || type === 'payment') return config.VOUCHER_TYPES.PAYMENT;
-        // Detect by amount sign
+
+        // 2. Detect from voucher code prefix (CTM/CNH/CVD = Chi, TTM/TNH/TVD = Thu)
+        const code = String(row['Mã phiếu'] || row['code'] || '').toUpperCase();
+        if (code.startsWith('C')) return config.VOUCHER_TYPES.PAYMENT;
+        if (code.startsWith('T')) return config.VOUCHER_TYPES.RECEIPT;
+
+        // 3. Detect by amount sign
         const amount = parseFloat(String(row['Giá trị'] || row['amount'] || '0').replace(/[.,\s]/g, ''));
         return amount < 0 ? config.VOUCHER_TYPES.PAYMENT : config.VOUCHER_TYPES.RECEIPT;
     }
 
     function detectFundType(row) {
-        const fund = (row['Loại sổ quỹ'] || row['Quỹ'] || row['fundType'] || '').toLowerCase();
+        // 1. Check explicit fund type column
+        const fund = String(row['Loại sổ quỹ'] || row['Quỹ'] || row['fundType'] || '').toLowerCase();
         if (fund.includes('mặt') || fund === 'cash') return config.FUND_TYPES.CASH;
         if (fund.includes('ngân') || fund === 'bank') return config.FUND_TYPES.BANK;
         if (fund.includes('ví') || fund === 'ewallet') return config.FUND_TYPES.EWALLET;
+
+        // 2. Detect from voucher code prefix (CTM=Chi Tiền Mặt, TTM=Thu Tiền Mặt, etc.)
+        const code = String(row['Mã phiếu'] || row['code'] || '').toUpperCase();
+        if (code.startsWith('CTM') || code.startsWith('TTM')) return config.FUND_TYPES.CASH;
+        if (code.startsWith('CNH') || code.startsWith('TNH')) return config.FUND_TYPES.BANK;
+        if (code.startsWith('CVD') || code.startsWith('TVD')) return config.FUND_TYPES.EWALLET;
+
         return null;
     }
 

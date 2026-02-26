@@ -803,6 +803,7 @@ const SoquyUI = (function () {
             if (resultDiv) resultDiv.innerHTML = '<p style="color:#666;">Đang nhập dữ liệu...</p>';
 
             const result = await db.importVouchers(state._importData);
+            console.log('[SoquyUI] Import result:', result);
 
             if (resultDiv) {
                 let html = `<p style="color:#52c41a; font-weight:600;">Nhập thành công: ${result.success}/${state._importData.length} phiếu</p>`;
@@ -840,12 +841,14 @@ const SoquyUI = (function () {
             state.isLoading = true;
             showTableLoading(true);
 
-            // Fetch vouchers from Firestore
+            // Fetch vouchers from Firestore (with server-side filters: fundType, time, status, voucherType, businessAccounting)
             const vouchers = await db.fetchVouchers();
             state.vouchers = vouchers;
+            console.log('[SoquyUI] refreshData: fetched vouchers =', vouchers.length);
 
             // Apply local filters (search, category, creator, employee)
             applyLocalFilters();
+            console.log('[SoquyUI] refreshData: after local filters =', state.filteredVouchers.length);
 
             // Calculate opening balance
             state.openingBalance = await db.calculateOpeningBalance(state.fundType);
