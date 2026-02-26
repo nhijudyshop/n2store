@@ -654,6 +654,7 @@ window.TPOSProductCreator = (function () {
                     item.tposSyncStatus = status;
                     if (tposProductId) item.tposProductId = tposProductId;
                     if (error) item.tposSyncError = error;
+                    if (status === 'success') item.tposSynced = true;
                     item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
                     changed = true;
                 }
@@ -748,6 +749,7 @@ window.TPOSProductCreator = (function () {
                     }
                     item.productCode = update.barcode;
                     item.tposProductId = update.tposVariantId;
+                    item.tposSynced = true;
                     changed = true;
                 }
             }
@@ -778,6 +780,12 @@ window.TPOSProductCreator = (function () {
      * @param {Array} groupItems - items in this group (same productCode)
      */
     async function processGroup(orderId, groupItems) {
+        // Skip if all items already synced to TPOS
+        if (groupItems.every(i => i.tposSynced)) {
+            console.log(`[TPOSCreator] Skipping ${groupItems[0].productCode} — already synced`);
+            return { success: true, productCode: groupItems[0].productCode, skipped: true };
+        }
+
         const firstItem = groupItems[0];
         const productCode = firstItem.productCode.trim().toUpperCase();
         const productName = firstItem.productName.trim().toUpperCase();
