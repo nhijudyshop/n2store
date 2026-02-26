@@ -1,0 +1,505 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Sổ Quỹ Tiền Mặt</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="../hangrotxa/css/modern.css" />
+    <link rel="stylesheet" href="../soorder/css/soorder.css" /> <!-- Reuse base layout styles -->
+    <link rel="stylesheet" href="css/soquy.css" />
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol (ES modules don't work locally) -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+
+    <!-- Lucide Icons CDN -->
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+    <!-- Navigation (deferred) -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+                <span>N2STORE</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i data-lucide="panel-left-close"></i>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav" id="sidebarNav">
+            <!-- Menu items auto-generated -->
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i data-lucide="user-circle"></i>
+                </div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">Admin</div>
+                    <div class="user-role">Quản trị viên</div>
+                </div>
+            </div>
+            <button class="btn-permissions" id="btnPermissions">
+                <i data-lucide="shield-check"></i>
+                <span>Xem Quyền Của Tôi</span>
+            </button>
+            <button class="btn-logout" id="btnLogout">
+                <i data-lucide="log-out"></i>
+                <span>Đăng xuất</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="btn-icon" id="menuToggle">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="tab-header-navigation">
+                    <button class="tab-header-btn active" data-tab="cashbook" id="tabCashBookBtn">
+                        <i data-lucide="wallet"></i>
+                        <span>Sổ Quỹ</span>
+                    </button>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <!-- Notifications/Profile could go here -->
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <div class="content-area" style="padding: 0; background-color: #f0f2f5;">
+            <!-- Cash Book Layout (always active on this page) -->
+            <div id="cashBookTabContent" class="cashbook-layout" style="display: flex; height: 100%; margin: 0;">
+                <!-- Cash Book Sidebar -->
+                <div class="cashbook-sidebar">
+                    <h2 class="sidebar-title">Sổ quỹ tiền mặt</h2>
+
+                    <div class="filter-group">
+                        <h4>Loại chứng từ</h4>
+                        <label class="checkbox-label"><input type="checkbox"> <span>Phiếu thu</span></label>
+                        <label class="checkbox-label"><input type="checkbox"> <span>Phiếu chi</span></label>
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Loại thu chi</h4>
+                        <input type="text" class="form-control" placeholder="Chọn loại thu chi">
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Trạng thái</h4>
+                        <label class="checkbox-label"><input type="checkbox" checked> <span>Đã thanh toán</span></label>
+                        <label class="checkbox-label"><input type="checkbox"> <span>Đã hủy</span></label>
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Hạch toán kết quả kinh doanh</h4>
+                        <div class="btn-group-toggle">
+                            <button class="btn-toggle active">Tất cả</button>
+                            <button class="btn-toggle">Có</button>
+                            <button class="btn-toggle">Không</button>
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Người tạo</h4>
+                        <input type="text" class="form-control" placeholder="Chọn người tạo">
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Nhân viên</h4>
+                        <input type="text" class="form-control" placeholder="Chọn nhân viên">
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Người nộp/nhận</h4>
+                        <select class="form-control mb-2">
+                            <option>Tất cả</option>
+                        </select>
+                        <input type="text" class="form-control mt-2" placeholder="Tên, mã người nộp/nhận">
+                        <input type="text" class="form-control mt-2" placeholder="Số điện thoại">
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Công nợ đối tác</h4>
+                        <label class="checkbox-label"><input type="checkbox" checked> <span>Tính vào công
+                                nợ</span></label>
+                        <label class="checkbox-label"><input type="checkbox" checked> <span>Không tính vào công
+                                nợ</span></label>
+                        <label class="checkbox-label"><input type="checkbox" checked> <span>Không có công
+                                nợ</span></label>
+                    </div>
+                </div>
+
+                <!-- Cash Book Main Container -->
+                <div class="cashbook-main">
+                    <!-- Top Action Bar -->
+                    <div class="cashbook-top-bar">
+                        <div class="search-bar">
+                            <i data-lucide="search" class="search-icon"></i>
+                            <input type="text" placeholder="Theo mã phiếu">
+                            <button class="btn-icon"><i data-lucide="sliders-horizontal"></i></button>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="k-btn-outline-primary" id="btnShowCreateReceipt"><i data-lucide="plus"></i>
+                                Phiếu thu</button>
+                            <button class="k-btn-outline-primary" id="btnShowCreatePayment"><i data-lucide="plus"></i>
+                                Phiếu chi</button>
+                            <button class="k-btn-outline"><i data-lucide="file-output"></i> Xuất file</button>
+                            <button class="k-btn-outline" style="padding: 0 8px;"><i data-lucide="menu"></i></button>
+                            <button class="k-btn-outline" style="padding: 0 8px;"><i
+                                    data-lucide="settings"></i></button>
+                            <button class="k-btn-outline" style="padding: 0 8px;"><i
+                                    data-lucide="help-circle"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats -->
+                    <div class="cashbook-summary">
+                        <div class="stat-box">
+                            <span class="stat-label">Quỹ đầu kỳ</span>
+                            <span class="stat-value text-dark">-8,667,464,666</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Tổng thu</span>
+                            <span class="stat-value text-primary">0</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Tổng chi</span>
+                            <span class="stat-value text-danger">-860,752,999</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Tồn quỹ <i data-lucide="info" class="icon-sm"></i></span>
+                            <span class="stat-value text-success">-9,528,217,665</span>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="cashbook-table-container">
+                        <table class="cashbook-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox"></th>
+                                    <th style="width: 40px;"><i data-lucide="star"></i></th>
+                                    <th>Mã phiếu</th>
+                                    <th>Thời gian</th>
+                                    <th>Loại thu chi</th>
+                                    <th>Người nộp/nhận</th>
+                                    <th style="text-align: right;">Giá trị</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Sample Rows based on screenshot -->
+                                <tr>
+                                    <td><input type="checkbox"></td>
+                                    <td><i data-lucide="star" class="text-warning"></i></td>
+                                    <td class="text-primary">CTM003068</td>
+                                    <td>26/02/2026 10:49</td>
+                                    <td>Chi CC CHỊ NHI</td>
+                                    <td></td>
+                                    <td style="text-align: right;" class="text-danger">-1,964,000</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="checkbox"></td>
+                                    <td><i data-lucide="star" class="text-warning"></i></td>
+                                    <td class="text-primary">CTM003067</td>
+                                    <td>26/02/2026 10:49</td>
+                                    <td>Chi CC A TRƯỜNG</td>
+                                    <td></td>
+                                    <td style="text-align: right;" class="text-danger">-200,000</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="checkbox"></td>
+                                    <td><i data-lucide="star" class="text-warning"></i></td>
+                                    <td class="text-primary">CTM003066</td>
+                                    <td>25/02/2026 08:39</td>
+                                    <td>Chi CC A TRƯỜNG</td>
+                                    <td></td>
+                                    <td style="text-align: right;" class="text-danger">-800,000</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="checkbox"></td>
+                                    <td><i data-lucide="star" class="text-warning"></i></td>
+                                    <td class="text-primary">CTM003065</td>
+                                    <td>25/02/2026 08:39</td>
+                                    <td>Chi phí khác</td>
+                                    <td></td>
+                                    <td style="text-align: right;" class="text-danger">-3,000,000</td>
+                                </tr>
+                                <tr>
+                                    <td><input type="checkbox"></td>
+                                    <td><i data-lucide="star" class="text-warning"></i></td>
+                                    <td class="text-primary">CTM003064</td>
+                                    <td>22/02/2026 22:55</td>
+                                    <td>Chi CC CHỊ NHI</td>
+                                    <td></td>
+                                    <td style="text-align: right;" class="text-danger">-1,500,000</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="cashbook-pagination">
+                        <div class="page-size">
+                            <span>Hiển thị</span>
+                            <select>
+                                <option>15 dòng</option>
+                            </select>
+                        </div>
+                        <div class="page-controls">
+                            <button class="btn-icon" disabled><i data-lucide="chevrons-left"></i></button>
+                            <button class="btn-icon" disabled><i data-lucide="chevron-left"></i></button>
+                            <span class="current-page">1</span>
+                            <button class="btn-icon"><i data-lucide="chevron-right"></i></button>
+                            <button class="btn-icon"><i data-lucide="chevrons-right"></i></button>
+                            <span class="page-info">1 - 15 trong 217 phiếu thu chi</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- End Cash Book Tab Content -->
+
+        </div>
+    </main>
+
+    <!-- Create Cash Receipt Modal (Phiếu thu) -->
+    <div class="modal" id="soquyCreateReceiptModal" style="display: none;">
+        <div class="modal-overlay" id="soquyCreateReceiptOverlay"></div>
+        <div class="modal-content k-modal">
+            <div class="modal-header k-modal-header">
+                <h3>Tạo phiếu thu tiền mặt</h3>
+                <button class="btn-icon" id="btnSoquyCloseReceipt">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body">
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Mã phiếu</label>
+                        <input type="text" class="form-control" placeholder="Tự động" disabled />
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Thời gian</label>
+                        <div class="k-datetime-input">
+                            <input type="text" class="form-control" value="26/02/2026 14:11" />
+                            <i data-lucide="calendar"></i>
+                            <i data-lucide="clock"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Loại thu</label>
+                        <select class="form-control">
+                            <option>Chọn loại thu</option>
+                        </select>
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Người thu</label>
+                        <select class="form-control">
+                            <option>TRƯỜNG GIANG</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Đối tượng nộp</label>
+                        <select class="form-control">
+                            <option>Khác</option>
+                        </select>
+                    </div>
+                    <div class="form-group k-group">
+                        <label class="d-flex justify-content-between">
+                            Tên người nộp
+                            <a href="#" class="text-primary text-sm text-decoration-none">Tạo mới</a>
+                        </label>
+                        <input type="text" class="form-control" placeholder="Tìm người nộp" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group w-100">
+                        <label>Số tiền</label>
+                        <input type="text" class="form-control text-right" value="0" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group w-100">
+                        <label>Ghi chú</label>
+                        <input type="text" class="form-control" placeholder="Nhập ghi chú" />
+                    </div>
+                </div>
+                <div class="form-row mt-2">
+                    <label class="checkbox-label align-items-center">
+                        <input type="checkbox" checked>
+                        <span style="margin-left: 8px;">Hạch toán kết quả kinh doanh <i data-lucide="info"
+                                class="icon-sm text-muted"></i></span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="btn-outline-secondary" id="btnSoquyCancelReceipt">Bỏ qua</button>
+                <div class="btn-group">
+                    <button class="btn-outline-primary" style="border-right: none; border-radius: 4px 0 0 4px;">Lưu &
+                        In</button>
+                    <button class="btn-primary" style="border-radius: 0 4px 4px 0;">Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Cash Payment Modal (Phiếu chi) -->
+    <div class="modal" id="soquyCreatePaymentModal" style="display: none;">
+        <div class="modal-overlay" id="soquyCreatePaymentOverlay"></div>
+        <div class="modal-content k-modal">
+            <div class="modal-header k-modal-header">
+                <h3>Tạo phiếu chi tiền mặt</h3>
+                <button class="btn-icon" id="btnSoquyClosePayment">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body">
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Mã phiếu</label>
+                        <input type="text" class="form-control" placeholder="Tự động" disabled />
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Thời gian</label>
+                        <div class="k-datetime-input">
+                            <input type="text" class="form-control" value="26/02/2026 14:11" />
+                            <i data-lucide="calendar"></i>
+                            <i data-lucide="clock"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Loại chi</label>
+                        <select class="form-control">
+                            <option>Chọn loại chi</option>
+                        </select>
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Người chi</label>
+                        <select class="form-control">
+                            <option>TRƯỜNG GIANG</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Đối tượng nhận</label>
+                        <select class="form-control">
+                            <option>Khác</option>
+                        </select>
+                    </div>
+                    <div class="form-group k-group">
+                        <label class="d-flex justify-content-between">
+                            Tên người nhận
+                            <a href="#" class="text-primary text-sm text-decoration-none">Tạo mới</a>
+                        </label>
+                        <input type="text" class="form-control" placeholder="Tìm người nhận" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group w-100">
+                        <label>Số tiền</label>
+                        <input type="text" class="form-control text-right" value="0" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group w-100">
+                        <label>Ghi chú</label>
+                        <input type="text" class="form-control" placeholder="Nhập ghi chú" />
+                    </div>
+                </div>
+                <div class="form-row mt-2">
+                    <label class="checkbox-label align-items-center">
+                        <input type="checkbox" checked>
+                        <span style="margin-left: 8px;">Hạch toán kết quả kinh doanh <i data-lucide="info"
+                                class="icon-sm text-muted"></i></span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="btn-outline-secondary" id="btnSoquyCancelPayment">Bỏ qua</button>
+                <div class="btn-group">
+                    <button class="btn-outline-primary" style="border-right: none; border-radius: 4px 0 0 4px;">Lưu &
+                        In</button>
+                    <button class="btn-primary" style="border-radius: 0 4px 4px 0;">Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sổ Quỹ UI interactions (inline for simplicity) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // Create Receipt Modal Interactions
+            const btnShowCreateReceipt = document.getElementById('btnShowCreateReceipt');
+            const soquyCreateReceiptModal = document.getElementById('soquyCreateReceiptModal');
+            const btnSoquyCloseReceipt = document.getElementById('btnSoquyCloseReceipt');
+            const btnSoquyCancelReceipt = document.getElementById('btnSoquyCancelReceipt');
+            const soquyCreateReceiptOverlay = document.getElementById('soquyCreateReceiptOverlay');
+
+            if (btnShowCreateReceipt && soquyCreateReceiptModal) {
+                btnShowCreateReceipt.addEventListener('click', () => soquyCreateReceiptModal.style.display = 'flex');
+
+                const closeReceipt = () => soquyCreateReceiptModal.style.display = 'none';
+                if (btnSoquyCloseReceipt) btnSoquyCloseReceipt.addEventListener('click', closeReceipt);
+                if (btnSoquyCancelReceipt) btnSoquyCancelReceipt.addEventListener('click', closeReceipt);
+                if (soquyCreateReceiptOverlay) soquyCreateReceiptOverlay.addEventListener('click', closeReceipt);
+            }
+
+            // Create Payment Modal Interactions
+            const btnShowCreatePayment = document.getElementById('btnShowCreatePayment');
+            const soquyCreatePaymentModal = document.getElementById('soquyCreatePaymentModal');
+            const btnSoquyClosePayment = document.getElementById('btnSoquyClosePayment');
+            const btnSoquyCancelPayment = document.getElementById('btnSoquyCancelPayment');
+            const soquyCreatePaymentOverlay = document.getElementById('soquyCreatePaymentOverlay');
+
+            if (btnShowCreatePayment && soquyCreatePaymentModal) {
+                btnShowCreatePayment.addEventListener('click', () => soquyCreatePaymentModal.style.display = 'flex');
+
+                const closePayment = () => soquyCreatePaymentModal.style.display = 'none';
+                if (btnSoquyClosePayment) btnSoquyClosePayment.addEventListener('click', closePayment);
+                if (btnSoquyCancelPayment) btnSoquyCancelPayment.addEventListener('click', closePayment);
+                if (soquyCreatePaymentOverlay) soquyCreatePaymentOverlay.addEventListener('click', closePayment);
+            }
+        });
+    </script>
+</body>
+
+</html>
