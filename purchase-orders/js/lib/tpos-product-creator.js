@@ -850,20 +850,18 @@ window.TPOSProductCreator = (function () {
             if (result.success) {
                 let productData = result.data;
 
-                // If product already exists on TPOS, fetch it to get variant barcodes
-                if (result.alreadyExists && allCombinations) {
-                    console.log(`[TPOSCreator] Product ${productCode} already exists, fetching variants...`);
+                // If product already exists on TPOS, fetch existing data
+                if (result.alreadyExists) {
+                    console.log(`[TPOSCreator] Product ${productCode} already exists, fetching from TPOS...`);
                     try {
-                        // Fetch all variants directly — DefaultCode = Barcode in TPOS
                         const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId`;
-                        console.log(`[TPOSCreator] Fetching variants: ${productUrl}`);
+                        console.log(`[TPOSCreator] Fetching: ${productUrl}`);
                         const resp = await window.TPOSClient.authenticatedFetch(productUrl);
                         if (resp.ok) {
                             const fetchData = await resp.json();
                             const variants = fetchData.value || [];
-                            console.log(`[TPOSCreator] Fetched ${variants.length} variants for ${productCode}:`, variants.map(v => v.DefaultCode));
+                            console.log(`[TPOSCreator] Fetched ${variants.length} product(s) for ${productCode}:`, variants.map(v => v.DefaultCode));
                             if (variants.length > 0) {
-                                // Map to ProductVariants format expected by updateVariantBarcodes
                                 productData = {
                                     Id: variants[0].ProductTmplId,
                                     ProductVariants: variants.map(v => ({
