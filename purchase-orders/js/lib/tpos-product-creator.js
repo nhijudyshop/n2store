@@ -843,7 +843,7 @@ window.TPOSProductCreator = (function () {
                 if (result.alreadyExists && allCombinations) {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching variants...`);
                     try {
-                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=DefaultCode eq '${productCode}'&$top=1&$select=Id,ProductTmplId`;
+                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=1&$select=Id,ProductTmplId,DefaultCode`;
                         console.log(`[TPOSCreator] Fetching product: ${productUrl}`);
                         const resp = await window.TPOSClient.authenticatedFetch(productUrl);
                         console.log(`[TPOSCreator] Product response: ${resp.status}`);
