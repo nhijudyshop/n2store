@@ -348,13 +348,26 @@ const SoquyDatabase = (function () {
      * @returns {Object} { success: number, errors: Array }
      */
     async function importVouchers(rows) {
-        const results = { success: 0, errors: [] };
+        const results = { success: 0, skipped: [], errors: [] };
 
         console.log('[SoquyDB] Starting import of', rows.length, 'rows');
         console.log('[SoquyDB] Current state.fundType:', state.fundType);
         if (rows.length > 0) {
             console.log('[SoquyDB] Excel columns:', Object.keys(rows[0]));
             console.log('[SoquyDB] First row data:', JSON.stringify(rows[0]));
+        }
+
+        // Pre-fetch all existing voucher codes to check for duplicates
+        const existingCodes = new Set();
+        try {
+            const snapshot = await config.soquyCollectionRef.get();
+            snapshot.forEach(doc => {
+                const code = (doc.data().code || '').trim();
+                if (code) existingCodes.add(code);
+            });
+            console.log('[SoquyDB] Existing voucher codes:', existingCodes.size);
+        } catch (error) {
+            console.error('[SoquyDB] Error fetching existing codes:', error);
         }
 
         for (let i = 0; i < rows.length; i++) {
@@ -369,9 +382,15 @@ const SoquyDatabase = (function () {
                 // Use Excel code if provided, otherwise generate new one
                 const excelCode = String(row['Mã phiếu'] || row['code'] || '').trim();
                 const voucherCode = excelCode || await getNextVoucherCode(voucherType, effectiveFund);
-                const now = new Date();
 
-                // Parse date from Excel
+                // Skip if voucher code already exists
+                if (existingCodes.has(voucherCode)) {
+                    console.log(`[SoquyDB] Row ${i + 1}: SKIPPED - code "${voucherCode}" already exists`);
+                    results.skipped.push({ row: i + 1, code: voucherCode });
+                    continue;
+                }
+
+                const now = new Date();
                 const rawDateTime = row['Thời gian'] || row['voucherDateTime'];
                 const parsedDateTime = parseImportDateTime(rawDateTime);
 
@@ -406,6 +425,9 @@ const SoquyDatabase = (function () {
                 console.log(`[SoquyDB] Row ${i + 1}: code=${voucher.code}, type=${voucher.type}, fundType=${voucher.fundType}, status=${voucher.status}, dateTime=`, voucher.voucherDateTime);
 
                 await config.soquyCollectionRef.add(voucher);
+
+                // Track this new code to avoid duplicates within the same import batch
+                existingCodes.add(voucherCode);
 
                 // Auto-add category if not in predefined list
                 if (voucher.category) {
