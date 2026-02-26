@@ -867,6 +867,100 @@ window.updateCodReduceFromProducts = updateCodReduceFromProducts;
  * @param {string} orderId - TPOS order code (e.g., NJD/2025/xxx)
  * @returns {{exists: boolean, ticketCode: string|null}} - Whether a return ticket exists
  */
+/**
+ * Mark all TPOS Partner records for a phone as "Bom hàng"
+ * Step 1: Search Partner by phone → get all IDs
+ * Step 2: For each ID, GET full partner data then PUT with updated status + note
+ */
+async function markPartnerAsBoom(phone, noteText) {
+    if (!phone) return;
+
+    try {
+        // Step 1: Search all Partner IDs by phone
+        const searchUrl = `${API_CONFIG.TPOS_ODATA}/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+
+        const searchResponse = await window.tokenManager.authenticatedFetch(searchUrl, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!searchResponse.ok) {
+            console.error('[BOOM] Failed to search partners:', searchResponse.status);
+            return;
+        }
+
+        const searchData = await searchResponse.json();
+        const partners = searchData.value || [];
+
+        if (partners.length === 0) {
+            console.log('[BOOM] No partners found for phone:', phone);
+            return;
+        }
+
+        console.log(`[BOOM] Found ${partners.length} partner(s) for phone ${phone}`);
+
+        // Step 2: For each partner, GET full data then PUT with updated status
+        const updatePromises = partners.map(async (partner) => {
+            try {
+                // GET full partner data
+                const getUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})`;
+                const getResponse = await window.tokenManager.authenticatedFetch(getUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'feature-version': '2',
+                        'x-tpos-lang': 'vi'
+                    }
+                });
+
+                if (!getResponse.ok) {
+                    console.error(`[BOOM] Failed to get partner ${partner.Id}:`, getResponse.status);
+                    return;
+                }
+
+                const partnerData = await getResponse.json();
+
+                // Update fields: StatusStyle, StatusText, Zalo (note)
+                partnerData.StatusStyle = '#d1332e';
+                partnerData.StatusText = 'Bom hàng';
+                if (noteText) {
+                    partnerData.Zalo = noteText;
+                }
+
+                // PUT updated partner data
+                const putResponse = await window.tokenManager.authenticatedFetch(getUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'feature-version': '2',
+                        'x-tpos-lang': 'vi'
+                    },
+                    body: JSON.stringify(partnerData)
+                });
+
+                if (!putResponse.ok) {
+                    console.error(`[BOOM] Failed to update partner ${partner.Id}:`, putResponse.status);
+                } else {
+                    console.log(`[BOOM] Successfully updated partner ${partner.Id} as "Bom hàng"`);
+                }
+            } catch (err) {
+                console.error(`[BOOM] Error updating partner ${partner.Id}:`, err);
+            }
+        });
+
+        // Run all updates in parallel
+        await Promise.all(updatePromises);
+        console.log('[BOOM] All partner updates completed');
+    } catch (err) {
+        console.error('[BOOM] Error in markPartnerAsBoom:', err);
+    }
+}
+
 function checkExistingReturnTicket(orderId) {
     if (!orderId) return { exists: false, ticketCode: null };
 
@@ -1077,6 +1171,19 @@ async function handleSubmitTicket() {
         // User phải bấm nút "+ Công Nợ Ảo" để cấp (cần quyền issueVirtualCredit)
         // Flow: Tạo ticket → Bấm "+ Công Nợ Ảo" → Nhận hàng
         // =====================================================
+
+        // =====================================================
+        // BOOM_HANG: Mark all TPOS Partner records as "Bom hàng"
+        // Also update if there's an internal note (Ghi chú nội bộ)
+        // Runs in background - don't block ticket creation success
+        // =====================================================
+        if (type === 'BOOM' && boomReason === 'BOOM_HANG') {
+            markPartnerAsBoom(customerPhone, note).then(() => {
+                console.log('[APP] Partner boom status updated');
+            }).catch(err => {
+                console.error('[APP] Failed to update partner boom status:', err);
+            });
+        }
 
         closeModal(elements.modalCreate);
         resetCreateForm();
