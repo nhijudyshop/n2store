@@ -840,10 +840,12 @@ const SoquyUI = (function () {
             state.isLoading = true;
             showTableLoading(true);
 
-            // Fetch vouchers
+            // Fetch vouchers from Firestore
             const vouchers = await db.fetchVouchers();
             state.vouchers = vouchers;
-            state.filteredVouchers = vouchers;
+
+            // Apply local filters (search, category, creator, employee)
+            applyLocalFilters();
 
             // Calculate opening balance
             state.openingBalance = await db.calculateOpeningBalance(state.fundType);
@@ -860,6 +862,70 @@ const SoquyUI = (function () {
             state.isLoading = false;
             showTableLoading(false);
         }
+    }
+
+    /**
+     * Apply local filters (search, category, creator, employee) on already-fetched data
+     * and re-render the table without re-fetching from Firestore.
+     */
+    function applyLocalFilters() {
+        let vouchers = [...state.vouchers];
+
+        // Search filter
+        if (state.searchQuery && state.searchQuery.trim()) {
+            const query = state.searchQuery.trim().toLowerCase();
+            vouchers = vouchers.filter(v =>
+                String(v.code || '').toLowerCase().includes(query) ||
+                String(v.category || '').toLowerCase().includes(query) ||
+                String(v.personName || '').toLowerCase().includes(query) ||
+                String(v.note || '').toLowerCase().includes(query) ||
+                String(v.createdBy || '').toLowerCase().includes(query) ||
+                String(v.collector || '').toLowerCase().includes(query) ||
+                String(v.transferContent || '').toLowerCase().includes(query) ||
+                String(v.personCode || '').toLowerCase().includes(query) ||
+                String(v.accountName || '').toLowerCase().includes(query) ||
+                String(v.accountNumber || '').toLowerCase().includes(query) ||
+                String(v.phone || '').toLowerCase().includes(query) ||
+                String(v.branch || '').toLowerCase().includes(query)
+            );
+        }
+
+        // Category filter
+        if (state.categoryFilter) {
+            const cat = state.categoryFilter.toLowerCase();
+            vouchers = vouchers.filter(v =>
+                String(v.category || '').toLowerCase().includes(cat)
+            );
+        }
+
+        // Creator filter
+        if (state.creatorFilter) {
+            const creator = state.creatorFilter.toLowerCase();
+            vouchers = vouchers.filter(v =>
+                String(v.createdBy || '').toLowerCase().includes(creator)
+            );
+        }
+
+        // Employee filter
+        if (state.employeeFilter) {
+            const emp = state.employeeFilter.toLowerCase();
+            vouchers = vouchers.filter(v =>
+                String(v.collector || '').toLowerCase().includes(emp)
+            );
+        }
+
+        state.filteredVouchers = vouchers;
+    }
+
+    /**
+     * Re-filter and re-render without re-fetching from Firestore.
+     * Used for search, category, creator, employee filter changes.
+     */
+    function refilterLocally() {
+        applyLocalFilters();
+        updateSummaryStats();
+        updatePagination();
+        renderTable();
     }
 
     // =====================================================
@@ -906,25 +972,25 @@ const SoquyUI = (function () {
     function handleSearchChange(query) {
         state.searchQuery = query;
         state.currentPage = 1;
-        refreshData();
+        refilterLocally();
     }
 
     function handleCategoryFilterChange(value) {
         state.categoryFilter = value;
         state.currentPage = 1;
-        refreshData();
+        refilterLocally();
     }
 
     function handleCreatorFilterChange(value) {
         state.creatorFilter = value;
         state.currentPage = 1;
-        refreshData();
+        refilterLocally();
     }
 
     function handleEmployeeFilterChange(value) {
         state.employeeFilter = value;
         state.currentPage = 1;
-        refreshData();
+        refilterLocally();
     }
 
     function handlePageSizeChange(size) {
@@ -1134,6 +1200,8 @@ const SoquyUI = (function () {
         openEditFromDetail,
         saveEditedVoucher,
         refreshData,
+        refilterLocally,
+        applyLocalFilters,
         handleFundTypeChange,
         handleTimeFilterChange,
         handleVoucherTypeFilterChange,

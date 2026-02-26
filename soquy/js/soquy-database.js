@@ -161,14 +161,17 @@ const SoquyDatabase = (function () {
             });
         }
 
-        // Search by voucher code
+        // Search by voucher code, category, person, note
         if (state.searchQuery.trim()) {
             const query = state.searchQuery.trim().toLowerCase();
             vouchers = vouchers.filter(v =>
-                (v.code || '').toLowerCase().includes(query) ||
-                (v.category || '').toLowerCase().includes(query) ||
-                (v.personName || '').toLowerCase().includes(query) ||
-                (v.note || '').toLowerCase().includes(query)
+                String(v.code || '').toLowerCase().includes(query) ||
+                String(v.category || '').toLowerCase().includes(query) ||
+                String(v.personName || '').toLowerCase().includes(query) ||
+                String(v.note || '').toLowerCase().includes(query) ||
+                String(v.createdBy || '').toLowerCase().includes(query) ||
+                String(v.collector || '').toLowerCase().includes(query) ||
+                String(v.transferContent || '').toLowerCase().includes(query)
             );
         }
 
@@ -176,7 +179,7 @@ const SoquyDatabase = (function () {
         if (state.categoryFilter) {
             const cat = state.categoryFilter.toLowerCase();
             vouchers = vouchers.filter(v =>
-                (v.category || '').toLowerCase().includes(cat)
+                String(v.category || '').toLowerCase().includes(cat)
             );
         }
 
@@ -184,7 +187,7 @@ const SoquyDatabase = (function () {
         if (state.creatorFilter) {
             const creator = state.creatorFilter.toLowerCase();
             vouchers = vouchers.filter(v =>
-                (v.createdBy || '').toLowerCase().includes(creator)
+                String(v.createdBy || '').toLowerCase().includes(creator)
             );
         }
 
@@ -192,7 +195,7 @@ const SoquyDatabase = (function () {
         if (state.employeeFilter) {
             const emp = state.employeeFilter.toLowerCase();
             vouchers = vouchers.filter(v =>
-                (v.collector || '').toLowerCase().includes(emp)
+                String(v.collector || '').toLowerCase().includes(emp)
             );
         }
 
