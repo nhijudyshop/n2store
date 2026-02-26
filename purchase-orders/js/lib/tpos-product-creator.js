@@ -684,10 +684,19 @@ window.TPOSProductCreator = (function () {
      * @param {Array} allCombinations - Cartesian product combos (same order as request)
      */
     async function updateVariantBarcodes(orderId, groupItems, responseVariants, allCombinations) {
+        console.log(`[TPOSCreator] updateVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants, ${allCombinations.length} combos`);
+
+        // Sort responseVariants by DefaultCode/Barcode to ensure consistent order (A1, A2, ...)
+        const sortedVariants = [...responseVariants].sort((a, b) =>
+            (a.Barcode || a.DefaultCode || '').localeCompare(b.Barcode || b.DefaultCode || '')
+        );
+        console.log(`[TPOSCreator] Sorted variants:`, sortedVariants.map(v => v.Barcode || v.DefaultCode));
+
         // Build tpos_id set for each combo (matches request order → response order)
         const comboTposIdSets = allCombinations.map(combo =>
             new Set(combo.map(v => v.tpos_id))
         );
+        console.log(`[TPOSCreator] Combo tpos_id sets:`, comboTposIdSets.map(s => [...s]));
 
         // Match each item to a variant by comparing attribute tpos_ids
         const updates = [];
@@ -697,24 +706,27 @@ window.TPOSProductCreator = (function () {
                 const val = attrValueMap.get(uuid);
                 if (val) itemTposIds.add(val.tpos_id);
             }
+            console.log(`[TPOSCreator] Item ${item.id} (${item.variant}): attrUUIDs=${(item.selectedAttributeValueIds||[]).length}, tposIds=[${[...itemTposIds]}]`);
             if (itemTposIds.size === 0) continue;
 
             for (let ci = 0; ci < comboTposIdSets.length; ci++) {
                 const comboSet = comboTposIdSets[ci];
                 if (comboSet.size === itemTposIds.size &&
                     [...comboSet].every(id => itemTposIds.has(id))) {
-                    if (ci < responseVariants.length && responseVariants[ci].Barcode) {
+                    if (ci < sortedVariants.length && sortedVariants[ci].Barcode) {
                         updates.push({
                             itemId: item.id,
-                            barcode: responseVariants[ci].Barcode,
-                            tposVariantId: responseVariants[ci].Id
+                            barcode: sortedVariants[ci].Barcode,
+                            tposVariantId: sortedVariants[ci].Id
                         });
+                        console.log(`[TPOSCreator] Matched item ${item.variant} → combo[${ci}] → ${sortedVariants[ci].Barcode}`);
                     }
                     break;
                 }
             }
         }
 
+        console.log(`[TPOSCreator] Total updates: ${updates.length}`);
         if (updates.length === 0) return;
 
         // Update Firebase items with variant Barcodes
