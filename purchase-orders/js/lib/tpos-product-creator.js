@@ -852,7 +852,7 @@ window.TPOSProductCreator = (function () {
                             if (tmplId) {
                                 // Fetch full ProductTemplate with variants
                                 const tmplResp = await window.TPOSClient.authenticatedFetch(
-                                    `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})?$expand=ProductVariants`
+                                    `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})/ODataService.GetDetailView?$expand=ProductVariants`
                                 );
                                 if (tmplResp.ok) {
                                     productData = await tmplResp.json();
