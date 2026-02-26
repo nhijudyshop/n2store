@@ -743,6 +743,9 @@ window.TPOSProductCreator = (function () {
                 const item = items.find(i => i.id === update.itemId);
                 if (item && update.barcode) {
                     console.log(`[TPOSCreator] Variant code: ${item.productCode} → ${update.barcode}`);
+                    if (!item.parentProductCode) {
+                        item.parentProductCode = item.productCode;
+                    }
                     item.productCode = update.barcode;
                     item.tposProductId = update.tposVariantId;
                     changed = true;

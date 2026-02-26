@@ -366,6 +366,7 @@ class PurchaseOrderTableRenderer {
 
             <!-- Mã SP -->
             <td class="col-code">
+                ${item.parentProductCode ? `<span style="color:#6b7280;font-size:11px;">${item.parentProductCode}</span><br>` : ''}
                 <span class="product-code">${item.productCode || '-'}</span>
             </td>
 
