@@ -853,7 +853,7 @@ window.TPOSProductCreator = (function () {
                             console.log(`[TPOSCreator] ProductTmplId for ${productCode}: ${tmplId}`);
                             if (tmplId) {
                                 // Fetch full ProductTemplate with variants via GetDetailView
-                                const tmplUrl = `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})/ODataService.GetDetailView?$expand=Images,ProductVariants,Importer,Distributor,Producer`;
+                                const tmplUrl = `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})/ODataService.GetDetailView?$expand=ProductVariants&companyId=1&warehouseId=1`;
                                 console.log(`[TPOSCreator] Fetching template: ${tmplUrl}`);
                                 const tmplResp = await window.TPOSClient.authenticatedFetch(tmplUrl);
                                 console.log(`[TPOSCreator] Template response: ${tmplResp.status}`);
