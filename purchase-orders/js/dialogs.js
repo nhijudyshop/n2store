@@ -464,10 +464,13 @@ class VariantGeneratorDialog {
             return result;
         };
 
+        // Collect ALL selected attribute value IDs across all groups
+        const allSelectedIds = selectedArrays.flat().map(v => v.id).filter(Boolean);
+
         const combinations = combine(selectedArrays);
         return combinations.map(combo => ({
             variant: combo.map(c => c.value).join(' / '),
-            selectedAttributeValueIds: combo.map(c => c.id).filter(Boolean)
+            selectedAttributeValueIds: allSelectedIds
         }));
     }
 
