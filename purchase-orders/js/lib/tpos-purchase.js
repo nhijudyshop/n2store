@@ -385,10 +385,17 @@ window.TPOSPurchase = (function() {
 
         console.log('[TPOSPurchase] BarcodeProductLabel created, Id:', labelId);
 
-        // Step 2: GET PrintBarcodePDF → fetch as blob → open in new tab
-        const resp2 = await window.TPOSClient.authenticatedFetch(
-            `${PROXY_URL}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`
-        );
+        // Step 2: GET PrintBarcodePDF — this endpoint is NOT under /odata/
+        // It's at tomato.tpos.vn/BarcodeProductLabel/PrintBarcodePDF (direct path)
+        const token = await window.TPOSClient.getToken();
+        const pdfUrl = `https://tomato.tpos.vn/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`;
+        const resp2 = await fetch(pdfUrl, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'feature-version': '2',
+                'tposappversion': '6.2.6.1'
+            }
+        });
 
         if (!resp2.ok) throw new Error('PrintBarcodePDF failed: ' + resp2.status);
 
