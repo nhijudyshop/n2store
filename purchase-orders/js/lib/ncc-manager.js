@@ -203,17 +203,20 @@ window.NCCManager = (function() {
             // Save to Firebase
             const db = firebase.firestore();
             const axCode = parseAxCode(trimmedName);
-            const docId = axCode ? axCode.toUpperCase() : trimmedName.replace(/[\/\\\\.#$\[\]\s]/g, '_').substring(0, 30);
+            // Ref = text before first space (used as TPOS Partner Ref)
+            const spaceIdx = trimmedName.indexOf(' ');
+            const ref = spaceIdx > 0 ? trimmedName.substring(0, spaceIdx) : trimmedName;
+            const docId = (axCode || ref).toUpperCase().replace(/[\/\\\.#$\[\]]/g, '_').substring(0, 30);
 
             await db.collection(COLLECTION).doc(docId).set({
                 name: trimmedName,
                 axCode: axCode || null,
-                tposCode: docId
+                tposCode: ref
             });
 
             // Update local cache
             const existing = nccNames.findIndex(n => n.docId === docId);
-            const newEntry = { code: axCode || docId, tposCode: docId, docId, name: trimmedName };
+            const newEntry = { code: axCode || ref, tposCode: ref, docId, name: trimmedName };
             if (existing >= 0) {
                 nccNames[existing] = newEntry;
             } else {
@@ -259,12 +262,35 @@ window.NCCManager = (function() {
             return;
         }
 
+        // Ref = text before first space (e.g., "Q1 LONG BÌNH 2" → Ref="Q1")
+        const spaceIdx = name.indexOf(' ');
+        const ref = spaceIdx > 0 ? name.substring(0, spaceIdx) : name;
+
         const url = `${PROXY_URL}/api/odata/Partner`;
         const payload = {
+            Id: 0,
             Name: name,
+            Ref: ref,
             Supplier: true,
+            Customer: false,
             Active: true,
-            Customer: false
+            Employee: false,
+            IsCompany: false,
+            CompanyId: 1,
+            Type: 'contact',
+            CompanyType: 'person',
+            Credit: 0,
+            Debit: 0,
+            Discount: 0,
+            AmountDiscount: 0,
+            CreditLimit: 0,
+            OverCredit: false,
+            CategoryId: 0,
+            Status: 'Normal',
+            StatusText: 'Bình thường',
+            Source: 'Default',
+            IsNewAddress: false,
+            DateCreated: new Date().toISOString()
         };
 
         const response = await window.TPOSClient.authenticatedFetch(url, {
@@ -273,10 +299,25 @@ window.NCCManager = (function() {
         });
 
         if (response.ok) {
-            console.log(`[NCCManager] TPOS Partner created: "${name}"`);
+            const data = await response.json().catch(() => null);
+            const tposId = data?.Id || null;
+            console.log(`[NCCManager] TPOS Partner created: "${name}" (Ref=${ref}, Id=${tposId})`);
+
+            // Update Firebase with tposId and tposCode
+            if (tposId) {
+                try {
+                    const db = firebase.firestore();
+                    const docId = ref.replace(/[\/\\\.#$\[\]]/g, '_').trim() || name.replace(/[\/\\\\.#$\[\]\s]/g, '_').substring(0, 30);
+                    await db.collection(COLLECTION).doc(docId).update({
+                        tposId,
+                        tposCode: ref
+                    });
+                } catch (e) {
+                    console.warn('[NCCManager] Failed to update Firebase with tposId:', e);
+                }
+            }
         } else if (response.status === 400) {
-            // Likely "already exists" — treat as success
-            console.log(`[NCCManager] TPOS Partner may already exist: "${name}" (400)`);
+            console.log(`[NCCManager] TPOS Partner may already exist: "${name}" (Ref=${ref})`);
         } else {
             const text = await response.text().catch(() => '');
             console.warn(`[NCCManager] TPOS Partner creation returned ${response.status}:`, text);
