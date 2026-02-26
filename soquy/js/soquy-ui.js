@@ -10,11 +10,90 @@ const SoquyUI = (function () {
     const els = window.SoquyElements;
 
     // =====================================================
-    // TABLE RENDERING
+    // TABLE RENDERING (Dynamic Columns)
     // =====================================================
+
+    function getVisibleColumns() {
+        return config.COLUMN_DEFINITIONS.filter(col => state.columnVisibility[col.key]);
+    }
+
+    function getCellValue(voucher, colKey) {
+        const isPayment = voucher.type === config.VOUCHER_TYPES.PAYMENT;
+        switch (colKey) {
+            case 'code':
+                return null; // Special rendering (link)
+            case 'voucherDateTime':
+                return escapeHtml(db.formatVoucherDateTime(voucher.voucherDateTime));
+            case 'createdAt':
+                return voucher.createdAt ? escapeHtml(db.formatVoucherDateTime(voucher.createdAt)) : '';
+            case 'createdBy':
+                return escapeHtml(voucher.createdBy || '');
+            case 'collector':
+                return escapeHtml(voucher.collector || '');
+            case 'branch':
+                return escapeHtml(voucher.branch || '');
+            case 'category':
+                return escapeHtml(voucher.category || '');
+            case 'accountName':
+                return escapeHtml(voucher.accountName || '');
+            case 'accountNumber':
+                return escapeHtml(voucher.accountNumber || '');
+            case 'personCode':
+                return escapeHtml(voucher.personCode || '');
+            case 'personName':
+                return escapeHtml(voucher.personName || '');
+            case 'phone':
+                return escapeHtml(voucher.phone || '');
+            case 'address':
+                return escapeHtml(voucher.address || '');
+            case 'amount':
+                return null; // Special rendering (colored)
+            case 'transferContent':
+                return escapeHtml(voucher.transferContent || '');
+            case 'note':
+                return escapeHtml(voucher.note || '');
+            case 'fundType':
+                return escapeHtml(config.FUND_TYPE_LABELS[voucher.fundType] || voucher.fundType || '');
+            case 'status':
+                return voucher.status === config.VOUCHER_STATUS.CANCELLED
+                    ? '<span class="badge-cancelled">Đã hủy</span>'
+                    : '<span class="badge-paid">Đã thanh toán</span>';
+            default:
+                return escapeHtml(voucher[colKey] || '');
+        }
+    }
+
+    function renderTableHeader() {
+        const thead = document.querySelector('.cashbook-table thead tr');
+        if (!thead) return;
+
+        const visibleCols = getVisibleColumns();
+        let html = `<th style="width: 40px;"><input type="checkbox" id="selectAllCheckbox"></th>`;
+        html += `<th style="width: 40px;"><i data-lucide="star"></i></th>`;
+
+        visibleCols.forEach(col => {
+            const align = col.key === 'amount' ? ' style="text-align: right;"' : '';
+            html += `<th${align}>${escapeHtml(col.label)}</th>`;
+        });
+
+        thead.innerHTML = html;
+
+        // Re-bind select all
+        const newSelectAll = document.getElementById('selectAllCheckbox');
+        if (newSelectAll) {
+            newSelectAll.addEventListener('change', (e) => {
+                document.querySelectorAll('.voucher-checkbox').forEach(cb => cb.checked = e.target.checked);
+            });
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
 
     function renderTable() {
         if (!els.tableBody) return;
+
+        const visibleCols = getVisibleColumns();
+        const totalCols = visibleCols.length + 2; // +2 for checkbox and star
 
         const start = (state.currentPage - 1) * state.pageSize;
         const end = start + state.pageSize;
@@ -23,7 +102,7 @@ const SoquyUI = (function () {
         if (state.displayedVouchers.length === 0) {
             els.tableBody.innerHTML = `
                 <tr class="empty-row">
-                    <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                    <td colspan="${totalCols}" style="text-align: center; padding: 40px; color: #999;">
                         <div style="font-size: 48px; margin-bottom: 12px;">
                             <i data-lucide="inbox" style="width: 48px; height: 48px;"></i>
                         </div>
@@ -36,28 +115,31 @@ const SoquyUI = (function () {
 
         els.tableBody.innerHTML = state.displayedVouchers.map(v => {
             const isPayment = v.type === config.VOUCHER_TYPES.PAYMENT;
-            const displayAmount = isPayment
-                ? `-${db.formatCurrency(v.amount)}`
-                : db.formatCurrency(v.amount);
-            const amountClass = isPayment ? 'text-danger' : 'text-success';
-            const dateStr = db.formatVoucherDateTime(v.voucherDateTime);
             const isCancelled = v.status === config.VOUCHER_STATUS.CANCELLED;
 
-            return `
-                <tr class="${isCancelled ? 'row-cancelled' : ''}" data-id="${v.id}">
-                    <td><input type="checkbox" class="voucher-checkbox" data-id="${v.id}"></td>
-                    <td class="star-cell">
-                        <i data-lucide="star" class="${v.starred ? 'text-warning star-filled' : 'star-empty'}"></i>
-                    </td>
-                    <td>
+            let rowHtml = `<tr class="${isCancelled ? 'row-cancelled' : ''}" data-id="${v.id}">`;
+            rowHtml += `<td><input type="checkbox" class="voucher-checkbox" data-id="${v.id}"></td>`;
+            rowHtml += `<td class="star-cell"><i data-lucide="star" class="${v.starred ? 'text-warning star-filled' : 'star-empty'}"></i></td>`;
+
+            visibleCols.forEach(col => {
+                if (col.key === 'code') {
+                    rowHtml += `<td>
                         <a href="#" class="voucher-code-link text-primary" data-id="${v.id}">${escapeHtml(v.code)}</a>
-                        ${isCancelled ? '<span class="badge-cancelled">Đã hủy</span>' : ''}
-                    </td>
-                    <td>${escapeHtml(dateStr)}</td>
-                    <td>${escapeHtml(v.category || '')}</td>
-                    <td>${escapeHtml(v.personName || '')}</td>
-                    <td style="text-align: right;" class="${amountClass}">${displayAmount}</td>
-                </tr>`;
+                        ${isCancelled && !state.columnVisibility.status ? '<span class="badge-cancelled">Đã hủy</span>' : ''}
+                    </td>`;
+                } else if (col.key === 'amount') {
+                    const displayAmount = isPayment
+                        ? `-${db.formatCurrency(v.amount)}`
+                        : db.formatCurrency(v.amount);
+                    const amountClass = isPayment ? 'text-danger' : 'text-success';
+                    rowHtml += `<td style="text-align: right;" class="${amountClass}">${displayAmount}</td>`;
+                } else {
+                    rowHtml += `<td>${getCellValue(v, col.key)}</td>`;
+                }
+            });
+
+            rowHtml += `</tr>`;
+            return rowHtml;
         }).join('');
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -229,6 +311,13 @@ const SoquyUI = (function () {
             };
 
             await db.createVoucher(voucherData);
+
+            // Auto-add category/creator if new
+            if (voucherData.category) {
+                await db.autoAddCategory(voucherData.category, config.VOUCHER_TYPES.RECEIPT);
+                populateCategoryDropdowns();
+            }
+
             closeReceiptModal();
             showNotification('Tạo phiếu thu thành công!', 'success');
             await refreshData();
@@ -295,6 +384,13 @@ const SoquyUI = (function () {
             };
 
             await db.createVoucher(voucherData);
+
+            // Auto-add category/creator if new
+            if (voucherData.category) {
+                await db.autoAddCategory(voucherData.category, config.VOUCHER_TYPES.PAYMENT);
+                populateCategoryDropdowns();
+            }
+
             closePaymentModal();
             showNotification('Tạo phiếu chi thành công!', 'success');
             await refreshData();
@@ -543,6 +639,199 @@ const SoquyUI = (function () {
     }
 
     // =====================================================
+    // COLUMN VISIBILITY TOGGLE
+    // =====================================================
+
+    function renderColumnToggleDropdown() {
+        const dropdown = document.getElementById('columnToggleDropdown');
+        if (!dropdown) return;
+
+        dropdown.innerHTML = config.COLUMN_DEFINITIONS.map(col => `
+            <label class="column-toggle-item">
+                <input type="checkbox" data-col-key="${col.key}"
+                    ${state.columnVisibility[col.key] ? 'checked' : ''}>
+                <span>${escapeHtml(col.label)}</span>
+            </label>
+        `).join('');
+
+        // Bind change events
+        dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const key = e.target.dataset.colKey;
+                state.columnVisibility[key] = e.target.checked;
+                saveColumnVisibility();
+                renderTableHeader();
+                renderTable();
+            });
+        });
+    }
+
+    function toggleColumnDropdown() {
+        const dropdown = document.getElementById('columnToggleDropdown');
+        if (!dropdown) return;
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+
+        if (!isVisible) {
+            renderColumnToggleDropdown();
+            // Close on click outside
+            const closeHandler = (e) => {
+                if (!dropdown.contains(e.target) && !e.target.closest('#btnColumnToggle')) {
+                    dropdown.style.display = 'none';
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+        }
+    }
+
+    function saveColumnVisibility() {
+        try {
+            localStorage.setItem('soquy_column_visibility', JSON.stringify(state.columnVisibility));
+        } catch (e) { /* ignore */ }
+    }
+
+    function loadColumnVisibility() {
+        try {
+            const saved = localStorage.getItem('soquy_column_visibility');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                Object.keys(parsed).forEach(key => {
+                    if (key in state.columnVisibility) {
+                        state.columnVisibility[key] = parsed[key];
+                    }
+                });
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    // =====================================================
+    // IMPORT FROM EXCEL
+    // =====================================================
+
+    function openImportModal() {
+        const modal = document.getElementById('soquyImportModal');
+        if (modal) {
+            // Reset
+            const fileInput = document.getElementById('importFileInput');
+            if (fileInput) fileInput.value = '';
+            const preview = document.getElementById('importPreview');
+            if (preview) preview.innerHTML = '';
+            const resultDiv = document.getElementById('importResult');
+            if (resultDiv) resultDiv.innerHTML = '';
+            const btnConfirm = document.getElementById('btnConfirmImport');
+            if (btnConfirm) btnConfirm.disabled = true;
+
+            state._importData = null;
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closeImportModal() {
+        const modal = document.getElementById('soquyImportModal');
+        if (modal) {
+            modal.style.display = 'none';
+            state._importData = null;
+        }
+    }
+
+    function handleImportFileChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Show file name
+        const fileNameSpan = document.getElementById('importFileName');
+        if (fileNameSpan) fileNameSpan.textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = function (evt) {
+            try {
+                if (typeof XLSX === 'undefined') {
+                    showNotification('Thư viện SheetJS chưa tải xong, vui lòng thử lại', 'error');
+                    return;
+                }
+
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
+
+                if (rows.length === 0) {
+                    showNotification('File không có dữ liệu', 'error');
+                    return;
+                }
+
+                state._importData = rows;
+
+                // Show preview
+                const preview = document.getElementById('importPreview');
+                if (preview) {
+                    const previewRows = rows.slice(0, 5);
+                    const cols = Object.keys(rows[0]);
+                    preview.innerHTML = `
+                        <p style="margin-bottom: 8px; font-size: 13px; color: #666;">
+                            Tìm thấy <strong>${rows.length}</strong> dòng dữ liệu. Xem trước ${previewRows.length} dòng đầu:
+                        </p>
+                        <div class="import-preview-table-wrapper">
+                            <table class="import-preview-table">
+                                <thead><tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead>
+                                <tbody>${previewRows.map(r => `<tr>${cols.map(c => `<td>${escapeHtml(String(r[c] || ''))}</td>`).join('')}</tr>`).join('')}</tbody>
+                            </table>
+                        </div>`;
+                }
+
+                const btnConfirm = document.getElementById('btnConfirmImport');
+                if (btnConfirm) btnConfirm.disabled = false;
+
+            } catch (error) {
+                console.error('[SoquyUI] Error reading Excel file:', error);
+                showNotification('Lỗi đọc file: ' + error.message, 'error');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    async function confirmImport() {
+        if (!state._importData || state._importData.length === 0) {
+            showNotification('Không có dữ liệu để nhập', 'error');
+            return;
+        }
+
+        try {
+            showLoadingOverlay(true);
+            const resultDiv = document.getElementById('importResult');
+            if (resultDiv) resultDiv.innerHTML = '<p style="color:#666;">Đang nhập dữ liệu...</p>';
+
+            const result = await db.importVouchers(state._importData);
+
+            if (resultDiv) {
+                let html = `<p style="color:#52c41a; font-weight:600;">Nhập thành công: ${result.success}/${state._importData.length} phiếu</p>`;
+                if (result.errors.length > 0) {
+                    html += `<p style="color:#f5222d;">Lỗi: ${result.errors.length} dòng</p>`;
+                    html += `<ul style="font-size:12px; color:#f5222d; max-height:100px; overflow-y:auto;">`;
+                    result.errors.forEach(err => {
+                        html += `<li>Dòng ${err.row}: ${escapeHtml(err.error)}</li>`;
+                    });
+                    html += `</ul>`;
+                }
+                resultDiv.innerHTML = html;
+            }
+
+            showNotification(`Nhập thành công ${result.success} phiếu!`, 'success');
+
+            // Refresh dropdowns with new dynamic categories
+            populateCategoryDropdowns();
+            await refreshData();
+
+        } catch (error) {
+            console.error('[SoquyUI] Error importing:', error);
+            showNotification('Lỗi khi nhập dữ liệu: ' + error.message, 'error');
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
+    // =====================================================
     // DATA REFRESH
     // =====================================================
 
@@ -663,18 +952,32 @@ const SoquyUI = (function () {
     // =====================================================
 
     function populateCategoryDropdowns() {
-        // Receipt categories
+        // Receipt categories (predefined + dynamic)
+        const allReceiptCats = [...config.RECEIPT_CATEGORIES];
+        state.dynamicReceiptCategories.forEach(cat => {
+            if (!allReceiptCats.some(c => c.toLowerCase() === cat.toLowerCase())) {
+                allReceiptCats.push(cat);
+            }
+        });
+
         if (els.receiptCategory) {
             els.receiptCategory.innerHTML = '<option value="">Chọn loại thu</option>' +
-                config.RECEIPT_CATEGORIES.map(cat =>
+                allReceiptCats.map(cat =>
                     `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
                 ).join('');
         }
 
-        // Payment categories
+        // Payment categories (predefined + dynamic)
+        const allPaymentCats = [...config.PAYMENT_CATEGORIES];
+        state.dynamicPaymentCategories.forEach(cat => {
+            if (!allPaymentCats.some(c => c.toLowerCase() === cat.toLowerCase())) {
+                allPaymentCats.push(cat);
+            }
+        });
+
         if (els.paymentCategory) {
             els.paymentCategory.innerHTML = '<option value="">Chọn loại chi</option>' +
-                config.PAYMENT_CATEGORIES.map(cat =>
+                allPaymentCats.map(cat =>
                     `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
                 ).join('');
         }
@@ -812,6 +1115,7 @@ const SoquyUI = (function () {
 
     return {
         renderTable,
+        renderTableHeader,
         updateSummaryStats,
         updatePagination,
         goToPage,
@@ -842,6 +1146,13 @@ const SoquyUI = (function () {
         handlePageSizeChange,
         handleExport,
         populateCategoryDropdowns,
+        toggleColumnDropdown,
+        renderColumnToggleDropdown,
+        loadColumnVisibility,
+        openImportModal,
+        closeImportModal,
+        handleImportFileChange,
+        confirmImport,
         showNotification,
         escapeHtml,
         formatDateTimeForInput,

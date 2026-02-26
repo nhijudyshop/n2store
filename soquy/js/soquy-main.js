@@ -118,6 +118,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Sidebar title
         els.sidebarTitle = document.getElementById('cashbookSidebarTitle');
+
+        // Column toggle
+        els.btnColumnToggle = document.getElementById('btnColumnToggle');
+
+        // Import modal
+        els.btnImportFile = document.getElementById('btnImportFile');
+        els.importModal = document.getElementById('soquyImportModal');
+        els.importOverlay = document.getElementById('soquyImportOverlay');
+        els.importFileInput = document.getElementById('importFileInput');
+        els.btnConfirmImport = document.getElementById('btnConfirmImport');
+        els.btnCloseImport = document.getElementById('btnSoquyCloseImport');
+        els.btnCancelImport = document.getElementById('btnCancelImport');
     }
 
     // =====================================================
@@ -383,6 +395,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Column toggle button
+        if (els.btnColumnToggle) {
+            els.btnColumnToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                ui.toggleColumnDropdown();
+            });
+        }
+
+        // Import button & modal events
+        if (els.btnImportFile) {
+            els.btnImportFile.addEventListener('click', () => ui.openImportModal());
+        }
+        if (els.btnCloseImport) {
+            els.btnCloseImport.addEventListener('click', () => ui.closeImportModal());
+        }
+        if (els.btnCancelImport) {
+            els.btnCancelImport.addEventListener('click', () => ui.closeImportModal());
+        }
+        if (els.importOverlay) {
+            els.importOverlay.addEventListener('click', () => ui.closeImportModal());
+        }
+        if (els.importFileInput) {
+            els.importFileInput.addEventListener('change', (e) => ui.handleImportFileChange(e));
+        }
+        if (els.btnConfirmImport) {
+            els.btnConfirmImport.addEventListener('click', () => ui.confirmImport());
+        }
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -390,6 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.closePaymentModal();
                 ui.closeDetailModal();
                 ui.closeCancelModal();
+                ui.closeImportModal();
             }
         });
     }
@@ -404,8 +445,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize DOM references
         initElements();
 
-        // Populate dropdowns
+        // Load column visibility from localStorage
+        ui.loadColumnVisibility();
+
+        // Load dynamic categories/creators from Firestore
+        await db.loadDynamicMeta();
+
+        // Populate dropdowns (including dynamic categories)
         ui.populateCategoryDropdowns();
+
+        // Render dynamic table header based on column visibility
+        ui.renderTableHeader();
 
         // Bind events
         bindEvents();

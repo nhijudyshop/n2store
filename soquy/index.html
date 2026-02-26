@@ -37,6 +37,9 @@
     <!-- Lucide Icons CDN -->
     <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
+    <!-- SheetJS (XLSX) for Excel import -->
+    <script defer src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
     <!-- Navigation (deferred) -->
     <script defer src="../shared/js/navigation-modern.js"></script>
 </head>
@@ -223,12 +226,21 @@
                             <button class="k-btn-outline-primary" id="btnShowCreatePayment">
                                 <i data-lucide="plus"></i> Phiếu chi
                             </button>
+                            <button class="k-btn-outline" id="btnImportFile">
+                                <i data-lucide="file-input"></i> Nhập file
+                            </button>
                             <button class="k-btn-outline" id="btnExportFile">
                                 <i data-lucide="file-output"></i> Xuất file
                             </button>
-                            <button class="k-btn-outline" style="padding: 0 8px;">
-                                <i data-lucide="layout-grid"></i>
-                            </button>
+                            <div class="column-toggle-wrapper">
+                                <button class="k-btn-outline" style="padding: 0 8px;" id="btnColumnToggle"
+                                    title="Ẩn/hiện cột">
+                                    <i data-lucide="layout-grid"></i>
+                                </button>
+                                <div class="column-toggle-dropdown" id="columnToggleDropdown" style="display: none;">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
                             <button class="k-btn-outline" style="padding: 0 8px;">
                                 <i data-lucide="settings"></i>
                             </button>
@@ -263,6 +275,7 @@
                         <table class="cashbook-table">
                             <thead>
                                 <tr>
+                                    <!-- Dynamic columns rendered by JS -->
                                     <th style="width: 40px;">
                                         <input type="checkbox" id="selectAllCheckbox">
                                     </th>
@@ -276,7 +289,7 @@
                             </thead>
                             <tbody id="voucherTableBody">
                                 <tr class="empty-row">
-                                    <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                                    <td colspan="20" style="text-align: center; padding: 40px; color: #999;">
                                         Đang tải dữ liệu...
                                     </td>
                                 </tr>
@@ -537,6 +550,46 @@
             <div class="modal-footer k-modal-footer">
                 <button class="btn-outline-secondary" id="btnDismissCancel">Không</button>
                 <button class="btn-danger" id="btnConfirmCancel">Xác nhận hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: IMPORT FROM EXCEL ==================== -->
+    <div class="modal" id="soquyImportModal" style="display: none;">
+        <div class="modal-overlay" id="soquyImportOverlay"></div>
+        <div class="modal-content k-modal" style="width: 800px;">
+            <div class="modal-header k-modal-header">
+                <h3>Nhập dữ liệu từ file Excel</h3>
+                <button class="btn-icon" id="btnSoquyCloseImport">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body">
+                <div class="import-upload-area">
+                    <div class="import-instructions">
+                        <p><strong>Hướng dẫn:</strong> Chọn file Excel (.xlsx, .xls) với các cột sau:</p>
+                        <div class="import-columns-hint">
+                            Loại | Thời gian | Loại thu chi | Nhân viên | Người nộp/nhận |
+                            Giá trị | Ghi chú | Quỹ | Chi nhánh | Hạch toán KQKD | Người tạo
+                        </div>
+                    </div>
+                    <div class="import-file-input-wrapper">
+                        <label for="importFileInput" class="k-btn-outline-primary" style="cursor: pointer;">
+                            <i data-lucide="upload"></i> Chọn file Excel
+                        </label>
+                        <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv"
+                            style="display: none;">
+                        <span id="importFileName" style="margin-left: 12px; font-size: 13px; color: #666;"></span>
+                    </div>
+                </div>
+                <div id="importPreview" style="margin-top: 16px;"></div>
+                <div id="importResult" style="margin-top: 12px;"></div>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="btn-outline-secondary" id="btnCancelImport">Hủy</button>
+                <button class="btn-primary" id="btnConfirmImport" disabled>
+                    <i data-lucide="check"></i> Nhập dữ liệu
+                </button>
             </div>
         </div>
     </div>
