@@ -483,6 +483,20 @@ class PurchaseOrderController {
             onSubmit: async (orderData) => {
                 await this.dataManager.updateOrder(orderId, orderData);
                 this.ui.showToast('Cập nhật đơn hàng thành công!', 'success');
+
+                // Sync products to TPOS if order is confirmed
+                const isConfirmed = orderData.status === 'AWAITING_PURCHASE' || order.status === 'AWAITING_PURCHASE';
+                if (isConfirmed && window.TPOSProductCreator) {
+                    this.ui.showToast('Đang đồng bộ sản phẩm lên TPOS...', 'info');
+                    const syncResult = await window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
+
+                    if (syncResult?.failCount > 0) {
+                        this.ui.showToast('Đồng bộ TPOS có lỗi — một số SP chưa có mã variant', 'warning');
+                    }
+                }
+
+                // Refresh table to show updated codes
+                this.dataManager.loadOrders(this.currentTab, true);
             },
             onCancel: () => {
                 // Nothing to do
