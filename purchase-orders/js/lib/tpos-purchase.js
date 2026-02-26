@@ -311,6 +311,103 @@ window.TPOSPurchase = (function() {
     }
 
     // =====================================================
+    // STEP 3: Print Barcode Labels
+    // =====================================================
+
+    async function printBarcodeLabel(fastPurchaseOrderId, orderLines) {
+        if (!window.TPOSClient?.authenticatedFetch) {
+            throw new Error('TPOSClient not available');
+        }
+
+        console.log('[TPOSPurchase] Creating barcode label for PO:', fastPurchaseOrderId, 'Lines:', orderLines.length);
+
+        // Step 1: POST BarcodeProductLabel
+        const payload = {
+            '@odata.context': 'http://tomato.tpos.vn/odata/$metadata#BarcodeProductLabel(Warehouse())/$entity',
+            Id: 0,
+            PaperId: 7,
+            PriceListId: 1,
+            ShowCurrency: false,
+            ShowBold: false,
+            ShowPrice: true,
+            ShowProductName: true,
+            IsInventory: null,
+            ShowCompany: null,
+            BarcodeTemplateIds: [],
+            FastPurchaseOrderId: fastPurchaseOrderId,
+            IsHideBarcode: null,
+            ExtraProperty: null,
+            Warehouse: {
+                Id: 1, Code: 'WH', Name: 'Nhi Judy Store',
+                CompanyId: 0, LocationId: 0,
+                NameGet: '[WH] Nhi Judy Store',
+                CompanyName: null, LocationActive: true
+            },
+            PriceList: {
+                Id: 1, Name: 'Bảng giá mặc định',
+                CurrencyId: 1, CurrencyName: 'VND',
+                Active: true, CompanyId: null,
+                PartnerCateName: null, Sequence: 1,
+                DateStart: null, DateEnd: null, CreatedById: null
+            },
+            Paper: {
+                Id: 7, Name: '2 Tem',
+                SheetWidth: 66, SheetHeight: 21,
+                LabelWidth: 25, LabelHeight: 21,
+                LabelsPerSheet: 2, TopMargin: 0.5,
+                LeftMargin: 0.5, BottomMargin: 0.5,
+                RightMargin: 0.5, HSpacing: null, VSpacing: null,
+                TypePrint: 'Default', FontSize: 6,
+                TypePrintText: null, LabelsPerRow: 3
+            },
+            Lines: orderLines.map(line => ({
+                Id: 0,
+                ProductId: line.Product?.Id || line.ProductId,
+                ProductTmplId: 0,
+                Quantity: line.ProductQty || 1,
+                Price: line.Product?.PriceVariant || line.PriceUnit || 0,
+                Product: line.Product || null
+            }))
+        };
+
+        const resp1 = await window.TPOSClient.authenticatedFetch(
+            `${PROXY_URL}/api/odata/BarcodeProductLabel`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json;charset=UTF-8' },
+                body: JSON.stringify(payload)
+            }
+        );
+
+        if (!resp1.ok) throw new Error('BarcodeProductLabel failed: ' + resp1.status);
+        const labelData = await resp1.json();
+        const labelId = labelData.Id;
+
+        console.log('[TPOSPurchase] BarcodeProductLabel created, Id:', labelId);
+
+        // Step 2: GET PrintBarcodePDF → fetch as blob → open in new tab
+        const resp2 = await window.TPOSClient.authenticatedFetch(
+            `${PROXY_URL}/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`
+        );
+
+        if (!resp2.ok) throw new Error('PrintBarcodePDF failed: ' + resp2.status);
+
+        const blob = await resp2.blob();
+        const url = URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
+
+        if (!printWindow) {
+            // Popup blocked — fallback to download link
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `barcode-label-${labelId}.pdf`;
+            a.click();
+        }
+
+        return labelId;
+    }
+
+    // =====================================================
     // INIT
     // =====================================================
 
@@ -319,6 +416,7 @@ window.TPOSPurchase = (function() {
     return {
         purchaseByExcel,
         createPurchaseOrder,
-        createFromExcel
+        createFromExcel,
+        printBarcodeLabel
     };
 })();

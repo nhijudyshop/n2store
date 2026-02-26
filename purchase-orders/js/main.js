@@ -999,6 +999,17 @@ class PurchaseOrderController {
                         'success'
                     );
 
+                    // Print barcode labels
+                    if (tposResult.poId && tposResult.orderLines?.length > 0 && window.TPOSPurchase?.printBarcodeLabel) {
+                        try {
+                            this.ui.showToast('Đang tạo tem barcode...', 'info');
+                            await window.TPOSPurchase.printBarcodeLabel(tposResult.poId, tposResult.orderLines);
+                        } catch (printErr) {
+                            console.warn('[Print] Barcode print failed:', printErr);
+                            this.ui.showToast('Không thể in tem: ' + printErr.message, 'warning');
+                        }
+                    }
+
                     // Update Firebase items with TPOS variant codes
                     if (tposResult.orderLines && result.itemCodeMap && singleOrder.id) {
                         try {
