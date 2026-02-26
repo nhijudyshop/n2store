@@ -851,7 +851,7 @@ window.TPOSProductCreator = (function () {
                 let productData = result.data;
 
                 // If product already exists on TPOS, fetch existing data
-                if (result.alreadyExists) {
+                if (result.alreadyExists && allCombinations) {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching from TPOS...`);
                     try {
                         const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId`;
