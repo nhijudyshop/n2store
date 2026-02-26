@@ -844,7 +844,7 @@ window.TPOSProductCreator = (function () {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching variants...`);
                     try {
                         // Fetch all variants directly — DefaultCode = Barcode in TPOS
-                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId,DisplayAttributeValues`;
+                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId`;
                         console.log(`[TPOSCreator] Fetching variants: ${productUrl}`);
                         const resp = await window.TPOSClient.authenticatedFetch(productUrl);
                         if (resp.ok) {
@@ -858,8 +858,7 @@ window.TPOSProductCreator = (function () {
                                     ProductVariants: variants.map(v => ({
                                         Id: v.Id,
                                         Barcode: v.DefaultCode,
-                                        DefaultCode: v.DefaultCode,
-                                        DisplayAttributeValues: v.DisplayAttributeValues
+                                        DefaultCode: v.DefaultCode
                                     }))
                                 };
                             }
