@@ -387,7 +387,7 @@ window.TPOSPurchase = (function() {
 
         // Step 2: GET PrintBarcodePDF → fetch as blob → open in new tab
         const resp2 = await window.TPOSClient.authenticatedFetch(
-            `${PROXY_URL}/api/odata/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`
+            `${PROXY_URL}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`
         );
 
         if (!resp2.ok) throw new Error('PrintBarcodePDF failed: ' + resp2.status);
