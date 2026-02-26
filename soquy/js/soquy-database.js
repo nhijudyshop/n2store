@@ -107,60 +107,7 @@ const SoquyDatabase = (function () {
      */
     async function fetchVouchers() {
         try {
-            let query = config.soquyCollectionRef;
-
-            // Fund type filter
-            if (state.fundType !== config.FUND_TYPES.ALL) {
-                query = query.where('fundType', '==', state.fundType);
-            }
-
-            // Status filter
-            if (state.statusFilter.length === 1) {
-                query = query.where('status', '==', state.statusFilter[0]);
-            }
-
-            // Voucher type filter
-            if (state.voucherTypeFilter.length === 1) {
-                query = query.where('type', '==', state.voucherTypeFilter[0]);
-            }
-
-            // Business accounting filter
-            if (state.businessAccounting === config.BUSINESS_ACCOUNTING.YES) {
-                query = query.where('businessAccounting', '==', true);
-            } else if (state.businessAccounting === config.BUSINESS_ACCOUNTING.NO) {
-                query = query.where('businessAccounting', '==', false);
-            }
-
-            // Order by creation date descending
-            query = query.orderBy('voucherDateTime', 'desc');
-
-            const snapshot = await query.get();
-            let vouchers = [];
-
-            snapshot.forEach(doc => {
-                vouchers.push({ id: doc.id, ...doc.data() });
-            });
-
-            // Apply client-side filters (ones that can't be done via Firestore)
-            vouchers = applyClientSideFilters(vouchers);
-
-            return vouchers;
-        } catch (error) {
-            console.error('[SoquyDB] Error fetching vouchers:', error);
-            // If composite index missing, fallback to simpler query
-            if (error.code === 'failed-precondition') {
-                console.warn('[SoquyDB] Composite index required. Falling back to basic query.');
-                return await fetchVouchersFallback();
-            }
-            throw error;
-        }
-    }
-
-    /**
-     * Fallback fetch when composite indexes are not available
-     */
-    async function fetchVouchersFallback() {
-        try {
+            // Use simple orderBy query and filter client-side to avoid composite index issues
             const snapshot = await config.soquyCollectionRef
                 .orderBy('voucherDateTime', 'desc')
                 .get();
@@ -174,8 +121,8 @@ const SoquyDatabase = (function () {
             if (state.fundType !== config.FUND_TYPES.ALL) {
                 vouchers = vouchers.filter(v => v.fundType === state.fundType);
             }
-            if (state.statusFilter.length === 1) {
-                vouchers = vouchers.filter(v => v.statusFilter.includes(v.status));
+            if (state.statusFilter.length > 0) {
+                vouchers = vouchers.filter(v => state.statusFilter.includes(v.status));
             }
             if (state.voucherTypeFilter.length === 1) {
                 vouchers = vouchers.filter(v => v.type === state.voucherTypeFilter[0]);
@@ -189,7 +136,7 @@ const SoquyDatabase = (function () {
             vouchers = applyClientSideFilters(vouchers);
             return vouchers;
         } catch (error) {
-            console.error('[SoquyDB] Fallback fetch error:', error);
+            console.error('[SoquyDB] Error fetching vouchers:', error);
             return [];
         }
     }
