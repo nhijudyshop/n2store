@@ -692,37 +692,36 @@ window.TPOSProductCreator = (function () {
         );
         console.log(`[TPOSCreator] Sorted variants:`, sortedVariants.map(v => v.Barcode || v.DefaultCode));
 
-        // Build tpos_id set for each combo (matches request order → response order)
+        // Each combo has per-variant tpos_ids (1 per attribute group)
+        // Each item stores ALL selected tpos_ids across ALL variants
+        // Match: find which combo's tpos_ids are a SUBSET of this item's tpos_ids
+        // Then use the item's variant name to identify which specific combo it is
         const comboTposIdSets = allCombinations.map(combo =>
             new Set(combo.map(v => v.tpos_id))
         );
-        console.log(`[TPOSCreator] Combo tpos_id sets:`, comboTposIdSets.map(s => [...s]));
 
-        // Match each item to a variant by comparing attribute tpos_ids
+        // Build combo variant names for matching
+        const comboVariantNames = allCombinations.map(combo =>
+            combo.map(v => v.value).join(' / ')
+        );
+        console.log(`[TPOSCreator] Combo names:`, comboVariantNames);
+
         const updates = [];
         for (const item of groupItems) {
-            const itemTposIds = new Set();
-            for (const uuid of (item.selectedAttributeValueIds || [])) {
-                const val = attrValueMap.get(uuid);
-                if (val) itemTposIds.add(val.tpos_id);
-            }
-            console.log(`[TPOSCreator] Item ${item.id} (${item.variant}): attrUUIDs=${(item.selectedAttributeValueIds||[]).length}, tposIds=[${[...itemTposIds]}]`);
-            if (itemTposIds.size === 0) continue;
+            if (!item.variant) continue;
+            console.log(`[TPOSCreator] Item ${item.id}: variant="${item.variant}"`);
 
-            for (let ci = 0; ci < comboTposIdSets.length; ci++) {
-                const comboSet = comboTposIdSets[ci];
-                if (comboSet.size === itemTposIds.size &&
-                    [...comboSet].every(id => itemTposIds.has(id))) {
-                    if (ci < sortedVariants.length && sortedVariants[ci].Barcode) {
-                        updates.push({
-                            itemId: item.id,
-                            barcode: sortedVariants[ci].Barcode,
-                            tposVariantId: sortedVariants[ci].Id
-                        });
-                        console.log(`[TPOSCreator] Matched item ${item.variant} → combo[${ci}] → ${sortedVariants[ci].Barcode}`);
-                    }
-                    break;
-                }
+            // Match by variant name → combo index → sorted variant barcode
+            const comboIndex = comboVariantNames.indexOf(item.variant);
+            if (comboIndex >= 0 && comboIndex < sortedVariants.length) {
+                updates.push({
+                    itemId: item.id,
+                    barcode: sortedVariants[comboIndex].Barcode,
+                    tposVariantId: sortedVariants[comboIndex].Id
+                });
+                console.log(`[TPOSCreator] Matched "${item.variant}" → combo[${comboIndex}] → ${sortedVariants[comboIndex].Barcode}`);
+            } else {
+                console.warn(`[TPOSCreator] No combo match for variant "${item.variant}"`);
             }
         }
 
