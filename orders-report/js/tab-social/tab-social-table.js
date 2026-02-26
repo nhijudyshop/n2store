@@ -69,10 +69,10 @@ function renderTableRow(order, index) {
             order.source === 'facebook_post'
                 ? 'fa-facebook-f'
                 : order.source === 'instagram'
-                  ? 'fa-instagram'
-                  : order.source === 'tiktok'
-                    ? 'fa-tiktok'
-                    : 'fa-link';
+                    ? 'fa-instagram'
+                    : order.source === 'tiktok'
+                        ? 'fa-tiktok'
+                        : 'fa-link';
         postHtml = `
             <a href="${order.postUrl}" target="_blank" class="post-link" title="${order.postUrl}">
                 <i class="fab ${icon}"></i>
@@ -93,9 +93,9 @@ function renderTableRow(order, index) {
         </div>
     `;
 
-    // Chat button - search Pancake conversations by customer name/phone
+    // Chat button (disabled for now)
     const chatHtml = `
-        <button class="chat-btn" onclick="openSocialChat('${order.id}')" title="Chat Pancake">
+        <button class="chat-btn disabled" title="Chưa có thông tin Pancake" disabled>
             <i class="fas fa-comment-dots"></i>
         </button>
     `;
@@ -134,16 +134,15 @@ function renderTableRow(order, index) {
             <td data-column="phone">
                 <div style="display: flex; align-items: center; gap: 4px;">
                     <span>${order.phone || '—'}</span>
-                    ${
-                        order.phone
-                            ? `
+                    ${order.phone
+            ? `
                         <button class="copy-phone-btn" onclick="copyPhone('${order.phone}')" 
                                 style="background: none; border: none; cursor: pointer; color: #9ca3af; padding: 2px;">
                             <i class="fas fa-copy" style="font-size: 11px;"></i>
                         </button>
                     `
-                            : ''
-                    }
+            : ''
+        }
                 </div>
             </td>
             <td data-column="chat" style="text-align: center;">
