@@ -843,27 +843,25 @@ window.TPOSProductCreator = (function () {
                 if (result.alreadyExists && allCombinations) {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching variants...`);
                     try {
-                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=1&$select=Id,ProductTmplId,DefaultCode`;
-                        console.log(`[TPOSCreator] Fetching product: ${productUrl}`);
+                        // Fetch all variants directly — DefaultCode = Barcode in TPOS
+                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId,DisplayAttributeValues`;
+                        console.log(`[TPOSCreator] Fetching variants: ${productUrl}`);
                         const resp = await window.TPOSClient.authenticatedFetch(productUrl);
-                        console.log(`[TPOSCreator] Product response: ${resp.status}`);
                         if (resp.ok) {
                             const fetchData = await resp.json();
-                            const tmplId = fetchData.value?.[0]?.ProductTmplId;
-                            console.log(`[TPOSCreator] ProductTmplId for ${productCode}: ${tmplId}`);
-                            if (tmplId) {
-                                // Fetch full ProductTemplate with variants via GetDetailView
-                                const tmplUrl = `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})/ODataService.GetDetailView?$expand=ProductVariants&companyId=1&warehouseId=1`;
-                                console.log(`[TPOSCreator] Fetching template: ${tmplUrl}`);
-                                const tmplResp = await window.TPOSClient.authenticatedFetch(tmplUrl);
-                                console.log(`[TPOSCreator] Template response: ${tmplResp.status}`);
-                                if (tmplResp.ok) {
-                                    productData = await tmplResp.json();
-                                    console.log(`[TPOSCreator] Fetched ${productData.ProductVariants?.length || 0} variants for ${productCode}`);
-                                } else {
-                                    const errText = await tmplResp.text();
-                                    console.warn(`[TPOSCreator] GetDetailView failed ${tmplResp.status}:`, errText);
-                                }
+                            const variants = fetchData.value || [];
+                            console.log(`[TPOSCreator] Fetched ${variants.length} variants for ${productCode}:`, variants.map(v => v.DefaultCode));
+                            if (variants.length > 0) {
+                                // Map to ProductVariants format expected by updateVariantBarcodes
+                                productData = {
+                                    Id: variants[0].ProductTmplId,
+                                    ProductVariants: variants.map(v => ({
+                                        Id: v.Id,
+                                        Barcode: v.DefaultCode,
+                                        DefaultCode: v.DefaultCode,
+                                        DisplayAttributeValues: v.DisplayAttributeValues
+                                    }))
+                                };
                             }
                         }
                     } catch (fetchErr) {
