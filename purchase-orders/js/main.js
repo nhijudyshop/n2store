@@ -423,18 +423,36 @@ class PurchaseOrderController {
 
         this.formModal.openCreate({
             onSubmit: async (orderData) => {
+                const isConfirmed = orderData.status === 'AWAITING_PURCHASE';
+
+                // Save as DRAFT first, then sync TPOS to get product codes
+                if (isConfirmed) {
+                    orderData.status = 'DRAFT';
+                }
+
                 const orderId = await this.dataManager.createOrder(orderData);
                 this.ui.showToast('Tạo đơn hàng thành công!', 'success');
 
-                // Switch to the tab matching the new order's status
-                const targetTab = orderData.status || this.config.OrderStatus.AWAITING_PURCHASE;
-                if (this.currentTab !== targetTab) {
-                    this.handleTabChange(targetTab);
-                }
+                // Sync products to TPOS (await result)
+                if (isConfirmed && window.TPOSProductCreator) {
+                    this.ui.showToast('Đang đồng bộ sản phẩm lên TPOS...', 'info');
+                    const syncResult = await window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
 
-                // Fire-and-forget: sync products to TPOS (only for confirmed orders)
-                if (orderData.status === 'AWAITING_PURCHASE' && window.TPOSProductCreator) {
-                    window.TPOSProductCreator.syncOrderToTPOS(orderId, orderData.items, orderData.supplier);
+                    if (syncResult?.failCount === 0 && syncResult?.successCount > 0) {
+                        // All synced OK → update status to AWAITING_PURCHASE
+                        await this.dataManager.updateOrderStatus(orderId, this.config.OrderStatus.AWAITING_PURCHASE);
+                        this.handleTabChange(this.config.OrderStatus.AWAITING_PURCHASE);
+                    } else {
+                        // Sync failed → stay as DRAFT, show warning
+                        this.ui.showToast('Đồng bộ TPOS có lỗi — đơn giữ ở Nháp để thử lại', 'warning');
+                        this.handleTabChange(this.config.OrderStatus.DRAFT);
+                    }
+                } else {
+                    // Draft save — just switch tab
+                    const targetTab = orderData.status || this.config.OrderStatus.DRAFT;
+                    if (this.currentTab !== targetTab) {
+                        this.handleTabChange(targetTab);
+                    }
                 }
             },
             onCancel: () => {

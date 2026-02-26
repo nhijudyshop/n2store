@@ -921,6 +921,7 @@ window.TPOSProductCreator = (function () {
             }
 
             console.log(`[TPOSCreator] Sync complete: ${successCount} success, ${failCount} failed`);
+            return { successCount, failCount, results };
 
         } catch (error) {
             console.error('[TPOSCreator] Sync failed:', error);
@@ -930,6 +931,7 @@ window.TPOSProductCreator = (function () {
                     'error'
                 );
             }
+            return { successCount: 0, failCount: 1, error: error.message };
         }
     }
 
