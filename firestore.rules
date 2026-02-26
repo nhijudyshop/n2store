@@ -54,6 +54,19 @@ service cloud.firestore {
         && resource.data.status in ['DRAFT', 'CANCELLED'];
     }
 
+    // Sổ Quỹ (Cash Book) - vouchers collection
+    match /soquy_vouchers/{voucherId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Sổ Quỹ - auto-increment counters
+    match /soquy_counters/{counterId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Default: deny all other access
     match /{document=**} {
       allow read, write: if false;
