@@ -164,6 +164,7 @@ export class CustomerSearchModule {
 
             if (response.success && response.data && response.data.length > 0) {
                 this.customers = [...this.customers, ...response.data];
+                await this.enrichCustomersWithWallet(response.data);
                 this.appendResults(response.data);
                 this.hasMore = response.data.length === this.limit;
             } else {
@@ -214,6 +215,7 @@ export class CustomerSearchModule {
                 this.customers = response.data;
                 this.totalCustomers = response.pagination?.total || response.data.length;
                 this.hasMore = response.data.length === this.limit;
+                await this.enrichCustomersWithWallet(response.data);
                 this.renderResults(response.data);
             } else {
                 this.tableBody.innerHTML = `
@@ -310,6 +312,7 @@ export class CustomerSearchModule {
                 this.customers = response.data;
                 this.totalCustomers = response.pagination?.total || response.data.length;
                 this.hasMore = response.data.length === this.limit;
+                await this.enrichCustomersWithWallet(response.data);
                 this.renderResults(response.data);
             } else {
                 this.tableBody.innerHTML = `
@@ -524,6 +527,28 @@ export class CustomerSearchModule {
 
         return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     }
+
+    async enrichCustomersWithWallet(customers) {
+        try {
+            const phones = customers.map(c => c.phone).filter(Boolean);
+            if (phones.length === 0) return;
+
+            const walletData = await apiService.getWalletBatch(phones);
+            if (!walletData) return;
+
+            for (const customer of customers) {
+                if (!customer.phone) continue;
+                const wallet = walletData[customer.phone];
+                if (!wallet) continue;
+                customer.balance = wallet.total !== undefined ? wallet.total : (wallet.balance || 0);
+                customer.virtual_balance = wallet.virtualBalance !== undefined ? wallet.virtualBalance : 0;
+                customer.real_balance = wallet.balance !== undefined ? wallet.balance : 0;
+            }
+        } catch (error) {
+            console.warn('[CustomerSearch] Failed to enrich wallet data:', error);
+        }
+    }
+
 
     render() {
         // The UI is initialized in the constructor
