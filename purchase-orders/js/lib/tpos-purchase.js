@@ -386,23 +386,25 @@ window.TPOSPurchase = (function() {
         console.log('[TPOSPurchase] BarcodeProductLabel created, Id:', labelId);
 
         // Step 2: GET PrintBarcodePDF — NOT under /odata/, use /api/ catch-all
-        // Proxy: /api/BarcodeProductLabel/... → tomato.tpos.vn/BarcodeProductLabel/...
+        // Open tab BEFORE async fetch to avoid popup blocker
+        const printWindow = window.open('about:blank', '_blank');
+
         const resp2 = await window.TPOSClient.authenticatedFetch(
             `${PROXY_URL}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`
         );
 
-        if (!resp2.ok) throw new Error('PrintBarcodePDF failed: ' + resp2.status);
+        if (!resp2.ok) {
+            if (printWindow) printWindow.close();
+            throw new Error('PrintBarcodePDF failed: ' + resp2.status);
+        }
 
         const blob = await resp2.blob();
         const url = URL.createObjectURL(blob);
-        const printWindow = window.open(url, '_blank');
 
-        if (!printWindow) {
-            // Popup blocked — fallback to download link
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `barcode-label-${labelId}.pdf`;
-            a.click();
+        if (printWindow) {
+            printWindow.location.href = url;
+        } else {
+            window.open(url, '_blank');
         }
 
         return labelId;
