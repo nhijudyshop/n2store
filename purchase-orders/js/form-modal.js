@@ -924,17 +924,27 @@ class PurchaseOrderFormModal {
      * Calculate totals
      */
     /**
-     * Parse price string: "," = decimal, "." = thousand separator, 1-999 auto ×1000
+     * Parse price string:
+     * - "," = decimal separator (1,5 → 1.5), always ×1000
+     * - "." = thousand separator (100.000 → 100000), already full price
+     * - No dot/comma = shorthand, always ×1000 (100 → 100.000, 1500 → 1.500.000)
      */
     parsePrice(value) {
         const str = String(value || '').trim();
+        if (!str) return 0;
         let num;
         if (str.includes(',')) {
+            // Comma = decimal: "1,5" → 1.5, "100,5" → 100.5, then ×1000
             num = parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
-        } else {
+            if (num > 0) num = Math.round(num * 1000);
+        } else if (str.includes('.')) {
+            // Dot = thousand separator: "100.000" → 100000, already full price
             num = parseFloat(str.replace(/\./g, '')) || 0;
+        } else {
+            // Plain number: "100", "1500" → shorthand, ×1000
+            num = parseFloat(str) || 0;
+            if (num > 0) num = Math.round(num * 1000);
         }
-        if (num >= 1 && num <= 999) num = Math.round(num * 1000);
         return num;
     }
 
