@@ -841,6 +841,32 @@ const SoquyUI = (function () {
         }
     }
 
+    async function deleteAllVouchers() {
+        const confirmed = confirm('⚠️ Bạn có chắc chắn muốn XÓA TOÀN BỘ phiếu thu chi?\n\nHành động này không thể hoàn tác!');
+        if (!confirmed) return;
+
+        const doubleConfirm = confirm('Xác nhận lần cuối: Xóa tất cả phiếu trong sổ quỹ?');
+        if (!doubleConfirm) return;
+
+        try {
+            showLoadingOverlay(true);
+            const result = await db.deleteAllVouchers();
+            showNotification(`Đã xóa toàn bộ ${result.deleted} phiếu!`, 'success');
+
+            const resultDiv = document.getElementById('importResult');
+            if (resultDiv) {
+                resultDiv.innerHTML = `<p style="color:#52c41a; font-weight:600;">Đã xóa ${result.deleted} phiếu. Sẵn sàng nhập Excel mới.</p>`;
+            }
+
+            await refreshData();
+        } catch (error) {
+            console.error('[SoquyUI] Error deleting all:', error);
+            showNotification('Lỗi khi xóa: ' + error.message, 'error');
+        } finally {
+            showLoadingOverlay(false);
+        }
+    }
+
     // =====================================================
     // DATA REFRESH
     // =====================================================
@@ -1233,6 +1259,7 @@ const SoquyUI = (function () {
         closeImportModal,
         handleImportFileChange,
         confirmImport,
+        deleteAllVouchers,
         showNotification,
         escapeHtml,
         formatDateTimeForInput,

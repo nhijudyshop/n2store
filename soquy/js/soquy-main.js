@@ -130,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnConfirmImport = document.getElementById('btnConfirmImport');
         els.btnCloseImport = document.getElementById('btnSoquyCloseImport');
         els.btnCancelImport = document.getElementById('btnCancelImport');
+        els.btnDeleteAllVouchers = document.getElementById('btnDeleteAllVouchers');
     }
 
     // =====================================================
@@ -421,6 +422,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (els.btnConfirmImport) {
             els.btnConfirmImport.addEventListener('click', () => ui.confirmImport());
+        }
+        if (els.btnDeleteAllVouchers) {
+            els.btnDeleteAllVouchers.addEventListener('click', () => ui.deleteAllVouchers());
         }
 
         // Keyboard shortcuts

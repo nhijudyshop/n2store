@@ -585,11 +585,16 @@
                 <div id="importPreview" style="margin-top: 16px;"></div>
                 <div id="importResult" style="margin-top: 12px;"></div>
             </div>
-            <div class="modal-footer k-modal-footer">
-                <button class="btn-outline-secondary" id="btnCancelImport">Hủy</button>
-                <button class="btn-primary" id="btnConfirmImport" disabled>
-                    <i data-lucide="check"></i> Nhập dữ liệu
+            <div class="modal-footer k-modal-footer" style="justify-content: space-between;">
+                <button class="btn-outline-danger" id="btnDeleteAllVouchers" style="color:#f5222d; border-color:#f5222d;">
+                    <i data-lucide="trash-2"></i> Xóa toàn bộ phiếu
                 </button>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-outline-secondary" id="btnCancelImport">Hủy</button>
+                    <button class="btn-primary" id="btnConfirmImport" disabled>
+                        <i data-lucide="check"></i> Nhập dữ liệu
+                    </button>
+                </div>
             </div>
         </div>
     </div>

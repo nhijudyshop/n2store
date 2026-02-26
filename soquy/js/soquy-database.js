@@ -338,6 +338,46 @@ const SoquyDatabase = (function () {
         }
     }
 
+    /**
+     * Delete ALL vouchers from Firestore (and reset counters)
+     * @returns {Object} { deleted: number }
+     */
+    async function deleteAllVouchers() {
+        try {
+            const snapshot = await config.soquyCollectionRef.get();
+            const total = snapshot.size;
+            console.log('[SoquyDB] Deleting all vouchers:', total);
+
+            // Delete in batches of 500 (Firestore batch limit)
+            const batchSize = 500;
+            let deleted = 0;
+            const docs = snapshot.docs;
+
+            for (let i = 0; i < docs.length; i += batchSize) {
+                const batch = config.soquyCollectionRef.firestore.batch();
+                const chunk = docs.slice(i, i + batchSize);
+                chunk.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+                deleted += chunk.length;
+                console.log(`[SoquyDB] Deleted batch: ${deleted}/${total}`);
+            }
+
+            // Reset counters
+            const countersSnapshot = await config.soquyCountersRef.get();
+            if (countersSnapshot.size > 0) {
+                const counterBatch = config.soquyCountersRef.firestore.batch();
+                countersSnapshot.forEach(doc => counterBatch.delete(doc.ref));
+                await counterBatch.commit();
+                console.log('[SoquyDB] Counters reset');
+            }
+
+            return { deleted };
+        } catch (error) {
+            console.error('[SoquyDB] Error deleting all vouchers:', error);
+            throw error;
+        }
+    }
+
     // =====================================================
     // IMPORT FROM EXCEL
     // =====================================================
@@ -750,6 +790,7 @@ const SoquyDatabase = (function () {
         updateVoucher,
         cancelVoucher,
         deleteVoucher,
+        deleteAllVouchers,
         exportToCSV,
         importVouchers,
         autoAddCategory,
