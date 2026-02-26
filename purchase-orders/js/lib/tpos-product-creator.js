@@ -844,7 +844,7 @@ window.TPOSProductCreator = (function () {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching variants...`);
                     try {
                         const resp = await window.TPOSClient.authenticatedFetch(
-                            `${PROXY_URL}/api/odata/Product?$filter=DefaultCode eq '${productCode}'&$top=1&$select=Id,ProductTmplId&$expand=ProductVariants`
+                            `${PROXY_URL}/api/odata/Product?$filter=DefaultCode eq '${productCode}'&$top=1&$select=Id,ProductTmplId`
                         );
                         if (resp.ok) {
                             const fetchData = await resp.json();
