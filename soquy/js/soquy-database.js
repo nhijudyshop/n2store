@@ -400,26 +400,26 @@ const SoquyDatabase = (function () {
                     code: voucherCode,
                     type: voucherType,
                     fundType: effectiveFund,
-                    category: row['Loại thu chi'] || row['category'] || '',
-                    collector: row['Nhân viên'] || row['collector'] || '',
-                    objectType: row['Đối tượng'] || row['objectType'] || 'Khác',
-                    personName: row['Người nộp/nhận'] || row['personName'] || '',
-                    personCode: row['Mã người nộp/nhận'] || row['personCode'] || '',
-                    phone: row['Số điện thoại'] || row['phone'] || '',
-                    address: row['Địa chỉ'] || row['address'] || '',
+                    category: String(row['Loại thu chi'] || row['category'] || '').trim(),
+                    collector: String(row['Nhân viên'] || row['collector'] || '').trim(),
+                    objectType: String(row['Đối tượng'] || row['objectType'] || 'Khác').trim(),
+                    personName: String(row['Người nộp/nhận'] || row['personName'] || '').trim(),
+                    personCode: String(row['Mã người nộp/nhận'] || row['personCode'] || '').trim(),
+                    phone: String(row['Số điện thoại'] || row['phone'] || '').trim(),
+                    address: String(row['Địa chỉ'] || row['address'] || '').trim(),
                     amount: Math.abs(parseImportAmount(row['Giá trị'] || row['amount'] || 0)),
-                    note: row['Ghi chú'] || row['note'] || '',
-                    transferContent: row['Nội dung chuyển khoản'] || row['transferContent'] || '',
-                    accountName: row['Tên tài khoản'] || row['accountName'] || '',
-                    accountNumber: row['Số tài khoản'] || row['accountNumber'] || '',
-                    branch: row['Chi nhánh'] || row['branch'] || '',
+                    note: String(row['Ghi chú'] || row['note'] || '').trim(),
+                    transferContent: String(row['Nội dung chuyển khoản'] || row['transferContent'] || '').trim(),
+                    accountName: String(row['Tên tài khoản'] || row['accountName'] || '').trim(),
+                    accountNumber: String(row['Số tài khoản'] || row['accountNumber'] || '').trim(),
+                    branch: String(row['Chi nhánh'] || row['branch'] || '').trim(),
                     businessAccounting: parseBoolean(row['Hạch toán KQKD'] || row['businessAccounting'], true),
                     status: config.VOUCHER_STATUS.PAID,
                     voucherDateTime: parseImportDateTime(row['Thời gian'] || row['voucherDateTime'])
                         || firebase.firestore.Timestamp.fromDate(now),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    createdBy: row['Người tạo'] || row['createdBy'] || getCurrentUserName(),
+                    createdBy: String(row['Người tạo'] || row['createdBy'] || getCurrentUserName()).trim(),
                     cancelledAt: null,
                     cancelReason: ''
                 };
@@ -497,13 +497,16 @@ const SoquyDatabase = (function () {
      * Auto-add a category if it doesn't exist in the predefined list
      */
     async function autoAddCategory(category, voucherType) {
+        category = String(category || '').trim();
+        if (!category) return;
+
         const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
         const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
         const dynamicList = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
 
         // Check if already exists
         const allCategories = [...predefined, ...dynamicList];
-        if (allCategories.some(c => c.toLowerCase() === category.toLowerCase())) return;
+        if (allCategories.some(c => String(c).toLowerCase() === category.toLowerCase())) return;
 
         try {
             const docId = isReceipt ? 'receipt_categories' : 'payment_categories';
@@ -515,7 +518,7 @@ const SoquyDatabase = (function () {
                 items = doc.data().items || [];
             }
 
-            if (!items.some(c => c.toLowerCase() === category.toLowerCase())) {
+            if (!items.some(c => String(c).toLowerCase() === category.toLowerCase())) {
                 items.push(category);
                 await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
             }
@@ -541,8 +544,11 @@ const SoquyDatabase = (function () {
      * Auto-add a creator if not already known
      */
     async function autoAddCreator(creatorName) {
+        creatorName = String(creatorName || '').trim();
+        if (!creatorName) return;
+
         const dynamicList = state.dynamicCreators;
-        if (dynamicList.some(c => c.toLowerCase() === creatorName.toLowerCase())) return;
+        if (dynamicList.some(c => String(c).toLowerCase() === creatorName.toLowerCase())) return;
 
         try {
             const docRef = config.soquyMetaRef.doc('creators');
@@ -553,7 +559,7 @@ const SoquyDatabase = (function () {
                 items = doc.data().items || [];
             }
 
-            if (!items.some(c => c.toLowerCase() === creatorName.toLowerCase())) {
+            if (!items.some(c => String(c).toLowerCase() === creatorName.toLowerCase())) {
                 items.push(creatorName);
                 await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
             }
