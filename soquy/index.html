@@ -103,187 +103,299 @@
             <div id="cashBookTabContent" class="cashbook-layout" style="display: flex; height: 100%; margin: 0;">
                 <!-- Cash Book Sidebar -->
                 <div class="cashbook-sidebar">
-                    <h2 class="sidebar-title">Sổ quỹ tiền mặt</h2>
+                    <h2 class="sidebar-title" style="font-size: 16px; margin-bottom: 20px;">Sổ quỹ tiền mặt</h2>
 
                     <div class="filter-group">
-                        <h4>Loại chứng từ</h4>
-                        <label class="checkbox-label"><input type="checkbox"> <span>Phiếu thu</span></label>
-                        <label class="checkbox-label"><input type="checkbox"> <span>Phiếu chi</span></label>
+                        <h4>Quỹ tiền <i data-lucide="chevron-up" class="icon-sm"></i></h4>
+                        <label class="radio-label mb-2"><input type="radio" name="quytien" checked> <span
+                                class="radio-custom"></span> <span>Tiền mặt</span></label>
+                        <label class="radio-label mb-2"><input type="radio" name="quytien"> <span
+                                class="radio-custom"></span> <span>Ngân hàng</span></label>
+                        <label class="radio-label mb-2"><input type="radio" name="quytien"> <span
+                                class="radio-custom"></span> <span>Ví điện tử</span></label>
+                        <label class="radio-label"><input type="radio" name="quytien"> <span
+                                class="radio-custom"></span> <span>Tổng quỹ</span></label>
                     </div>
 
                     <div class="filter-group">
-                        <h4>Loại thu chi</h4>
+                        <h4>Thời gian <i data-lucide="chevron-up" class="icon-sm"></i></h4>
+                        <label class="radio-label mb-2" style="align-items: center;">
+                            <input type="radio" name="thoigian" checked>
+                            <span class="radio-custom"></span>
+                            <select class="form-control" style="flex:1; margin-left: 8px;">
+                                <option>Tháng này</option>
+                            </select>
+                        </label>
+                        <label class="radio-label" style="align-items: center;">
+                            <input type="radio" name="thoigian">
+                            <span class="radio-custom"></span>
+                            <div class="k-datetime-input" style="flex:1; margin-left:8px;">
+                                <input type="text" class="form-control" placeholder="Tùy chỉnh"
+                                    style="padding-right: 30px;">
+                                <i data-lucide="calendar"></i>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Loại chứng từ <i data-lucide="chevron-up" class="icon-sm"></i></h4>
+                        <label class="checkbox-label mb-2"><input type="checkbox"> <span class="checkbox-custom"></span>
+                            <span>Phiếu thu</span></label>
+                        <label class="checkbox-label"><input type="checkbox"> <span class="checkbox-custom"></span>
+                            <span>Phiếu chi</span></label>
+                    </div>
+
+                    <div class="filter-group">
+                        <h4>Loại thu chi <i data-lucide="chevron-up" class="icon-sm"></i></h4>
                         <input type="text" class="form-control" placeholder="Chọn loại thu chi">
                     </div>
 
                     <div class="filter-group">
-                        <h4>Trạng thái</h4>
-                        <label class="checkbox-label"><input type="checkbox" checked> <span>Đã thanh toán</span></label>
-                        <label class="checkbox-label"><input type="checkbox"> <span>Đã hủy</span></label>
+                        <h4>Trạng thái <i data-lucide="chevron-up" class="icon-sm"></i></h4>
+                        <label class="checkbox-label mb-2"><input type="checkbox" checked> <span
+                                class="checkbox-custom"></span> <span>Đã thanh toán</span></label>
+                        <label class="checkbox-label"><input type="checkbox"> <span class="checkbox-custom"></span>
+                            <span>Đã hủy</span></label>
                     </div>
 
                     <div class="filter-group">
-                        <h4>Hạch toán kết quả kinh doanh</h4>
-                        <div class="btn-group-toggle">
-                            <button class="btn-toggle active">Tất cả</button>
-                            <button class="btn-toggle">Có</button>
-                            <button class="btn-toggle">Không</button>
+                        <h4>Hạch toán kết quả kinh doanh <i data-lucide="chevron-down" class="icon-sm"></i></h4>
+                        <div class="btn-group-toggle" style="margin-top: 8px;">
+                            <button class="btn-toggle active"
+                                style="padding: 4px 12px; border-radius: 14px; background: #007bff; color: white;">Tất
+                                cả</button>
+                            <button class="btn-toggle"
+                                style="padding: 4px 12px; border-radius: 14px; background: white; color: #333; border: 1px solid #ccc; margin: 0 4px;">Có</button>
+                            <button class="btn-toggle"
+                                style="padding: 4px 12px; border-radius: 14px; background: white; color: #333; border: 1px solid #ccc;">Không</button>
                         </div>
                     </div>
 
                     <div class="filter-group">
-                        <h4>Người tạo</h4>
+                        <h4>Người tạo <i data-lucide="chevron-down" class="icon-sm"></i></h4>
                         <input type="text" class="form-control" placeholder="Chọn người tạo">
                     </div>
 
-                    <div class="filter-group">
-                        <h4>Nhân viên</h4>
+                    <div class="filter-group" style="border-bottom: none;">
+                        <h4>Nhân viên <i data-lucide="chevron-down" class="icon-sm"></i></h4>
                         <input type="text" class="form-control" placeholder="Chọn nhân viên">
-                    </div>
-
-                    <div class="filter-group">
-                        <h4>Người nộp/nhận</h4>
-                        <select class="form-control mb-2">
-                            <option>Tất cả</option>
-                        </select>
-                        <input type="text" class="form-control mt-2" placeholder="Tên, mã người nộp/nhận">
-                        <input type="text" class="form-control mt-2" placeholder="Số điện thoại">
-                    </div>
-
-                    <div class="filter-group">
-                        <h4>Công nợ đối tác</h4>
-                        <label class="checkbox-label"><input type="checkbox" checked> <span>Tính vào công
-                                nợ</span></label>
-                        <label class="checkbox-label"><input type="checkbox" checked> <span>Không tính vào công
-                                nợ</span></label>
-                        <label class="checkbox-label"><input type="checkbox" checked> <span>Không có công
-                                nợ</span></label>
                     </div>
                 </div>
 
                 <!-- Cash Book Main Container -->
-                <div class="cashbook-main">
-                    <!-- Top Action Bar -->
-                    <div class="cashbook-top-bar">
-                        <div class="search-bar">
-                            <i data-lucide="search" class="search-icon"></i>
-                            <input type="text" placeholder="Theo mã phiếu">
-                            <button class="btn-icon"><i data-lucide="sliders-horizontal"></i></button>
-                        </div>
-                        <div class="action-buttons">
-                            <button class="k-btn-outline-primary" id="btnShowCreateReceipt"><i data-lucide="plus"></i>
-                                Phiếu thu</button>
-                            <button class="k-btn-outline-primary" id="btnShowCreatePayment"><i data-lucide="plus"></i>
-                                Phiếu chi</button>
-                            <button class="k-btn-outline"><i data-lucide="file-output"></i> Xuất file</button>
-                            <button class="k-btn-outline" style="padding: 0 8px;"><i data-lucide="menu"></i></button>
-                            <button class="k-btn-outline" style="padding: 0 8px;"><i
-                                    data-lucide="settings"></i></button>
-                            <button class="k-btn-outline" style="padding: 0 8px;"><i
-                                    data-lucide="help-circle"></i></button>
-                        </div>
-                    </div>
+                <div class="cashbook-main" style="background-color: #f0f2f5; padding: 16px;">
+                    <div
+                        style="background: #fff; border-radius: 4px; display: flex; flex-direction: column; height: 100%;">
+                        <!-- Top Header Section -->
+                        <div style="padding: 16px 20px 0; border-bottom: 1px solid #f0f0f0;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="search-bar" style="position: relative; width: 350px;">
+                                    <i data-lucide="search"
+                                        style="position: absolute; left: 12px; top: 8px; color: #999; width: 16px; height: 16px;"></i>
+                                    <input type="text" placeholder="Theo mã phiếu" class="form-control"
+                                        style="width: 100%; padding-left: 36px; padding-right: 36px; border-radius: 4px;">
+                                    <i data-lucide="sliders-horizontal"
+                                        style="position: absolute; right: 12px; top: 8px; color: #666; width: 16px; height: 16px; cursor: pointer;"></i>
+                                </div>
 
-                    <!-- Summary Stats -->
-                    <div class="cashbook-summary">
-                        <div class="stat-box">
-                            <span class="stat-label">Quỹ đầu kỳ</span>
-                            <span class="stat-value text-dark">-8,667,464,666</span>
-                        </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Tổng thu</span>
-                            <span class="stat-value text-primary">0</span>
-                        </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Tổng chi</span>
-                            <span class="stat-value text-danger">-860,752,999</span>
-                        </div>
-                        <div class="stat-box">
-                            <span class="stat-label">Tồn quỹ <i data-lucide="info" class="icon-sm"></i></span>
-                            <span class="stat-value text-success">-9,528,217,665</span>
-                        </div>
-                    </div>
+                                <div class="action-buttons d-flex gap-2 align-items-center">
+                                    <button class="k-btn-primary-outline" id="btnShowCreateReceipt"
+                                        style="border: 1px solid #1890ff; color: #1890ff; background: #fff; padding: 6px 16px; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer;">
+                                        <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Phiếu thu
+                                    </button>
+                                    <button class="k-btn-primary-outline" id="btnShowCreatePayment"
+                                        style="border: 1px solid #1890ff; color: #1890ff; background: #fff; padding: 6px 16px; border-radius: 4px; display: flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer;">
+                                        <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Phiếu chi
+                                    </button>
+                                    <button class="k-btn-outline"
+                                        style="border: 1px solid #d9d9d9; background: #fff; padding: 6px 16px; border-radius: 4px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                        <i data-lucide="file-output" style="width: 16px; height: 16px;"></i> Xuất file
+                                    </button>
+                                    <button class="k-btn-icon"
+                                        style="border: 1px solid #d9d9d9; background: #fff; padding: 6px; border-radius: 4px; display: flex; align-items: center; cursor: pointer;">
+                                        <i data-lucide="layout-grid"
+                                            style="width: 16px; height: 16px; color: #666;"></i>
+                                    </button>
+                                    <button class="k-btn-icon"
+                                        style="border: 1px solid #d9d9d9; background: #fff; padding: 6px; border-radius: 4px; display: flex; align-items: center; cursor: pointer;">
+                                        <i data-lucide="settings" style="width: 16px; height: 16px; color: #666;"></i>
+                                    </button>
+                                    <button class="k-btn-icon"
+                                        style="border: 1px solid #d9d9d9; background: #fff; padding: 6px; border-radius: 4px; display: flex; align-items: center; cursor: pointer;">
+                                        <i data-lucide="help-circle"
+                                            style="width: 16px; height: 16px; color: #666;"></i>
+                                    </button>
+                                </div>
+                            </div>
 
-                    <!-- Table -->
-                    <div class="cashbook-table-container">
-                        <table class="cashbook-table">
-                            <thead>
-                                <tr>
-                                    <th style="width: 40px;"><input type="checkbox"></th>
-                                    <th style="width: 40px;"><i data-lucide="star"></i></th>
-                                    <th>Mã phiếu</th>
-                                    <th>Thời gian</th>
-                                    <th>Loại thu chi</th>
-                                    <th>Người nộp/nhận</th>
-                                    <th style="text-align: right;">Giá trị</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Sample Rows based on screenshot -->
-                                <tr>
-                                    <td><input type="checkbox"></td>
-                                    <td><i data-lucide="star" class="text-warning"></i></td>
-                                    <td class="text-primary">CTM003068</td>
-                                    <td>26/02/2026 10:49</td>
-                                    <td>Chi CC CHỊ NHI</td>
-                                    <td></td>
-                                    <td style="text-align: right;" class="text-danger">-1,964,000</td>
-                                </tr>
-                                <tr>
-                                    <td><input type="checkbox"></td>
-                                    <td><i data-lucide="star" class="text-warning"></i></td>
-                                    <td class="text-primary">CTM003067</td>
-                                    <td>26/02/2026 10:49</td>
-                                    <td>Chi CC A TRƯỜNG</td>
-                                    <td></td>
-                                    <td style="text-align: right;" class="text-danger">-200,000</td>
-                                </tr>
-                                <tr>
-                                    <td><input type="checkbox"></td>
-                                    <td><i data-lucide="star" class="text-warning"></i></td>
-                                    <td class="text-primary">CTM003066</td>
-                                    <td>25/02/2026 08:39</td>
-                                    <td>Chi CC A TRƯỜNG</td>
-                                    <td></td>
-                                    <td style="text-align: right;" class="text-danger">-800,000</td>
-                                </tr>
-                                <tr>
-                                    <td><input type="checkbox"></td>
-                                    <td><i data-lucide="star" class="text-warning"></i></td>
-                                    <td class="text-primary">CTM003065</td>
-                                    <td>25/02/2026 08:39</td>
-                                    <td>Chi phí khác</td>
-                                    <td></td>
-                                    <td style="text-align: right;" class="text-danger">-3,000,000</td>
-                                </tr>
-                                <tr>
-                                    <td><input type="checkbox"></td>
-                                    <td><i data-lucide="star" class="text-warning"></i></td>
-                                    <td class="text-primary">CTM003064</td>
-                                    <td>22/02/2026 22:55</td>
-                                    <td>Chi CC CHỊ NHI</td>
-                                    <td></td>
-                                    <td style="text-align: right;" class="text-danger">-1,500,000</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Pagination -->
-                    <div class="cashbook-pagination">
-                        <div class="page-size">
-                            <span>Hiển thị</span>
-                            <select>
-                                <option>15 dòng</option>
-                            </select>
+                            <!-- Summary Stats inline -->
+                            <div class="cashbook-summary d-flex justify-content-end mb-3"
+                                style="gap: 50px; padding-right: 180px;">
+                                <div class="stat-box text-center">
+                                    <div style="font-size: 13px; color: #8c8c8c; margin-bottom: 4px;">Quỹ đầu kỳ</div>
+                                    <div style="font-size: 15px; font-weight: 600; color: #333;">-8,667,464,666</div>
+                                </div>
+                                <div class="stat-box text-center">
+                                    <div style="font-size: 13px; color: #8c8c8c; margin-bottom: 4px;">Tổng thu</div>
+                                    <div style="font-size: 15px; font-weight: 600; color: #1890ff;">0</div>
+                                </div>
+                                <div class="stat-box text-center">
+                                    <div style="font-size: 13px; color: #8c8c8c; margin-bottom: 4px;">Tổng chi</div>
+                                    <div style="font-size: 15px; font-weight: 600; color: #ff4d4f;">-860,752,999</div>
+                                </div>
+                                <div class="stat-box text-center">
+                                    <div
+                                        style="font-size: 13px; color: #8c8c8c; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                        Tồn quỹ <i data-lucide="info"
+                                            style="width: 14px; height: 14px; color: #bfbfbf; cursor: pointer;"></i>
+                                    </div>
+                                    <div style="font-size: 15px; font-weight: 600; color: #52c41a;">-9,528,217,665</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="page-controls">
-                            <button class="btn-icon" disabled><i data-lucide="chevrons-left"></i></button>
-                            <button class="btn-icon" disabled><i data-lucide="chevron-left"></i></button>
-                            <span class="current-page">1</span>
-                            <button class="btn-icon"><i data-lucide="chevron-right"></i></button>
-                            <button class="btn-icon"><i data-lucide="chevrons-right"></i></button>
-                            <span class="page-info">1 - 15 trong 217 phiếu thu chi</span>
+
+                        <!-- Table Container -->
+                        <div class="cashbook-table-container" style="flex: 1; overflow-y: auto;">
+                            <table class="cashbook-table w-100" style="border-collapse: collapse;">
+                                <thead>
+                                    <tr>
+                                        <th
+                                            style="width: 40px; text-align: center; padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 13px; color: #333;">
+                                            <input type="checkbox"></th>
+                                        <th
+                                            style="width: 40px; text-align: center; padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 13px; color: #333;">
+                                            <i data-lucide="star"
+                                                style="width: 16px; height: 16px; color: #bfbfbf;"></i></th>
+                                        <th
+                                            style="padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 13px; color: #333; text-align: left;">
+                                            Mã phiếu <i data-lucide="arrow-down"
+                                                style="width: 14px; height: 14px; margin-left: 4px;"></i></th>
+                                        <th
+                                            style="padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 13px; color: #333; text-align: left;">
+                                            Thời gian</th>
+                                        <th
+                                            style="padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 13px; color: #333; text-align: left;">
+                                            Loại thu chi</th>
+                                        <th
+                                            style="padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 13px; color: #333; text-align: left;">
+                                            Người nộp/nhận</th>
+                                        <th
+                                            style="padding: 10px 16px; background: #f0f7ff; border-bottom: 1px solid #e8e8e8; font-weight: 600; font-size: 13px; color: #333; text-align: right;">
+                                            Giá trị</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                                        <td style="text-align: center; padding: 12px 16px;"><input type="checkbox"></td>
+                                        <td style="text-align: center; padding: 12px 16px;"><i data-lucide="star"
+                                                style="width: 16px; height: 16px; color: #bfbfbf;"></i></td>
+                                        <td style="padding: 12px 16px;"><a href="#"
+                                                style="color: #1890ff; text-decoration: none; font-size: 13px;">CTM003068</a>
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">26/02/2026 10:49
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">Chi CC CHỊ NHI
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;"></td>
+                                        <td
+                                            style="padding: 12px 16px; font-size: 13px; color: #333; text-align: right;">
+                                            -1,964,000</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                                        <td style="text-align: center; padding: 12px 16px;"><input type="checkbox"></td>
+                                        <td style="text-align: center; padding: 12px 16px;"><i data-lucide="star"
+                                                style="width: 16px; height: 16px; color: #bfbfbf;"></i></td>
+                                        <td style="padding: 12px 16px;"><a href="#"
+                                                style="color: #1890ff; text-decoration: none; font-size: 13px;">CTM003067</a>
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">26/02/2026 10:49
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">Chi CC A TRƯỜNG
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;"></td>
+                                        <td
+                                            style="padding: 12px 16px; font-size: 13px; color: #333; text-align: right;">
+                                            -200,000</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                                        <td style="text-align: center; padding: 12px 16px;"><input type="checkbox"></td>
+                                        <td style="text-align: center; padding: 12px 16px;"><i data-lucide="star"
+                                                style="width: 16px; height: 16px; color: #bfbfbf;"></i></td>
+                                        <td style="padding: 12px 16px;"><a href="#"
+                                                style="color: #1890ff; text-decoration: none; font-size: 13px;">CTM003066</a>
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">25/02/2026 08:39
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">Chi CC A TRƯỜNG
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;"></td>
+                                        <td
+                                            style="padding: 12px 16px; font-size: 13px; color: #333; text-align: right;">
+                                            -800,000</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                                        <td style="text-align: center; padding: 12px 16px;"><input type="checkbox"></td>
+                                        <td style="text-align: center; padding: 12px 16px;"><i data-lucide="star"
+                                                style="width: 16px; height: 16px; color: #bfbfbf;"></i></td>
+                                        <td style="padding: 12px 16px;"><a href="#"
+                                                style="color: #1890ff; text-decoration: none; font-size: 13px;">CTM003065</a>
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">25/02/2026 08:39
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">Chi phí khác</td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;"></td>
+                                        <td
+                                            style="padding: 12px 16px; font-size: 13px; color: #333; text-align: right;">
+                                            -3,000,000</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid #f0f0f0;">
+                                        <td style="text-align: center; padding: 12px 16px;"><input type="checkbox"></td>
+                                        <td style="text-align: center; padding: 12px 16px;"><i data-lucide="star"
+                                                style="width: 16px; height: 16px; color: #bfbfbf;"></i></td>
+                                        <td style="padding: 12px 16px;"><a href="#"
+                                                style="color: #1890ff; text-decoration: none; font-size: 13px;">CTM003064</a>
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">22/02/2026 22:55
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;">Chi CC CHỊ NHI
+                                        </td>
+                                        <td style="padding: 12px 16px; font-size: 13px; color: #333;"></td>
+                                        <td
+                                            style="padding: 12px 16px; font-size: 13px; color: #333; text-align: right;">
+                                            -1,500,000</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="cashbook-pagination d-flex justify-content-between align-items-center"
+                            style="padding: 12px 24px; border-top: 1px solid #e8e8e8; background: #fff;">
+                            <div class="page-size d-flex align-items-center gap-2">
+                                <span style="font-size: 13px; color: #666;">Hiển thị</span>
+                                <select class="form-control"
+                                    style="width: auto; height: 28px; padding: 0 8px; font-size: 13px;">
+                                    <option>15 dòng</option>
+                                </select>
+                            </div>
+                            <div class="page-controls d-flex align-items-center gap-1">
+                                <button class="k-btn-icon" disabled
+                                    style="width: 28px; height: 28px; border: 1px solid #d9d9d9; background: #f5f5f5; color: #ccc; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i
+                                        data-lucide="chevrons-left" style="width: 14px; height: 14px;"></i></button>
+                                <button class="k-btn-icon" disabled
+                                    style="width: 28px; height: 28px; border: 1px solid #d9d9d9; background: #f5f5f5; color: #ccc; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i
+                                        data-lucide="chevron-left" style="width: 14px; height: 14px;"></i></button>
+                                <button class="k-btn-icon active"
+                                    style="width: 28px; height: 28px; border: 1px solid #1890ff; color: #1890ff; background: #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 13px; margin: 0 4px;">1</button>
+                                <button class="k-btn-icon"
+                                    style="width: 28px; height: 28px; border: 1px solid #d9d9d9; background: #fff; color: #666; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i
+                                        data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></button>
+                                <button class="k-btn-icon"
+                                    style="width: 28px; height: 28px; border: 1px solid #d9d9d9; background: #fff; color: #666; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i
+                                        data-lucide="chevrons-right" style="width: 14px; height: 14px;"></i></button>
+                                <span class="page-info ml-3" style="font-size: 13px; color: #666; margin-left: 12px;">1
+                                    - 15 trong 217 phiếu thu chi</span>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -5,718 +5,729 @@
 -->
 <!doctype html>
 <html lang="vi">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Đơn Social - N2Store</title>
-        <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-            rel="stylesheet"
-        />
-        <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-        />
-        <!-- Reuse styles from tab1 -->
-        <link rel="stylesheet" href="css/tab1-orders.css" />
-        <!-- Custom styles for social tab -->
-        <link rel="stylesheet" href="css/tab-social-orders.css" />
-    </head>
 
-    <body>
-        <!-- Loading Overlay -->
-        <div class="loading-overlay" id="loadingOverlay" style="display: none">
-            <div style="background: white; padding: 32px; border-radius: 12px; text-align: center">
-                <div class="loading-spinner" style="margin: 0 auto 16px"></div>
-                <div class="loading-text" style="font-size: 14px; color: #6b7280">
-                    Đang tải dữ liệu...
-                </div>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đơn Social - N2Store</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Reuse styles from tab1 -->
+    <link rel="stylesheet" href="css/tab1-orders.css" />
+    <!-- Chat modal styles (from tab1) -->
+    <link rel="stylesheet" href="css/tab1-chat-modal.css" />
+    <!-- Custom styles for social tab -->
+    <link rel="stylesheet" href="css/tab-social-orders.css" />
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none">
+        <div style="background: white; padding: 32px; border-radius: 12px; text-align: center">
+            <div class="loading-spinner" style="margin: 0 auto 16px"></div>
+            <div class="loading-text" style="font-size: 14px; color: #6b7280">
+                Đang tải dữ liệu...
             </div>
         </div>
+    </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Header Section -->
-            <div class="social-header">
-                <div class="social-header-left">
-                    <h1 class="social-title">
-                        <i class="fas fa-share-nodes"></i>
-                        Đơn Social
-                    </h1>
-                    <span class="social-subtitle">Quản lý đơn hàng từ các kênh mạng xã hội</span>
-                </div>
-                <div class="social-header-actions">
-                    <button class="btn-primary btn-create-order" onclick="openCreateOrderModal()">
-                        <i class="fas fa-plus"></i>
-                        Tạo đơn mới
-                    </button>
-                    <button
-                        class="btn-primary"
-                        onclick="showBulkTagModal()"
-                        style="background: linear-gradient(135deg, #10b981 0%, #059669 100%)"
-                    >
-                        <i class="fas fa-tags"></i>
-                        Gán Tag Hàng Loạt
-                    </button>
-                    <button
-                        class="btn-primary btn-column-settings"
-                        onclick="openColumnSettingsModal()"
-                        style="background: #8b5cf6"
-                    >
-                        <i class="fas fa-columns"></i>
-                        Cài đặt cột
-                    </button>
-                </div>
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header Section -->
+        <div class="social-header">
+            <div class="social-header-left">
+                <h1 class="social-title">
+                    <i class="fas fa-share-nodes"></i>
+                    Đơn Social
+                </h1>
+                <span class="social-subtitle">Quản lý đơn hàng từ các kênh mạng xã hội</span>
             </div>
-
-            <!-- Unified Filter & Search Section -->
-            <div class="unified-filter-section" id="unifiedFilterSection">
-                <!-- Row 1: Search + Date Filters -->
-                <div class="filter-row">
-                    <!-- Search -->
-                    <div class="search-wrapper">
-                        <i class="fas fa-search search-icon"></i>
-                        <input
-                            type="text"
-                            class="search-input"
-                            id="tableSearchInput"
-                            placeholder="Tìm theo tên, SĐT, mã đơn..."
-                            oninput="performTableSearch()"
-                            autocomplete="off"
-                        />
-                        <button class="search-clear" id="searchClearBtn" onclick="clearSearch()">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-
-                    <!-- Date Quick Filters -->
-                    <div class="date-filter-group">
-                        <button
-                            class="date-filter-btn active"
-                            data-range="all"
-                            onclick="setDateFilter('all')"
-                        >
-                            Tất cả
-                        </button>
-                        <button
-                            class="date-filter-btn"
-                            data-range="today"
-                            onclick="setDateFilter('today')"
-                        >
-                            Hôm nay
-                        </button>
-                        <button
-                            class="date-filter-btn"
-                            data-range="yesterday"
-                            onclick="setDateFilter('yesterday')"
-                        >
-                            Hôm qua
-                        </button>
-                        <button
-                            class="date-filter-btn"
-                            data-range="3days"
-                            onclick="setDateFilter('3days')"
-                        >
-                            3N
-                        </button>
-                        <button
-                            class="date-filter-btn"
-                            data-range="7days"
-                            onclick="setDateFilter('7days')"
-                        >
-                            7N
-                        </button>
-                        <button
-                            class="date-filter-btn"
-                            data-range="15days"
-                            onclick="setDateFilter('15days')"
-                        >
-                            15N
-                        </button>
-                        <button
-                            class="date-filter-btn"
-                            data-range="custom"
-                            onclick="toggleCustomDateRange()"
-                        >
-                            <i class="fas fa-calendar-alt"></i>
-                        </button>
-                    </div>
-
-                    <!-- Custom Date Range (hidden by default) -->
-                    <div class="custom-date-range" id="customDateRange" style="display: none">
-                        <input type="date" id="dateFrom" onchange="applyCustomDateRange()" />
-                        <span>→</span>
-                        <input type="date" id="dateTo" onchange="applyCustomDateRange()" />
-                    </div>
-                </div>
-
-                <!-- Row 2: Status, Source, Tag Filters + Result Count -->
-                <div class="filter-row">
-                    <!-- Status Filter -->
-                    <div class="filter-item">
-                        <label>Trạng thái:</label>
-                        <select
-                            id="statusFilter"
-                            onchange="performTableSearch()"
-                            class="search-filter-select"
-                        >
-                            <option value="all" selected>Tất cả</option>
-                            <option value="draft">Nháp</option>
-                            <option value="processing">Đang xử lý</option>
-                            <option value="completed">Hoàn thành</option>
-                            <option value="cancelled">Đã hủy</option>
-                        </select>
-                    </div>
-
-                    <!-- Source Filter -->
-                    <div class="filter-item">
-                        <label>Nguồn:</label>
-                        <select
-                            id="sourceFilter"
-                            onchange="performTableSearch()"
-                            class="search-filter-select"
-                        >
-                            <option value="all" selected>Tất cả</option>
-                            <option value="manual">Thủ công</option>
-                            <option value="facebook_post">Facebook Post</option>
-                            <option value="instagram">Instagram</option>
-                            <option value="tiktok">TikTok</option>
-                        </select>
-                    </div>
-
-                    <!-- TAG Filter -->
-                    <div class="filter-item">
-                        <label>TAG:</label>
-                        <select
-                            id="tagFilter"
-                            onchange="performTableSearch()"
-                            class="search-filter-select"
-                        >
-                            <option value="all" selected>Tất cả</option>
-                            <!-- Options populated by JS -->
-                        </select>
-                    </div>
-
-                    <!-- Spacer -->
-                    <div style="flex: 1"></div>
-
-                    <!-- Result Count & Reload -->
-                    <div class="filter-result">
-                        <span class="search-result-count" id="searchResultCount">0</span>
-                        <span>kết quả</span>
-                        <button class="btn-reload" onclick="loadOrders()" title="Tải lại">
-                            <i class="fas fa-sync"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Action Buttons Section (when orders selected) -->
-            <div
-                class="action-buttons-section"
-                style="padding: 16px 24px; display: none; gap: 12px; flex-wrap: wrap"
-                id="actionButtonsSection"
-            >
-                <div style="display: flex; gap: 8px; align-items: center">
-                    <span style="color: #6b7280; font-size: 13px; font-weight: 500">
-                        <span id="selectedOrdersCount">0</span> đơn được chọn
-                    </span>
-                </div>
-                <button
-                    class="btn-primary"
-                    onclick="deleteSelectedOrders()"
-                    style="background: #ef4444"
-                >
-                    <i class="fas fa-trash"></i>
-                    Xóa đã chọn
+            <div class="social-header-actions">
+                <button class="btn-primary btn-create-order" onclick="openCreateOrderModal()">
+                    <i class="fas fa-plus"></i>
+                    Tạo đơn mới
+                </button>
+                <button class="btn-primary" onclick="showBulkTagModal()"
+                    style="background: linear-gradient(135deg, #10b981 0%, #059669 100%)">
+                    <i class="fas fa-tags"></i>
+                    Gán Tag Hàng Loạt
+                </button>
+                <button class="btn-primary btn-column-settings" onclick="openColumnSettingsModal()"
+                    style="background: #8b5cf6">
+                    <i class="fas fa-columns"></i>
+                    Cài đặt cột
                 </button>
             </div>
-
-            <!-- Table Container -->
-            <div class="table-container" id="tableContainer">
-                <div class="table-wrapper" id="tableWrapper">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>
-                                    <input
-                                        type="checkbox"
-                                        id="selectAll"
-                                        onchange="toggleSelectAll()"
-                                    />
-                                </th>
-                                <th data-column="actions">Thao tác</th>
-                                <th data-column="stt">STT</th>
-                                <th data-column="tag">TAG</th>
-                                <th data-column="customer">Khách hàng</th>
-                                <th data-column="phone">SĐT</th>
-                                <th data-column="chat">Chat</th>
-                                <th data-column="products">Sản phẩm</th>
-                                <th data-column="post">Bài Post</th>
-                                <th data-column="address">Địa chỉ</th>
-                                <th data-column="total">Tổng</th>
-                                <th data-column="created-date">Ngày tạo</th>
-                                <th data-column="status">Trạng thái</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <tr>
-                                <td colspan="13" style="text-align: center; padding: 40px">
-                                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <!-- Pagination Info -->
-                <div class="pagination-wrapper">
-                    <div id="pageInfo">Hiển thị 0 - 0 của 0</div>
-                </div>
-            </div>
         </div>
 
-        <!-- Create/Edit Order Modal -->
-        <div class="modal-overlay" id="orderModalOverlay">
-            <div class="modal-content modal-large">
-                <div class="modal-header">
-                    <h3 id="orderModalTitle">
-                        <i class="fas fa-plus-circle"></i>
-                        Tạo đơn hàng mới
-                    </h3>
-                    <button class="modal-close" onclick="closeOrderModal()">×</button>
-                </div>
-                <div class="modal-body">
-                    <form id="orderForm">
-                        <!-- Customer Info -->
-                        <div class="form-section">
-                            <h4><i class="fas fa-user"></i> Thông tin khách hàng</h4>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Tên khách hàng <span class="required">*</span></label>
-                                    <input
-                                        type="text"
-                                        id="customerName"
-                                        placeholder="Nhập tên khách hàng"
-                                        required
-                                    />
-                                </div>
-                                <div class="form-group">
-                                    <label>Số điện thoại <span class="required">*</span></label>
-                                    <input
-                                        type="tel"
-                                        id="customerPhone"
-                                        placeholder="0901234567"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Địa chỉ</label>
-                                <input
-                                    type="text"
-                                    id="customerAddress"
-                                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
-                                />
-                            </div>
-                        </div>
-
-                        <!-- Post Info -->
-                        <div class="form-section">
-                            <h4><i class="fas fa-link"></i> Nguồn đơn</h4>
-                            <div class="form-row">
-                                <div class="form-group" style="flex: 2;">
-                                    <label>Link bài Post</label>
-                                    <div class="post-url-input-wrapper" onclick="openPostSelectionModal()">
-                                        <input
-                                            type="text"
-                                            id="postUrl"
-                                            placeholder="Nhấn để chọn bài viết..."
-                                            readonly
-                                        />
-                                        <input type="hidden" id="selectedPostId" />
-                                        <input type="hidden" id="selectedPostThumbnail" />
-                                    </div>
-                                    <!-- Selected Post Preview -->
-                                    <div class="selected-post-preview" id="selectedPostPreview" style="display: none;">
-                                        <img id="selectedPostThumb" src="" alt="" />
-                                        <div class="selected-post-info">
-                                            <div class="selected-post-title" id="selectedPostTitle"></div>
-                                            <button type="button" class="selected-post-clear" onclick="clearSelectedPost(event)">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Nguồn</label>
-                                    <select id="orderSource">
-                                        <option value="manual">Thủ công</option>
-                                        <option value="facebook_post" selected>Facebook Post</option>
-                                        <option value="instagram">Instagram</option>
-                                        <option value="tiktok">TikTok</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Products -->
-                        <div class="form-section" id="socialProductSection">
-                            <h4><i class="fas fa-box"></i> Sản phẩm</h4>
-
-                            <!-- Toolbar -->
-                            <div id="socialProductToolbar" style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center;">
-                                <input type="text" id="socialProductSearch"
-                                       placeholder="Tìm kiếm sản phẩm theo tên..."
-                                       style="flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
-                                <input type="text" id="socialOrderNote"
-                                       placeholder="Ghi chú thêm cho đơn hàng..."
-                                       style="flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
-                                <button id="btnSocialSettings" type="button"
-                                        style="padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer;"
-                                        title="Cài đặt validation giá">⚙</button>
-                                <button id="btnAddSocialItem" type="button"
-                                        onclick="window.purchaseOrderFormModal && (window.purchaseOrderFormModal.addItem(), window.purchaseOrderFormModal.refreshItemsTable())"
-                                        style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    + Thêm sản phẩm
-                                </button>
-                                <button id="btnPickFromInventory" type="button"
-                                        style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    Chọn từ Kho SP
-                                </button>
-                            </div>
-
-                            <!-- Bảng sản phẩm — PurchaseOrderFormModal.renderItemRows() render vào #itemsTableBody -->
-                            <div id="socialProductTableContainer" style="overflow-x: auto;">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                                    <thead>
-                                        <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
-                                            <th style="padding: 8px; text-align: center; white-space: nowrap;">STT</th>
-                                            <th style="padding: 8px; text-align: left; min-width: 140px;">Tên SP</th>
-                                            <th style="padding: 8px; text-align: left; min-width: 100px;">Biến thể</th>
-                                            <th style="padding: 8px; text-align: left; min-width: 90px;">Mã SP</th>
-                                            <th style="padding: 8px; text-align: center; width: 60px;">SL</th>
-                                            <th style="padding: 8px; text-align: right; min-width: 100px;">Giá mua (VND)</th>
-                                            <th style="padding: 8px; text-align: right; min-width: 100px;">Giá bán (VND)</th>
-                                            <th style="padding: 8px; text-align: right; min-width: 100px;">Thành tiền (VND)</th>
-                                            <th style="padding: 8px; text-align: center; width: 70px;">Ảnh SP</th>
-                                            <th style="padding: 8px; text-align: center; width: 70px;">Ảnh Giá mua</th>
-                                            <th style="padding: 8px; text-align: center; width: 80px;">Thao tác</th>
-                                            <th style="padding: 8px; text-align: center; white-space: nowrap;">
-                                                <button type="button" id="btnToggleDebug" style="
-                                                    background: none; border: none; cursor: pointer; padding: 4px;
-                                                    color: #9ca3af; display: inline-flex; align-items: center; gap: 4px;
-                                                " title="Toggle Debug: Attr IDs">
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <polyline points="9 18 15 12 9 6"></polyline>
-                                                    </svg>
-                                                </button>
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="itemsTableBody">
-                                        <!-- renderItemRows() của PurchaseOrderFormModal sẽ render vào đây -->
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- Totals -->
-                            <div class="products-summary" id="productsSummary" style="margin-top: 8px; display: flex; gap: 24px; justify-content: flex-end; font-size: 13px;">
-                                <div class="summary-row">
-                                    <span>Tổng SL:</span>
-                                    <strong id="totalQuantity">0</strong>
-                                </div>
-                                <div class="summary-row total">
-                                    <span>Tổng tiền:</span>
-                                    <strong id="totalAmount">0đ</strong>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Note -->
-                        <div class="form-section">
-                            <h4><i class="fas fa-sticky-note"></i> Ghi chú</h4>
-                            <div class="form-group">
-                                <textarea
-                                    id="orderNote"
-                                    rows="2"
-                                    placeholder="Ghi chú cho đơn hàng..."
-                                ></textarea>
-                            </div>
-                        </div>
-
-                        <!-- Hidden fields -->
-                        <input type="hidden" id="orderId" />
-                        <input type="hidden" id="orderProducts" value="[]" />
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="closeOrderModal()">
-                        Hủy
-                    </button>
-                    <button type="button" class="btn-primary btn-save" onclick="saveOrder()">
-                        <i class="fas fa-save"></i>
-                        Lưu đơn hàng
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tag Modal (clone from tab1) -->
-        <div class="tag-modal" id="tagModal">
-            <div class="tag-modal-content">
-                <div class="tag-modal-header">
-                    <button class="tag-btn-save-header" onclick="saveOrderTags()">
-                        Lưu (Ctrl + Enter)
-                    </button>
-                    <button class="tag-modal-close" onclick="closeTagModal()">×</button>
-                </div>
-                <div class="tag-modal-body">
-                    <div class="tag-input-container">
-                        <div class="selected-tags-pills" id="selectedTagsPills"></div>
-                        <input
-                            type="text"
-                            id="tagSearchInput"
-                            class="tag-add-input"
-                            placeholder="Tìm tag..."
-                            oninput="filterTags()"
-                            onkeydown="handleTagInputKeydown(event)"
-                        />
-                    </div>
-                    <div class="tag-dropdown-list" id="tagList">
-                        <div class="no-tags-message">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            <p>Đang tải danh sách tag...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Confirm Delete Modal -->
-        <div class="modal-overlay" id="confirmDeleteModal">
-            <div class="modal-content" style="max-width: 400px">
-                <div class="modal-header">
-                    <h3>
-                        <i class="fas fa-exclamation-triangle" style="color: #ef4444"></i> Xác nhận
-                        xóa
-                    </h3>
-                    <button class="modal-close" onclick="closeConfirmDeleteModal()">×</button>
-                </div>
-                <div class="modal-body" style="text-align: center; padding: 24px">
-                    <p id="confirmDeleteMessage">Bạn có chắc muốn xóa đơn này?</p>
-                </div>
-                <div class="modal-footer" style="justify-content: center">
-                    <button type="button" class="btn-secondary" onclick="closeConfirmDeleteModal()">
-                        Hủy
-                    </button>
-                    <button
-                        type="button"
-                        class="btn-primary"
-                        style="background: #ef4444"
-                        onclick="confirmDelete()"
-                    >
-                        <i class="fas fa-trash"></i>
-                        Xóa
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Facebook Post Selection Modal -->
-        <div class="modal-overlay" id="postSelectionModal">
-            <div class="modal-content modal-large post-selection-modal">
-                <div class="modal-header">
-                    <h3>
-                        <i class="fab fa-facebook" style="color: #1877f2"></i>
-                        Chọn bài viết
-                    </h3>
-                    <button class="modal-close" onclick="closePostSelectionModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <!-- Post Filter -->
-                    <div class="post-filter-section">
-                        <div class="post-filter-input-wrapper">
-                            <i class="fas fa-search"></i>
-                            <input
-                                type="text"
-                                id="postFilterInput"
-                                placeholder="Nội dung bài viết"
-                                oninput="filterPosts()"
-                            />
-                        </div>
-                    </div>
-                    <!-- Loading State -->
-                    <div class="post-loading" id="postLoading">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <span>Đang tải danh sách bài viết...</span>
-                    </div>
-                    <!-- Post List -->
-                    <div class="post-list" id="postList">
-                        <!-- Posts will be rendered here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Column Settings Modal -->
-        <div class="column-settings-modal" id="columnSettingsModal">
-            <div class="column-settings-modal-content">
-                <div class="column-settings-modal-header">
-                    <h3><i class="fas fa-columns"></i> Cài đặt hiển thị cột</h3>
-                    <button
-                        class="column-settings-modal-close"
-                        onclick="closeColumnSettingsModal()"
-                    >
+        <!-- Unified Filter & Search Section -->
+        <div class="unified-filter-section" id="unifiedFilterSection">
+            <!-- Row 1: Search + Date Filters -->
+            <div class="filter-row">
+                <!-- Search -->
+                <div class="search-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="search-input" id="tableSearchInput"
+                        placeholder="Tìm theo tên, SĐT, mã đơn..." oninput="performTableSearch()" autocomplete="off" />
+                    <button class="search-clear" id="searchClearBtn" onclick="clearSearch()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="column-settings-modal-body">
-                    <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px">
-                        Chọn các cột bạn muốn hiển thị trong bảng:
-                    </p>
-                    <div class="column-settings-list" id="columnSettingsList">
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="actions" checked />
-                            <span>Thao tác</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="stt" checked />
-                            <span>STT</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="tag" checked />
-                            <span>TAG</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="customer" checked />
-                            <span>Khách hàng</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="phone" checked />
-                            <span>Số điện thoại</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="chat" checked />
-                            <span>Chat</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="products" checked />
-                            <span>Sản phẩm</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="post" checked />
-                            <span>Bài Post</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="address" />
-                            <span>Địa chỉ</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="total" checked />
-                            <span>Tổng tiền</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="created-date" checked />
-                            <span>Ngày tạo</span>
-                        </label>
-                        <label class="column-setting-item">
-                            <input type="checkbox" data-column="status" checked />
-                            <span>Trạng thái</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="column-settings-modal-footer">
-                    <button class="column-settings-btn-reset" onclick="resetColumnSettings()">
-                        <i class="fas fa-undo"></i> Đặt lại mặc định
+
+                <!-- Date Quick Filters -->
+                <div class="date-filter-group">
+                    <button class="date-filter-btn active" data-range="all" onclick="setDateFilter('all')">
+                        Tất cả
                     </button>
-                    <div style="display: flex; gap: 8px">
-                        <button
-                            class="column-settings-btn-cancel"
-                            onclick="closeColumnSettingsModal()"
-                        >
-                            Hủy
-                        </button>
-                        <button class="column-settings-btn-save" onclick="saveColumnSettings()">
-                            <i class="fas fa-save"></i> Lưu
-                        </button>
-                    </div>
+                    <button class="date-filter-btn" data-range="today" onclick="setDateFilter('today')">
+                        Hôm nay
+                    </button>
+                    <button class="date-filter-btn" data-range="yesterday" onclick="setDateFilter('yesterday')">
+                        Hôm qua
+                    </button>
+                    <button class="date-filter-btn" data-range="3days" onclick="setDateFilter('3days')">
+                        3N
+                    </button>
+                    <button class="date-filter-btn" data-range="7days" onclick="setDateFilter('7days')">
+                        7N
+                    </button>
+                    <button class="date-filter-btn" data-range="15days" onclick="setDateFilter('15days')">
+                        15N
+                    </button>
+                    <button class="date-filter-btn" data-range="custom" onclick="toggleCustomDateRange()">
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
+                </div>
+
+                <!-- Custom Date Range (hidden by default) -->
+                <div class="custom-date-range" id="customDateRange" style="display: none">
+                    <input type="date" id="dateFrom" onchange="applyCustomDateRange()" />
+                    <span>→</span>
+                    <input type="date" id="dateTo" onchange="applyCustomDateRange()" />
+                </div>
+            </div>
+
+            <!-- Row 2: Status, Source, Tag Filters + Result Count -->
+            <div class="filter-row">
+                <!-- Status Filter -->
+                <div class="filter-item">
+                    <label>Trạng thái:</label>
+                    <select id="statusFilter" onchange="performTableSearch()" class="search-filter-select">
+                        <option value="all" selected>Tất cả</option>
+                        <option value="draft">Nháp</option>
+                        <option value="processing">Đang xử lý</option>
+                        <option value="completed">Hoàn thành</option>
+                        <option value="cancelled">Đã hủy</option>
+                    </select>
+                </div>
+
+                <!-- Source Filter -->
+                <div class="filter-item">
+                    <label>Nguồn:</label>
+                    <select id="sourceFilter" onchange="performTableSearch()" class="search-filter-select">
+                        <option value="all" selected>Tất cả</option>
+                        <option value="manual">Thủ công</option>
+                        <option value="facebook_post">Facebook Post</option>
+                        <option value="instagram">Instagram</option>
+                        <option value="tiktok">TikTok</option>
+                    </select>
+                </div>
+
+                <!-- TAG Filter -->
+                <div class="filter-item">
+                    <label>TAG:</label>
+                    <select id="tagFilter" onchange="performTableSearch()" class="search-filter-select">
+                        <option value="all" selected>Tất cả</option>
+                        <!-- Options populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Spacer -->
+                <div style="flex: 1"></div>
+
+                <!-- Result Count & Reload -->
+                <div class="filter-result">
+                    <span class="search-result-count" id="searchResultCount">0</span>
+                    <span>kết quả</span>
+                    <button class="btn-reload" onclick="loadOrders()" title="Tải lại">
+                        <i class="fas fa-sync"></i>
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Shared Scripts -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="../shared/js/shared-auth-manager.js"></script>
-        <script src="../shared/js/notification-system.js"></script>
-        <script src="js/managers/pancake-token-manager.js"></script>
+        <!-- Action Buttons Section (when orders selected) -->
+        <div class="action-buttons-section" style="padding: 16px 24px; display: none; gap: 12px; flex-wrap: wrap"
+            id="actionButtonsSection">
+            <div style="display: flex; gap: 8px; align-items: center">
+                <span style="color: #6b7280; font-size: 13px; font-weight: 500">
+                    <span id="selectedOrdersCount">0</span> đơn được chọn
+                </span>
+            </div>
+            <button class="btn-primary" onclick="deleteSelectedOrders()" style="background: #ef4444">
+                <i class="fas fa-trash"></i>
+                Xóa đã chọn
+            </button>
+        </div>
 
-        <!-- Purchase Orders scripts (for reuse via Borrowed State pattern) -->
-        <script src="../purchase-orders/js/lib/tpos-search.js"></script>
-        <script src="../purchase-orders/js/lib/supplier-detector.js"></script>
-        <script src="../purchase-orders/js/lib/product-code-generator.js"></script>
-        <script src="../purchase-orders/js/lib/tpos-product-creator.js"></script>
-        <script src="../purchase-orders/js/config.js"></script>
-        <script src="../purchase-orders/js/service.js"></script>
-        <script src="../purchase-orders/js/dialogs.js"></script>
-        <script src="../purchase-orders/js/form-modal.js"></script>
-        <script>
-            // Khởi tạo instance dùng chung — PHẢI chạy trước tab-social-modal.js
-            window.purchaseOrderFormModal = new PurchaseOrderFormModal();
+        <!-- Table Container -->
+        <div class="table-container" id="tableContainer">
+            <div class="table-wrapper" id="tableWrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" />
+                            </th>
+                            <th data-column="actions">Thao tác</th>
+                            <th data-column="stt">STT</th>
+                            <th data-column="tag">TAG</th>
+                            <th data-column="customer">Khách hàng</th>
+                            <th data-column="phone">SĐT</th>
+                            <th data-column="chat">Chat</th>
+                            <th data-column="products">Sản phẩm</th>
+                            <th data-column="post">Bài Post</th>
+                            <th data-column="address">Địa chỉ</th>
+                            <th data-column="total">Tổng</th>
+                            <th data-column="created-date">Ngày tạo</th>
+                            <th data-column="status">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="13" style="text-align: center; padding: 40px">
+                                <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination Info -->
+            <div class="pagination-wrapper">
+                <div id="pageInfo">Hiển thị 0 - 0 của 0</div>
+            </div>
+        </div>
+    </div>
 
-            // Bind "Chọn từ Kho SP" button — reuse inventoryPickerDialog
-            document.getElementById('btnPickFromInventory')?.addEventListener('click', () => {
-                if (window.inventoryPickerDialog && window.purchaseOrderFormModal) {
-                    const fm = window.purchaseOrderFormModal;
-                    window.inventoryPickerDialog.open({
-                        onSelect: function(products) {
-                            // Remove empty items before adding
-                            fm.formData.items = fm.formData.items.filter(item =>
-                                item.productName?.trim() || item.productCode?.trim()
-                            );
-                            for (const product of products) {
-                                const item = fm.addItem();
-                                item.productName = product.name || '';
-                                item.productCode = product.code || '';
-                                item.purchasePrice = product.purchasePrice || 0;
-                                item.sellingPrice = product.sellingPrice || 0;
-                                if (product.tposProductId) item.tposProductId = product.tposProductId;
-                                if (product.tposProductTmplId) item.tposProductTmplId = product.tposProductTmplId;
-                                if (product.image) item.productImages = [product.image];
-                            }
-                            fm.refreshItemsTable();
-                        }
-                    });
-                }
-            });
+    <!-- Create/Edit Order Modal -->
+    <div class="modal-overlay" id="orderModalOverlay">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="orderModalTitle">
+                    <i class="fas fa-plus-circle"></i>
+                    Tạo đơn hàng mới
+                </h3>
+                <button class="modal-close" onclick="closeOrderModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="orderForm">
+                    <!-- Customer Info -->
+                    <div class="form-section">
+                        <h4><i class="fas fa-user"></i> Thông tin khách hàng</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Tên khách hàng <span class="required">*</span></label>
+                                <input type="text" id="customerName" placeholder="Nhập tên khách hàng" required />
+                            </div>
+                            <div class="form-group">
+                                <label>Số điện thoại <span class="required">*</span></label>
+                                <input type="tel" id="customerPhone" placeholder="0901234567" required />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Địa chỉ</label>
+                            <input type="text" id="customerAddress"
+                                placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành" />
+                        </div>
+                    </div>
 
-            // Bind Debug column toggle
-            document.getElementById('btnToggleDebug')?.addEventListener('click', () => {
-                if (!window.purchaseOrderFormModal) return;
+                    <!-- Post Info -->
+                    <div class="form-section">
+                        <h4><i class="fas fa-link"></i> Nguồn đơn</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>Link bài Post</label>
+                                <div class="post-url-input-wrapper" onclick="openPostSelectionModal()">
+                                    <input type="text" id="postUrl" placeholder="Nhấn để chọn bài viết..." readonly />
+                                    <input type="hidden" id="selectedPostId" />
+                                    <input type="hidden" id="selectedPostThumbnail" />
+                                </div>
+                                <!-- Selected Post Preview -->
+                                <div class="selected-post-preview" id="selectedPostPreview" style="display: none;">
+                                    <img id="selectedPostThumb" src="" alt="" />
+                                    <div class="selected-post-info">
+                                        <div class="selected-post-title" id="selectedPostTitle"></div>
+                                        <button type="button" class="selected-post-clear"
+                                            onclick="clearSelectedPost(event)">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Nguồn</label>
+                                <select id="orderSource">
+                                    <option value="manual">Thủ công</option>
+                                    <option value="facebook_post" selected>Facebook Post</option>
+                                    <option value="instagram">Instagram</option>
+                                    <option value="tiktok">TikTok</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Products -->
+                    <div class="form-section" id="socialProductSection">
+                        <h4><i class="fas fa-box"></i> Sản phẩm</h4>
+
+                        <!-- Toolbar -->
+                        <div id="socialProductToolbar"
+                            style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center;">
+                            <input type="text" id="socialProductSearch" placeholder="Tìm kiếm sản phẩm theo tên..."
+                                style="flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
+                            <input type="text" id="socialOrderNote" placeholder="Ghi chú thêm cho đơn hàng..."
+                                style="flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;" />
+                            <button id="btnSocialSettings" type="button"
+                                style="padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: white; cursor: pointer;"
+                                title="Cài đặt validation giá">⚙</button>
+                            <button id="btnAddSocialItem" type="button"
+                                onclick="window.purchaseOrderFormModal && (window.purchaseOrderFormModal.addItem(), window.purchaseOrderFormModal.refreshItemsTable())"
+                                style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                + Thêm sản phẩm
+                            </button>
+                            <button id="btnPickFromInventory" type="button"
+                                style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                Chọn từ Kho SP
+                            </button>
+                        </div>
+
+                        <!-- Bảng sản phẩm — PurchaseOrderFormModal.renderItemRows() render vào #itemsTableBody -->
+                        <div id="socialProductTableContainer" style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                        <th style="padding: 8px; text-align: center; white-space: nowrap;">STT</th>
+                                        <th style="padding: 8px; text-align: left; min-width: 140px;">Tên SP</th>
+                                        <th style="padding: 8px; text-align: left; min-width: 100px;">Biến thể</th>
+                                        <th style="padding: 8px; text-align: left; min-width: 90px;">Mã SP</th>
+                                        <th style="padding: 8px; text-align: center; width: 60px;">SL</th>
+                                        <th style="padding: 8px; text-align: right; min-width: 100px;">Giá mua (VND)
+                                        </th>
+                                        <th style="padding: 8px; text-align: right; min-width: 100px;">Giá bán (VND)
+                                        </th>
+                                        <th style="padding: 8px; text-align: right; min-width: 100px;">Thành tiền (VND)
+                                        </th>
+                                        <th style="padding: 8px; text-align: center; width: 70px;">Ảnh SP</th>
+                                        <th style="padding: 8px; text-align: center; width: 70px;">Ảnh Giá mua</th>
+                                        <th style="padding: 8px; text-align: center; width: 80px;">Thao tác</th>
+                                        <th style="padding: 8px; text-align: center; white-space: nowrap;">
+                                            <button type="button" id="btnToggleDebug" style="
+                                                    background: none; border: none; cursor: pointer; padding: 4px;
+                                                    color: #9ca3af; display: inline-flex; align-items: center; gap: 4px;
+                                                " title="Toggle Debug: Attr IDs">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                                </svg>
+                                            </button>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsTableBody">
+                                    <!-- renderItemRows() của PurchaseOrderFormModal sẽ render vào đây -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Totals -->
+                        <div class="products-summary" id="productsSummary"
+                            style="margin-top: 8px; display: flex; gap: 24px; justify-content: flex-end; font-size: 13px;">
+                            <div class="summary-row">
+                                <span>Tổng SL:</span>
+                                <strong id="totalQuantity">0</strong>
+                            </div>
+                            <div class="summary-row total">
+                                <span>Tổng tiền:</span>
+                                <strong id="totalAmount">0đ</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Note -->
+                    <div class="form-section">
+                        <h4><i class="fas fa-sticky-note"></i> Ghi chú</h4>
+                        <div class="form-group">
+                            <textarea id="orderNote" rows="2" placeholder="Ghi chú cho đơn hàng..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Hidden fields -->
+                    <input type="hidden" id="orderId" />
+                    <input type="hidden" id="orderProducts" value="[]" />
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeOrderModal()">
+                    Hủy
+                </button>
+                <button type="button" class="btn-primary btn-save" onclick="saveOrder()">
+                    <i class="fas fa-save"></i>
+                    Lưu đơn hàng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Modal (clone from tab1) -->
+    <div class="tag-modal" id="tagModal">
+        <div class="tag-modal-content">
+            <div class="tag-modal-header">
+                <button class="tag-btn-save-header" onclick="saveOrderTags()">
+                    Lưu (Ctrl + Enter)
+                </button>
+                <button class="tag-modal-close" onclick="closeTagModal()">×</button>
+            </div>
+            <div class="tag-modal-body">
+                <div class="tag-input-container">
+                    <div class="selected-tags-pills" id="selectedTagsPills"></div>
+                    <input type="text" id="tagSearchInput" class="tag-add-input" placeholder="Tìm tag..."
+                        oninput="filterTags()" onkeydown="handleTagInputKeydown(event)" />
+                </div>
+                <div class="tag-dropdown-list" id="tagList">
+                    <div class="no-tags-message">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải danh sách tag...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div class="modal-overlay" id="confirmDeleteModal">
+        <div class="modal-content" style="max-width: 400px">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-exclamation-triangle" style="color: #ef4444"></i> Xác nhận
+                    xóa
+                </h3>
+                <button class="modal-close" onclick="closeConfirmDeleteModal()">×</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 24px">
+                <p id="confirmDeleteMessage">Bạn có chắc muốn xóa đơn này?</p>
+            </div>
+            <div class="modal-footer" style="justify-content: center">
+                <button type="button" class="btn-secondary" onclick="closeConfirmDeleteModal()">
+                    Hủy
+                </button>
+                <button type="button" class="btn-primary" style="background: #ef4444" onclick="confirmDelete()">
+                    <i class="fas fa-trash"></i>
+                    Xóa
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Facebook Post Selection Modal -->
+    <div class="modal-overlay" id="postSelectionModal">
+        <div class="modal-content modal-large post-selection-modal">
+            <div class="modal-header">
+                <h3>
+                    <i class="fab fa-facebook" style="color: #1877f2"></i>
+                    Chọn bài viết
+                </h3>
+                <button class="modal-close" onclick="closePostSelectionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Post Filter -->
+                <div class="post-filter-section">
+                    <div class="post-filter-input-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="postFilterInput" placeholder="Nội dung bài viết"
+                            oninput="filterPosts()" />
+                    </div>
+                </div>
+                <!-- Loading State -->
+                <div class="post-loading" id="postLoading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Đang tải danh sách bài viết...</span>
+                </div>
+                <!-- Post List -->
+                <div class="post-list" id="postList">
+                    <!-- Posts will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Column Settings Modal -->
+    <div class="column-settings-modal" id="columnSettingsModal">
+        <div class="column-settings-modal-content">
+            <div class="column-settings-modal-header">
+                <h3><i class="fas fa-columns"></i> Cài đặt hiển thị cột</h3>
+                <button class="column-settings-modal-close" onclick="closeColumnSettingsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="column-settings-modal-body">
+                <p style="color: #6b7280; font-size: 13px; margin-bottom: 16px">
+                    Chọn các cột bạn muốn hiển thị trong bảng:
+                </p>
+                <div class="column-settings-list" id="columnSettingsList">
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="actions" checked />
+                        <span>Thao tác</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="stt" checked />
+                        <span>STT</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="tag" checked />
+                        <span>TAG</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="customer" checked />
+                        <span>Khách hàng</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="phone" checked />
+                        <span>Số điện thoại</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="chat" checked />
+                        <span>Chat</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="products" checked />
+                        <span>Sản phẩm</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="post" checked />
+                        <span>Bài Post</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="address" />
+                        <span>Địa chỉ</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="total" checked />
+                        <span>Tổng tiền</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="created-date" checked />
+                        <span>Ngày tạo</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="status" checked />
+                        <span>Trạng thái</span>
+                    </label>
+                </div>
+            </div>
+            <div class="column-settings-modal-footer">
+                <button class="column-settings-btn-reset" onclick="resetColumnSettings()">
+                    <i class="fas fa-undo"></i> Đặt lại mặc định
+                </button>
+                <div style="display: flex; gap: 8px">
+                    <button class="column-settings-btn-cancel" onclick="closeColumnSettingsModal()">
+                        Hủy
+                    </button>
+                    <button class="column-settings-btn-save" onclick="saveColumnSettings()">
+                        <i class="fas fa-save"></i> Lưu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shared Scripts -->
+    <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/shared-auth-manager.js"></script>
+    <script src="../shared/js/notification-system.js"></script>
+    <!-- API Config (needed by tab1-chat.js) -->
+    <script src="js/core/api-config.js"></script>
+    <script src="js/managers/pancake-token-manager.js"></script>
+    <!-- Pancake Data Manager (needed by tab1-chat.js) -->
+    <script src="js/managers/pancake-data-manager.js"></script>
+
+    <!-- Purchase Orders scripts (for reuse via Borrowed State pattern) -->
+    <script src="../purchase-orders/js/lib/tpos-search.js"></script>
+    <script src="../purchase-orders/js/lib/supplier-detector.js"></script>
+    <script src="../purchase-orders/js/lib/product-code-generator.js"></script>
+    <script src="../purchase-orders/js/lib/tpos-product-creator.js"></script>
+    <script src="../purchase-orders/js/config.js"></script>
+    <script src="../purchase-orders/js/service.js"></script>
+    <script src="../purchase-orders/js/dialogs.js"></script>
+    <script src="../purchase-orders/js/form-modal.js"></script>
+    <script>
+        // Khởi tạo instance dùng chung — PHẢI chạy trước tab-social-modal.js
+        window.purchaseOrderFormModal = new PurchaseOrderFormModal();
+
+        // Bind "Chọn từ Kho SP" button — reuse inventoryPickerDialog
+        document.getElementById('btnPickFromInventory')?.addEventListener('click', () => {
+            if (window.inventoryPickerDialog && window.purchaseOrderFormModal) {
                 const fm = window.purchaseOrderFormModal;
-                fm.showDebugColumn = !fm.showDebugColumn;
-                const th = document.getElementById('btnToggleDebug').closest('th');
-                const btn = document.getElementById('btnToggleDebug');
-                if (btn) {
-                    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
-                        + (fm.showDebugColumn ? '<polyline points="15 18 9 12 15 6"></polyline>' : '<polyline points="9 18 15 12 9 6"></polyline>')
-                        + '</svg>';
-                }
-                const label = th?.querySelector('span');
-                if (fm.showDebugColumn && !label) {
-                    btn.insertAdjacentHTML('afterend', '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>');
-                } else if (!fm.showDebugColumn && label) {
-                    label.remove();
-                }
-                fm.refreshItemsTable();
-            });
-        </script>
+                window.inventoryPickerDialog.open({
+                    onSelect: function (products) {
+                        // Remove empty items before adding
+                        fm.formData.items = fm.formData.items.filter(item =>
+                            item.productName?.trim() || item.productCode?.trim()
+                        );
+                        for (const product of products) {
+                            const item = fm.addItem();
+                            item.productName = product.name || '';
+                            item.productCode = product.code || '';
+                            item.purchasePrice = product.purchasePrice || 0;
+                            item.sellingPrice = product.sellingPrice || 0;
+                            if (product.tposProductId) item.tposProductId = product.tposProductId;
+                            if (product.tposProductTmplId) item.tposProductTmplId = product.tposProductTmplId;
+                            if (product.image) item.productImages = [product.image];
+                        }
+                        fm.refreshItemsTable();
+                    }
+                });
+            }
+        });
 
-        <!-- Tab Social Scripts -->
-        <script src="js/tab-social/tab-social-core.js"></script>
-        <script src="js/tab-social/tab-social-column-visibility.js"></script>
-        <script src="js/tab-social/tab-social-table.js"></script>
-        <script src="js/tab-social/tab-social-modal.js"></script>
-        <script src="js/tab-social/tab-social-firebase.js"></script>
-        <script src="js/tab-social/tab-social-tags.js"></script>
-    </body>
+        // Bind Debug column toggle
+        document.getElementById('btnToggleDebug')?.addEventListener('click', () => {
+            if (!window.purchaseOrderFormModal) return;
+            const fm = window.purchaseOrderFormModal;
+            fm.showDebugColumn = !fm.showDebugColumn;
+            const th = document.getElementById('btnToggleDebug').closest('th');
+            const btn = document.getElementById('btnToggleDebug');
+            if (btn) {
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+                    + (fm.showDebugColumn ? '<polyline points="15 18 9 12 15 6"></polyline>' : '<polyline points="9 18 15 12 9 6"></polyline>')
+                    + '</svg>';
+            }
+            const label = th?.querySelector('span');
+            if (fm.showDebugColumn && !label) {
+                btn.insertAdjacentHTML('afterend', '<span style="font-size: 11px; color: #9ca3af;">Debug: Attr IDs</span>');
+            } else if (!fm.showDebugColumn && label) {
+                label.remove();
+            }
+            fm.refreshItemsTable();
+        });
+    </script>
+
+    <!-- Tab Social Scripts -->
+    <script src="js/tab-social/tab-social-core.js"></script>
+    <script src="js/tab-social/tab-social-column-visibility.js"></script>
+    <script src="js/tab-social/tab-social-table.js"></script>
+    <script src="js/tab-social/tab-social-modal.js"></script>
+    <script src="js/tab-social/tab-social-firebase.js"></script>
+    <script src="js/tab-social/tab-social-tags.js"></script>
+
+    <!-- Tab1 Chat Module (reuse toàn bộ) -->
+    <script src="js/tab1/tab1-chat.js"></script>
+    <script src="js/tab1/tab1-chat-products.js"></script>
+
+    <!-- Bridge: Kết nối social orders với tab1 chat module -->
+    <script>
+        // =====================================================
+        // BRIDGE: Social Orders → Tab1 Chat Module
+        // Cung cấp các globals mà tab1-chat.js cần
+        // =====================================================
+
+        // allData: tab1-chat.js dùng để tìm order theo ID
+        if (typeof allData === 'undefined') {
+            window.allData = [];
+        }
+
+        // Initialize PancakeDataManager instance (tab1-chat.js dùng window.pancakeDataManager)
+        if (!window.pancakeDataManager && typeof PancakeDataManager !== 'undefined') {
+            window.pancakeDataManager = new PancakeDataManager();
+            window.chatDataManager = window.pancakeDataManager; // alias
+            console.log('[Social-Chat Bridge] PancakeDataManager initialized');
+        }
+
+        // chatSocialBridge: Tìm conversation Pancake theo tên KH, rồi gọi openChatModal
+        window.openSocialChat = async function (orderId) {
+            const order = SocialOrderState.orders.find(o => o.id === orderId);
+            if (!order) {
+                alert('Không tìm thấy đơn hàng');
+                return;
+            }
+
+            // Inject order vào allData cho openChatModal tìm được
+            // Map social order fields → tab1 order fields
+            const compatOrder = {
+                Id: order.id,
+                Code: order.id,
+                Name: order.customerName,
+                PartnerName: order.customerName,
+                Telephone: order.phone || '',
+                PartnerPhone: order.phone || '',
+                Address: order.address || '',
+                TotalAmount: order.totalAmount || 0,
+                Details: (order.products || []).map(p => ({
+                    ProductId: p.productId,
+                    ProductName: p.name,
+                    ProductCode: p.code,
+                    Quantity: p.quantity,
+                    Price: p.price
+                }))
+            };
+
+            // Xóa order cũ và thêm mới vào allData
+            window.allData = window.allData.filter(o => o.Id !== order.id);
+            window.allData.push(compatOrder);
+
+            // Tìm conversation Pancake bằng tên KH
+            const searchQuery = order.customerName;
+            console.log('[Social-Chat] Searching Pancake for:', searchQuery);
+
+            try {
+                if (!window.pancakeDataManager) {
+                    alert('Pancake Data Manager chưa sẵn sàng. Vui lòng thử lại.');
+                    return;
+                }
+
+                // Ensure pages are loaded
+                await window.pancakeDataManager.fetchPages();
+
+                // Search conversations
+                const result = await window.pancakeDataManager.searchConversations(searchQuery);
+                const conversations = result.conversations || [];
+
+                if (conversations.length === 0) {
+                    // Thử lại với SĐT nếu có
+                    if (order.phone) {
+                        console.log('[Social-Chat] No results by name, trying phone:', order.phone);
+                        const phoneResult = await window.pancakeDataManager.searchConversations(order.phone);
+                        const phoneConvs = phoneResult.conversations || [];
+                        if (phoneConvs.length > 0) {
+                            const conv = phoneConvs[0];
+                            const channelId = conv.page_id || conv.channel_id;
+                            const psid = conv.from_psid || conv.customers?.[0]?.fb_id || '';
+                            console.log('[Social-Chat] Found by phone:', { channelId, psid });
+                            window.openChatModal(orderId, channelId, psid, 'message');
+                            return;
+                        }
+                    }
+                    alert('Không tìm thấy hội thoại Pancake cho khách hàng "' + searchQuery + '"');
+                    return;
+                }
+
+                // Lấy conversation đầu tiên
+                const conv = conversations[0];
+                const channelId = conv.page_id || conv.channel_id;
+                const psid = conv.from_psid || conv.customers?.[0]?.fb_id || '';
+
+                console.log('[Social-Chat] Found conversation:', { channelId, psid, conv });
+
+                // Gọi openChatModal từ tab1-chat.js
+                window.openChatModal(orderId, channelId, psid, 'message');
+
+            } catch (error) {
+                console.error('[Social-Chat] Error:', error);
+                alert('Lỗi khi tìm hội thoại: ' + error.message);
+            }
+        };
+
+        console.log('[Social-Chat Bridge] Ready');
+    </script>
+</body>
+
 </html>

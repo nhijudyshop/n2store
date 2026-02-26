@@ -93,9 +93,9 @@ function renderTableRow(order, index) {
         </div>
     `;
 
-    // Chat button (disabled for now)
+    // Chat button - search Pancake conversations by customer name/phone
     const chatHtml = `
-        <button class="chat-btn disabled" title="Chưa có thông tin Pancake" disabled>
+        <button class="chat-btn" onclick="openSocialChat('${order.id}')" title="Chat Pancake">
             <i class="fas fa-comment-dots"></i>
         </button>
     `;
