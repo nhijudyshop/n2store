@@ -74,8 +74,15 @@ const SoquyDatabase = (function () {
                 collector: voucherData.collector || '',
                 objectType: voucherData.objectType || 'Khác',
                 personName: voucherData.personName || '',
+                personCode: voucherData.personCode || '',
+                phone: voucherData.phone || '',
+                address: voucherData.address || '',
                 amount: Math.abs(Number(voucherData.amount) || 0),
                 note: voucherData.note || '',
+                transferContent: voucherData.transferContent || '',
+                accountName: voucherData.accountName || '',
+                accountNumber: voucherData.accountNumber || '',
+                branch: voucherData.branch || '',
                 businessAccounting: voucherData.businessAccounting !== false,
                 status: config.VOUCHER_STATUS.PAID,
                 voucherDateTime: voucherData.dateTime
@@ -83,7 +90,7 @@ const SoquyDatabase = (function () {
                     : firebase.firestore.Timestamp.fromDate(now),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: getCurrentUserName(),
+                createdBy: voucherData.createdBy || getCurrentUserName(),
                 cancelledAt: null,
                 cancelReason: ''
             };
@@ -367,6 +374,222 @@ const SoquyDatabase = (function () {
     }
 
     // =====================================================
+    // IMPORT FROM EXCEL
+    // =====================================================
+
+    /**
+     * Import vouchers from parsed Excel data
+     * @param {Array} rows - Array of row objects from Excel
+     * @returns {Object} { success: number, errors: Array }
+     */
+    async function importVouchers(rows) {
+        const results = { success: 0, errors: [] };
+
+        for (let i = 0; i < rows.length; i++) {
+            try {
+                const row = rows[i];
+                const voucherType = detectVoucherType(row);
+                const fundType = detectFundType(row) || state.fundType;
+                const effectiveFund = fundType === config.FUND_TYPES.ALL
+                    ? config.FUND_TYPES.CASH : fundType;
+
+                const voucherCode = await getNextVoucherCode(voucherType, effectiveFund);
+                const now = new Date();
+
+                const voucher = {
+                    code: voucherCode,
+                    type: voucherType,
+                    fundType: effectiveFund,
+                    category: row['Loại thu chi'] || row['category'] || '',
+                    collector: row['Nhân viên'] || row['collector'] || '',
+                    objectType: row['Đối tượng'] || row['objectType'] || 'Khác',
+                    personName: row['Người nộp/nhận'] || row['personName'] || '',
+                    personCode: row['Mã người nộp/nhận'] || row['personCode'] || '',
+                    phone: row['Số điện thoại'] || row['phone'] || '',
+                    address: row['Địa chỉ'] || row['address'] || '',
+                    amount: Math.abs(parseImportAmount(row['Giá trị'] || row['amount'] || 0)),
+                    note: row['Ghi chú'] || row['note'] || '',
+                    transferContent: row['Nội dung chuyển khoản'] || row['transferContent'] || '',
+                    accountName: row['Tên tài khoản'] || row['accountName'] || '',
+                    accountNumber: row['Số tài khoản'] || row['accountNumber'] || '',
+                    branch: row['Chi nhánh'] || row['branch'] || '',
+                    businessAccounting: parseBoolean(row['Hạch toán KQKD'] || row['businessAccounting'], true),
+                    status: config.VOUCHER_STATUS.PAID,
+                    voucherDateTime: parseImportDateTime(row['Thời gian'] || row['voucherDateTime'])
+                        || firebase.firestore.Timestamp.fromDate(now),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: row['Người tạo'] || row['createdBy'] || getCurrentUserName(),
+                    cancelledAt: null,
+                    cancelReason: ''
+                };
+
+                await config.soquyCollectionRef.add(voucher);
+
+                // Auto-add category if not in predefined list
+                if (voucher.category) {
+                    await autoAddCategory(voucher.category, voucherType);
+                }
+                // Auto-add creator if not in predefined list
+                if (voucher.createdBy && voucher.createdBy !== 'Admin') {
+                    await autoAddCreator(voucher.createdBy);
+                }
+
+                results.success++;
+            } catch (error) {
+                console.error(`[SoquyDB] Error importing row ${i + 1}:`, error);
+                results.errors.push({ row: i + 1, error: error.message });
+            }
+        }
+
+        return results;
+    }
+
+    function detectVoucherType(row) {
+        const type = (row['Loại'] || row['type'] || '').toLowerCase();
+        if (type.includes('thu') || type === 'receipt') return config.VOUCHER_TYPES.RECEIPT;
+        if (type.includes('chi') || type === 'payment') return config.VOUCHER_TYPES.PAYMENT;
+        // Detect by amount sign
+        const amount = parseFloat(String(row['Giá trị'] || row['amount'] || '0').replace(/[.,\s]/g, ''));
+        return amount < 0 ? config.VOUCHER_TYPES.PAYMENT : config.VOUCHER_TYPES.RECEIPT;
+    }
+
+    function detectFundType(row) {
+        const fund = (row['Loại sổ quỹ'] || row['Quỹ'] || row['fundType'] || '').toLowerCase();
+        if (fund.includes('mặt') || fund === 'cash') return config.FUND_TYPES.CASH;
+        if (fund.includes('ngân') || fund === 'bank') return config.FUND_TYPES.BANK;
+        if (fund.includes('ví') || fund === 'ewallet') return config.FUND_TYPES.EWALLET;
+        return null;
+    }
+
+    function parseImportAmount(value) {
+        if (typeof value === 'number') return value;
+        const cleaned = String(value).replace(/[.,\s]/g, '');
+        return parseInt(cleaned) || 0;
+    }
+
+    function parseImportDateTime(value) {
+        if (!value) return null;
+        // Try dd/MM/yyyy HH:mm format
+        const result = parseVoucherDateTime(String(value));
+        if (result) return result;
+        // Try Date object from Excel
+        if (value instanceof Date && !isNaN(value.getTime())) {
+            return firebase.firestore.Timestamp.fromDate(value);
+        }
+        return null;
+    }
+
+    function parseBoolean(value, defaultVal) {
+        if (value === undefined || value === null || value === '') return defaultVal;
+        if (typeof value === 'boolean') return value;
+        const str = String(value).toLowerCase().trim();
+        if (str === 'có' || str === 'yes' || str === 'true' || str === '1') return true;
+        if (str === 'không' || str === 'no' || str === 'false' || str === '0') return false;
+        return defaultVal;
+    }
+
+    // =====================================================
+    // DYNAMIC CATEGORIES & CREATORS
+    // =====================================================
+
+    /**
+     * Auto-add a category if it doesn't exist in the predefined list
+     */
+    async function autoAddCategory(category, voucherType) {
+        const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
+        const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
+        const dynamicList = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
+
+        // Check if already exists
+        const allCategories = [...predefined, ...dynamicList];
+        if (allCategories.some(c => c.toLowerCase() === category.toLowerCase())) return;
+
+        try {
+            const docId = isReceipt ? 'receipt_categories' : 'payment_categories';
+            const docRef = config.soquyMetaRef.doc(docId);
+            const doc = await docRef.get();
+
+            let items = [];
+            if (doc.exists) {
+                items = doc.data().items || [];
+            }
+
+            if (!items.some(c => c.toLowerCase() === category.toLowerCase())) {
+                items.push(category);
+                await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            }
+
+            // Update local state
+            if (isReceipt) {
+                if (!state.dynamicReceiptCategories.includes(category)) {
+                    state.dynamicReceiptCategories.push(category);
+                }
+            } else {
+                if (!state.dynamicPaymentCategories.includes(category)) {
+                    state.dynamicPaymentCategories.push(category);
+                }
+            }
+
+            console.log('[SoquyDB] Auto-added category:', category);
+        } catch (error) {
+            console.error('[SoquyDB] Error auto-adding category:', error);
+        }
+    }
+
+    /**
+     * Auto-add a creator if not already known
+     */
+    async function autoAddCreator(creatorName) {
+        const dynamicList = state.dynamicCreators;
+        if (dynamicList.some(c => c.toLowerCase() === creatorName.toLowerCase())) return;
+
+        try {
+            const docRef = config.soquyMetaRef.doc('creators');
+            const doc = await docRef.get();
+
+            let items = [];
+            if (doc.exists) {
+                items = doc.data().items || [];
+            }
+
+            if (!items.some(c => c.toLowerCase() === creatorName.toLowerCase())) {
+                items.push(creatorName);
+                await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            }
+
+            if (!state.dynamicCreators.includes(creatorName)) {
+                state.dynamicCreators.push(creatorName);
+            }
+
+            console.log('[SoquyDB] Auto-added creator:', creatorName);
+        } catch (error) {
+            console.error('[SoquyDB] Error auto-adding creator:', error);
+        }
+    }
+
+    /**
+     * Load dynamic categories & creators from Firestore
+     */
+    async function loadDynamicMeta() {
+        try {
+            const [rcDoc, pcDoc, crDoc] = await Promise.all([
+                config.soquyMetaRef.doc('receipt_categories').get(),
+                config.soquyMetaRef.doc('payment_categories').get(),
+                config.soquyMetaRef.doc('creators').get()
+            ]);
+
+            if (rcDoc.exists) state.dynamicReceiptCategories = rcDoc.data().items || [];
+            if (pcDoc.exists) state.dynamicPaymentCategories = pcDoc.data().items || [];
+            if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
+
+            console.log('[SoquyDB] Dynamic meta loaded');
+        } catch (error) {
+            console.error('[SoquyDB] Error loading dynamic meta:', error);
+        }
+    }
+
+    // =====================================================
     // EXPORT
     // =====================================================
 
@@ -504,6 +727,10 @@ const SoquyDatabase = (function () {
         cancelVoucher,
         deleteVoucher,
         exportToCSV,
+        importVouchers,
+        autoAddCategory,
+        autoAddCreator,
+        loadDynamicMeta,
         getDateRange,
         toDate,
         formatVoucherDateTime,

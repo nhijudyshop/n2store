@@ -98,6 +98,31 @@ const OBJECT_TYPES = [
     'Nhân viên'
 ];
 
+// Firestore collection reference for dynamic metadata (categories, creators)
+const soquyMetaRef = db.collection('soquy_meta');
+
+// Column definitions for the table (all 18 data columns)
+const COLUMN_DEFINITIONS = [
+    { key: 'code', label: 'Mã phiếu', defaultVisible: true },
+    { key: 'voucherDateTime', label: 'Thời gian', defaultVisible: true },
+    { key: 'createdAt', label: 'Thời gian tạo', defaultVisible: false },
+    { key: 'createdBy', label: 'Người tạo', defaultVisible: false },
+    { key: 'collector', label: 'Nhân viên', defaultVisible: false },
+    { key: 'branch', label: 'Chi nhánh', defaultVisible: false },
+    { key: 'category', label: 'Loại thu chi', defaultVisible: true },
+    { key: 'accountName', label: 'Tên tài khoản', defaultVisible: false },
+    { key: 'accountNumber', label: 'Số tài khoản', defaultVisible: false },
+    { key: 'personCode', label: 'Mã người nộp/nhận', defaultVisible: false },
+    { key: 'personName', label: 'Người nộp/nhận', defaultVisible: true },
+    { key: 'phone', label: 'Số điện thoại', defaultVisible: false },
+    { key: 'address', label: 'Địa chỉ', defaultVisible: false },
+    { key: 'amount', label: 'Giá trị', defaultVisible: true },
+    { key: 'transferContent', label: 'Nội dung chuyển khoản', defaultVisible: false },
+    { key: 'note', label: 'Ghi chú', defaultVisible: false },
+    { key: 'fundType', label: 'Loại sổ quỹ', defaultVisible: false },
+    { key: 'status', label: 'Trạng thái', defaultVisible: false }
+];
+
 const PAGE_SIZES = [15, 30, 50, 100];
 const DEFAULT_PAGE_SIZE = 15;
 
@@ -169,7 +194,18 @@ window.SoquyState = {
 
     // Creators list (for filter dropdown)
     creators: [],
-    employees: []
+    employees: [],
+
+    // Column visibility (key -> boolean)
+    columnVisibility: COLUMN_DEFINITIONS.reduce((acc, col) => {
+        acc[col.key] = col.defaultVisible;
+        return acc;
+    }, {}),
+
+    // Dynamic categories & creators (auto-added from imports/entries)
+    dynamicReceiptCategories: [],
+    dynamicPaymentCategories: [],
+    dynamicCreators: []
 };
 
 // =====================================================
@@ -289,6 +325,7 @@ window.SoquyConfig = {
     db,
     soquyCollectionRef,
     soquyCountersRef,
+    soquyMetaRef,
     FUND_TYPES,
     FUND_TYPE_LABELS,
     VOUCHER_TYPES,
@@ -299,6 +336,7 @@ window.SoquyConfig = {
     RECEIPT_CATEGORIES,
     PAYMENT_CATEGORIES,
     OBJECT_TYPES,
+    COLUMN_DEFINITIONS,
     PAGE_SIZES,
     DEFAULT_PAGE_SIZE,
     TIME_FILTERS,

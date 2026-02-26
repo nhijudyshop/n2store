@@ -67,6 +67,11 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Sổ Quỹ - dynamic metadata (categories, creators)
+    match /soquy_meta/{metaId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Default: deny all other access
     match /{document=**} {
       allow read, write: if false;
