@@ -843,20 +843,26 @@ window.TPOSProductCreator = (function () {
                 if (result.alreadyExists && allCombinations) {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching variants...`);
                     try {
-                        const resp = await window.TPOSClient.authenticatedFetch(
-                            `${PROXY_URL}/api/odata/Product?$filter=DefaultCode eq '${productCode}'&$top=1&$select=Id,ProductTmplId`
-                        );
+                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=DefaultCode eq '${productCode}'&$top=1&$select=Id,ProductTmplId`;
+                        console.log(`[TPOSCreator] Fetching product: ${productUrl}`);
+                        const resp = await window.TPOSClient.authenticatedFetch(productUrl);
+                        console.log(`[TPOSCreator] Product response: ${resp.status}`);
                         if (resp.ok) {
                             const fetchData = await resp.json();
                             const tmplId = fetchData.value?.[0]?.ProductTmplId;
+                            console.log(`[TPOSCreator] ProductTmplId for ${productCode}: ${tmplId}`);
                             if (tmplId) {
-                                // Fetch full ProductTemplate with variants
-                                const tmplResp = await window.TPOSClient.authenticatedFetch(
-                                    `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})/ODataService.GetDetailView?$expand=ProductVariants`
-                                );
+                                // Fetch full ProductTemplate with variants via GetDetailView
+                                const tmplUrl = `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})/ODataService.GetDetailView?$expand=Images,ProductVariants,Importer,Distributor,Producer`;
+                                console.log(`[TPOSCreator] Fetching template: ${tmplUrl}`);
+                                const tmplResp = await window.TPOSClient.authenticatedFetch(tmplUrl);
+                                console.log(`[TPOSCreator] Template response: ${tmplResp.status}`);
                                 if (tmplResp.ok) {
                                     productData = await tmplResp.json();
                                     console.log(`[TPOSCreator] Fetched ${productData.ProductVariants?.length || 0} variants for ${productCode}`);
+                                } else {
+                                    const errText = await tmplResp.text();
+                                    console.warn(`[TPOSCreator] GetDetailView failed ${tmplResp.status}:`, errText);
                                 }
                             }
                         }
