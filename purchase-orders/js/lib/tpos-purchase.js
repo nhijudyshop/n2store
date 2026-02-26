@@ -314,7 +314,7 @@ window.TPOSPurchase = (function() {
     // STEP 3: Print Barcode Labels
     // =====================================================
 
-    async function printBarcodeLabel(fastPurchaseOrderId, orderLines) {
+    async function printBarcodeLabel(fastPurchaseOrderId, orderLines, printWindow) {
         if (!window.TPOSClient?.authenticatedFetch) {
             throw new Error('TPOSClient not available');
         }
@@ -386,9 +386,6 @@ window.TPOSPurchase = (function() {
         console.log('[TPOSPurchase] BarcodeProductLabel created, Id:', labelId);
 
         // Step 2: GET PrintBarcodePDF — NOT under /odata/, use /api/ catch-all
-        // Open tab BEFORE async fetch to avoid popup blocker
-        const printWindow = window.open('about:blank', '_blank');
-
         const resp2 = await window.TPOSClient.authenticatedFetch(
             `${PROXY_URL}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`
         );
@@ -399,12 +396,13 @@ window.TPOSPurchase = (function() {
         }
 
         const blob = await resp2.blob();
-        const url = URL.createObjectURL(blob);
+        const pdfUrl = URL.createObjectURL(blob);
 
         if (printWindow) {
-            printWindow.location.href = url;
+            printWindow.location.href = pdfUrl;
         } else {
-            window.open(url, '_blank');
+            // Fallback if no pre-opened window
+            window.open(pdfUrl, '_blank');
         }
 
         return labelId;

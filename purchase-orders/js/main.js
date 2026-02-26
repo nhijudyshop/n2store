@@ -995,6 +995,9 @@ class PurchaseOrderController {
             btn.textContent = 'Đang tạo...';
             btn.style.opacity = '0.6';
 
+            // Open tab immediately on click to avoid popup blocker
+            const barcodeWindow = window.open('about:blank', '_blank');
+
             try {
                 // Attach extra fields to order for TPOS
                 singleOrder.decreaseAmount = parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
@@ -1005,6 +1008,7 @@ class PurchaseOrderController {
                 const result = await this.exportMuaHang(orders, { download: false });
 
                 if (result.exported === 0) {
+                    if (barcodeWindow) barcodeWindow.close();
                     this.ui.showToast('Không thể tạo đơn TPOS - Không có SP nào phù hợp', 'error');
                     btn.disabled = false;
                     btn.textContent = 'Tạo đơn TPOS';
@@ -1013,6 +1017,7 @@ class PurchaseOrderController {
                 }
 
                 if (!ncc?.tposId) {
+                    if (barcodeWindow) barcodeWindow.close();
                     this.ui.showToast('NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.', 'error');
                     btn.disabled = false;
                     btn.textContent = 'Tạo đơn TPOS';
@@ -1031,15 +1036,18 @@ class PurchaseOrderController {
                         'success'
                     );
 
-                    // Print barcode labels
+                    // Print barcode labels — use pre-opened window to avoid popup blocker
                     if (tposResult.poId && tposResult.orderLines?.length > 0 && window.TPOSPurchase?.printBarcodeLabel) {
                         try {
                             this.ui.showToast('Đang tạo tem barcode...', 'info');
-                            await window.TPOSPurchase.printBarcodeLabel(tposResult.poId, tposResult.orderLines);
+                            await window.TPOSPurchase.printBarcodeLabel(tposResult.poId, tposResult.orderLines, barcodeWindow);
                         } catch (printErr) {
                             console.warn('[Print] Barcode print failed:', printErr);
+                            if (barcodeWindow) barcodeWindow.close();
                             this.ui.showToast('Không thể in tem: ' + printErr.message, 'warning');
                         }
+                    } else if (barcodeWindow) {
+                        barcodeWindow.close();
                     }
 
                     // Update Firebase items with TPOS variant codes
@@ -1067,6 +1075,7 @@ class PurchaseOrderController {
                 }
             } catch (error) {
                 console.error('[PO Preview] Submit failed:', error);
+                if (barcodeWindow) barcodeWindow.close();
                 this.ui.showToast('Lỗi tạo đơn TPOS: ' + error.message, 'error');
                 overlay.remove();
             }
