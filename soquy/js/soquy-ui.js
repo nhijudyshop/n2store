@@ -807,9 +807,17 @@ const SoquyUI = (function () {
 
             if (resultDiv) {
                 let html = `<p style="color:#52c41a; font-weight:600;">Nhập thành công: ${result.success}/${state._importData.length} phiếu</p>`;
+                if (result.skipped.length > 0) {
+                    html += `<p style="color:#faad14; font-weight:600;">Bỏ qua: ${result.skipped.length} phiếu (mã đã tồn tại)</p>`;
+                    html += `<ul style="font-size:12px; color:#faad14; max-height:80px; overflow-y:auto; margin:4px 0;">`;
+                    result.skipped.forEach(s => {
+                        html += `<li>Dòng ${s.row}: ${escapeHtml(s.code)}</li>`;
+                    });
+                    html += `</ul>`;
+                }
                 if (result.errors.length > 0) {
                     html += `<p style="color:#f5222d;">Lỗi: ${result.errors.length} dòng</p>`;
-                    html += `<ul style="font-size:12px; color:#f5222d; max-height:100px; overflow-y:auto;">`;
+                    html += `<ul style="font-size:12px; color:#f5222d; max-height:80px; overflow-y:auto;">`;
                     result.errors.forEach(err => {
                         html += `<li>Dòng ${err.row}: ${escapeHtml(err.error)}</li>`;
                     });
@@ -818,7 +826,8 @@ const SoquyUI = (function () {
                 resultDiv.innerHTML = html;
             }
 
-            showNotification(`Nhập thành công ${result.success} phiếu!`, 'success');
+            const skippedMsg = result.skipped.length > 0 ? `, bỏ qua ${result.skipped.length} mã trùng` : '';
+            showNotification(`Nhập thành công ${result.success} phiếu${skippedMsg}!`, 'success');
 
             // Refresh dropdowns with new dynamic categories
             populateCategoryDropdowns();
