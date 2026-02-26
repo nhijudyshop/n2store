@@ -837,12 +837,40 @@ window.TPOSProductCreator = (function () {
             const result = await createTPOSProduct(payload);
 
             if (result.success) {
-                const tposId = result.data?.Id || null;
+                let productData = result.data;
+
+                // If product already exists on TPOS, fetch it to get variant barcodes
+                if (result.alreadyExists && allCombinations) {
+                    console.log(`[TPOSCreator] Product ${productCode} already exists, fetching variants...`);
+                    try {
+                        const resp = await window.TPOSClient.authenticatedFetch(
+                            `${PROXY_URL}/api/odata/Product?$filter=DefaultCode eq '${productCode}'&$top=1&$select=Id,ProductTmplId&$expand=ProductVariants`
+                        );
+                        if (resp.ok) {
+                            const fetchData = await resp.json();
+                            const tmplId = fetchData.value?.[0]?.ProductTmplId;
+                            if (tmplId) {
+                                // Fetch full ProductTemplate with variants
+                                const tmplResp = await window.TPOSClient.authenticatedFetch(
+                                    `${PROXY_URL}/api/odata/ProductTemplate(${tmplId})?$expand=ProductVariants`
+                                );
+                                if (tmplResp.ok) {
+                                    productData = await tmplResp.json();
+                                    console.log(`[TPOSCreator] Fetched ${productData.ProductVariants?.length || 0} variants for ${productCode}`);
+                                }
+                            }
+                        }
+                    } catch (fetchErr) {
+                        console.warn(`[TPOSCreator] Failed to fetch existing product ${productCode}:`, fetchErr);
+                    }
+                }
+
+                const tposId = productData?.Id || null;
                 await updateSyncStatus(orderId, itemIds, 'success', tposId, null);
 
                 // Update variant Barcodes from TPOS response → Firebase items
-                if (allCombinations && result.data?.ProductVariants?.length > 0) {
-                    await updateVariantBarcodes(orderId, groupItems, result.data.ProductVariants, allCombinations);
+                if (allCombinations && productData?.ProductVariants?.length > 0) {
+                    await updateVariantBarcodes(orderId, groupItems, productData.ProductVariants, allCombinations);
                 }
 
                 return { success: true, productCode, alreadyExists: result.alreadyExists };
