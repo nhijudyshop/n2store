@@ -212,9 +212,14 @@
                                 <span class="filter-checkbox-text">Phiếu thu</span>
                             </label>
                             <label class="filter-checkbox-label">
-                                <input type="checkbox" id="filterPayment">
+                                <input type="checkbox" id="filterPaymentCN">
                                 <span class="filter-checkbox-custom"></span>
-                                <span class="filter-checkbox-text">Phiếu chi</span>
+                                <span class="filter-checkbox-text">Phiếu chi CN</span>
+                            </label>
+                            <label class="filter-checkbox-label">
+                                <input type="checkbox" id="filterPaymentKD">
+                                <span class="filter-checkbox-custom"></span>
+                                <span class="filter-checkbox-text">Phiếu chi KD</span>
                             </label>
                         </div>
                     </div>
@@ -259,24 +264,6 @@
                                 <span class="filter-checkbox-text">Đã hủy</span>
                                 <span class="filter-status-dot filter-status-dot--danger"></span>
                             </label>
-                        </div>
-                    </div>
-
-                    <!-- Business Accounting Filter -->
-                    <div class="filter-section">
-                        <div class="filter-section-header">
-                            <div class="filter-section-title">
-                                <i data-lucide="bar-chart-2"></i>
-                                <span>Hạch toán KQKD</span>
-                            </div>
-                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
-                        </div>
-                        <div class="filter-section-body">
-                            <div class="btn-group-toggle">
-                                <button class="btn-toggle active" data-value="all">Tất cả</button>
-                                <button class="btn-toggle" data-value="yes">Có</button>
-                                <button class="btn-toggle" data-value="no">Không</button>
-                            </div>
                         </div>
                     </div>
 
@@ -371,8 +358,12 @@
                             <span class="stat-value text-primary" id="statTotalReceipts">0</span>
                         </div>
                         <div class="stat-box">
-                            <span class="stat-label">Tổng chi</span>
-                            <span class="stat-value text-danger" id="statTotalPayments">0</span>
+                            <span class="stat-label">Tổng chi CN</span>
+                            <span class="stat-value text-danger" id="statTotalPaymentsCN">0</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Tổng chi KD</span>
+                            <span class="stat-value text-danger" id="statTotalPaymentsKD">0</span>
                         </div>
                         <div class="stat-box">
                             <span class="stat-label">Tồn quỹ <i data-lucide="info" class="icon-sm"></i></span>
@@ -758,7 +749,8 @@
                                 <label>Phân loại</label>
                                 <select id="newCategoryType" class="form-control">
                                     <option value="receipt">Loại thu</option>
-                                    <option value="payment">Loại chi</option>
+                                    <option value="payment_cn">Loại chi CN</option>
+                                    <option value="payment_kd">Loại chi KD</option>
                                 </select>
                             </div>
                         </div>
@@ -791,13 +783,16 @@
                         </div>
                     </div>
 
-                    <!-- Tab toggle for receipt / payment categories -->
+                    <!-- Tab toggle for receipt / payment CN / payment KD categories -->
                     <div class="category-tab-toggle">
                         <button class="category-tab-btn active" data-cat-tab="receipt">
                             <i data-lucide="arrow-down-circle"></i> Loại thu
                         </button>
-                        <button class="category-tab-btn" data-cat-tab="payment">
-                            <i data-lucide="arrow-up-circle"></i> Loại chi
+                        <button class="category-tab-btn" data-cat-tab="payment_cn">
+                            <i data-lucide="arrow-up-circle"></i> Chi CN
+                        </button>
+                        <button class="category-tab-btn" data-cat-tab="payment_kd">
+                            <i data-lucide="arrow-up-circle"></i> Chi KD
                         </button>
                     </div>
 

@@ -9,6 +9,11 @@ const SoquyUI = (function () {
     const db = window.SoquyDatabase;
     const els = window.SoquyElements;
 
+    // Helper: check if type is a payment type (CN or KD)
+    function isPaymentType(type) {
+        return type === config.VOUCHER_TYPES.PAYMENT_CN || type === config.VOUCHER_TYPES.PAYMENT_KD;
+    }
+
     // =====================================================
     // TABLE RENDERING (Dynamic Columns)
     // =====================================================
@@ -18,7 +23,7 @@ const SoquyUI = (function () {
     }
 
     function getCellValue(voucher, colKey) {
-        const isPayment = voucher.type === config.VOUCHER_TYPES.PAYMENT;
+        const isPayment = isPaymentType(voucher.type);
         switch (colKey) {
             case 'code':
                 return null; // Special rendering (link)
@@ -114,7 +119,7 @@ const SoquyUI = (function () {
         }
 
         els.tableBody.innerHTML = state.displayedVouchers.map(v => {
-            const isPayment = v.type === config.VOUCHER_TYPES.PAYMENT;
+            const isPayment = isPaymentType(v.type);
             const isCancelled = v.status === config.VOUCHER_STATUS.CANCELLED;
 
             let rowHtml = `<tr class="${isCancelled ? 'row-cancelled' : ''}" data-id="${v.id}">`;
@@ -179,10 +184,15 @@ const SoquyUI = (function () {
             .filter(v => v.type === config.VOUCHER_TYPES.RECEIPT)
             .reduce((sum, v) => sum + Math.abs(v.amount || 0), 0);
 
-        state.totalPayments = paidVouchers
-            .filter(v => v.type === config.VOUCHER_TYPES.PAYMENT)
+        state.totalPaymentsCN = paidVouchers
+            .filter(v => v.type === config.VOUCHER_TYPES.PAYMENT_CN)
             .reduce((sum, v) => sum + Math.abs(v.amount || 0), 0);
 
+        state.totalPaymentsKD = paidVouchers
+            .filter(v => v.type === config.VOUCHER_TYPES.PAYMENT_KD)
+            .reduce((sum, v) => sum + Math.abs(v.amount || 0), 0);
+
+        state.totalPayments = state.totalPaymentsCN + state.totalPaymentsKD;
         state.closingBalance = state.openingBalance + state.totalReceipts - state.totalPayments;
 
         if (els.statOpeningBalance) {
@@ -193,9 +203,14 @@ const SoquyUI = (function () {
         if (els.statTotalReceipts) {
             els.statTotalReceipts.textContent = db.formatCurrency(state.totalReceipts);
         }
-        if (els.statTotalPayments) {
-            els.statTotalPayments.textContent = state.totalPayments > 0
-                ? `-${db.formatCurrency(state.totalPayments)}`
+        if (els.statTotalPaymentsCN) {
+            els.statTotalPaymentsCN.textContent = state.totalPaymentsCN > 0
+                ? `-${db.formatCurrency(state.totalPaymentsCN)}`
+                : '0';
+        }
+        if (els.statTotalPaymentsKD) {
+            els.statTotalPaymentsKD.textContent = state.totalPaymentsKD > 0
+                ? `-${db.formatCurrency(state.totalPaymentsKD)}`
                 : '0';
         }
         if (els.statClosingBalance) {
@@ -336,7 +351,10 @@ const SoquyUI = (function () {
     function openPaymentModal(subType) {
         if (!els.paymentModal) return;
 
+        state.paymentSubType = subType || 'cn';
+
         resetPaymentForm();
+        populatePaymentCategoryDropdown(state.paymentSubType);
 
         const now = new Date();
         const dateStr = formatDateTimeForInput(now);
@@ -384,15 +402,18 @@ const SoquyUI = (function () {
 
             showLoadingOverlay(true);
 
+            const paymentType = state.paymentSubType === 'kd'
+                ? config.VOUCHER_TYPES.PAYMENT_KD
+                : config.VOUCHER_TYPES.PAYMENT_CN;
+
             const voucherData = {
-                type: config.VOUCHER_TYPES.PAYMENT,
+                type: paymentType,
                 category: els.paymentCategory?.value || '',
                 collector: els.paymentCollector?.value || '',
                 objectType: els.paymentObjectType?.value || 'Khác',
                 personName: els.paymentReceiverName?.value || '',
                 amount: amount,
                 note: els.paymentNote?.value || '',
-                businessAccounting: els.paymentBusinessAccounting?.checked !== false,
                 dateTime: els.paymentDateTime?.value || ''
             };
 
@@ -400,12 +421,13 @@ const SoquyUI = (function () {
 
             // Auto-add category/creator if new
             if (voucherData.category) {
-                await db.autoAddCategory(voucherData.category, config.VOUCHER_TYPES.PAYMENT);
+                await db.autoAddCategory(voucherData.category, paymentType);
                 populateCategoryDropdowns();
             }
 
             closePaymentModal();
-            showNotification('Tạo phiếu chi thành công!', 'success');
+            const typeLabel = state.paymentSubType === 'kd' ? 'chi KD' : 'chi CN';
+            showNotification(`Tạo phiếu ${typeLabel} thành công!`, 'success');
             await refreshData();
         } catch (error) {
             console.error('[SoquyUI] Error saving payment:', error);
@@ -429,8 +451,10 @@ const SoquyUI = (function () {
         if (!detailModal) return;
 
         const isReceipt = voucher.type === config.VOUCHER_TYPES.RECEIPT;
+        const isPayment = isPaymentType(voucher.type);
         const isCancelled = voucher.status === config.VOUCHER_STATUS.CANCELLED;
         const dateStr = db.formatVoucherDateTime(voucher.voucherDateTime);
+        const typeLabel = (config.VOUCHER_TYPE_LABELS[voucher.type] || 'PHIẾU CHI').toUpperCase();
         const amountDisplay = isReceipt
             ? db.formatCurrency(voucher.amount)
             : `-${db.formatCurrency(voucher.amount)}`;
@@ -440,7 +464,7 @@ const SoquyUI = (function () {
             detailBody.innerHTML = `
                 <div class="detail-header-section">
                     <div class="detail-voucher-code">
-                        <span class="code-label">${isReceipt ? 'PHIẾU THU' : 'PHIẾU CHI'}</span>
+                        <span class="code-label">${typeLabel}</span>
                         <span class="code-value">${escapeHtml(voucher.code)}</span>
                         ${isCancelled ? '<span class="badge-cancelled-lg">Đã hủy</span>' : '<span class="badge-paid">Đã thanh toán</span>'}
                     </div>
@@ -474,10 +498,6 @@ const SoquyUI = (function () {
                     <div class="detail-row">
                         <span class="detail-label">Ghi chú:</span>
                         <span class="detail-value">${escapeHtml(voucher.note || '-')}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Hạch toán KQKD:</span>
-                        <span class="detail-value">${voucher.businessAccounting ? 'Có' : 'Không'}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Người tạo:</span>
@@ -561,7 +581,8 @@ const SoquyUI = (function () {
             // Switch save button to update mode
             state.editingVoucherId = voucherId;
         } else {
-            openPaymentModal(voucher.businessAccounting ? 'kd' : 'cn');
+            const subType = voucher.type === config.VOUCHER_TYPES.PAYMENT_KD ? 'kd' : 'cn';
+            openPaymentModal(subType);
             if (els.paymentVoucherCode) els.paymentVoucherCode.value = voucher.code;
             if (els.paymentDateTime) els.paymentDateTime.value = db.formatVoucherDateTime(voucher.voucherDateTime);
             if (els.paymentCategory) setSelectValue(els.paymentCategory, voucher.category);
@@ -575,7 +596,7 @@ const SoquyUI = (function () {
             // Update title for edit mode
             const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
             if (titleEl) {
-                titleEl.textContent = voucher.businessAccounting
+                titleEl.textContent = subType === 'kd'
                     ? 'Sửa phiếu chi kinh doanh'
                     : 'Sửa phiếu chi cá nhân';
             }
@@ -598,9 +619,9 @@ const SoquyUI = (function () {
                 personName: isReceipt ? els.receiptPayerName?.value : els.paymentReceiverName?.value,
                 amount: parseAmountInput(isReceipt ? els.receiptAmount?.value : els.paymentAmount?.value),
                 note: isReceipt ? els.receiptNote?.value : els.paymentNote?.value,
-                businessAccounting: isReceipt
-                    ? els.receiptBusinessAccounting?.checked
-                    : els.paymentBusinessAccounting?.checked,
+                businessAccounting: !isReceipt ? (state.paymentSubType === 'kd') : els.receiptBusinessAccounting?.checked,
+                type: isReceipt ? config.VOUCHER_TYPES.RECEIPT
+                    : (state.paymentSubType === 'kd' ? config.VOUCHER_TYPES.PAYMENT_KD : config.VOUCHER_TYPES.PAYMENT_CN),
                 dateTime: isReceipt ? els.receiptDateTime?.value : els.paymentDateTime?.value
             };
 
@@ -1007,7 +1028,8 @@ const SoquyUI = (function () {
     function handleVoucherTypeFilterChange() {
         const types = [];
         if (els.receiptCheckbox?.checked) types.push(config.VOUCHER_TYPES.RECEIPT);
-        if (els.paymentCheckbox?.checked) types.push(config.VOUCHER_TYPES.PAYMENT);
+        if (els.paymentCNCheckbox?.checked) types.push(config.VOUCHER_TYPES.PAYMENT_CN);
+        if (els.paymentKDCheckbox?.checked) types.push(config.VOUCHER_TYPES.PAYMENT_KD);
         state.voucherTypeFilter = types;
         state.currentPage = 1;
         refreshData();
@@ -1076,18 +1098,40 @@ const SoquyUI = (function () {
     // POPULATE DROPDOWNS
     // =====================================================
 
-    function populateCategoryDropdowns() {
-        // Receipt categories (predefined + dynamic, minus removed)
-        const removedReceipt = state.removedPredefinedReceiptCategories || [];
-        const allReceiptCats = config.RECEIPT_CATEGORIES.filter(
-            c => !removedReceipt.some(r => String(r).toLowerCase() === String(c).toLowerCase())
+    function getCategoriesForType(voucherType) {
+        const predefined = db.getCategoryPredefined(voucherType);
+        const dynamic = db.getCategoryDynamicList(voucherType);
+        const removedKey = db.getRemovedStateKey(voucherType);
+        const removed = state[removedKey] || [];
+
+        const cats = predefined.filter(
+            c => !removed.some(r => String(r).toLowerCase() === String(c).toLowerCase())
         );
-        state.dynamicReceiptCategories.forEach(cat => {
-            if (!allReceiptCats.some(c => c.toLowerCase() === cat.toLowerCase())) {
-                allReceiptCats.push(cat);
+        dynamic.forEach(cat => {
+            if (!cats.some(c => c.toLowerCase() === cat.toLowerCase())) {
+                cats.push(cat);
             }
         });
+        return cats;
+    }
 
+    function populatePaymentCategoryDropdown(subType) {
+        const voucherType = subType === 'kd'
+            ? config.VOUCHER_TYPES.PAYMENT_KD
+            : config.VOUCHER_TYPES.PAYMENT_CN;
+        const allPaymentCats = getCategoriesForType(voucherType);
+        const label = subType === 'kd' ? 'Chọn loại chi KD' : 'Chọn loại chi CN';
+        if (els.paymentCategory) {
+            els.paymentCategory.innerHTML = `<option value="">${label}</option>` +
+                allPaymentCats.map(cat =>
+                    `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
+                ).join('');
+        }
+    }
+
+    function populateCategoryDropdowns() {
+        // Receipt categories
+        const allReceiptCats = getCategoriesForType(config.VOUCHER_TYPES.RECEIPT);
         if (els.receiptCategory) {
             els.receiptCategory.innerHTML = '<option value="">Chọn loại thu</option>' +
                 allReceiptCats.map(cat =>
@@ -1095,23 +1139,8 @@ const SoquyUI = (function () {
                 ).join('');
         }
 
-        // Payment categories (predefined + dynamic, minus removed)
-        const removedPayment = state.removedPredefinedPaymentCategories || [];
-        const allPaymentCats = config.PAYMENT_CATEGORIES.filter(
-            c => !removedPayment.some(r => String(r).toLowerCase() === String(c).toLowerCase())
-        );
-        state.dynamicPaymentCategories.forEach(cat => {
-            if (!allPaymentCats.some(c => c.toLowerCase() === cat.toLowerCase())) {
-                allPaymentCats.push(cat);
-            }
-        });
-
-        if (els.paymentCategory) {
-            els.paymentCategory.innerHTML = '<option value="">Chọn loại chi</option>' +
-                allPaymentCats.map(cat =>
-                    `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
-                ).join('');
-        }
+        // Payment category - populate based on current subType
+        populatePaymentCategoryDropdown(state.paymentSubType || 'cn');
 
         // Object type dropdowns
         [els.receiptObjectType, els.paymentObjectType].forEach(select => {
@@ -1244,7 +1273,13 @@ const SoquyUI = (function () {
     // CATEGORY MANAGEMENT
     // =====================================================
 
-    let _categoryModalTab = 'receipt'; // Current tab in category modal
+    let _categoryModalTab = 'receipt'; // 'receipt', 'payment_cn', 'payment_kd'
+
+    function categoryTabToVoucherType(tab) {
+        if (tab === 'receipt') return config.VOUCHER_TYPES.RECEIPT;
+        if (tab === 'payment_cn') return config.VOUCHER_TYPES.PAYMENT_CN;
+        return config.VOUCHER_TYPES.PAYMENT_KD;
+    }
 
     function openCategoryModal(type) {
         const modal = document.getElementById('soquyCategoryModal');
@@ -1288,12 +1323,11 @@ const SoquyUI = (function () {
         const listContainer = document.getElementById('categoryListItems');
         if (!listContainer) return;
 
-        const isReceipt = _categoryModalTab === 'receipt';
-        const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
-        const dynamic = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
-        const removedPredefined = isReceipt
-            ? (state.removedPredefinedReceiptCategories || [])
-            : (state.removedPredefinedPaymentCategories || []);
+        const vType = categoryTabToVoucherType(_categoryModalTab);
+        const predefined = db.getCategoryPredefined(vType);
+        const dynamic = db.getCategoryDynamicList(vType);
+        const removedKey = db.getRemovedStateKey(vType);
+        const removedPredefined = state[removedKey] || [];
 
         // Filter out removed predefined categories
         const activePredefined = predefined.filter(
@@ -1399,12 +1433,11 @@ const SoquyUI = (function () {
             return;
         }
 
-        const voucherType = type === 'receipt' ? config.VOUCHER_TYPES.RECEIPT : config.VOUCHER_TYPES.PAYMENT;
+        const voucherType = categoryTabToVoucherType(type);
 
         // Check if already exists
-        const isReceipt = type === 'receipt';
-        const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
-        const dynamic = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
+        const predefined = db.getCategoryPredefined(voucherType);
+        const dynamic = db.getCategoryDynamicList(voucherType);
         const allCats = [...predefined, ...dynamic];
 
         if (allCats.some(c => String(c).toLowerCase() === name.toLowerCase())) {
@@ -1412,10 +1445,12 @@ const SoquyUI = (function () {
             return;
         }
 
+        const typeLabels = { receipt: 'thu', payment_cn: 'chi CN', payment_kd: 'chi KD' };
+
         try {
             await db.autoAddCategory(name, voucherType);
             populateCategoryDropdowns();
-            showNotification(`Đã tạo loại ${type === 'receipt' ? 'thu' : 'chi'}: ${name}`, 'success');
+            showNotification(`Đã tạo loại ${typeLabels[type] || 'chi'}: ${name}`, 'success');
 
             // Clear form
             if (nameInput) nameInput.value = '';
@@ -1436,9 +1471,7 @@ const SoquyUI = (function () {
     }
 
     async function deleteSingleCategory(categoryName, source) {
-        const voucherType = _categoryModalTab === 'receipt'
-            ? config.VOUCHER_TYPES.RECEIPT
-            : config.VOUCHER_TYPES.PAYMENT;
+        const voucherType = categoryTabToVoucherType(_categoryModalTab);
 
         try {
             if (source === 'predefined') {
@@ -1470,9 +1503,7 @@ const SoquyUI = (function () {
             }
         });
 
-        const voucherType = _categoryModalTab === 'receipt'
-            ? config.VOUCHER_TYPES.RECEIPT
-            : config.VOUCHER_TYPES.PAYMENT;
+        const voucherType = categoryTabToVoucherType(_categoryModalTab);
 
         try {
             const promises = [];
@@ -1548,6 +1579,8 @@ const SoquyUI = (function () {
         handlePageSizeChange,
         handleExport,
         populateCategoryDropdowns,
+        populatePaymentCategoryDropdown,
+        isPaymentType,
         toggleColumnDropdown,
         renderColumnToggleDropdown,
         loadColumnVisibility,

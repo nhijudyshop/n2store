@@ -68,7 +68,7 @@ const SoquyDatabase = (function () {
             const now = new Date();
             const voucher = {
                 code: voucherCode,
-                type: voucherData.type, // 'receipt' or 'payment'
+                type: voucherData.type, // 'receipt', 'payment_cn', or 'payment_kd'
                 fundType: fundType,
                 category: voucherData.category || '',
                 collector: voucherData.collector || '',
@@ -83,7 +83,7 @@ const SoquyDatabase = (function () {
                 accountName: voucherData.accountName || '',
                 accountNumber: voucherData.accountNumber || '',
                 branch: voucherData.branch || '',
-                businessAccounting: voucherData.businessAccounting !== false,
+                businessAccounting: voucherData.type === config.VOUCHER_TYPES.PAYMENT_KD,
                 status: config.VOUCHER_STATUS.PAID,
                 voucherDateTime: voucherData.dateTime
                     ? parseVoucherDateTime(voucherData.dateTime)
@@ -126,6 +126,14 @@ const SoquyDatabase = (function () {
 
             console.log('[SoquyDB] Raw vouchers from Firestore:', vouchers.length);
 
+            // Normalize legacy 'payment' type to payment_cn or payment_kd
+            vouchers = vouchers.map(v => {
+                if (v.type === 'payment') {
+                    v.type = v.businessAccounting ? 'payment_kd' : 'payment_cn';
+                }
+                return v;
+            });
+
             // Fund type filter
             if (state.fundType !== config.FUND_TYPES.ALL) {
                 vouchers = vouchers.filter(v => v.fundType === state.fundType);
@@ -148,17 +156,10 @@ const SoquyDatabase = (function () {
                 console.log('[SoquyDB] After status filter (' + state.statusFilter.join(',') + '):', vouchers.length);
             }
 
-            // Voucher type filter (when only one type is selected)
-            if (state.voucherTypeFilter.length === 1) {
-                vouchers = vouchers.filter(v => v.type === state.voucherTypeFilter[0]);
+            // Voucher type filter (supports multiple selections)
+            if (state.voucherTypeFilter.length > 0) {
+                vouchers = vouchers.filter(v => state.voucherTypeFilter.includes(v.type));
                 console.log('[SoquyDB] After voucherType filter:', vouchers.length);
-            }
-
-            // Business accounting filter
-            if (state.businessAccounting === config.BUSINESS_ACCOUNTING.YES) {
-                vouchers = vouchers.filter(v => v.businessAccounting === true);
-            } else if (state.businessAccounting === config.BUSINESS_ACCOUNTING.NO) {
-                vouchers = vouchers.filter(v => v.businessAccounting === false);
             }
 
             // NOTE: Search, category, creator, employee filters are applied locally
@@ -248,9 +249,13 @@ const SoquyDatabase = (function () {
 
             snapshot.forEach(doc => {
                 const data = doc.data();
+                // Normalize legacy type
+                const type = data.type === 'payment'
+                    ? (data.businessAccounting ? 'payment_kd' : 'payment_cn')
+                    : data.type;
                 const vDate = toDate(data.voucherDateTime);
                 if (vDate < startDate) {
-                    if (data.type === config.VOUCHER_TYPES.RECEIPT) {
+                    if (type === config.VOUCHER_TYPES.RECEIPT) {
                         balance += Math.abs(data.amount || 0);
                     } else {
                         balance -= Math.abs(data.amount || 0);
@@ -279,7 +284,7 @@ const SoquyDatabase = (function () {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            // Don't allow changing code or type
+            // Don't allow changing code
             delete cleanData.code;
             delete cleanData.id;
 
@@ -451,7 +456,7 @@ const SoquyDatabase = (function () {
                     accountName: String(row['Tên tài khoản'] || row['accountName'] || '').trim(),
                     accountNumber: String(row['Số tài khoản'] || row['accountNumber'] || '').trim(),
                     branch: String(row['Chi nhánh'] || row['branch'] || '').trim(),
-                    businessAccounting: parseBoolean(row['Hạch toán KQKD'] || row['businessAccounting'], true),
+                    businessAccounting: voucherType === config.VOUCHER_TYPES.PAYMENT_KD,
                     status: config.VOUCHER_STATUS.PAID,
                     voucherDateTime: parsedDateTime
                         || firebase.firestore.Timestamp.fromDate(now),
@@ -492,16 +497,20 @@ const SoquyDatabase = (function () {
         // 1. Check explicit type column
         const type = String(row['Loại'] || row['type'] || '').toLowerCase();
         if (type.includes('thu') || type === 'receipt') return config.VOUCHER_TYPES.RECEIPT;
-        if (type.includes('chi') || type === 'payment') return config.VOUCHER_TYPES.PAYMENT;
+        if (type.includes('chi kd') || type === 'payment_kd') return config.VOUCHER_TYPES.PAYMENT_KD;
+        if (type.includes('chi cn') || type === 'payment_cn') return config.VOUCHER_TYPES.PAYMENT_CN;
+        if (type.includes('chi') || type === 'payment') return config.VOUCHER_TYPES.PAYMENT_KD;
 
-        // 2. Detect from voucher code prefix (CTM/CNH/CVD = Chi, TTM/TNH/TVD = Thu)
+        // 2. Detect from voucher code prefix
         const code = String(row['Mã phiếu'] || row['code'] || '').toUpperCase();
-        if (code.startsWith('C')) return config.VOUCHER_TYPES.PAYMENT;
+        if (code.startsWith('CKD')) return config.VOUCHER_TYPES.PAYMENT_KD;
+        if (code.startsWith('CCN')) return config.VOUCHER_TYPES.PAYMENT_CN;
+        if (code.startsWith('C')) return config.VOUCHER_TYPES.PAYMENT_KD; // legacy CTM/CNH/CVD
         if (code.startsWith('T')) return config.VOUCHER_TYPES.RECEIPT;
 
         // 3. Detect by amount sign
         const amount = parseFloat(String(row['Giá trị'] || row['amount'] || '0').replace(/[.,\s]/g, ''));
-        return amount < 0 ? config.VOUCHER_TYPES.PAYMENT : config.VOUCHER_TYPES.RECEIPT;
+        return amount < 0 ? config.VOUCHER_TYPES.PAYMENT_KD : config.VOUCHER_TYPES.RECEIPT;
     }
 
     function detectFundType(row) {
@@ -511,11 +520,12 @@ const SoquyDatabase = (function () {
         if (fund.includes('ngân') || fund === 'bank') return config.FUND_TYPES.BANK;
         if (fund.includes('ví') || fund === 'ewallet') return config.FUND_TYPES.EWALLET;
 
-        // 2. Detect from voucher code prefix (CTM=Chi Tiền Mặt, TTM=Thu Tiền Mặt, etc.)
+        // 2. Detect from voucher code prefix
         const code = String(row['Mã phiếu'] || row['code'] || '').toUpperCase();
         if (code.startsWith('CTM') || code.startsWith('TTM')) return config.FUND_TYPES.CASH;
         if (code.startsWith('CNH') || code.startsWith('TNH')) return config.FUND_TYPES.BANK;
         if (code.startsWith('CVD') || code.startsWith('TVD')) return config.FUND_TYPES.EWALLET;
+        // CCN/CKD prefixes don't carry fund type info, fall through to null
 
         return null;
     }
@@ -554,20 +564,55 @@ const SoquyDatabase = (function () {
     /**
      * Auto-add a category if it doesn't exist in the predefined list
      */
+    function getCategoryDocId(voucherType) {
+        if (voucherType === config.VOUCHER_TYPES.RECEIPT) return 'receipt_categories';
+        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) return 'payment_cn_categories';
+        return 'payment_kd_categories';
+    }
+
+    function getCategoryPredefined(voucherType) {
+        if (voucherType === config.VOUCHER_TYPES.RECEIPT) return config.RECEIPT_CATEGORIES;
+        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) return config.PAYMENT_CN_CATEGORIES;
+        return config.PAYMENT_KD_CATEGORIES;
+    }
+
+    function getCategoryDynamicList(voucherType) {
+        if (voucherType === config.VOUCHER_TYPES.RECEIPT) return state.dynamicReceiptCategories;
+        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) return state.dynamicPaymentCNCategories;
+        return state.dynamicPaymentKDCategories;
+    }
+
+    function setCategoryDynamicList(voucherType, list) {
+        if (voucherType === config.VOUCHER_TYPES.RECEIPT) state.dynamicReceiptCategories = list;
+        else if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) state.dynamicPaymentCNCategories = list;
+        else state.dynamicPaymentKDCategories = list;
+    }
+
+    function getRemovedDocId(voucherType) {
+        if (voucherType === config.VOUCHER_TYPES.RECEIPT) return 'removed_receipt_categories';
+        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) return 'removed_payment_cn_categories';
+        return 'removed_payment_kd_categories';
+    }
+
+    function getRemovedStateKey(voucherType) {
+        if (voucherType === config.VOUCHER_TYPES.RECEIPT) return 'removedPredefinedReceiptCategories';
+        if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN) return 'removedPredefinedPaymentCNCategories';
+        return 'removedPredefinedPaymentKDCategories';
+    }
+
     async function autoAddCategory(category, voucherType) {
         category = String(category || '').trim();
         if (!category) return;
 
-        const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
-        const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
-        const dynamicList = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
+        const predefined = getCategoryPredefined(voucherType);
+        const dynamicList = getCategoryDynamicList(voucherType);
 
         // Check if already exists
         const allCategories = [...predefined, ...dynamicList];
         if (allCategories.some(c => String(c).toLowerCase() === category.toLowerCase())) return;
 
         try {
-            const docId = isReceipt ? 'receipt_categories' : 'payment_categories';
+            const docId = getCategoryDocId(voucherType);
             const docRef = config.soquyMetaRef.doc(docId);
             const doc = await docRef.get();
 
@@ -582,14 +627,8 @@ const SoquyDatabase = (function () {
             }
 
             // Update local state
-            if (isReceipt) {
-                if (!state.dynamicReceiptCategories.includes(category)) {
-                    state.dynamicReceiptCategories.push(category);
-                }
-            } else {
-                if (!state.dynamicPaymentCategories.includes(category)) {
-                    state.dynamicPaymentCategories.push(category);
-                }
+            if (!dynamicList.includes(category)) {
+                dynamicList.push(category);
             }
 
             console.log('[SoquyDB] Auto-added category:', category);
@@ -606,8 +645,7 @@ const SoquyDatabase = (function () {
     async function deleteDynamicCategories(categories, voucherType) {
         if (!categories || categories.length === 0) return;
 
-        const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
-        const docId = isReceipt ? 'receipt_categories' : 'payment_categories';
+        const docId = getCategoryDocId(voucherType);
 
         try {
             const docRef = config.soquyMetaRef.doc(docId);
@@ -622,15 +660,9 @@ const SoquyDatabase = (function () {
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
             // Update local state
-            if (isReceipt) {
-                state.dynamicReceiptCategories = state.dynamicReceiptCategories.filter(
-                    c => !deleteLower.includes(String(c).toLowerCase())
-                );
-            } else {
-                state.dynamicPaymentCategories = state.dynamicPaymentCategories.filter(
-                    c => !deleteLower.includes(String(c).toLowerCase())
-                );
-            }
+            const dynamicList = getCategoryDynamicList(voucherType);
+            const filtered = dynamicList.filter(c => !deleteLower.includes(String(c).toLowerCase()));
+            setCategoryDynamicList(voucherType, filtered);
 
             console.log('[SoquyDB] Deleted categories:', categories);
         } catch (error) {
@@ -652,8 +684,8 @@ const SoquyDatabase = (function () {
     async function removePredefinedCategories(categories, voucherType) {
         if (!categories || categories.length === 0) return;
 
-        const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
-        const docId = isReceipt ? 'removed_receipt_categories' : 'removed_payment_categories';
+        const docId = getRemovedDocId(voucherType);
+        const stateKey = getRemovedStateKey(voucherType);
 
         try {
             const docRef = config.soquyMetaRef.doc(docId);
@@ -673,21 +705,12 @@ const SoquyDatabase = (function () {
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
             // Update local state
-            if (isReceipt) {
-                if (!state.removedPredefinedReceiptCategories) state.removedPredefinedReceiptCategories = [];
-                categories.forEach(cat => {
-                    if (!state.removedPredefinedReceiptCategories.includes(cat)) {
-                        state.removedPredefinedReceiptCategories.push(cat);
-                    }
-                });
-            } else {
-                if (!state.removedPredefinedPaymentCategories) state.removedPredefinedPaymentCategories = [];
-                categories.forEach(cat => {
-                    if (!state.removedPredefinedPaymentCategories.includes(cat)) {
-                        state.removedPredefinedPaymentCategories.push(cat);
-                    }
-                });
-            }
+            if (!state[stateKey]) state[stateKey] = [];
+            categories.forEach(cat => {
+                if (!state[stateKey].includes(cat)) {
+                    state[stateKey].push(cat);
+                }
+            });
 
             console.log('[SoquyDB] Removed predefined categories:', categories);
         } catch (error) {
@@ -735,19 +758,43 @@ const SoquyDatabase = (function () {
      */
     async function loadDynamicMeta() {
         try {
-            const [rcDoc, pcDoc, crDoc, rrcDoc, rpcDoc] = await Promise.all([
+            const [rcDoc, pcnDoc, pkdDoc, crDoc, rrcDoc, rpcnDoc, rpkdDoc] = await Promise.all([
                 config.soquyMetaRef.doc('receipt_categories').get(),
-                config.soquyMetaRef.doc('payment_categories').get(),
+                config.soquyMetaRef.doc('payment_cn_categories').get(),
+                config.soquyMetaRef.doc('payment_kd_categories').get(),
                 config.soquyMetaRef.doc('creators').get(),
                 config.soquyMetaRef.doc('removed_receipt_categories').get(),
-                config.soquyMetaRef.doc('removed_payment_categories').get()
+                config.soquyMetaRef.doc('removed_payment_cn_categories').get(),
+                config.soquyMetaRef.doc('removed_payment_kd_categories').get()
             ]);
 
             if (rcDoc.exists) state.dynamicReceiptCategories = rcDoc.data().items || [];
-            if (pcDoc.exists) state.dynamicPaymentCategories = pcDoc.data().items || [];
+            if (pcnDoc.exists) state.dynamicPaymentCNCategories = pcnDoc.data().items || [];
+            if (pkdDoc.exists) state.dynamicPaymentKDCategories = pkdDoc.data().items || [];
             if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
             state.removedPredefinedReceiptCategories = rrcDoc.exists ? (rrcDoc.data().items || []) : [];
-            state.removedPredefinedPaymentCategories = rpcDoc.exists ? (rpcDoc.data().items || []) : [];
+            state.removedPredefinedPaymentCNCategories = rpcnDoc.exists ? (rpcnDoc.data().items || []) : [];
+            state.removedPredefinedPaymentKDCategories = rpkdDoc.exists ? (rpkdDoc.data().items || []) : [];
+
+            // Migrate: also load old payment_categories into both CN/KD for backward compat
+            try {
+                const oldPcDoc = await config.soquyMetaRef.doc('payment_categories').get();
+                if (oldPcDoc.exists) {
+                    const oldItems = oldPcDoc.data().items || [];
+                    oldItems.forEach(cat => {
+                        if (!state.dynamicPaymentCNCategories.includes(cat)) state.dynamicPaymentCNCategories.push(cat);
+                        if (!state.dynamicPaymentKDCategories.includes(cat)) state.dynamicPaymentKDCategories.push(cat);
+                    });
+                }
+                const oldRpcDoc = await config.soquyMetaRef.doc('removed_payment_categories').get();
+                if (oldRpcDoc.exists) {
+                    const oldRemoved = oldRpcDoc.data().items || [];
+                    oldRemoved.forEach(cat => {
+                        if (!state.removedPredefinedPaymentCNCategories.includes(cat)) state.removedPredefinedPaymentCNCategories.push(cat);
+                        if (!state.removedPredefinedPaymentKDCategories.includes(cat)) state.removedPredefinedPaymentKDCategories.push(cat);
+                    });
+                }
+            } catch (e) { /* ignore migration errors */ }
 
             console.log('[SoquyDB] Dynamic meta loaded');
         } catch (error) {
@@ -763,6 +810,8 @@ const SoquyDatabase = (function () {
      * Export vouchers to CSV format for Excel
      */
     function exportToCSV(vouchers) {
+        const isPayment = (type) => type === config.VOUCHER_TYPES.PAYMENT_CN || type === config.VOUCHER_TYPES.PAYMENT_KD;
+
         const headers = [
             'Mã phiếu',
             'Loại',
@@ -774,24 +823,20 @@ const SoquyDatabase = (function () {
             'Giá trị',
             'Ghi chú',
             'Trạng thái',
-            'Hạch toán KQKD',
             'Người tạo'
         ];
 
         const rows = vouchers.map(v => [
             v.code,
-            v.type === config.VOUCHER_TYPES.RECEIPT ? 'Phiếu thu' : 'Phiếu chi',
+            config.VOUCHER_TYPE_LABELS[v.type] || 'Phiếu chi',
             config.FUND_TYPE_LABELS[v.fundType] || v.fundType,
             formatVoucherDateTime(v.voucherDateTime),
             v.category,
             v.personName,
             v.collector,
-            v.type === config.VOUCHER_TYPES.RECEIPT
-                ? Math.abs(v.amount)
-                : -Math.abs(v.amount),
+            isPayment(v.type) ? -Math.abs(v.amount) : Math.abs(v.amount),
             v.note,
             config.VOUCHER_STATUS_LABELS[v.status] || v.status,
-            v.businessAccounting ? 'Có' : 'Không',
             v.createdBy
         ]);
 
@@ -906,7 +951,10 @@ const SoquyDatabase = (function () {
         formatVoucherDateTime,
         parseVoucherDateTime,
         getCurrentUserName,
-        formatCurrency
+        formatCurrency,
+        getCategoryPredefined,
+        getCategoryDynamicList,
+        getRemovedStateKey
     };
 })();
 
