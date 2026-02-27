@@ -1224,10 +1224,15 @@
                     </h4>
                     <div class="category-form">
                         <div class="form-row">
-                            <div class="form-group k-group w-100">
+                            <div class="form-group k-group" style="flex: 1;">
+                                <label>Mã nguồn <span class="text-danger">*</span></label>
+                                <input type="text" id="newSourceCode" class="form-control"
+                                    placeholder="VD: BH, DV..." maxlength="10" style="text-transform: uppercase;" />
+                            </div>
+                            <div class="form-group k-group" style="flex: 2;">
                                 <label>Tên nguồn <span class="text-danger">*</span></label>
                                 <input type="text" id="newSourceName" class="form-control"
-                                    placeholder="Nhập tên nguồn kinh doanh" />
+                                    placeholder="VD: Bán hàng, Dịch vụ..." />
                             </div>
                         </div>
                         <div class="category-form-actions">
