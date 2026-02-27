@@ -222,7 +222,7 @@ window.SoquyState = {
     dynamicPaymentCNCategories: [],
     dynamicPaymentKDCategories: [],
     dynamicCreators: [],
-    dynamicSources: []
+    dynamicSources: [] // Array of { code: 'AA', name: 'Bán hàng' }
 };
 
 // =====================================================

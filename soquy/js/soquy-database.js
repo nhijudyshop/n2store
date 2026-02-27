@@ -83,7 +83,8 @@ const SoquyDatabase = (function () {
                 accountName: voucherData.accountName || '',
                 accountNumber: voucherData.accountNumber || '',
                 branch: voucherData.branch || '',
-                source: voucherData.source || '',
+                source: voucherData.source || '', // backward compat
+                sourceCode: voucherData.sourceCode || '',
                 businessAccounting: voucherData.type === config.VOUCHER_TYPES.PAYMENT_KD,
                 status: config.VOUCHER_STATUS.PAID,
                 voucherDateTime: voucherData.dateTime
@@ -721,14 +722,16 @@ const SoquyDatabase = (function () {
     }
 
     /**
-     * Auto-add a source if not already known
+     * Add a source with code and name. Source: { code: 'AA', name: 'Bán hàng' }
      */
-    async function autoAddSource(sourceName) {
-        sourceName = String(sourceName || '').trim();
-        if (!sourceName) return;
+    async function addSource(sourceObj) {
+        if (!sourceObj || !sourceObj.code || !sourceObj.name) return;
+        const code = String(sourceObj.code).trim().toUpperCase();
+        const name = String(sourceObj.name).trim();
+        if (!code || !name) return;
 
         const dynamicList = state.dynamicSources;
-        if (dynamicList.some(s => String(s).toLowerCase() === sourceName.toLowerCase())) return;
+        if (dynamicList.some(s => s.code === code)) return;
 
         try {
             const docRef = config.soquyMetaRef.doc('sources');
@@ -739,26 +742,46 @@ const SoquyDatabase = (function () {
                 items = doc.data().items || [];
             }
 
-            if (!items.some(s => String(s).toLowerCase() === sourceName.toLowerCase())) {
-                items.push(sourceName);
+            // Migrate: convert old string items to {code, name} objects
+            items = items.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+
+            if (!items.some(s => s.code === code)) {
+                items.push({ code, name });
                 await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
             }
 
-            if (!state.dynamicSources.includes(sourceName)) {
-                state.dynamicSources.push(sourceName);
+            if (!state.dynamicSources.some(s => s.code === code)) {
+                state.dynamicSources.push({ code, name });
             }
 
-            console.log('[SoquyDB] Auto-added source:', sourceName);
+            console.log('[SoquyDB] Added source:', code, name);
         } catch (error) {
-            console.error('[SoquyDB] Error auto-adding source:', error);
+            console.error('[SoquyDB] Error adding source:', error);
         }
+    }
+
+    /**
+     * Get source object by code
+     */
+    function getSourceByCode(code) {
+        if (!code) return null;
+        return state.dynamicSources.find(s => s.code === code) || null;
+    }
+
+    /**
+     * Get display label for a source code: "CODE Tên nguồn"
+     */
+    function getSourceLabel(code) {
+        const src = getSourceByCode(code);
+        if (!src) return code || '';
+        return `${src.code} ${src.name}`;
     }
 
     /**
      * Delete specific dynamic sources
      */
-    async function deleteDynamicSources(sources) {
-        if (!sources || sources.length === 0) return;
+    async function deleteDynamicSources(codes) {
+        if (!codes || codes.length === 0) return;
 
         try {
             const docRef = config.soquyMetaRef.doc('sources');
@@ -767,16 +790,15 @@ const SoquyDatabase = (function () {
             if (!doc.exists) return;
 
             let items = doc.data().items || [];
-            const deleteLower = sources.map(s => String(s).toLowerCase());
-            items = items.filter(item => !deleteLower.includes(String(item).toLowerCase()));
+            // Migrate old string items
+            items = items.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+            items = items.filter(item => !codes.includes(item.code));
 
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
-            state.dynamicSources = state.dynamicSources.filter(
-                s => !deleteLower.includes(String(s).toLowerCase())
-            );
+            state.dynamicSources = state.dynamicSources.filter(s => !codes.includes(s.code));
 
-            console.log('[SoquyDB] Deleted sources:', sources);
+            console.log('[SoquyDB] Deleted sources:', codes);
         } catch (error) {
             console.error('[SoquyDB] Error deleting sources:', error);
             throw error;
@@ -837,7 +859,11 @@ const SoquyDatabase = (function () {
             if (pcnDoc.exists) state.dynamicPaymentCNCategories = pcnDoc.data().items || [];
             if (pkdDoc.exists) state.dynamicPaymentKDCategories = pkdDoc.data().items || [];
             if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
-            if (srcDoc.exists) state.dynamicSources = srcDoc.data().items || [];
+            if (srcDoc.exists) {
+                const rawSources = srcDoc.data().items || [];
+                // Migrate: convert old string items to {code, name} objects
+                state.dynamicSources = rawSources.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+            }
             state.removedPredefinedReceiptCategories = rrcDoc.exists ? (rrcDoc.data().items || []) : [];
             state.removedPredefinedPaymentCNCategories = rpcnDoc.exists ? (rpcnDoc.data().items || []) : [];
             state.removedPredefinedPaymentKDCategories = rpkdDoc.exists ? (rpkdDoc.data().items || []) : [];
@@ -883,6 +909,8 @@ const SoquyDatabase = (function () {
             'Loại',
             'Quỹ',
             'Thời gian',
+            'Mã nguồn',
+            'Nguồn',
             'Loại thu chi',
             'Người nộp/nhận',
             'Người thu/chi',
@@ -892,19 +920,25 @@ const SoquyDatabase = (function () {
             'Người tạo'
         ];
 
-        const rows = vouchers.map(v => [
-            v.code,
-            config.VOUCHER_TYPE_LABELS[v.type] || 'Phiếu chi',
-            config.FUND_TYPE_LABELS[v.fundType] || v.fundType,
-            formatVoucherDateTime(v.voucherDateTime),
-            v.category,
-            v.personName,
-            v.collector,
-            isPayment(v.type) ? -Math.abs(v.amount) : Math.abs(v.amount),
-            v.note,
-            config.VOUCHER_STATUS_LABELS[v.status] || v.status,
-            v.createdBy
-        ]);
+        const rows = vouchers.map(v => {
+            const srcCode = v.sourceCode || v.source || '';
+            const srcObj = getSourceByCode(srcCode);
+            return [
+                v.code,
+                config.VOUCHER_TYPE_LABELS[v.type] || 'Phiếu chi',
+                config.FUND_TYPE_LABELS[v.fundType] || v.fundType,
+                formatVoucherDateTime(v.voucherDateTime),
+                srcCode,
+                srcObj ? srcObj.name : srcCode,
+                v.sourceCode ? `${v.sourceCode} ${v.category}` : v.category,
+                v.personName,
+                v.collector,
+                isPayment(v.type) ? -Math.abs(v.amount) : Math.abs(v.amount),
+                v.note,
+                config.VOUCHER_STATUS_LABELS[v.status] || v.status,
+                v.createdBy
+            ];
+        });
 
         const BOM = '\uFEFF';
         const csvContent = BOM + [
@@ -1011,8 +1045,10 @@ const SoquyDatabase = (function () {
         removePredefinedCategory,
         removePredefinedCategories,
         autoAddCreator,
-        autoAddSource,
+        addSource,
         deleteDynamicSources,
+        getSourceByCode,
+        getSourceLabel,
         loadDynamicMeta,
         getDateRange,
         toDate,

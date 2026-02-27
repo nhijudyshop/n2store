@@ -158,9 +158,11 @@ const SoquyReport = (function () {
         // Source filter
         if (reportState.sourceFilter) {
             const src = reportState.sourceFilter.toLowerCase();
-            vouchers = vouchers.filter(v =>
-                String(v.source || '').toLowerCase().includes(src)
-            );
+            vouchers = vouchers.filter(v => {
+                const code = String(v.sourceCode || v.source || '').toLowerCase();
+                const label = db.getSourceLabel(v.sourceCode || v.source).toLowerCase();
+                return code.includes(src) || label.includes(src);
+            });
         }
 
         reportState.filtered = vouchers;
@@ -224,16 +226,20 @@ const SoquyReport = (function () {
             vouchers = [];
         }
 
-        // Group by category
+        // Group by category (with source prefix for display)
         const categoryMap = {};
         vouchers.forEach(v => {
-            const cat = v.category || '(Chưa phân loại)';
-            if (!categoryMap[cat]) {
-                categoryMap[cat] = { category: cat, amount: 0, count: 0, type: v.type, vouchers: [] };
+            const srcCode = v.sourceCode || v.source || '';
+            const rawCat = v.category || '(Chưa phân loại)';
+            const displayCat = (srcCode && rawCat !== '(Chưa phân loại)' && v.type !== 'payment_cn')
+                ? `${srcCode} ${rawCat}` : rawCat;
+            const key = displayCat;
+            if (!categoryMap[key]) {
+                categoryMap[key] = { category: displayCat, amount: 0, count: 0, type: v.type, vouchers: [] };
             }
-            categoryMap[cat].amount += Math.abs(v.amount || 0);
-            categoryMap[cat].count++;
-            categoryMap[cat].vouchers.push(v);
+            categoryMap[key].amount += Math.abs(v.amount || 0);
+            categoryMap[key].count++;
+            categoryMap[key].vouchers.push(v);
         });
 
         const categories = Object.values(categoryMap).sort((a, b) => b.amount - a.amount);
@@ -334,15 +340,17 @@ const SoquyReport = (function () {
     function computeSourceBreakdown() {
         const sourceMap = {};
         reportState.filtered.forEach(v => {
-            const src = v.source || '(Chưa phân loại)';
-            if (!sourceMap[src]) {
-                sourceMap[src] = { source: src, income: 0, expense: 0 };
+            const srcCode = v.sourceCode || v.source || '';
+            const srcLabel = db.getSourceLabel(srcCode) || '(Chưa phân loại)';
+            const key = srcCode || '(none)';
+            if (!sourceMap[key]) {
+                sourceMap[key] = { source: srcLabel, sourceCode: srcCode, income: 0, expense: 0 };
             }
             const amount = Math.abs(v.amount || 0);
             if (v.type === 'receipt') {
-                sourceMap[src].income += amount;
+                sourceMap[key].income += amount;
             } else {
-                sourceMap[src].expense += amount;
+                sourceMap[key].expense += amount;
             }
         });
 
@@ -878,7 +886,11 @@ const SoquyReport = (function () {
                 <td class="text-primary" style="font-weight: 500;">${escapeHtml(v.code)}</td>
                 <td>${escapeHtml(dateStr)}</td>
                 <td>${escapeHtml(typeLabel)}</td>
-                <td>${escapeHtml(v.personName || v.category || '')}</td>
+                <td>${escapeHtml((() => {
+                    const srcCode = v.sourceCode || v.source || '';
+                    const cat = v.personName || v.category || '';
+                    return (srcCode && cat && v.type !== 'payment_cn') ? `${srcCode} ${cat}` : cat;
+                })())}</td>
                 <td style="text-align: right; font-weight: 600;" class="${amountClass}">${amountPrefix}${fmt(v.amount)}</td>
             </tr>`;
         }).join('');

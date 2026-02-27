@@ -151,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnSaveNewSource = document.getElementById('btnSaveNewSource');
         els.btnDeleteSelectedSources = document.getElementById('btnDeleteSelectedSources');
         els.selectAllSources = document.getElementById('selectAllSources');
+        els.newSourceCode = document.getElementById('newSourceCode');
         els.newSourceName = document.getElementById('newSourceName');
     }
 
@@ -521,6 +522,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (els.selectAllSources) {
             els.selectAllSources.addEventListener('change', (e) => ui.handleSelectAllSources(e.target.checked));
+        }
+        if (els.newSourceCode) {
+            els.newSourceCode.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    ui.saveNewSource();
+                }
+            });
         }
         if (els.newSourceName) {
             els.newSourceName.addEventListener('keydown', (e) => {
