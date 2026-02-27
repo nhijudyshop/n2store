@@ -26,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Voucher type checkboxes
         els.receiptCheckbox = document.getElementById('filterReceipt');
-        els.paymentCheckbox = document.getElementById('filterPayment');
+        els.paymentCNCheckbox = document.getElementById('filterPaymentCN');
+        els.paymentKDCheckbox = document.getElementById('filterPaymentKD');
 
         // Category filter
         els.categoryFilter = document.getElementById('filterCategory');
@@ -34,9 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Status checkboxes
         els.statusPaidCheckbox = document.getElementById('filterStatusPaid');
         els.statusCancelledCheckbox = document.getElementById('filterStatusCancelled');
-
-        // Business accounting toggles
-        els.businessAccountingBtns = document.querySelectorAll('.btn-toggle');
 
         // Creator/Employee
         els.creatorFilter = document.getElementById('filterCreator');
@@ -48,7 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Summary stats
         els.statOpeningBalance = document.getElementById('statOpeningBalance');
         els.statTotalReceipts = document.getElementById('statTotalReceipts');
-        els.statTotalPayments = document.getElementById('statTotalPayments');
+        els.statTotalPaymentsCN = document.getElementById('statTotalPaymentsCN');
+        els.statTotalPaymentsKD = document.getElementById('statTotalPaymentsKD');
         els.statClosingBalance = document.getElementById('statClosingBalance');
 
         // Table
@@ -200,8 +199,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.receiptCheckbox) {
             els.receiptCheckbox.addEventListener('change', () => ui.handleVoucherTypeFilterChange());
         }
-        if (els.paymentCheckbox) {
-            els.paymentCheckbox.addEventListener('change', () => ui.handleVoucherTypeFilterChange());
+        if (els.paymentCNCheckbox) {
+            els.paymentCNCheckbox.addEventListener('change', () => ui.handleVoucherTypeFilterChange());
+        }
+        if (els.paymentKDCheckbox) {
+            els.paymentKDCheckbox.addEventListener('change', () => ui.handleVoucherTypeFilterChange());
         }
 
         // Category filter
@@ -222,16 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.statusCancelledCheckbox) {
             els.statusCancelledCheckbox.addEventListener('change', () => ui.handleStatusFilterChange());
         }
-
-        // Business accounting toggles
-        els.businessAccountingBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                els.businessAccountingBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                const value = btn.dataset.value || config.BUSINESS_ACCOUNTING.ALL;
-                ui.handleBusinessAccountingChange(value);
-            });
-        });
 
         // Creator filter
         if (els.creatorFilter) {
@@ -454,7 +446,10 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnManageReceiptCategory.addEventListener('click', () => ui.openCategoryModal('receipt'));
         }
         if (els.btnManagePaymentCategory) {
-            els.btnManagePaymentCategory.addEventListener('click', () => ui.openCategoryModal('payment'));
+            els.btnManagePaymentCategory.addEventListener('click', () => {
+                const catType = state.paymentSubType === 'kd' ? 'payment_kd' : 'payment_cn';
+                ui.openCategoryModal(catType);
+            });
         }
         if (els.btnCloseCategory) {
             els.btnCloseCategory.addEventListener('click', () => ui.closeCategoryModal());

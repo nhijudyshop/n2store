@@ -30,12 +30,14 @@ const FUND_TYPE_LABELS = {
 
 const VOUCHER_TYPES = {
     RECEIPT: 'receipt',
-    PAYMENT: 'payment'
+    PAYMENT_CN: 'payment_cn',
+    PAYMENT_KD: 'payment_kd'
 };
 
 const VOUCHER_TYPE_LABELS = {
     [VOUCHER_TYPES.RECEIPT]: 'Phiếu thu',
-    [VOUCHER_TYPES.PAYMENT]: 'Phiếu chi'
+    [VOUCHER_TYPES.PAYMENT_CN]: 'Phiếu chi CN',
+    [VOUCHER_TYPES.PAYMENT_KD]: 'Phiếu chi KD'
 };
 
 // Voucher code prefixes per fund type
@@ -45,10 +47,15 @@ const VOUCHER_CODE_PREFIX = {
         bank: 'TNH',
         ewallet: 'TVD'
     },
-    payment: {
-        cash: 'CTM',
-        bank: 'CNH',
-        ewallet: 'CVD'
+    payment_cn: {
+        cash: 'CCN',
+        bank: 'CCN',
+        ewallet: 'CCN'
+    },
+    payment_kd: {
+        cash: 'CKD',
+        bank: 'CKD',
+        ewallet: 'CKD'
     }
 };
 
@@ -73,20 +80,26 @@ const RECEIPT_CATEGORIES = [
     'Chuyển/Nạp'
 ];
 
-// Payment categories (Loại chi)
-const PAYMENT_CATEGORIES = [
+// Payment CN categories (Loại chi cá nhân)
+const PAYMENT_CN_CATEGORIES = [
     'Chi CC CHỊ NHI',
     'Chi CC A TRƯỜNG',
-    'Chi phí khác',
     'Chi BB ĂN UỐNG+ĐÃM TIỆC+ĐI CHƠI',
     'Chi BB TỪ THIỆN+PHỎNG SANH+CÚNG DƯỜNG',
     'Chi BB ĐI CHỢ HÀNG NGÀY + GIA VỊ',
     'Chi DD KHOẢN CHI XÂY+SỬA NHÀ',
+    'Chi phí khác',
+    'Chuyển/Rút'
+];
+
+// Payment KD categories (Loại chi kinh doanh)
+const PAYMENT_KD_CATEGORIES = [
     'Chi trả tiền NCC',
     'Chi phí vận chuyển',
     'Chi phí mặt bằng',
     'Chi lương nhân viên',
     'Chi nội bộ',
+    'Chi phí khác',
     'Chuyển/Rút'
 ];
 
@@ -143,12 +156,6 @@ const TIME_FILTER_LABELS = {
     [TIME_FILTERS.CUSTOM]: 'Tùy chỉnh'
 };
 
-// Business accounting filter
-const BUSINESS_ACCOUNTING = {
-    ALL: 'all',
-    YES: 'yes',
-    NO: 'no'
-};
 
 // =====================================================
 // GLOBAL STATE
@@ -160,10 +167,9 @@ window.SoquyState = {
     timeFilter: TIME_FILTERS.THIS_MONTH,
     customStartDate: null,
     customEndDate: null,
-    voucherTypeFilter: [], // empty = all, ['receipt'], ['payment'], or both
+    voucherTypeFilter: [], // empty = all, ['receipt'], ['payment_cn'], ['payment_kd'], or combinations
     categoryFilter: '',
     statusFilter: [VOUCHER_STATUS.PAID], // default: show paid only
-    businessAccounting: BUSINESS_ACCOUNTING.ALL,
     creatorFilter: '',
     employeeFilter: '',
     searchQuery: '',
@@ -182,8 +188,13 @@ window.SoquyState = {
     // Summary
     openingBalance: 0,
     totalReceipts: 0,
+    totalPaymentsCN: 0,
+    totalPaymentsKD: 0,
     totalPayments: 0,
     closingBalance: 0,
+
+    // Payment sub-type for current modal
+    paymentSubType: 'cn',
 
     // Editing
     editingVoucherId: null,
@@ -204,7 +215,8 @@ window.SoquyState = {
 
     // Dynamic categories & creators (auto-added from imports/entries)
     dynamicReceiptCategories: [],
-    dynamicPaymentCategories: [],
+    dynamicPaymentCNCategories: [],
+    dynamicPaymentKDCategories: [],
     dynamicCreators: []
 };
 
@@ -224,7 +236,8 @@ window.SoquyElements = {
 
     // Voucher type checkboxes
     receiptCheckbox: null,
-    paymentCheckbox: null,
+    paymentCNCheckbox: null,
+    paymentKDCheckbox: null,
 
     // Category filter
     categoryFilter: null,
@@ -232,9 +245,6 @@ window.SoquyElements = {
     // Status checkboxes
     statusPaidCheckbox: null,
     statusCancelledCheckbox: null,
-
-    // Business accounting toggles
-    businessAccountingBtns: null,
 
     // Creator/Employee filter
     creatorFilter: null,
@@ -246,7 +256,8 @@ window.SoquyElements = {
     // Summary stats
     statOpeningBalance: null,
     statTotalReceipts: null,
-    statTotalPayments: null,
+    statTotalPaymentsCN: null,
+    statTotalPaymentsKD: null,
     statClosingBalance: null,
 
     // Table
@@ -264,7 +275,8 @@ window.SoquyElements = {
 
     // Action buttons
     btnCreateReceipt: null,
-    btnCreatePayment: null,
+    btnCreatePaymentCN: null,
+    btnCreatePaymentKD: null,
     btnExportFile: null,
 
     // Receipt modal
@@ -334,12 +346,12 @@ window.SoquyConfig = {
     VOUCHER_STATUS,
     VOUCHER_STATUS_LABELS,
     RECEIPT_CATEGORIES,
-    PAYMENT_CATEGORIES,
+    PAYMENT_CN_CATEGORIES,
+    PAYMENT_KD_CATEGORIES,
     OBJECT_TYPES,
     COLUMN_DEFINITIONS,
     PAGE_SIZES,
     DEFAULT_PAGE_SIZE,
     TIME_FILTERS,
-    TIME_FILTER_LABELS,
-    BUSINESS_ACCOUNTING
+    TIME_FILTER_LABELS
 };
