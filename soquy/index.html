@@ -477,9 +477,14 @@
                 <div class="form-row">
                     <div class="form-group k-group">
                         <label>Loại thu</label>
-                        <select id="receiptCategory" class="form-control">
-                            <option value="">Chọn loại thu</option>
-                        </select>
+                        <div class="category-select-row">
+                            <select id="receiptCategory" class="form-control">
+                                <option value="">Chọn loại thu</option>
+                            </select>
+                            <button type="button" class="btn-category-manage" id="btnManageReceiptCategory" title="Quản lý loại thu">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group k-group">
                         <label>Người thu</label>
@@ -565,9 +570,14 @@
                 <div class="form-row">
                     <div class="form-group k-group">
                         <label>Loại chi</label>
-                        <select id="paymentCategory" class="form-control">
-                            <option value="">Chọn loại chi</option>
-                        </select>
+                        <div class="category-select-row">
+                            <select id="paymentCategory" class="form-control">
+                                <option value="">Chọn loại chi</option>
+                            </select>
+                            <button type="button" class="btn-category-manage" id="btnManagePaymentCategory" title="Quản lý loại chi">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group k-group">
                         <label>Người chi</label>
@@ -712,6 +722,95 @@
                     <button class="btn-primary" id="btnConfirmImport" disabled>
                         <i data-lucide="check"></i> Nhập dữ liệu
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: CATEGORY MANAGEMENT ==================== -->
+    <div class="modal" id="soquyCategoryModal" style="display: none;">
+        <div class="modal-overlay" id="soquyCategoryOverlay"></div>
+        <div class="modal-content k-modal k-modal-category">
+            <div class="modal-header k-modal-header">
+                <h3 id="categoryModalTitle">Quản lý loại thu chi</h3>
+                <button class="btn-icon" id="btnSoquyCloseCategory">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <!-- Create New Category Form -->
+                <div class="category-create-section">
+                    <h4 class="category-section-title">
+                        <i data-lucide="plus-circle"></i>
+                        <span>Tạo loại thu chi mới</span>
+                    </h4>
+                    <div class="category-form">
+                        <div class="form-row">
+                            <div class="form-group k-group" style="flex: 2;">
+                                <label>Tên loại thu chi <span class="text-danger">*</span></label>
+                                <input type="text" id="newCategoryName" class="form-control"
+                                    placeholder="Nhập tên loại thu chi" />
+                            </div>
+                            <div class="form-group k-group" style="flex: 1;">
+                                <label>Phân loại</label>
+                                <select id="newCategoryType" class="form-control">
+                                    <option value="receipt">Loại thu</option>
+                                    <option value="payment">Loại chi</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Mô tả</label>
+                                <input type="text" id="newCategoryDescription" class="form-control"
+                                    placeholder="Mô tả ngắn (tùy chọn)" />
+                            </div>
+                        </div>
+                        <div class="category-form-actions">
+                            <button class="btn-primary" id="btnSaveNewCategory">
+                                <i data-lucide="plus"></i> Tạo mới
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Existing Categories List with Bulk Delete -->
+                <div class="category-list-section">
+                    <div class="category-list-header">
+                        <h4 class="category-section-title">
+                            <i data-lucide="list"></i>
+                            <span>Danh sách loại thu chi</span>
+                        </h4>
+                        <div class="category-list-actions">
+                            <button class="btn-outline-danger btn-sm" id="btnDeleteSelectedCategories" style="display: none;">
+                                <i data-lucide="trash-2"></i> Xóa đã chọn (<span id="selectedCategoryCount">0</span>)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tab toggle for receipt / payment categories -->
+                    <div class="category-tab-toggle">
+                        <button class="category-tab-btn active" data-cat-tab="receipt">
+                            <i data-lucide="arrow-down-circle"></i> Loại thu
+                        </button>
+                        <button class="category-tab-btn" data-cat-tab="payment">
+                            <i data-lucide="arrow-up-circle"></i> Loại chi
+                        </button>
+                    </div>
+
+                    <!-- Category list -->
+                    <div class="category-list-wrapper">
+                        <div class="category-select-all-row">
+                            <label class="category-check-label">
+                                <input type="checkbox" id="selectAllCategories">
+                                <span class="category-check-custom"></span>
+                                <span class="category-select-all-text">Chọn tất cả</span>
+                            </label>
+                        </div>
+                        <div class="category-list-items" id="categoryListItems">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

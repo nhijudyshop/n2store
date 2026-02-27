@@ -1214,6 +1214,247 @@ const SoquyUI = (function () {
     }
 
     // =====================================================
+    // CATEGORY MANAGEMENT
+    // =====================================================
+
+    let _categoryModalTab = 'receipt'; // Current tab in category modal
+
+    function openCategoryModal(type) {
+        const modal = document.getElementById('soquyCategoryModal');
+        if (!modal) return;
+
+        // Set the type selector based on which button opened it
+        const typeSelect = document.getElementById('newCategoryType');
+        if (typeSelect) {
+            typeSelect.value = type || 'receipt';
+        }
+
+        // Set active tab matching the type
+        _categoryModalTab = type || 'receipt';
+        document.querySelectorAll('.category-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.catTab === _categoryModalTab);
+        });
+
+        // Update title
+        const title = document.getElementById('categoryModalTitle');
+        if (title) title.textContent = 'Quản lý loại thu chi';
+
+        // Clear form
+        const nameInput = document.getElementById('newCategoryName');
+        const descInput = document.getElementById('newCategoryDescription');
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
+
+        // Render list
+        renderCategoryList();
+
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeCategoryModal() {
+        const modal = document.getElementById('soquyCategoryModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function renderCategoryList() {
+        const listContainer = document.getElementById('categoryListItems');
+        if (!listContainer) return;
+
+        const isReceipt = _categoryModalTab === 'receipt';
+        const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
+        const dynamic = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
+
+        // Build combined list: predefined first, then dynamic
+        let html = '';
+
+        predefined.forEach(cat => {
+            html += `
+                <div class="category-item" data-category="${escapeHtml(cat)}" data-source="predefined">
+                    <label class="category-check-label">
+                        <input type="checkbox" class="category-item-checkbox" value="${escapeHtml(cat)}" data-source="predefined">
+                        <span class="category-check-custom"></span>
+                    </label>
+                    <div class="category-item-info">
+                        <div class="category-item-name">${escapeHtml(cat)}</div>
+                    </div>
+                    <span class="category-item-badge category-item-badge--predefined">Mặc định</span>
+                </div>`;
+        });
+
+        dynamic.forEach(cat => {
+            html += `
+                <div class="category-item" data-category="${escapeHtml(cat)}" data-source="dynamic">
+                    <label class="category-check-label">
+                        <input type="checkbox" class="category-item-checkbox" value="${escapeHtml(cat)}" data-source="dynamic">
+                        <span class="category-check-custom"></span>
+                    </label>
+                    <div class="category-item-info">
+                        <div class="category-item-name">${escapeHtml(cat)}</div>
+                    </div>
+                    <span class="category-item-badge category-item-badge--dynamic">Tùy chỉnh</span>
+                    <button class="category-item-delete" data-category="${escapeHtml(cat)}" title="Xóa">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>`;
+        });
+
+        if (predefined.length === 0 && dynamic.length === 0) {
+            html = `
+                <div class="category-list-empty">
+                    <i data-lucide="inbox"></i>
+                    <span>Chưa có loại thu chi nào</span>
+                </div>`;
+        }
+
+        listContainer.innerHTML = html;
+
+        // Reset select all
+        const selectAll = document.getElementById('selectAllCategories');
+        if (selectAll) selectAll.checked = false;
+
+        updateDeleteSelectedButton();
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Bind individual delete buttons
+        listContainer.querySelectorAll('.category-item-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const cat = btn.dataset.category;
+                if (!cat) return;
+                await deleteSingleCategory(cat);
+            });
+        });
+
+        // Bind checkbox change events
+        listContainer.querySelectorAll('.category-item-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateDeleteSelectedButton);
+        });
+    }
+
+    function updateDeleteSelectedButton() {
+        const checkboxes = document.querySelectorAll('.category-item-checkbox:checked');
+        // Only count dynamic (deletable) ones
+        const deletable = Array.from(checkboxes).filter(cb => cb.dataset.source === 'dynamic');
+        const btn = document.getElementById('btnDeleteSelectedCategories');
+        const countSpan = document.getElementById('selectedCategoryCount');
+
+        if (btn) {
+            btn.style.display = deletable.length > 0 ? 'inline-flex' : 'none';
+        }
+        if (countSpan) {
+            countSpan.textContent = deletable.length;
+        }
+    }
+
+    async function saveNewCategory() {
+        const nameInput = document.getElementById('newCategoryName');
+        const typeSelect = document.getElementById('newCategoryType');
+
+        const name = (nameInput?.value || '').trim();
+        const type = typeSelect?.value || 'receipt';
+
+        if (!name) {
+            showNotification('Vui lòng nhập tên loại thu chi', 'error');
+            if (nameInput) nameInput.focus();
+            return;
+        }
+
+        const voucherType = type === 'receipt' ? config.VOUCHER_TYPES.RECEIPT : config.VOUCHER_TYPES.PAYMENT;
+
+        // Check if already exists
+        const isReceipt = type === 'receipt';
+        const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
+        const dynamic = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
+        const allCats = [...predefined, ...dynamic];
+
+        if (allCats.some(c => String(c).toLowerCase() === name.toLowerCase())) {
+            showNotification('Loại thu chi này đã tồn tại', 'error');
+            return;
+        }
+
+        try {
+            await db.autoAddCategory(name, voucherType);
+            populateCategoryDropdowns();
+            showNotification(`Đã tạo loại ${type === 'receipt' ? 'thu' : 'chi'}: ${name}`, 'success');
+
+            // Clear form
+            if (nameInput) nameInput.value = '';
+            const descInput = document.getElementById('newCategoryDescription');
+            if (descInput) descInput.value = '';
+
+            // Switch tab to show the new category
+            _categoryModalTab = type;
+            document.querySelectorAll('.category-tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.catTab === _categoryModalTab);
+            });
+
+            renderCategoryList();
+        } catch (error) {
+            console.error('[SoquyUI] Error saving category:', error);
+            showNotification('Lỗi khi tạo loại thu chi', 'error');
+        }
+    }
+
+    async function deleteSingleCategory(categoryName) {
+        const voucherType = _categoryModalTab === 'receipt'
+            ? config.VOUCHER_TYPES.RECEIPT
+            : config.VOUCHER_TYPES.PAYMENT;
+
+        try {
+            await db.deleteDynamicCategories([categoryName], voucherType);
+            populateCategoryDropdowns();
+            showNotification(`Đã xóa: ${categoryName}`, 'success');
+            renderCategoryList();
+        } catch (error) {
+            console.error('[SoquyUI] Error deleting category:', error);
+            showNotification('Lỗi khi xóa loại thu chi', 'error');
+        }
+    }
+
+    async function deleteSelectedCategories() {
+        const checkboxes = document.querySelectorAll('.category-item-checkbox:checked');
+        const dynamicToDelete = Array.from(checkboxes)
+            .filter(cb => cb.dataset.source === 'dynamic')
+            .map(cb => cb.value);
+
+        if (dynamicToDelete.length === 0) {
+            showNotification('Chỉ có thể xóa loại thu chi tùy chỉnh', 'error');
+            return;
+        }
+
+        const voucherType = _categoryModalTab === 'receipt'
+            ? config.VOUCHER_TYPES.RECEIPT
+            : config.VOUCHER_TYPES.PAYMENT;
+
+        try {
+            await db.deleteDynamicCategories(dynamicToDelete, voucherType);
+            populateCategoryDropdowns();
+            showNotification(`Đã xóa ${dynamicToDelete.length} loại thu chi`, 'success');
+            renderCategoryList();
+        } catch (error) {
+            console.error('[SoquyUI] Error deleting categories:', error);
+            showNotification('Lỗi khi xóa loại thu chi', 'error');
+        }
+    }
+
+    function handleCategoryTabSwitch(tabName) {
+        _categoryModalTab = tabName;
+        document.querySelectorAll('.category-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.catTab === tabName);
+        });
+        renderCategoryList();
+    }
+
+    function handleSelectAllCategories(checked) {
+        document.querySelectorAll('.category-item-checkbox').forEach(cb => {
+            cb.checked = checked;
+        });
+        updateDeleteSelectedButton();
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -1263,7 +1504,14 @@ const SoquyUI = (function () {
         showNotification,
         escapeHtml,
         formatDateTimeForInput,
-        parseAmountInput
+        parseAmountInput,
+        openCategoryModal,
+        closeCategoryModal,
+        saveNewCategory,
+        deleteSelectedCategories,
+        handleCategoryTabSwitch,
+        handleSelectAllCategories,
+        renderCategoryList
     };
 })();
 
