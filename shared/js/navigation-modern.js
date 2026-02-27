@@ -385,7 +385,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Đơn Hàng",
         icon: "shopping-cart",
-        items: ["orders-report", "order-management", "soorder", "tpos-pancake"]
+        items: ["orders-report", "order-management", "order-log", "tpos-pancake"]
     },
     {
         name: "Kho & Nhập Hàng",
@@ -1938,8 +1938,9 @@ class UnifiedNavigationManager {
         // Load SortableJS first
         await this.loadSortableJS();
 
-        // Get current layout
-        const layout = MenuLayoutStore.getLayout();
+        // Get current layout with any new menu items included
+        const rawLayout = MenuLayoutStore.getLayout();
+        const layout = MenuLayoutStore._addNewMenuItems(rawLayout);
         MenuLayoutStore.setEditing(true);
 
         // Create modal
@@ -1980,9 +1981,9 @@ class UnifiedNavigationManager {
             </div>
         `).join('');
 
-        // Build ungrouped items HTML
+        // Build ungrouped items HTML - always show as drop target
         const ungroupedItems = layout.ungroupedItems || [];
-        const ungroupedHtml = ungroupedItems.length > 0 ? `
+        const ungroupedHtml = `
             <div class="edit-group edit-group-ungrouped" data-group-id="ungrouped">
                 <div class="edit-group-header">
                     <i data-lucide="more-horizontal" class="edit-group-icon"></i>
@@ -2003,7 +2004,7 @@ class UnifiedNavigationManager {
                     }).join('')}
                 </div>
             </div>
-        ` : '';
+        `;
 
         modal.innerHTML = `
             <div class="menu-edit-modal">
