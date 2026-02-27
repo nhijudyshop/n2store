@@ -1892,19 +1892,24 @@ class PurchaseOrderFormModal {
      * @param {string} productName - Product name to extract supplier from
      */
     autoDetectSupplier(productName) {
-        // Only auto-detect if supplier field is empty
-        if (this.formData.supplier && this.formData.supplier.trim()) return;
+        // Only auto-detect if supplier field is empty (check actual input, not just formData)
+        const supplierInput = this.modalElement?.querySelector('#inputSupplier');
+        const currentValue = supplierInput?.value?.trim() || this.formData.supplier?.trim() || '';
+        if (currentValue) return;
 
         if (window.SupplierDetector) {
             const result = window.SupplierDetector.detectSupplierWithConfidence(productName);
 
             if (result.supplierName && (result.confidence === 'high' || result.confidence === 'medium')) {
-                this.formData.supplier = result.supplierName;
+                // Use full NCC name if available, otherwise use detected code
+                const ncc = window.NCCManager?.findByName(result.supplierName);
+                const displayName = ncc?.name || result.supplierName;
+                this.formData.supplier = displayName;
 
                 // Update supplier input field
-                const supplierInput = this.modalElement?.querySelector('#inputSupplier');
-                if (supplierInput) {
-                    supplierInput.value = result.supplierName;
+                const supplierEl = this.modalElement?.querySelector('#inputSupplier');
+                if (supplierEl) {
+                    supplierEl.value = displayName;
                 }
             }
         }
