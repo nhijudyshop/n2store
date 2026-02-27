@@ -429,14 +429,274 @@
                 </div>
             </div>
 
-            <!-- Report Tab (placeholder) -->
-            <div id="reportTabContent" class="tab-content">
-                <div class="tab-placeholder">
-                    <div class="tab-placeholder-icon-wrapper">
-                        <i data-lucide="bar-chart-3"></i>
+            <!-- Report Tab -->
+            <div id="reportTabContent" class="report-layout tab-content">
+                <!-- ==================== LEFT SIDEBAR FILTERS ==================== -->
+                <div class="report-sidebar">
+                    <div class="sidebar-header-section">
+                        <h2 class="sidebar-title" id="reportSidebarTitle">
+                            <i data-lucide="bar-chart-3"></i>
+                            <span>Báo cáo</span>
+                        </h2>
                     </div>
-                    <h3>Báo cáo</h3>
-                    <p>Tính năng đang được phát triển</p>
+
+                    <!-- Report Type -->
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="layout-list"></i>
+                                <span>Loại báo cáo</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportType" value="overview" checked>
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Tổng quan</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportType" value="payment_cn">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Chi cá nhân (CN)</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportType" value="payment_kd">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Chi kinh doanh (KD)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Fund Type Filter -->
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="wallet"></i>
+                                <span>Quỹ tiền</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportFundType" value="all" checked>
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Tổng quỹ</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportFundType" value="cash">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Tiền mặt</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportFundType" value="bank">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Ngân hàng</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportFundType" value="ewallet">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Ví điện tử</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Time Filter -->
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="calendar"></i>
+                                <span>Thời gian</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <label class="filter-radio-label" style="margin-bottom: 8px;">
+                                <input type="radio" name="reportTime" checked>
+                                <span class="filter-radio-custom"></span>
+                                <select id="reportTimeFilterSelect" class="filter-select">
+                                    <option value="this_month">Tháng này</option>
+                                    <option value="last_month">Tháng trước</option>
+                                    <option value="this_quarter">Quý này</option>
+                                    <option value="this_year" selected>Năm nay</option>
+                                </select>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="reportTime" id="reportTimeFilterCustom">
+                                <span class="filter-radio-custom"></span>
+                                <div class="custom-date-range">
+                                    <input type="date" id="reportCustomStartDate" class="filter-input">
+                                    <input type="date" id="reportCustomEndDate" class="filter-input">
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Category Filter -->
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="tag"></i>
+                                <span>Loại thu chi</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <div class="filter-search-wrapper">
+                                <i data-lucide="search" class="filter-search-icon"></i>
+                                <input type="text" id="reportFilterCategory" class="filter-input filter-input-search"
+                                    placeholder="Tìm loại thu chi">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export Report -->
+                    <div class="filter-section" style="border-bottom: none; padding: 16px 20px;">
+                        <button class="k-btn-outline-primary" id="btnExportReport" style="width: 100%;">
+                            <i data-lucide="file-output"></i> Xuất báo cáo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ==================== MAIN REPORT CONTENT ==================== -->
+                <div class="report-main">
+                    <!-- Report Header -->
+                    <div class="report-header">
+                        <div class="report-header-left">
+                            <h2 class="report-title" id="reportTitle">Báo cáo tổng quan</h2>
+                            <span class="report-period" id="reportPeriod">Năm 2026</span>
+                        </div>
+                        <div class="report-header-right">
+                            <span class="report-updated" id="reportUpdated"></span>
+                        </div>
+                    </div>
+
+                    <!-- Report Summary Cards -->
+                    <div class="report-summary-cards" id="reportSummaryCards">
+                        <div class="report-card report-card--income">
+                            <div class="report-card-icon"><i data-lucide="trending-up"></i></div>
+                            <div class="report-card-content">
+                                <span class="report-card-label">Tổng thu</span>
+                                <span class="report-card-value" id="rptTotalIncome">0</span>
+                            </div>
+                        </div>
+                        <div class="report-card report-card--expense-cn">
+                            <div class="report-card-icon"><i data-lucide="trending-down"></i></div>
+                            <div class="report-card-content">
+                                <span class="report-card-label">Tổng chi CN</span>
+                                <span class="report-card-value" id="rptTotalExpenseCN">0</span>
+                            </div>
+                        </div>
+                        <div class="report-card report-card--expense-kd">
+                            <div class="report-card-icon"><i data-lucide="trending-down"></i></div>
+                            <div class="report-card-content">
+                                <span class="report-card-label">Tổng chi KD</span>
+                                <span class="report-card-value" id="rptTotalExpenseKD">0</span>
+                            </div>
+                        </div>
+                        <div class="report-card report-card--balance">
+                            <div class="report-card-icon"><i data-lucide="wallet"></i></div>
+                            <div class="report-card-content">
+                                <span class="report-card-label">Số dư</span>
+                                <span class="report-card-value" id="rptBalance">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Report Content Grid -->
+                    <div class="report-content-grid">
+                        <!-- Category Breakdown -->
+                        <div class="report-section report-section--category">
+                            <div class="report-section-header">
+                                <h3><i data-lucide="pie-chart"></i> Chi tiết theo loại</h3>
+                            </div>
+                            <div class="report-section-body">
+                                <table class="report-table" id="reportCategoryTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Loại thu chi</th>
+                                            <th style="text-align: right;">Số tiền</th>
+                                            <th style="text-align: right; width: 70px;">Tỷ lệ</th>
+                                            <th style="width: 120px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportCategoryBody">
+                                        <tr><td colspan="4" class="report-empty">Đang tải...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Monthly Trend -->
+                        <div class="report-section report-section--trend">
+                            <div class="report-section-header">
+                                <h3><i data-lucide="calendar-range"></i> Xu hướng theo tháng</h3>
+                            </div>
+                            <div class="report-section-body">
+                                <table class="report-table" id="reportTrendTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Tháng</th>
+                                            <th style="text-align: right;">Thu</th>
+                                            <th style="text-align: right;">Chi CN</th>
+                                            <th style="text-align: right;">Chi KD</th>
+                                            <th style="text-align: right;">Số dư</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportTrendBody">
+                                        <tr><td colspan="5" class="report-empty">Đang tải...</td></tr>
+                                    </tbody>
+                                    <tfoot id="reportTrendFoot">
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Top Transactions -->
+                        <div class="report-section report-section--top">
+                            <div class="report-section-header">
+                                <h3><i data-lucide="list-ordered"></i> Giao dịch lớn nhất</h3>
+                            </div>
+                            <div class="report-section-body">
+                                <table class="report-table" id="reportTopTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Mã phiếu</th>
+                                            <th>Ngày</th>
+                                            <th>Loại</th>
+                                            <th>Người nộp/nhận</th>
+                                            <th style="text-align: right;">Số tiền</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportTopBody">
+                                        <tr><td colspan="5" class="report-empty">Đang tải...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Fund Type Breakdown -->
+                        <div class="report-section report-section--fund">
+                            <div class="report-section-header">
+                                <h3><i data-lucide="landmark"></i> Phân bổ theo quỹ</h3>
+                            </div>
+                            <div class="report-section-body">
+                                <table class="report-table" id="reportFundTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Quỹ</th>
+                                            <th style="text-align: right;">Thu</th>
+                                            <th style="text-align: right;">Chi</th>
+                                            <th style="text-align: right;">Số dư</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="reportFundBody">
+                                        <tr><td colspan="4" class="report-empty">Đang tải...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -818,6 +1078,7 @@
     <script src="js/soquy-config.js"></script>
     <script src="js/soquy-database.js"></script>
     <script src="js/soquy-ui.js"></script>
+    <script src="js/soquy-report.js"></script>
     <script src="js/soquy-main.js"></script>
 </body>
 
