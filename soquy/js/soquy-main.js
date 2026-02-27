@@ -488,6 +488,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // =====================================================
         // TAB NAVIGATION
         // =====================================================
+        let reportInitialized = false;
+
         document.querySelectorAll('.tab-header-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tabName = btn.dataset.tab;
@@ -504,8 +506,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Re-initialize Lucide icons for new tab content
                 if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                // Load report data when switching to report tab
+                if (tabName === 'report' && !reportInitialized) {
+                    reportInitialized = true;
+                    const report = window.SoquyReport;
+                    if (report) report.refreshReport();
+                }
             });
         });
+
+        // =====================================================
+        // REPORT TAB EVENT BINDINGS
+        // =====================================================
+        bindReportEvents();
 
         // =====================================================
         // FILTER SECTION COLLAPSE/EXPAND
@@ -521,6 +535,93 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+    }
+
+    // =====================================================
+    // REPORT TAB EVENTS
+    // =====================================================
+
+    function bindReportEvents() {
+        const report = window.SoquyReport;
+        if (!report) return;
+
+        const rs = report.reportState;
+
+        // Report type radios
+        document.querySelectorAll('input[name="reportType"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.checked) {
+                    rs.reportType = radio.value;
+                    report.refreshReport();
+                }
+            });
+        });
+
+        // Report fund type radios
+        document.querySelectorAll('input[name="reportFundType"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.checked) {
+                    rs.fundType = radio.value;
+                    report.refreshReport();
+                }
+            });
+        });
+
+        // Report time filter select
+        const reportTimeSelect = document.getElementById('reportTimeFilterSelect');
+        if (reportTimeSelect) {
+            reportTimeSelect.addEventListener('change', (e) => {
+                rs.timeFilter = e.target.value;
+                report.refreshReport();
+            });
+        }
+
+        // Report custom date range
+        const reportTimeCustom = document.getElementById('reportTimeFilterCustom');
+        if (reportTimeCustom) {
+            reportTimeCustom.addEventListener('change', () => {
+                if (reportTimeCustom.checked) {
+                    rs.timeFilter = 'custom';
+                }
+            });
+        }
+        const reportStartDate = document.getElementById('reportCustomStartDate');
+        if (reportStartDate) {
+            reportStartDate.addEventListener('change', (e) => {
+                rs.customStartDate = e.target.value;
+                if (rs.timeFilter === 'custom') {
+                    report.refreshReport();
+                }
+            });
+        }
+        const reportEndDate = document.getElementById('reportCustomEndDate');
+        if (reportEndDate) {
+            reportEndDate.addEventListener('change', (e) => {
+                rs.customEndDate = e.target.value;
+                if (rs.timeFilter === 'custom') {
+                    report.refreshReport();
+                }
+            });
+        }
+
+        // Report category filter
+        const reportCatFilter = document.getElementById('reportFilterCategory');
+        if (reportCatFilter) {
+            let reportCatDebounce;
+            reportCatFilter.addEventListener('input', (e) => {
+                clearTimeout(reportCatDebounce);
+                reportCatDebounce = setTimeout(() => {
+                    rs.categoryFilter = e.target.value;
+                    report.refilterReport();
+                }, 300);
+            });
+        }
+
+        // Export report button
+        const btnExportReport = document.getElementById('btnExportReport');
+        if (btnExportReport) {
+            btnExportReport.addEventListener('click', () => report.exportReport());
+        }
     }
 
     // =====================================================
