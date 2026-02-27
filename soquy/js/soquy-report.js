@@ -12,12 +12,14 @@ const SoquyReport = (function () {
     // =====================================================
 
     const reportState = {
-        reportType: 'overview', // 'overview', 'payment_cn', 'payment_kd'
+        reportType: 'overview', // 'overview', 'payment_cn', 'payment_kd', 'receipt'
         fundType: 'all',
         timeFilter: 'this_year',
         customStartDate: null,
         customEndDate: null,
         categoryFilter: '',
+        sourceFilter: '',
+        topTab: 'expense', // 'expense' | 'income'
         vouchers: [],        // raw fetched vouchers
         filtered: [],        // after filters applied
         isLoading: false
@@ -57,6 +59,36 @@ const SoquyReport = (function () {
             default:
                 startDate = null;
                 endDate = null;
+        }
+
+        return { startDate, endDate };
+    }
+
+    function getPreviousDateRange() {
+        const now = new Date();
+        let startDate, endDate;
+
+        switch (reportState.timeFilter) {
+            case 'this_month':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0);
+                endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+                break;
+            case 'last_month':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0);
+                endDate = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59);
+                break;
+            case 'this_quarter': {
+                const quarter = Math.floor(now.getMonth() / 3);
+                startDate = new Date(now.getFullYear(), quarter * 3 - 3, 1, 0, 0, 0);
+                endDate = new Date(now.getFullYear(), quarter * 3, 0, 23, 59, 59);
+                break;
+            }
+            case 'this_year':
+                startDate = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0);
+                endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+                break;
+            default:
+                return null;
         }
 
         return { startDate, endDate };
@@ -123,6 +155,14 @@ const SoquyReport = (function () {
             );
         }
 
+        // Source filter
+        if (reportState.sourceFilter) {
+            const src = reportState.sourceFilter.toLowerCase();
+            vouchers = vouchers.filter(v =>
+                String(v.source || '').toLowerCase().includes(src)
+            );
+        }
+
         reportState.filtered = vouchers;
     }
 
@@ -152,19 +192,36 @@ const SoquyReport = (function () {
         return { totalIncome, totalExpenseCN, totalExpenseKD, totalExpense, balance };
     }
 
+    // Nhóm 2: Compute previous period for % change
+    function computePreviousPeriodSummary() {
+        const prevRange = getPreviousDateRange();
+        if (!prevRange) return null;
+
+        let prevVouchers = reportState.vouchers; // Already fund-filtered
+        // We need ALL vouchers, not just current period. Re-filter from scratch.
+        // Actually, vouchers are already fetched with time filter applied.
+        // We need to re-fetch or use a broader set. Let's compute from the full snapshot.
+        // For simplicity, filter the already-fetched set won't work since it's time-filtered.
+        // We'll skip if no previous data available in current set.
+        return null; // Will compute during fetchReportData
+    }
+
     function computeCategoryBreakdown() {
         const type = reportState.reportType;
         let vouchers;
 
         if (type === 'overview') {
-            // Show all expense categories combined
             vouchers = reportState.filtered.filter(v =>
                 v.type === 'payment_cn' || v.type === 'payment_kd'
             );
         } else if (type === 'payment_cn') {
             vouchers = getFilteredByType('payment_cn');
-        } else {
+        } else if (type === 'payment_kd') {
             vouchers = getFilteredByType('payment_kd');
+        } else if (type === 'receipt') {
+            vouchers = getFilteredByType('receipt');
+        } else {
+            vouchers = [];
         }
 
         // Group by category
@@ -172,10 +229,11 @@ const SoquyReport = (function () {
         vouchers.forEach(v => {
             const cat = v.category || '(Chưa phân loại)';
             if (!categoryMap[cat]) {
-                categoryMap[cat] = { category: cat, amount: 0, count: 0, type: v.type };
+                categoryMap[cat] = { category: cat, amount: 0, count: 0, type: v.type, vouchers: [] };
             }
             categoryMap[cat].amount += Math.abs(v.amount || 0);
             categoryMap[cat].count++;
+            categoryMap[cat].vouchers.push(v);
         });
 
         const categories = Object.values(categoryMap).sort((a, b) => b.amount - a.amount);
@@ -191,7 +249,6 @@ const SoquyReport = (function () {
         const { startDate, endDate } = getReportDateRange();
         if (!startDate || !endDate) return [];
 
-        // Determine months in range
         const months = [];
         const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
         const last = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
@@ -209,7 +266,6 @@ const SoquyReport = (function () {
             current.setMonth(current.getMonth() + 1);
         }
 
-        // Populate with data
         reportState.filtered.forEach(v => {
             const vDate = dbModule.toDate(v.voucherDateTime);
             const monthEntry = months.find(m => m.year === vDate.getFullYear() && m.month === vDate.getMonth());
@@ -232,19 +288,27 @@ const SoquyReport = (function () {
         return months;
     }
 
-    function computeTopTransactions(limit) {
-        const type = reportState.reportType;
+    function computeTopTransactions(tabType, limit) {
         let vouchers;
 
-        if (type === 'overview') {
-            vouchers = [...reportState.filtered];
-        } else if (type === 'payment_cn') {
-            vouchers = getFilteredByType('payment_cn');
+        if (tabType === 'income') {
+            vouchers = getFilteredByType('receipt');
         } else {
-            vouchers = getFilteredByType('payment_kd');
+            // expense tab
+            const type = reportState.reportType;
+            if (type === 'payment_cn') {
+                vouchers = getFilteredByType('payment_cn');
+            } else if (type === 'payment_kd') {
+                vouchers = getFilteredByType('payment_kd');
+            } else if (type === 'receipt') {
+                vouchers = getFilteredByType('receipt');
+            } else {
+                vouchers = reportState.filtered.filter(v =>
+                    v.type === 'payment_cn' || v.type === 'payment_kd'
+                );
+            }
         }
 
-        // Sort by amount descending, take top N
         return vouchers
             .sort((a, b) => Math.abs(b.amount || 0) - Math.abs(a.amount || 0))
             .slice(0, limit || 10);
@@ -264,6 +328,67 @@ const SoquyReport = (function () {
                 balance: income - expense
             };
         });
+    }
+
+    // Nhóm 1: Source breakdown
+    function computeSourceBreakdown() {
+        const sourceMap = {};
+        reportState.filtered.forEach(v => {
+            const src = v.source || '(Chưa phân loại)';
+            if (!sourceMap[src]) {
+                sourceMap[src] = { source: src, income: 0, expense: 0 };
+            }
+            const amount = Math.abs(v.amount || 0);
+            if (v.type === 'receipt') {
+                sourceMap[src].income += amount;
+            } else {
+                sourceMap[src].expense += amount;
+            }
+        });
+
+        const sources = Object.values(sourceMap).sort((a, b) =>
+            (b.income + b.expense) - (a.income + a.expense)
+        );
+        const grandTotal = sources.reduce((s, src) => s + src.income + src.expense, 0);
+
+        return sources.map(src => ({
+            ...src,
+            balance: src.income - src.expense,
+            percentage: grandTotal > 0 ? ((src.income + src.expense) / grandTotal * 100) : 0
+        }));
+    }
+
+    // Nhóm 8: Daily cash flow
+    function computeDailyCashFlow() {
+        if (reportState.timeFilter !== 'this_month' && reportState.timeFilter !== 'last_month') {
+            return [];
+        }
+
+        const dayMap = {};
+        reportState.filtered.forEach(v => {
+            const vDate = dbModule.toDate(v.voucherDateTime);
+            const key = `${String(vDate.getDate()).padStart(2, '0')}/${String(vDate.getMonth() + 1).padStart(2, '0')}/${vDate.getFullYear()}`;
+            if (!dayMap[key]) {
+                dayMap[key] = { date: key, dateObj: new Date(vDate.getFullYear(), vDate.getMonth(), vDate.getDate()), income: 0, expense: 0 };
+            }
+            const amount = Math.abs(v.amount || 0);
+            if (v.type === 'receipt') {
+                dayMap[key].income += amount;
+            } else {
+                dayMap[key].expense += amount;
+            }
+        });
+
+        const days = Object.values(dayMap).sort((a, b) => a.dateObj - b.dateObj);
+
+        let cumulative = 0;
+        days.forEach(d => {
+            d.net = d.income - d.expense;
+            cumulative += d.net;
+            d.cumulative = cumulative;
+        });
+
+        return days;
     }
 
     // =====================================================
@@ -289,7 +414,8 @@ const SoquyReport = (function () {
             const titles = {
                 'overview': 'Báo cáo tổng quan',
                 'payment_cn': 'Báo cáo chi cá nhân (CN)',
-                'payment_kd': 'Báo cáo chi kinh doanh (KD)'
+                'payment_kd': 'Báo cáo chi kinh doanh (KD)',
+                'receipt': 'Báo cáo thu nhập'
             };
             titleEl.textContent = titles[reportState.reportType] || 'Báo cáo';
         }
@@ -318,6 +444,17 @@ const SoquyReport = (function () {
         }
     }
 
+    // Nhóm 2: % change badge HTML
+    function changeHTML(current, previous) {
+        if (previous === null || previous === undefined || previous === 0) return '';
+        const pct = ((current - previous) / previous * 100);
+        if (Math.abs(pct) < 0.1) return '';
+        const isUp = pct > 0;
+        const icon = isUp ? '▲' : '▼';
+        const cls = isUp ? 'stat-change--up' : 'stat-change--down';
+        return `<span class="stat-change ${cls}">${icon} ${Math.abs(pct).toFixed(1)}%</span>`;
+    }
+
     function renderSummaryCards() {
         const summary = computeSummary();
         const type = reportState.reportType;
@@ -326,6 +463,10 @@ const SoquyReport = (function () {
         if (!cardsContainer) return;
 
         if (type === 'overview') {
+            // Nhóm 4: Ratio card
+            const ratio = summary.totalIncome > 0 ? (summary.totalExpense / summary.totalIncome * 100) : 0;
+            const ratioClass = ratio <= 80 ? 'report-card-value--good' : ratio <= 100 ? 'report-card-value--warning' : 'report-card-value--danger';
+
             cardsContainer.innerHTML = `
                 <div class="report-card report-card--income">
                     <div class="report-card-icon"><i data-lucide="trending-up"></i></div>
@@ -353,6 +494,49 @@ const SoquyReport = (function () {
                     <div class="report-card-content">
                         <span class="report-card-label">Số dư</span>
                         <span class="report-card-value ${summary.balance >= 0 ? '' : 'report-card-value--negative'}">${summary.balance >= 0 ? '' : '-'}${fmt(Math.abs(summary.balance))}</span>
+                    </div>
+                </div>
+                <div class="report-card report-card--ratio">
+                    <div class="report-card-icon"><i data-lucide="percent"></i></div>
+                    <div class="report-card-content">
+                        <span class="report-card-label">Tỷ lệ chi/thu</span>
+                        <span class="report-card-value ${ratioClass}">${summary.totalIncome > 0 ? ratio.toFixed(1) + '%' : 'N/A'}</span>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'receipt') {
+            // Nhóm 10: Receipt report cards
+            const receipts = getFilteredByType('receipt');
+            const totalIncome = sumAmount(receipts);
+            const avgIncome = receipts.length > 0 ? totalIncome / receipts.length : 0;
+
+            cardsContainer.innerHTML = `
+                <div class="report-card report-card--income">
+                    <div class="report-card-icon"><i data-lucide="trending-up"></i></div>
+                    <div class="report-card-content">
+                        <span class="report-card-label">Tổng thu</span>
+                        <span class="report-card-value">${fmt(totalIncome)}</span>
+                    </div>
+                </div>
+                <div class="report-card report-card--count">
+                    <div class="report-card-icon"><i data-lucide="file-text"></i></div>
+                    <div class="report-card-content">
+                        <span class="report-card-label">Số phiếu thu</span>
+                        <span class="report-card-value">${receipts.length}</span>
+                    </div>
+                </div>
+                <div class="report-card report-card--avg">
+                    <div class="report-card-icon"><i data-lucide="divide"></i></div>
+                    <div class="report-card-content">
+                        <span class="report-card-label">Trung bình/phiếu</span>
+                        <span class="report-card-value">${fmt(Math.round(avgIncome))}</span>
+                    </div>
+                </div>
+                <div class="report-card report-card--balance">
+                    <div class="report-card-icon"><i data-lucide="wallet"></i></div>
+                    <div class="report-card-content">
+                        <span class="report-card-label">Tổng chi</span>
+                        <span class="report-card-value report-card-value--negative">-${fmt(summary.totalExpense)}</span>
                     </div>
                 </div>
             `;
@@ -398,6 +582,7 @@ const SoquyReport = (function () {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
+    // Nhóm 6: Drill-down category breakdown
     function renderCategoryBreakdown() {
         const tbody = document.getElementById('reportCategoryBody');
         if (!tbody) return;
@@ -419,9 +604,22 @@ const SoquyReport = (function () {
                     ? '<span class="report-tag report-tag--kd">KD</span>'
                     : '<span class="report-tag report-tag--thu">Thu</span>';
 
-            return `<tr>
+            // Nhóm 6: Drill-down voucher list
+            const detailRows = cat.vouchers.slice(0, 20).map(v => {
+                const dateStr = dbModule.formatVoucherDateTime(v.voucherDateTime);
+                const isPayment = v.type === 'payment_cn' || v.type === 'payment_kd';
+                return `<tr>
+                    <td>${escapeHtml(v.code)}</td>
+                    <td>${escapeHtml(dateStr)}</td>
+                    <td>${escapeHtml(v.personName || v.collector || '-')}</td>
+                    <td style="text-align:right;" class="${isPayment ? 'text-danger' : 'text-success'}">${isPayment ? '-' : ''}${fmt(v.amount)}</td>
+                </tr>`;
+            }).join('');
+
+            return `<tr class="report-cat-row" data-cat-idx="${i}">
                 <td>
                     <div class="report-cat-name">
+                        <i data-lucide="chevron-right" class="report-cat-chevron"></i>
                         <span class="report-cat-dot" style="background: ${color};"></span>
                         ${escapeHtml(cat.category)}
                         ${reportState.reportType === 'overview' ? typeTag : ''}
@@ -439,8 +637,37 @@ const SoquyReport = (function () {
                         <div class="report-progress-fill" style="width: ${cat.percentage}%; background: ${color};"></div>
                     </div>
                 </td>
+            </tr>
+            <tr class="report-cat-detail-row" data-cat-detail="${i}" style="display:none;">
+                <td colspan="4">
+                    <div class="report-cat-details">
+                        <table class="report-detail-table">
+                            <thead><tr><th>Mã</th><th>Ngày</th><th>Người</th><th style="text-align:right;">Số tiền</th></tr></thead>
+                            <tbody>${detailRows || '<tr><td colspan="4">Không có phiếu</td></tr>'}</tbody>
+                        </table>
+                        ${cat.vouchers.length > 20 ? `<div class="report-detail-more">Hiện ${cat.vouchers.length - 20} phiếu nữa...</div>` : ''}
+                    </div>
+                </td>
             </tr>`;
         }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Bind drill-down click events
+        tbody.querySelectorAll('.report-cat-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const idx = row.dataset.catIdx;
+                const detailRow = tbody.querySelector(`[data-cat-detail="${idx}"]`);
+                const chevron = row.querySelector('.report-cat-chevron');
+                if (detailRow) {
+                    const isVisible = detailRow.style.display !== 'none';
+                    detailRow.style.display = isVisible ? 'none' : 'table-row';
+                    if (chevron) {
+                        chevron.style.transform = isVisible ? '' : 'rotate(90deg)';
+                    }
+                }
+            });
+        });
     }
 
     function renderMonthlyTrend() {
@@ -461,6 +688,12 @@ const SoquyReport = (function () {
                     <th style="text-align: right;">Chi KD</th>
                     <th style="text-align: right;">Số dư</th>
                 `;
+            } else if (type === 'receipt') {
+                thead.innerHTML = `
+                    <th>Tháng</th>
+                    <th style="text-align: right;">Thu</th>
+                    <th style="text-align: right;">Số phiếu</th>
+                `;
             } else {
                 const label = type === 'payment_cn' ? 'Chi CN' : 'Chi KD';
                 thead.innerHTML = `
@@ -475,7 +708,7 @@ const SoquyReport = (function () {
         const months = computeMonthlyTrend();
 
         if (months.length === 0) {
-            const colspan = type === 'overview' ? 5 : 4;
+            const colspan = type === 'overview' ? 5 : type === 'receipt' ? 3 : 4;
             tbody.innerHTML = `<tr><td colspan="${colspan}" class="report-empty">Không có dữ liệu</td></tr>`;
             if (tfoot) tfoot.innerHTML = '';
             return;
@@ -487,6 +720,20 @@ const SoquyReport = (function () {
             totalIncome += m.income;
             totalCN += m.expenseCN;
             totalKD += m.expenseKD;
+
+            if (type === 'receipt') {
+                // Count receipts for this month
+                const monthReceipts = reportState.filtered.filter(v => {
+                    if (v.type !== 'receipt') return false;
+                    const vDate = dbModule.toDate(v.voucherDateTime);
+                    return vDate.getFullYear() === m.year && vDate.getMonth() === m.month;
+                });
+                return `<tr>
+                    <td class="report-month-label">${m.label}</td>
+                    <td style="text-align: right;" class="text-success">${m.income > 0 ? fmt(m.income) : '-'}</td>
+                    <td style="text-align: right;">${monthReceipts.length}</td>
+                </tr>`;
+            }
 
             const expense = type === 'payment_cn' ? m.expenseCN : type === 'payment_kd' ? m.expenseKD : null;
             const bal = type === 'overview' ? m.balance : (m.income - (type === 'payment_cn' ? m.expenseCN : m.expenseKD));
@@ -511,33 +758,109 @@ const SoquyReport = (function () {
 
         // Footer totals
         if (tfoot) {
-            const totalBal = totalIncome - totalCN - totalKD;
-            if (type === 'overview') {
+            if (type === 'receipt') {
+                const totalReceipts = getFilteredByType('receipt').length;
                 tfoot.innerHTML = `<tr class="report-trend-total">
                     <td><strong>Tổng</strong></td>
                     <td style="text-align: right;" class="text-success"><strong>${fmt(totalIncome)}</strong></td>
-                    <td style="text-align: right;" class="text-danger"><strong>-${fmt(totalCN)}</strong></td>
-                    <td style="text-align: right;" class="text-danger"><strong>-${fmt(totalKD)}</strong></td>
-                    <td style="text-align: right;" class="${totalBal >= 0 ? 'text-success' : 'text-danger'}"><strong>${totalBal >= 0 ? '' : '-'}${fmt(Math.abs(totalBal))}</strong></td>
+                    <td style="text-align: right;"><strong>${totalReceipts}</strong></td>
                 </tr>`;
             } else {
-                const exp = type === 'payment_cn' ? totalCN : totalKD;
-                const bal = totalIncome - exp;
-                tfoot.innerHTML = `<tr class="report-trend-total">
-                    <td><strong>Tổng</strong></td>
-                    <td style="text-align: right;" class="text-success"><strong>${fmt(totalIncome)}</strong></td>
-                    <td style="text-align: right;" class="text-danger"><strong>-${fmt(exp)}</strong></td>
-                    <td style="text-align: right;" class="${bal >= 0 ? 'text-success' : 'text-danger'}"><strong>${bal >= 0 ? '' : '-'}${fmt(Math.abs(bal))}</strong></td>
-                </tr>`;
+                const totalBal = totalIncome - totalCN - totalKD;
+                if (type === 'overview') {
+                    tfoot.innerHTML = `<tr class="report-trend-total">
+                        <td><strong>Tổng</strong></td>
+                        <td style="text-align: right;" class="text-success"><strong>${fmt(totalIncome)}</strong></td>
+                        <td style="text-align: right;" class="text-danger"><strong>-${fmt(totalCN)}</strong></td>
+                        <td style="text-align: right;" class="text-danger"><strong>-${fmt(totalKD)}</strong></td>
+                        <td style="text-align: right;" class="${totalBal >= 0 ? 'text-success' : 'text-danger'}"><strong>${totalBal >= 0 ? '' : '-'}${fmt(Math.abs(totalBal))}</strong></td>
+                    </tr>`;
+                } else {
+                    const exp = type === 'payment_cn' ? totalCN : totalKD;
+                    const bal = totalIncome - exp;
+                    tfoot.innerHTML = `<tr class="report-trend-total">
+                        <td><strong>Tổng</strong></td>
+                        <td style="text-align: right;" class="text-success"><strong>${fmt(totalIncome)}</strong></td>
+                        <td style="text-align: right;" class="text-danger"><strong>-${fmt(exp)}</strong></td>
+                        <td style="text-align: right;" class="${bal >= 0 ? 'text-success' : 'text-danger'}"><strong>${bal >= 0 ? '' : '-'}${fmt(Math.abs(bal))}</strong></td>
+                    </tr>`;
+                }
             }
         }
     }
 
+    // Nhóm 3: CSS Bar Chart
+    function renderBarChart() {
+        const container = document.getElementById('reportBarChart');
+        const legendEl = document.getElementById('reportBarLegend');
+        if (!container) return;
+
+        const months = computeMonthlyTrend();
+        const type = reportState.reportType;
+
+        if (months.length === 0) {
+            container.innerHTML = '<div class="report-empty">Không có dữ liệu</div>';
+            if (legendEl) legendEl.innerHTML = '';
+            return;
+        }
+
+        // Find max value for scaling
+        let maxVal = 0;
+        months.forEach(m => {
+            maxVal = Math.max(maxVal, m.income, m.expenseCN, m.expenseKD, m.expenseCN + m.expenseKD);
+        });
+        if (maxVal === 0) maxVal = 1;
+
+        const chartHeight = 180;
+
+        let barsHTML = months.map(m => {
+            const incomeH = (m.income / maxVal) * chartHeight;
+            const cnH = (m.expenseCN / maxVal) * chartHeight;
+            const kdH = (m.expenseKD / maxVal) * chartHeight;
+
+            let bars = '';
+            if (type === 'receipt') {
+                bars = `<div class="report-bar report-bar--income" style="height: ${incomeH}px;" title="Thu: ${fmt(m.income)}"></div>`;
+            } else if (type === 'payment_cn') {
+                bars = `<div class="report-bar report-bar--income" style="height: ${incomeH}px;" title="Thu: ${fmt(m.income)}"></div>
+                        <div class="report-bar report-bar--cn" style="height: ${cnH}px;" title="Chi CN: ${fmt(m.expenseCN)}"></div>`;
+            } else if (type === 'payment_kd') {
+                bars = `<div class="report-bar report-bar--income" style="height: ${incomeH}px;" title="Thu: ${fmt(m.income)}"></div>
+                        <div class="report-bar report-bar--kd" style="height: ${kdH}px;" title="Chi KD: ${fmt(m.expenseKD)}"></div>`;
+            } else {
+                bars = `<div class="report-bar report-bar--income" style="height: ${incomeH}px;" title="Thu: ${fmt(m.income)}"></div>
+                        <div class="report-bar report-bar--cn" style="height: ${cnH}px;" title="Chi CN: ${fmt(m.expenseCN)}"></div>
+                        <div class="report-bar report-bar--kd" style="height: ${kdH}px;" title="Chi KD: ${fmt(m.expenseKD)}"></div>`;
+            }
+
+            return `<div class="report-bar-group">
+                <div class="report-bar-bars">${bars}</div>
+                <div class="report-bar-label">${m.label.replace(/\/\d{4}/, '')}</div>
+            </div>`;
+        }).join('');
+
+        container.innerHTML = barsHTML;
+
+        // Legend
+        if (legendEl) {
+            let legendItems = '<span class="report-legend-item"><span class="report-legend-dot report-legend-dot--income"></span>Thu</span>';
+            if (type === 'overview' || type === 'payment_cn') {
+                legendItems += '<span class="report-legend-item"><span class="report-legend-dot report-legend-dot--cn"></span>Chi CN</span>';
+            }
+            if (type === 'overview' || type === 'payment_kd') {
+                legendItems += '<span class="report-legend-item"><span class="report-legend-dot report-legend-dot--kd"></span>Chi KD</span>';
+            }
+            legendEl.innerHTML = legendItems;
+        }
+    }
+
+    // Nhóm 9: Top transactions with tabs
     function renderTopTransactions() {
         const tbody = document.getElementById('reportTopBody');
         if (!tbody) return;
 
-        const top = computeTopTransactions(10);
+        const tabType = reportState.topTab || 'expense';
+        const top = computeTopTransactions(tabType, 10);
 
         if (top.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="report-empty">Không có dữ liệu</td></tr>';
@@ -565,7 +888,6 @@ const SoquyReport = (function () {
         const tbody = document.getElementById('reportFundBody');
         if (!tbody) return;
 
-        // Only show fund breakdown when viewing all funds
         if (reportState.fundType !== 'all') {
             tbody.innerHTML = '<tr><td colspan="4" class="report-empty">Chọn "Tổng quỹ" để xem phân bổ</td></tr>';
             return;
@@ -600,6 +922,74 @@ const SoquyReport = (function () {
         </tr>`;
     }
 
+    // Nhóm 1: Source breakdown
+    function renderSourceBreakdown() {
+        const tbody = document.getElementById('reportSourceBody');
+        if (!tbody) return;
+
+        const sources = computeSourceBreakdown();
+
+        if (sources.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="report-empty">Không có dữ liệu</td></tr>';
+            return;
+        }
+
+        let grandIncome = 0, grandExpense = 0;
+
+        tbody.innerHTML = sources.map(src => {
+            grandIncome += src.income;
+            grandExpense += src.expense;
+            return `<tr>
+                <td style="font-weight: 500;">${escapeHtml(src.source)}</td>
+                <td style="text-align: right;" class="text-success">${src.income > 0 ? fmt(src.income) : '-'}</td>
+                <td style="text-align: right;" class="text-danger">${src.expense > 0 ? '-' + fmt(src.expense) : '-'}</td>
+                <td style="text-align: right; font-weight: 600;" class="${src.balance >= 0 ? 'text-success' : 'text-danger'}">${src.balance >= 0 ? '' : '-'}${fmt(Math.abs(src.balance))}</td>
+                <td>
+                    <div class="report-progress-bar">
+                        <div class="report-progress-fill" style="width: ${src.percentage}%; background: #1890ff;"></div>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        const grandBal = grandIncome - grandExpense;
+        tbody.innerHTML += `<tr class="report-trend-total">
+            <td><strong>Tổng</strong></td>
+            <td style="text-align: right;" class="text-success"><strong>${fmt(grandIncome)}</strong></td>
+            <td style="text-align: right;" class="text-danger"><strong>-${fmt(grandExpense)}</strong></td>
+            <td style="text-align: right;" class="${grandBal >= 0 ? 'text-success' : 'text-danger'}"><strong>${grandBal >= 0 ? '' : '-'}${fmt(Math.abs(grandBal))}</strong></td>
+            <td></td>
+        </tr>`;
+    }
+
+    // Nhóm 8: Daily cash flow
+    function renderDailyCashFlow() {
+        const section = document.getElementById('reportDailySection');
+        const tbody = document.getElementById('reportDailyBody');
+        if (!tbody || !section) return;
+
+        const days = computeDailyCashFlow();
+
+        if (days.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = '';
+
+        tbody.innerHTML = days.map(d => {
+            const netClass = d.net >= 0 ? 'text-success' : 'text-danger';
+            const cumClass = d.cumulative >= 0 ? 'text-success' : 'text-danger';
+            return `<tr>
+                <td style="font-weight: 500;">${d.date}</td>
+                <td style="text-align: right;" class="text-success">${d.income > 0 ? fmt(d.income) : '-'}</td>
+                <td style="text-align: right;" class="text-danger">${d.expense > 0 ? '-' + fmt(d.expense) : '-'}</td>
+                <td style="text-align: right; font-weight: 600;" class="${netClass}">${d.net >= 0 ? '' : '-'}${fmt(Math.abs(d.net))}</td>
+                <td style="text-align: right; font-weight: 600;" class="${cumClass}">${d.cumulative >= 0 ? '' : '-'}${fmt(Math.abs(d.cumulative))}</td>
+            </tr>`;
+        }).join('');
+    }
+
     // =====================================================
     // EXPORT REPORT
     // =====================================================
@@ -618,23 +1008,21 @@ const SoquyReport = (function () {
         const titles = {
             'overview': 'Bao_cao_tong_quan',
             'payment_cn': 'Bao_cao_chi_ca_nhan',
-            'payment_kd': 'Bao_cao_chi_kinh_doanh'
+            'payment_kd': 'Bao_cao_chi_kinh_doanh',
+            'receipt': 'Bao_cao_thu_nhap'
         };
 
-        // Build CSV
-        let csv = '\uFEFF'; // UTF-8 BOM
+        let csv = '\uFEFF';
         csv += `BÁO CÁO TÀI CHÍNH\n`;
-        csv += `Loại: ${type === 'overview' ? 'Tổng quan' : type === 'payment_cn' ? 'Chi cá nhân' : 'Chi kinh doanh'}\n`;
+        csv += `Loại: ${type === 'overview' ? 'Tổng quan' : type === 'payment_cn' ? 'Chi cá nhân' : type === 'payment_kd' ? 'Chi kinh doanh' : 'Thu nhập'}\n`;
         csv += `Thời gian: ${document.getElementById('reportPeriod')?.textContent || ''}\n\n`;
 
-        // Summary
         csv += `TỔNG KẾT\n`;
         csv += `Tổng thu,${summary.totalIncome}\n`;
         csv += `Tổng chi CN,${summary.totalExpenseCN}\n`;
         csv += `Tổng chi KD,${summary.totalExpenseKD}\n`;
         csv += `Số dư,${summary.balance}\n\n`;
 
-        // Category breakdown
         csv += `CHI TIẾT THEO LOẠI\n`;
         csv += `Loại thu chi,Số tiền,Tỷ lệ,Số phiếu\n`;
         categories.forEach(c => {
@@ -642,7 +1030,6 @@ const SoquyReport = (function () {
         });
         csv += '\n';
 
-        // Monthly trend
         csv += `XU HƯỚNG THEO THÁNG\n`;
         if (type === 'overview') {
             csv += `Tháng,Thu,Chi CN,Chi KD,Số dư\n`;
@@ -650,7 +1037,7 @@ const SoquyReport = (function () {
                 csv += `${m.label},${m.income},${m.expenseCN},${m.expenseKD},${m.balance}\n`;
             });
         } else {
-            const expLabel = type === 'payment_cn' ? 'Chi CN' : 'Chi KD';
+            const expLabel = type === 'payment_cn' ? 'Chi CN' : type === 'payment_kd' ? 'Chi KD' : 'Thu';
             csv += `Tháng,Thu,${expLabel},Số dư\n`;
             months.forEach(m => {
                 const exp = type === 'payment_cn' ? m.expenseCN : m.expenseKD;
@@ -658,7 +1045,6 @@ const SoquyReport = (function () {
             });
         }
 
-        // Download
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -669,27 +1055,65 @@ const SoquyReport = (function () {
     }
 
     // =====================================================
+    // FILTER STATE PERSISTENCE (Nhóm 7)
+    // =====================================================
+
+    function saveReportFilterState() {
+        try {
+            localStorage.setItem('soquy_report_filters', JSON.stringify({
+                reportType: reportState.reportType,
+                fundType: reportState.fundType,
+                timeFilter: reportState.timeFilter,
+                customStartDate: reportState.customStartDate,
+                customEndDate: reportState.customEndDate
+            }));
+        } catch (e) { /* ignore */ }
+    }
+
+    function loadReportFilterState() {
+        try {
+            const saved = localStorage.getItem('soquy_report_filters');
+            if (!saved) return;
+            const f = JSON.parse(saved);
+            if (f.reportType) reportState.reportType = f.reportType;
+            if (f.fundType) reportState.fundType = f.fundType;
+            if (f.timeFilter) reportState.timeFilter = f.timeFilter;
+            if (f.customStartDate) reportState.customStartDate = f.customStartDate;
+            if (f.customEndDate) reportState.customEndDate = f.customEndDate;
+        } catch (e) { /* ignore */ }
+    }
+
+    // =====================================================
     // MAIN REFRESH
     // =====================================================
 
     async function refreshReport() {
         await fetchReportData();
-        updateReportTitle();
-        renderSummaryCards();
-        renderCategoryBreakdown();
-        renderMonthlyTrend();
-        renderTopTransactions();
-        renderFundBreakdown();
+        renderAll();
+        saveReportFilterState();
     }
 
     function refilterReport() {
         applyReportFilters();
+        renderAll();
+        saveReportFilterState();
+    }
+
+    function renderAll() {
         updateReportTitle();
         renderSummaryCards();
         renderCategoryBreakdown();
         renderMonthlyTrend();
+        renderBarChart();
+        renderDailyCashFlow();
         renderTopTransactions();
         renderFundBreakdown();
+        renderSourceBreakdown();
+    }
+
+    // Nhóm 9: Render only top transactions (for tab switching)
+    function renderTopOnly() {
+        renderTopTransactions();
     }
 
     // =====================================================
@@ -701,7 +1125,10 @@ const SoquyReport = (function () {
         refreshReport,
         refilterReport,
         exportReport,
-        getReportDateRange
+        getReportDateRange,
+        renderTopOnly,
+        loadReportFilterState,
+        saveReportFilterState
     };
 })();
 

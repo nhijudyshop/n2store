@@ -83,6 +83,7 @@ const SoquyDatabase = (function () {
                 accountName: voucherData.accountName || '',
                 accountNumber: voucherData.accountNumber || '',
                 branch: voucherData.branch || '',
+                source: voucherData.source || '',
                 businessAccounting: voucherData.type === config.VOUCHER_TYPES.PAYMENT_KD,
                 status: config.VOUCHER_STATUS.PAID,
                 voucherDateTime: voucherData.dateTime
@@ -720,6 +721,69 @@ const SoquyDatabase = (function () {
     }
 
     /**
+     * Auto-add a source if not already known
+     */
+    async function autoAddSource(sourceName) {
+        sourceName = String(sourceName || '').trim();
+        if (!sourceName) return;
+
+        const dynamicList = state.dynamicSources;
+        if (dynamicList.some(s => String(s).toLowerCase() === sourceName.toLowerCase())) return;
+
+        try {
+            const docRef = config.soquyMetaRef.doc('sources');
+            const doc = await docRef.get();
+
+            let items = [];
+            if (doc.exists) {
+                items = doc.data().items || [];
+            }
+
+            if (!items.some(s => String(s).toLowerCase() === sourceName.toLowerCase())) {
+                items.push(sourceName);
+                await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            }
+
+            if (!state.dynamicSources.includes(sourceName)) {
+                state.dynamicSources.push(sourceName);
+            }
+
+            console.log('[SoquyDB] Auto-added source:', sourceName);
+        } catch (error) {
+            console.error('[SoquyDB] Error auto-adding source:', error);
+        }
+    }
+
+    /**
+     * Delete specific dynamic sources
+     */
+    async function deleteDynamicSources(sources) {
+        if (!sources || sources.length === 0) return;
+
+        try {
+            const docRef = config.soquyMetaRef.doc('sources');
+            const doc = await docRef.get();
+
+            if (!doc.exists) return;
+
+            let items = doc.data().items || [];
+            const deleteLower = sources.map(s => String(s).toLowerCase());
+            items = items.filter(item => !deleteLower.includes(String(item).toLowerCase()));
+
+            await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+            state.dynamicSources = state.dynamicSources.filter(
+                s => !deleteLower.includes(String(s).toLowerCase())
+            );
+
+            console.log('[SoquyDB] Deleted sources:', sources);
+        } catch (error) {
+            console.error('[SoquyDB] Error deleting sources:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Auto-add a creator if not already known
      */
     async function autoAddCreator(creatorName) {
@@ -758,11 +822,12 @@ const SoquyDatabase = (function () {
      */
     async function loadDynamicMeta() {
         try {
-            const [rcDoc, pcnDoc, pkdDoc, crDoc, rrcDoc, rpcnDoc, rpkdDoc] = await Promise.all([
+            const [rcDoc, pcnDoc, pkdDoc, crDoc, srcDoc, rrcDoc, rpcnDoc, rpkdDoc] = await Promise.all([
                 config.soquyMetaRef.doc('receipt_categories').get(),
                 config.soquyMetaRef.doc('payment_cn_categories').get(),
                 config.soquyMetaRef.doc('payment_kd_categories').get(),
                 config.soquyMetaRef.doc('creators').get(),
+                config.soquyMetaRef.doc('sources').get(),
                 config.soquyMetaRef.doc('removed_receipt_categories').get(),
                 config.soquyMetaRef.doc('removed_payment_cn_categories').get(),
                 config.soquyMetaRef.doc('removed_payment_kd_categories').get()
@@ -772,6 +837,7 @@ const SoquyDatabase = (function () {
             if (pcnDoc.exists) state.dynamicPaymentCNCategories = pcnDoc.data().items || [];
             if (pkdDoc.exists) state.dynamicPaymentKDCategories = pkdDoc.data().items || [];
             if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
+            if (srcDoc.exists) state.dynamicSources = srcDoc.data().items || [];
             state.removedPredefinedReceiptCategories = rrcDoc.exists ? (rrcDoc.data().items || []) : [];
             state.removedPredefinedPaymentCNCategories = rpcnDoc.exists ? (rpcnDoc.data().items || []) : [];
             state.removedPredefinedPaymentKDCategories = rpkdDoc.exists ? (rpkdDoc.data().items || []) : [];
@@ -945,6 +1011,8 @@ const SoquyDatabase = (function () {
         removePredefinedCategory,
         removePredefinedCategories,
         autoAddCreator,
+        autoAddSource,
+        deleteDynamicSources,
         loadDynamicMeta,
         getDateRange,
         toDate,
