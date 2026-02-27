@@ -184,6 +184,15 @@ const MENU_CONFIG = [
         permissionRequired: "quy-trinh",
     },
     {
+        href: "../soquy/index.html",
+        icon: "banknote",
+        text: "Sổ Quỹ",
+        shortText: "Sổ Quỹ",
+        pageIdentifier: "soquy",
+        adminOnly: true,
+        permissionRequired: "soquy",
+    },
+    {
         href: "../AI/gemini.html",
         icon: "bot",
         text: "Gemini AI Assistant",
@@ -396,7 +405,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Quản Trị",
         icon: "settings",
-        items: ["user-management", "balance-history", "invoice-compare", "lichsuchinhsua", "quy-trinh"]
+        items: ["user-management", "balance-history", "soquy", "invoice-compare", "lichsuchinhsua", "quy-trinh"]
     },
     {
         name: "Khác",
