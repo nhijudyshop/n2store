@@ -66,7 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Action buttons
         els.btnCreateReceipt = document.getElementById('btnShowCreateReceipt');
-        els.btnCreatePayment = document.getElementById('btnShowCreatePayment');
+        els.btnCreatePaymentCN = document.getElementById('btnShowCreatePaymentCN');
+        els.btnCreatePaymentKD = document.getElementById('btnShowCreatePaymentKD');
         els.btnExportFile = document.getElementById('btnExportFile');
 
         // Receipt modal
@@ -272,10 +273,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.openReceiptModal();
             });
         }
-        if (els.btnCreatePayment) {
-            els.btnCreatePayment.addEventListener('click', () => {
+        if (els.btnCreatePaymentCN) {
+            els.btnCreatePaymentCN.addEventListener('click', () => {
                 state.editingVoucherId = null;
-                ui.openPaymentModal();
+                ui.openPaymentModal('cn');
+            });
+        }
+        if (els.btnCreatePaymentKD) {
+            els.btnCreatePaymentKD.addEventListener('click', () => {
+                state.editingVoucherId = null;
+                ui.openPaymentModal('kd');
             });
         }
         if (els.btnExportFile) {
@@ -388,20 +395,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Amount input formatting
+        // Amount input formatting with live thousand separator
         [els.receiptAmount, els.paymentAmount].forEach(input => {
             if (input) {
                 input.addEventListener('focus', () => {
-                    const val = ui.parseAmountInput(input.value);
-                    input.value = val > 0 ? val : '';
+                    // Keep formatted value on focus
                 });
                 input.addEventListener('blur', () => {
                     const val = ui.parseAmountInput(input.value);
-                    input.value = db.formatCurrency(val);
+                    input.value = val > 0 ? db.formatCurrency(val) : '0';
                 });
                 input.addEventListener('input', () => {
-                    // Allow only numbers
-                    input.value = input.value.replace(/[^0-9]/g, '');
+                    const cursorPos = input.selectionStart;
+                    const oldLen = input.value.length;
+                    const raw = input.value.replace(/[^0-9]/g, '');
+                    const num = parseInt(raw) || 0;
+                    input.value = num > 0 ? db.formatCurrency(num) : '';
+                    const newLen = input.value.length;
+                    const newPos = Math.max(0, cursorPos + (newLen - oldLen));
+                    input.setSelectionRange(newPos, newPos);
                 });
             }
         });

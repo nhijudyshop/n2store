@@ -333,7 +333,7 @@ const SoquyUI = (function () {
     // MODAL: CREATE PAYMENT
     // =====================================================
 
-    function openPaymentModal() {
+    function openPaymentModal(subType) {
         if (!els.paymentModal) return;
 
         resetPaymentForm();
@@ -341,6 +341,19 @@ const SoquyUI = (function () {
         const now = new Date();
         const dateStr = formatDateTimeForInput(now);
         if (els.paymentDateTime) els.paymentDateTime.value = dateStr;
+
+        // Set business accounting based on sub-type
+        if (els.paymentBusinessAccounting) {
+            els.paymentBusinessAccounting.checked = (subType === 'kd');
+        }
+
+        // Update modal title
+        const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
+        if (titleEl) {
+            titleEl.textContent = subType === 'kd'
+                ? 'Tạo phiếu chi kinh doanh'
+                : 'Tạo phiếu chi cá nhân';
+        }
 
         els.paymentModal.style.display = 'flex';
     }
@@ -548,7 +561,7 @@ const SoquyUI = (function () {
             // Switch save button to update mode
             state.editingVoucherId = voucherId;
         } else {
-            openPaymentModal();
+            openPaymentModal(voucher.businessAccounting ? 'kd' : 'cn');
             if (els.paymentVoucherCode) els.paymentVoucherCode.value = voucher.code;
             if (els.paymentDateTime) els.paymentDateTime.value = db.formatVoucherDateTime(voucher.voucherDateTime);
             if (els.paymentCategory) setSelectValue(els.paymentCategory, voucher.category);
@@ -558,6 +571,14 @@ const SoquyUI = (function () {
             if (els.paymentAmount) els.paymentAmount.value = db.formatCurrency(voucher.amount);
             if (els.paymentNote) els.paymentNote.value = voucher.note || '';
             if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = voucher.businessAccounting;
+
+            // Update title for edit mode
+            const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
+            if (titleEl) {
+                titleEl.textContent = voucher.businessAccounting
+                    ? 'Sửa phiếu chi kinh doanh'
+                    : 'Sửa phiếu chi cá nhân';
+            }
 
             state.editingVoucherId = voucherId;
         }
