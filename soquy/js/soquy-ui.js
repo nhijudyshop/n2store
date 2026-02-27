@@ -1056,8 +1056,11 @@ const SoquyUI = (function () {
     // =====================================================
 
     function populateCategoryDropdowns() {
-        // Receipt categories (predefined + dynamic)
-        const allReceiptCats = [...config.RECEIPT_CATEGORIES];
+        // Receipt categories (predefined + dynamic, minus removed)
+        const removedReceipt = state.removedPredefinedReceiptCategories || [];
+        const allReceiptCats = config.RECEIPT_CATEGORIES.filter(
+            c => !removedReceipt.some(r => String(r).toLowerCase() === String(c).toLowerCase())
+        );
         state.dynamicReceiptCategories.forEach(cat => {
             if (!allReceiptCats.some(c => c.toLowerCase() === cat.toLowerCase())) {
                 allReceiptCats.push(cat);
@@ -1071,8 +1074,11 @@ const SoquyUI = (function () {
                 ).join('');
         }
 
-        // Payment categories (predefined + dynamic)
-        const allPaymentCats = [...config.PAYMENT_CATEGORIES];
+        // Payment categories (predefined + dynamic, minus removed)
+        const removedPayment = state.removedPredefinedPaymentCategories || [];
+        const allPaymentCats = config.PAYMENT_CATEGORIES.filter(
+            c => !removedPayment.some(r => String(r).toLowerCase() === String(c).toLowerCase())
+        );
         state.dynamicPaymentCategories.forEach(cat => {
             if (!allPaymentCats.some(c => c.toLowerCase() === cat.toLowerCase())) {
                 allPaymentCats.push(cat);
@@ -1264,11 +1270,19 @@ const SoquyUI = (function () {
         const isReceipt = _categoryModalTab === 'receipt';
         const predefined = isReceipt ? config.RECEIPT_CATEGORIES : config.PAYMENT_CATEGORIES;
         const dynamic = isReceipt ? state.dynamicReceiptCategories : state.dynamicPaymentCategories;
+        const removedPredefined = isReceipt
+            ? (state.removedPredefinedReceiptCategories || [])
+            : (state.removedPredefinedPaymentCategories || []);
+
+        // Filter out removed predefined categories
+        const activePredefined = predefined.filter(
+            c => !removedPredefined.some(r => String(r).toLowerCase() === String(c).toLowerCase())
+        );
 
         // Build combined list: predefined first, then dynamic
         let html = '';
 
-        predefined.forEach(cat => {
+        activePredefined.forEach(cat => {
             html += `
                 <div class="category-item" data-category="${escapeHtml(cat)}" data-source="predefined">
                     <label class="category-check-label">
@@ -1279,6 +1293,9 @@ const SoquyUI = (function () {
                         <div class="category-item-name">${escapeHtml(cat)}</div>
                     </div>
                     <span class="category-item-badge category-item-badge--predefined">Mặc định</span>
+                    <button class="category-item-delete" data-category="${escapeHtml(cat)}" data-source="predefined" title="Xóa">
+                        <i data-lucide="trash-2"></i>
+                    </button>
                 </div>`;
         });
 
@@ -1293,13 +1310,13 @@ const SoquyUI = (function () {
                         <div class="category-item-name">${escapeHtml(cat)}</div>
                     </div>
                     <span class="category-item-badge category-item-badge--dynamic">Tùy chỉnh</span>
-                    <button class="category-item-delete" data-category="${escapeHtml(cat)}" title="Xóa">
+                    <button class="category-item-delete" data-category="${escapeHtml(cat)}" data-source="dynamic" title="Xóa">
                         <i data-lucide="trash-2"></i>
                     </button>
                 </div>`;
         });
 
-        if (predefined.length === 0 && dynamic.length === 0) {
+        if (activePredefined.length === 0 && dynamic.length === 0) {
             html = `
                 <div class="category-list-empty">
                     <i data-lucide="inbox"></i>
@@ -1322,8 +1339,9 @@ const SoquyUI = (function () {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const cat = btn.dataset.category;
+                const source = btn.dataset.source;
                 if (!cat) return;
-                await deleteSingleCategory(cat);
+                await deleteSingleCategory(cat, source);
             });
         });
 
@@ -1335,16 +1353,15 @@ const SoquyUI = (function () {
 
     function updateDeleteSelectedButton() {
         const checkboxes = document.querySelectorAll('.category-item-checkbox:checked');
-        // Only count dynamic (deletable) ones
-        const deletable = Array.from(checkboxes).filter(cb => cb.dataset.source === 'dynamic');
+        const count = checkboxes.length;
         const btn = document.getElementById('btnDeleteSelectedCategories');
         const countSpan = document.getElementById('selectedCategoryCount');
 
         if (btn) {
-            btn.style.display = deletable.length > 0 ? 'inline-flex' : 'none';
+            btn.style.display = count > 0 ? 'inline-flex' : 'none';
         }
         if (countSpan) {
-            countSpan.textContent = deletable.length;
+            countSpan.textContent = count;
         }
     }
 
@@ -1397,13 +1414,17 @@ const SoquyUI = (function () {
         }
     }
 
-    async function deleteSingleCategory(categoryName) {
+    async function deleteSingleCategory(categoryName, source) {
         const voucherType = _categoryModalTab === 'receipt'
             ? config.VOUCHER_TYPES.RECEIPT
             : config.VOUCHER_TYPES.PAYMENT;
 
         try {
-            await db.deleteDynamicCategories([categoryName], voucherType);
+            if (source === 'predefined') {
+                await db.removePredefinedCategory(categoryName, voucherType);
+            } else {
+                await db.deleteDynamicCategories([categoryName], voucherType);
+            }
             populateCategoryDropdowns();
             showNotification(`Đã xóa: ${categoryName}`, 'success');
             renderCategoryList();
@@ -1415,23 +1436,36 @@ const SoquyUI = (function () {
 
     async function deleteSelectedCategories() {
         const checkboxes = document.querySelectorAll('.category-item-checkbox:checked');
-        const dynamicToDelete = Array.from(checkboxes)
-            .filter(cb => cb.dataset.source === 'dynamic')
-            .map(cb => cb.value);
+        if (checkboxes.length === 0) return;
 
-        if (dynamicToDelete.length === 0) {
-            showNotification('Chỉ có thể xóa loại thu chi tùy chỉnh', 'error');
-            return;
-        }
+        const dynamicToDelete = [];
+        const predefinedToDelete = [];
+
+        checkboxes.forEach(cb => {
+            if (cb.dataset.source === 'dynamic') {
+                dynamicToDelete.push(cb.value);
+            } else {
+                predefinedToDelete.push(cb.value);
+            }
+        });
 
         const voucherType = _categoryModalTab === 'receipt'
             ? config.VOUCHER_TYPES.RECEIPT
             : config.VOUCHER_TYPES.PAYMENT;
 
         try {
-            await db.deleteDynamicCategories(dynamicToDelete, voucherType);
+            const promises = [];
+            if (dynamicToDelete.length > 0) {
+                promises.push(db.deleteDynamicCategories(dynamicToDelete, voucherType));
+            }
+            if (predefinedToDelete.length > 0) {
+                promises.push(db.removePredefinedCategories(predefinedToDelete, voucherType));
+            }
+            await Promise.all(promises);
+
+            const total = dynamicToDelete.length + predefinedToDelete.length;
             populateCategoryDropdowns();
-            showNotification(`Đã xóa ${dynamicToDelete.length} loại thu chi`, 'success');
+            showNotification(`Đã xóa ${total} loại thu chi`, 'success');
             renderCategoryList();
         } catch (error) {
             console.error('[SoquyUI] Error deleting categories:', error);

@@ -640,6 +640,63 @@ const SoquyDatabase = (function () {
     }
 
     /**
+     * Remove a single predefined category (add to removed list in Firestore)
+     */
+    async function removePredefinedCategory(categoryName, voucherType) {
+        return removePredefinedCategories([categoryName], voucherType);
+    }
+
+    /**
+     * Remove predefined categories by storing them in a "removed" list
+     */
+    async function removePredefinedCategories(categories, voucherType) {
+        if (!categories || categories.length === 0) return;
+
+        const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
+        const docId = isReceipt ? 'removed_receipt_categories' : 'removed_payment_categories';
+
+        try {
+            const docRef = config.soquyMetaRef.doc(docId);
+            const doc = await docRef.get();
+
+            let items = [];
+            if (doc.exists) {
+                items = doc.data().items || [];
+            }
+
+            categories.forEach(cat => {
+                if (!items.some(c => String(c).toLowerCase() === String(cat).toLowerCase())) {
+                    items.push(cat);
+                }
+            });
+
+            await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+            // Update local state
+            if (isReceipt) {
+                if (!state.removedPredefinedReceiptCategories) state.removedPredefinedReceiptCategories = [];
+                categories.forEach(cat => {
+                    if (!state.removedPredefinedReceiptCategories.includes(cat)) {
+                        state.removedPredefinedReceiptCategories.push(cat);
+                    }
+                });
+            } else {
+                if (!state.removedPredefinedPaymentCategories) state.removedPredefinedPaymentCategories = [];
+                categories.forEach(cat => {
+                    if (!state.removedPredefinedPaymentCategories.includes(cat)) {
+                        state.removedPredefinedPaymentCategories.push(cat);
+                    }
+                });
+            }
+
+            console.log('[SoquyDB] Removed predefined categories:', categories);
+        } catch (error) {
+            console.error('[SoquyDB] Error removing predefined categories:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Auto-add a creator if not already known
      */
     async function autoAddCreator(creatorName) {
@@ -678,15 +735,19 @@ const SoquyDatabase = (function () {
      */
     async function loadDynamicMeta() {
         try {
-            const [rcDoc, pcDoc, crDoc] = await Promise.all([
+            const [rcDoc, pcDoc, crDoc, rrcDoc, rpcDoc] = await Promise.all([
                 config.soquyMetaRef.doc('receipt_categories').get(),
                 config.soquyMetaRef.doc('payment_categories').get(),
-                config.soquyMetaRef.doc('creators').get()
+                config.soquyMetaRef.doc('creators').get(),
+                config.soquyMetaRef.doc('removed_receipt_categories').get(),
+                config.soquyMetaRef.doc('removed_payment_categories').get()
             ]);
 
             if (rcDoc.exists) state.dynamicReceiptCategories = rcDoc.data().items || [];
             if (pcDoc.exists) state.dynamicPaymentCategories = pcDoc.data().items || [];
             if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
+            state.removedPredefinedReceiptCategories = rrcDoc.exists ? (rrcDoc.data().items || []) : [];
+            state.removedPredefinedPaymentCategories = rpcDoc.exists ? (rpcDoc.data().items || []) : [];
 
             console.log('[SoquyDB] Dynamic meta loaded');
         } catch (error) {
@@ -836,6 +897,8 @@ const SoquyDatabase = (function () {
         importVouchers,
         autoAddCategory,
         deleteDynamicCategories,
+        removePredefinedCategory,
+        removePredefinedCategories,
         autoAddCreator,
         loadDynamicMeta,
         getDateRange,
