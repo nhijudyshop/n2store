@@ -141,6 +141,17 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnSaveNewCategory = document.getElementById('btnSaveNewCategory');
         els.btnDeleteSelectedCategories = document.getElementById('btnDeleteSelectedCategories');
         els.selectAllCategories = document.getElementById('selectAllCategories');
+
+        // Source management modal
+        els.btnManageReceiptSource = document.getElementById('btnManageReceiptSource');
+        els.btnManagePaymentSource = document.getElementById('btnManagePaymentSource');
+        els.sourceModal = document.getElementById('soquySourceModal');
+        els.sourceOverlay = document.getElementById('soquySourceOverlay');
+        els.btnCloseSource = document.getElementById('btnSoquyCloseSource');
+        els.btnSaveNewSource = document.getElementById('btnSaveNewSource');
+        els.btnDeleteSelectedSources = document.getElementById('btnDeleteSelectedSources');
+        els.selectAllSources = document.getElementById('selectAllSources');
+        els.newSourceName = document.getElementById('newSourceName');
     }
 
     // =====================================================
@@ -489,6 +500,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Source management modal events
+        if (els.btnManageReceiptSource) {
+            els.btnManageReceiptSource.addEventListener('click', () => ui.openSourceModal());
+        }
+        if (els.btnManagePaymentSource) {
+            els.btnManagePaymentSource.addEventListener('click', () => ui.openSourceModal());
+        }
+        if (els.btnCloseSource) {
+            els.btnCloseSource.addEventListener('click', () => ui.closeSourceModal());
+        }
+        if (els.sourceOverlay) {
+            els.sourceOverlay.addEventListener('click', () => ui.closeSourceModal());
+        }
+        if (els.btnSaveNewSource) {
+            els.btnSaveNewSource.addEventListener('click', () => ui.saveNewSource());
+        }
+        if (els.btnDeleteSelectedSources) {
+            els.btnDeleteSelectedSources.addEventListener('click', () => ui.deleteSelectedSources());
+        }
+        if (els.selectAllSources) {
+            els.selectAllSources.addEventListener('change', (e) => ui.handleSelectAllSources(e.target.checked));
+        }
+        if (els.newSourceName) {
+            els.newSourceName.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    ui.saveNewSource();
+                }
+            });
+        }
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -498,6 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.closeCancelModal();
                 ui.closeImportModal();
                 ui.closeCategoryModal();
+                ui.closeSourceModal();
             }
         });
 
