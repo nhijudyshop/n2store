@@ -376,6 +376,10 @@ const SoquyUI = (function () {
         populatePaymentCategoryDropdown(state.paymentSubType);
         populateSourceSelect(document.getElementById('paymentSource'));
 
+        // Show/hide source row: only show for KD (business), hide for CN (personal)
+        const sourceRow = document.getElementById('paymentSourceRow');
+        if (sourceRow) sourceRow.style.display = subType === 'kd' ? '' : 'none';
+
         const now = new Date();
         const dateStr = formatDateTimeForInput(now);
         if (els.paymentDateTime) els.paymentDateTime.value = dateStr;
@@ -429,6 +433,7 @@ const SoquyUI = (function () {
                 ? config.VOUCHER_TYPES.PAYMENT_KD
                 : config.VOUCHER_TYPES.PAYMENT_CN;
 
+            const isKD = state.paymentSubType === 'kd';
             const paymentSourceEl = document.getElementById('paymentSource');
             const voucherData = {
                 type: paymentType,
@@ -438,7 +443,7 @@ const SoquyUI = (function () {
                 personName: els.paymentReceiverName?.value || '',
                 amount: amount,
                 note: els.paymentNote?.value || '',
-                source: paymentSourceEl?.value || '',
+                source: isKD ? (paymentSourceEl?.value || '') : '',
                 dateTime: els.paymentDateTime?.value || ''
             };
 
@@ -449,7 +454,7 @@ const SoquyUI = (function () {
                 await db.autoAddCategory(voucherData.category, paymentType);
                 populateCategoryDropdowns();
             }
-            if (voucherData.source) {
+            if (isKD && voucherData.source) {
                 await db.autoAddSource(voucherData.source);
             }
 
@@ -519,10 +524,10 @@ const SoquyUI = (function () {
                         <span class="detail-label">${isReceipt ? 'Người nộp:' : 'Người nhận:'}</span>
                         <span class="detail-value">${escapeHtml(voucher.personName || '-')}</span>
                     </div>
-                    <div class="detail-row">
+                    ${voucher.type !== 'payment_cn' ? `<div class="detail-row">
                         <span class="detail-label">Nguồn:</span>
                         <span class="detail-value">${escapeHtml(voucher.source || '(Chưa phân loại)')}</span>
-                    </div>
+                    </div>` : ''}
                     <div class="detail-row detail-row-highlight">
                         <span class="detail-label">Giá trị:</span>
                         <span class="detail-value detail-amount ${isReceipt ? 'text-success' : 'text-danger'}">${amountDisplay}</span>
@@ -649,6 +654,7 @@ const SoquyUI = (function () {
             showLoadingOverlay(true);
             const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
 
+            const isCN = !isReceipt && state.paymentSubType === 'cn';
             const srcEl = isReceipt ? document.getElementById('receiptSource') : document.getElementById('paymentSource');
             const updateData = {
                 category: isReceipt ? els.receiptCategory?.value : els.paymentCategory?.value,
@@ -657,7 +663,7 @@ const SoquyUI = (function () {
                 personName: isReceipt ? els.receiptPayerName?.value : els.paymentReceiverName?.value,
                 amount: parseAmountInput(isReceipt ? els.receiptAmount?.value : els.paymentAmount?.value),
                 note: isReceipt ? els.receiptNote?.value : els.paymentNote?.value,
-                source: srcEl?.value || '',
+                source: isCN ? '' : (srcEl?.value || ''),
                 businessAccounting: !isReceipt ? (state.paymentSubType === 'kd') : els.receiptBusinessAccounting?.checked,
                 type: isReceipt ? config.VOUCHER_TYPES.RECEIPT
                     : (state.paymentSubType === 'kd' ? config.VOUCHER_TYPES.PAYMENT_KD : config.VOUCHER_TYPES.PAYMENT_CN),
@@ -1665,6 +1671,176 @@ const SoquyUI = (function () {
     }
 
     // =====================================================
+    // MODAL: SOURCE MANAGEMENT
+    // =====================================================
+
+    function openSourceModal() {
+        const modal = document.getElementById('soquySourceModal');
+        if (!modal) return;
+
+        // Clear form
+        const nameInput = document.getElementById('newSourceName');
+        if (nameInput) nameInput.value = '';
+
+        // Render list
+        renderSourceList();
+
+        modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeSourceModal() {
+        const modal = document.getElementById('soquySourceModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function renderSourceList() {
+        const listContainer = document.getElementById('sourceListItems');
+        if (!listContainer) return;
+
+        const sources = state.dynamicSources || [];
+        let html = '';
+
+        sources.forEach(src => {
+            html += `
+                <div class="category-item" data-source-name="${escapeHtml(src)}">
+                    <label class="category-check-label">
+                        <input type="checkbox" class="source-item-checkbox" value="${escapeHtml(src)}">
+                        <span class="category-check-custom"></span>
+                    </label>
+                    <div class="category-item-info">
+                        <div class="category-item-name">${escapeHtml(src)}</div>
+                    </div>
+                    <button class="category-item-delete" data-source-name="${escapeHtml(src)}" title="Xóa">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>`;
+        });
+
+        if (sources.length === 0) {
+            html = `
+                <div class="category-list-empty">
+                    <i data-lucide="inbox"></i>
+                    <span>Chưa có nguồn nào</span>
+                </div>`;
+        }
+
+        listContainer.innerHTML = html;
+
+        // Reset select all
+        const selectAll = document.getElementById('selectAllSources');
+        if (selectAll) selectAll.checked = false;
+
+        updateSourceDeleteButton();
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Bind individual delete buttons
+        listContainer.querySelectorAll('.category-item-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const name = btn.dataset.sourceName;
+                if (!name) return;
+                await deleteSingleSource(name);
+            });
+        });
+
+        // Bind checkbox change events
+        listContainer.querySelectorAll('.source-item-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateSourceDeleteButton);
+        });
+    }
+
+    function updateSourceDeleteButton() {
+        const checkboxes = document.querySelectorAll('.source-item-checkbox:checked');
+        const count = checkboxes.length;
+        const btn = document.getElementById('btnDeleteSelectedSources');
+        const countSpan = document.getElementById('selectedSourceCount');
+
+        if (btn) {
+            btn.style.display = count > 0 ? 'inline-flex' : 'none';
+        }
+        if (countSpan) {
+            countSpan.textContent = count;
+        }
+    }
+
+    async function saveNewSource() {
+        const nameInput = document.getElementById('newSourceName');
+        const name = (nameInput?.value || '').trim();
+
+        if (!name) {
+            showNotification('Vui lòng nhập tên nguồn', 'error');
+            if (nameInput) nameInput.focus();
+            return;
+        }
+
+        // Check if already exists
+        const existing = state.dynamicSources || [];
+        if (existing.some(s => String(s).toLowerCase() === name.toLowerCase())) {
+            showNotification('Nguồn này đã tồn tại', 'error');
+            return;
+        }
+
+        try {
+            await db.autoAddSource(name);
+            showNotification(`Đã tạo nguồn: ${name}`, 'success');
+
+            // Clear form
+            if (nameInput) nameInput.value = '';
+
+            // Re-render list and re-populate dropdowns
+            renderSourceList();
+            populateSourceSelect(document.getElementById('receiptSource'));
+            populateSourceSelect(document.getElementById('paymentSource'));
+        } catch (error) {
+            console.error('[SoquyUI] Error saving source:', error);
+            showNotification('Lỗi khi tạo nguồn', 'error');
+        }
+    }
+
+    async function deleteSingleSource(sourceName) {
+        if (!sourceName) return;
+
+        try {
+            await db.deleteDynamicSources([sourceName]);
+            showNotification(`Đã xóa: ${sourceName}`, 'success');
+            renderSourceList();
+            populateSourceSelect(document.getElementById('receiptSource'));
+            populateSourceSelect(document.getElementById('paymentSource'));
+        } catch (error) {
+            console.error('[SoquyUI] Error deleting source:', error);
+            showNotification('Lỗi khi xóa nguồn', 'error');
+        }
+    }
+
+    async function deleteSelectedSources() {
+        const checkboxes = document.querySelectorAll('.source-item-checkbox:checked');
+        if (checkboxes.length === 0) return;
+
+        const toDelete = [];
+        checkboxes.forEach(cb => toDelete.push(cb.value));
+
+        try {
+            await db.deleteDynamicSources(toDelete);
+            showNotification(`Đã xóa ${toDelete.length} nguồn`, 'success');
+            renderSourceList();
+            populateSourceSelect(document.getElementById('receiptSource'));
+            populateSourceSelect(document.getElementById('paymentSource'));
+        } catch (error) {
+            console.error('[SoquyUI] Error deleting sources:', error);
+            showNotification('Lỗi khi xóa nguồn', 'error');
+        }
+    }
+
+    function handleSelectAllSources(checked) {
+        document.querySelectorAll('.source-item-checkbox').forEach(cb => {
+            cb.checked = checked;
+        });
+        updateSourceDeleteButton();
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -1728,7 +1904,12 @@ const SoquyUI = (function () {
         deleteSelectedCategories,
         handleCategoryTabSwitch,
         handleSelectAllCategories,
-        renderCategoryList
+        renderCategoryList,
+        openSourceModal,
+        closeSourceModal,
+        saveNewSource,
+        deleteSelectedSources,
+        handleSelectAllSources
     };
 })();
 

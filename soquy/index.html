@@ -853,9 +853,14 @@
                 <div class="form-row">
                     <div class="form-group k-group w-100">
                         <label>Nguồn</label>
-                        <select id="receiptSource" class="form-control">
-                            <option value="">Chọn nguồn</option>
-                        </select>
+                        <div class="category-select-row">
+                            <select id="receiptSource" class="form-control">
+                                <option value="">Chọn nguồn</option>
+                            </select>
+                            <button type="button" class="btn-category-manage" id="btnManageReceiptSource" title="Quản lý nguồn">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -951,12 +956,17 @@
                         <input type="text" id="paymentCollector" class="form-control" placeholder="Nhập người chi" />
                     </div>
                 </div>
-                <div class="form-row">
+                <div class="form-row" id="paymentSourceRow">
                     <div class="form-group k-group w-100">
                         <label>Nguồn</label>
-                        <select id="paymentSource" class="form-control">
-                            <option value="">Chọn nguồn</option>
-                        </select>
+                        <div class="category-select-row">
+                            <select id="paymentSource" class="form-control">
+                                <option value="">Chọn nguồn</option>
+                            </select>
+                            <button type="button" class="btn-category-manage" id="btnManagePaymentSource" title="Quản lý nguồn">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -1187,6 +1197,70 @@
                             </label>
                         </div>
                         <div class="category-list-items" id="categoryListItems">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: SOURCE MANAGEMENT ==================== -->
+    <div class="modal" id="soquySourceModal" style="display: none;">
+        <div class="modal-overlay" id="soquySourceOverlay"></div>
+        <div class="modal-content k-modal k-modal-category">
+            <div class="modal-header k-modal-header">
+                <h3>Quản lý nguồn</h3>
+                <button class="btn-icon" id="btnSoquyCloseSource">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <!-- Create New Source Form -->
+                <div class="category-create-section">
+                    <h4 class="category-section-title">
+                        <i data-lucide="plus-circle"></i>
+                        <span>Tạo nguồn mới</span>
+                    </h4>
+                    <div class="category-form">
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Tên nguồn <span class="text-danger">*</span></label>
+                                <input type="text" id="newSourceName" class="form-control"
+                                    placeholder="Nhập tên nguồn kinh doanh" />
+                            </div>
+                        </div>
+                        <div class="category-form-actions">
+                            <button class="btn-primary" id="btnSaveNewSource">
+                                <i data-lucide="plus"></i> Tạo mới
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Existing Sources List -->
+                <div class="category-list-section">
+                    <div class="category-list-header">
+                        <h4 class="category-section-title">
+                            <i data-lucide="list"></i>
+                            <span>Danh sách nguồn</span>
+                        </h4>
+                        <div class="category-list-actions">
+                            <button class="btn-outline-danger btn-sm" id="btnDeleteSelectedSources" style="display: none;">
+                                <i data-lucide="trash-2"></i> Xóa đã chọn (<span id="selectedSourceCount">0</span>)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="category-list-wrapper">
+                        <div class="category-select-all-row">
+                            <label class="category-check-label">
+                                <input type="checkbox" id="selectAllSources">
+                                <span class="category-check-custom"></span>
+                                <span class="category-select-all-text">Chọn tất cả</span>
+                            </label>
+                        </div>
+                        <div class="category-list-items" id="sourceListItems">
                             <!-- Dynamically populated -->
                         </div>
                     </div>
