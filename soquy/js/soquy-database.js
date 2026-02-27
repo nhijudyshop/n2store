@@ -599,6 +599,47 @@ const SoquyDatabase = (function () {
     }
 
     /**
+     * Delete specific dynamic categories
+     * @param {string[]} categories - Array of category names to delete
+     * @param {string} voucherType - 'receipt' or 'payment'
+     */
+    async function deleteDynamicCategories(categories, voucherType) {
+        if (!categories || categories.length === 0) return;
+
+        const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
+        const docId = isReceipt ? 'receipt_categories' : 'payment_categories';
+
+        try {
+            const docRef = config.soquyMetaRef.doc(docId);
+            const doc = await docRef.get();
+
+            if (!doc.exists) return;
+
+            let items = doc.data().items || [];
+            const deleteLower = categories.map(c => String(c).toLowerCase());
+            items = items.filter(item => !deleteLower.includes(String(item).toLowerCase()));
+
+            await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+            // Update local state
+            if (isReceipt) {
+                state.dynamicReceiptCategories = state.dynamicReceiptCategories.filter(
+                    c => !deleteLower.includes(String(c).toLowerCase())
+                );
+            } else {
+                state.dynamicPaymentCategories = state.dynamicPaymentCategories.filter(
+                    c => !deleteLower.includes(String(c).toLowerCase())
+                );
+            }
+
+            console.log('[SoquyDB] Deleted categories:', categories);
+        } catch (error) {
+            console.error('[SoquyDB] Error deleting categories:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Auto-add a creator if not already known
      */
     async function autoAddCreator(creatorName) {
@@ -794,6 +835,7 @@ const SoquyDatabase = (function () {
         exportToCSV,
         importVouchers,
         autoAddCategory,
+        deleteDynamicCategories,
         autoAddCreator,
         loadDynamicMeta,
         getDateRange,

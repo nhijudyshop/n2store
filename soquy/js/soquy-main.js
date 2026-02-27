@@ -131,6 +131,16 @@ document.addEventListener('DOMContentLoaded', () => {
         els.btnCloseImport = document.getElementById('btnSoquyCloseImport');
         els.btnCancelImport = document.getElementById('btnCancelImport');
         els.btnDeleteAllVouchers = document.getElementById('btnDeleteAllVouchers');
+
+        // Category management modal
+        els.btnManageReceiptCategory = document.getElementById('btnManageReceiptCategory');
+        els.btnManagePaymentCategory = document.getElementById('btnManagePaymentCategory');
+        els.categoryModal = document.getElementById('soquyCategoryModal');
+        els.categoryOverlay = document.getElementById('soquyCategoryOverlay');
+        els.btnCloseCategory = document.getElementById('btnSoquyCloseCategory');
+        els.btnSaveNewCategory = document.getElementById('btnSaveNewCategory');
+        els.btnDeleteSelectedCategories = document.getElementById('btnDeleteSelectedCategories');
+        els.selectAllCategories = document.getElementById('selectAllCategories');
     }
 
     // =====================================================
@@ -427,6 +437,35 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnDeleteAllVouchers.addEventListener('click', () => ui.deleteAllVouchers());
         }
 
+        // Category management modal events
+        if (els.btnManageReceiptCategory) {
+            els.btnManageReceiptCategory.addEventListener('click', () => ui.openCategoryModal('receipt'));
+        }
+        if (els.btnManagePaymentCategory) {
+            els.btnManagePaymentCategory.addEventListener('click', () => ui.openCategoryModal('payment'));
+        }
+        if (els.btnCloseCategory) {
+            els.btnCloseCategory.addEventListener('click', () => ui.closeCategoryModal());
+        }
+        if (els.categoryOverlay) {
+            els.categoryOverlay.addEventListener('click', () => ui.closeCategoryModal());
+        }
+        if (els.btnSaveNewCategory) {
+            els.btnSaveNewCategory.addEventListener('click', () => ui.saveNewCategory());
+        }
+        if (els.btnDeleteSelectedCategories) {
+            els.btnDeleteSelectedCategories.addEventListener('click', () => ui.deleteSelectedCategories());
+        }
+        if (els.selectAllCategories) {
+            els.selectAllCategories.addEventListener('change', (e) => ui.handleSelectAllCategories(e.target.checked));
+        }
+        // Category tab toggle buttons
+        document.querySelectorAll('.category-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                ui.handleCategoryTabSwitch(btn.dataset.catTab);
+            });
+        });
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -435,6 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.closeDetailModal();
                 ui.closeCancelModal();
                 ui.closeImportModal();
+                ui.closeCategoryModal();
             }
         });
 
