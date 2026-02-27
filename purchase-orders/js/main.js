@@ -129,6 +129,7 @@ class PurchaseOrderController {
                 onEdit: (orderId) => this.handleEditOrder(orderId),
                 onExport: (orderId) => this.handleExportOrder(orderId),
                 onCopy: (orderId) => this.handleCopyOrder(orderId),
+                onPrintBarcode: (orderId) => this.handlePrintBarcode(orderId),
                 onDelete: (orderId) => this.handleDeleteOrder(orderId),
                 onSelect: (orderId, selected) => this.handleSelectOrder(orderId, selected),
                 onSelectAll: (selected) => this.handleSelectAll(selected),
@@ -1042,6 +1043,36 @@ class PurchaseOrderController {
                         }
                     }
 
+                    // Save TPOS PO data to Firebase for later barcode printing
+                    if (singleOrder.id && tposResult.poId) {
+                        try {
+                            const tposData = {
+                                tposPoId: tposResult.poId,
+                                tposPoNumber: tposResult.poNumber || null,
+                                tposOrderLines: (tposResult.orderLines || []).map(l => ({
+                                    ProductId: l.Product?.Id || l.ProductId,
+                                    ProductQty: l.ProductQty || 1,
+                                    PriceUnit: l.PriceUnit || 0,
+                                    PriceVariant: l.Product?.PriceVariant || 0,
+                                    Product: l.Product ? {
+                                        Id: l.Product.Id,
+                                        DefaultCode: l.Product.DefaultCode,
+                                        Barcode: l.Product.Barcode,
+                                        NameTemplate: l.Product.NameTemplate,
+                                        PriceVariant: l.Product.PriceVariant,
+                                        ProductTmplId: l.Product.ProductTmplId,
+                                        ImageUrl: l.Product.ImageUrl
+                                    } : null
+                                }))
+                            };
+                            const db = firebase.firestore();
+                            await db.collection('purchase_orders').doc(singleOrder.id).update(tposData);
+                            console.log('[TPOSPurchase] Saved TPOS PO data to Firebase:', tposData.tposPoId);
+                        } catch (err) {
+                            console.warn('[TPOSPurchase] Failed to save TPOS PO data:', err);
+                        }
+                    }
+
                     // Update Firebase items with TPOS variant codes
                     if (tposResult.orderLines && result.itemCodeMap && singleOrder.id) {
                         try {
@@ -1507,6 +1538,21 @@ class PurchaseOrderController {
      * Handle copy order
      * @param {string} orderId
      */
+    async handlePrintBarcode(orderId) {
+        const order = await this.dataManager.getOrder(orderId);
+        if (!order?.tposPoId) {
+            this.ui.showToast('Đơn hàng chưa có dữ liệu TPOS', 'warning');
+            return;
+        }
+        try {
+            this.ui.showToast('Đang tạo tem barcode...', 'info');
+            await window.TPOSPurchase.printBarcodeFromOrder(order);
+        } catch (err) {
+            console.error('[Print] Barcode print failed:', err);
+            this.ui.showToast('Không thể in tem: ' + err.message, 'warning');
+        }
+    }
+
     async handleCopyOrder(orderId) {
         const confirmed = await this.ui.showConfirmDialog({
             title: 'Sao chép đơn hàng',

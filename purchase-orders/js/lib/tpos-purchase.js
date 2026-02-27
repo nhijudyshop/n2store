@@ -314,6 +314,44 @@ window.TPOSPurchase = (function() {
     // STEP 3: Print Barcode Labels
     // =====================================================
 
+    /**
+     * Show PDF in a full-screen modal overlay (avoids popup blocker)
+     */
+    function showPdfModal(pdfUrl) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;flex-direction:column;';
+
+        const toolbar = document.createElement('div');
+        toolbar.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding:8px 16px;background:#333;';
+
+        const btnPrint = document.createElement('button');
+        btnPrint.textContent = 'In';
+        btnPrint.style.cssText = 'padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+
+        const btnNewTab = document.createElement('button');
+        btnNewTab.textContent = 'Mở tab mới';
+        btnNewTab.style.cssText = 'padding:6px 16px;background:#059669;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+
+        const btnClose = document.createElement('button');
+        btnClose.textContent = 'Đóng';
+        btnClose.style.cssText = 'padding:6px 16px;background:#666;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
+
+        const iframe = document.createElement('iframe');
+        iframe.src = pdfUrl;
+        iframe.style.cssText = 'flex:1;border:none;background:#fff;';
+
+        btnPrint.onclick = () => {
+            try { iframe.contentWindow.print(); } catch(e) { window.open(pdfUrl, '_blank'); }
+        };
+        btnNewTab.onclick = () => window.open(pdfUrl, '_blank');
+        btnClose.onclick = () => { overlay.remove(); URL.revokeObjectURL(pdfUrl); };
+        overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); URL.revokeObjectURL(pdfUrl); } };
+
+        toolbar.append(btnPrint, btnNewTab, btnClose);
+        overlay.append(toolbar, iframe);
+        document.body.appendChild(overlay);
+    }
+
     async function printBarcodeLabel(fastPurchaseOrderId, orderLines) {
         if (!window.TPOSClient?.authenticatedFetch) {
             throw new Error('TPOSClient not available');
@@ -386,28 +424,30 @@ window.TPOSPurchase = (function() {
         console.log('[TPOSPurchase] BarcodeProductLabel created, Id:', labelId);
 
         // Step 2: GET PrintBarcodePDF — NOT under /odata/, use /api/ catch-all
-        // Open tab BEFORE async fetch to avoid popup blocker
-        const printWindow = window.open('about:blank', '_blank');
-
         const resp2 = await window.TPOSClient.authenticatedFetch(
             `${PROXY_URL}/api/BarcodeProductLabel/PrintBarcodePDF?id=${labelId}`
         );
 
-        if (!resp2.ok) {
-            if (printWindow) printWindow.close();
-            throw new Error('PrintBarcodePDF failed: ' + resp2.status);
-        }
+        if (!resp2.ok) throw new Error('PrintBarcodePDF failed: ' + resp2.status);
 
         const blob = await resp2.blob();
-        const url = URL.createObjectURL(blob);
+        const pdfUrl = URL.createObjectURL(blob);
 
-        if (printWindow) {
-            printWindow.location.href = url;
-        } else {
-            window.open(url, '_blank');
-        }
+        // Show PDF in modal overlay (avoids popup blocker)
+        showPdfModal(pdfUrl);
 
         return labelId;
+    }
+
+    /**
+     * Print barcode labels from saved Firebase order data
+     * Uses tposPoId and tposOrderLines stored after TPOS PO creation
+     */
+    async function printBarcodeFromOrder(order) {
+        if (!order.tposPoId || !order.tposOrderLines?.length) {
+            throw new Error('Đơn hàng chưa có dữ liệu TPOS');
+        }
+        return printBarcodeLabel(order.tposPoId, order.tposOrderLines);
     }
 
     // =====================================================
@@ -420,6 +460,7 @@ window.TPOSPurchase = (function() {
         purchaseByExcel,
         createPurchaseOrder,
         createFromExcel,
-        printBarcodeLabel
+        printBarcodeLabel,
+        printBarcodeFromOrder
     };
 })();

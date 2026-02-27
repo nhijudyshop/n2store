@@ -497,6 +497,17 @@ class PurchaseOrderTableRenderer {
                         <i data-lucide="file-down" class="text-green"></i>
                     </button>
 
+                    <!-- Print barcode (only if TPOS PO exists) -->
+                    ${order.tposPoId ? `
+                    <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
+                            title="In tem barcode"
+                            data-action="print-barcode"
+                            data-order-id="${order.id}"
+                            ${isProcessing ? 'disabled' : ''}>
+                        <i data-lucide="printer" class="text-teal"></i>
+                    </button>
+                    ` : ''}
+
                     <!-- Copy order -->
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
                             title="Sao chép đơn hàng"
@@ -684,6 +695,9 @@ class PurchaseOrderTableRenderer {
                     break;
                 case 'copy':
                     this.handlers.onCopy?.(orderId);
+                    break;
+                case 'print-barcode':
+                    this.handlers.onPrintBarcode?.(orderId);
                     break;
                 case 'delete':
                     this.handlers.onDelete?.(orderId);
