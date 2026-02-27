@@ -91,9 +91,17 @@
                     <i data-lucide="menu"></i>
                 </button>
                 <div class="tab-header-navigation">
+                    <button class="tab-header-btn" data-tab="employee" id="tabEmployeeBtn">
+                        <i data-lucide="users"></i>
+                        <span>Nhân viên</span>
+                    </button>
                     <button class="tab-header-btn active" data-tab="cashbook" id="tabCashBookBtn">
                         <i data-lucide="wallet"></i>
                         <span>Sổ Quỹ</span>
+                    </button>
+                    <button class="tab-header-btn" data-tab="report" id="tabReportBtn">
+                        <i data-lucide="bar-chart-3"></i>
+                        <span>Báo cáo</span>
                     </button>
                 </div>
             </div>
@@ -102,111 +110,210 @@
 
         <!-- Content Area -->
         <div class="content-area" style="padding: 0;">
+            <!-- Employee Tab (placeholder) -->
+            <div id="employeeTabContent" class="tab-content">
+                <div class="tab-placeholder">
+                    <div class="tab-placeholder-icon-wrapper">
+                        <i data-lucide="users"></i>
+                    </div>
+                    <h3>Quản lý Nhân viên</h3>
+                    <p>Tính năng đang được phát triển</p>
+                </div>
+            </div>
+
             <!-- Cash Book Layout -->
-            <div id="cashBookTabContent" class="cashbook-layout active">
+            <div id="cashBookTabContent" class="cashbook-layout tab-content active">
                 <!-- ==================== LEFT SIDEBAR FILTERS ==================== -->
                 <div class="cashbook-sidebar">
-                    <h2 class="sidebar-title" id="cashbookSidebarTitle">Sổ quỹ tiền mặt</h2>
+                    <div class="sidebar-header-section">
+                        <h2 class="sidebar-title" id="cashbookSidebarTitle">
+                            <i data-lucide="filter"></i>
+                            <span>Bộ lọc</span>
+                        </h2>
+                    </div>
 
                     <!-- Fund Type Filter -->
-                    <div class="filter-group">
-                        <h4>Quỹ tiền</h4>
-                        <label class="checkbox-label">
-                            <input type="radio" name="quytien" checked>
-                            <span>Tiền mặt</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="radio" name="quytien">
-                            <span>Ngân hàng</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="radio" name="quytien">
-                            <span>Ví điện tử</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="radio" name="quytien">
-                            <span>Tổng quỹ</span>
-                        </label>
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="wallet"></i>
+                                <span>Quỹ tiền</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <label class="filter-radio-label">
+                                <input type="radio" name="quytien" checked>
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Tiền mặt</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="quytien">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Ngân hàng</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="quytien">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Ví điện tử</span>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="quytien">
+                                <span class="filter-radio-custom"></span>
+                                <span class="filter-radio-text">Tổng quỹ</span>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Time Filter -->
-                    <div class="filter-group">
-                        <h4>Thời gian</h4>
-                        <label class="checkbox-label" style="margin-bottom: 8px;">
-                            <input type="radio" name="thoigian" checked>
-                            <select id="timeFilterSelect" class="form-control"
-                                style="margin-left: 8px; width: auto; flex: 1;">
-                                <option value="this_month">Tháng này</option>
-                                <option value="last_month">Tháng trước</option>
-                                <option value="this_quarter">Quý này</option>
-                                <option value="this_year">Năm nay</option>
-                            </select>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="radio" name="thoigian" id="timeFilterCustom">
-                            <div class="custom-date-range" style="margin-left: 8px; flex: 1;">
-                                <input type="date" id="customStartDate" class="form-control"
-                                    style="margin-bottom: 4px;">
-                                <input type="date" id="customEndDate" class="form-control">
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="calendar"></i>
+                                <span>Thời gian</span>
                             </div>
-                        </label>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <label class="filter-radio-label" style="margin-bottom: 8px;">
+                                <input type="radio" name="thoigian" checked>
+                                <span class="filter-radio-custom"></span>
+                                <select id="timeFilterSelect" class="filter-select">
+                                    <option value="this_month">Tháng này</option>
+                                    <option value="last_month">Tháng trước</option>
+                                    <option value="this_quarter">Quý này</option>
+                                    <option value="this_year">Năm nay</option>
+                                </select>
+                            </label>
+                            <label class="filter-radio-label">
+                                <input type="radio" name="thoigian" id="timeFilterCustom">
+                                <span class="filter-radio-custom"></span>
+                                <div class="custom-date-range">
+                                    <input type="date" id="customStartDate" class="filter-input">
+                                    <input type="date" id="customEndDate" class="filter-input">
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Voucher Type Filter -->
-                    <div class="filter-group">
-                        <h4>Loại chứng từ</h4>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="filterReceipt">
-                            <span>Phiếu thu</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="filterPayment">
-                            <span>Phiếu chi</span>
-                        </label>
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="file-text"></i>
+                                <span>Loại chứng từ</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <label class="filter-checkbox-label">
+                                <input type="checkbox" id="filterReceipt">
+                                <span class="filter-checkbox-custom"></span>
+                                <span class="filter-checkbox-text">Phiếu thu</span>
+                            </label>
+                            <label class="filter-checkbox-label">
+                                <input type="checkbox" id="filterPayment">
+                                <span class="filter-checkbox-custom"></span>
+                                <span class="filter-checkbox-text">Phiếu chi</span>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Category Filter -->
-                    <div class="filter-group">
-                        <h4>Loại thu chi</h4>
-                        <input type="text" id="filterCategory" class="form-control"
-                            placeholder="Tìm loại thu chi">
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="tag"></i>
+                                <span>Loại thu chi</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <div class="filter-search-wrapper">
+                                <i data-lucide="search" class="filter-search-icon"></i>
+                                <input type="text" id="filterCategory" class="filter-input filter-input-search"
+                                    placeholder="Tìm loại thu chi">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Status Filter -->
-                    <div class="filter-group">
-                        <h4>Trạng thái</h4>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="filterStatusPaid" checked>
-                            <span>Đã thanh toán</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="filterStatusCancelled">
-                            <span>Đã hủy</span>
-                        </label>
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="check-circle"></i>
+                                <span>Trạng thái</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <label class="filter-checkbox-label">
+                                <input type="checkbox" id="filterStatusPaid" checked>
+                                <span class="filter-checkbox-custom"></span>
+                                <span class="filter-checkbox-text">Đã thanh toán</span>
+                                <span class="filter-status-dot filter-status-dot--success"></span>
+                            </label>
+                            <label class="filter-checkbox-label">
+                                <input type="checkbox" id="filterStatusCancelled">
+                                <span class="filter-checkbox-custom"></span>
+                                <span class="filter-checkbox-text">Đã hủy</span>
+                                <span class="filter-status-dot filter-status-dot--danger"></span>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Business Accounting Filter -->
-                    <div class="filter-group">
-                        <h4>Hạch toán kết quả kinh doanh</h4>
-                        <div class="btn-group-toggle">
-                            <button class="btn-toggle active" data-value="all">Tất cả</button>
-                            <button class="btn-toggle" data-value="yes">Có</button>
-                            <button class="btn-toggle" data-value="no">Không</button>
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="bar-chart-2"></i>
+                                <span>Hạch toán KQKD</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <div class="btn-group-toggle">
+                                <button class="btn-toggle active" data-value="all">Tất cả</button>
+                                <button class="btn-toggle" data-value="yes">Có</button>
+                                <button class="btn-toggle" data-value="no">Không</button>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Creator Filter -->
-                    <div class="filter-group">
-                        <h4>Người tạo</h4>
-                        <input type="text" id="filterCreator" class="form-control"
-                            placeholder="Tìm người tạo">
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="user"></i>
+                                <span>Người tạo</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <div class="filter-search-wrapper">
+                                <i data-lucide="search" class="filter-search-icon"></i>
+                                <input type="text" id="filterCreator" class="filter-input filter-input-search"
+                                    placeholder="Tìm người tạo">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Employee Filter -->
-                    <div class="filter-group">
-                        <h4>Nhân viên</h4>
-                        <input type="text" id="filterEmployee" class="form-control"
-                            placeholder="Tìm nhân viên">
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="users"></i>
+                                <span>Nhân viên</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <div class="filter-search-wrapper">
+                                <i data-lucide="search" class="filter-search-icon"></i>
+                                <input type="text" id="filterEmployee" class="filter-input filter-input-search"
+                                    placeholder="Tìm nhân viên">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -325,6 +432,17 @@
                             <span class="page-info" id="pageInfo">0 - 0 trong 0 phiếu thu chi</span>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Report Tab (placeholder) -->
+            <div id="reportTabContent" class="tab-content">
+                <div class="tab-placeholder">
+                    <div class="tab-placeholder-icon-wrapper">
+                        <i data-lucide="bar-chart-3"></i>
+                    </div>
+                    <h3>Báo cáo</h3>
+                    <p>Tính năng đang được phát triển</p>
                 </div>
             </div>
         </div>

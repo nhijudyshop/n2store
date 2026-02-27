@@ -437,6 +437,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.closeImportModal();
             }
         });
+
+        // =====================================================
+        // TAB NAVIGATION
+        // =====================================================
+        document.querySelectorAll('.tab-header-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.tab;
+
+                // Update button active states
+                document.querySelectorAll('.tab-header-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.tab === tabName);
+                });
+
+                // Update content visibility
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.toggle('active', content.id === `${tabName}TabContent`);
+                });
+
+                // Re-initialize Lucide icons for new tab content
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        });
+
+        // =====================================================
+        // FILTER SECTION COLLAPSE/EXPAND
+        // =====================================================
+        document.querySelectorAll('.filter-section-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                // Don't toggle if clicking inside an input/select within the header
+                if (e.target.closest('input, select')) return;
+
+                const section = header.closest('.filter-section');
+                if (section) {
+                    section.classList.toggle('collapsed');
+                }
+            });
+        });
     }
 
     // =====================================================
