@@ -2377,6 +2377,294 @@
 }
 
 /* =====================================================
+   REPORT: % CHANGE BADGE (Nhóm 2)
+   ===================================================== */
+
+.stat-change {
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 4px;
+}
+
+.stat-change--up {
+    color: #16a34a;
+}
+
+.stat-change--down {
+    color: #ef4444;
+}
+
+/* =====================================================
+   REPORT: RATIO CARD (Nhóm 4)
+   ===================================================== */
+
+.report-card--ratio .report-card-icon {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.report-card-value--good {
+    color: #16a34a !important;
+}
+
+.report-card-value--warning {
+    color: #d97706 !important;
+}
+
+.report-card-value--danger {
+    color: #dc2626 !important;
+}
+
+/* =====================================================
+   REPORT: CSS BAR CHART (Nhóm 3)
+   ===================================================== */
+
+.report-section--bar-chart {
+    grid-column: 1 / -1;
+}
+
+.report-bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 20px 16px 8px;
+    min-height: 200px;
+}
+
+.report-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    min-width: 0;
+}
+
+.report-bar-bars {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 180px;
+    width: 100%;
+    justify-content: center;
+}
+
+.report-bar {
+    border-radius: 3px 3px 0 0;
+    min-width: 10px;
+    max-width: 32px;
+    flex: 1;
+    transition: height 0.3s ease;
+    cursor: pointer;
+    position: relative;
+}
+
+.report-bar:hover {
+    opacity: 0.8;
+}
+
+.report-bar--income {
+    background: #52c41a;
+}
+
+.report-bar--cn {
+    background: #faad14;
+}
+
+.report-bar--kd {
+    background: #f5222d;
+}
+
+.report-bar-label {
+    text-align: center;
+    font-size: 11px;
+    color: #8c8c8c;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.report-bar-legend {
+    display: flex;
+    gap: 16px;
+    padding: 8px 16px 12px;
+    justify-content: center;
+}
+
+.report-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.report-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.report-legend-dot--income {
+    background: #52c41a;
+}
+
+.report-legend-dot--cn {
+    background: #faad14;
+}
+
+.report-legend-dot--kd {
+    background: #f5222d;
+}
+
+/* =====================================================
+   REPORT: CN/KD BADGE ON MODAL (Nhóm 5)
+   ===================================================== */
+
+.modal-type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.badge-cn {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-kd {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+/* =====================================================
+   REPORT: DRILL-DOWN CATEGORY (Nhóm 6)
+   ===================================================== */
+
+.report-cat-row {
+    cursor: pointer;
+}
+
+.report-cat-row:hover {
+    background: #f0f7ff !important;
+}
+
+.report-cat-chevron {
+    width: 14px;
+    height: 14px;
+    color: #94a3b8;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.report-cat-detail-row td {
+    padding: 0 !important;
+    border-bottom: 1px solid #e8ecf1 !important;
+}
+
+.report-cat-details {
+    background: #f8fafc;
+    padding: 8px 16px 8px 32px;
+    border-top: 1px solid #e8ecf1;
+}
+
+.report-detail-table {
+    width: 100%;
+    font-size: 12px;
+    border-collapse: collapse;
+}
+
+.report-detail-table thead th {
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 4px 12px;
+    text-align: left;
+    font-weight: 500;
+    border-bottom: 1px solid #e8ecf1;
+}
+
+.report-detail-table tbody td {
+    padding: 6px 12px;
+    color: #64748b;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.report-detail-more {
+    font-size: 11px;
+    color: #94a3b8;
+    padding: 6px 12px;
+    font-style: italic;
+}
+
+/* =====================================================
+   REPORT: DAILY CASH FLOW (Nhóm 8)
+   ===================================================== */
+
+.report-section--daily {
+    grid-column: 1 / -1;
+}
+
+/* =====================================================
+   REPORT: TOP TRANSACTIONS MINI TABS (Nhóm 9)
+   ===================================================== */
+
+.report-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.report-mini-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.report-mini-tab {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    color: #64748b;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.report-mini-tab:hover {
+    background: #f1f5f9;
+}
+
+.report-mini-tab.active {
+    background: #1890ff;
+    color: #fff;
+    border-color: #1890ff;
+}
+
+/* =====================================================
+   REPORT: SOURCE BREAKDOWN (Nhóm 1)
+   ===================================================== */
+
+.report-section--source {
+    grid-column: 1 / -1;
+}
+
+/* =====================================================
+   REPORT: SUMMARY CARDS 5-COLUMN GRID
+   ===================================================== */
+
+.report-summary-cards {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* =====================================================
    RESPONSIVE: Mobile/Tablet
    ===================================================== */
 

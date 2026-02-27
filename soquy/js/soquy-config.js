@@ -132,6 +132,7 @@ const COLUMN_DEFINITIONS = [
     { key: 'amount', label: 'Giá trị', defaultVisible: true },
     { key: 'transferContent', label: 'Nội dung chuyển khoản', defaultVisible: false },
     { key: 'note', label: 'Ghi chú', defaultVisible: false },
+    { key: 'source', label: 'Nguồn', defaultVisible: true },
     { key: 'fundType', label: 'Loại sổ quỹ', defaultVisible: false },
     { key: 'status', label: 'Trạng thái', defaultVisible: false }
 ];
@@ -213,11 +214,15 @@ window.SoquyState = {
         return acc;
     }, {}),
 
-    // Dynamic categories & creators (auto-added from imports/entries)
+    // Source filter (Nguồn)
+    sourceFilter: '',
+
+    // Dynamic categories, creators & sources (auto-added from imports/entries)
     dynamicReceiptCategories: [],
     dynamicPaymentCNCategories: [],
     dynamicPaymentKDCategories: [],
-    dynamicCreators: []
+    dynamicCreators: [],
+    dynamicSources: []
 };
 
 // =====================================================

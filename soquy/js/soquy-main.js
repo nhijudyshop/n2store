@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             radio.addEventListener('change', () => {
                 if (radio.checked) {
                     ui.handleFundTypeChange(fundTypes[index]);
+                    ui.saveFilterState();
                 }
             });
         });
@@ -167,6 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.timeFilterSelect) {
             els.timeFilterSelect.addEventListener('change', (e) => {
                 ui.handleTimeFilterChange(e.target.value);
+                ui.saveFilterState();
             });
         }
 
@@ -213,6 +215,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearTimeout(categoryDebounce);
                 categoryDebounce = setTimeout(() => {
                     ui.handleCategoryFilterChange(e.target.value);
+                    ui.saveFilterState();
+                }, 300);
+            });
+        }
+
+        // Source filter
+        const filterSource = document.getElementById('filterSource');
+        if (filterSource) {
+            let sourceDebounce;
+            filterSource.addEventListener('input', (e) => {
+                clearTimeout(sourceDebounce);
+                sourceDebounce = setTimeout(() => {
+                    ui.handleSourceFilterChange(e.target.value);
+                    ui.saveFilterState();
                 }, 300);
             });
         }
@@ -511,7 +527,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tabName === 'report' && !reportInitialized) {
                     reportInitialized = true;
                     const report = window.SoquyReport;
-                    if (report) report.refreshReport();
+                    if (report) {
+                        report.loadReportFilterState();
+                        // Restore report sidebar UI from saved state
+                        const rs = report.reportState;
+                        document.querySelectorAll('input[name="reportType"]').forEach(r => {
+                            r.checked = r.value === rs.reportType;
+                        });
+                        document.querySelectorAll('input[name="reportFundType"]').forEach(r => {
+                            r.checked = r.value === rs.fundType;
+                        });
+                        const rts = document.getElementById('reportTimeFilterSelect');
+                        if (rts && rs.timeFilter !== 'custom') rts.value = rs.timeFilter;
+                        report.refreshReport();
+                    }
                 }
             });
         });
@@ -617,6 +646,29 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Report source filter
+        const reportSrcFilter = document.getElementById('reportFilterSource');
+        if (reportSrcFilter) {
+            let reportSrcDebounce;
+            reportSrcFilter.addEventListener('input', (e) => {
+                clearTimeout(reportSrcDebounce);
+                reportSrcDebounce = setTimeout(() => {
+                    rs.sourceFilter = e.target.value;
+                    report.refilterReport();
+                }, 300);
+            });
+        }
+
+        // Top transactions tabs (Nhóm 9)
+        document.querySelectorAll('#reportTopTabs .report-mini-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('#reportTopTabs .report-mini-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                rs.topTab = tab.dataset.topTab;
+                report.renderTopOnly();
+            });
+        });
+
         // Export report button
         const btnExportReport = document.getElementById('btnExportReport');
         if (btnExportReport) {
@@ -637,7 +689,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load column visibility from localStorage
         ui.loadColumnVisibility();
 
-        // Load dynamic categories/creators from Firestore
+        // Load filter state from localStorage (Nhóm 7)
+        ui.loadFilterState();
+
+        // Load dynamic categories/creators/sources from Firestore
         await db.loadDynamicMeta();
 
         // Populate dropdowns (including dynamic categories)
@@ -648,6 +703,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Bind events
         bindEvents();
+
+        // Restore filter UI from saved state (Nhóm 7)
+        ui.restoreFilterUI();
 
         // Update sidebar title
         ui.updateSidebarTitle();

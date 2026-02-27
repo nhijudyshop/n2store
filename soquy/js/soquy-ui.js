@@ -57,6 +57,8 @@ const SoquyUI = (function () {
                 return escapeHtml(voucher.transferContent || '');
             case 'note':
                 return escapeHtml(voucher.note || '');
+            case 'source':
+                return escapeHtml(voucher.source || '');
             case 'fundType':
                 return escapeHtml(config.FUND_TYPE_LABELS[voucher.fundType] || voucher.fundType || '');
             case 'status':
@@ -272,11 +274,21 @@ const SoquyUI = (function () {
     // MODAL: CREATE RECEIPT
     // =====================================================
 
+    function populateSourceSelect(selectEl) {
+        if (!selectEl) return;
+        const sources = state.dynamicSources || [];
+        selectEl.innerHTML = '<option value="">Chọn nguồn</option>' +
+            sources.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    }
+
     function openReceiptModal() {
         if (!els.receiptModal) return;
 
         // Reset form
         resetReceiptForm();
+
+        // Populate source dropdown
+        populateSourceSelect(document.getElementById('receiptSource'));
 
         // Set current date time
         const now = new Date();
@@ -297,6 +309,8 @@ const SoquyUI = (function () {
         if (els.receiptAmount) els.receiptAmount.value = '0';
         if (els.receiptNote) els.receiptNote.value = '';
         if (els.receiptBusinessAccounting) els.receiptBusinessAccounting.checked = true;
+        const receiptSource = document.getElementById('receiptSource');
+        if (receiptSource) receiptSource.selectedIndex = 0;
     }
 
     function closeReceiptModal() {
@@ -313,6 +327,7 @@ const SoquyUI = (function () {
 
             showLoadingOverlay(true);
 
+            const receiptSourceEl = document.getElementById('receiptSource');
             const voucherData = {
                 type: config.VOUCHER_TYPES.RECEIPT,
                 category: els.receiptCategory?.value || '',
@@ -321,6 +336,7 @@ const SoquyUI = (function () {
                 personName: els.receiptPayerName?.value || '',
                 amount: amount,
                 note: els.receiptNote?.value || '',
+                source: receiptSourceEl?.value || '',
                 businessAccounting: els.receiptBusinessAccounting?.checked !== false,
                 dateTime: els.receiptDateTime?.value || ''
             };
@@ -331,6 +347,9 @@ const SoquyUI = (function () {
             if (voucherData.category) {
                 await db.autoAddCategory(voucherData.category, config.VOUCHER_TYPES.RECEIPT);
                 populateCategoryDropdowns();
+            }
+            if (voucherData.source) {
+                await db.autoAddSource(voucherData.source);
             }
 
             closeReceiptModal();
@@ -355,6 +374,7 @@ const SoquyUI = (function () {
 
         resetPaymentForm();
         populatePaymentCategoryDropdown(state.paymentSubType);
+        populateSourceSelect(document.getElementById('paymentSource'));
 
         const now = new Date();
         const dateStr = formatDateTimeForInput(now);
@@ -365,12 +385,13 @@ const SoquyUI = (function () {
             els.paymentBusinessAccounting.checked = (subType === 'kd');
         }
 
-        // Update modal title
+        // Update modal title with CN/KD badge (Nhóm 5)
         const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
         if (titleEl) {
-            titleEl.textContent = subType === 'kd'
-                ? 'Tạo phiếu chi kinh doanh'
-                : 'Tạo phiếu chi cá nhân';
+            const badge = subType === 'kd'
+                ? '<span class="modal-type-badge badge-kd">KD</span>'
+                : '<span class="modal-type-badge badge-cn">CN</span>';
+            titleEl.innerHTML = `Tạo phiếu chi ${badge}`;
         }
 
         els.paymentModal.style.display = 'flex';
@@ -386,6 +407,8 @@ const SoquyUI = (function () {
         if (els.paymentAmount) els.paymentAmount.value = '0';
         if (els.paymentNote) els.paymentNote.value = '';
         if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = true;
+        const paymentSource = document.getElementById('paymentSource');
+        if (paymentSource) paymentSource.selectedIndex = 0;
     }
 
     function closePaymentModal() {
@@ -406,6 +429,7 @@ const SoquyUI = (function () {
                 ? config.VOUCHER_TYPES.PAYMENT_KD
                 : config.VOUCHER_TYPES.PAYMENT_CN;
 
+            const paymentSourceEl = document.getElementById('paymentSource');
             const voucherData = {
                 type: paymentType,
                 category: els.paymentCategory?.value || '',
@@ -414,6 +438,7 @@ const SoquyUI = (function () {
                 personName: els.paymentReceiverName?.value || '',
                 amount: amount,
                 note: els.paymentNote?.value || '',
+                source: paymentSourceEl?.value || '',
                 dateTime: els.paymentDateTime?.value || ''
             };
 
@@ -423,6 +448,9 @@ const SoquyUI = (function () {
             if (voucherData.category) {
                 await db.autoAddCategory(voucherData.category, paymentType);
                 populateCategoryDropdowns();
+            }
+            if (voucherData.source) {
+                await db.autoAddSource(voucherData.source);
             }
 
             closePaymentModal();
@@ -490,6 +518,10 @@ const SoquyUI = (function () {
                     <div class="detail-row">
                         <span class="detail-label">${isReceipt ? 'Người nộp:' : 'Người nhận:'}</span>
                         <span class="detail-value">${escapeHtml(voucher.personName || '-')}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Nguồn:</span>
+                        <span class="detail-value">${escapeHtml(voucher.source || '(Chưa phân loại)')}</span>
                     </div>
                     <div class="detail-row detail-row-highlight">
                         <span class="detail-label">Giá trị:</span>
@@ -577,6 +609,8 @@ const SoquyUI = (function () {
             if (els.receiptAmount) els.receiptAmount.value = db.formatCurrency(voucher.amount);
             if (els.receiptNote) els.receiptNote.value = voucher.note || '';
             if (els.receiptBusinessAccounting) els.receiptBusinessAccounting.checked = voucher.businessAccounting;
+            const receiptSrcEl = document.getElementById('receiptSource');
+            if (receiptSrcEl && voucher.source) setSelectValue(receiptSrcEl, voucher.source);
 
             // Switch save button to update mode
             state.editingVoucherId = voucherId;
@@ -592,13 +626,16 @@ const SoquyUI = (function () {
             if (els.paymentAmount) els.paymentAmount.value = db.formatCurrency(voucher.amount);
             if (els.paymentNote) els.paymentNote.value = voucher.note || '';
             if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = voucher.businessAccounting;
+            const paymentSrcEl = document.getElementById('paymentSource');
+            if (paymentSrcEl && voucher.source) setSelectValue(paymentSrcEl, voucher.source);
 
-            // Update title for edit mode
+            // Update title for edit mode with badge (Nhóm 5)
             const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
             if (titleEl) {
-                titleEl.textContent = subType === 'kd'
-                    ? 'Sửa phiếu chi kinh doanh'
-                    : 'Sửa phiếu chi cá nhân';
+                const badge = subType === 'kd'
+                    ? '<span class="modal-type-badge badge-kd">KD</span>'
+                    : '<span class="modal-type-badge badge-cn">CN</span>';
+                titleEl.innerHTML = `Sửa phiếu chi ${badge}`;
             }
 
             state.editingVoucherId = voucherId;
@@ -612,6 +649,7 @@ const SoquyUI = (function () {
             showLoadingOverlay(true);
             const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
 
+            const srcEl = isReceipt ? document.getElementById('receiptSource') : document.getElementById('paymentSource');
             const updateData = {
                 category: isReceipt ? els.receiptCategory?.value : els.paymentCategory?.value,
                 collector: isReceipt ? els.receiptCollector?.value : els.paymentCollector?.value,
@@ -619,6 +657,7 @@ const SoquyUI = (function () {
                 personName: isReceipt ? els.receiptPayerName?.value : els.paymentReceiverName?.value,
                 amount: parseAmountInput(isReceipt ? els.receiptAmount?.value : els.paymentAmount?.value),
                 note: isReceipt ? els.receiptNote?.value : els.paymentNote?.value,
+                source: srcEl?.value || '',
                 businessAccounting: !isReceipt ? (state.paymentSubType === 'kd') : els.receiptBusinessAccounting?.checked,
                 type: isReceipt ? config.VOUCHER_TYPES.RECEIPT
                     : (state.paymentSubType === 'kd' ? config.VOUCHER_TYPES.PAYMENT_KD : config.VOUCHER_TYPES.PAYMENT_CN),
@@ -731,6 +770,77 @@ const SoquyUI = (function () {
         try {
             localStorage.setItem('soquy_column_visibility', JSON.stringify(state.columnVisibility));
         } catch (e) { /* ignore */ }
+    }
+
+    // =====================================================
+    // FILTER STATE PERSISTENCE (Nhóm 7)
+    // =====================================================
+
+    function saveFilterState() {
+        try {
+            const filters = {
+                fundType: state.fundType,
+                timeFilter: state.timeFilter,
+                customStartDate: state.customStartDate,
+                customEndDate: state.customEndDate,
+                voucherTypeFilter: state.voucherTypeFilter,
+                statusFilter: state.statusFilter,
+                sourceFilter: state.sourceFilter,
+                categoryFilter: state.categoryFilter
+            };
+            localStorage.setItem('soquy_filters', JSON.stringify(filters));
+        } catch (e) { /* ignore */ }
+    }
+
+    function loadFilterState() {
+        try {
+            const saved = localStorage.getItem('soquy_filters');
+            if (!saved) return;
+            const filters = JSON.parse(saved);
+            if (filters.fundType) state.fundType = filters.fundType;
+            if (filters.timeFilter) state.timeFilter = filters.timeFilter;
+            if (filters.customStartDate) state.customStartDate = filters.customStartDate;
+            if (filters.customEndDate) state.customEndDate = filters.customEndDate;
+            if (filters.voucherTypeFilter) state.voucherTypeFilter = filters.voucherTypeFilter;
+            if (filters.statusFilter) state.statusFilter = filters.statusFilter;
+            if (filters.sourceFilter) state.sourceFilter = filters.sourceFilter;
+            if (filters.categoryFilter) state.categoryFilter = filters.categoryFilter;
+        } catch (e) { /* ignore */ }
+    }
+
+    function restoreFilterUI() {
+        // Restore fund type radios
+        const fundTypeRadios = document.querySelectorAll('input[name="quytien"]');
+        const fundTypes = ['cash', 'bank', 'ewallet', 'all'];
+        fundTypeRadios.forEach((radio, i) => {
+            radio.checked = fundTypes[i] === state.fundType;
+        });
+
+        // Restore time filter
+        const timeSelect = document.getElementById('timeFilterSelect');
+        if (timeSelect && state.timeFilter !== 'custom') {
+            timeSelect.value = state.timeFilter;
+        }
+
+        // Restore voucher type checkboxes
+        const rcb = document.getElementById('filterReceipt');
+        const pcnCb = document.getElementById('filterPaymentCN');
+        const pkdCb = document.getElementById('filterPaymentKD');
+        if (rcb) rcb.checked = state.voucherTypeFilter.includes('receipt');
+        if (pcnCb) pcnCb.checked = state.voucherTypeFilter.includes('payment_cn');
+        if (pkdCb) pkdCb.checked = state.voucherTypeFilter.includes('payment_kd');
+
+        // Restore status checkboxes
+        const spCb = document.getElementById('filterStatusPaid');
+        const scCb = document.getElementById('filterStatusCancelled');
+        if (spCb) spCb.checked = state.statusFilter.includes('paid');
+        if (scCb) scCb.checked = state.statusFilter.includes('cancelled');
+
+        // Restore text filters
+        const catInput = document.getElementById('filterCategory');
+        if (catInput && state.categoryFilter) catInput.value = state.categoryFilter;
+        const srcInput = document.getElementById('filterSource');
+        if (srcInput && state.sourceFilter) srcInput.value = state.sourceFilter;
     }
 
     function loadColumnVisibility() {
@@ -994,6 +1104,14 @@ const SoquyUI = (function () {
             );
         }
 
+        // Source filter
+        if (state.sourceFilter) {
+            const src = state.sourceFilter.toLowerCase();
+            vouchers = vouchers.filter(v =>
+                String(v.source || '').toLowerCase().includes(src)
+            );
+        }
+
         state.filteredVouchers = vouchers;
     }
 
@@ -1070,6 +1188,12 @@ const SoquyUI = (function () {
 
     function handleEmployeeFilterChange(value) {
         state.employeeFilter = value;
+        state.currentPage = 1;
+        refilterLocally();
+    }
+
+    function handleSourceFilterChange(value) {
+        state.sourceFilter = value;
         state.currentPage = 1;
         refilterLocally();
     }
@@ -1576,10 +1700,15 @@ const SoquyUI = (function () {
         handleCategoryFilterChange,
         handleCreatorFilterChange,
         handleEmployeeFilterChange,
+        handleSourceFilterChange,
         handlePageSizeChange,
         handleExport,
         populateCategoryDropdowns,
         populatePaymentCategoryDropdown,
+        populateSourceSelect,
+        saveFilterState,
+        loadFilterState,
+        restoreFilterUI,
         isPaymentType,
         toggleColumnDropdown,
         renderColumnToggleDropdown,
