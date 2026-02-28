@@ -1,14 +1,12 @@
 /**
- * Device Manager - Kết nối và giao tiếp với Ronald Jack DG-600
- * Sử dụng ZK Protocol qua thư viện node-zklib
- *
- * Có retry logic để xử lý lỗi subarray/buffer phổ biến trên Node v24+
+ * Device Manager - Kết nối Ronald Jack DG-600
+ * Dùng thư viện zk-jubaer (ổn định hơn node-zklib)
  */
-const ZKLib = require('node-zklib');
+const ZKLib = require('zk-jubaer');
 const config = require('./config');
 
 const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 giây
+const RETRY_DELAY = 3000;
 
 class DeviceManager {
     constructor() {
@@ -16,195 +14,143 @@ class DeviceManager {
         this.connected = false;
     }
 
-    /**
-     * Kết nối tới máy chấm công
-     */
     async connect() {
-        // Luôn tạo kết nối mới để tránh lỗi buffer cũ
         await this.disconnect();
 
         const { ip, port, timeout, inport } = config.device;
+        console.log(`[Device] Kết nối ${ip}:${port} (timeout: ${timeout}ms)...`);
+
         this.device = new ZKLib(ip, port, timeout, inport);
 
         try {
-            console.log(`[Device] Đang kết nối ${ip}:${port}...`);
             await this.device.createSocket();
             this.connected = true;
-            // Đợi máy CC ổn định sau kết nối
             await this._sleep(1000);
-            console.log(`[Device] Đã kết nối ${ip}:${port}`);
+            console.log(`[Device] ✔ Đã kết nối thành công`);
             return true;
         } catch (err) {
             this.connected = false;
             this.device = null;
-            // Log full error object để debug
-            console.error('[Device] Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err || {})));
-            const msg = (err && (err.message || err.code || err.err)) || JSON.stringify(err) || 'unknown';
-            throw new Error(`Không thể kết nối máy chấm công (${ip}:${port}): ${msg}`);
+            const msg = this._errorMsg(err);
+            console.error(`[Device] ✖ Lỗi kết nối: ${msg}`);
+            if (err && err.stack) console.error(err.stack);
+            throw new Error(`Không thể kết nối (${ip}:${port}): ${msg}`);
         }
     }
 
-    /**
-     * Ngắt kết nối
-     */
     async disconnect() {
         if (this.device) {
-            try {
-                await this.device.disconnect();
-            } catch (e) {
-                // Ignore disconnect errors
-            }
+            try { await this.device.disconnect(); } catch (e) {}
             this.device = null;
             this.connected = false;
         }
     }
 
-    /**
-     * Lấy danh sách user trên máy chấm công (có retry)
-     * @returns {Array<{uid, name, role, password, cardno}>}
-     */
     async getUsers() {
-        return this._retryOperation('getUsers', async () => {
-            this._ensureConnected();
+        return this._retry('getUsers', async () => {
+            this._check();
             const result = await this.device.getUsers();
-            const users = result && result.data ? result.data : (Array.isArray(result) ? result : []);
-            console.log(`[Device] Lấy được ${users.length} users`);
+            const users = (result && result.data) || (Array.isArray(result) ? result : []);
+            console.log(`[Device] ${users.length} users`);
             return users;
         });
     }
 
-    /**
-     * Lấy tất cả log chấm công trên máy (có retry)
-     * @returns {Array<{deviceUserId, attTime, type}>}
-     */
     async getAttendances() {
-        return this._retryOperation('getAttendances', async () => {
-            this._ensureConnected();
+        return this._retry('getAttendances', async () => {
+            this._check();
             const result = await this.device.getAttendances();
-            const logs = result && result.data ? result.data : (Array.isArray(result) ? result : []);
-            console.log(`[Device] Lấy được ${logs.length} bản ghi chấm công`);
+            const logs = (result && result.data) || (Array.isArray(result) ? result : []);
+            console.log(`[Device] ${logs.length} bản ghi chấm công`);
             return logs;
         });
     }
 
-    /**
-     * Lấy thông tin thiết bị (serial, firmware, v.v.)
-     */
     async getInfo() {
-        return this._retryOperation('getInfo', async () => {
-            this._ensureConnected();
+        return this._retry('getInfo', async () => {
+            this._check();
             return await this.device.getInfo();
         });
     }
 
-    /**
-     * Lấy thời gian hiện tại trên máy chấm công
-     */
     async getTime() {
-        return this._retryOperation('getTime', async () => {
-            this._ensureConnected();
+        return this._retry('getTime', async () => {
+            this._check();
             return await this.device.getTime();
         });
     }
 
-    /**
-     * Đăng ký real-time log (nhận sự kiện ngay khi quẹt vân tay)
-     * @param {Function} callback - Hàm xử lý khi có log mới
-     */
     async startRealTimeLogs(callback) {
-        this._ensureConnected();
+        this._check();
         try {
             await this.device.getRealTimeLogs((data) => {
                 if (data) {
                     callback({
-                        deviceUserId: String(data.visitorId || data.userId || data.uid),
+                        deviceUserId: String(data.visitorId || data.userId || data.uid || ''),
                         attTime: data.attTime || data.timestamp || new Date().toISOString(),
                         type: data.type || 0,
                     });
                 }
             });
-            console.log('[Device] Real-time monitoring đã bật');
+            console.log('[Device] Real-time monitoring ON');
             return true;
         } catch (err) {
-            console.warn(`[Device] Real-time logs không khả dụng: ${err.message}`);
+            console.warn(`[Device] Real-time không khả dụng: ${this._errorMsg(err)}`);
             return false;
         }
     }
 
-    /**
-     * Thêm user mới vào máy chấm công (dùng khi đăng ký vân tay)
-     */
     async addUser(uid, name, role = 0) {
-        return this._retryOperation('addUser', async () => {
-            this._ensureConnected();
+        return this._retry('addUser', async () => {
+            this._check();
             await this.device.setUser(uid, name, '', role, '');
-            console.log(`[Device] Đã thêm user: ${name} (ID: ${uid})`);
+            console.log(`[Device] Thêm user: ${name} (ID: ${uid})`);
             return true;
         });
     }
 
-    /**
-     * Xoá user khỏi máy chấm công
-     */
     async deleteUser(uid) {
-        return this._retryOperation('deleteUser', async () => {
-            this._ensureConnected();
+        return this._retry('deleteUser', async () => {
+            this._check();
             await this.device.deleteUser(uid);
-            console.log(`[Device] Đã xoá user ID: ${uid}`);
+            console.log(`[Device] Xoá user ID: ${uid}`);
             return true;
         });
     }
 
-    /**
-     * Retry wrapper - tự kết nối lại khi gặp lỗi buffer/subarray
-     */
-    async _retryOperation(name, operation) {
-        let lastError = null;
+    // === INTERNAL ===
 
-        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    async _retry(name, fn) {
+        let lastErr;
+        for (let i = 1; i <= MAX_RETRIES; i++) {
             try {
-                return await operation();
+                return await fn();
             } catch (err) {
-                lastError = err;
-                const isRetryable = err.message &&
-                    (err.message.includes('subarray') ||
-                     err.message.includes('null') ||
-                     err.message.includes('undefined') ||
-                     err.message.includes('TIMEOUT') ||
-                     err.message.includes('ECONNRESET') ||
-                     err.message.includes('EPIPE'));
-
-                if (isRetryable && attempt < MAX_RETRIES) {
-                    console.warn(`[Device] ${name} lỗi (lần ${attempt}/${MAX_RETRIES}): ${err.message}`);
-                    console.warn(`[Device] Đang kết nối lại...`);
-                    // Ngắt kết nối cũ và tạo kết nối mới
+                lastErr = err;
+                console.warn(`[Device] ${name} lỗi lần ${i}: ${this._errorMsg(err)}`);
+                if (i < MAX_RETRIES) {
                     await this.disconnect();
                     await this._sleep(RETRY_DELAY);
-                    try {
-                        await this.connect();
-                    } catch (connErr) {
-                        console.warn(`[Device] Kết nối lại thất bại: ${connErr.message}`);
-                    }
-                } else {
-                    break;
+                    try { await this.connect(); } catch (e) {}
                 }
             }
         }
-
-        throw new Error(`Lỗi ${name}: ${lastError ? lastError.message : 'unknown'}`);
+        throw new Error(`${name} thất bại sau ${MAX_RETRIES} lần: ${this._errorMsg(lastErr)}`);
     }
 
-    /**
-     * Kiểm tra kết nối
-     */
-    _ensureConnected() {
+    _check() {
         if (!this.connected || !this.device) {
             throw new Error('Chưa kết nối máy chấm công');
         }
     }
 
+    _errorMsg(err) {
+        if (!err) return 'unknown';
+        return err.message || err.code || (typeof err === 'string' ? err : JSON.stringify(err));
+    }
+
     _sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return new Promise(r => setTimeout(r, ms));
     }
 }
 

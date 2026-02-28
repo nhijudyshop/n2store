@@ -1,18 +1,15 @@
 {
   "name": "n2store-attendance-sync",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Đồng bộ chấm công Ronald Jack DG-600 → Firebase Firestore",
   "main": "sync-service.js",
   "scripts": {
     "start": "node sync-service.js",
     "test": "node test-connection.js",
-    "pm2:start": "pm2 start sync-service.js --name attendance-sync",
-    "pm2:stop": "pm2 stop attendance-sync",
-    "pm2:restart": "pm2 restart attendance-sync",
-    "pm2:logs": "pm2 logs attendance-sync"
+    "diag": "node diagnose.js"
   },
   "dependencies": {
-    "node-zklib": "^1.0.2",
+    "zk-jubaer": "^1.0.3",
     "firebase-admin": "^11.11.0"
   },
   "engines": {
