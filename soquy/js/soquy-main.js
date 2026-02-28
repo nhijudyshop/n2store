@@ -704,6 +704,24 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Report creator filter
+        const reportCreatorFilter = document.getElementById('reportFilterCreator');
+        if (reportCreatorFilter) {
+            let reportCreatorDebounce;
+            reportCreatorFilter.addEventListener('input', (e) => {
+                clearTimeout(reportCreatorDebounce);
+                reportCreatorDebounce = setTimeout(() => {
+                    rs.creatorFilter = e.target.value;
+                    report.refilterReport();
+                }, 300);
+            });
+        }
+
+        // Initialize searchable dropdowns for report filters
+        report.initReportFilterDropdown('reportFilterCategory', 'reportFilterCategoryDropdown', 'category');
+        report.initReportFilterDropdown('reportFilterSource', 'reportFilterSourceDropdown', 'source');
+        report.initReportFilterDropdown('reportFilterCreator', 'reportFilterCreatorDropdown', 'creator');
+
         // Top transactions tabs (Nhóm 9)
         document.querySelectorAll('#reportTopTabs .report-mini-tab').forEach(tab => {
             tab.addEventListener('click', () => {
