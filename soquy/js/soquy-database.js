@@ -806,12 +806,12 @@ const SoquyDatabase = (function () {
     }
 
     /**
-     * Get display label for a source code: "CODE Tên nguồn"
+     * Get display label for a source code (name only)
      */
     function getSourceLabel(code) {
         const src = getSourceByCode(code);
         if (!src) return code || '';
-        return `${src.code} ${src.name}`;
+        return src.name;
     }
 
     /**

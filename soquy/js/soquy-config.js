@@ -122,6 +122,7 @@ const COLUMN_DEFINITIONS = [
     { key: 'createdBy', label: 'Người tạo', defaultVisible: false },
     { key: 'collector', label: 'Nhân viên', defaultVisible: false },
     { key: 'branch', label: 'Chi nhánh', defaultVisible: false },
+    { key: 'source', label: 'Nguồn', defaultVisible: true },
     { key: 'category', label: 'Loại thu chi', defaultVisible: true },
     { key: 'accountName', label: 'Tên tài khoản', defaultVisible: false },
     { key: 'accountNumber', label: 'Số tài khoản', defaultVisible: false },
@@ -132,7 +133,6 @@ const COLUMN_DEFINITIONS = [
     { key: 'amount', label: 'Giá trị', defaultVisible: true },
     { key: 'transferContent', label: 'Nội dung chuyển khoản', defaultVisible: false },
     { key: 'note', label: 'Ghi chú', defaultVisible: false },
-    { key: 'source', label: 'Nguồn', defaultVisible: true },
     { key: 'fundType', label: 'Loại sổ quỹ', defaultVisible: false },
     { key: 'status', label: 'Trạng thái', defaultVisible: false }
 ];
