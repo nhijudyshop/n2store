@@ -1,156 +1,176 @@
 /**
- * Device Manager - Kết nối Ronald Jack DG-600
- * Dùng thư viện zk-jubaer (ổn định hơn node-zklib)
+ * Device Manager - Ket noi may cham cong Ronald Jack DG-600
+ * Su dung node-zklib voi FORCE UDP (khong dung TCP)
+ *
+ * Ronald Jack DG-600 chi ho tro UDP tren port 4370
+ * Cac thu vien truoc that bai vi dung TCP
  */
-const ZKLib = require('zk-jubaer');
+const ZKLib = require('node-zklib');
 const config = require('./config');
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 3000;
 
 class DeviceManager {
     constructor() {
-        this.device = null;
+        this.zk = null;
         this.connected = false;
     }
 
+    /**
+     * Ket noi may cham cong bang UDP (FORCE, khong thu TCP)
+     */
     async connect() {
-        await this.disconnect();
-
         const { ip, port, timeout, inport } = config.device;
-        console.log(`[Device] Kết nối ${ip}:${port} (timeout: ${timeout}ms)...`);
+        console.log(`[Device] Dang ket noi ${ip}:${port} (UDP)...`);
 
-        this.device = new ZKLib(ip, port, timeout, inport);
+        this.zk = new ZKLib(ip, port, timeout, inport);
 
         try {
-            await this.device.createSocket();
+            // Thu createSocket binh thuong truoc (TCP -> UDP fallback)
+            await this.zk.createSocket();
             this.connected = true;
-            await this._sleep(1000);
-            console.log(`[Device] ✔ Đã kết nối thành công`);
+            console.log(`[Device] Ket noi thanh cong! Protocol: ${this.zk.connectionType || 'unknown'}`);
             return true;
-        } catch (err) {
-            this.connected = false;
-            this.device = null;
-            const msg = this._errorMsg(err);
-            console.error(`[Device] ✖ Lỗi kết nối: ${msg}`);
-            if (err && err.stack) console.error(err.stack);
-            throw new Error(`Không thể kết nối (${ip}:${port}): ${msg}`);
-        }
-    }
+        } catch (tcpErr) {
+            console.log(`[Device] createSocket() that bai: ${tcpErr.message}`);
+            console.log('[Device] Thu force UDP truc tiep...');
 
-    async disconnect() {
-        if (this.device) {
-            try { await this.device.disconnect(); } catch (e) {}
-            this.device = null;
-            this.connected = false;
-        }
-    }
-
-    async getUsers() {
-        return this._retry('getUsers', async () => {
-            this._check();
-            const result = await this.device.getUsers();
-            const users = (result && result.data) || (Array.isArray(result) ? result : []);
-            console.log(`[Device] ${users.length} users`);
-            return users;
-        });
-    }
-
-    async getAttendances() {
-        return this._retry('getAttendances', async () => {
-            this._check();
-            const result = await this.device.getAttendances();
-            const logs = (result && result.data) || (Array.isArray(result) ? result : []);
-            console.log(`[Device] ${logs.length} bản ghi chấm công`);
-            return logs;
-        });
-    }
-
-    async getInfo() {
-        return this._retry('getInfo', async () => {
-            this._check();
-            return await this.device.getInfo();
-        });
-    }
-
-    async getTime() {
-        return this._retry('getTime', async () => {
-            this._check();
-            return await this.device.getTime();
-        });
-    }
-
-    async startRealTimeLogs(callback) {
-        this._check();
-        try {
-            await this.device.getRealTimeLogs((data) => {
-                if (data) {
-                    callback({
-                        deviceUserId: String(data.visitorId || data.userId || data.uid || ''),
-                        attTime: data.attTime || data.timestamp || new Date().toISOString(),
-                        type: data.type || 0,
-                    });
-                }
-            });
-            console.log('[Device] Real-time monitoring ON');
-            return true;
-        } catch (err) {
-            console.warn(`[Device] Real-time không khả dụng: ${this._errorMsg(err)}`);
-            return false;
-        }
-    }
-
-    async addUser(uid, name, role = 0) {
-        return this._retry('addUser', async () => {
-            this._check();
-            await this.device.setUser(uid, name, '', role, '');
-            console.log(`[Device] Thêm user: ${name} (ID: ${uid})`);
-            return true;
-        });
-    }
-
-    async deleteUser(uid) {
-        return this._retry('deleteUser', async () => {
-            this._check();
-            await this.device.deleteUser(uid);
-            console.log(`[Device] Xoá user ID: ${uid}`);
-            return true;
-        });
-    }
-
-    // === INTERNAL ===
-
-    async _retry(name, fn) {
-        let lastErr;
-        for (let i = 1; i <= MAX_RETRIES; i++) {
+            // Force UDP: goi truc tiep zklibUdp
             try {
-                return await fn();
-            } catch (err) {
-                lastErr = err;
-                console.warn(`[Device] ${name} lỗi lần ${i}: ${this._errorMsg(err)}`);
-                if (i < MAX_RETRIES) {
-                    await this.disconnect();
-                    await this._sleep(RETRY_DELAY);
-                    try { await this.connect(); } catch (e) {}
+                // Tao lai instance moi
+                this.zk = new ZKLib(ip, port, timeout, inport);
+
+                // Truy cap truc tiep UDP handler, bo qua TCP
+                if (this.zk.zklibUdp) {
+                    await this.zk.zklibUdp.createSocket();
+                    await this.zk.zklibUdp.connect();
+                    this.zk.connectionType = 'udp';
+                    this.connected = true;
+                    console.log('[Device] Ket noi UDP thanh cong!');
+                    return true;
+                } else {
+                    throw new Error('Khong tim thay UDP handler trong node-zklib');
                 }
+            } catch (udpErr) {
+                this.connected = false;
+                console.error(`[Device] Force UDP that bai: ${udpErr.message}`);
+                throw new Error(`Khong ket noi duoc may cham cong (${ip}:${port}). TCP: ${tcpErr.message}. UDP: ${udpErr.message}`);
             }
         }
-        throw new Error(`${name} thất bại sau ${MAX_RETRIES} lần: ${this._errorMsg(lastErr)}`);
     }
 
-    _check() {
-        if (!this.connected || !this.device) {
-            throw new Error('Chưa kết nối máy chấm công');
+    /**
+     * Ngat ket noi
+     */
+    async disconnect() {
+        if (this.zk) {
+            try {
+                await this.zk.disconnect();
+            } catch (e) {
+                // Ignore
+            }
+            this.connected = false;
+            this.zk = null;
+            console.log('[Device] Da ngat ket noi');
         }
     }
 
-    _errorMsg(err) {
-        if (!err) return 'unknown';
-        return err.message || err.code || (typeof err === 'string' ? err : JSON.stringify(err));
+    /**
+     * Lay thong tin may
+     */
+    async getInfo() {
+        this._checkConnection();
+        try {
+            return await this.zk.getInfo();
+        } catch (err) {
+            console.error('[Device] Loi lay thong tin may:', err.message);
+            throw err;
+        }
     }
 
-    _sleep(ms) {
-        return new Promise(r => setTimeout(r, ms));
+    /**
+     * Lay danh sach user da dang ky tren may
+     */
+    async getUsers() {
+        this._checkConnection();
+        try {
+            const result = await this.zk.getUsers();
+            console.log(`[Device] Lay ${result.data ? result.data.length : 0} users`);
+            return result.data || [];
+        } catch (err) {
+            console.error('[Device] Loi lay danh sach users:', err.message);
+            throw err;
+        }
+    }
+
+    /**
+     * Lay tat ca ban ghi cham cong
+     */
+    async getAttendances() {
+        this._checkConnection();
+        try {
+            const result = await this.zk.getAttendances();
+            console.log(`[Device] Lay ${result.data ? result.data.length : 0} ban ghi cham cong`);
+            return result.data || [];
+        } catch (err) {
+            console.error('[Device] Loi lay ban ghi cham cong:', err.message);
+            throw err;
+        }
+    }
+
+    /**
+     * Bat dau nghe real-time log (nhan vien quet van tay)
+     */
+    async startRealTimeLogs(callback) {
+        this._checkConnection();
+        try {
+            await this.zk.getRealTimeLogs((data) => {
+                console.log(`[Device] Real-time: User ${data.odoo_id || data.odoo || data.userId} @ ${data.attTime || data.time}`);
+                if (callback) callback(data);
+            });
+            console.log('[Device] Bat dau nghe real-time logs');
+        } catch (err) {
+            console.error('[Device] Loi bat real-time logs:', err.message);
+            throw err;
+        }
+    }
+
+    /**
+     * Them user moi vao may
+     */
+    async addUser(uid, name) {
+        this._checkConnection();
+        try {
+            // node-zklib: setUser(uid, name, password, role)
+            await this.zk.setUser(uid, name, '', 0);
+            console.log(`[Device] Da them user: ${name} (ID: ${uid})`);
+            return true;
+        } catch (err) {
+            console.error(`[Device] Loi them user ${name}:`, err.message);
+            throw err;
+        }
+    }
+
+    /**
+     * Xoa user khoi may
+     */
+    async deleteUser(uid) {
+        this._checkConnection();
+        try {
+            await this.zk.deleteUser(uid);
+            console.log(`[Device] Da xoa user ID: ${uid}`);
+            return true;
+        } catch (err) {
+            console.error(`[Device] Loi xoa user ${uid}:`, err.message);
+            throw err;
+        }
+    }
+
+    /**
+     * Kiem tra da ket noi chua
+     */
+    _checkConnection() {
+        if (!this.connected || !this.zk) {
+            throw new Error('Chua ket noi may cham cong. Goi connect() truoc.');
+        }
     }
 }
 

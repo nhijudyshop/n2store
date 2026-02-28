@@ -1,15 +1,7 @@
 /**
- * N2Store Attendance Sync Service
- * ================================
- * Đồng bộ dữ liệu chấm công từ Ronald Jack DG-600 lên Firebase Firestore.
- *
- * Cách hoạt động:
- *   1. Khởi động: kết nối máy CC → sync toàn bộ users + logs
- *   2. Bật real-time monitoring (nhận log ngay khi quẹt vân tay)
- *   3. Backup: poll định kỳ mỗi 2 phút để bắt log bị sót
- *   4. Lắng nghe lệnh từ Web App (thêm user, sync thủ công)
- *
- * Chạy: node sync-service.js
+ * Sync Service - Chuong trinh chinh
+ * Dong bo du lieu cham cong tu may Ronald Jack DG-600 len Firebase
+ * Chay tren PC cong ty (Windows) 24/7
  */
 const DeviceManager = require('./device-manager');
 const FirebaseSync = require('./firebase-sync');
@@ -21,339 +13,294 @@ class SyncService {
     constructor() {
         this.device = new DeviceManager();
         this.firebase = new FirebaseSync();
-        this.userMap = new Map(); // deviceUserId → {name, uid, ...}
         this.running = false;
-        this.retryCount = 0;
         this.syncTimer = null;
-        this.commandUnsubscribe = null;
-        this.realTimeActive = false;
+        this.commandListener = null;
     }
 
     /**
-     * Khởi động service
+     * Khoi dong service
      */
     async start() {
-        this._log('='.repeat(55));
-        this._log('  N2Store Attendance Sync Service');
-        this._log(`  Máy chấm công: Ronald Jack DG-600 @ ${config.device.ip}`);
-        this._log(`  Interval: ${config.sync.intervalMs / 1000}s`);
-        this._log('='.repeat(55));
+        this._log('=== ATTENDANCE SYNC SERVICE v2.0 ===');
+        this._log(`May cham cong: ${config.device.ip}:${config.device.port}`);
+        this._log(`Sync interval: ${config.sync.intervalMs / 1000}s`);
 
-        // Khởi tạo Firebase
+        // 1. Init Firebase
         try {
             this.firebase.init();
+            this._log('Firebase: OK');
         } catch (err) {
-            this._log(`[LỖI] Không khởi tạo được Firebase: ${err.message}`, 'error');
-            this._log('Kiểm tra file serviceAccountKey.json', 'error');
+            this._log(`[FATAL] Loi Firebase: ${err.message}`);
+            this._log('Dam bao file serviceAccountKey.json ton tai trong thu muc attendance-sync/');
             process.exit(1);
         }
 
-        this.running = true;
+        // 2. Ket noi may cham cong
+        let connected = false;
+        for (let attempt = 1; attempt <= config.sync.maxRetries; attempt++) {
+            try {
+                this._log(`Ket noi may cham cong (lan ${attempt}/${config.sync.maxRetries})...`);
+                await this.device.connect();
+                connected = true;
+                break;
+            } catch (err) {
+                this._log(`Lan ${attempt} that bai: ${err.message}`);
+                if (attempt < config.sync.maxRetries) {
+                    this._log(`Thu lai sau ${config.sync.retryDelayMs / 1000}s...`);
+                    await this._sleep(config.sync.retryDelayMs);
+                }
+            }
+        }
 
-        // Lắng nghe lệnh từ Web App
+        if (!connected) {
+            this._log('[FATAL] Khong the ket noi may cham cong sau nhieu lan thu');
+            this._log('Kiem tra:');
+            this._log('  1. May cham cong da bat va o cung mang LAN');
+            this._log('  2. IP dung: ' + config.device.ip);
+            this._log('  3. Port dung: ' + config.device.port);
+            this._log('  4. Firewall khong chan UDP port 4370');
+            this._log('  5. Khong co phan mem khac dang ket noi may cham cong');
+            await this.firebase.updateSyncStatus({
+                connected: false,
+                lastError: 'Khong ket noi duoc may cham cong',
+            });
+            process.exit(1);
+        }
+
+        // 3. Lay thong tin may
+        try {
+            const info = await this.device.getInfo();
+            this._log(`Thong tin may: ${JSON.stringify(info)}`);
+        } catch (err) {
+            this._log(`Canh bao: Khong lay duoc thong tin may: ${err.message}`);
+        }
+
+        // 4. Sync lan dau
+        this.running = true;
+        await this._fullSync();
+
+        // 5. Cap nhat trang thai connected
+        await this.firebase.updateSyncStatus({
+            connected: true,
+            startedAt: new Date().toISOString(),
+            lastError: null,
+        });
+
+        // 6. Bat real-time monitoring
+        this._startRealTimeMonitoring();
+
+        // 7. Bat dinh ky sync
+        this._startPeriodicSync();
+
+        // 8. Lang nghe lenh tu web
         this._startCommandListener();
 
-        // Bắt đầu vòng lặp chính
-        await this._mainLoop();
+        // 9. Xu ly tat may
+        this._handleShutdown();
+
+        this._log('Service dang chay. Nhan Ctrl+C de dung.');
     }
 
     /**
-     * Vòng lặp chính - kết nối, sync, retry
+     * Full sync: users + attendance records
      */
-    async _mainLoop() {
-        while (this.running) {
-            try {
-                // Kết nối máy chấm công
-                await this.device.connect();
-                this.retryCount = 0;
+    async _fullSync() {
+        this._log('--- Bat dau dong bo ---');
 
-                // Cập nhật trạng thái: đã kết nối
-                await this.firebase.updateSyncStatus({
-                    connected: true,
-                    deviceIp: config.device.ip,
-                    lastConnectedAt: new Date().toISOString(),
-                });
-
-                // Sync toàn bộ users
-                await this._syncUsers();
-
-                // Sync log chấm công
-                await this._syncAttendances();
-
-                // Thử bật real-time monitoring
-                await this._startRealTimeMonitoring();
-
-                // Bắt đầu poll định kỳ (backup)
-                await this._startPeriodicSync();
-
-            } catch (err) {
-                this._log(`[LỖI] ${err.message}`, 'error');
-
-                // Dọn dẹp
-                this._stopPeriodicSync();
-                this.realTimeActive = false;
-                await this.device.disconnect();
-
-                // Cập nhật trạng thái: mất kết nối
-                try {
-                    await this.firebase.updateSyncStatus({
-                        connected: false,
-                        lastError: err.message,
-                        lastErrorAt: new Date().toISOString(),
-                    });
-                } catch (e) {
-                    // Ignore
-                }
-
-                // Retry
-                this.retryCount++;
-                const waitMs = this.retryCount > config.sync.maxRetries
-                    ? config.sync.longRetryMs
-                    : config.sync.retryIntervalMs;
-
-                this._log(`Thử lại lần ${this.retryCount} sau ${waitMs / 1000}s...`);
-                await this._sleep(waitMs);
-            }
-        }
-    }
-
-    /**
-     * Đồng bộ danh sách user từ máy CC
-     */
-    async _syncUsers() {
-        const users = await this.device.getUsers();
-
-        // Cập nhật local map
-        this.userMap.clear();
-        for (const user of users) {
-            this.userMap.set(String(user.uid), user);
-        }
-
-        // Upload lên Firestore
-        await this.firebase.syncDeviceUsers(users);
-        this._log(`Đồng bộ ${users.length} nhân viên từ máy CC`);
-    }
-
-    /**
-     * Đồng bộ log chấm công (chỉ log mới)
-     */
-    async _syncAttendances() {
-        const lastSync = await this.firebase.getLastSyncTime();
-        const allLogs = await this.device.getAttendances();
-
-        // Lọc log mới (sau thời điểm sync cuối)
-        let newLogs = allLogs;
-        if (lastSync) {
-            newLogs = allLogs.filter(log => {
-                const logTime = new Date(log.attTime);
-                return logTime > lastSync;
-            });
-        }
-
-        if (newLogs.length > 0) {
-            const count = await this.firebase.uploadAttendances(newLogs, this.userMap);
-            this._log(`Upload ${count} bản ghi chấm công mới`);
-        } else {
-            this._log('Không có bản ghi chấm công mới');
-        }
-
-        // Cập nhật trạng thái sync
-        await this.firebase.updateSyncStatus({
-            lastSyncTime: new Date(),
-            totalLogsOnDevice: allLogs.length,
-            newLogsCount: newLogs.length,
-        });
-    }
-
-    /**
-     * Bật real-time monitoring (nhận log ngay khi quẹt vân tay)
-     */
-    async _startRealTimeMonitoring() {
-        if (this.realTimeActive) return;
-
-        const started = await this.device.startRealTimeLogs(async (log) => {
-            this._log(`[REAL-TIME] ${log.deviceUserId} quẹt vân tay lúc ${log.attTime}`);
-            try {
-                await this.firebase.uploadAttendances([log], this.userMap);
-            } catch (err) {
-                this._log(`[REAL-TIME] Lỗi upload: ${err.message}`, 'error');
-            }
-        });
-
-        this.realTimeActive = started;
-    }
-
-    /**
-     * Poll định kỳ (backup cho real-time)
-     */
-    _startPeriodicSync() {
-        return new Promise((resolve) => {
-            this._stopPeriodicSync();
-
-            this.syncTimer = setInterval(async () => {
-                try {
-                    this._log('--- Poll định kỳ ---');
-                    await this._syncAttendances();
-                } catch (err) {
-                    this._log(`[Poll] Lỗi: ${err.message}`, 'error');
-                    // Nếu mất kết nối, dừng timer và throw để mainLoop retry
-                    this._stopPeriodicSync();
-                    this.realTimeActive = false;
-                    // Disconnect để mainLoop chạy lại
-                    this.device.disconnect();
-                }
-            }, config.sync.intervalMs);
-
-            this._log(`Poll định kỳ mỗi ${config.sync.intervalMs / 1000}s`);
-            resolve();
-        });
-    }
-
-    _stopPeriodicSync() {
-        if (this.syncTimer) {
-            clearInterval(this.syncTimer);
-            this.syncTimer = null;
-        }
-    }
-
-    /**
-     * Lắng nghe lệnh từ Web App qua Firestore
-     */
-    _startCommandListener() {
-        this.commandUnsubscribe = this.firebase.listenForCommands(async (command) => {
-            this._log(`[LỆNH] ${command.action} - ${command.employeeName || ''}`);
-            await this._handleCommand(command);
-        });
-        this._log('Đang lắng nghe lệnh từ Web App...');
-    }
-
-    /**
-     * Xử lý lệnh từ Web App
-     */
-    async _handleCommand(command) {
+        // Sync users
         try {
-            switch (command.action) {
-                case 'add_user': {
-                    // Thêm user vào máy chấm công
-                    const { deviceUserId, employeeName, role } = command;
-                    await this.device.addUser(deviceUserId, employeeName, role || 0);
-                    // Sync lại danh sách users
-                    await this._syncUsers();
-                    await this.firebase.updateCommand(command.id, 'completed', {
-                        message: `Đã thêm "${employeeName}" vào máy chấm công (ID: ${deviceUserId})`,
-                    });
-                    break;
-                }
-
-                case 'delete_user': {
-                    const { deviceUserId } = command;
-                    await this.device.deleteUser(deviceUserId);
-                    await this._syncUsers();
-                    await this.firebase.updateCommand(command.id, 'completed', {
-                        message: `Đã xoá user ID: ${deviceUserId}`,
-                    });
-                    break;
-                }
-
-                case 'sync_now': {
-                    await this._syncUsers();
-                    await this._syncAttendances();
-                    await this.firebase.updateCommand(command.id, 'completed', {
-                        message: 'Đồng bộ thành công',
-                    });
-                    break;
-                }
-
-                case 'enroll_fingerprint': {
-                    // Đăng ký vân tay cần user đặt tay trực tiếp lên máy
-                    // Script chỉ có thể thêm user, việc quẹt vân tay làm trên máy
-                    const { deviceUserId, employeeName } = command;
-                    await this.device.addUser(deviceUserId, employeeName, 0);
-                    await this.firebase.updateCommand(command.id, 'waiting_fingerprint', {
-                        message: `Đã thêm "${employeeName}" (ID: ${deviceUserId}). Vui lòng đến máy chấm công, vào Menu → User → chọn user → đăng ký vân tay.`,
-                    });
-                    break;
-                }
-
-                default:
-                    await this.firebase.updateCommand(command.id, 'failed', {
-                        message: `Lệnh không hợp lệ: ${command.action}`,
-                    });
+            const users = await this.device.getUsers();
+            if (users.length > 0) {
+                await this.firebase.syncDeviceUsers(users);
+                this._log(`Sync ${users.length} users thanh cong`);
             }
         } catch (err) {
-            this._log(`[LỆNH] Lỗi: ${err.message}`, 'error');
-            await this.firebase.updateCommand(command.id, 'failed', {
-                message: err.message,
-            });
+            this._log(`Loi sync users: ${err.message}`);
+        }
+
+        // Sync attendance
+        try {
+            const records = await this.device.getAttendances();
+            if (records.length > 0) {
+                const result = await this.firebase.uploadAttendances(records);
+                this._log(`Upload ${result.uploaded} ban ghi cham cong`);
+            } else {
+                this._log('Khong co ban ghi cham cong moi');
+            }
+        } catch (err) {
+            this._log(`Loi sync attendance: ${err.message}`);
+        }
+
+        // Cap nhat thoi gian sync
+        await this.firebase.updateSyncStatus({
+            lastSyncTime: new Date().toISOString(),
+            connected: true,
+        });
+
+        this._log('--- Dong bo xong ---');
+    }
+
+    /**
+     * Nghe real-time khi nhan vien quet van tay
+     */
+    _startRealTimeMonitoring() {
+        this.device.startRealTimeLogs(async (data) => {
+            try {
+                // Upload record moi ngay lap tuc
+                const record = {
+                    deviceUserId: String(data.odoo_id || data.odoo || data.userId || ''),
+                    recordTime: data.attTime || data.time || new Date().toISOString(),
+                    type: data.attState || data.type || 0,
+                };
+                await this.firebase.uploadAttendances([record]);
+                this._log(`Real-time: User ${record.deviceUserId} cham cong luc ${record.recordTime}`);
+            } catch (err) {
+                this._log(`Loi xu ly real-time: ${err.message}`);
+            }
+        }).catch(err => {
+            this._log(`Canh bao: Khong bat duoc real-time logs: ${err.message}`);
+        });
+    }
+
+    /**
+     * Dinh ky sync (moi 5 phut)
+     */
+    _startPeriodicSync() {
+        this.syncTimer = setInterval(async () => {
+            if (!this.running) return;
+            try {
+                await this._fullSync();
+            } catch (err) {
+                this._log(`Loi periodic sync: ${err.message}`);
+                // Thu reconnect
+                try {
+                    await this.device.disconnect();
+                    await this.device.connect();
+                    this._log('Reconnect thanh cong');
+                } catch (reconErr) {
+                    this._log(`Reconnect that bai: ${reconErr.message}`);
+                    await this.firebase.updateSyncStatus({
+                        connected: false,
+                        lastError: reconErr.message,
+                    });
+                }
+            }
+        }, config.sync.intervalMs);
+
+        this._log(`Periodic sync moi ${config.sync.intervalMs / 1000}s`);
+    }
+
+    /**
+     * Lang nghe lenh tu web app
+     */
+    _startCommandListener() {
+        this.commandListener = this.firebase.listenForCommands(async (cmd) => {
+            this._log(`Nhan lenh: ${cmd.action} (ID: ${cmd.id})`);
+            try {
+                await this._handleCommand(cmd);
+                await this.firebase.updateCommandStatus(cmd.id, 'completed', 'OK');
+                this._log(`Lenh ${cmd.action} hoan thanh`);
+            } catch (err) {
+                await this.firebase.updateCommandStatus(cmd.id, 'error', err.message);
+                this._log(`Lenh ${cmd.action} loi: ${err.message}`);
+            }
+        });
+    }
+
+    /**
+     * Xu ly tung lenh
+     */
+    async _handleCommand(cmd) {
+        switch (cmd.action) {
+            case 'sync_now':
+                await this._fullSync();
+                break;
+
+            case 'add_user':
+                await this.device.addUser(
+                    parseInt(cmd.deviceUserId),
+                    cmd.employeeName || `User ${cmd.deviceUserId}`
+                );
+                // Sync lai users
+                const users = await this.device.getUsers();
+                await this.firebase.syncDeviceUsers(users);
+                break;
+
+            case 'delete_user':
+                await this.device.deleteUser(parseInt(cmd.deviceUserId));
+                const usersAfterDel = await this.device.getUsers();
+                await this.firebase.syncDeviceUsers(usersAfterDel);
+                break;
+
+            case 'enroll_fingerprint':
+                this._log(`Enroll fingerprint cho user ${cmd.deviceUserId} - Can thao tac tren may`);
+                break;
+
+            default:
+                this._log(`Lenh khong biet: ${cmd.action}`);
         }
     }
 
     /**
-     * Dừng service
+     * Xu ly shutdown
      */
-    stop() {
-        this.running = false;
-        this._stopPeriodicSync();
-        if (this.commandUnsubscribe) {
-            this.commandUnsubscribe();
-        }
-        this.device.disconnect();
-        this._log('Service đã dừng');
+    _handleShutdown() {
+        const shutdown = async () => {
+            this._log('Dang tat service...');
+            this.running = false;
+
+            if (this.syncTimer) clearInterval(this.syncTimer);
+            if (this.commandListener) this.commandListener();
+
+            try {
+                await this.firebase.updateSyncStatus({
+                    connected: false,
+                    stoppedAt: new Date().toISOString(),
+                });
+            } catch (e) { }
+
+            try {
+                await this.device.disconnect();
+            } catch (e) { }
+
+            this._log('Service da dung.');
+            process.exit(0);
+        };
+
+        process.on('SIGINT', shutdown);
+        process.on('SIGTERM', shutdown);
     }
 
-    // ================================================================
-    // HELPERS
-    // ================================================================
-
-    _sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    _log(message, level = 'info') {
+    /**
+     * Log voi timestamp, ghi file
+     */
+    _log(msg) {
         const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
-        const prefix = level === 'error' ? '❌' : '✔';
-        const line = `[${now}] ${prefix} ${message}`;
-
+        const line = `[${now}] ${msg}`;
         console.log(line);
 
-        // Ghi log ra file theo ngày
+        // Ghi ra file log theo ngay
         try {
-            const logDir = config.log.dir;
-            if (!fs.existsSync(logDir)) {
-                fs.mkdirSync(logDir, { recursive: true });
-            }
-            const dateStr = new Date().toISOString().split('T')[0];
-            const logFile = path.join(logDir, `sync-${dateStr}.log`);
+            const logDir = path.join(__dirname, 'logs');
+            if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+
+            const today = new Date().toISOString().slice(0, 10);
+            const logFile = path.join(logDir, `${today}.log`);
             fs.appendFileSync(logFile, line + '\n');
         } catch (e) {
             // Ignore log errors
         }
     }
+
+    _sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 }
 
-// ================================================================
-// KHỞI CHẠY
-// ================================================================
+// Khoi dong
 const service = new SyncService();
-
-// Tắt an toàn khi nhận SIGINT (Ctrl+C) hoặc SIGTERM
-process.on('SIGINT', () => {
-    console.log('\nĐang tắt...');
-    service.stop();
-    setTimeout(() => process.exit(0), 1000);
+service.start().catch(err => {
+    console.error('[FATAL]', err);
+    process.exit(1);
 });
-
-process.on('SIGTERM', () => {
-    service.stop();
-    setTimeout(() => process.exit(0), 1000);
-});
-
-// Bắt lỗi không xử lý
-process.on('uncaughtException', (err) => {
-    console.error('[FATAL]', err.message);
-    service.stop();
-    setTimeout(() => process.exit(1), 1000);
-});
-
-// Start
-service.start();

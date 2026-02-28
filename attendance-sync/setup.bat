@@ -1,63 +1,75 @@
 @echo off
-echo ==============================================
-echo   N2Store Attendance Sync - Setup
-echo ==============================================
+echo ========================================
+echo   CAI DAT ATTENDANCE SYNC SERVICE
+echo ========================================
 echo.
 
-set "SCRIPT_DIR=%~dp0"
-cd /d "%SCRIPT_DIR%"
-
-echo [1/5] Kiem tra Node.js...
+REM Kiem tra Node.js
 where node >nul 2>&1
-if %ERRORLEVEL% neq 0 (
-    echo   LOI: Node.js chua cai. Tai tai nodejs.org
+if errorlevel 1 (
+    echo [LOI] Chua cai Node.js
+    echo Tai tai: https://nodejs.org/
     pause
     exit /b 1
 )
-node --version
-echo   OK
+
+for /f "tokens=*" %%a in ('node -v') do set NODE_VER=%%a
+echo Node.js: %NODE_VER%
 echo.
 
-echo [2/5] Kiem tra Firebase key...
+REM Kiem tra serviceAccountKey.json
 if not exist "serviceAccountKey.json" (
-    echo   LOI: Thieu serviceAccountKey.json
-    echo   Vao Firebase Console tai ve roi copy vao day
+    echo [LOI] Thieu file serviceAccountKey.json
+    echo.
+    echo Huong dan:
+    echo   1. Vao Firebase Console -^> Project Settings
+    echo   2. Tab Service accounts -^> Generate new private key
+    echo   3. Luu file vao thu muc nay voi ten serviceAccountKey.json
+    echo.
     pause
     exit /b 1
 )
-echo   OK
+echo serviceAccountKey.json: OK
 echo.
 
-echo [3/5] Cai dat npm packages...
-if not exist "node_modules" (
-    call npm install
-) else (
-    echo   Da co, bo qua
+REM Cai dat npm packages
+echo Dang cai dat thu vien...
+call npm install
+if errorlevel 1 (
+    echo [LOI] npm install that bai
+    pause
+    exit /b 1
 )
-echo   OK
+echo Thu vien: OK
 echo.
 
-echo [4/5] Cai autostart...
-set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-set "LNK=%STARTUP%\N2Store-Attendance-Sync.lnk"
-powershell -Command "$s=New-Object -COM WScript.Shell;$sc=$s.CreateShortcut('%LNK%');$sc.TargetPath='%SCRIPT_DIR%start-hidden.vbs';$sc.WorkingDirectory='%SCRIPT_DIR%';$sc.Save()" >nul 2>&1
-if exist "%LNK%" (
-    echo   OK
-) else (
-    echo   CANH BAO: Khong tao duoc autostart
+REM Test ket noi
+echo Dang test ket noi may cham cong...
+echo (Neu treo qua 15 giay, nhan Ctrl+C)
+echo.
+node test-connection.js
+echo.
+
+REM Hoi cai autostart
+echo ========================================
+set /p AUTOSTART="Ban muon tu dong chay khi bat may? (y/n): "
+if /i "%AUTOSTART%"=="y" (
+    echo Dang cai autostart...
+    copy /y start-hidden.vbs "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\attendance-sync.vbs" >nul
+    if errorlevel 1 (
+        echo [LOI] Khong the cai autostart
+    ) else (
+        echo Autostart: OK
+    )
 )
-echo.
 
-echo [5/5] Khoi dong service...
-if not exist "logs" mkdir logs
-start "" wscript.exe "%SCRIPT_DIR%start-hidden.vbs"
-echo   OK
 echo.
-
-echo ==============================================
-echo   HOAN TAT
-echo   Service dang chay an.
-echo   Tu dong chay moi lan bat may.
-echo ==============================================
+echo ========================================
+echo   CAI DAT HOAN TAT!
 echo.
+echo   Chay service:   start-hidden.vbs
+echo   Dung service:   stop.bat
+echo   Chan doan:      node diagnose.js
+echo   Test ket noi:   node test-connection.js
+echo ========================================
 pause

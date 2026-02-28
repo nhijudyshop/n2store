@@ -1,18 +1,15 @@
 {
-  "name": "n2store-attendance-sync",
+  "name": "attendance-sync",
   "version": "2.0.0",
-  "description": "Đồng bộ chấm công Ronald Jack DG-600 → Firebase Firestore",
+  "description": "Dong bo du lieu cham cong tu may Ronald Jack DG-600 len Firebase (UDP protocol)",
   "main": "sync-service.js",
   "scripts": {
     "start": "node sync-service.js",
     "test": "node test-connection.js",
-    "diag": "node diagnose.js"
+    "diagnose": "node diagnose.js"
   },
   "dependencies": {
-    "zk-jubaer": "^2.0.5",
+    "node-zklib": "^1.0.2",
     "firebase-admin": "^11.11.0"
-  },
-  "engines": {
-    "node": ">=16.0.0"
   }
 }
