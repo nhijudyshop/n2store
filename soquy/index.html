@@ -736,20 +736,14 @@
                             <button class="btn-icon"><i data-lucide="sliders-horizontal"></i></button>
                         </div>
                         <div class="action-buttons">
-                            <button class="k-btn-outline-primary" id="btnShowCreateReceipt">
-                                <i data-lucide="plus"></i> Phiếu thu
-                            </button>
                             <button class="k-btn-outline-primary" id="btnShowCreatePaymentCN">
                                 <i data-lucide="plus"></i> Phiếu Chi CN
                             </button>
                             <button class="k-btn-outline-primary" id="btnShowCreatePaymentKD">
                                 <i data-lucide="plus"></i> Phiếu Chi KD
                             </button>
-                            <button class="k-btn-outline" id="btnImportFile">
-                                <i data-lucide="file-input"></i> Nhập file
-                            </button>
-                            <button class="k-btn-outline" id="btnExportFile">
-                                <i data-lucide="file-output"></i> Xuất file
+                            <button class="k-btn-outline-primary" id="btnShowCreateReceipt">
+                                <i data-lucide="plus"></i> Phiếu thu
                             </button>
                             <div class="column-toggle-wrapper">
                                 <button class="k-btn-outline" style="padding: 0 8px;" id="btnColumnToggle"
@@ -760,9 +754,22 @@
                                     <!-- Populated by JS -->
                                 </div>
                             </div>
-                            <button class="k-btn-outline" style="padding: 0 8px;">
-                                <i data-lucide="settings"></i>
-                            </button>
+                            <div class="settings-dropdown-wrapper">
+                                <button class="k-btn-outline" style="padding: 0 8px;" id="btnSettingsToggle" title="Cài đặt">
+                                    <i data-lucide="settings"></i>
+                                </button>
+                                <div class="settings-dropdown" id="settingsDropdown" style="display: none;">
+                                    <button class="settings-dropdown-item" id="btnImportFile">
+                                        <i data-lucide="file-input"></i> Nhập file
+                                    </button>
+                                    <button class="settings-dropdown-item" id="btnExportFile">
+                                        <i data-lucide="file-output"></i> Xuất file
+                                    </button>
+                                    <button class="settings-dropdown-item" id="btnSettingsDeleteAll">
+                                        <i data-lucide="trash-2"></i> Xóa tất cả
+                                    </button>
+                                </div>
+                            </div>
                             <button class="k-btn-outline" style="padding: 0 8px;">
                                 <i data-lucide="help-circle"></i>
                             </button>
