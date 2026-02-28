@@ -92,7 +92,7 @@
                 </button>
                 <div class="tab-header-navigation">
                     <div class="nav-dropdown-wrapper">
-                        <button class="tab-header-btn active" data-tab="employee" id="tabEmployeeBtn">
+                        <button class="tab-header-btn" data-tab="employee" id="tabEmployeeBtn">
                             <i data-lucide="users"></i>
                             <span>Nhân viên</span>
                         </button>
@@ -105,7 +105,7 @@
                             <a href="#" class="nav-dropdown-item">Thiết lập nhân viên</a>
                         </div>
                     </div>
-                    <button class="tab-header-btn" data-tab="cashbook" id="tabCashBookBtn">
+                    <button class="tab-header-btn active" data-tab="cashbook" id="tabCashBookBtn">
                         <i data-lucide="wallet"></i>
                         <span>Sổ Quỹ</span>
                     </button>
@@ -121,7 +121,7 @@
         <!-- Content Area -->
         <div class="content-area" style="padding: 0;">
             <!-- Employee Views Wrapper (No sidebar layout) -->
-            <div id="employeeTabContent" class="tab-content active" style="height: calc(100vh - 56px);">
+            <div id="employeeTabContent" class="tab-content" style="height: calc(100vh - 56px);">
 
                 <!-- 1. Bảng chấm công (Xem theo ca) View -->
                 <div class="employee-view-wrapper" id="viewTimesheet" style="display: flex;">
@@ -525,7 +525,7 @@
             <div class="mobile-filter-overlay" id="mobileFilterOverlay"></div>
 
             <!-- Cash Book Layout -->
-            <div id="cashbookTabContent" class="cashbook-layout tab-content">
+            <div id="cashbookTabContent" class="cashbook-layout tab-content active">
                 <!-- ==================== LEFT SIDEBAR FILTERS ==================== -->
                 <div class="cashbook-sidebar">
                     <div class="sidebar-header-section">
