@@ -308,7 +308,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         if (els.btnExportFile) {
-            els.btnExportFile.addEventListener('click', () => ui.handleExport());
+            els.btnExportFile.addEventListener('click', () => {
+                const sd = document.getElementById('settingsDropdown');
+                if (sd) sd.style.display = 'none';
+                ui.handleExport();
+            });
         }
 
         // Receipt modal events
@@ -427,9 +431,37 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Settings dropdown toggle
+        const btnSettingsToggle = document.getElementById('btnSettingsToggle');
+        const settingsDropdown = document.getElementById('settingsDropdown');
+        if (btnSettingsToggle && settingsDropdown) {
+            btnSettingsToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = settingsDropdown.style.display !== 'none';
+                settingsDropdown.style.display = isOpen ? 'none' : 'block';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+            document.addEventListener('click', (e) => {
+                if (!settingsDropdown.contains(e.target) && e.target !== btnSettingsToggle) {
+                    settingsDropdown.style.display = 'none';
+                }
+            });
+        }
+        const btnSettingsDeleteAll = document.getElementById('btnSettingsDeleteAll');
+        if (btnSettingsDeleteAll) {
+            btnSettingsDeleteAll.addEventListener('click', () => {
+                if (settingsDropdown) settingsDropdown.style.display = 'none';
+                ui.deleteAllVouchers();
+            });
+        }
+
         // Import button & modal events
         if (els.btnImportFile) {
-            els.btnImportFile.addEventListener('click', () => ui.openImportModal());
+            els.btnImportFile.addEventListener('click', () => {
+                const sd = document.getElementById('settingsDropdown');
+                if (sd) sd.style.display = 'none';
+                ui.openImportModal();
+            });
         }
         if (els.btnCloseImport) {
             els.btnCloseImport.addEventListener('click', () => ui.closeImportModal());
