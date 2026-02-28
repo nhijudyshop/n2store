@@ -641,6 +641,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // =====================================================
+        // MOBILE: Filter Drawer Toggle
+        // =====================================================
+        const mobileFilterOverlay = document.getElementById('mobileFilterOverlay');
+        const mobileFilterCloseBtn = document.getElementById('mobileFilterCloseBtn');
+        const cashbookSidebar = document.querySelector('.cashbook-sidebar');
+
+        function openMobileFilter() {
+            if (cashbookSidebar) cashbookSidebar.classList.add('mobile-open');
+            if (mobileFilterOverlay) mobileFilterOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMobileFilter() {
+            if (cashbookSidebar) cashbookSidebar.classList.remove('mobile-open');
+            if (mobileFilterOverlay) mobileFilterOverlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        const btnMobileFilter = document.getElementById('btnMobileFilter');
+        if (btnMobileFilter) btnMobileFilter.addEventListener('click', openMobileFilter);
+        if (mobileFilterCloseBtn) mobileFilterCloseBtn.addEventListener('click', closeMobileFilter);
+        if (mobileFilterOverlay) mobileFilterOverlay.addEventListener('click', closeMobileFilter);
+
+        // =====================================================
+        // MOBILE: FAB (Floating Action Button)
+        // =====================================================
+        const mobileFabBtn = document.getElementById('mobileFabBtn');
+        const mobileFabContainer = document.getElementById('mobileFabContainer');
+
+        if (mobileFabBtn && mobileFabContainer) {
+            mobileFabBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                mobileFabContainer.classList.toggle('open');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!mobileFabContainer.contains(e.target)) {
+                    mobileFabContainer.classList.remove('open');
+                }
+            });
+
+            const fabCreatePaymentCN = document.getElementById('fabCreatePaymentCN');
+            const fabCreatePaymentKD = document.getElementById('fabCreatePaymentKD');
+            const fabCreateReceipt = document.getElementById('fabCreateReceipt');
+
+            if (fabCreatePaymentCN) {
+                fabCreatePaymentCN.addEventListener('click', () => {
+                    mobileFabContainer.classList.remove('open');
+                    state.editingVoucherId = null;
+                    ui.openPaymentModal('cn');
+                });
+            }
+            if (fabCreatePaymentKD) {
+                fabCreatePaymentKD.addEventListener('click', () => {
+                    mobileFabContainer.classList.remove('open');
+                    state.editingVoucherId = null;
+                    ui.openPaymentModal('kd');
+                });
+            }
+            if (fabCreateReceipt) {
+                fabCreateReceipt.addEventListener('click', () => {
+                    mobileFabContainer.classList.remove('open');
+                    state.editingVoucherId = null;
+                    ui.openReceiptModal();
+                });
+            }
+        }
     }
 
     // =====================================================

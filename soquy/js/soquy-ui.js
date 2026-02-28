@@ -112,6 +112,8 @@ const SoquyUI = (function () {
         const end = start + state.pageSize;
         state.displayedVouchers = state.filteredVouchers.slice(start, end);
 
+        const mobileContainer = document.getElementById('mobileVoucherCards');
+
         if (state.displayedVouchers.length === 0) {
             els.tableBody.innerHTML = `
                 <tr class="empty-row">
@@ -122,10 +124,18 @@ const SoquyUI = (function () {
                         <div>Không có dữ liệu phiếu thu chi</div>
                     </td>
                 </tr>`;
+            if (mobileContainer) {
+                mobileContainer.innerHTML = `
+                    <div class="m-voucher-empty">
+                        <i data-lucide="inbox"></i>
+                        <div>Không có dữ liệu phiếu thu chi</div>
+                    </div>`;
+            }
             if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
         }
 
+        // Desktop: render table rows
         els.tableBody.innerHTML = state.displayedVouchers.map(v => {
             const isPayment = isPaymentType(v.type);
             const isCancelled = v.status === config.VOUCHER_STATUS.CANCELLED;
@@ -155,6 +165,39 @@ const SoquyUI = (function () {
             return rowHtml;
         }).join('');
 
+        // Mobile: render card list
+        if (mobileContainer) {
+            mobileContainer.innerHTML = state.displayedVouchers.map(v => {
+                const isPayment = isPaymentType(v.type);
+                const isCancelled = v.status === config.VOUCHER_STATUS.CANCELLED;
+                const typeLabel = config.VOUCHER_TYPE_LABELS[v.type] || '';
+                const dateStr = db.formatVoucherDateTime(v.voucherDateTime);
+                const displayAmount = isPayment
+                    ? `-${db.formatCurrency(v.amount)}`
+                    : `+${db.formatCurrency(v.amount)}`;
+                const amountClass = isPayment ? 'text-danger' : 'text-success';
+
+                return `
+                    <div class="m-voucher-card ${isCancelled ? 'row-cancelled' : ''}" data-id="${v.id}">
+                        <div class="m-voucher-header">
+                            <div class="m-voucher-header-left">
+                                <span class="m-voucher-type-badge ${v.type}">${escapeHtml(typeLabel)}</span>
+                                <span class="m-voucher-code">${escapeHtml(v.code)}</span>
+                                ${isCancelled ? '<span class="badge-cancelled" style="font-size:10px;padding:1px 5px;">Đã hủy</span>' : ''}
+                            </div>
+                            <span class="m-voucher-date">${escapeHtml(dateStr)}</span>
+                        </div>
+                        <div class="m-voucher-body">
+                            <div class="m-voucher-info">
+                                <div class="m-voucher-category">${escapeHtml(v.category || '')}</div>
+                                <div class="m-voucher-person">${escapeHtml(v.personName || '-')}</div>
+                            </div>
+                            <div class="m-voucher-amount ${amountClass}">${displayAmount}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
         if (typeof lucide !== 'undefined') lucide.createIcons();
         bindTableEvents();
     }
@@ -169,10 +212,18 @@ const SoquyUI = (function () {
             });
         });
 
-        // Row click
+        // Row double-click -> open detail (desktop)
         document.querySelectorAll('.cashbook-table tbody tr[data-id]').forEach(row => {
             row.addEventListener('dblclick', () => {
                 const id = row.dataset.id;
+                openDetailModal(id);
+            });
+        });
+
+        // Mobile card tap -> open detail
+        document.querySelectorAll('.m-voucher-card[data-id]').forEach(card => {
+            card.addEventListener('click', () => {
+                const id = card.dataset.id;
                 openDetailModal(id);
             });
         });
