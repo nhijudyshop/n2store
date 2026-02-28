@@ -709,6 +709,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     ui.openReceiptModal();
                 });
             }
+
+            const fabOpenAI = document.getElementById('fabOpenAI');
+            if (fabOpenAI) {
+                fabOpenAI.addEventListener('click', () => {
+                    mobileFabContainer.classList.remove('open');
+                    if (window.AIChatWidget && window.AIChatWidget.toggle) {
+                        window.AIChatWidget.toggle();
+                    }
+                });
+            }
         }
     }
 
