@@ -617,17 +617,33 @@ async function updateUser() {
         return;
     }
 
-    // Get detailed permissions from UI (page access is derived from this)
-    const detailedPermissions = window.editDetailedPermUI
-        ? window.editDetailedPermUI.getPermissions()
-        : {};
-
-    // Get roleTemplate from UI (which template is currently applied)
-    const roleTemplate = window.editDetailedPermUI?.currentTemplate || 'custom';
-
     // Get isAdmin flag from checkbox
     const isAdminCheckbox = document.getElementById('editIsAdmin');
     const isAdmin = isAdminCheckbox ? isAdminCheckbox.checked : false;
+
+    // Get detailed permissions from UI (page access is derived from this)
+    // Admin: generate full permissions (all = true) regardless of UI state
+    let detailedPermissions;
+    if (isAdmin) {
+        // Use PermissionsRegistry if available (full 147 permissions), fallback to UI
+        if (typeof PermissionsRegistry !== 'undefined' && typeof PermissionsRegistry.generateFullDetailedPermissions === 'function') {
+            detailedPermissions = PermissionsRegistry.generateFullDetailedPermissions();
+        } else if (typeof window.generateFullAdminPermissions === 'function') {
+            detailedPermissions = window.generateFullAdminPermissions();
+        } else {
+            detailedPermissions = window.editDetailedPermUI
+                ? window.editDetailedPermUI.getPermissions()
+                : {};
+        }
+        console.log('[updateUser] Admin: generated full permissions -', Object.keys(detailedPermissions).length, 'pages');
+    } else {
+        detailedPermissions = window.editDetailedPermUI
+            ? window.editDetailedPermUI.getPermissions()
+            : {};
+    }
+
+    // Get roleTemplate from UI (which template is currently applied)
+    const roleTemplate = window.editDetailedPermUI?.currentTemplate || 'custom';
 
     const loadingId = showFloatingAlert(
         "Đang cập nhật tài khoản...",
@@ -722,13 +738,28 @@ async function createUser() {
         return;
     }
 
-    // Get detailed permissions from UI (page access is derived from this)
-    const detailedPermissions = window.newDetailedPermUI
-        ? window.newDetailedPermUI.getPermissions()
-        : {};
-
     // Get roleTemplate from UI (which template is currently applied)
     const roleTemplate = window.newDetailedPermUI?.currentTemplate || 'custom';
+    const isAdmin = roleTemplate === 'admin';
+
+    // Get detailed permissions from UI (page access is derived from this)
+    // Admin: generate full permissions (all = true)
+    let detailedPermissions;
+    if (isAdmin) {
+        if (typeof PermissionsRegistry !== 'undefined' && typeof PermissionsRegistry.generateFullDetailedPermissions === 'function') {
+            detailedPermissions = PermissionsRegistry.generateFullDetailedPermissions();
+        } else if (typeof window.generateFullAdminPermissions === 'function') {
+            detailedPermissions = window.generateFullAdminPermissions();
+        } else {
+            detailedPermissions = window.newDetailedPermUI
+                ? window.newDetailedPermUI.getPermissions()
+                : {};
+        }
+    } else {
+        detailedPermissions = window.newDetailedPermUI
+            ? window.newDetailedPermUI.getPermissions()
+            : {};
+    }
 
     const loadingId = showFloatingAlert("Đang tạo tài khoản...", "loading");
 
@@ -756,6 +787,7 @@ async function createUser() {
                 identifier: identifier,
                 detailedPermissions: detailedPermissions,
                 roleTemplate: roleTemplate,
+                isAdmin: isAdmin,
                 passwordHash: hash,
                 salt: salt,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
