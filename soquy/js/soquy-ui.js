@@ -310,7 +310,7 @@ const SoquyUI = (function () {
         if (els.receiptVoucherCode) els.receiptVoucherCode.value = '';
         if (els.receiptDateTime) els.receiptDateTime.value = '';
         if (els.receiptCategory) els.receiptCategory.selectedIndex = 0;
-        if (els.receiptCollector) els.receiptCollector.value = db.getCurrentUserName();
+        if (els.receiptCollector) setSelectValue(els.receiptCollector, db.getCurrentUserName());
         if (els.receiptObjectType) els.receiptObjectType.selectedIndex = 0;
         if (els.receiptPayerName) els.receiptPayerName.value = '';
         if (els.receiptAmount) els.receiptAmount.value = '0';
@@ -401,7 +401,7 @@ const SoquyUI = (function () {
         if (els.paymentVoucherCode) els.paymentVoucherCode.value = '';
         if (els.paymentDateTime) els.paymentDateTime.value = '';
         if (els.paymentCategory) els.paymentCategory.selectedIndex = 0;
-        if (els.paymentCollector) els.paymentCollector.value = db.getCurrentUserName();
+        if (els.paymentCollector) setSelectValue(els.paymentCollector, db.getCurrentUserName());
         if (els.paymentObjectType) els.paymentObjectType.selectedIndex = 0;
         if (els.paymentReceiverName) els.paymentReceiverName.value = '';
         if (els.paymentAmount) els.paymentAmount.value = '0';
@@ -607,7 +607,7 @@ const SoquyUI = (function () {
             if (els.receiptVoucherCode) els.receiptVoucherCode.value = voucher.code;
             if (els.receiptDateTime) els.receiptDateTime.value = db.formatVoucherDateTime(voucher.voucherDateTime);
             if (els.receiptCategory) setSelectValue(els.receiptCategory, voucher.category);
-            if (els.receiptCollector) els.receiptCollector.value = voucher.collector || '';
+            if (els.receiptCollector) setSelectValue(els.receiptCollector, voucher.collector || '');
             if (els.receiptObjectType) setSelectValue(els.receiptObjectType, voucher.objectType);
             if (els.receiptPayerName) els.receiptPayerName.value = voucher.personName || '';
             if (els.receiptAmount) els.receiptAmount.value = db.formatCurrency(voucher.amount);
@@ -622,7 +622,7 @@ const SoquyUI = (function () {
             if (els.paymentVoucherCode) els.paymentVoucherCode.value = voucher.code;
             if (els.paymentDateTime) els.paymentDateTime.value = db.formatVoucherDateTime(voucher.voucherDateTime);
             if (els.paymentCategory) setSelectValue(els.paymentCategory, voucher.category);
-            if (els.paymentCollector) els.paymentCollector.value = voucher.collector || '';
+            if (els.paymentCollector) setSelectValue(els.paymentCollector, voucher.collector || '');
             if (els.paymentObjectType) setSelectValue(els.paymentObjectType, voucher.objectType);
             if (els.paymentReceiverName) els.paymentReceiverName.value = voucher.personName || '';
             if (els.paymentAmount) els.paymentAmount.value = db.formatCurrency(voucher.amount);
@@ -1424,6 +1424,29 @@ const SoquyUI = (function () {
                 `<option value="${size}" ${size === config.DEFAULT_PAGE_SIZE ? 'selected' : ''}>${size} dòng</option>`
             ).join('');
         }
+    }
+
+    /**
+     * Populate collector (Người thu/Người chi) dropdowns with users from Firestore
+     */
+    function populateCollectorDropdowns() {
+        const users = state.allUsers || [];
+        const currentUserName = db.getCurrentUserName();
+
+        [els.receiptCollector, els.paymentCollector].forEach(select => {
+            if (!select) return;
+            const isReceipt = select.id === 'receiptCollector';
+            const placeholder = isReceipt ? 'Chọn người thu' : 'Chọn người chi';
+
+            let optionsHtml = `<option value="">${placeholder}</option>`;
+            users.forEach(u => {
+                const displayName = u.displayName || u.username;
+                const selected = displayName === currentUserName ? ' selected' : '';
+                optionsHtml += `<option value="${escapeHtml(displayName)}"${selected}>${escapeHtml(displayName)}</option>`;
+            });
+
+            select.innerHTML = optionsHtml;
+        });
     }
 
     // =====================================================
@@ -2235,6 +2258,7 @@ const SoquyUI = (function () {
         handlePageSizeChange,
         handleExport,
         populateCategoryDropdowns,
+        populateCollectorDropdowns,
         populatePaymentCategoryDropdown,
         populateSourceSelect,
         saveFilterState,

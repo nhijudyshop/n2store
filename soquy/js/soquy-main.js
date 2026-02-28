@@ -755,11 +755,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load filter state from localStorage (Nhóm 7)
         ui.loadFilterState();
 
-        // Load dynamic categories/creators/sources from Firestore
-        await db.loadDynamicMeta();
+        // Load dynamic categories/creators/sources and users from Firestore
+        await Promise.all([db.loadDynamicMeta(), db.fetchAllUsers()]);
 
-        // Populate dropdowns (including dynamic categories)
+        // Populate dropdowns (including dynamic categories and user selects)
         ui.populateCategoryDropdowns();
+        ui.populateCollectorDropdowns();
 
         // Render dynamic table header based on column visibility
         ui.renderTableHeader();

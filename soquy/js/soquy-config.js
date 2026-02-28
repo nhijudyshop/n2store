@@ -222,7 +222,10 @@ window.SoquyState = {
     dynamicPaymentCNCategories: [],
     dynamicPaymentKDCategories: [],
     dynamicCreators: [],
-    dynamicSources: [] // Array of { code: 'AA', name: 'Bán hàng' }
+    dynamicSources: [], // Array of { code: 'AA', name: 'Bán hàng' }
+
+    // All users from Firestore (for collector/creator dropdowns)
+    allUsers: []
 };
 
 // =====================================================

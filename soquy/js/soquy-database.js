@@ -1062,10 +1062,36 @@ const SoquyDatabase = (function () {
 
     function getCurrentUserName() {
         try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            return userData.displayName || userData.username || userData.name || 'Admin';
+            // Read from loginindex_auth (sessionStorage first, then localStorage)
+            const authStr = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth') || '{}';
+            const authData = JSON.parse(authStr);
+            return authData.displayName || authData.username || '';
         } catch {
-            return 'Admin';
+            return '';
+        }
+    }
+
+    /**
+     * Fetch all users from Firestore 'users' collection
+     * Returns array of { username, displayName }
+     */
+    async function fetchAllUsers() {
+        try {
+            const snapshot = await config.db.collection('users').get();
+            const users = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                users.push({
+                    username: doc.id,
+                    displayName: data.displayName || doc.id
+                });
+            });
+            state.allUsers = users;
+            console.log('[SoquyDB] Loaded users:', users.length);
+            return users;
+        } catch (error) {
+            console.error('[SoquyDB] Error fetching users:', error);
+            return [];
         }
     }
 
@@ -1105,6 +1131,7 @@ const SoquyDatabase = (function () {
         formatVoucherDateTime,
         parseVoucherDateTime,
         getCurrentUserName,
+        fetchAllUsers,
         formatCurrency,
         getCategoryPredefined,
         getCategoryDynamicList,
