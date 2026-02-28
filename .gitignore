@@ -19,6 +19,10 @@ yarn-error.log*
 .env.local
 .env.production
 
+# Firebase Service Account Key (NEVER commit)
+serviceAccountKey.json
+**/serviceAccountKey.json
+
 # IDE
 .vscode/
 .idea/
