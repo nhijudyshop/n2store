@@ -3258,13 +3258,22 @@
     }
 
     /* --- MODALS: full-screen --- */
+    .modal {
+        align-items: stretch;
+    }
+
     .modal-content.k-modal {
         width: 100vw;
         max-width: 100vw;
+        height: 100dvh;
         height: 100vh;
-        max-height: 100vh;
+        max-height: -webkit-fill-available;
         border-radius: 0;
         margin: 0;
+    }
+
+    .k-modal-body {
+        min-height: 0;
     }
 
     .form-row {
