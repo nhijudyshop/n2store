@@ -2828,6 +2828,15 @@ async function printSuccessOrders(type) {
                 }));
             }
 
+            // Check if order uses virtual debt (công nợ ảo) from return ticket
+            const orderPhone = order.Partner?.Phone || order.PartnerPhone || '';
+            let orderNormalizedPhone = String(orderPhone).replace(/\D/g, '');
+            if (orderNormalizedPhone.startsWith('84') && orderNormalizedPhone.length > 9) {
+                orderNormalizedPhone = '0' + orderNormalizedPhone.substring(2);
+            }
+            const orderWalletData = fastSaleWalletBalances[orderNormalizedPhone];
+            const orderHasVirtualDebt = orderWalletData && (parseFloat(orderWalletData.virtualBalance) || 0) > 0;
+
             // Merge data: API result + original OrderLines + form values
             const enrichedOrder = {
                 ...order,
@@ -2835,6 +2844,7 @@ async function printSuccessOrders(type) {
                 CarrierName: carrierName,
                 DeliveryPrice: shippingFee,
                 PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+                hasVirtualDebt: orderHasVirtualDebt,
             };
 
             enrichedOrders.push(enrichedOrder);
@@ -2936,9 +2946,19 @@ async function printSuccessOrders(type) {
                             ? (window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId))
                             : null;
 
+                        // Check if order uses virtual debt (công nợ ảo) from return ticket
+                        const tposPhone = order.Partner?.Phone || order.PartnerPhone || '';
+                        let tposNormalizedPhone = String(tposPhone).replace(/\D/g, '');
+                        if (tposNormalizedPhone.startsWith('84') && tposNormalizedPhone.length > 9) {
+                            tposNormalizedPhone = '0' + tposNormalizedPhone.substring(2);
+                        }
+                        const tposWalletData = fastSaleWalletBalances[tposNormalizedPhone];
+                        const tposHasVirtualDebt = tposWalletData && (parseFloat(tposWalletData.virtualBalance) || 0) > 0;
+
+                        const baseOrderData = saleOnlineOrder || order;
                         return {
                             orderId: order.Id,
-                            orderData: saleOnlineOrder || order
+                            orderData: { ...baseOrderData, hasVirtualDebt: tposHasVirtualDebt }
                         };
                     });
 

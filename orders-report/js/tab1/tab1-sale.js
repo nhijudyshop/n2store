@@ -744,8 +744,11 @@ async function confirmAndPrintSale() {
 
         // IMPORTANT: Save form values BEFORE debt update and BEFORE storing
         // (debt update changes salePrepaidAmount to remainingDebt)
-        const savedWalletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+        const prepaidInput = document.getElementById('salePrepaidAmount');
+        const savedWalletBalance = parseFloat(prepaidInput?.value) || 0;
         const savedDiscount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
+        // Check if virtual debt (công nợ ảo from return ticket) was used
+        const hasVirtualDebt = prepaidInput?.dataset?.hasVirtualDebt === '1' && savedWalletBalance > 0;
         // Get carrier name from dropdown (API response often misses this)
         const carrierSelect = document.getElementById('saleDeliveryPartner');
         const selectedOption = carrierSelect?.selectedOptions[0];
@@ -853,12 +856,12 @@ async function confirmAndPrintSale() {
             // Fetch HTML bill from TPOS API and open print popup
             // Pass savedWalletBalance for fallback case if TPOS API fails
             console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
-            window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData, savedWalletBalance);
+            window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData, savedWalletBalance, hasVirtualDebt);
         } else {
             // Use Web bill template (local)
             // Pass savedWalletBalance to ensure correct calculation (before debt update modified the form field)
-            console.log('[SALE-CONFIRM] Using Web bill template with walletBalance:', savedWalletBalance);
-            window.openPrintPopup(createResult, { currentSaleOrderData: currentSaleOrderData, walletBalance: savedWalletBalance });
+            console.log('[SALE-CONFIRM] Using Web bill template with walletBalance:', savedWalletBalance, 'hasVirtualDebt:', hasVirtualDebt);
+            window.openPrintPopup(createResult, { currentSaleOrderData: currentSaleOrderData, walletBalance: savedWalletBalance, hasVirtualDebt: hasVirtualDebt });
         }
 
         // Success notification
@@ -1169,9 +1172,10 @@ function buildSaleOrderModelForInsertList() {
  * @param {object} headers - Auth headers for TPOS API
  * @param {object} orderData - Original order data (for getting STT)
  * @param {number} walletBalance - Wallet balance for fallback custom bill (optional)
+ * @param {boolean} hasVirtualDebt - Whether order uses virtual debt from return ticket
  * @deprecated Use window.fetchAndPrintTPOSBill from bill-service.js
  */
-async function fetchAndPrintTPOSBill(orderId, headers, orderData, walletBalance = null) {
+async function fetchAndPrintTPOSBill(orderId, headers, orderData, walletBalance = null, hasVirtualDebt = false) {
     try {
         console.log('[SALE-CONFIRM] Fetching HTML bill for order:', orderId);
 
@@ -1236,6 +1240,19 @@ async function fetchAndPrintTPOSBill(orderId, headers, orderData, walletBalance 
             console.log('[SALE-CONFIRM] No STT to display');
         }
 
+        // Add "CÓ ĐƠN THU VỀ" note when order uses virtual debt from return ticket
+        if (hasVirtualDebt) {
+            // Insert after carrier name (before "Tiền thu hộ")
+            const codRegex = /(<p[^>]*class=['"]size-16 font-bold['"][^>]*>Tiền thu hộ)/i;
+            if (codRegex.test(modifiedHtml)) {
+                modifiedHtml = modifiedHtml.replace(
+                    codRegex,
+                    `<span style="font-weight:bold">** CÓ ĐƠN THU VỀ **</span><br/>\n$1`
+                );
+                console.log('[SALE-CONFIRM] Added "CÓ ĐƠN THU VỀ" to TPOS bill');
+            }
+        }
+
         // Open print popup with modified HTML (use BillService)
         window.openPrintPopupWithHtml(modifiedHtml);
 
@@ -1244,7 +1261,7 @@ async function fetchAndPrintTPOSBill(orderId, headers, orderData, walletBalance 
         // Fallback to custom bill if TPOS API fails
         // Pass walletBalance for correct calculation (form field may have been modified by debt update)
         console.log('[SALE-CONFIRM] Falling back to custom bill with walletBalance:', walletBalance);
-        window.openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData, walletBalance: walletBalance });
+        window.openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData, walletBalance: walletBalance, hasVirtualDebt: hasVirtualDebt });
     }
 }
 

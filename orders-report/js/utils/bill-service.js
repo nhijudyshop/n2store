@@ -123,6 +123,11 @@ const BillService = (function () {
             orderResult?.PaymentAmount ||
             0;
 
+        // Virtual debt flag - true when order uses công nợ ảo from return ticket
+        const hasVirtualDebt = options.hasVirtualDebt ||
+            orderResult?.hasVirtualDebt ||
+            false;
+
         // ========== PARSE TAGS (for STT merge display) ==========
         let orderTags = [];
         try {
@@ -850,6 +855,7 @@ ${uomName}                            </td>
                     <th class="text-center">
                                                                                                 <div class='text-center'>
 ${carrierName ? `<span>${carrierName}</span><br/>` : ''}
+${hasVirtualDebt ? `<span style="font-weight:bold; color:#c00;">** CÓ ĐƠN THU VỀ **</span><br/>` : ''}
 <p class='size-16 font-bold'>Tiền thu hộ: ${codAmount.toLocaleString('vi-VN')}</p>
 </div>
                         <hr class="b-b dash-cs" />
@@ -1684,6 +1690,18 @@ ${orderComment ? `
                         `$1\n                            <div><strong>STT:</strong> ${sttDisplay}</div>`
                     );
                     console.log('[BILL-SERVICE] Added STT to TPOS bill:', sttDisplay);
+                }
+            }
+
+            // Add "CÓ ĐƠN THU VỀ" when order uses virtual debt from return ticket
+            if (orderData?.hasVirtualDebt) {
+                const codRegex = /(<p[^>]*class=['"]size-16 font-bold['"][^>]*>Ti(?:ề|&#7873;)n thu h(?:ộ|&#7897;))/i;
+                if (codRegex.test(modifiedHtml)) {
+                    modifiedHtml = modifiedHtml.replace(
+                        codRegex,
+                        `<span style="font-weight:bold">** CÓ ĐƠN THU VỀ **</span><br/>\n$1`
+                    );
+                    console.log('[BILL-SERVICE] Added "CÓ ĐƠN THU VỀ" to TPOS bill');
                 }
             }
 
