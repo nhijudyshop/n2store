@@ -43,9 +43,12 @@ export class TransactionActivityModule {
                         <select id="type-filter"
                             class="appearance-none pl-4 pr-10 py-2.5 bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-xl text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer min-w-[160px]">
                             <option value="">Tất cả loại</option>
+                            <option value="ORDER_CREATED">Tạo đơn hàng</option>
+                            <option value="ORDER_CANCELLED">Hủy đơn hàng</option>
                             <option value="DEPOSIT">Nạp tiền</option>
                             <option value="WITHDRAW">Rút tiền</option>
                             <option value="VIRTUAL_CREDIT">Tín dụng ảo</option>
+                            <option value="WALLET_REFUND">Hoàn công nợ</option>
                             <option value="RETURN_SHIPPER">Hoàn shipper</option>
                             <option value="RETURN_CLIENT">Hoàn khách</option>
                             <option value="BOOM">BOOM</option>
@@ -337,6 +340,12 @@ export class TransactionActivityModule {
             'CUSTOMER_CREATED': { text: 'Tạo khách hàng', icon: 'person_add' },
             'WALLET_DEPOSIT': { text: 'Nạp tiền CK', icon: 'account_balance' },
             'WALLET_VIRTUAL_CREDIT': { text: 'Cộng công nợ ảo', icon: 'card_giftcard' },
+            'WALLET_REFUND': { text: 'Hoàn công nợ', icon: 'undo' },
+            'WALLET_WITHDRAW': { text: 'Trừ công nợ', icon: 'shopping_cart_checkout' },
+            'ORDER_CREATED': { text: 'Tạo đơn hàng', icon: 'shopping_cart' },
+            'ORDER_CANCELLED': { text: 'Hủy đơn hàng', icon: 'cancel' },
+            'ORDER_DELIVERED': { text: 'Giao hàng', icon: 'local_shipping' },
+            'ORDER_RETURNED': { text: 'Trả hàng', icon: 'assignment_return' },
             'customer_ticket': { text: 'Sự vụ khách hàng', icon: 'credit_card' },
         };
 

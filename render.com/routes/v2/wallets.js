@@ -714,4 +714,178 @@ router.get('/adjustments', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/v2/wallets/refund-by-order
+ * Refund wallet when order is cancelled
+ * Checks if a pending withdrawal was completed for this order and reverses it
+ */
+router.post('/refund-by-order', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { order_id, phone, reason, created_by } = req.body;
+
+    if (!order_id) {
+        return res.status(400).json({ success: false, error: 'order_id is required' });
+    }
+    if (!phone) {
+        return res.status(400).json({ success: false, error: 'phone is required' });
+    }
+
+    try {
+        const normalizedPhone = normalizePhone(phone);
+        if (!normalizedPhone) {
+            return res.status(400).json({ success: false, error: 'Invalid phone number' });
+        }
+
+        // Step 1: Find COMPLETED withdrawal for this order
+        const withdrawalResult = await db.query(`
+            SELECT id, amount, virtual_used, real_used, phone, completed_at
+            FROM pending_wallet_withdrawals
+            WHERE order_id = $1 AND phone = $2 AND status = 'COMPLETED'
+        `, [order_id, normalizedPhone]);
+
+        if (withdrawalResult.rows.length === 0) {
+            // Check if it's still PENDING - cancel it instead
+            const pendingResult = await db.query(`
+                UPDATE pending_wallet_withdrawals
+                SET status = 'CANCELLED', last_error = $3, updated_at = NOW()
+                WHERE order_id = $1 AND phone = $2 AND status IN ('PENDING', 'FAILED')
+                RETURNING id, amount
+            `, [order_id, normalizedPhone, reason || 'Đơn hàng bị hủy']);
+
+            if (pendingResult.rows.length > 0) {
+                return res.json({
+                    success: true,
+                    refunded: false,
+                    cancelled_pending: true,
+                    message: 'Pending withdrawal cancelled (not yet processed)',
+                    data: { pending_id: pendingResult.rows[0].id, amount: parseFloat(pendingResult.rows[0].amount) }
+                });
+            }
+
+            return res.json({
+                success: true,
+                refunded: false,
+                message: 'No wallet withdrawal found for this order'
+            });
+        }
+
+        const withdrawal = withdrawalResult.rows[0];
+        const refundAmount = parseFloat(withdrawal.amount);
+        const virtualUsed = parseFloat(withdrawal.virtual_used) || 0;
+        const realUsed = parseFloat(withdrawal.real_used) || 0;
+
+        // Step 2: Refund to wallet
+        await db.query('BEGIN');
+
+        // Get current wallet
+        const walletResult = await db.query(`
+            SELECT * FROM customer_wallets WHERE phone = $1 FOR UPDATE
+        `, [normalizedPhone]);
+
+        if (walletResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Wallet not found' });
+        }
+
+        const wallet = walletResult.rows[0];
+        const balanceBefore = parseFloat(wallet.balance);
+        const virtualBefore = parseFloat(wallet.virtual_balance);
+
+        // Refund real balance portion
+        if (realUsed > 0) {
+            await db.query(`
+                UPDATE customer_wallets
+                SET balance = balance + $2, updated_at = NOW()
+                WHERE phone = $1
+            `, [normalizedPhone, realUsed]);
+        }
+
+        // Refund virtual balance portion (re-credit virtual credits)
+        if (virtualUsed > 0) {
+            await db.query(`
+                UPDATE customer_wallets
+                SET virtual_balance = virtual_balance + $2, updated_at = NOW()
+                WHERE phone = $1
+            `, [normalizedPhone, virtualUsed]);
+
+            // Try to restore the most recently consumed virtual credits
+            await db.query(`
+                UPDATE virtual_credits
+                SET remaining_amount = LEAST(original_amount, remaining_amount + $2),
+                    status = 'ACTIVE',
+                    updated_at = NOW()
+                WHERE phone = $1 AND status IN ('USED', 'ACTIVE')
+                  AND expires_at > NOW()
+                ORDER BY expires_at ASC
+                LIMIT 1
+            `, [normalizedPhone, virtualUsed]);
+        }
+
+        // Step 3: Log wallet transaction (refund)
+        const txResult = await db.query(`
+            INSERT INTO wallet_transactions
+            (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note, created_by)
+            VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, 'ORDER_CANCEL_REFUND', $6, $7, $8)
+            RETURNING id
+        `, [
+            normalizedPhone,
+            wallet.id,
+            refundAmount,
+            balanceBefore + virtualBefore,
+            balanceBefore + virtualBefore + refundAmount,
+            order_id,
+            `Hoàn tiền hủy đơn #${order_id} (Thật: ${realUsed.toLocaleString()}đ, Công nợ: ${virtualUsed.toLocaleString()}đ)`,
+            created_by || 'system'
+        ]);
+
+        // Step 4: Log customer activity
+        await db.query(`
+            INSERT INTO customer_activities (phone, activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by)
+            VALUES ($1, 'WALLET_REFUND', $2, $3, 'order', $4, $5, 'undo', 'blue')
+        `, [
+            normalizedPhone,
+            `Hoàn công nợ: ${refundAmount.toLocaleString()}đ`,
+            `Hoàn tiền do hủy đơn #${order_id}. Tiền thật: ${realUsed.toLocaleString()}đ, Công nợ ảo: ${virtualUsed.toLocaleString()}đ. Lý do: ${reason || 'N/A'}`,
+            order_id,
+            JSON.stringify({
+                order_id,
+                total_refunded: refundAmount,
+                real_refunded: realUsed,
+                virtual_refunded: virtualUsed,
+                reason: reason || '',
+                original_withdrawal_id: withdrawal.id
+            })
+        ]);
+
+        // Step 5: Mark withdrawal as REFUNDED
+        await db.query(`
+            UPDATE pending_wallet_withdrawals
+            SET status = 'CANCELLED', last_error = $2, updated_at = NOW()
+            WHERE id = $1
+        `, [withdrawal.id, `Refunded: ${reason || 'Đơn hàng bị hủy'}`]);
+
+        await db.query('COMMIT');
+
+        console.log(`[Wallets V2] ✅ Refund for order ${order_id}: ${refundAmount}đ (real: ${realUsed}, virtual: ${virtualUsed})`);
+
+        res.json({
+            success: true,
+            refunded: true,
+            data: {
+                phone: normalizedPhone,
+                refund_amount: refundAmount,
+                real_refunded: realUsed,
+                virtual_refunded: virtualUsed,
+                new_balance: balanceBefore + realUsed,
+                new_virtual_balance: virtualBefore + virtualUsed,
+                transaction_id: txResult.rows[0].id,
+                withdrawal_id: withdrawal.id
+            }
+        });
+    } catch (error) {
+        await db.query('ROLLBACK').catch(() => {});
+        handleError(res, error, 'Failed to refund wallet');
+    }
+});
+
 module.exports = router;
