@@ -111,7 +111,7 @@ class PurchaseOrderFormModal {
             let processedFiles = files;
             if (window.ImageUtils && window.ImageUtils.compressImage) {
                 processedFiles = await Promise.all(
-                    files.map(file => window.ImageUtils.compressImage(file, 1, 1920, 1920))
+                    files.map(file => window.ImageUtils.compressImage(file, 0.5, 1200, 1200))
                 );
             }
 

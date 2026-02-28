@@ -153,7 +153,7 @@ class PurchaseOrderService {
                 shippingFee: orderData.shippingFee || 0,
                 finalAmount,
 
-                invoiceImages: orderData.invoiceImages || [],
+                invoiceImages: this.filterFirebaseUrls(orderData.invoiceImages || []),
                 notes: orderData.notes || '',
 
                 items: this.prepareItems(orderData.items),
@@ -164,6 +164,15 @@ class PurchaseOrderService {
                 createdBy: userSnapshot,
                 lastModifiedBy: userSnapshot
             };
+
+            // Check document size before writing (Firestore limit: 1MB)
+            const estimatedSize = new Blob([JSON.stringify(docData)]).size;
+            if (estimatedSize > 900000) {
+                console.error(`[PurchaseOrderService] Document too large: ${(estimatedSize / 1024).toFixed(0)}KB`);
+                throw new validation.ServiceException('DOC_TOO_LARGE',
+                    `Dữ liệu đơn hàng quá lớn (${(estimatedSize / 1024).toFixed(0)}KB). Hãy giảm số lượng hoặc kích thước ảnh.`);
+            }
+            console.log(`[PurchaseOrderService] Document size: ${(estimatedSize / 1024).toFixed(0)}KB`);
 
             // Create document
             const docRef = await this.db.collection(this.COLLECTION).add(docData);
@@ -193,8 +202,8 @@ class PurchaseOrderService {
                 productName: item.productName || '',
                 variant: item.variant || '',
                 selectedAttributeValueIds: item.selectedAttributeValueIds || [],
-                productImages: item.productImages || [],
-                priceImages: item.priceImages || [],
+                productImages: this.filterFirebaseUrls(item.productImages || []),
+                priceImages: this.filterFirebaseUrls(item.priceImages || []),
                 purchasePrice: item.purchasePrice || 0,
                 sellingPrice: item.sellingPrice || 0,
                 quantity: item.quantity || 1,
@@ -214,6 +223,19 @@ class PurchaseOrderService {
      * @param {Array} items - Array of order items
      * @returns {number}
      */
+    /**
+     * Filter out base64 data URLs, keep only Firebase Storage URLs
+     * Safety net to prevent oversized Firestore documents
+     */
+    filterFirebaseUrls(urls) {
+        if (!Array.isArray(urls)) return [];
+        const filtered = urls.filter(url => typeof url === 'string' && !url.startsWith('data:'));
+        if (filtered.length < urls.length) {
+            console.warn(`[PurchaseOrderService] Stripped ${urls.length - filtered.length} data URL(s) — images not uploaded`);
+        }
+        return filtered;
+    }
+
     calculateTotalAmount(items) {
         if (!items || !Array.isArray(items)) return 0;
         return items.reduce((sum, item) => {
@@ -555,6 +577,11 @@ class PurchaseOrderService {
                     totalQuantity: updateData.items.reduce((sum, item) => sum + (item.quantity || 0), 0),
                     items: this.prepareItems(updateData.items)
                 };
+            }
+
+            // Strip any remaining data URLs from invoice images
+            if (updateData.invoiceImages) {
+                updateData.invoiceImages = this.filterFirebaseUrls(updateData.invoiceImages);
             }
 
             // Prepare update
