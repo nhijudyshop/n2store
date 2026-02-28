@@ -181,18 +181,25 @@ const SoquyUI = (function () {
                     <div class="m-voucher-card ${isCancelled ? 'row-cancelled' : ''}" data-id="${v.id}">
                         <div class="m-voucher-header">
                             <div class="m-voucher-header-left">
+                                <span class="m-voucher-code">#${escapeHtml(v.code)}</span>
                                 <span class="m-voucher-type-badge ${v.type}">${escapeHtml(typeLabel)}</span>
-                                <span class="m-voucher-code">${escapeHtml(v.code)}</span>
-                                ${isCancelled ? '<span class="badge-cancelled" style="font-size:10px;padding:1px 5px;">Đã hủy</span>' : ''}
+                                ${isCancelled ? '<span class="badge-cancelled">Đã hủy</span>' : ''}
                             </div>
-                            <span class="m-voucher-date">${escapeHtml(dateStr)}</span>
+                            <span class="m-voucher-amount ${amountClass}">${displayAmount}</span>
                         </div>
-                        <div class="m-voucher-body">
-                            <div class="m-voucher-info">
-                                <div class="m-voucher-category">${escapeHtml(v.category || '')}</div>
-                                <div class="m-voucher-person">${escapeHtml(v.personName || '-')}</div>
+                        <div class="m-voucher-details">
+                            <div class="m-voucher-row">
+                                <span class="m-voucher-label">Loại phiếu:</span>
+                                <span class="m-voucher-value">${escapeHtml(v.category || '-')}</span>
                             </div>
-                            <div class="m-voucher-amount ${amountClass}">${displayAmount}</div>
+                            ${v.note ? `<div class="m-voucher-row">
+                                <span class="m-voucher-label">Ghi chú:</span>
+                                <span class="m-voucher-value">${escapeHtml(v.note)}</span>
+                            </div>` : ''}
+                            <div class="m-voucher-row">
+                                <span class="m-voucher-label">Thời gian:</span>
+                                <span class="m-voucher-value">${escapeHtml(dateStr)}</span>
+                            </div>
                         </div>
                     </div>`;
             }).join('');

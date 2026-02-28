@@ -3141,6 +3141,8 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f5f9;
     }
 
     .m-voucher-header-left {
@@ -3151,7 +3153,7 @@
     }
 
     .m-voucher-code {
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
         color: #1890ff;
     }
@@ -3179,47 +3181,48 @@
         color: #991b1b;
     }
 
-    .m-voucher-date {
-        font-size: 11px;
-        color: #94a3b8;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .m-voucher-body {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        gap: 12px;
-    }
-
-    .m-voucher-info {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .m-voucher-category {
-        font-size: 13px;
-        color: #334155;
-        margin-bottom: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .m-voucher-person {
-        font-size: 12px;
-        color: #94a3b8;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
     .m-voucher-amount {
-        font-size: 16px;
+        font-size: 15px;
         font-weight: 700;
         white-space: nowrap;
         flex-shrink: 0;
+    }
+
+    .badge-cancelled {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: #fef2f2;
+        color: #ef4444;
+        font-weight: 600;
+    }
+
+    .m-voucher-details {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .m-voucher-row {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        line-height: 1.5;
+    }
+
+    .m-voucher-label {
+        font-size: 12px;
+        color: #94a3b8;
+        flex-shrink: 0;
+    }
+
+    .m-voucher-value {
+        font-size: 13px;
+        font-weight: 600;
+        color: #334155;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .m-voucher-empty {
@@ -3275,6 +3278,13 @@
 
     .k-modal-body {
         min-height: 0;
+    }
+
+    /* Prevent iOS auto-zoom on input focus */
+    .k-modal-body input,
+    .k-modal-body select,
+    .k-modal-body textarea {
+        font-size: 16px !important;
     }
 
     .k-modal-footer {
@@ -3444,7 +3454,11 @@
     }
 
     .m-voucher-amount {
-        font-size: 14px;
+        font-size: 13px;
+    }
+
+    .m-voucher-code {
+        font-size: 13px;
     }
 }
 
