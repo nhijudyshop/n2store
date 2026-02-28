@@ -9,7 +9,7 @@
     "diag": "node diagnose.js"
   },
   "dependencies": {
-    "zk-jubaer": "^1.0.3",
+    "zk-jubaer": "^2.0.5",
     "firebase-admin": "^11.11.0"
   },
   "engines": {
