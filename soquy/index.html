@@ -234,10 +234,11 @@
                             <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
                         </div>
                         <div class="filter-section-body">
-                            <div class="filter-search-wrapper">
+                            <div class="filter-search-wrapper filter-searchable-dropdown">
                                 <i data-lucide="search" class="filter-search-icon"></i>
                                 <input type="text" id="filterCategory" class="filter-input filter-input-search"
-                                    placeholder="Tìm loại thu chi">
+                                    placeholder="Tìm loại thu chi" autocomplete="off">
+                                <div class="filter-dropdown-list" id="filterCategoryDropdown"></div>
                             </div>
                         </div>
                     </div>
@@ -252,10 +253,11 @@
                             <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
                         </div>
                         <div class="filter-section-body">
-                            <div class="filter-search-wrapper">
+                            <div class="filter-search-wrapper filter-searchable-dropdown">
                                 <i data-lucide="search" class="filter-search-icon"></i>
                                 <input type="text" id="filterSource" class="filter-input filter-input-search"
-                                    placeholder="Tìm nguồn kinh doanh">
+                                    placeholder="Tìm nguồn kinh doanh" autocomplete="off">
+                                <div class="filter-dropdown-list" id="filterSourceDropdown"></div>
                             </div>
                         </div>
                     </div>
@@ -295,10 +297,11 @@
                             <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
                         </div>
                         <div class="filter-section-body">
-                            <div class="filter-search-wrapper">
+                            <div class="filter-search-wrapper filter-searchable-dropdown">
                                 <i data-lucide="search" class="filter-search-icon"></i>
                                 <input type="text" id="filterCreator" class="filter-input filter-input-search"
-                                    placeholder="Tìm người tạo">
+                                    placeholder="Tìm người tạo" autocomplete="off">
+                                <div class="filter-dropdown-list" id="filterCreatorDropdown"></div>
                             </div>
                         </div>
                     </div>
@@ -313,10 +316,11 @@
                             <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
                         </div>
                         <div class="filter-section-body">
-                            <div class="filter-search-wrapper">
+                            <div class="filter-search-wrapper filter-searchable-dropdown">
                                 <i data-lucide="search" class="filter-search-icon"></i>
                                 <input type="text" id="filterEmployee" class="filter-input filter-input-search"
-                                    placeholder="Tìm nhân viên">
+                                    placeholder="Tìm nhân viên" autocomplete="off">
+                                <div class="filter-dropdown-list" id="filterEmployeeDropdown"></div>
                             </div>
                         </div>
                     </div>
@@ -890,12 +894,7 @@
             </div>
             <div class="modal-footer k-modal-footer">
                 <button class="btn-outline-secondary" id="btnSoquyCancelReceipt">Bỏ qua</button>
-                <div class="btn-group">
-                    <button class="btn-outline-primary" id="btnSavePrintReceipt"
-                        style="border-right: none; border-radius: 4px 0 0 4px;">Lưu &amp; In</button>
-                    <button class="btn-primary" id="btnSaveReceipt"
-                        style="border-radius: 0 4px 4px 0;">Lưu</button>
-                </div>
+                <button class="btn-primary" id="btnSaveReceipt">Lưu</button>
             </div>
         </div>
     </div>
@@ -984,12 +983,7 @@
             </div>
             <div class="modal-footer k-modal-footer">
                 <button class="btn-outline-secondary" id="btnSoquyCancelPayment">Bỏ qua</button>
-                <div class="btn-group">
-                    <button class="btn-outline-primary" id="btnSavePrintPayment"
-                        style="border-right: none; border-radius: 4px 0 0 4px;">Lưu &amp; In</button>
-                    <button class="btn-primary" id="btnSavePayment"
-                        style="border-radius: 0 4px 4px 0;">Lưu</button>
-                </div>
+                <button class="btn-primary" id="btnSavePayment">Lưu</button>
             </div>
         </div>
     </div>
@@ -1167,7 +1161,7 @@
                     <div class="category-list-header">
                         <h4 class="category-section-title">
                             <i data-lucide="list"></i>
-                            <span>Danh sách loại thu chi</span>
+                            <span>Danh sách loại thu chi và nguồn</span>
                         </h4>
                         <div class="category-list-actions">
                             <button class="btn-outline-danger btn-sm" id="btnDeleteSelectedCategories" style="display: none;">
@@ -1176,7 +1170,7 @@
                         </div>
                     </div>
 
-                    <!-- Tab toggle for receipt / payment CN / payment KD categories -->
+                    <!-- Tab toggle for receipt / payment CN / payment KD / sources -->
                     <div class="category-tab-toggle">
                         <button class="category-tab-btn active" data-cat-tab="receipt">
                             <i data-lucide="arrow-down-circle"></i> Loại thu
@@ -1186,6 +1180,9 @@
                         </button>
                         <button class="category-tab-btn" data-cat-tab="payment_kd">
                             <i data-lucide="arrow-up-circle"></i> Chi KD
+                        </button>
+                        <button class="category-tab-btn" data-cat-tab="sources">
+                            <i data-lucide="briefcase"></i> Nguồn
                         </button>
                     </div>
 

@@ -1204,6 +1204,112 @@ const SoquyUI = (function () {
         refilterLocally();
     }
 
+    // =====================================================
+    // SEARCHABLE FILTER DROPDOWNS
+    // =====================================================
+
+    /**
+     * Extract unique values from vouchers for a given field
+     */
+    function getUniqueFilterValues(field) {
+        const values = new Set();
+        const vouchers = state.vouchers || [];
+        vouchers.forEach(v => {
+            let val = '';
+            switch (field) {
+                case 'category': {
+                    const srcCode = v.sourceCode || v.source || '';
+                    const cat = v.category || '';
+                    val = (srcCode && cat && v.type !== 'payment_cn') ? `${srcCode} ${cat}` : cat;
+                    break;
+                }
+                case 'source':
+                    val = db.getSourceLabel(v.sourceCode || v.source) || '';
+                    break;
+                case 'creator':
+                    val = v.createdBy || '';
+                    break;
+                case 'employee':
+                    val = v.collector || '';
+                    break;
+            }
+            if (val) values.add(val);
+        });
+        return [...values].sort((a, b) => a.localeCompare(b, 'vi'));
+    }
+
+    /**
+     * Show searchable dropdown for a filter input
+     */
+    function showFilterDropdown(inputId, dropdownId, field) {
+        const input = document.getElementById(inputId);
+        const dropdown = document.getElementById(dropdownId);
+        if (!input || !dropdown) return;
+
+        const query = (input.value || '').trim().toLowerCase();
+        const allValues = getUniqueFilterValues(field);
+
+        const filtered = query
+            ? allValues.filter(v => v.toLowerCase().includes(query))
+            : allValues;
+
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div class="filter-dropdown-empty">Không tìm thấy</div>';
+        } else {
+            dropdown.innerHTML = filtered.map(val => {
+                let display = escapeHtml(val);
+                if (query) {
+                    const idx = val.toLowerCase().indexOf(query);
+                    if (idx >= 0) {
+                        const before = escapeHtml(val.substring(0, idx));
+                        const match = escapeHtml(val.substring(idx, idx + query.length));
+                        const after = escapeHtml(val.substring(idx + query.length));
+                        display = `${before}<span class="filter-dropdown-match">${match}</span>${after}`;
+                    }
+                }
+                return `<div class="filter-dropdown-item" data-value="${escapeHtml(val)}">${display}</div>`;
+            }).join('');
+        }
+
+        dropdown.classList.add('show');
+
+        // Bind click events on items
+        dropdown.querySelectorAll('.filter-dropdown-item').forEach(item => {
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // Prevent blur before click
+                input.value = item.dataset.value;
+                dropdown.classList.remove('show');
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+    }
+
+    function hideFilterDropdown(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) dropdown.classList.remove('show');
+    }
+
+    /**
+     * Initialize a searchable dropdown for a filter input
+     */
+    function initFilterSearchableDropdown(inputId, dropdownId, field) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        input.addEventListener('focus', () => {
+            showFilterDropdown(inputId, dropdownId, field);
+        });
+
+        input.addEventListener('input', () => {
+            showFilterDropdown(inputId, dropdownId, field);
+        });
+
+        input.addEventListener('blur', () => {
+            // Small delay so mousedown on dropdown item fires first
+            setTimeout(() => hideFilterDropdown(dropdownId), 150);
+        });
+    }
+
     function handlePageSizeChange(size) {
         state.pageSize = parseInt(size) || config.DEFAULT_PAGE_SIZE;
         state.currentPage = 1;
@@ -1739,6 +1845,9 @@ const SoquyUI = (function () {
     }
 
     async function deleteSelectedCategories() {
+        // On sources tab, this is handled by the sources tab checkbox handler
+        if (_categoryModalTab === 'sources') return;
+
         const checkboxes = document.querySelectorAll('.category-item-checkbox:checked');
         if (checkboxes.length === 0) return;
 
@@ -1780,14 +1889,126 @@ const SoquyUI = (function () {
         document.querySelectorAll('.category-tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.catTab === tabName);
         });
-        renderCategoryList();
+
+        // Toggle delete button between categories and sources
+        const catDeleteBtn = document.getElementById('btnDeleteSelectedCategories');
+        const srcDeleteBtn = document.getElementById('btnDeleteSelectedSources');
+        if (catDeleteBtn) catDeleteBtn.style.display = tabName === 'sources' ? 'none' : (document.querySelectorAll('.category-item-checkbox:checked').length > 0 ? 'inline-flex' : 'none');
+        if (srcDeleteBtn) srcDeleteBtn.style.display = 'none';
+
+        if (tabName === 'sources') {
+            renderSourcesInCategoryModal();
+        } else {
+            renderCategoryList();
+        }
+    }
+
+    /**
+     * Render sources list inside the category modal (when "Nguồn" tab is active)
+     */
+    function renderSourcesInCategoryModal() {
+        const listContainer = document.getElementById('categoryListItems');
+        if (!listContainer) return;
+
+        const sources = state.dynamicSources || [];
+        let html = '';
+
+        sources.forEach(src => {
+            const code = typeof src === 'string' ? src : src.code;
+            const name = typeof src === 'string' ? src : src.name;
+            html += `
+                <div class="category-item" data-source-code="${escapeHtml(code)}">
+                    <label class="category-check-label">
+                        <input type="checkbox" class="category-item-checkbox source-tab-checkbox" value="${escapeHtml(code)}">
+                        <span class="category-check-custom"></span>
+                    </label>
+                    <div class="category-item-info">
+                        <div class="category-item-name"><strong>${escapeHtml(code)}</strong> - ${escapeHtml(name)}</div>
+                    </div>
+                    <span class="category-item-badge category-item-badge--source">Nguồn</span>
+                    <button class="category-item-delete" data-source-code="${escapeHtml(code)}" title="Xóa">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>`;
+        });
+
+        if (sources.length === 0) {
+            html = `
+                <div class="category-list-empty">
+                    <i data-lucide="inbox"></i>
+                    <span>Chưa có nguồn nào</span>
+                </div>`;
+        }
+
+        listContainer.innerHTML = html;
+
+        // Reset select all
+        const selectAll = document.getElementById('selectAllCategories');
+        if (selectAll) selectAll.checked = false;
+
+        // Hide categories delete btn, manage sources delete btn
+        const catDeleteBtn = document.getElementById('btnDeleteSelectedCategories');
+        if (catDeleteBtn) catDeleteBtn.style.display = 'none';
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Bind individual delete buttons
+        listContainer.querySelectorAll('.category-item-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const code = btn.dataset.sourceCode;
+                if (!code) return;
+                try {
+                    await db.deleteDynamicSources([code]);
+                    showNotification(`Đã xóa nguồn: ${code}`, 'success');
+                    populateCategorySourceDropdown();
+                    populateCategoryDropdowns();
+                    renderSourcesInCategoryModal();
+                } catch (error) {
+                    console.error('[SoquyUI] Error deleting source:', error);
+                    showNotification('Lỗi khi xóa nguồn', 'error');
+                }
+            });
+        });
+
+        // Bind checkbox change events for bulk delete
+        listContainer.querySelectorAll('.source-tab-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const checked = document.querySelectorAll('.source-tab-checkbox:checked');
+                const catDeleteBtn = document.getElementById('btnDeleteSelectedCategories');
+                if (catDeleteBtn) {
+                    if (checked.length > 0) {
+                        catDeleteBtn.style.display = 'inline-flex';
+                        catDeleteBtn.onclick = async () => {
+                            const codes = [...checked].map(c => c.value);
+                            try {
+                                await db.deleteDynamicSources(codes);
+                                showNotification(`Đã xóa ${codes.length} nguồn`, 'success');
+                                populateCategorySourceDropdown();
+                                populateCategoryDropdowns();
+                                renderSourcesInCategoryModal();
+                            } catch (error) {
+                                showNotification('Lỗi khi xóa nguồn', 'error');
+                            }
+                        };
+                        const countSpan = document.getElementById('selectedCategoryCount');
+                        if (countSpan) countSpan.textContent = checked.length;
+                    } else {
+                        catDeleteBtn.style.display = 'none';
+                    }
+                }
+            });
+        });
     }
 
     function handleSelectAllCategories(checked) {
         document.querySelectorAll('.category-item-checkbox').forEach(cb => {
             cb.checked = checked;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        updateDeleteSelectedButton();
+        if (_categoryModalTab !== 'sources') {
+            updateDeleteSelectedButton();
+        }
     }
 
     // =====================================================
@@ -2010,6 +2231,7 @@ const SoquyUI = (function () {
         handleCreatorFilterChange,
         handleEmployeeFilterChange,
         handleSourceFilterChange,
+        initFilterSearchableDropdown,
         handlePageSizeChange,
         handleExport,
         populateCategoryDropdowns,

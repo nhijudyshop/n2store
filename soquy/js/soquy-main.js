@@ -81,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
         els.receiptNote = document.getElementById('receiptNote');
         els.receiptBusinessAccounting = document.getElementById('receiptBusinessAccounting');
         els.btnSaveReceipt = document.getElementById('btnSaveReceipt');
-        els.btnSavePrintReceipt = document.getElementById('btnSavePrintReceipt');
         els.btnCancelReceipt = document.getElementById('btnSoquyCancelReceipt');
         els.btnCloseReceipt = document.getElementById('btnSoquyCloseReceipt');
         els.receiptOverlay = document.getElementById('soquyCreateReceiptOverlay');
@@ -98,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
         els.paymentNote = document.getElementById('paymentNote');
         els.paymentBusinessAccounting = document.getElementById('paymentBusinessAccounting');
         els.btnSavePayment = document.getElementById('btnSavePayment');
-        els.btnSavePrintPayment = document.getElementById('btnSavePrintPayment');
         els.btnCancelPayment = document.getElementById('btnSoquyCancelPayment');
         els.btnClosePayment = document.getElementById('btnSoquyClosePayment');
         els.paymentOverlay = document.getElementById('soquyCreatePaymentOverlay');
@@ -273,6 +271,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Initialize searchable dropdowns for filters
+        ui.initFilterSearchableDropdown('filterCategory', 'filterCategoryDropdown', 'category');
+        ui.initFilterSearchableDropdown('filterSource', 'filterSourceDropdown', 'source');
+        ui.initFilterSearchableDropdown('filterCreator', 'filterCreatorDropdown', 'creator');
+        ui.initFilterSearchableDropdown('filterEmployee', 'filterEmployeeDropdown', 'employee');
+
         // Search input
         if (els.searchInput) {
             let searchDebounce;
@@ -326,17 +330,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        if (els.btnSavePrintReceipt) {
-            els.btnSavePrintReceipt.addEventListener('click', async () => {
-                if (state.editingVoucherId) {
-                    await ui.saveEditedVoucher(config.VOUCHER_TYPES.RECEIPT);
-                } else {
-                    await ui.saveReceipt();
-                }
-                // TODO: Print functionality
-            });
-        }
-
         // Payment modal events
         if (els.btnClosePayment) {
             els.btnClosePayment.addEventListener('click', ui.closePaymentModal);
@@ -356,16 +349,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        if (els.btnSavePrintPayment) {
-            els.btnSavePrintPayment.addEventListener('click', async () => {
-                if (state.editingVoucherId) {
-                    await ui.saveEditedVoucher(config.VOUCHER_TYPES.PAYMENT);
-                } else {
-                    await ui.savePayment();
-                }
-            });
-        }
-
         // Detail modal events
         if (els.btnCloseDetail) {
             els.btnCloseDetail.addEventListener('click', ui.closeDetailModal);
