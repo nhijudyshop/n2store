@@ -678,8 +678,12 @@ const MenuLayoutStore = {
 
     /**
      * Check if user can access a page
+     * Admin bypass: isAdmin users can access all pages
      */
     _canAccessPage(pageId, accessiblePageIds) {
+        // Admin bypass - grant access to all pages
+        if (this.isAdminTemplate) return true;
+
         const menuItem = MENU_CONFIG.find(m => m.pageIdentifier === pageId);
         if (!menuItem) return false;
         if (!menuItem.permissionRequired) return true; // Public pages
@@ -814,7 +818,7 @@ class UnifiedNavigationManager {
     constructor() {
         this.currentPage = null;
         this.userPermissions = [];
-        this.isAdminTemplate = false; // For UI display only, NOT for bypass
+        this.isAdminTemplate = false; // Admin flag: used for bypass in permission checks
         this.isMobile = window.innerWidth <= 768;
         this.isEditMode = false; // Menu edit mode (admin only)
         this.groupSortable = null; // SortableJS instance for groups
@@ -839,16 +843,15 @@ class UnifiedNavigationManager {
         }
 
         try {
-            // Get user info - ALL users (including Admin) use detailedPermissions
-            // NO bypass - Admin has full permissions set in detailedPermissions
+            // Get user info and determine admin status
             // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
             const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
             const authData = JSON.parse(authDataStr);
-            // isAdminTemplate is for UI display only (role badge, etc.), NOT for bypass
-            // Check userType in localStorage - if starts with "admin" then is admin
+            // isAdminTemplate: used for admin bypass in permission checks and UI display
+            // Check isAdmin flag, roleTemplate, and legacy userType
             const userType = localStorage.getItem("userType") || "";
-            this.isAdminTemplate = userType.startsWith("admin") || authData.roleTemplate === 'admin';
-            console.log("[Unified Nav] userType:", userType, "| isAdmin:", this.isAdminTemplate);
+            this.isAdminTemplate = authData.isAdmin === true || authData.roleTemplate === 'admin' || userType.startsWith("admin");
+            console.log("[Unified Nav] isAdmin:", this.isAdminTemplate, "| roleTemplate:", authData.roleTemplate);
 
             // Load permissions
             await this.loadUserPermissions();
@@ -922,7 +925,8 @@ class UnifiedNavigationManager {
 
     async loadUserPermissions() {
         // Load detailedPermissions from auth data
-        // ALL users (including Admin) use detailedPermissions - NO bypass
+        // Admin (isAdmin === true || roleTemplate === 'admin'): bypass - grant all pages
+        // Non-admin: check detailedPermissions
 
         // Try to load from cache (check both localStorage AND sessionStorage)
         try {
@@ -930,22 +934,45 @@ class UnifiedNavigationManager {
             if (authData) {
                 const userAuth = JSON.parse(authData);
 
-                // Load detailedPermissions (only system now)
+                // Admin bypass: grant access to ALL pages regardless of detailedPermissions
+                const isAdmin = userAuth.isAdmin === true || userAuth.roleTemplate === 'admin';
+                if (isAdmin) {
+                    // Generate full permissions for all menu pages
+                    const fullPermissions = getDefaultAdminPermissions();
+                    // Merge with any existing permissions (to preserve extra keys)
+                    const merged = { ...fullPermissions, ...(userAuth.detailedPermissions || {}) };
+                    // Ensure all default pages are covered
+                    Object.keys(fullPermissions).forEach(pageId => {
+                        if (!merged[pageId]) {
+                            merged[pageId] = fullPermissions[pageId];
+                        } else {
+                            // Ensure all default actions are true for admin
+                            Object.keys(fullPermissions[pageId]).forEach(action => {
+                                merged[pageId][action] = true;
+                            });
+                        }
+                    });
+
+                    this.userDetailedPermissions = merged;
+                    this.userPermissions = this._getAccessiblePagesFromDetailed(merged);
+
+                    // Update stored auth data with full admin permissions
+                    userAuth.detailedPermissions = merged;
+                    const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
+                    storage.setItem("loginindex_auth", JSON.stringify(userAuth));
+
+                    console.log(
+                        "[Permission Load] Admin bypass: granted all",
+                        Object.keys(merged).length, "pages"
+                    );
+                    return;
+                }
+
+                // Non-admin: load detailedPermissions normally
                 if (userAuth.detailedPermissions && Object.keys(userAuth.detailedPermissions).length > 0) {
-                    let permissions = userAuth.detailedPermissions;
-
-                    // Auto-merge missing permissions for admin template users
-                    if (userAuth.roleTemplate === 'admin') {
-                        permissions = mergeAdminPermissions(permissions);
-                        // Update stored auth data with merged permissions
-                        userAuth.detailedPermissions = permissions;
-                        const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
-                        storage.setItem("loginindex_auth", JSON.stringify(userAuth));
-                    }
-
-                    this.userDetailedPermissions = permissions;
+                    this.userDetailedPermissions = userAuth.detailedPermissions;
                     // Derive userPermissions from detailedPermissions for menu display
-                    this.userPermissions = this._getAccessiblePagesFromDetailed(permissions);
+                    this.userPermissions = this._getAccessiblePagesFromDetailed(userAuth.detailedPermissions);
                     console.log(
                         "[Permission Load] Loaded detailedPermissions:",
                         Object.keys(this.userDetailedPermissions).length, "pages configured"
@@ -981,22 +1008,43 @@ class UnifiedNavigationManager {
 
                 if (userDoc.exists) {
                     const userData = userDoc.data();
+                    const roleTemplate = userData.roleTemplate || 'custom';
+                    const isAdmin = userData.isAdmin === true || roleTemplate === 'admin';
 
-                    // Load detailedPermissions
+                    // Admin bypass from Firebase: grant all pages
+                    if (isAdmin) {
+                        const fullPermissions = getDefaultAdminPermissions();
+                        const existing = userData.detailedPermissions || {};
+                        const merged = { ...fullPermissions, ...existing };
+                        Object.keys(fullPermissions).forEach(pageId => {
+                            if (!merged[pageId]) {
+                                merged[pageId] = fullPermissions[pageId];
+                            } else {
+                                Object.keys(fullPermissions[pageId]).forEach(action => {
+                                    merged[pageId][action] = true;
+                                });
+                            }
+                        });
+
+                        this.userDetailedPermissions = merged;
+                        this.userPermissions = this._getAccessiblePagesFromDetailed(merged);
+
+                        authData.detailedPermissions = merged;
+                        authData.roleTemplate = roleTemplate;
+                        authData.isAdmin = true;
+                        localStorage.setItem("loginindex_auth", JSON.stringify(authData));
+
+                        console.log("[Permission Load] Admin bypass from Firebase: granted all", Object.keys(merged).length, "pages");
+                        return;
+                    }
+
+                    // Non-admin: load detailedPermissions
                     if (userData.detailedPermissions && Object.keys(userData.detailedPermissions).length > 0) {
-                        let permissions = userData.detailedPermissions;
-                        const roleTemplate = userData.roleTemplate || 'custom';
-
-                        // Auto-merge missing permissions for admin template users
-                        if (roleTemplate === 'admin') {
-                            permissions = mergeAdminPermissions(permissions);
-                        }
-
-                        this.userDetailedPermissions = permissions;
-                        this.userPermissions = this._getAccessiblePagesFromDetailed(permissions);
+                        this.userDetailedPermissions = userData.detailedPermissions;
+                        this.userPermissions = this._getAccessiblePagesFromDetailed(userData.detailedPermissions);
 
                         // Cache to localStorage
-                        authData.detailedPermissions = permissions;
+                        authData.detailedPermissions = userData.detailedPermissions;
                         authData.roleTemplate = roleTemplate;
                         localStorage.setItem(
                             "loginindex_auth",
@@ -1047,14 +1095,16 @@ class UnifiedNavigationManager {
     }
 
     /**
-     * NEW: Check if user has a specific detailed permission
-     * Admin (roleTemplate='admin') has FULL BYPASS
+     * Check if user has a specific detailed permission
+     * Admin bypass: isAdmin users always return true
      * @param {string} pageId
      * @param {string} permissionKey
      * @returns {boolean}
      */
     hasDetailedPermission(pageId, permissionKey) {
-        // ALL users (including Admin) check detailedPermissions - NO bypass
+        // Admin bypass - grant all permissions
+        if (this.isAdminTemplate) return true;
+
         if (!this.userDetailedPermissions) return false;
 
         const pagePerms = this.userDetailedPermissions[pageId];
@@ -1102,6 +1152,12 @@ class UnifiedNavigationManager {
             return true;
         }
 
+        // Admin bypass - grant access to all pages
+        if (this.isAdminTemplate) {
+            console.log("[Permission Check] Admin bypass, allowing access");
+            return true;
+        }
+
         const pageInfo = MENU_CONFIG.find(
             (item) => item.pageIdentifier === this.currentPage,
         );
@@ -1118,8 +1174,7 @@ class UnifiedNavigationManager {
             return true;
         }
 
-        // ALL users (including Admin) check detailedPermissions - NO bypass
-        // Admin gets full access by having all permissions set to true in detailedPermissions
+        // Non-admin: check detailedPermissions
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
