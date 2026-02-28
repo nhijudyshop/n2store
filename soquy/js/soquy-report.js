@@ -160,7 +160,7 @@ const SoquyReport = (function () {
             const src = reportState.sourceFilter.toLowerCase();
             vouchers = vouchers.filter(v => {
                 const code = String(v.sourceCode || v.source || '').toLowerCase();
-                const label = db.getSourceLabel(v.sourceCode || v.source).toLowerCase();
+                const label = dbModule.getSourceLabel(v.sourceCode || v.source).toLowerCase();
                 return code.includes(src) || label.includes(src);
             });
         }
@@ -341,7 +341,7 @@ const SoquyReport = (function () {
         const sourceMap = {};
         reportState.filtered.forEach(v => {
             const srcCode = v.sourceCode || v.source || '';
-            const srcLabel = db.getSourceLabel(srcCode) || '(Chưa phân loại)';
+            const srcLabel = dbModule.getSourceLabel(srcCode) || '(Chưa phân loại)';
             const key = srcCode || '(none)';
             if (!sourceMap[key]) {
                 sourceMap[key] = { source: srcLabel, sourceCode: srcCode, income: 0, expense: 0 };
