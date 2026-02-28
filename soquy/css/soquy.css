@@ -1940,6 +1940,13 @@
     border: 1px solid #bbf7d0;
 }
 
+.category-item-badge--source {
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #bfdbfe;
+    font-weight: 600;
+}
+
 .category-item-delete {
     width: 28px;
     height: 28px;

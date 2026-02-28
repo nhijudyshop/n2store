@@ -602,16 +602,46 @@ const SoquyDatabase = (function () {
         return 'removedPredefinedPaymentKDCategories';
     }
 
-    async function autoAddCategory(category, voucherType) {
+    /**
+     * Helper: check if voucher type uses source-linked categories (receipt & KD)
+     */
+    function isSourceLinkedType(voucherType) {
+        return voucherType === config.VOUCHER_TYPES.RECEIPT || voucherType === config.VOUCHER_TYPES.PAYMENT_KD;
+    }
+
+    /**
+     * Get category name from a category item (string or object)
+     */
+    function getCategoryName(cat) {
+        if (typeof cat === 'object' && cat !== null) return cat.name || '';
+        return String(cat || '');
+    }
+
+    /**
+     * Get category sourceCode from a category item (string or object)
+     */
+    function getCategorySourceCode(cat) {
+        if (typeof cat === 'object' && cat !== null) return cat.sourceCode || '';
+        return '';
+    }
+
+    async function autoAddCategory(category, voucherType, sourceCode) {
         category = String(category || '').trim();
         if (!category) return;
+        sourceCode = String(sourceCode || '').trim();
 
         const predefined = getCategoryPredefined(voucherType);
         const dynamicList = getCategoryDynamicList(voucherType);
 
         // Check if already exists
-        const allCategories = [...predefined, ...dynamicList];
-        if (allCategories.some(c => String(c).toLowerCase() === category.toLowerCase())) return;
+        const allNames = [
+            ...predefined.map(c => String(c).toLowerCase()),
+            ...dynamicList.map(c => getCategoryName(c).toLowerCase())
+        ];
+        if (allNames.includes(category.toLowerCase())) return;
+
+        const useSourceLinked = isSourceLinkedType(voucherType);
+        const newItem = useSourceLinked ? { name: category, sourceCode } : category;
 
         try {
             const docId = getCategoryDocId(voucherType);
@@ -623,17 +653,24 @@ const SoquyDatabase = (function () {
                 items = doc.data().items || [];
             }
 
-            if (!items.some(c => String(c).toLowerCase() === category.toLowerCase())) {
-                items.push(category);
+            // Migrate old string items for source-linked types
+            if (useSourceLinked) {
+                items = items.map(c => typeof c === 'string' ? { name: c, sourceCode: '' } : c);
+            }
+
+            const itemNames = items.map(c => getCategoryName(c).toLowerCase());
+            if (!itemNames.includes(category.toLowerCase())) {
+                items.push(newItem);
                 await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
             }
 
             // Update local state
-            if (!dynamicList.includes(category)) {
-                dynamicList.push(category);
+            const existsInLocal = dynamicList.some(c => getCategoryName(c).toLowerCase() === category.toLowerCase());
+            if (!existsInLocal) {
+                dynamicList.push(newItem);
             }
 
-            console.log('[SoquyDB] Auto-added category:', category);
+            console.log('[SoquyDB] Auto-added category:', category, sourceCode ? `(source: ${sourceCode})` : '');
         } catch (error) {
             console.error('[SoquyDB] Error auto-adding category:', error);
         }
@@ -648,6 +685,7 @@ const SoquyDatabase = (function () {
         if (!categories || categories.length === 0) return;
 
         const docId = getCategoryDocId(voucherType);
+        const deleteLower = categories.map(c => String(c).toLowerCase());
 
         try {
             const docRef = config.soquyMetaRef.doc(docId);
@@ -656,14 +694,13 @@ const SoquyDatabase = (function () {
             if (!doc.exists) return;
 
             let items = doc.data().items || [];
-            const deleteLower = categories.map(c => String(c).toLowerCase());
-            items = items.filter(item => !deleteLower.includes(String(item).toLowerCase()));
+            items = items.filter(item => !deleteLower.includes(getCategoryName(item).toLowerCase()));
 
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
             // Update local state
             const dynamicList = getCategoryDynamicList(voucherType);
-            const filtered = dynamicList.filter(c => !deleteLower.includes(String(c).toLowerCase()));
+            const filtered = dynamicList.filter(c => !deleteLower.includes(getCategoryName(c).toLowerCase()));
             setCategoryDynamicList(voucherType, filtered);
 
             console.log('[SoquyDB] Deleted categories:', categories);
@@ -855,9 +892,17 @@ const SoquyDatabase = (function () {
                 config.soquyMetaRef.doc('removed_payment_kd_categories').get()
             ]);
 
-            if (rcDoc.exists) state.dynamicReceiptCategories = rcDoc.data().items || [];
+            if (rcDoc.exists) {
+                const rcItems = rcDoc.data().items || [];
+                // Migrate: string items → {name, sourceCode: ''} for receipt
+                state.dynamicReceiptCategories = rcItems.map(c => typeof c === 'string' ? { name: c, sourceCode: '' } : c);
+            }
             if (pcnDoc.exists) state.dynamicPaymentCNCategories = pcnDoc.data().items || [];
-            if (pkdDoc.exists) state.dynamicPaymentKDCategories = pkdDoc.data().items || [];
+            if (pkdDoc.exists) {
+                const pkdItems = pkdDoc.data().items || [];
+                // Migrate: string items → {name, sourceCode: ''} for KD
+                state.dynamicPaymentKDCategories = pkdItems.map(c => typeof c === 'string' ? { name: c, sourceCode: '' } : c);
+            }
             if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
             if (srcDoc.exists) {
                 const rawSources = srcDoc.data().items || [];
@@ -874,8 +919,13 @@ const SoquyDatabase = (function () {
                 if (oldPcDoc.exists) {
                     const oldItems = oldPcDoc.data().items || [];
                     oldItems.forEach(cat => {
-                        if (!state.dynamicPaymentCNCategories.includes(cat)) state.dynamicPaymentCNCategories.push(cat);
-                        if (!state.dynamicPaymentKDCategories.includes(cat)) state.dynamicPaymentKDCategories.push(cat);
+                        const catName = typeof cat === 'string' ? cat : (cat.name || '');
+                        if (!state.dynamicPaymentCNCategories.some(c => String(c).toLowerCase() === catName.toLowerCase())) {
+                            state.dynamicPaymentCNCategories.push(catName);
+                        }
+                        if (!state.dynamicPaymentKDCategories.some(c => getCategoryName(c).toLowerCase() === catName.toLowerCase())) {
+                            state.dynamicPaymentKDCategories.push({ name: catName, sourceCode: '' });
+                        }
                     });
                 }
                 const oldRpcDoc = await config.soquyMetaRef.doc('removed_payment_categories').get();
@@ -1058,6 +1108,9 @@ const SoquyDatabase = (function () {
         formatCurrency,
         getCategoryPredefined,
         getCategoryDynamicList,
+        getCategoryName,
+        getCategorySourceCode,
+        isSourceLinkedType,
         getRemovedStateKey
     };
 })();
