@@ -1388,6 +1388,63 @@ const ApiService = {
         }
     },
 
+    /**
+     * Log a customer activity
+     * @param {string} phone - Customer phone number
+     * @param {Object} activityData - { activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by }
+     */
+    async logCustomerActivity(phone, activityData) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/customers/${phone}/activities`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(activityData)
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.error || `Failed to log activity: ${response.status}`);
+            }
+            const result = await response.json();
+            console.log('[API-V2] Activity logged:', phone, activityData.activity_type);
+            return result.data;
+        } catch (error) {
+            console.error('[API-V2] Log activity failed:', error);
+            // Non-critical: don't throw, just log
+        }
+    },
+
+    /**
+     * Refund wallet when order is cancelled
+     * @param {string} orderId - Order ID/Number
+     * @param {string} phone - Customer phone
+     * @param {string} reason - Cancellation reason
+     * @param {string} createdBy - Who cancelled the order
+     */
+    async walletRefundByOrder(orderId, phone, reason, createdBy) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/refund-by-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: orderId,
+                    phone,
+                    reason,
+                    created_by: createdBy
+                })
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.error || `Failed to refund wallet: ${response.status}`);
+            }
+            const result = await response.json();
+            console.log('[API-V2] Wallet refund result:', result);
+            return result;
+        } catch (error) {
+            console.error('[API-V2] Wallet refund failed:', error);
+            throw error;
+        }
+    },
+
     // =====================================================
     // BALANCE HISTORY API METHODS (V2)
     // =====================================================

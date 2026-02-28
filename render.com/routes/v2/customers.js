@@ -1054,4 +1054,60 @@ router.post('/:id/notes', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/v2/customers/:id/activities
+ * Log a customer activity (from frontend order operations)
+ */
+router.post('/:id/activities', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by } = req.body;
+
+    if (!activity_type || !title) {
+        return res.status(400).json({ success: false, error: 'activity_type and title are required' });
+    }
+
+    const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
+
+    try {
+        let phone, customerId;
+        if (isPhone) {
+            phone = normalizePhone(id);
+            const customerResult = await db.query('SELECT id FROM customers WHERE phone = $1', [phone]);
+            customerId = customerResult.rows[0]?.id || null;
+        } else {
+            const customerResult = await db.query('SELECT id, phone FROM customers WHERE id = $1', [parseInt(id)]);
+            if (customerResult.rows.length === 0) {
+                return res.status(404).json({ success: false, error: 'Customer not found' });
+            }
+            phone = customerResult.rows[0].phone;
+            customerId = customerResult.rows[0].id;
+        }
+
+        // If customer doesn't exist, auto-create with phone only
+        if (!customerId && phone) {
+            const insertResult = await db.query(
+                `INSERT INTO customers (phone, name, status) VALUES ($1, $2, 'active') ON CONFLICT (phone) DO UPDATE SET updated_at = NOW() RETURNING id`,
+                [phone, 'Khách mới']
+            );
+            customerId = insertResult.rows[0].id;
+        }
+
+        const result = await db.query(`
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING *
+        `, [
+            phone, customerId, activity_type, title,
+            description || null, reference_type || null, reference_id || null,
+            metadata ? JSON.stringify(metadata) : '{}',
+            icon || null, color || null, created_by || 'system'
+        ]);
+
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        handleError(res, error, 'Failed to log customer activity');
+    }
+});
+
 module.exports = router;

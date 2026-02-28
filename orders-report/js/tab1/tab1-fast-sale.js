@@ -2310,6 +2310,95 @@ async function processWalletWithdrawalsForSuccessOrders() {
 }
 
 /**
+ * Log customer activity for successful order creation
+ * Creates activity records in Customer 360 for each order
+ */
+async function logOrderCreationActivities() {
+    const successOrders = fastSaleResultsData.success;
+    if (!successOrders || successOrders.length === 0) return;
+
+    const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+    const performedBy = window.authManager?.getAuthState()?.username || 'system';
+
+    console.log(`[FAST-SALE] Logging activities for ${successOrders.length} successful orders...`);
+
+    for (const order of successOrders) {
+        try {
+            const phone = order.Partner?.Phone || order.PartnerPhone;
+            if (!phone) continue;
+
+            let normalizedPhone = String(phone).replace(/\D/g, '');
+            if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+                normalizedPhone = '0' + normalizedPhone.substring(2);
+            }
+
+            const orderNumber = order.Number || order.Code || order.Reference || 'N/A';
+            const customerName = order.Partner?.Name || order.PartnerDisplayName || '';
+            const amountTotal = parseFloat(order.AmountTotal) || 0;
+            const codAmount = parseFloat(order.CashOnDelivery) || 0;
+
+            // Check if this order used wallet/debt
+            const walletData = fastSaleWalletBalances[normalizedPhone];
+            const totalWalletBalance = walletData
+                ? (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0)
+                : 0;
+
+            let debtUsed = 0;
+            if (totalWalletBalance > 0) {
+                const shippingFee = parseFloat(order.DeliveryPrice) || 0;
+                const totalPayment = amountTotal + shippingFee;
+                debtUsed = Math.min(totalWalletBalance, totalPayment);
+            }
+
+            // Build description
+            let description = `Tạo đơn hàng #${orderNumber}`;
+            if (customerName) description += ` - ${customerName}`;
+            description += `. Tổng: ${amountTotal.toLocaleString('vi-VN')}đ, COD: ${codAmount.toLocaleString('vi-VN')}đ`;
+            if (debtUsed > 0) {
+                description += `. Sử dụng công nợ: ${debtUsed.toLocaleString('vi-VN')}đ`;
+            }
+
+            // Build metadata
+            const metadata = {
+                order_number: orderNumber,
+                order_id: order.Id,
+                amount_total: amountTotal,
+                cod_amount: codAmount,
+                carrier: order.Carrier?.Name || order.CarrierName || '',
+                source: 'FAST_SALE'
+            };
+            if (debtUsed > 0) {
+                metadata.debt_used = debtUsed;
+                metadata.wallet_balance_at_order = totalWalletBalance;
+            }
+
+            // Log activity
+            await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    activity_type: 'ORDER_CREATED',
+                    title: debtUsed > 0
+                        ? `Tạo đơn #${orderNumber} (CK ${debtUsed.toLocaleString('vi-VN')}đ)`
+                        : `Tạo đơn hàng #${orderNumber}`,
+                    description,
+                    reference_type: 'order',
+                    reference_id: orderNumber,
+                    metadata,
+                    icon: 'shopping_cart',
+                    color: 'green',
+                    created_by: performedBy
+                })
+            });
+
+            console.log(`[FAST-SALE] ✅ Activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+        } catch (error) {
+            console.error('[FAST-SALE] Error logging order activity:', error);
+        }
+    }
+}
+
+/**
  * Show Fast Sale Results Modal
  * @param {Object} results - API response with OrdersSucessed, OrdersError, DataErrorFast
  */
@@ -2354,11 +2443,13 @@ function showFastSaleResultsModal(results) {
         setTimeout(() => preGenerateBillImages(), 100);
         // Process wallet withdrawals for successful orders (async)
         setTimeout(() => processWalletWithdrawalsForSuccessOrders(), 200);
+        // Log customer activities for successful orders (async)
+        setTimeout(() => logOrderCreationActivities(), 300);
     }
 
     // Process failed orders - add "Âm Mã" tag (async)
     if (fastSaleResultsData.failed.length > 0 && window.processFailedOrders) {
-        setTimeout(() => window.processFailedOrders(fastSaleResultsData.failed), 300);
+        setTimeout(() => window.processFailedOrders(fastSaleResultsData.failed), 400);
     }
 }
 

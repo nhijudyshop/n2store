@@ -590,6 +590,13 @@
                 console.warn('[WORKFLOW] quickAssignTag function not available');
             }
 
+            // Log cancel activity & refund wallet (async, non-blocking)
+            const orderNumber = order.Number || order.Reference || '';
+            const customerPhone = order.Partner?.Phone || order.PartnerPhone || '';
+            if (customerPhone) {
+                logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+            }
+
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`);
             closeCancelOrderModal();
 
@@ -1319,6 +1326,13 @@
                 console.warn('[WORKFLOW] updateOrderStatus function not available');
             }
 
+            // Step 6: Log cancel activity & refund wallet (async, non-blocking)
+            const orderNumber = order.Number || order.Reference || '';
+            const customerPhone = order.Partner?.Phone || order.PartnerPhone || '';
+            if (customerPhone) {
+                logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+            }
+
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
             closeCancelOrderModal();
 
@@ -1367,6 +1381,104 @@
         `;
     }
 
+
+    // =====================================================
+    // CUSTOMER ACTIVITY LOGGING & WALLET REFUND
+    // =====================================================
+
+    /**
+     * Log cancel order activity to Customer 360 and refund wallet if debt was used
+     * @param {string} phone - Customer phone number
+     * @param {string} orderNumber - Order number (e.g., "NJD/2026/45068")
+     * @param {Object} order - Order data
+     * @param {string} reason - Cancellation reason
+     */
+    async function logCancelOrderActivity(phone, orderNumber, order, reason) {
+        const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+        const performedBy = window.authManager?.getAuthState()?.username || 'system';
+
+        try {
+            let normalizedPhone = String(phone).replace(/\D/g, '');
+            if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+                normalizedPhone = '0' + normalizedPhone.substring(2);
+            }
+
+            const amountTotal = parseFloat(order.AmountTotal) || 0;
+            const customerName = order.Partner?.Name || order.PartnerDisplayName || '';
+
+            // Step 1: Try to refund wallet if debt was used
+            let refundResult = null;
+            try {
+                const refundResponse = await fetch(`${RENDER_API_URL}/api/v2/wallets/refund-by-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_id: orderNumber,
+                        phone: normalizedPhone,
+                        reason: reason,
+                        created_by: performedBy
+                    })
+                });
+                refundResult = await refundResponse.json();
+
+                if (refundResult.success && refundResult.refunded) {
+                    console.log(`[WORKFLOW] ✅ Wallet refunded for order ${orderNumber}: ${refundResult.data.refund_amount}đ`);
+                    window.notificationManager?.info(
+                        `Đã hoàn ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ vào ví khách (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, CN: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`,
+                        5000
+                    );
+                } else if (refundResult.success && refundResult.cancelled_pending) {
+                    console.log(`[WORKFLOW] ✅ Pending withdrawal cancelled for order ${orderNumber}`);
+                    window.notificationManager?.info('Đã hủy giao dịch trừ ví chờ xử lý');
+                }
+            } catch (refundError) {
+                console.warn('[WORKFLOW] Wallet refund check failed (non-critical):', refundError);
+            }
+
+            // Step 2: Log ORDER_CANCELLED activity
+            let description = `Hủy đơn hàng #${orderNumber}`;
+            if (customerName) description += ` - ${customerName}`;
+            description += `. Tổng: ${amountTotal.toLocaleString('vi-VN')}đ. Lý do: ${reason}`;
+
+            if (refundResult?.refunded && refundResult?.data) {
+                description += `. Hoàn ví: ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, Công nợ: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`;
+            }
+
+            const metadata = {
+                order_number: orderNumber,
+                order_id: order.Id,
+                amount_total: amountTotal,
+                cancel_reason: reason,
+                source: 'FAST_SALE_CANCEL'
+            };
+            if (refundResult?.refunded && refundResult?.data) {
+                metadata.wallet_refunded = true;
+                metadata.refund_amount = refundResult.data.refund_amount;
+                metadata.real_refunded = refundResult.data.real_refunded;
+                metadata.virtual_refunded = refundResult.data.virtual_refunded;
+            }
+
+            await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    activity_type: 'ORDER_CANCELLED',
+                    title: `Hủy đơn #${orderNumber}`,
+                    description,
+                    reference_type: 'order',
+                    reference_id: orderNumber,
+                    metadata,
+                    icon: 'cancel',
+                    color: 'red',
+                    created_by: performedBy
+                })
+            });
+
+            console.log(`[WORKFLOW] ✅ Cancel activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+        } catch (error) {
+            console.error('[WORKFLOW] Error logging cancel activity:', error);
+        }
+    }
 
     // =====================================================
     // INITIALIZATION & EXPORTS

@@ -14,10 +14,11 @@ const TYPE_LABELS = {
     'BOOM': 'Phiếu boom hàng',
     'FIX_COD': 'Phiếu sửa COD',
     'COD_ADJUSTMENT': 'Điều chỉnh COD',
+    'ORDER_CANCEL_REFUND': 'Hoàn tiền hủy đơn',
     'OTHER': 'Phiếu khác'
 };
 
-const CREDIT_TYPES = ['DEPOSIT', 'VIRTUAL_CREDIT'];
+const CREDIT_TYPES = ['DEPOSIT', 'VIRTUAL_CREDIT', 'ORDER_CANCEL_REFUND'];
 
 export class WalletPanelModule {
     constructor(containerId, permissionHelper) {
