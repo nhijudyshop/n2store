@@ -625,11 +625,13 @@ const SoquyReport = (function () {
             const detailRows = cat.vouchers.slice(0, 20).map(v => {
                 const dateStr = dbModule.formatVoucherDateTime(v.voucherDateTime);
                 const isPayment = v.type === 'payment_cn' || v.type === 'payment_kd';
+                const typeLabel = v.type === 'receipt' ? 'Thu' : v.type === 'payment_kd' ? 'Chi KD' : 'Chi CN';
                 return `<tr>
-                    <td>${escapeHtml(v.code)}</td>
                     <td>${escapeHtml(dateStr)}</td>
                     <td>${escapeHtml(v.personName || v.collector || '-')}</td>
+                    <td>${typeLabel}</td>
                     <td style="text-align:right;" class="${isPayment ? 'text-danger' : 'text-success'}">${isPayment ? '-' : ''}${fmt(v.amount)}</td>
+                    <td>${escapeHtml(v.note || '-')}</td>
                 </tr>`;
             }).join('');
 
@@ -659,8 +661,8 @@ const SoquyReport = (function () {
                 <td colspan="4">
                     <div class="report-cat-details">
                         <table class="report-detail-table">
-                            <thead><tr><th>Mã</th><th>Ngày</th><th>Người</th><th style="text-align:right;">Số tiền</th></tr></thead>
-                            <tbody>${detailRows || '<tr><td colspan="4">Không có phiếu</td></tr>'}</tbody>
+                            <thead><tr><th>Ngày</th><th>Người</th><th>Loại thu chi</th><th style="text-align:right;">Số tiền</th><th>Ghi chú</th></tr></thead>
+                            <tbody>${detailRows || '<tr><td colspan="5">Không có phiếu</td></tr>'}</tbody>
                         </table>
                         ${cat.vouchers.length > 20 ? `<div class="report-detail-more">Hiện ${cat.vouchers.length - 20} phiếu nữa...</div>` : ''}
                     </div>
