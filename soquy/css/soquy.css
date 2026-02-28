@@ -3260,6 +3260,7 @@
     /* --- MODALS: full-screen --- */
     .modal {
         align-items: stretch;
+        z-index: 1100;
     }
 
     .modal-content.k-modal {
@@ -3274,6 +3275,24 @@
 
     .k-modal-body {
         min-height: 0;
+    }
+
+    .k-modal-footer {
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+
+    /* --- Ẩn mobile-top-bar (header user info) --- */
+    .mobile-top-bar {
+        display: none !important;
+    }
+
+    /* Bỏ padding-top khi ẩn mobile-top-bar */
+    body {
+        padding-top: 0 !important;
+    }
+
+    .main-content {
+        padding-top: 0 !important;
     }
 
     .form-row {
