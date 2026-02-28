@@ -91,11 +91,21 @@
                     <i data-lucide="menu"></i>
                 </button>
                 <div class="tab-header-navigation">
-                    <button class="tab-header-btn" data-tab="employee" id="tabEmployeeBtn">
-                        <i data-lucide="users"></i>
-                        <span>Nhân viên</span>
-                    </button>
-                    <button class="tab-header-btn active" data-tab="cashbook" id="tabCashBookBtn">
+                    <div class="nav-dropdown-wrapper">
+                        <button class="tab-header-btn active" data-tab="employee" id="tabEmployeeBtn">
+                            <i data-lucide="users"></i>
+                            <span>Nhân viên</span>
+                        </button>
+                        <div class="nav-dropdown-menu" id="navEmployeeDropdown">
+                            <a href="#" class="nav-dropdown-item">Danh sách nhân viên</a>
+                            <a href="#" id="navLinkSchedule" class="nav-dropdown-item">Lịch làm việc</a>
+                            <a href="#" id="navLinkTimesheet" class="nav-dropdown-item active">Bảng chấm công</a>
+                            <a href="#" class="nav-dropdown-item">Bảng lương</a>
+                            <a href="#" class="nav-dropdown-item">Bảng hoa hồng</a>
+                            <a href="#" class="nav-dropdown-item">Thiết lập nhân viên</a>
+                        </div>
+                    </div>
+                    <button class="tab-header-btn" data-tab="cashbook" id="tabCashBookBtn">
                         <i data-lucide="wallet"></i>
                         <span>Sổ Quỹ</span>
                     </button>
@@ -110,19 +120,409 @@
 
         <!-- Content Area -->
         <div class="content-area" style="padding: 0;">
-            <!-- Employee Tab (placeholder) -->
-            <div id="employeeTabContent" class="tab-content">
-                <div class="tab-placeholder">
-                    <div class="tab-placeholder-icon-wrapper">
-                        <i data-lucide="users"></i>
+            <!-- Employee Views Wrapper (No sidebar layout) -->
+            <div id="employeeTabContent" class="tab-content active" style="height: calc(100vh - 56px);">
+
+                <!-- 1. Bảng chấm công (Xem theo ca) View -->
+                <div class="employee-view-wrapper" id="viewTimesheet" style="display: flex;">
+                    <div class="ts-header">
+                        <div class="ts-header-left">
+                            <h2 class="ts-title">Bảng chấm công</h2>
+                            <div class="ts-search">
+                                <i data-lucide="search"
+                                    style="width: 14px; height: 14px; color: #bfbfbf; margin-right: 4px;"></i>
+                                <input type="text" placeholder="Tìm kiếm nhân viên">
+                                <i data-lucide="chevron-down"
+                                    style="width: 14px; height: 14px; color: #bfbfbf; cursor:pointer;"></i>
+                            </div>
+                            <select class="ts-select">
+                                <option>Theo tuần</option>
+                            </select>
+                            <div class="ts-pager">
+                                <button><i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i></button>
+                                <span>Tuần 4 - Th. 2 2026</span>
+                                <button><i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></button>
+                            </div>
+                            <button class="ts-btn">Chọn</button>
+                        </div>
+                        <div class="ts-header-right">
+                            <button class="ts-btn" id="btnTsSwitchView">
+                                <i data-lucide="contact" style="width: 14px; height: 14px;"></i> Xem theo ca <i
+                                    data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="ts-btn" id="btnShowApproval"
+                                onclick="document.getElementById('approvalModal').style.display='flex'">
+                                <i data-lucide="check-square" style="width: 14px; height: 14px;"></i> Duyệt chấm công
+                            </button>
+                            <button class="ts-btn" style="padding: 6px 8px;">
+                                <i data-lucide="more-horizontal" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
                     </div>
-                    <h3>Quản lý Nhân viên</h3>
-                    <p>Tính năng đang được phát triển</p>
+                    <div class="ts-table-container">
+                        <table class="ts-grid">
+                            <thead>
+                                <tr>
+                                    <th class="ts-col-fixed"
+                                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: none; border-right: none;">
+                                        Ca làm việc <i data-lucide="plus"
+                                            style="width:14px;height:14px;cursor:pointer;"></i>
+                                    </th>
+                                    <th>Thứ hai 23</th>
+                                    <th>Thứ ba 24</th>
+                                    <th>Thứ tư 25</th>
+                                    <th>Thứ năm 26</th>
+                                    <th>Thứ sáu 27</th>
+                                    <th class="ts-day-active">Thứ bảy <span>28</span></th>
+                                    <th>Chủ nhật 01</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="ts-col-fixed">
+                                        <div style="font-weight: 600; color: #1e293b;">CÒI</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">08:00 - 17:00</div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block">
+                                            <div class="ts-block-name">CÒI</div>
+                                            <div class="ts-block-time">-- : --</div>
+                                            <div class="ts-block-status">Chưa chấm công</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block">
+                                            <div class="ts-block-name">CÒI</div>
+                                            <div class="ts-block-time">-- : --</div>
+                                            <div class="ts-block-status">Chưa chấm công</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block">
+                                            <div class="ts-block-name">CÒI</div>
+                                            <div class="ts-block-time">-- : --</div>
+                                            <div class="ts-block-status">Chưa chấm công</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block">
+                                            <div class="ts-block-name">CÒI</div>
+                                            <div class="ts-block-time">-- : --</div>
+                                            <div class="ts-block-status">Chưa chấm công</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block">
+                                            <div class="ts-block-name">CÒI</div>
+                                            <div class="ts-block-time">-- : --</div>
+                                            <div class="ts-block-status">Chưa chấm công</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block">
+                                            <div class="ts-block-name">CÒI</div>
+                                            <div class="ts-block-time">-- : --</div>
+                                            <div class="ts-block-status">Chưa chấm công</div>
+                                        </div>
+                                    </td>
+                                    <td class="ts-cell-empty"></td>
+                                </tr>
+                                <tr>
+                                    <td class="ts-col-fixed">
+                                        <div style="font-weight: 600; color: #1e293b;">CA BÌNH THƯỜNG</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">08:00 - 20:00</div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block-grid">
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">HỒNG</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">NV CHECK INBOX LIVE. MY</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">NV CSKH. LÀI</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block-grid">
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">HỒNG</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">NV CHECK INBOX LIVE. MY</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">NV CSKH. LÀI</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block-grid">
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">HỒNG</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block-grid">
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">HỒNG</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block-grid">
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">HỒNG</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block-grid">
+                                            <div class="ts-block">
+                                                <div class="ts-block-name">HỒNG</div>
+                                                <div class="ts-block-time">-- : --</div>
+                                                <div class="ts-block-status">Chưa chấm công</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="ts-cell-empty">
+                                        <div class="ts-block-grid">
+                                            <div class="ts-block ts-block-blue">
+                                                <div class="ts-block-name" style="color:#096dd9;">HỒNG</div>
+                                            </div>
+                                            <div class="ts-block ts-block-blue">
+                                                <div class="ts-block-name" style="color:#096dd9;">NV CHECK INBOX LIVE.
+                                                    MY</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="ts-legend-bar">
+                        <div class="ts-legend-item"><span class="ts-legend-dot ts-dot-blue"></span> Đúng giờ</div>
+                        <div class="ts-legend-item"><span class="ts-legend-dot ts-dot-purple"></span> Đi muộn / Về sớm
+                        </div>
+                        <div class="ts-legend-item"><span class="ts-legend-dot ts-dot-red"></span> Chấm công thiếu</div>
+                        <div class="ts-legend-item"><span class="ts-legend-dot ts-dot-orange"></span> Chưa chấm công
+                        </div>
+                        <div class="ts-legend-item"><span class="ts-legend-dot ts-dot-gray"></span> Nghỉ làm</div>
+                    </div>
+                </div>
+
+                <!-- 2. Lịch làm việc (Xem theo nhân viên) View -->
+                <div class="employee-view-wrapper" id="viewSchedule" style="display: none;">
+                    <div class="ts-header">
+                        <div class="ts-header-left">
+                            <h2 class="ts-title">Lịch làm việc</h2>
+                            <div class="ts-search">
+                                <i data-lucide="search"
+                                    style="width: 14px; height: 14px; color: #bfbfbf; margin-right: 4px;"></i>
+                                <input type="text" placeholder="Tìm kiếm nhân viên">
+                                <i data-lucide="chevron-down"
+                                    style="width: 14px; height: 14px; color: #bfbfbf; cursor:pointer;"></i>
+                            </div>
+                            <div class="ts-pager">
+                                <button><i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i></button>
+                                <span>Tuần 4 - Th. 2 2026</span>
+                                <button><i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></button>
+                            </div>
+                            <button class="ts-btn">Tuần này</button>
+                        </div>
+                        <div class="ts-header-right">
+                            <button class="ts-btn" id="btnSchedSwitchView">
+                                <i data-lucide="user" style="width: 14px; height: 14px;"></i> Xem theo nhân viên <i
+                                    data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="ts-btn"><i data-lucide="file-input" style="width: 14px; height: 14px;"></i>
+                                Import</button>
+                            <button class="ts-btn"><i data-lucide="file-output" style="width: 14px; height: 14px;"></i>
+                                Xuất file</button>
+                        </div>
+                    </div>
+                    <div class="ts-table-container">
+                        <table class="ts-grid">
+                            <thead>
+                                <tr>
+                                    <th class="ts-col-fixed">Nhân viên</th>
+                                    <th>Thứ hai 23</th>
+                                    <th>Thứ ba 24</th>
+                                    <th>Thứ tư 25</th>
+                                    <th>Thứ năm 26</th>
+                                    <th>Thứ sáu 27</th>
+                                    <th class="ts-day-active">Thứ bảy <span>28</span></th>
+                                    <th>Chủ nhật 01</th>
+                                    <th style="min-width: 120px; text-align: right;">Lương dự kiến <i data-lucide="info"
+                                            style="width:12px; height:12px; color:#8c8c8c;"></i></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="background: #fafafa;">
+                                    <td class="ts-col-fixed" style="border:none;"></td>
+                                    <td colspan="7" style="border:none;"></td>
+                                    <td style="text-align: right; font-weight: 700; font-size: 14px;">12,309,908</td>
+                                </tr>
+                                <tr>
+                                    <td class="ts-col-fixed">
+                                        <div style="font-weight: 600; color: #1e293b;">CÒI</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">111</div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-blue">
+                                            <div class="ts-block-name" style="color:#096dd9;">CÒI</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-blue">
+                                            <div class="ts-block-name" style="color:#096dd9;">CÒI</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-blue">
+                                            <div class="ts-block-name" style="color:#096dd9;">CÒI</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-blue">
+                                            <div class="ts-block-name" style="color:#096dd9;">CÒI</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-blue">
+                                            <div class="ts-block-name" style="color:#096dd9;">CÒI</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-blue">
+                                            <div class="ts-block-name" style="color:#096dd9;">CÒI</div>
+                                        </div>
+                                    </td>
+                                    <td></td>
+                                    <td style="text-align: right;">
+                                        <div style="font-weight: 500;">2,571,429</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">6 ca</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="ts-col-fixed">
+                                        <div style="font-weight: 600; color: #1e293b;">HỒNG</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">NV000003</div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <div style="font-weight: 500;">1,355,991</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">7 ca</div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="ts-col-fixed">
+                                        <div style="font-weight: 600; color: #1e293b;">NV CHECK INBOX LIVE. MY</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">12</div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ts-block ts-block-green">
+                                            <div class="ts-block-name ts-block-status-green">CA BÌNH THƯỜNG</div>
+                                        </div>
+                                    </td>
+                                    <td style="text-align: right;">
+                                        <div style="font-weight: 500;">1,479,263</div>
+                                        <div style="font-size: 11px; color: #8c8c8c;">7 ca</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
             <!-- Cash Book Layout -->
-            <div id="cashbookTabContent" class="cashbook-layout tab-content active">
+            <div id="cashbookTabContent" class="cashbook-layout tab-content">
                 <!-- ==================== LEFT SIDEBAR FILTERS ==================== -->
                 <div class="cashbook-sidebar">
                     <div class="sidebar-header-section">
@@ -687,7 +1087,9 @@
                                         </tr>
                                     </thead>
                                     <tbody id="reportCategoryBody">
-                                        <tr><td colspan="4" class="report-empty">Đang tải...</td></tr>
+                                        <tr>
+                                            <td colspan="4" class="report-empty">Đang tải...</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -710,7 +1112,9 @@
                                         </tr>
                                     </thead>
                                     <tbody id="reportTrendBody">
-                                        <tr><td colspan="5" class="report-empty">Đang tải...</td></tr>
+                                        <tr>
+                                            <td colspan="5" class="report-empty">Đang tải...</td>
+                                        </tr>
                                     </tbody>
                                     <tfoot id="reportTrendFoot">
                                     </tfoot>
@@ -748,7 +1152,9 @@
                                         </tr>
                                     </thead>
                                     <tbody id="reportDailyBody">
-                                        <tr><td colspan="5" class="report-empty">Đang tải...</td></tr>
+                                        <tr>
+                                            <td colspan="5" class="report-empty">Đang tải...</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -775,7 +1181,9 @@
                                         </tr>
                                     </thead>
                                     <tbody id="reportTopBody">
-                                        <tr><td colspan="5" class="report-empty">Đang tải...</td></tr>
+                                        <tr>
+                                            <td colspan="5" class="report-empty">Đang tải...</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -797,7 +1205,9 @@
                                         </tr>
                                     </thead>
                                     <tbody id="reportFundBody">
-                                        <tr><td colspan="4" class="report-empty">Đang tải...</td></tr>
+                                        <tr>
+                                            <td colspan="4" class="report-empty">Đang tải...</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -820,7 +1230,9 @@
                                         </tr>
                                     </thead>
                                     <tbody id="reportSourceBody">
-                                        <tr><td colspan="5" class="report-empty">Đang tải...</td></tr>
+                                        <tr>
+                                            <td colspan="5" class="report-empty">Đang tải...</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -852,7 +1264,8 @@
                     <div class="form-group k-group">
                         <label>Thời gian</label>
                         <div class="k-datetime-input">
-                            <input type="text" id="receiptDateTime" class="form-control" placeholder="dd/MM/yyyy HH:mm" />
+                            <input type="text" id="receiptDateTime" class="form-control"
+                                placeholder="dd/MM/yyyy HH:mm" />
                             <i data-lucide="calendar"></i>
                             <i data-lucide="clock"></i>
                         </div>
@@ -865,7 +1278,8 @@
                             <select id="receiptCategory" class="form-control">
                                 <option value="">Chọn loại thu</option>
                             </select>
-                            <button type="button" class="btn-category-manage" id="btnManageReceiptCategory" title="Quản lý loại thu">
+                            <button type="button" class="btn-category-manage" id="btnManageReceiptCategory"
+                                title="Quản lý loại thu">
                                 <i data-lucide="plus"></i>
                             </button>
                         </div>
@@ -942,7 +1356,8 @@
                     <div class="form-group k-group">
                         <label>Thời gian</label>
                         <div class="k-datetime-input">
-                            <input type="text" id="paymentDateTime" class="form-control" placeholder="dd/MM/yyyy HH:mm" />
+                            <input type="text" id="paymentDateTime" class="form-control"
+                                placeholder="dd/MM/yyyy HH:mm" />
                             <i data-lucide="calendar"></i>
                             <i data-lucide="clock"></i>
                         </div>
@@ -955,7 +1370,8 @@
                             <select id="paymentCategory" class="form-control">
                                 <option value="">Chọn loại chi</option>
                             </select>
-                            <button type="button" class="btn-category-manage" id="btnManagePaymentCategory" title="Quản lý loại chi">
+                            <button type="button" class="btn-category-manage" id="btnManagePaymentCategory"
+                                title="Quản lý loại chi">
                                 <i data-lucide="plus"></i>
                             </button>
                         </div>
@@ -981,8 +1397,7 @@
                         <label class="d-flex justify-content-between">
                             Tên người nhận
                         </label>
-                        <input type="text" id="paymentReceiverName" class="form-control"
-                            placeholder="Tìm người nhận" />
+                        <input type="text" id="paymentReceiverName" class="form-control" placeholder="Tìm người nhận" />
                     </div>
                 </div>
                 <div class="form-row">
@@ -1083,8 +1498,7 @@
                         <label for="importFileInput" class="k-btn-outline-primary" style="cursor: pointer;">
                             <i data-lucide="upload"></i> Chọn file Excel
                         </label>
-                        <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv"
-                            style="display: none;">
+                        <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
                         <span id="importFileName" style="margin-left: 12px; font-size: 13px; color: #666;"></span>
                     </div>
                 </div>
@@ -1092,7 +1506,8 @@
                 <div id="importResult" style="margin-top: 12px;"></div>
             </div>
             <div class="modal-footer k-modal-footer" style="justify-content: space-between;">
-                <button class="btn-outline-danger" id="btnDeleteAllVouchers" style="color:#f5222d; border-color:#f5222d;">
+                <button class="btn-outline-danger" id="btnDeleteAllVouchers"
+                    style="color:#f5222d; border-color:#f5222d;">
                     <i data-lucide="trash-2"></i> Xóa toàn bộ phiếu
                 </button>
                 <div style="display:flex; gap:8px;">
@@ -1145,7 +1560,8 @@
                                     <select id="newCategorySource" class="form-control">
                                         <option value="">-- Chọn nguồn --</option>
                                     </select>
-                                    <button type="button" class="btn-category-manage" id="btnCreateSourceInline" title="Tạo nguồn mới">
+                                    <button type="button" class="btn-category-manage" id="btnCreateSourceInline"
+                                        title="Tạo nguồn mới">
                                         <i data-lucide="plus"></i>
                                     </button>
                                 </div>
@@ -1154,8 +1570,8 @@
                         <div class="form-row" id="inlineSourceCreate" style="display: none;">
                             <div class="form-group k-group" style="flex: 1;">
                                 <label>Mã nguồn</label>
-                                <input type="text" id="inlineSourceCode" class="form-control"
-                                    placeholder="VD: BH" maxlength="10" style="text-transform: uppercase;" />
+                                <input type="text" id="inlineSourceCode" class="form-control" placeholder="VD: BH"
+                                    maxlength="10" style="text-transform: uppercase;" />
                             </div>
                             <div class="form-group k-group" style="flex: 2;">
                                 <label>Tên nguồn</label>
@@ -1163,7 +1579,8 @@
                                     placeholder="VD: Bán hàng" />
                             </div>
                             <div class="form-group k-group" style="flex: 0; align-self: flex-end;">
-                                <button type="button" class="btn-primary btn-sm" id="btnSaveInlineSource" style="white-space: nowrap;">Lưu nguồn</button>
+                                <button type="button" class="btn-primary btn-sm" id="btnSaveInlineSource"
+                                    style="white-space: nowrap;">Lưu nguồn</button>
                             </div>
                         </div>
                         <div class="form-row">
@@ -1189,7 +1606,8 @@
                             <span>Danh sách loại thu chi và nguồn</span>
                         </h4>
                         <div class="category-list-actions">
-                            <button class="btn-outline-danger btn-sm" id="btnDeleteSelectedCategories" style="display: none;">
+                            <button class="btn-outline-danger btn-sm" id="btnDeleteSelectedCategories"
+                                style="display: none;">
                                 <i data-lucide="trash-2"></i> Xóa đã chọn (<span id="selectedCategoryCount">0</span>)
                             </button>
                         </div>
@@ -1250,8 +1668,8 @@
                         <div class="form-row">
                             <div class="form-group k-group" style="flex: 1;">
                                 <label>Mã nguồn <span class="text-danger">*</span></label>
-                                <input type="text" id="newSourceCode" class="form-control"
-                                    placeholder="VD: BH, DV..." maxlength="10" style="text-transform: uppercase;" />
+                                <input type="text" id="newSourceCode" class="form-control" placeholder="VD: BH, DV..."
+                                    maxlength="10" style="text-transform: uppercase;" />
                             </div>
                             <div class="form-group k-group" style="flex: 2;">
                                 <label>Tên nguồn <span class="text-danger">*</span></label>
@@ -1275,7 +1693,8 @@
                             <span>Danh sách nguồn</span>
                         </h4>
                         <div class="category-list-actions">
-                            <button class="btn-outline-danger btn-sm" id="btnDeleteSelectedSources" style="display: none;">
+                            <button class="btn-outline-danger btn-sm" id="btnDeleteSelectedSources"
+                                style="display: none;">
                                 <i data-lucide="trash-2"></i> Xóa đã chọn (<span id="selectedSourceCount">0</span>)
                             </button>
                         </div>
@@ -1298,12 +1717,262 @@
         </div>
     </div>
 
+    <!-- ==================== MODAL: THÊM CA LÀM VIỆC ==================== -->
+    <div class="modal" id="shiftModal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content k-modal">
+            <div class="modal-header k-modal-header">
+                <h3>Thêm ca làm việc</h3>
+                <button class="btn-icon">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body">
+                <div class="form-group k-group">
+                    <label>Tên ca <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" placeholder="VD: Ca sáng">
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Giờ làm việc</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="time" class="form-control" value="08:00">
+                            <span>đến</span>
+                            <input type="time" class="form-control" value="12:00">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Giờ cho phép chấm công</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="time" class="form-control" value="07:30">
+                            <span>đến</span>
+                            <input type="time" class="form-control" value="12:30">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group k-group">
+                    <label>Phạm vi áp dụng</label>
+                    <select class="form-control">
+                        <option>Toàn hệ thống</option>
+                        <option>Chi nhánh trung tâm</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline">Bỏ qua</button>
+                <button class="btn-primary" style="background: #52c41a; border-color: #52c41a;">
+                    <i data-lucide="save"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: CHẤM CÔNG THỦ CÔNG ==================== -->
+    <div class="modal" id="attendanceModal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content k-modal">
+            <div class="modal-header k-modal-header">
+                <h3>Chấm công</h3>
+                <button class="btn-icon">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body">
+                <div class="form-group k-group">
+                    <label>Nhân viên</label>
+                    <input type="text" class="form-control" value="Nguyễn Văn A" disabled>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Ngày</label>
+                        <input type="date" class="form-control" value="2026-03-01" disabled>
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Ca</label>
+                        <input type="text" class="form-control" value="Ca sáng" disabled>
+                    </div>
+                </div>
+                <div class="form-group k-group">
+                    <label>Loại chấm công <span class="text-danger">*</span></label>
+                    <select class="form-control">
+                        <option>Đi làm</option>
+                        <option>Đi muộn</option>
+                        <option>Về sớm</option>
+                        <option>Làm thêm</option>
+                        <option>Nghỉ</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group k-group">
+                        <label>Giờ vào</label>
+                        <input type="time" class="form-control">
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Giờ ra</label>
+                        <input type="time" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group k-group">
+                    <label>Ghi chú</label>
+                    <textarea class="form-control" rows="2" placeholder="Lý do đi muộn, về sớm..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" style="color: #f5222d; border-color: #f5222d;">
+                    <i data-lucide="trash-2"></i> Xóa
+                </button>
+                <div style="flex: 1;"></div>
+                <button class="btn-primary" style="background: #1890ff; border-color: #1890ff;">
+                    <i data-lucide="save"></i> Cập nhật
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: DUYỆT CHẤM CÔNG ==================== -->
+    <div class="modal" id="approvalModal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content k-modal" style="width: 800px; max-width: 90vw;">
+            <div class="modal-header k-modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <h3 style="font-size: 18px; font-weight: 600;">Yêu cầu chờ duyệt</h3>
+                <button class="btn-icon" onclick="document.getElementById('approvalModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="approval-tabs" style="padding: 0 24px; border-bottom: 1px solid #e2e8f0; margin-top: 10px;">
+                <div class="approval-tab">Nhân viên</div>
+                <div class="approval-tab active">Chấm công</div>
+            </div>
+
+            <div class="modal-body k-modal-body" style="padding: 0; display: flex; height: 400px;">
+                <!-- Sidebar -->
+                <div
+                    style="width: 240px; border-right: 1px solid #e2e8f0; padding: 20px 16px; background: #fafafa; overflow-y: auto;">
+                    <div class="form-group k-group">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Trạng thái
+                            yêu cầu</label>
+                        <label class="filter-radio-label"
+                            style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <input type="radio" name="apprStatus" checked>
+                            <span class="filter-radio-custom"></span>
+                            <span class="filter-radio-text">Chưa duyệt</span>
+                        </label>
+                        <label class="filter-radio-label" style="display: flex; align-items: center;">
+                            <input type="radio" name="apprStatus">
+                            <span class="filter-radio-custom"></span>
+                            <span class="filter-radio-text">Đã duyệt</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group k-group" style="margin-top: 20px;">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Nhân
+                            viên</label>
+                        <input type="text" class="form-control" placeholder="Tìm kiếm nhân viên"
+                            style="font-size: 13px;">
+                    </div>
+
+                    <div class="form-group k-group" style="margin-top: 20px;">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Thời
+                            gian</label>
+                        <label class="filter-radio-label"
+                            style="display: flex; align-items: center; margin-bottom: 8px; width: 100%;">
+                            <input type="radio" name="apprTime" checked>
+                            <span class="filter-radio-custom" style="margin-right: 8px;"></span>
+                            <div
+                                style="flex:1; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d9d9d9; border-radius: 4px; padding: 6px 10px; background: #fff;">
+                                <span style="font-size: 13px;">Toàn thời gian</span>
+                                <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
+                            </div>
+                        </label>
+                        <label class="filter-radio-label" style="display: flex; align-items: center; width: 100%;">
+                            <input type="radio" name="apprTime">
+                            <span class="filter-radio-custom" style="margin-right: 8px;"></span>
+                            <div
+                                style="flex:1; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d9d9d9; border-radius: 4px; padding: 6px 10px; background: #fff;">
+                                <span style="font-size: 13px;">Lựa chọn khác</span>
+                                <i data-lucide="calendar" style="width: 14px; height: 14px;"></i>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-group k-group" style="margin-top: 20px;">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Chi
+                            nhánh</label>
+                        <input type="text" class="form-control" placeholder="Chọn chi nhánh" style="font-size: 13px;">
+                    </div>
+                </div>
+
+                <!-- Main Table -->
+                <div style="flex: 1; padding: 16px; display: flex; flex-direction: column; overflow: hidden;">
+                    <table class="cashbook-table timesheet-table"
+                        style="width: 100%; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox"></th>
+                                <th style="text-align: left; padding: 12px 10px;">Thời gian</th>
+                                <th style="text-align: left; padding: 12px 10px;">Tên nhân viên</th>
+                                <th style="text-align: left; padding: 12px 10px;">Nội dung</th>
+                                <th style="text-align: right; padding: 12px 10px;">Xác nhận</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5"
+                                    style="text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 14px; background: #fff;">
+                                    Không có kết quả phù hợp
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer"
+                style="padding: 12px 24px; background: #fff; border-top: 1px solid #e2e8f0; justify-content: flex-end;">
+                <button class="k-btn-outline" style="min-width: 80px;"
+                    onclick="document.getElementById('approvalModal').style.display='none'">Xong</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== SCRIPTS ==================== -->
     <script src="js/soquy-config.js"></script>
     <script src="js/soquy-database.js"></script>
     <script src="js/soquy-ui.js"></script>
     <script src="js/soquy-report.js"></script>
     <script src="js/soquy-main.js"></script>
+    <script>
+        // Employee views switching logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnTsSwitchView = document.getElementById('btnTsSwitchView');
+            const btnSchedSwitchView = document.getElementById('btnSchedSwitchView');
+            const navLinkTimesheet = document.getElementById('navLinkTimesheet');
+            const navLinkSchedule = document.getElementById('navLinkSchedule');
+            const viewTimesheet = document.getElementById('viewTimesheet');
+            const viewSchedule = document.getElementById('viewSchedule');
+
+            function showView(viewName) {
+                if (viewName === 'timesheet') {
+                    viewTimesheet.style.display = 'flex';
+                    viewSchedule.style.display = 'none';
+                    navLinkTimesheet.classList.add('active');
+                    navLinkSchedule.classList.remove('active');
+                } else if (viewName === 'schedule') {
+                    viewTimesheet.style.display = 'none';
+                    viewSchedule.style.display = 'flex';
+                    navLinkSchedule.classList.add('active');
+                    navLinkTimesheet.classList.remove('active');
+                }
+            }
+
+            if (btnTsSwitchView) btnTsSwitchView.addEventListener('click', () => showView('schedule'));
+            if (btnSchedSwitchView) btnSchedSwitchView.addEventListener('click', () => showView('timesheet'));
+            if (navLinkTimesheet) navLinkTimesheet.addEventListener('click', (e) => { e.preventDefault(); showView('timesheet'); });
+            if (navLinkSchedule) navLinkSchedule.addEventListener('click', (e) => { e.preventDefault(); showView('schedule'); });
+        });
+    </script>
 </body>
 
 </html>
