@@ -1,7 +1,4 @@
-' N2Store Attendance Sync - Chay an tren Windows
-' Double-click file nay de khoi dong service (khong hien cua so CMD)
-' Copy shortcut vao shell:startup de tu khoi dong cung Windows
-
+' N2Store Attendance Sync - Run hidden
 Set WshShell = CreateObject("WScript.Shell")
 strPath = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
 WshShell.CurrentDirectory = strPath
