@@ -116,10 +116,10 @@ const soquyMetaRef = db.collection('soquy_meta');
 
 // Column definitions for the table (all 18 data columns)
 const COLUMN_DEFINITIONS = [
-    { key: 'code', label: 'Mã phiếu', defaultVisible: true },
+    { key: 'code', label: 'Mã phiếu', defaultVisible: false },
     { key: 'voucherDateTime', label: 'Thời gian', defaultVisible: true },
     { key: 'createdAt', label: 'Thời gian tạo', defaultVisible: false },
-    { key: 'createdBy', label: 'Người tạo', defaultVisible: false },
+    { key: 'createdBy', label: 'Người tạo', defaultVisible: true },
     { key: 'collector', label: 'Nhân viên', defaultVisible: false },
     { key: 'branch', label: 'Chi nhánh', defaultVisible: false },
     { key: 'source', label: 'Nguồn', defaultVisible: true },
@@ -127,12 +127,12 @@ const COLUMN_DEFINITIONS = [
     { key: 'accountName', label: 'Tên tài khoản', defaultVisible: false },
     { key: 'accountNumber', label: 'Số tài khoản', defaultVisible: false },
     { key: 'personCode', label: 'Mã người nộp/nhận', defaultVisible: false },
-    { key: 'personName', label: 'Người nộp/nhận', defaultVisible: true },
+    { key: 'personName', label: 'Người nộp/nhận', defaultVisible: false },
     { key: 'phone', label: 'Số điện thoại', defaultVisible: false },
     { key: 'address', label: 'Địa chỉ', defaultVisible: false },
     { key: 'amount', label: 'Giá trị', defaultVisible: true },
     { key: 'transferContent', label: 'Nội dung chuyển khoản', defaultVisible: false },
-    { key: 'note', label: 'Ghi chú', defaultVisible: false },
+    { key: 'note', label: 'Ghi chú', defaultVisible: true },
     { key: 'fundType', label: 'Loại sổ quỹ', defaultVisible: false },
     { key: 'status', label: 'Trạng thái', defaultVisible: false }
 ];
