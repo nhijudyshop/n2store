@@ -89,12 +89,25 @@ router.get('/:customerId', async (req, res) => {
             ORDER BY expires_at ASC
         `, [phone]);
 
+        // Get last deposit transaction (for payment note generation)
+        const lastDepositResult = await db.query(`
+            SELECT amount, created_at
+            FROM wallet_transactions
+            WHERE phone = $1 AND type = 'DEPOSIT'
+            ORDER BY created_at DESC
+            LIMIT 1
+        `, [phone]);
+
+        const lastDeposit = lastDepositResult.rows[0] || null;
+
         res.json({
             success: true,
             data: {
                 ...wallet,
                 total: parseFloat(wallet.balance) + parseFloat(wallet.virtual_balance),
-                virtualCredits: creditsResult.rows
+                virtualCredits: creditsResult.rows,
+                lastDepositAmount: lastDeposit ? parseFloat(lastDeposit.amount) : null,
+                lastDepositDate: lastDeposit ? lastDeposit.created_at : null
             }
         });
     } catch (error) {
@@ -321,13 +334,14 @@ router.post('/batch-summary', async (req, res) => {
 
     try {
         let result;
+        let phonesForDeposit;
         if (phones && phones.length > 0) {
-            const normalizedPhones = phones.map(normalizePhone).filter(Boolean);
+            phonesForDeposit = phones.map(normalizePhone).filter(Boolean);
             result = await db.query(`
                 SELECT phone, balance, virtual_balance, (balance + virtual_balance) as total
                 FROM customer_wallets
                 WHERE phone = ANY($1)
-            `, [normalizedPhones]);
+            `, [phonesForDeposit]);
         } else {
             result = await db.query(`
                 SELECT w.phone, w.balance, w.virtual_balance, (w.balance + w.virtual_balance) as total
@@ -335,6 +349,7 @@ router.post('/batch-summary', async (req, res) => {
                 JOIN customers c ON w.customer_id = c.id
                 WHERE c.id = ANY($1)
             `, [customer_ids.map(id => parseInt(id))]);
+            phonesForDeposit = result.rows.map(r => r.phone);
         }
 
         const walletMap = {};
@@ -345,6 +360,23 @@ router.post('/batch-summary', async (req, res) => {
                 total: parseFloat(row.total)
             };
         });
+
+        // Fetch last deposit transaction for each phone (for payment note generation)
+        if (phonesForDeposit.length > 0) {
+            const depositResult = await db.query(`
+                SELECT DISTINCT ON (phone) phone, amount, created_at
+                FROM wallet_transactions
+                WHERE phone = ANY($1) AND type = 'DEPOSIT'
+                ORDER BY phone, created_at DESC
+            `, [phonesForDeposit]);
+
+            depositResult.rows.forEach(row => {
+                if (walletMap[row.phone]) {
+                    walletMap[row.phone].lastDepositAmount = parseFloat(row.amount);
+                    walletMap[row.phone].lastDepositDate = row.created_at;
+                }
+            });
+        }
 
         res.json({ success: true, data: walletMap });
     } catch (error) {
