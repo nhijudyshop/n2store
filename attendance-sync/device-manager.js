@@ -27,16 +27,20 @@ class DeviceManager {
         this.device = new ZKLib(ip, port, timeout, inport);
 
         try {
+            console.log(`[Device] Đang kết nối ${ip}:${port}...`);
             await this.device.createSocket();
             this.connected = true;
             // Đợi máy CC ổn định sau kết nối
-            await this._sleep(500);
+            await this._sleep(1000);
             console.log(`[Device] Đã kết nối ${ip}:${port}`);
             return true;
         } catch (err) {
             this.connected = false;
             this.device = null;
-            throw new Error(`Không thể kết nối máy chấm công (${ip}:${port}): ${err.message}`);
+            // Log full error object để debug
+            console.error('[Device] Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err || {})));
+            const msg = (err && (err.message || err.code || err.err)) || JSON.stringify(err) || 'unknown';
+            throw new Error(`Không thể kết nối máy chấm công (${ip}:${port}): ${msg}`);
         }
     }
 
