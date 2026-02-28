@@ -198,6 +198,19 @@
 
             console.log('[HELD-CONFIRM] ✓ Order updated on backend');
 
+            // Invalidate order details cache so modal loads fresh data on reopen
+            if (typeof window.invalidateOrderDetailsCache === 'function') {
+                window.invalidateOrderDetailsCache(window.currentChatOrderData.Id);
+            }
+
+            // Update the order table row (quantity column & total)
+            if (typeof updateOrderInTable === 'function') {
+                updateOrderInTable(window.currentChatOrderData.Id, {
+                    TotalQuantity: totalQuantity,
+                    TotalAmount: totalAmount
+                });
+            }
+
             // STEP 5: Remove from Firebase held_products
             if (typeof window.removeHeldProduct === 'function') {
                 await window.removeHeldProduct(normalizedProductId);
@@ -456,6 +469,11 @@
 
             console.log('[UPDATE-NOTE] ✓ Order note updated successfully');
 
+            // Invalidate order details cache so modal loads fresh data on reopen
+            if (typeof window.invalidateOrderDetailsCache === 'function') {
+                window.invalidateOrderDetailsCache(orderId);
+            }
+
             // Show success notification
             if (window.notificationManager) {
                 window.notificationManager.show("✓ Ghi chú đã lưu", "success", 1500);
@@ -593,6 +611,19 @@
             );
 
             console.log('[DECREASE-BY-ID] ✓ Order updated successfully');
+
+            // Invalidate order details cache so modal loads fresh data on reopen
+            if (typeof window.invalidateOrderDetailsCache === 'function') {
+                window.invalidateOrderDetailsCache(orderId);
+            }
+
+            // Update the order table row (quantity column & total)
+            if (typeof updateOrderInTable === 'function') {
+                updateOrderInTable(orderId, {
+                    TotalQuantity: totalQuantity,
+                    TotalAmount: totalAmount
+                });
+            }
 
             // Sync arrays
             if (typeof window.setChatOrderDetails === 'function') {

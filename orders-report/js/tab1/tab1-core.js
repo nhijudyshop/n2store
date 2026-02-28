@@ -439,6 +439,21 @@ function saveOrderDetailsToCache(orderId, data) {
     }
 }
 
+/**
+ * Invalidate (delete) order details from cache
+ * Call this after modifying order products so the modal loads fresh data on reopen
+ * @param {string} orderId - Order ID to invalidate
+ */
+function invalidateOrderDetailsCache(orderId) {
+    if (orderDetailsCache.has(orderId)) {
+        orderDetailsCache.delete(orderId);
+        console.log(`[CACHE] 🗑️ Invalidated order details cache for ${orderId}`);
+    }
+}
+
+// Expose cache functions globally for external modules
+window.invalidateOrderDetailsCache = invalidateOrderDetailsCache;
+
 // Purchase Comment Highlight State
 window.purchaseCommentId = null; // Store the Facebook_CommentId from the order to highlight in comment modal
 window.purchaseFacebookPostId = null; // Store Facebook_PostId
