@@ -297,9 +297,6 @@ const SoquyUI = (function () {
         // Reset form
         resetReceiptForm();
 
-        // Populate source dropdown
-        populateSourceSelect(document.getElementById('receiptSource'));
-
         // Set current date time
         const now = new Date();
         const dateStr = formatDateTimeForInput(now);
@@ -319,8 +316,6 @@ const SoquyUI = (function () {
         if (els.receiptAmount) els.receiptAmount.value = '0';
         if (els.receiptNote) els.receiptNote.value = '';
         if (els.receiptBusinessAccounting) els.receiptBusinessAccounting.checked = true;
-        const receiptSource = document.getElementById('receiptSource');
-        if (receiptSource) receiptSource.selectedIndex = 0;
     }
 
     function closeReceiptModal() {
@@ -335,15 +330,12 @@ const SoquyUI = (function () {
                 return;
             }
 
-            const receiptSourceEl = document.getElementById('receiptSource');
-            const selectedSourceCode = receiptSourceEl?.value || '';
-
-            if (!selectedSourceCode) {
-                showNotification('Vui lòng chọn nguồn', 'error');
-                return;
-            }
-
             showLoadingOverlay(true);
+
+            // Derive sourceCode from selected category option
+            const catEl = els.receiptCategory;
+            const selectedOpt = catEl?.options[catEl.selectedIndex];
+            const sourceCode = selectedOpt?.dataset?.source || '';
 
             const voucherData = {
                 type: config.VOUCHER_TYPES.RECEIPT,
@@ -353,19 +345,13 @@ const SoquyUI = (function () {
                 personName: els.receiptPayerName?.value || '',
                 amount: amount,
                 note: els.receiptNote?.value || '',
-                sourceCode: selectedSourceCode,
-                source: selectedSourceCode, // backward compat
+                sourceCode: sourceCode,
+                source: sourceCode, // backward compat
                 businessAccounting: els.receiptBusinessAccounting?.checked !== false,
                 dateTime: els.receiptDateTime?.value || ''
             };
 
             await db.createVoucher(voucherData);
-
-            // Auto-add category if new
-            if (voucherData.category) {
-                await db.autoAddCategory(voucherData.category, config.VOUCHER_TYPES.RECEIPT);
-                populateCategoryDropdowns();
-            }
 
             closeReceiptModal();
             showNotification('Tạo phiếu thu thành công!', 'success');
@@ -389,11 +375,6 @@ const SoquyUI = (function () {
 
         resetPaymentForm();
         populatePaymentCategoryDropdown(state.paymentSubType);
-        populateSourceSelect(document.getElementById('paymentSource'));
-
-        // Show/hide source row: only show for KD (business), hide for CN (personal)
-        const sourceRow = document.getElementById('paymentSourceRow');
-        if (sourceRow) sourceRow.style.display = subType === 'kd' ? '' : 'none';
 
         const now = new Date();
         const dateStr = formatDateTimeForInput(now);
@@ -426,8 +407,6 @@ const SoquyUI = (function () {
         if (els.paymentAmount) els.paymentAmount.value = '0';
         if (els.paymentNote) els.paymentNote.value = '';
         if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = true;
-        const paymentSource = document.getElementById('paymentSource');
-        if (paymentSource) paymentSource.selectedIndex = 0;
     }
 
     function closePaymentModal() {
@@ -446,16 +425,12 @@ const SoquyUI = (function () {
                 ? config.VOUCHER_TYPES.PAYMENT_KD
                 : config.VOUCHER_TYPES.PAYMENT_CN;
 
-            const isKD = state.paymentSubType === 'kd';
-            const paymentSourceEl = document.getElementById('paymentSource');
-            const selectedSourceCode = isKD ? (paymentSourceEl?.value || '') : '';
-
-            if (isKD && !selectedSourceCode) {
-                showNotification('Vui lòng chọn nguồn', 'error');
-                return;
-            }
-
             showLoadingOverlay(true);
+
+            // Derive sourceCode from selected category option
+            const catEl = els.paymentCategory;
+            const selectedOpt = catEl?.options[catEl.selectedIndex];
+            const sourceCode = selectedOpt?.dataset?.source || '';
 
             const voucherData = {
                 type: paymentType,
@@ -465,16 +440,16 @@ const SoquyUI = (function () {
                 personName: els.paymentReceiverName?.value || '',
                 amount: amount,
                 note: els.paymentNote?.value || '',
-                sourceCode: selectedSourceCode,
-                source: selectedSourceCode, // backward compat
+                sourceCode: sourceCode,
+                source: sourceCode, // backward compat
                 dateTime: els.paymentDateTime?.value || ''
             };
 
             await db.createVoucher(voucherData);
 
-            // Auto-add category if new
+            // Auto-add category if new (with sourceCode for KD types)
             if (voucherData.category) {
-                await db.autoAddCategory(voucherData.category, paymentType);
+                await db.autoAddCategory(voucherData.category, paymentType, sourceCode);
                 populateCategoryDropdowns();
             }
 
@@ -638,8 +613,6 @@ const SoquyUI = (function () {
             if (els.receiptAmount) els.receiptAmount.value = db.formatCurrency(voucher.amount);
             if (els.receiptNote) els.receiptNote.value = voucher.note || '';
             if (els.receiptBusinessAccounting) els.receiptBusinessAccounting.checked = voucher.businessAccounting;
-            const receiptSrcEl = document.getElementById('receiptSource');
-            if (receiptSrcEl) setSelectValue(receiptSrcEl, voucher.sourceCode || voucher.source || '');
 
             // Switch save button to update mode
             state.editingVoucherId = voucherId;
@@ -655,8 +628,6 @@ const SoquyUI = (function () {
             if (els.paymentAmount) els.paymentAmount.value = db.formatCurrency(voucher.amount);
             if (els.paymentNote) els.paymentNote.value = voucher.note || '';
             if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = voucher.businessAccounting;
-            const paymentSrcEl = document.getElementById('paymentSource');
-            if (paymentSrcEl) setSelectValue(paymentSrcEl, voucher.sourceCode || voucher.source || '');
 
             // Update title for edit mode with badge (Nhóm 5)
             const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
@@ -679,8 +650,9 @@ const SoquyUI = (function () {
             const isReceipt = voucherType === config.VOUCHER_TYPES.RECEIPT;
 
             const isCN = !isReceipt && state.paymentSubType === 'cn';
-            const srcEl = isReceipt ? document.getElementById('receiptSource') : document.getElementById('paymentSource');
-            const selectedSrcCode = isCN ? '' : (srcEl?.value || '');
+            const catEl = isReceipt ? els.receiptCategory : els.paymentCategory;
+            const selectedOpt = catEl?.options[catEl.selectedIndex];
+            const selectedSrcCode = isCN ? '' : (selectedOpt?.dataset?.source || '');
             const updateData = {
                 category: isReceipt ? els.receiptCategory?.value : els.paymentCategory?.value,
                 collector: isReceipt ? els.receiptCollector?.value : els.paymentCollector?.value,
@@ -1256,21 +1228,47 @@ const SoquyUI = (function () {
     // POPULATE DROPDOWNS
     // =====================================================
 
+    /**
+     * Returns array of {name, displayName, sourceCode} for a voucher type.
+     * Predefined categories have no source; dynamic ones may have sourceCode.
+     */
     function getCategoriesForType(voucherType) {
         const predefined = db.getCategoryPredefined(voucherType);
         const dynamic = db.getCategoryDynamicList(voucherType);
         const removedKey = db.getRemovedStateKey(voucherType);
         const removed = state[removedKey] || [];
+        const sourceLinked = db.isSourceLinkedType(voucherType);
 
-        const cats = predefined.filter(
-            c => !removed.some(r => String(r).toLowerCase() === String(c).toLowerCase())
-        );
-        dynamic.forEach(cat => {
-            if (!cats.some(c => c.toLowerCase() === cat.toLowerCase())) {
-                cats.push(cat);
-            }
+        const result = [];
+        const addedNames = new Set();
+
+        // Predefined (strings, no source)
+        predefined.forEach(c => {
+            const name = String(c);
+            if (removed.some(r => String(r).toLowerCase() === name.toLowerCase())) return;
+            if (addedNames.has(name.toLowerCase())) return;
+            addedNames.add(name.toLowerCase());
+            result.push({ name, displayName: name, sourceCode: '' });
         });
-        return cats;
+
+        // Dynamic
+        dynamic.forEach(cat => {
+            const catName = db.getCategoryName(cat);
+            const catSource = sourceLinked ? db.getCategorySourceCode(cat) : '';
+            if (addedNames.has(catName.toLowerCase())) return;
+            addedNames.add(catName.toLowerCase());
+            const displayName = catSource ? `${catSource} ${catName}` : catName;
+            result.push({ name: catName, displayName, sourceCode: catSource });
+        });
+
+        return result;
+    }
+
+    /**
+     * Build <option> HTML for a category item with data-source attribute
+     */
+    function buildCategoryOption(catObj) {
+        return `<option value="${escapeHtml(catObj.name)}" data-source="${escapeHtml(catObj.sourceCode || '')}">${escapeHtml(catObj.displayName)}</option>`;
     }
 
     function populatePaymentCategoryDropdown(subType) {
@@ -1281,9 +1279,7 @@ const SoquyUI = (function () {
         const label = subType === 'kd' ? 'Chọn loại chi KD' : 'Chọn loại chi CN';
         if (els.paymentCategory) {
             els.paymentCategory.innerHTML = `<option value="">${label}</option>` +
-                allPaymentCats.map(cat =>
-                    `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
-                ).join('');
+                allPaymentCats.map(cat => buildCategoryOption(cat)).join('');
         }
     }
 
@@ -1292,9 +1288,7 @@ const SoquyUI = (function () {
         const allReceiptCats = getCategoriesForType(config.VOUCHER_TYPES.RECEIPT);
         if (els.receiptCategory) {
             els.receiptCategory.innerHTML = '<option value="">Chọn loại thu</option>' +
-                allReceiptCats.map(cat =>
-                    `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`
-                ).join('');
+                allReceiptCats.map(cat => buildCategoryOption(cat)).join('');
         }
 
         // Payment category - populate based on current subType
@@ -1465,11 +1459,87 @@ const SoquyUI = (function () {
         if (nameInput) nameInput.value = '';
         if (descInput) descInput.value = '';
 
+        // Populate source dropdown and toggle visibility
+        populateCategorySourceDropdown();
+        toggleCategorySourceRow(type || 'receipt');
+
+        // Hide inline source creation
+        const inlineCreate = document.getElementById('inlineSourceCreate');
+        if (inlineCreate) inlineCreate.style.display = 'none';
+
         // Render list
         renderCategoryList();
 
         modal.style.display = 'flex';
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    /**
+     * Populate source dropdown in category management modal
+     */
+    function populateCategorySourceDropdown() {
+        const select = document.getElementById('newCategorySource');
+        if (!select) return;
+
+        const sources = state.dynamicSources || [];
+        select.innerHTML = '<option value="">-- Chọn nguồn --</option>' +
+            sources.map(s => `<option value="${escapeHtml(s.code)}">${escapeHtml(s.code)} ${escapeHtml(s.name)}</option>`).join('');
+    }
+
+    /**
+     * Toggle source row visibility based on category type (hide for CN)
+     */
+    function toggleCategorySourceRow(type) {
+        const sourceRow = document.getElementById('categorySourceRow');
+        const inlineCreate = document.getElementById('inlineSourceCreate');
+        if (sourceRow) {
+            sourceRow.style.display = (type === 'payment_cn') ? 'none' : 'flex';
+        }
+        if (inlineCreate && type === 'payment_cn') {
+            inlineCreate.style.display = 'none';
+        }
+    }
+
+    /**
+     * Handle inline source creation in category modal
+     */
+    function toggleInlineSourceCreate() {
+        const el = document.getElementById('inlineSourceCreate');
+        if (!el) return;
+        el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+        if (el.style.display === 'flex') {
+            const codeInput = document.getElementById('inlineSourceCode');
+            if (codeInput) codeInput.focus();
+        }
+    }
+
+    async function saveInlineSource() {
+        const codeInput = document.getElementById('inlineSourceCode');
+        const nameInput = document.getElementById('inlineSourceName');
+        const code = (codeInput?.value || '').trim().toUpperCase();
+        const name = (nameInput?.value || '').trim();
+
+        if (!code || !name) {
+            showNotification('Vui lòng nhập mã nguồn và tên nguồn', 'error');
+            return;
+        }
+
+        try {
+            await db.addSource({ code, name });
+            populateCategorySourceDropdown();
+            // Auto-select the new source
+            const select = document.getElementById('newCategorySource');
+            if (select) select.value = code;
+            // Hide inline form
+            const el = document.getElementById('inlineSourceCreate');
+            if (el) el.style.display = 'none';
+            if (codeInput) codeInput.value = '';
+            if (nameInput) nameInput.value = '';
+            showNotification(`Đã tạo nguồn: ${code} ${name}`, 'success');
+        } catch (error) {
+            console.error('[SoquyUI] Error saving inline source:', error);
+            showNotification('Lỗi khi tạo nguồn', 'error');
+        }
     }
 
     function closeCategoryModal() {
@@ -1513,17 +1583,24 @@ const SoquyUI = (function () {
         });
 
         dynamic.forEach(cat => {
+            const catName = db.getCategoryName(cat);
+            const catSource = db.getCategorySourceCode(cat);
+            const displayName = catSource ? `${catSource} ${catName}` : catName;
+            const sourceBadge = catSource
+                ? `<span class="category-item-badge category-item-badge--source">${escapeHtml(catSource)}</span>`
+                : '';
             html += `
-                <div class="category-item" data-category="${escapeHtml(cat)}" data-source="dynamic">
+                <div class="category-item" data-category="${escapeHtml(catName)}" data-source="dynamic">
                     <label class="category-check-label">
-                        <input type="checkbox" class="category-item-checkbox" value="${escapeHtml(cat)}" data-source="dynamic">
+                        <input type="checkbox" class="category-item-checkbox" value="${escapeHtml(catName)}" data-source="dynamic">
                         <span class="category-check-custom"></span>
                     </label>
                     <div class="category-item-info">
-                        <div class="category-item-name">${escapeHtml(cat)}</div>
+                        <div class="category-item-name">${escapeHtml(displayName)}</div>
                     </div>
+                    ${sourceBadge}
                     <span class="category-item-badge category-item-badge--dynamic">Tùy chỉnh</span>
-                    <button class="category-item-delete" data-category="${escapeHtml(cat)}" data-source="dynamic" title="Xóa">
+                    <button class="category-item-delete" data-category="${escapeHtml(catName)}" data-source="dynamic" title="Xóa">
                         <i data-lucide="trash-2"></i>
                     </button>
                 </div>`;
@@ -1581,9 +1658,11 @@ const SoquyUI = (function () {
     async function saveNewCategory() {
         const nameInput = document.getElementById('newCategoryName');
         const typeSelect = document.getElementById('newCategoryType');
+        const sourceSelect = document.getElementById('newCategorySource');
 
         const name = (nameInput?.value || '').trim();
         const type = typeSelect?.value || 'receipt';
+        const sourceCode = (sourceSelect?.value || '').trim();
 
         if (!name) {
             showNotification('Vui lòng nhập tên loại thu chi', 'error');
@@ -1592,28 +1671,41 @@ const SoquyUI = (function () {
         }
 
         const voucherType = categoryTabToVoucherType(type);
+        const needsSource = db.isSourceLinkedType(voucherType);
+
+        // Require source for receipt & KD types
+        if (needsSource && !sourceCode) {
+            showNotification('Vui lòng chọn nguồn cho loại thu chi này', 'error');
+            if (sourceSelect) sourceSelect.focus();
+            return;
+        }
 
         // Check if already exists
         const predefined = db.getCategoryPredefined(voucherType);
         const dynamic = db.getCategoryDynamicList(voucherType);
-        const allCats = [...predefined, ...dynamic];
+        const allNames = [
+            ...predefined.map(c => String(c).toLowerCase()),
+            ...dynamic.map(c => db.getCategoryName(c).toLowerCase())
+        ];
 
-        if (allCats.some(c => String(c).toLowerCase() === name.toLowerCase())) {
+        if (allNames.includes(name.toLowerCase())) {
             showNotification('Loại thu chi này đã tồn tại', 'error');
             return;
         }
 
         const typeLabels = { receipt: 'thu', payment_cn: 'chi CN', payment_kd: 'chi KD' };
+        const displayName = needsSource && sourceCode ? `${sourceCode} ${name}` : name;
 
         try {
-            await db.autoAddCategory(name, voucherType);
+            await db.autoAddCategory(name, voucherType, needsSource ? sourceCode : '');
             populateCategoryDropdowns();
-            showNotification(`Đã tạo loại ${typeLabels[type] || 'chi'}: ${name}`, 'success');
+            showNotification(`Đã tạo loại ${typeLabels[type] || 'chi'}: ${displayName}`, 'success');
 
             // Clear form
             if (nameInput) nameInput.value = '';
             const descInput = document.getElementById('newCategoryDescription');
             if (descInput) descInput.value = '';
+            if (sourceSelect) sourceSelect.value = '';
 
             // Switch tab to show the new category
             _categoryModalTab = type;
@@ -1831,8 +1923,8 @@ const SoquyUI = (function () {
 
             // Re-render list and re-populate dropdowns
             renderSourceList();
-            populateSourceSelect(document.getElementById('receiptSource'));
-            populateSourceSelect(document.getElementById('paymentSource'));
+            populateCategorySourceDropdown();
+            populateCategoryDropdowns();
         } catch (error) {
             console.error('[SoquyUI] Error saving source:', error);
             showNotification('Lỗi khi tạo nguồn', 'error');
@@ -1847,8 +1939,8 @@ const SoquyUI = (function () {
             const srcObj = db.getSourceByCode(sourceCode);
             showNotification(`Đã xóa: ${sourceCode}${srcObj ? ' - ' + srcObj.name : ''}`, 'success');
             renderSourceList();
-            populateSourceSelect(document.getElementById('receiptSource'));
-            populateSourceSelect(document.getElementById('paymentSource'));
+            populateCategorySourceDropdown();
+            populateCategoryDropdowns();
         } catch (error) {
             console.error('[SoquyUI] Error deleting source:', error);
             showNotification('Lỗi khi xóa nguồn', 'error');
@@ -1866,8 +1958,8 @@ const SoquyUI = (function () {
             await db.deleteDynamicSources(toDelete);
             showNotification(`Đã xóa ${toDelete.length} nguồn`, 'success');
             renderSourceList();
-            populateSourceSelect(document.getElementById('receiptSource'));
-            populateSourceSelect(document.getElementById('paymentSource'));
+            populateCategorySourceDropdown();
+            populateCategoryDropdowns();
         } catch (error) {
             console.error('[SoquyUI] Error deleting sources:', error);
             showNotification('Lỗi khi xóa nguồn', 'error');
@@ -1946,6 +2038,9 @@ const SoquyUI = (function () {
         handleCategoryTabSwitch,
         handleSelectAllCategories,
         renderCategoryList,
+        toggleInlineSourceCreate,
+        saveInlineSource,
+        toggleCategorySourceRow,
         openSourceModal,
         closeSourceModal,
         saveNewSource,

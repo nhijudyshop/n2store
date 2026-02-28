@@ -851,19 +851,6 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group k-group w-100">
-                        <label>Nguồn</label>
-                        <div class="category-select-row">
-                            <select id="receiptSource" class="form-control">
-                                <option value="">Chọn nguồn</option>
-                            </select>
-                            <button type="button" class="btn-category-manage" id="btnManageReceiptSource" title="Quản lý nguồn">
-                                <i data-lucide="plus"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group k-group">
                         <label>Đối tượng nộp</label>
                         <select id="receiptObjectType" class="form-control">
@@ -954,19 +941,6 @@
                     <div class="form-group k-group">
                         <label>Người chi</label>
                         <input type="text" id="paymentCollector" class="form-control" placeholder="Nhập người chi" />
-                    </div>
-                </div>
-                <div class="form-row" id="paymentSourceRow">
-                    <div class="form-group k-group w-100">
-                        <label>Nguồn</label>
-                        <div class="category-select-row">
-                            <select id="paymentSource" class="form-control">
-                                <option value="">Chọn nguồn</option>
-                            </select>
-                            <button type="button" class="btn-category-manage" id="btnManagePaymentSource" title="Quản lý nguồn">
-                                <i data-lucide="plus"></i>
-                            </button>
-                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -1143,6 +1117,34 @@
                                     <option value="payment_cn">Loại chi CN</option>
                                     <option value="payment_kd">Loại chi KD</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div class="form-row" id="categorySourceRow">
+                            <div class="form-group k-group w-100">
+                                <label>Nguồn <span class="text-danger">*</span></label>
+                                <div class="category-select-row">
+                                    <select id="newCategorySource" class="form-control">
+                                        <option value="">-- Chọn nguồn --</option>
+                                    </select>
+                                    <button type="button" class="btn-category-manage" id="btnCreateSourceInline" title="Tạo nguồn mới">
+                                        <i data-lucide="plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row" id="inlineSourceCreate" style="display: none;">
+                            <div class="form-group k-group" style="flex: 1;">
+                                <label>Mã nguồn</label>
+                                <input type="text" id="inlineSourceCode" class="form-control"
+                                    placeholder="VD: BH" maxlength="10" style="text-transform: uppercase;" />
+                            </div>
+                            <div class="form-group k-group" style="flex: 2;">
+                                <label>Tên nguồn</label>
+                                <input type="text" id="inlineSourceName" class="form-control"
+                                    placeholder="VD: Bán hàng" />
+                            </div>
+                            <div class="form-group k-group" style="flex: 0; align-self: flex-end;">
+                                <button type="button" class="btn-primary btn-sm" id="btnSaveInlineSource" style="white-space: nowrap;">Lưu nguồn</button>
                             </div>
                         </div>
                         <div class="form-row">

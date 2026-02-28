@@ -143,8 +143,6 @@ document.addEventListener('DOMContentLoaded', () => {
         els.selectAllCategories = document.getElementById('selectAllCategories');
 
         // Source management modal
-        els.btnManageReceiptSource = document.getElementById('btnManageReceiptSource');
-        els.btnManagePaymentSource = document.getElementById('btnManagePaymentSource');
         els.sourceModal = document.getElementById('soquySourceModal');
         els.sourceOverlay = document.getElementById('soquySourceOverlay');
         els.btnCloseSource = document.getElementById('btnSoquyCloseSource');
@@ -501,13 +499,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Category type change → toggle source row
+        const newCategoryType = document.getElementById('newCategoryType');
+        if (newCategoryType) {
+            newCategoryType.addEventListener('change', (e) => {
+                ui.toggleCategorySourceRow(e.target.value);
+            });
+        }
+
+        // Inline source creation in category modal
+        const btnCreateSourceInline = document.getElementById('btnCreateSourceInline');
+        if (btnCreateSourceInline) {
+            btnCreateSourceInline.addEventListener('click', () => ui.toggleInlineSourceCreate());
+        }
+        const btnSaveInlineSource = document.getElementById('btnSaveInlineSource');
+        if (btnSaveInlineSource) {
+            btnSaveInlineSource.addEventListener('click', () => ui.saveInlineSource());
+        }
+
         // Source management modal events
-        if (els.btnManageReceiptSource) {
-            els.btnManageReceiptSource.addEventListener('click', () => ui.openSourceModal());
-        }
-        if (els.btnManagePaymentSource) {
-            els.btnManagePaymentSource.addEventListener('click', () => ui.openSourceModal());
-        }
         if (els.btnCloseSource) {
             els.btnCloseSource.addEventListener('click', () => ui.closeSourceModal());
         }
