@@ -569,10 +569,11 @@
                             <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
                         </div>
                         <div class="filter-section-body">
-                            <div class="filter-search-wrapper">
+                            <div class="filter-search-wrapper filter-searchable-dropdown">
                                 <i data-lucide="search" class="filter-search-icon"></i>
                                 <input type="text" id="reportFilterCategory" class="filter-input filter-input-search"
-                                    placeholder="Tìm loại thu chi">
+                                    placeholder="Tìm loại thu chi" autocomplete="off">
+                                <div class="filter-dropdown-list" id="reportFilterCategoryDropdown"></div>
                             </div>
                         </div>
                     </div>
@@ -587,10 +588,30 @@
                             <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
                         </div>
                         <div class="filter-section-body">
-                            <div class="filter-search-wrapper">
+                            <div class="filter-search-wrapper filter-searchable-dropdown">
                                 <i data-lucide="search" class="filter-search-icon"></i>
                                 <input type="text" id="reportFilterSource" class="filter-input filter-input-search"
-                                    placeholder="Tìm nguồn">
+                                    placeholder="Tìm nguồn" autocomplete="off">
+                                <div class="filter-dropdown-list" id="reportFilterSourceDropdown"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Creator Filter for Report -->
+                    <div class="filter-section">
+                        <div class="filter-section-header">
+                            <div class="filter-section-title">
+                                <i data-lucide="user"></i>
+                                <span>Người tạo</span>
+                            </div>
+                            <i data-lucide="chevron-down" class="filter-toggle-icon"></i>
+                        </div>
+                        <div class="filter-section-body">
+                            <div class="filter-search-wrapper filter-searchable-dropdown">
+                                <i data-lucide="search" class="filter-search-icon"></i>
+                                <input type="text" id="reportFilterCreator" class="filter-input filter-input-search"
+                                    placeholder="Tìm người tạo" autocomplete="off">
+                                <div class="filter-dropdown-list" id="reportFilterCreatorDropdown"></div>
                             </div>
                         </div>
                     </div>

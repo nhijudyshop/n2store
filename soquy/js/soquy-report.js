@@ -19,6 +19,7 @@ const SoquyReport = (function () {
         customEndDate: null,
         categoryFilter: '',
         sourceFilter: '',
+        creatorFilter: '',
         topTab: 'expense', // 'expense' | 'income'
         vouchers: [],        // raw fetched vouchers
         filtered: [],        // after filters applied
@@ -163,6 +164,14 @@ const SoquyReport = (function () {
                 const label = db.getSourceLabel(v.sourceCode || v.source).toLowerCase();
                 return code.includes(src) || label.includes(src);
             });
+        }
+
+        // Creator filter
+        if (reportState.creatorFilter) {
+            const creator = reportState.creatorFilter.toLowerCase();
+            vouchers = vouchers.filter(v =>
+                String(v.createdBy || '').toLowerCase().includes(creator)
+            );
         }
 
         reportState.filtered = vouchers;
@@ -1129,6 +1138,93 @@ const SoquyReport = (function () {
     }
 
     // =====================================================
+    // SEARCHABLE FILTER DROPDOWNS (Report)
+    // =====================================================
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function getReportUniqueValues(field) {
+        const values = new Set();
+        const vouchers = reportState.vouchers || [];
+        vouchers.forEach(v => {
+            let val = '';
+            switch (field) {
+                case 'category': {
+                    const srcCode = v.sourceCode || v.source || '';
+                    const cat = v.category || '';
+                    val = (srcCode && cat && v.type !== 'payment_cn') ? `${srcCode} ${cat}` : cat;
+                    break;
+                }
+                case 'source':
+                    val = dbModule.getSourceLabel(v.sourceCode || v.source) || '';
+                    break;
+                case 'creator':
+                    val = v.createdBy || '';
+                    break;
+            }
+            if (val) values.add(val);
+        });
+        return [...values].sort((a, b) => a.localeCompare(b, 'vi'));
+    }
+
+    function showReportFilterDropdown(inputId, dropdownId, field) {
+        const input = document.getElementById(inputId);
+        const dropdown = document.getElementById(dropdownId);
+        if (!input || !dropdown) return;
+
+        const query = (input.value || '').trim().toLowerCase();
+        const allValues = getReportUniqueValues(field);
+        const filtered = query ? allValues.filter(v => v.toLowerCase().includes(query)) : allValues;
+
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div class="filter-dropdown-empty">Không tìm thấy</div>';
+        } else {
+            dropdown.innerHTML = filtered.map(val => {
+                let display = escapeHtml(val);
+                if (query) {
+                    const idx = val.toLowerCase().indexOf(query);
+                    if (idx >= 0) {
+                        const before = escapeHtml(val.substring(0, idx));
+                        const match = escapeHtml(val.substring(idx, idx + query.length));
+                        const after = escapeHtml(val.substring(idx + query.length));
+                        display = `${before}<span class="filter-dropdown-match">${match}</span>${after}`;
+                    }
+                }
+                return `<div class="filter-dropdown-item" data-value="${escapeHtml(val)}">${display}</div>`;
+            }).join('');
+        }
+
+        dropdown.classList.add('show');
+
+        dropdown.querySelectorAll('.filter-dropdown-item').forEach(item => {
+            item.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                input.value = item.dataset.value;
+                dropdown.classList.remove('show');
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        });
+    }
+
+    function hideReportFilterDropdown(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) dropdown.classList.remove('show');
+    }
+
+    function initReportFilterDropdown(inputId, dropdownId, field) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+
+        input.addEventListener('focus', () => showReportFilterDropdown(inputId, dropdownId, field));
+        input.addEventListener('input', () => showReportFilterDropdown(inputId, dropdownId, field));
+        input.addEventListener('blur', () => setTimeout(() => hideReportFilterDropdown(dropdownId), 150));
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -1140,7 +1236,8 @@ const SoquyReport = (function () {
         getReportDateRange,
         renderTopOnly,
         loadReportFilterState,
-        saveReportFilterState
+        saveReportFilterState,
+        initReportFilterDropdown
     };
 })();
 

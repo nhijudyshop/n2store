@@ -242,19 +242,11 @@
 /* Filter Section Body - Collapsible */
 .filter-section-body {
     padding: 0 20px 14px 46px;
-    max-height: 300px;
-    opacity: 1;
-    overflow: hidden;
-    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.2s ease,
-                padding 0.3s ease;
+    overflow: visible;
 }
 
 .filter-section.collapsed .filter-section-body {
-    max-height: 0;
-    opacity: 0;
-    padding-top: 0;
-    padding-bottom: 0;
+    display: none;
 }
 
 /* =====================================================
