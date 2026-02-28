@@ -177,12 +177,20 @@ const SoquyUI = (function () {
                     : `+${db.formatCurrency(v.amount)}`;
                 const amountClass = isPayment ? 'text-danger' : 'text-success';
 
+                // Category with source prefix (same as desktop)
+                const srcCode = v.sourceCode || v.source || '';
+                const cat = v.category || '';
+                const categoryDisplay = (srcCode && cat && v.type !== 'payment_cn')
+                    ? `${srcCode} ${cat}`
+                    : (cat || '-');
+
                 return `
                     <div class="m-voucher-card ${isCancelled ? 'row-cancelled' : ''}" data-id="${v.id}">
                         <div class="m-voucher-header">
                             <div class="m-voucher-header-left">
                                 <span class="m-voucher-code">#${escapeHtml(v.code)}</span>
                                 <span class="m-voucher-type-badge ${v.type}">${escapeHtml(typeLabel)}</span>
+                                ${(srcCode && v.type !== 'payment_cn') ? `<span class="m-voucher-type-badge ${v.type} m-voucher-src-badge">${escapeHtml(srcCode)}</span>` : ''}
                                 ${isCancelled ? '<span class="badge-cancelled">Đã hủy</span>' : ''}
                             </div>
                             <span class="m-voucher-amount ${amountClass}">${displayAmount}</span>
@@ -190,7 +198,7 @@ const SoquyUI = (function () {
                         <div class="m-voucher-details">
                             <div class="m-voucher-row">
                                 <span class="m-voucher-label">Loại phiếu:</span>
-                                <span class="m-voucher-value">${escapeHtml(v.category || '-')}</span>
+                                <span class="m-voucher-value">${escapeHtml(categoryDisplay)}</span>
                             </div>
                             ${v.note ? `<div class="m-voucher-row">
                                 <span class="m-voucher-label">Ghi chú:</span>

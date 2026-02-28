@@ -3185,6 +3185,11 @@
         color: #991b1b;
     }
 
+    .m-voucher-src-badge {
+        opacity: 0.75;
+        font-size: 9px;
+    }
+
     .m-voucher-amount {
         font-size: 15px;
         font-weight: 700;
