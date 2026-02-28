@@ -453,77 +453,17 @@ async function initializeApp() {
             }
         }
 
-        // 4. No active campaign → Check localStorage fallback first
-        const savedFilterData = localStorage.getItem('orders_tab1_filter_data');
-        if (savedFilterData) {
-            try {
-                const filterData = JSON.parse(savedFilterData);
-                if (filterData.startDate && filterData.endDate) {
-                    console.log('[APP] Found saved filter data in localStorage, using it...');
-
-                    // Convert UTC dates to local datetime-local format
-                    const startDate = new Date(filterData.startDate);
-                    const endDate = new Date(filterData.endDate);
-
-                    // Set date inputs
-                    document.getElementById('customStartDate').value = formatDateTimeLocal(startDate);
-                    document.getElementById('customEndDate').value = formatDateTimeLocal(endDate);
-
-                    // Update label with date range or campaign name
-                    const label = document.getElementById('activeCampaignLabel');
-                    if (label) {
-                        if (filterData.campaignName) {
-                            label.innerHTML = `<i class="fas fa-bullhorn"></i> ${filterData.campaignName}`;
-                        } else {
-                            const startDisplay = startDate.toLocaleDateString('vi-VN');
-                            const endDisplay = endDate.toLocaleDateString('vi-VN');
-                            label.innerHTML = `<i class="fas fa-calendar-check"></i> ${startDisplay} - ${endDisplay}`;
-                        }
-                    }
-
-                    // Fetch orders with saved dates (use window.fetchOrders from tab1-campaign.js)
-                    if (typeof window.fetchOrders === 'function') {
-                        await window.fetchOrders();
-                    } else if (typeof fetchOrders === 'function') {
-                        await fetchOrders();
-                    }
-                    return;
-                }
-            } catch (e) {
-                console.warn('[APP] Error parsing saved filter data:', e);
-            }
-        }
-
-        if (Object.keys(campaigns).length === 0) {
-            // No campaigns exist
-            console.log('[APP] No campaigns found, showing create modal...');
-            showNoCampaignsModal();
+        // 4. No active campaign → Check if campaigns exist to show selection
+        if (Object.keys(campaigns).length > 0) {
+            // Campaigns exist but no active campaign saved → show selection modal
+            console.log('[APP] Campaigns exist but no active campaign, showing selection modal...');
+            showSelectCampaignModal();
             return;
         }
 
-        // 5. Auto-select the most recent campaign (by creation time or name)
-        const campaignEntries = Object.entries(campaigns);
-        // Sort by timestamp in ID (campaign_TIMESTAMP) or by customStartDate
-        campaignEntries.sort((a, b) => {
-            // Extract timestamp from ID if format is campaign_TIMESTAMP
-            const timestampA = parseInt(a[0].replace('campaign_', '')) || 0;
-            const timestampB = parseInt(b[0].replace('campaign_', '')) || 0;
-            return timestampB - timestampA; // Most recent first
-        });
-
-        const [latestCampaignId, latestCampaign] = campaignEntries[0];
-        console.log('[APP] Auto-selecting most recent campaign:', latestCampaign.name);
-
-        // Check if campaign has dates
-        if (latestCampaign.customStartDate) {
-            // Save as active and load
-            await saveActiveCampaign(latestCampaignId);
-            await continueAfterCampaignSelect(latestCampaignId);
-        } else {
-            // Campaign doesn't have dates, show modal to set dates
-            console.log('[APP] Most recent campaign has no dates, showing modal...');
-            showCampaignNoDatesModal(latestCampaignId);
-        }
+        // 5. No campaigns exist at all → show create modal
+        console.log('[APP] No campaigns found, showing create modal...');
+        showNoCampaignsModal();
 
     } catch (error) {
         console.error('[APP] ❌ Initialization error:', error);
