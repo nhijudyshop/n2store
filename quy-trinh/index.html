@@ -7,11 +7,13 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- Lucide Icons -->
 <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+<!-- Firebase SDKs (defer to prevent render blocking) -->
+<script defer src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<!-- Firebase Config (auto-initializes Firebase app) -->
+<script defer src="../shared/js/firebase-config.js"></script>
 <!-- Core utilities (Auth + Firebase config) -->
 <script type="module" src="../shared/esm/compat.js"></script>
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 <!-- Navigation Modern -->
 <script defer src="../shared/js/navigation-modern.js"></script>
 <style>
