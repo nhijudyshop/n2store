@@ -521,6 +521,9 @@
                 </div>
             </div>
 
+            <!-- Mobile filter overlay (scrim) -->
+            <div class="mobile-filter-overlay" id="mobileFilterOverlay"></div>
+
             <!-- Cash Book Layout -->
             <div id="cashbookTabContent" class="cashbook-layout tab-content">
                 <!-- ==================== LEFT SIDEBAR FILTERS ==================== -->
@@ -530,6 +533,9 @@
                             <i data-lucide="filter"></i>
                             <span>Bộ lọc</span>
                         </h2>
+                        <button class="mobile-filter-close-btn" id="mobileFilterCloseBtn" aria-label="Đóng bộ lọc">
+                            <i data-lucide="x"></i>
+                        </button>
                     </div>
 
                     <!-- Fund Type Filter -->
@@ -735,6 +741,9 @@
                             <input type="text" id="searchInput" placeholder="Theo mã phiếu, loại thu chi, ghi chú...">
                             <button class="btn-icon"><i data-lucide="sliders-horizontal"></i></button>
                         </div>
+                        <button class="mobile-filter-btn" id="btnMobileFilter" aria-label="Mở bộ lọc">
+                            <i data-lucide="filter"></i>
+                        </button>
                         <div class="action-buttons">
                             <button class="k-btn-outline-primary" id="btnShowCreatePaymentCN">
                                 <i data-lucide="plus"></i> Phiếu Chi CN
@@ -827,6 +836,9 @@
                         </table>
                     </div>
 
+                    <!-- Mobile card list (hidden on desktop) -->
+                    <div class="mobile-voucher-cards" id="mobileVoucherCards"></div>
+
                     <!-- Pagination -->
                     <div class="cashbook-pagination">
                         <div class="page-size">
@@ -855,6 +867,27 @@
                             <span class="page-info" id="pageInfo">0 - 0 trong 0 phiếu thu chi</span>
                         </div>
                     </div>
+                </div>
+
+                <!-- Mobile FAB -->
+                <div class="mobile-fab-container" id="mobileFabContainer">
+                    <div class="mobile-fab-menu" id="mobileFabMenu">
+                        <button class="mobile-fab-item" id="fabCreateReceipt">
+                            <span class="mobile-fab-item-label">Phiếu thu</span>
+                            <span class="mobile-fab-item-icon fab-icon-receipt">Thu</span>
+                        </button>
+                        <button class="mobile-fab-item" id="fabCreatePaymentKD">
+                            <span class="mobile-fab-item-label">Phiếu Chi KD</span>
+                            <span class="mobile-fab-item-icon fab-icon-kd">KD</span>
+                        </button>
+                        <button class="mobile-fab-item" id="fabCreatePaymentCN">
+                            <span class="mobile-fab-item-label">Phiếu Chi CN</span>
+                            <span class="mobile-fab-item-icon fab-icon-cn">CN</span>
+                        </button>
+                    </div>
+                    <button class="mobile-fab-btn" id="mobileFabBtn" aria-label="Tạo phiếu mới">
+                        <i data-lucide="plus"></i>
+                    </button>
                 </div>
             </div>
 
