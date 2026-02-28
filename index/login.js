@@ -703,8 +703,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function redirectToMainApp() {
         sessionStorage.setItem("justLoggedIn", "true");
         const timestamp = Date.now();
-        // TODO: Change back to ./live/index.html after testing
-        window.location.href = `./orders-report/main.html?t=${timestamp}`;
+        window.location.href = `./quy-trinh/index.html?t=${timestamp}`;
     }
 
     // Setup event listeners
