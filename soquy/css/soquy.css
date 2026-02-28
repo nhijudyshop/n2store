@@ -2253,7 +2253,7 @@
 
 .report-content-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1.3fr 0.7fr;
     gap: 20px;
 }
 
@@ -2267,6 +2267,10 @@
 
 .report-section--category {
     grid-column: 1 / 2;
+}
+
+.report-section--category .report-section-body {
+    max-height: 680px;
 }
 
 .report-section--trend {
