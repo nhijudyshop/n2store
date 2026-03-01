@@ -1132,149 +1132,158 @@ function renderTable(data, skipGapDetection = false) {
  * @param {string} uniqueCode - The unique code (N2... or PHONE...)
  * @returns {Object} { label, icon, color, title }
  */
-function getMappingSource(row, uniqueCode) {
-    // Priority 0: Check for MOMO pattern (highest priority)
+// =====================================================
+// SOURCE GROUP STANDARDIZATION FUNCTIONS
+// =====================================================
+
+/**
+ * Chuẩn hóa nguồn giao dịch thành 1 trong 4 nhóm.
+ * @param {Object} row - Object giao dịch
+ * @returns {"manual"|"selected"|"auto"|"unknown"} Nhóm nguồn chuẩn hóa
+ *
+ * Mapping:
+ *   manual_entry, manual_link → "manual" (Nhập tay)
+ *   pending_match → "selected" (Chọn KH)
+ *   qr_code, exact_phone, single_match → "auto" (Tự động)
+ *   extraction_note bắt đầu bằng MOMO: hoặc VCB: → "auto" (Tự động)
+ *   Không có match_method và không mapping → "unknown" (Chưa xác định)
+ */
+function getStandardizedSourceGroup(row) {
+    if (!row) return 'unknown';
+
+    // Check extraction_note first (MOMO/VCB patterns)
     const extractionNote = row.extraction_note || '';
-    if (extractionNote.startsWith('MOMO:')) {
-        return {
-            label: 'Momo',
-            icon: 'smartphone',
-            color: '#a50064', // Momo pink/magenta
-            title: 'Giao dịch từ Momo - SĐT trích xuất từ nội dung KH ghi'
-        };
+    if (extractionNote.startsWith('MOMO:') || extractionNote.startsWith('VCB:')) {
+        return 'auto';
     }
 
-    // Priority 0.5: Check for Vietcombank (VCB) pattern - MBVCB format
-    if (extractionNote.startsWith('VCB:')) {
-        return {
-            label: 'Vietcombank',
-            icon: 'building-2',
-            color: '#007b40', // VCB green
-            title: 'Giao dịch từ Vietcombank - SĐT trích xuất từ mã MBVCB'
-        };
-    }
-
-    // Priority 1: Check match_method FIRST (most accurate source indicator)
+    // Check match_method
     const matchMethod = row.match_method;
     if (matchMethod) {
         switch (matchMethod) {
             case 'manual_entry':
-                return {
-                    label: 'Nhập tay',
-                    icon: 'pencil',
-                    color: '#3b82f6', // blue
-                    title: 'NV nhập SĐT thủ công - Chờ kế toán duyệt',
-                    badge: row.verification_status === 'PENDING_VERIFICATION' ? 'Chờ duyệt' : null
-                };
             case 'manual_link':
-                return {
-                    label: 'Kế toán gán',
-                    icon: 'user-check',
-                    color: '#10b981', // green
-                    title: 'Kế toán gán KH và duyệt'
-                };
-            case 'qr_code':
-                return {
-                    label: 'QR Code',
-                    icon: 'qr-code',
-                    color: '#10b981', // green
-                    title: 'Khách hàng quét mã QR để chuyển khoản'
-                };
-            case 'exact_phone':
-                return {
-                    label: 'SĐT chính xác',
-                    icon: 'phone',
-                    color: '#10b981', // green
-                    title: 'Match chính xác 10 số SĐT từ nội dung'
-                };
-            case 'single_match':
-                return {
-                    label: 'Tự động match',
-                    icon: 'check-circle',
-                    color: '#10b981', // green
-                    title: 'Tự động match 1 KH duy nhất'
-                };
+                return 'manual';
             case 'pending_match':
-                return {
-                    label: 'Nhiều KH match',
-                    icon: 'users',
-                    color: '#f97316', // orange
-                    title: 'Có nhiều KH match - cần chọn'
-                };
+                return 'selected';
+            case 'qr_code':
+            case 'exact_phone':
+            case 'single_match':
+                return 'auto';
         }
     }
 
-    // Priority 2: Check unique_code format (fallback for old data)
-    if (uniqueCode) {
-        // QR Code: N2 + 16 chars (but NOT N2TX which is auto-generated)
+    return 'unknown';
+}
+
+/**
+ * Trả về nhãn tiếng Việt cho nhóm nguồn.
+ * @param {"manual"|"selected"|"auto"|"unknown"} groupKey
+ * @returns {string} Nhãn tiếng Việt
+ */
+function getSourceLabel(groupKey) {
+    const labels = {
+        manual: 'Nhập tay',
+        selected: 'Chọn KH',
+        auto: 'Tự động',
+        unknown: 'Chưa xác định'
+    };
+    return labels[groupKey] || 'Chưa xác định';
+}
+
+/**
+ * Trả về HTML badge với màu sắc phù hợp cho nhóm nguồn.
+ * @param {"manual"|"selected"|"auto"|"unknown"} groupKey
+ * @returns {string} HTML badge string
+ */
+function getSourceBadgeHtml(groupKey) {
+    const config = {
+        manual: { label: 'Nhập tay', color: '#3b82f6', icon: 'pencil' },
+        selected: { label: 'Chọn KH', color: '#f97316', icon: 'users' },
+        auto: { label: 'Tự động', color: '#10b981', icon: 'check-circle' },
+        unknown: { label: 'Chưa xác định', color: '#d1d5db', icon: 'help-circle' }
+    };
+    const cfg = config[groupKey] || config.unknown;
+    return `<span class="badge" style="background-color: ${cfg.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;" title="${cfg.label}"><i data-lucide="${cfg.icon}" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i>${cfg.label}</span>`;
+}
+
+function getMappingSource(row, uniqueCode) {
+    // Use standardized source group from task 1.1
+    const groupKey = getStandardizedSourceGroup(row);
+    const label = getSourceLabel(groupKey);
+
+    // Config for each standardized group
+    const groupConfig = {
+        manual: { icon: 'pencil', color: '#3b82f6' },
+        selected: { icon: 'users', color: '#f97316' },
+        auto: { icon: 'check-circle', color: '#10b981' },
+        unknown: { icon: 'help-circle', color: '#d1d5db' }
+    };
+
+    const cfg = groupConfig[groupKey] || groupConfig.unknown;
+
+    // Build detailed tooltip (title) based on original source info
+    let title = '';
+    const extractionNote = row.extraction_note || '';
+    const matchMethod = row.match_method;
+
+    if (extractionNote.startsWith('MOMO:')) {
+        title = 'Giao dịch từ Momo - SĐT trích xuất từ nội dung KH ghi';
+    } else if (extractionNote.startsWith('VCB:')) {
+        title = 'Giao dịch từ Vietcombank - SĐT trích xuất từ mã MBVCB';
+    } else if (matchMethod) {
+        switch (matchMethod) {
+            case 'manual_entry':
+                title = 'NV nhập SĐT thủ công - Chờ kế toán duyệt';
+                break;
+            case 'manual_link':
+                title = 'Kế toán gán KH và duyệt';
+                break;
+            case 'qr_code':
+                title = 'Khách hàng quét mã QR để chuyển khoản';
+                break;
+            case 'exact_phone':
+                title = 'Match chính xác 10 số SĐT từ nội dung';
+                break;
+            case 'single_match':
+                title = 'Tự động match 1 KH duy nhất';
+                break;
+            case 'pending_match':
+                title = 'Có nhiều KH match - cần chọn';
+                break;
+            default:
+                title = `Phương thức: ${matchMethod}`;
+        }
+    } else if (uniqueCode) {
         if (uniqueCode.startsWith('N2') && !uniqueCode.startsWith('N2TX')) {
-            return {
-                label: 'QR Code',
-                icon: 'qr-code',
-                color: '#10b981', // green
-                title: 'Khách hàng quét mã QR để chuyển khoản'
-            };
-        }
-
-        // Phone Extraction: PHONE + digits (only if no match_method set)
-        if (uniqueCode.startsWith('PHONE')) {
-            return {
-                label: 'Trích xuất SĐT',
-                icon: 'scan-search',
-                color: '#f59e0b', // orange
-                title: 'SĐT được tự động trích xuất từ nội dung chuyển khoản'
-            };
+            title = 'Khách hàng quét mã QR để chuyển khoản';
+        } else if (uniqueCode.startsWith('PHONE')) {
+            title = 'SĐT được tự động trích xuất từ nội dung chuyển khoản';
         }
     }
 
-    // Priority 3: Check if transaction has linked_customer_phone (manual edit - fallback)
-    if (row.linked_customer_phone) {
-        return {
-            label: 'Nhập tay',
-            icon: 'pencil',
-            color: '#3b82f6', // blue
-            title: 'Thông tin khách hàng được nhập thủ công'
-        };
+    if (!title) {
+        if (row.linked_customer_phone) {
+            title = 'Thông tin khách hàng được nhập thủ công';
+        } else if (row.pending_match_status === 'resolved') {
+            title = 'Khách hàng được chọn từ danh sách gợi ý';
+        } else if (row.has_pending_match === true) {
+            title = 'Đang chờ xác nhận khách hàng';
+        } else if (row.pending_match_skipped === true && row.pending_match_options?.length > 0) {
+            title = 'Đang chờ xác nhận khách hàng';
+        } else {
+            title = 'Chưa có thông tin mapping';
+        }
     }
 
-    // Priority 3: Check pending match status
-    if (row.pending_match_status === 'resolved') {
-        return {
-            label: 'Chọn KH',
-            icon: 'user-check',
-            color: '#8b5cf6', // purple
-            title: 'Khách hàng được chọn từ danh sách gợi ý'
-        };
-    }
-
-    // Priority 4: Check if has pending match (not yet resolved)
-    if (row.has_pending_match === true) {
-        return {
-            label: 'Chờ xác nhận',
-            icon: 'clock',
-            color: '#f97316', // orange-dark
-            title: 'Đang chờ xác nhận khách hàng'
-        };
-    }
-
-    // Priority 5: Skipped but has options - show as pending since dropdown is displayed
-    if (row.pending_match_skipped === true && row.pending_match_options?.length > 0) {
-        return {
-            label: 'Chờ xác nhận',
-            icon: 'clock',
-            color: '#f97316', // orange-dark
-            title: 'Đang chờ xác nhận khách hàng'
-        };
-    }
-
-    // Default: Unknown/No mapping
     return {
-        label: 'Chưa xác định',
-        icon: 'help-circle',
-        color: '#d1d5db', // light gray
-        title: 'Chưa có thông tin mapping'
+        label: label,
+        icon: cfg.icon,
+        color: cfg.color,
+        title: title
     };
 }
+
 
 /**
  * Generate unique QR code for transaction without existing QR code

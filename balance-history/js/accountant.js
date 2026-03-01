@@ -38,8 +38,8 @@
             approved: { page: 1, totalPages: 1, total: 0 }
         },
         filters: {
-            pending: { startDate: '', endDate: '', search: '' },
-            approved: { startDate: '', endDate: '', search: '' }
+            pending: { startDate: '', endDate: '', search: '', source: '' },
+            approved: { startDate: '', endDate: '', search: '', source: '', verifier: '', checked: '', adjusted: '' }
         },
         stats: {
             pending: 0,
@@ -222,11 +222,16 @@
         elements.pendingStartDate = document.getElementById('accPendingStartDate');
         elements.pendingEndDate = document.getElementById('accPendingEndDate');
         elements.pendingSearch = document.getElementById('accPendingSearch');
+        elements.pendingSourceFilter = document.getElementById('accPendingSourceFilter');
 
         // Filters - Approved
         elements.approvedStartDate = document.getElementById('accApprovedStartDate');
         elements.approvedEndDate = document.getElementById('accApprovedEndDate');
         elements.approvedSearch = document.getElementById('accApprovedSearch');
+        elements.approvedSourceFilter = document.getElementById('accApprovedSourceFilter');
+        elements.approvedVerifierFilter = document.getElementById('accApprovedVerifierFilter');
+        elements.approvedCheckFilter = document.getElementById('accApprovedCheckFilter');
+        elements.approvedAdjustFilter = document.getElementById('accApprovedAdjustFilter');
 
         // Approved table
         elements.approvedTableBody = document.getElementById('accApprovedTableBody');
@@ -301,6 +306,18 @@
             if (start) start.addEventListener('change', () => handleFilterChange(tab));
             if (end) end.addEventListener('change', () => handleFilterChange(tab));
             if (search) search.addEventListener('input', debounce(() => handleFilterChange(tab), 500));
+        });
+
+        // Pending source filter
+        if (elements.pendingSourceFilter) {
+            elements.pendingSourceFilter.addEventListener('change', () => handleFilterChange('pending'));
+        }
+
+        // Approved extra filters (source, verifier, check, adjust)
+        ['approvedSourceFilter', 'approvedVerifierFilter', 'approvedCheckFilter', 'approvedAdjustFilter'].forEach(key => {
+            if (elements[key]) {
+                elements[key].addEventListener('change', () => handleFilterChange('approved'));
+            }
         });
 
         // =====================================================
@@ -439,6 +456,19 @@
 
         // Update state
         state.filters[tab] = { startDate: start, endDate: end, search: search };
+
+        // Read source filter for pending tab
+        if (tab === 'pending') {
+            state.filters.pending.source = elements.pendingSourceFilter?.value || '';
+        }
+
+        // Read filters for approved tab
+        if (tab === 'approved') {
+            state.filters.approved.source = elements.approvedSourceFilter?.value || '';
+            state.filters.approved.verifier = elements.approvedVerifierFilter?.value || '';
+            state.filters.approved.checked = elements.approvedCheckFilter?.value || '';
+            state.filters.approved.adjusted = elements.approvedAdjustFilter?.value || '';
+        }
 
         // Reload data
         if (tab === 'pending') {
@@ -595,6 +625,18 @@
             }
 
             state.pendingQueue = result.data;
+
+            // Client-side source filter
+            const sourceFilter = state.filters.pending.source;
+            if (sourceFilter) {
+                state.pendingQueue = state.pendingQueue.filter(tx => {
+                    const group = typeof getStandardizedSourceGroup === 'function'
+                        ? getStandardizedSourceGroup(tx)
+                        : _fallbackSourceGroup(tx);
+                    return group === sourceFilter;
+                });
+            }
+
             state.pagination.pending = {
                 page: result.pagination.page,
                 totalPages: result.pagination.totalPages,
@@ -668,7 +710,7 @@
                             </div>
                         ` : `<span class="acc-text-muted">Chưa gán KH</span>`}
                     </td>
-                    <td class="col-staff">${getMatchMethodBadge(tx.match_method)}</td>
+                    <td class="col-staff">${getMatchMethodBadge(tx)}</td>
                     <td class="col-wait">
                         <span class="acc-wait-time ${waitClass}">${waitTime.display}</span>
                     </td>
@@ -742,16 +784,55 @@
     /**
      * Get badge for match_method
      */
-    function getMatchMethodBadge(method) {
-        const badges = {
-            'qr_code': '<span class="badge badge-success">QR Code</span>',
-            'exact_phone': '<span class="badge badge-success">SĐT chính xác</span>',
-            'single_match': '<span class="badge badge-info">TPOS</span>',
-            'pending_match': '<span class="badge badge-warning">Chọn KH</span>',
-            'manual_entry': '<span class="badge badge-primary">Nhập tay</span>',
-            'manual_link': '<span class="badge badge-secondary">Kế toán gán</span>'
+    function getMatchMethodBadge(tx) {
+        // Use global getStandardizedSourceGroup from main.js (loaded before accountant.js)
+        const groupKey = typeof getStandardizedSourceGroup === 'function'
+            ? getStandardizedSourceGroup(tx)
+            : _fallbackSourceGroup(tx);
+
+        const config = {
+            manual:  { label: 'Nhập tay', color: '#3b82f6' },
+            selected:{ label: 'Chọn KH', color: '#f97316' },
+            auto:    { label: 'Tự động',  color: '#10b981' },
+            unknown: { label: 'Chưa xác định', color: '#d1d5db' }
         };
-        return badges[method] || '<span class="badge badge-light">N/A</span>';
+        const cfg = config[groupKey] || config.unknown;
+        return `<span class="badge" style="background-color: ${cfg.color}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">${cfg.label}</span>`;
+    }
+
+    // Fallback mapping in case main.js getStandardizedSourceGroup is not available
+    function _fallbackSourceGroup(tx) {
+        if (!tx) return 'unknown';
+        const note = tx.extraction_note || '';
+        if (note.startsWith('MOMO:') || note.startsWith('VCB:')) return 'auto';
+        const m = tx.match_method;
+        if (m === 'manual_entry' || m === 'manual_link') return 'manual';
+        if (m === 'pending_match') return 'selected';
+        if (m === 'qr_code' || m === 'exact_phone' || m === 'single_match') return 'auto';
+        return 'unknown';
+    }
+
+    // Populate verifier dropdown from approved data
+    function _populateVerifierDropdown(data) {
+        const dropdown = elements.approvedVerifierFilter;
+        if (!dropdown) return;
+
+        const currentValue = dropdown.value;
+        const verifiers = [...new Set(data.map(tx => tx.verified_by).filter(Boolean))].sort();
+
+        // Keep the default "Tất cả" option, rebuild the rest
+        dropdown.innerHTML = '<option value="">Tất cả</option>';
+        verifiers.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            dropdown.appendChild(opt);
+        });
+
+        // Restore selection if still available
+        if (currentValue && verifiers.includes(currentValue)) {
+            dropdown.value = currentValue;
+        }
     }
 
     // =====================================================
@@ -1555,6 +1636,47 @@
             }
 
             state.approvedToday = result.data;
+
+            // Client-side filtering for approved tab
+            const { source, verifier, checked, adjusted } = state.filters.approved;
+
+            if (source || verifier || checked || adjusted) {
+                state.approvedToday = state.approvedToday.filter(tx => {
+                    // Source filter
+                    if (source) {
+                        const group = typeof getStandardizedSourceGroup === 'function'
+                            ? getStandardizedSourceGroup(tx)
+                            : _fallbackSourceGroup(tx);
+                        if (group !== source) return false;
+                    }
+
+                    // Verifier filter
+                    if (verifier) {
+                        if ((tx.verified_by || '') !== verifier) return false;
+                    }
+
+                    // Check filter (manager_reviewed)
+                    if (checked) {
+                        const isReviewed = tx.manager_reviewed || false;
+                        if (checked === 'checked' && !isReviewed) return false;
+                        if (checked === 'unchecked' && isReviewed) return false;
+                    }
+
+                    // Adjust filter (verification_note contains '[Đã điều chỉnh:')
+                    if (adjusted) {
+                        const note = tx.verification_note || '';
+                        const hasAdjustment = note.includes('[Đã điều chỉnh:');
+                        if (adjusted === 'adjusted' && !hasAdjustment) return false;
+                        if (adjusted === 'unadjusted' && hasAdjustment) return false;
+                    }
+
+                    return true;
+                });
+            }
+
+            // Populate verifier dropdown with unique verifiers from data
+            _populateVerifierDropdown(result.data);
+
             state.pagination.approved = {
                 page: result.pagination.page,
                 totalPages: result.pagination.totalPages,
@@ -1664,7 +1786,7 @@
                             <span class="customer-phone">${tx.linked_customer_phone || ''}</span>
                         </div>
                     </td>
-                    <td>${getMatchMethodBadge(tx.match_method)}</td>
+                    <td>${getMatchMethodBadge(tx)}</td>
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
                     <td>${noteHtml}</td>
                     <td class="acc-action-cell">${reviewBtnHtml} ${adjustBtnHtml}</td>

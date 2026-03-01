@@ -1206,6 +1206,17 @@
     height: 32px;
 }
 
+.acc-input-select {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    height: 32px;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+}
+
 .acc-filters-bar .acc-btn-primary {
     height: 32px;
     padding: 0 16px;
