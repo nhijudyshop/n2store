@@ -61,7 +61,7 @@
         if (path.includes('customer-hub') || path.includes('customer-management')) {
             return 'customer';
         }
-        if (path.includes('bangkiemhang')) {
+        if (path.includes('inventory') || path.includes('bangkiemhang')) {
             return 'inventory';
         }
         if (path.includes('livestream') || path.includes('live')) {

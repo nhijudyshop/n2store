@@ -117,6 +117,7 @@ const PAGES_REGISTRY = {
 | Page ID | Page Name | Permissions |
 |---------|-----------|-------------|
 | `nhanhang` | Cân Nặng Hàng | `view`, `create`, `confirm`, `edit`, `cancel`, `weigh` |
+| `inventoryTracking` | Theo Dõi Nhập Hàng SL | `tab_tracking`, `tab_congNo`, `create_shipment`, `edit_shipment`, `delete_shipment`, `view_chiPhiHangVe`, `edit_chiPhiHangVe`, `view_ghiChuAdmin`, `edit_ghiChuAdmin`, `edit_soMonThieu`, `create_prepayment`, `edit_prepayment`, `delete_prepayment`, `create_otherExpense`, `edit_otherExpense`, `delete_otherExpense`, `edit_invoice_from_finance`, `edit_shipping_from_finance`, `export_data` |
 | `hangrotxa` | Hàng Rớt - Xả | `view`, `mark`, `approve`, `price`, `delete` |
 | `hanghoan` | Hàng Hoàn | `view`, `approve`, `reject`, `refund`, `update`, `export` |
 | `product-search` | Tìm Kiếm Sản Phẩm | `view`, `viewStock`, `viewPrice`, `export` |

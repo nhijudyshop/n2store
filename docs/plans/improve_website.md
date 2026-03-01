@@ -50,6 +50,7 @@
 | 6 | hanghoan/index.html | ✅ Done |
 | 7 | hangrotxa/index.html | ✅ Done |
 | 8 | ib/index.html | ✅ Done |
+| 9 | inventory-tracking/index.html | ✅ Done |
 | 10 | invoice-compare/index.html | ✅ Done |
 | 11 | issue-tracking/index.html | ✅ Done |
 | 12 | lichsuchinhsua/index.html | ✅ Done |

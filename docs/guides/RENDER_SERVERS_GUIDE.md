@@ -444,7 +444,9 @@ POST /api/refresh-tokens
 
 ### Chức năng
 
-Server upload hình ảnh, được sử dụng bởi các module frontend.
+Server upload hình ảnh, được sử dụng bởi:
+- `inventory-tracking/image-upload.js`
+- `inventory-tracking/order-booking-crud.js`
 
 ```bash
 # Upload image
