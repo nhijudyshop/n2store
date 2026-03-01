@@ -519,6 +519,13 @@
      * @param {number} index - Index in success orders array
      */
     async function confirmCancelOrder(index) {
+        // Block double-click: check if button is already disabled
+        const confirmBtn = document.querySelector('#cancelOrderModal button[onclick*="confirmCancelOrder"]');
+        if (confirmBtn?.disabled) {
+            console.warn('[WORKFLOW] ⚠️ Cancel button already disabled, ignoring duplicate click');
+            return;
+        }
+
         const reason = document.getElementById('cancelReasonInput')?.value?.trim();
         if (!reason) {
             window.notificationManager?.warning('Vui lòng nhập lý do hủy đơn');
@@ -539,6 +546,13 @@
             window.notificationManager?.error('Không tìm thấy dữ liệu phiếu');
             closeCancelOrderModal();
             return;
+        }
+
+        // Disable button to prevent double-click
+        const originalBtnText = confirmBtn?.innerHTML;
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
         }
 
         try {
@@ -581,6 +595,12 @@
                 SaleOnlineId: saleOnlineId
             }, reason);
 
+            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
+            if (window.InvoiceStatusStore?.delete) {
+                await window.InvoiceStatusStore.delete(saleOnlineId);
+                console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
+            }
+
             // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
             const orderCode = order.Reference || order.Number || '';
             if (typeof window.quickAssignTag === 'function') {
@@ -590,7 +610,15 @@
                 console.warn('[WORKFLOW] quickAssignTag function not available');
             }
 
-            // Log cancel activity & refund wallet (async, non-blocking)
+            // Step 5: Update SaleOnline order status to "Nháp"
+            if (typeof window.updateOrderStatus === 'function') {
+                console.log(`[WORKFLOW] Updating order status to "Nháp": ${saleOnlineId}`);
+                await window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e');
+            } else {
+                console.warn('[WORKFLOW] updateOrderStatus function not available');
+            }
+
+            // Step 6: Log cancel activity & refund wallet (async, non-blocking)
             const orderNumber = order.Number || order.Reference || '';
             const customerPhone = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone || order.ReceiverPhone || order.Phone || '';
             if (customerPhone) {
@@ -602,23 +630,38 @@
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`);
             closeCancelOrderModal();
 
-            // Update UI - mark as cancelled
+            // Update results modal UI - mark as cancelled
             const row = document.querySelector(`.success-order-checkbox[data-order-id="${order.Id}"]`)?.closest('tr');
             if (row) {
                 row.style.backgroundColor = '#fef2f2';
                 row.style.opacity = '0.7';
 
                 // Update cancel button to show cancelled
-                const cancelBtn = row.querySelector('.btn-cancel-order');
-                if (cancelBtn) {
-                    cancelBtn.innerHTML = '<i class="fas fa-check"></i> Đã nhờ hủy';
-                    cancelBtn.disabled = true;
-                    cancelBtn.style.background = '#9ca3af';
+                const rowCancelBtn = row.querySelector('.btn-cancel-order');
+                if (rowCancelBtn) {
+                    rowCancelBtn.innerHTML = '<i class="fas fa-check"></i> Đã nhờ hủy';
+                    rowCancelBtn.disabled = true;
+                    rowCancelBtn.style.background = '#9ca3af';
+                }
+            }
+
+            // Update main table UI - show "−" since invoice was deleted
+            const mainRow = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+            if (mainRow) {
+                const invoiceCell = mainRow.querySelector('td[data-column="invoice-status"]');
+                if (invoiceCell) {
+                    invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
                 }
             }
         } catch (e) {
             console.error('[WORKFLOW] Error confirming cancel:', e);
             window.notificationManager?.error('Lỗi khi lưu yêu cầu hủy đơn');
+
+            // Re-enable button on error
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
+            }
         }
     }
 
