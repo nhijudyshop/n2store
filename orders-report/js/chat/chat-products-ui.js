@@ -57,6 +57,10 @@
         if (countBadge) countBadge.textContent = totalQty;
         if (totalEl) totalEl.textContent = `${totalAmount.toLocaleString("vi-VN")}đ`;
 
+        // Update the "Đơn hàng" tab badge count
+        const orderTabBadge = document.getElementById("chatOrdersCountBadge");
+        if (orderTabBadge) orderTabBadge.textContent = totalQty;
+
         // Empty State
         if (productsToRender.length === 0) {
             listContainer.innerHTML = `
