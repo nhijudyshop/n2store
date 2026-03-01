@@ -452,6 +452,7 @@ const PAGES_REGISTRY = {
         adminOnly: false,
         category: "admin",
         detailedPermissions: {
+            view: { name: "Xem trang", icon: "eye", description: "Xem trang Công Nợ Nhà Cung Cấp" },
             payment: { name: "Đăng ký thanh toán", icon: "credit-card", description: "Tạo phiếu thanh toán cho NCC" },
             deletePayment: { name: "Xóa thanh toán", icon: "trash-2", description: "Xóa phiếu thanh toán đã tạo" },
             editNoteBill: { name: "Sửa ghi chú hóa đơn", icon: "edit", description: "Sửa ghi chú web cho bút toán BILL (mua hàng phát sinh)" },
