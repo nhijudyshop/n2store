@@ -872,6 +872,8 @@
         /**
          * Delete a single invoice entry using FieldValue.delete()
          * This removes only the specific entry without affecting other data
+         * Admin: deletes from ALL user docs (since admin loads data from all docs)
+         * Normal user: deletes from own doc only
          * @param {string} saleOnlineId - The SaleOnline order ID to delete
          * @returns {boolean} True if deleted, false if not found
          */
@@ -887,13 +889,39 @@
                 this._sentBills.delete(key);
                 this._saveToLocalStorage();
 
-                // Delete specific field from Firestore using FieldValue.delete()
+                // Delete from Firestore
                 try {
-                    await this._getDocRef().update({
-                        [`data.${key}`]: firebase.firestore.FieldValue.delete(),
-                        lastUpdated: Date.now()
-                    });
-                    console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId} from Firestore`);
+                    if (this._isAdmin()) {
+                        // Admin: entry may exist in ANY user's doc (since admin loads all docs)
+                        // → scan all docs and delete from every doc that contains the entry
+                        const db = firebase.firestore();
+                        const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
+                        const batch = db.batch();
+                        let batchCount = 0;
+                        snapshot.forEach(doc => {
+                            const docData = doc.data();
+                            if (docData.data && key in docData.data) {
+                                batch.update(doc.ref, {
+                                    [`data.${key}`]: firebase.firestore.FieldValue.delete(),
+                                    lastUpdated: Date.now()
+                                });
+                                batchCount++;
+                            }
+                        });
+                        if (batchCount > 0) {
+                            await batch.commit();
+                            console.log(`[INVOICE-STATUS] Admin deleted invoice ${key} from ${batchCount} user doc(s)`);
+                        } else {
+                            console.log(`[INVOICE-STATUS] Admin: invoice ${key} not found in any Firestore doc`);
+                        }
+                    } else {
+                        // Normal user: delete from own doc only
+                        await this._getDocRef().update({
+                            [`data.${key}`]: firebase.firestore.FieldValue.delete(),
+                            lastUpdated: Date.now()
+                        });
+                        console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId} from Firestore`);
+                    }
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore delete error:', e);
                     // Fallback: save entire document if update fails (e.g., document doesn't exist)
