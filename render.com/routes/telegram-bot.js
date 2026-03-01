@@ -1980,7 +1980,7 @@ router.post('/webhook', async (req, res) => {
                             `⚠️ Còn thiếu: ${result.soMonThieu}\n\n` +
                             `📝 Sản phẩm:\n${productsList}${moreProducts}\n\n` +
                             `🔗 Tab 2 - Theo dõi đơn hàng\n` +
-                            `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
+                            `Xem tại: https://nhijudyshop.github.io/n2store/`,
                             messageId
                         );
 
@@ -2019,7 +2019,7 @@ router.post('/webhook', async (req, res) => {
                             `📝 ${tabLabel}\n` +
                             `🖼️ Tổng ảnh: ${result.imageCount}\n` +
                             `☁️ Đã lưu lên Firebase Storage\n\n` +
-                            `Xem tại: https://nhijudyshop.github.io/n2store/inventory-tracking/`,
+                            `Xem tại: https://nhijudyshop.github.io/n2store/`,
                             messageId
                         );
                     } catch (error) {

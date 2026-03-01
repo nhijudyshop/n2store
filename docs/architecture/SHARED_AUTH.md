@@ -35,7 +35,6 @@ import { AuthManager } from '/shared/browser/auth-manager.js';
 | Folder | Khác biệt |
 |--------|-----------|
 | `orders-report` | Có thêm `getUserId()`, preserve tokens khi logout |
-| `inventory-tracking` | Custom permission helper |
 | `customer-hub` | API integration (Customer 360) |
 | `user-management` | Auth-with-cache integration |
 

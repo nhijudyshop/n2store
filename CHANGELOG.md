@@ -92,7 +92,7 @@ Format: [YYYY-MM-DD] Mô tả thay đổi
 - **Rollback:** `git revert <commit-hash>`
 
 ## [2026-02-22] Loại bỏ Firebase config trùng lặp trong tất cả modules (Task 5.1, 5.2)
-- **Phạm vi:** soluong-live, orders-report, order-management, user-management, nhanhang, live, ib, hangrotxa, ck, bangkiemhang, firebase-stats, purchase-orders, inventory-tracking, hanghoan, index (login), tpos-pancake, soorder
+- **Phạm vi:** soluong-live, orders-report, order-management, user-management, nhanhang, live, ib, hangrotxa, ck, bangkiemhang, firebase-stats, purchase-orders, hanghoan, index (login), tpos-pancake, soorder
 - **Loại:** cleanup
 - **Mô tả:**
   - Thêm `shared/js/firebase-config.js` vào tất cả HTML pages chưa load shared config

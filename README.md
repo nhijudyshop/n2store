@@ -61,7 +61,6 @@ n2store/
 | `customer-hub` | Quản lý khách hàng |
 | `user-management` | Quản lý người dùng và phân quyền |
 | `order-management` | Quản lý đơn hàng |
-| `inventory-tracking` | Theo dõi tồn kho |
 | `purchase-orders` | Đơn đặt hàng nhà cung cấp |
 | `nhanhang` | Nhận hàng |
 | `hangrotxa` | Hàng rót xa |

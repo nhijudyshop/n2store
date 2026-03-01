@@ -23,14 +23,7 @@ const MENU_CONFIG = [
         pageIdentifier: "nhanhang",
         permissionRequired: "nhanhang",
     },
-    {
-        href: "../inventory-tracking/index.html",
-        icon: "package-search",
-        text: "Theo Dõi Nhập Hàng SL",
-        shortText: "Nhập Hàng",
-        pageIdentifier: "inventory-tracking",
-        permissionRequired: "inventoryTracking",
-    },
+    // REMOVED: inventory-tracking nav item (page deleted)
     {
         href: "../purchase-orders/index.html",
         icon: "clipboard-list",
@@ -389,7 +382,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Kho & Nhập Hàng",
         icon: "package",
-        items: ["inventory-tracking", "purchase-orders", "nhanhang"]
+        items: ["purchase-orders", "nhanhang"]
     },
     {
         name: "Khách Hàng",

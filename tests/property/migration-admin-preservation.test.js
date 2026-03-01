@@ -45,17 +45,6 @@ describe('Preservation: Admin permissions for non-supplier-debt modules', () => 
         live: { view: true, upload: true, edit: true, delete: true },
         ib: { view: true, reply: true, assign: true, archive: true, export: true, delete: true },
         nhanhang: { view: true, create: true, confirm: true, edit: true, cancel: true, weigh: true, delete: true },
-        inventoryTracking: {
-            tab_tracking: true, tab_congNo: true,
-            create_shipment: true, edit_shipment: true, delete_shipment: true,
-            view_chiPhiHangVe: true, edit_chiPhiHangVe: true,
-            view_ghiChuAdmin: true, edit_ghiChuAdmin: true,
-            edit_soMonThieu: true,
-            create_prepayment: true, edit_prepayment: true, delete_prepayment: true,
-            create_otherExpense: true, edit_otherExpense: true, delete_otherExpense: true,
-            edit_invoice_from_finance: true, edit_shipping_from_finance: true,
-            export_data: true
-        },
         "purchase-orders": { view: true, create: true, edit: true, delete: true, status_change: true, copy: true, export: true, upload_images: true },
         hangrotxa: { view: true, mark: true, approve: true, price: true, delete: true },
         hanghoan: { view: true, approve: true, reject: true, refund: true, update: true, export: true },

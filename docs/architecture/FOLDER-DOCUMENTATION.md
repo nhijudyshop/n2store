@@ -20,8 +20,7 @@
 11. [hangrotxa](#11-hangrotxa)
 12. [ib](#12-ib)
 13. [index](#13-index)
-14. [inventory-tracking](#14-inventory-tracking)
-15. [invoice-compare](#15-invoice-compare)
+14. [invoice-compare](#14-invoice-compare)
 16. [shared (formerly js)](#16-shared-formerly-js)
 17. [lichsuchinhsua](#17-lichsuchinhsua)
 18. [live](#18-live)
@@ -279,26 +278,7 @@ cloudflare-worker/
 
 ---
 
-## 14. inventory-tracking
-
-**Mục đích:** Theo dõi nhập hàng SL với RBAC permissions
-
-### Architecture
-- **6 Phases:** Kiến trúc, Flow khởi tạo, CRUD, UI, Finance, Permissions
-- **Collections:** `inventory_tracking`, `inventory_prepayments`, `inventory_other_expenses`, `edit_history`
-
-### Tab Chính
-1. **Tab Tracking** - Quản lý đợt hàng
-2. **Tab Finance** - Công nợ/tài chính
-
-### Permissions (RBAC)
-- `tab_tracking`, `tab_congNo` - Access tabs
-- `create/edit/delete_shipment` - CRUD operations
-- `view_chiPhiHangVe`, `view_ghiChuAdmin` - Admin only fields
-
----
-
-## 15. invoice-compare
+## 14. invoice-compare
 
 **Mục đích:** So sánh đơn hàng tự động bằng Gemini AI
 
@@ -671,7 +651,6 @@ tpos-pancake/
 | orders-report | 77 | Quản lý đơn hàng (lớn nhất) |
 | render.com | 41 | Backend API server |
 | tpos-pancake | 28 | Chat tích hợp |
-| inventory-tracking | 31 | Theo dõi nhập hàng |
 | user-management | 22 | Phân quyền |
 | js | 14 | Shared modules |
 | balance-history | 22 | Lịch sử số dư |
