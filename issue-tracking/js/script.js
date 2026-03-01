@@ -1178,7 +1178,11 @@ async function handleSubmitTicket() {
         // Runs in background - don't block ticket creation success
         // =====================================================
         if (type === 'BOOM' && boomReason === 'BOOM_HANG') {
-            markPartnerAsBoom(customerPhone, note).then(() => {
+            // Append creation date to Zalo note (e.g., "do mình test 1/3/2026")
+            const now = new Date();
+            const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
+            const noteWithDate = note ? `${note} ${dateStr}` : dateStr;
+            markPartnerAsBoom(customerPhone, noteWithDate).then(() => {
                 console.log('[APP] Partner boom status updated');
             }).catch(err => {
                 console.error('[APP] Failed to update partner boom status:', err);
