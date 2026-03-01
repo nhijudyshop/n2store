@@ -68,7 +68,7 @@ function updateModalWithData(data) {
     document.getElementById("lastUpdated").textContent = new Date(
         data.LastUpdated,
     ).toLocaleString("vi-VN");
-    document.getElementById("productCount").textContent =
+    document.getElementById("editProductCount").textContent =
         data.Details?.length || 0;
     switchEditTab("info");
 
@@ -789,7 +789,7 @@ function recalculateTotals() {
     // Update DOM elements if they exist (may not exist if tab is not rendered yet)
     const totalQuantityEl = document.getElementById("totalQuantity");
     const totalAmountEl = document.getElementById("totalAmount");
-    const productCountEl = document.getElementById("productCount");
+    const productCountEl = document.getElementById("editProductCount");
 
     if (totalQuantityEl) {
         totalQuantityEl.textContent = totalQty;
