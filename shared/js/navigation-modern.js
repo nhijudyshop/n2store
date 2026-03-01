@@ -180,6 +180,7 @@ const MENU_CONFIG = [
         text: "Quy Trình Nghiệp Vụ",
         shortText: "Quy Trình",
         pageIdentifier: "quy-trinh",
+        permissionRequired: "quy-trinh",
     },
     {
         href: "../soquy/index.html",

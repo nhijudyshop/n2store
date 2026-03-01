@@ -457,6 +457,20 @@ const PAGES_REGISTRY = {
             editNoteBill: { name: "Sửa ghi chú hóa đơn", icon: "edit", description: "Sửa ghi chú web cho bút toán BILL (mua hàng phát sinh)" },
             editNotePayment: { name: "Sửa ghi chú thanh toán", icon: "edit-3", description: "Sửa ghi chú web cho bút toán CSH2 (thanh toán NCC)" }
         }
+    },
+
+    "quy-trinh": {
+        id: "quy-trinh",
+        name: "Quy Trình Nghiệp Vụ",
+        shortName: "Quy Trình",
+        icon: "book-open",
+        href: "../quy-trinh/index.html",
+        description: "Xem quy trình nghiệp vụ của công ty",
+        adminOnly: false,
+        category: "admin",
+        detailedPermissions: {
+            view: { name: "Xem quy trình", icon: "eye", description: "Xem các quy trình nghiệp vụ" }
+        }
     }
 };
 
@@ -707,6 +721,13 @@ function generateTemplatePermissions(templateId) {
                             subKey.startsWith("view");
                     });
                 }
+                // Quy trình nghiệp vụ - mặc định xem cho tất cả
+                if (pageId === "quy-trinh") {
+                    pagePermissions.push(pageId);
+                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    });
+                }
                 break;
 
             case "warehouse-team":
@@ -722,6 +743,13 @@ function generateTemplatePermissions(templateId) {
                     pagePermissions.push(pageId);
                     Object.keys(page.detailedPermissions).forEach(subKey => {
                         detailedPermissions[pageId][subKey] = subKey === "view" || subKey === "export";
+                    });
+                }
+                // Quy trình nghiệp vụ - mặc định xem cho tất cả
+                if (pageId === "quy-trinh") {
+                    pagePermissions.push(pageId);
+                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                        detailedPermissions[pageId][subKey] = subKey === "view";
                     });
                 }
                 break;
