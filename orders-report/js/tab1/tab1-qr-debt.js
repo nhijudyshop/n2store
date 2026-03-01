@@ -1702,6 +1702,12 @@ async function fetchDebtForSaleModal(phone) {
                 oldDebtField.textContent = formatCurrencyVND(totalBalance);
             }
 
+            // Store virtual balance flag for bill printing
+            // When virtualBalance > 0, it means customer has "công nợ ảo" from return ticket
+            if (prepaidAmountField) {
+                prepaidAmountField.dataset.hasVirtualDebt = virtualBalance > 0 ? '1' : '0';
+            }
+
             // Cache it for later use
             saveDebtToCache(normalizedPhone, totalBalance);
 
@@ -1715,6 +1721,7 @@ async function fetchDebtForSaleModal(phone) {
             console.log('[SALE-MODAL] No wallet data for phone:', normalizedPhone);
             if (prepaidAmountField) {
                 prepaidAmountField.value = 0;
+                prepaidAmountField.dataset.hasVirtualDebt = '0';
             }
             updateSaleRemainingBalance();
         }
@@ -1723,6 +1730,7 @@ async function fetchDebtForSaleModal(phone) {
         // Fallback to 0 on error
         if (prepaidAmountField) {
             prepaidAmountField.value = 0;
+            prepaidAmountField.dataset.hasVirtualDebt = '0';
         }
         // Update remaining balance even on error
         updateSaleRemainingBalance();
