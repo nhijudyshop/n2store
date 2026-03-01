@@ -470,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // =====================================================
 let currentSaleOrderData = null;
 let currentSalePartnerData = null;
+let currentSaleLastDeposit = null; // { amount, date } from wallet API
 
 // =====================================================
 // DELIVERY CARRIER MANAGEMENT
@@ -1363,6 +1364,7 @@ function closeSaleButtonModal(clearSelection = false) {
     modal.style.display = 'none';
     currentSaleOrderData = null;
     currentSalePartnerData = null;
+    currentSaleLastDeposit = null;
 
     // Clear selection if requested (after successful order creation)
     if (clearSelection) {
@@ -1692,6 +1694,16 @@ async function fetchDebtForSaleModal(phone) {
             const totalBalance = realBalance + virtualBalance;
             console.log('[SALE-MODAL] Wallet balance for phone:', normalizedPhone, '=', totalBalance, '(real:', realBalance, '+ virtual:', virtualBalance, ')');
 
+            // Store last deposit info for note generation
+            if (result.data.lastDepositAmount && result.data.lastDepositDate) {
+                currentSaleLastDeposit = {
+                    amount: parseFloat(result.data.lastDepositAmount),
+                    date: result.data.lastDepositDate
+                };
+            } else {
+                currentSaleLastDeposit = null;
+            }
+
             // Update prepaid amount field with total available balance
             if (prepaidAmountField) {
                 prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
@@ -1719,6 +1731,7 @@ async function fetchDebtForSaleModal(phone) {
         } else {
             // No wallet found, set to 0
             console.log('[SALE-MODAL] No wallet data for phone:', normalizedPhone);
+            currentSaleLastDeposit = null;
             if (prepaidAmountField) {
                 prepaidAmountField.value = 0;
                 prepaidAmountField.dataset.hasVirtualDebt = '0';
@@ -1750,13 +1763,22 @@ function autoFillSaleNote() {
     if (!order) return;
 
     const noteParts = [];
-    const today = new Date();
-    const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
 
     // 1. CK from wallet balance (already fetched to salePrepaidAmount)
+    // Use last deposit amount and date instead of current balance and today's date
     const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
     if (walletBalance > 0) {
-        const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
+        let ckAmount = walletBalance;
+        let dateStr;
+        if (currentSaleLastDeposit?.amount && currentSaleLastDeposit?.date) {
+            ckAmount = currentSaleLastDeposit.amount;
+            const depositDate = new Date(currentSaleLastDeposit.date);
+            dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+        } else {
+            const today = new Date();
+            dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+        }
+        const amountStr = ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount;
         noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
     }
 

@@ -820,13 +820,22 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
 
     // ========== AUTO-GENERATE ORDER NOTE ==========
     const noteParts = [];
-    const today = new Date();
-    const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
 
     // 1. Check wallet balance → "CK [amount] ACB [date]"
+    // Use last deposit amount and date instead of current balance and today's date
     if (walletBalance > 0) {
-        const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance.toLocaleString('vi-VN');
-        noteParts.push(`CK ${amountStr} ACB ${todayStr}`);
+        let ckAmount = walletBalance;
+        let ckDateStr;
+        if (walletData?.lastDepositAmount && walletData?.lastDepositDate) {
+            ckAmount = walletData.lastDepositAmount;
+            const depositDate = new Date(walletData.lastDepositDate);
+            ckDateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+        } else {
+            const today = new Date();
+            ckDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+        }
+        const amountStr = ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
+        noteParts.push(`CK ${amountStr} ACB ${ckDateStr}`);
     }
 
     // 2. Discount tag → "GG [amount]"
