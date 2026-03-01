@@ -297,6 +297,39 @@ router.post('/', async (req, res) => {
 
         console.log(`[PENDING-WITHDRAW] ✅ Created #${pendingId} for order ${order_id}, phone ${normalizedPhone}, amount ${amount}`);
 
+        // Log ORDER_CREATED activity (non-blocking)
+        setImmediate(async () => {
+            try {
+                // Ensure activity_type constraint includes ORDER_CREATED
+                await db.query(`ALTER TABLE customer_activities DROP CONSTRAINT IF EXISTS customer_activities_activity_type_check`).catch(() => {});
+                await db.query(`ALTER TABLE customer_activities ADD CONSTRAINT customer_activities_activity_type_check
+                    CHECK (activity_type IN (
+                        'WALLET_DEPOSIT','WALLET_WITHDRAW','WALLET_VIRTUAL_CREDIT','WALLET_REFUND',
+                        'TICKET_CREATED','TICKET_UPDATED','TICKET_COMPLETED','TICKET_DELETED',
+                        'ORDER_CREATED','ORDER_CANCELLED','ORDER_DELIVERED','ORDER_RETURNED',
+                        'MESSAGE_SENT','MESSAGE_RECEIVED','PROFILE_UPDATED','TAG_ADDED','NOTE_ADDED'
+                    ))`).catch(() => {});
+
+                const orderDisplay = order_number || order_id;
+                const debtAmount = parseFloat(amount) || 0;
+                await db.query(`
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by)
+                    VALUES ($1, $2, 'ORDER_CREATED', $3, $4, 'order', $5, $6, 'shopping_cart', 'green', $7)
+                `, [
+                    normalizedPhone,
+                    customerId,
+                    `Tạo đơn #${orderDisplay} (CK ${debtAmount.toLocaleString()}đ)`,
+                    `Tạo đơn hàng #${orderDisplay}. Sử dụng công nợ: ${debtAmount.toLocaleString()}đ`,
+                    orderDisplay,
+                    JSON.stringify({ order_number: orderDisplay, order_id, debt_used: debtAmount, source: source || 'FAST_SALE' }),
+                    created_by || 'system'
+                ]);
+                console.log(`[PENDING-WITHDRAW] ✅ ORDER_CREATED activity logged for ${normalizedPhone}, order ${orderDisplay}`);
+            } catch (actErr) {
+                console.warn('[PENDING-WITHDRAW] Activity logging failed (non-critical):', actErr.message);
+            }
+        });
+
         // Process immediately (non-blocking) - don't wait for result
         setImmediate(() => processWithdrawal(db, pendingId));
 
