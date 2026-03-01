@@ -519,6 +519,13 @@
      * @param {number} index - Index in success orders array
      */
     async function confirmCancelOrder(index) {
+        // Block double-click: check if button is already disabled
+        const confirmBtn = document.querySelector('#cancelOrderModal button[onclick*="confirmCancelOrder"]');
+        if (confirmBtn?.disabled) {
+            console.warn('[WORKFLOW] ⚠️ Cancel button already disabled, ignoring duplicate click');
+            return;
+        }
+
         const reason = document.getElementById('cancelReasonInput')?.value?.trim();
         if (!reason) {
             window.notificationManager?.warning('Vui lòng nhập lý do hủy đơn');
@@ -539,6 +546,13 @@
             window.notificationManager?.error('Không tìm thấy dữ liệu phiếu');
             closeCancelOrderModal();
             return;
+        }
+
+        // Disable button to prevent double-click
+        const originalBtnText = confirmBtn?.innerHTML;
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
         }
 
         try {
@@ -581,6 +595,12 @@
                 SaleOnlineId: saleOnlineId
             }, reason);
 
+            // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
+            if (window.InvoiceStatusStore?.delete) {
+                await window.InvoiceStatusStore.delete(saleOnlineId);
+                console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
+            }
+
             // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
             const orderCode = order.Reference || order.Number || '';
             if (typeof window.quickAssignTag === 'function') {
@@ -590,33 +610,58 @@
                 console.warn('[WORKFLOW] quickAssignTag function not available');
             }
 
-            // Log cancel activity & refund wallet (async, non-blocking)
+            // Step 5: Update SaleOnline order status to "Nháp"
+            if (typeof window.updateOrderStatus === 'function') {
+                console.log(`[WORKFLOW] Updating order status to "Nháp": ${saleOnlineId}`);
+                await window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e');
+            } else {
+                console.warn('[WORKFLOW] updateOrderStatus function not available');
+            }
+
+            // Step 6: Log cancel activity & refund wallet (async, non-blocking)
             const orderNumber = order.Number || order.Reference || '';
-            const customerPhone = order.Partner?.Phone || order.PartnerPhone || '';
+            const customerPhone = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone || order.ReceiverPhone || order.Phone || '';
             if (customerPhone) {
                 logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+            } else {
+                console.warn(`[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`);
             }
 
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`);
             closeCancelOrderModal();
 
-            // Update UI - mark as cancelled
+            // Update results modal UI - mark as cancelled
             const row = document.querySelector(`.success-order-checkbox[data-order-id="${order.Id}"]`)?.closest('tr');
             if (row) {
                 row.style.backgroundColor = '#fef2f2';
                 row.style.opacity = '0.7';
 
                 // Update cancel button to show cancelled
-                const cancelBtn = row.querySelector('.btn-cancel-order');
-                if (cancelBtn) {
-                    cancelBtn.innerHTML = '<i class="fas fa-check"></i> Đã nhờ hủy';
-                    cancelBtn.disabled = true;
-                    cancelBtn.style.background = '#9ca3af';
+                const rowCancelBtn = row.querySelector('.btn-cancel-order');
+                if (rowCancelBtn) {
+                    rowCancelBtn.innerHTML = '<i class="fas fa-check"></i> Đã nhờ hủy';
+                    rowCancelBtn.disabled = true;
+                    rowCancelBtn.style.background = '#9ca3af';
+                }
+            }
+
+            // Update main table UI - show "−" since invoice was deleted
+            const mainRow = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+            if (mainRow) {
+                const invoiceCell = mainRow.querySelector('td[data-column="invoice-status"]');
+                if (invoiceCell) {
+                    invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
                 }
             }
         } catch (e) {
             console.error('[WORKFLOW] Error confirming cancel:', e);
             window.notificationManager?.error('Lỗi khi lưu yêu cầu hủy đơn');
+
+            // Re-enable button on error
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
+            }
         }
     }
 
@@ -1328,9 +1373,11 @@
 
             // Step 6: Log cancel activity & refund wallet (async, non-blocking)
             const orderNumber = order.Number || order.Reference || '';
-            const customerPhone = order.Partner?.Phone || order.PartnerPhone || '';
+            const customerPhone = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone || order.ReceiverPhone || order.Phone || '';
             if (customerPhone) {
                 logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+            } else {
+                console.warn(`[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`);
             }
 
             window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
@@ -1403,12 +1450,15 @@
                 normalizedPhone = '0' + normalizedPhone.substring(2);
             }
 
+            console.log(`[WORKFLOW] logCancelOrderActivity: phone=${normalizedPhone}, order=${orderNumber}`);
+
             const amountTotal = parseFloat(order.AmountTotal) || 0;
             const customerName = order.Partner?.Name || order.PartnerDisplayName || '';
 
             // Step 1: Try to refund wallet if debt was used
             let refundResult = null;
             try {
+                console.log(`[WORKFLOW] Calling refund-by-order for ${orderNumber}...`);
                 const refundResponse = await fetch(`${RENDER_API_URL}/api/v2/wallets/refund-by-order`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1419,20 +1469,28 @@
                         created_by: performedBy
                     })
                 });
-                refundResult = await refundResponse.json();
 
-                if (refundResult.success && refundResult.refunded) {
-                    console.log(`[WORKFLOW] ✅ Wallet refunded for order ${orderNumber}: ${refundResult.data.refund_amount}đ`);
-                    window.notificationManager?.info(
-                        `Đã hoàn ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ vào ví khách (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, CN: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`,
-                        5000
-                    );
-                } else if (refundResult.success && refundResult.cancelled_pending) {
-                    console.log(`[WORKFLOW] ✅ Pending withdrawal cancelled for order ${orderNumber}`);
-                    window.notificationManager?.info('Đã hủy giao dịch trừ ví chờ xử lý');
+                if (!refundResponse.ok) {
+                    const errText = await refundResponse.text().catch(() => '');
+                    console.error(`[WORKFLOW] ❌ Refund API error ${refundResponse.status}:`, errText);
+                } else {
+                    refundResult = await refundResponse.json();
+
+                    if (refundResult.success && refundResult.refunded) {
+                        console.log(`[WORKFLOW] ✅ Wallet refunded for order ${orderNumber}: ${refundResult.data.refund_amount}đ`);
+                        window.notificationManager?.info(
+                            `Đã hoàn ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ vào ví khách (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, CN: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`,
+                            5000
+                        );
+                    } else if (refundResult.success && refundResult.cancelled_pending) {
+                        console.log(`[WORKFLOW] ✅ Pending withdrawal cancelled for order ${orderNumber}`);
+                        window.notificationManager?.info('Đã hủy giao dịch trừ ví chờ xử lý');
+                    } else {
+                        console.log(`[WORKFLOW] Refund result for ${orderNumber}:`, refundResult.message || 'no withdrawal found');
+                    }
                 }
             } catch (refundError) {
-                console.warn('[WORKFLOW] Wallet refund check failed (non-critical):', refundError);
+                console.error('[WORKFLOW] ❌ Wallet refund failed:', refundError.message);
             }
 
             // Step 2: Log ORDER_CANCELLED activity
@@ -1458,7 +1516,8 @@
                 metadata.virtual_refunded = refundResult.data.virtual_refunded;
             }
 
-            await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
+            console.log(`[WORKFLOW] Posting cancel activity for ${normalizedPhone}...`);
+            const activityResponse = await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1474,9 +1533,14 @@
                 })
             });
 
-            console.log(`[WORKFLOW] ✅ Cancel activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+            if (!activityResponse.ok) {
+                const errText = await activityResponse.text().catch(() => '');
+                console.error(`[WORKFLOW] ❌ Activity API error ${activityResponse.status}:`, errText);
+            } else {
+                console.log(`[WORKFLOW] ✅ Cancel activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+            }
         } catch (error) {
-            console.error('[WORKFLOW] Error logging cancel activity:', error);
+            console.error('[WORKFLOW] ❌ Error logging cancel activity:', error.message);
         }
     }
 
