@@ -2331,10 +2331,16 @@ async function logOrderCreationActivities() {
 
     console.log(`[FAST-SALE] Logging activities for ${successOrders.length} successful orders...`);
 
+    let loggedCount = 0;
+
     for (const order of successOrders) {
         try {
-            const phone = order.Partner?.Phone || order.PartnerPhone;
-            if (!phone) continue;
+            // Try multiple phone fields (TPOS response may use different naming)
+            const phone = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone || order.ReceiverPhone || order.Phone;
+            if (!phone) {
+                console.warn(`[FAST-SALE] No phone found for order ${order.Number || order.Id}, skipping activity log. Order keys:`, Object.keys(order));
+                continue;
+            }
 
             let normalizedPhone = String(phone).replace(/\D/g, '');
             if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
@@ -2381,8 +2387,9 @@ async function logOrderCreationActivities() {
                 metadata.wallet_balance_at_order = totalWalletBalance;
             }
 
-            // Log activity
-            await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
+            // Log activity with response checking
+            console.log(`[FAST-SALE] Posting activity for ${normalizedPhone}, order ${orderNumber}...`);
+            const response = await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -2400,10 +2407,22 @@ async function logOrderCreationActivities() {
                 })
             });
 
-            console.log(`[FAST-SALE] ✅ Activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                console.error(`[FAST-SALE] ❌ Activity API error ${response.status} for ${orderNumber}:`, errText);
+            } else {
+                loggedCount++;
+                console.log(`[FAST-SALE] ✅ Activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+            }
         } catch (error) {
             console.error('[FAST-SALE] Error logging order activity:', error);
         }
+    }
+
+    if (loggedCount > 0) {
+        console.log(`[FAST-SALE] ✅ Logged ${loggedCount}/${successOrders.length} order activities`);
+    } else if (successOrders.length > 0) {
+        console.warn(`[FAST-SALE] ⚠️ No activities logged for ${successOrders.length} orders`);
     }
 }
 
