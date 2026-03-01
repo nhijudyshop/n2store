@@ -1058,6 +1058,27 @@ router.post('/:id/notes', async (req, res) => {
  * POST /api/v2/customers/:id/activities
  * Log a customer activity (from frontend order operations)
  */
+// Auto-migrate activity_type constraint on first use
+let activityConstraintMigrated = false;
+async function ensureActivityTypeConstraint(db) {
+    if (activityConstraintMigrated) return;
+    try {
+        await db.query(`ALTER TABLE customer_activities DROP CONSTRAINT IF EXISTS customer_activities_activity_type_check`);
+        await db.query(`ALTER TABLE customer_activities ADD CONSTRAINT customer_activities_activity_type_check
+            CHECK (activity_type IN (
+                'WALLET_DEPOSIT','WALLET_WITHDRAW','WALLET_VIRTUAL_CREDIT','WALLET_REFUND',
+                'TICKET_CREATED','TICKET_UPDATED','TICKET_COMPLETED','TICKET_DELETED',
+                'ORDER_CREATED','ORDER_CANCELLED','ORDER_DELIVERED','ORDER_RETURNED',
+                'MESSAGE_SENT','MESSAGE_RECEIVED','PROFILE_UPDATED','TAG_ADDED','NOTE_ADDED'
+            ))`);
+        activityConstraintMigrated = true;
+        console.log('[Customers V2] ✅ Activity type constraint migrated (added ORDER_CREATED, ORDER_CANCELLED, WALLET_REFUND)');
+    } catch (err) {
+        console.warn('[Customers V2] Constraint migration warning:', err.message);
+        activityConstraintMigrated = true; // Don't retry on every request
+    }
+}
+
 router.post('/:id/activities', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { id } = req.params;
@@ -1070,6 +1091,9 @@ router.post('/:id/activities', async (req, res) => {
     const isPhone = /^0\d{9}$/.test(id) || /^\d{10,11}$/.test(id);
 
     try {
+        // Ensure constraint allows new activity types
+        await ensureActivityTypeConstraint(db);
+
         let phone, customerId;
         if (isPhone) {
             phone = normalizePhone(id);

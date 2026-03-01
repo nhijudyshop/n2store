@@ -719,6 +719,27 @@ router.get('/adjustments', async (req, res) => {
  * Refund wallet when order is cancelled
  * Checks if a pending withdrawal was completed for this order and reverses it
  */
+// Auto-migrate activity_type constraint on first use
+let walletActivityConstraintMigrated = false;
+async function ensureActivityTypeConstraintForWallet(db) {
+    if (walletActivityConstraintMigrated) return;
+    try {
+        await db.query(`ALTER TABLE customer_activities DROP CONSTRAINT IF EXISTS customer_activities_activity_type_check`);
+        await db.query(`ALTER TABLE customer_activities ADD CONSTRAINT customer_activities_activity_type_check
+            CHECK (activity_type IN (
+                'WALLET_DEPOSIT','WALLET_WITHDRAW','WALLET_VIRTUAL_CREDIT','WALLET_REFUND',
+                'TICKET_CREATED','TICKET_UPDATED','TICKET_COMPLETED','TICKET_DELETED',
+                'ORDER_CREATED','ORDER_CANCELLED','ORDER_DELIVERED','ORDER_RETURNED',
+                'MESSAGE_SENT','MESSAGE_RECEIVED','PROFILE_UPDATED','TAG_ADDED','NOTE_ADDED'
+            ))`);
+        walletActivityConstraintMigrated = true;
+        console.log('[Wallets V2] ✅ Activity type constraint migrated');
+    } catch (err) {
+        console.warn('[Wallets V2] Constraint migration warning:', err.message);
+        walletActivityConstraintMigrated = true;
+    }
+}
+
 router.post('/refund-by-order', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { order_id, phone, reason, created_by } = req.body;
@@ -774,7 +795,7 @@ router.post('/refund-by-order', async (req, res) => {
         const virtualUsed = parseFloat(withdrawal.virtual_used) || 0;
         const realUsed = parseFloat(withdrawal.real_used) || 0;
 
-        // Step 2: Refund to wallet
+        // Step 2: Refund to wallet (transaction: wallet update + transaction log + withdrawal status)
         await db.query('BEGIN');
 
         // Get current wallet
@@ -838,26 +859,7 @@ router.post('/refund-by-order', async (req, res) => {
             created_by || 'system'
         ]);
 
-        // Step 4: Log customer activity
-        await db.query(`
-            INSERT INTO customer_activities (phone, activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by)
-            VALUES ($1, 'WALLET_REFUND', $2, $3, 'order', $4, $5, 'undo', 'blue')
-        `, [
-            normalizedPhone,
-            `Hoàn công nợ: ${refundAmount.toLocaleString()}đ`,
-            `Hoàn tiền do hủy đơn #${order_id}. Tiền thật: ${realUsed.toLocaleString()}đ, Công nợ ảo: ${virtualUsed.toLocaleString()}đ. Lý do: ${reason || 'N/A'}`,
-            order_id,
-            JSON.stringify({
-                order_id,
-                total_refunded: refundAmount,
-                real_refunded: realUsed,
-                virtual_refunded: virtualUsed,
-                reason: reason || '',
-                original_withdrawal_id: withdrawal.id
-            })
-        ]);
-
-        // Step 5: Mark withdrawal as REFUNDED
+        // Step 4: Mark withdrawal as REFUNDED
         await db.query(`
             UPDATE pending_wallet_withdrawals
             SET status = 'CANCELLED', last_error = $2, updated_at = NOW()
@@ -867,6 +869,31 @@ router.post('/refund-by-order', async (req, res) => {
         await db.query('COMMIT');
 
         console.log(`[Wallets V2] ✅ Refund for order ${order_id}: ${refundAmount}đ (real: ${realUsed}, virtual: ${virtualUsed})`);
+
+        // Step 5: Log customer activity AFTER commit (non-blocking, won't rollback refund)
+        try {
+            await ensureActivityTypeConstraintForWallet(db);
+            await db.query(`
+                INSERT INTO customer_activities (phone, activity_type, title, description, reference_type, reference_id, metadata, icon, color, created_by)
+                VALUES ($1, 'WALLET_REFUND', $2, $3, 'order', $4, $5, 'undo', 'blue', $6)
+            `, [
+                normalizedPhone,
+                `Hoàn công nợ: ${refundAmount.toLocaleString()}đ`,
+                `Hoàn tiền do hủy đơn #${order_id}. Tiền thật: ${realUsed.toLocaleString()}đ, Công nợ ảo: ${virtualUsed.toLocaleString()}đ. Lý do: ${reason || 'N/A'}`,
+                order_id,
+                JSON.stringify({
+                    order_id,
+                    total_refunded: refundAmount,
+                    real_refunded: realUsed,
+                    virtual_refunded: virtualUsed,
+                    reason: reason || '',
+                    original_withdrawal_id: withdrawal.id
+                }),
+                created_by || 'system'
+            ]);
+        } catch (activityErr) {
+            console.warn('[Wallets V2] Activity logging failed (refund still succeeded):', activityErr.message);
+        }
 
         res.json({
             success: true,
