@@ -532,6 +532,19 @@ async function updateSaleOrderWithAPI() {
 
         console.log(`[SALE-API] ✅ Updated order ${currentSaleOrderData.Id} with ${payload.Details?.length || 0} products`);
 
+        // Invalidate order details cache so chat modal loads fresh data on reopen
+        if (typeof window.invalidateOrderDetailsCache === 'function') {
+            window.invalidateOrderDetailsCache(currentSaleOrderData.Id);
+        }
+
+        // Update the order table row (quantity column & total)
+        if (typeof updateOrderInTable === 'function') {
+            updateOrderInTable(currentSaleOrderData.Id, {
+                TotalQuantity: totalQuantity,
+                TotalAmount: totalAmount
+            });
+        }
+
         // 🔥 STEP 4: Fetch updated order AFTER PUT to get new Detail IDs
         console.log('[SALE-API] Fetching updated order to get new Detail IDs...');
         const refreshResponse = await fetch(getUrl, {

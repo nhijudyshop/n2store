@@ -1377,6 +1377,19 @@ window.confirmHeldProduct = async function (productId) {
 
         console.log('[HELD-CONFIRM] ✓ Order updated on backend');
 
+        // Invalidate order details cache so modal loads fresh data on reopen
+        if (typeof window.invalidateOrderDetailsCache === 'function') {
+            window.invalidateOrderDetailsCache(window.currentChatOrderData.Id);
+        }
+
+        // Update the order table row (quantity column & total)
+        if (typeof updateOrderInTable === 'function') {
+            updateOrderInTable(window.currentChatOrderData.Id, {
+                TotalQuantity: totalQuantity,
+                TotalAmount: totalAmount
+            });
+        }
+
         // STEP 5: Remove from Firebase held_products
         if (typeof window.removeHeldProduct === 'function') {
             await window.removeHeldProduct(normalizedProductId);
@@ -1648,6 +1661,19 @@ window.decreaseMainProductQuantityById = async function (productId) {
 
         console.log('[DECREASE-BY-ID] ✓ Order updated successfully');
 
+        // Invalidate order details cache so modal loads fresh data on reopen
+        if (typeof window.invalidateOrderDetailsCache === 'function') {
+            window.invalidateOrderDetailsCache(orderId);
+        }
+
+        // Update the order table row (quantity column & total)
+        if (typeof updateOrderInTable === 'function') {
+            updateOrderInTable(orderId, {
+                TotalQuantity: totalQuantity,
+                TotalAmount: totalAmount
+            });
+        }
+
         // Sync arrays
         currentChatOrderDetails = freshOrderData.Details.filter(p => !p.IsHeld);
 
@@ -1808,6 +1834,19 @@ async function decreaseMainProductQuantity(index) {
 
         console.log('[DECREASE] ✓ Order updated on backend');
 
+        // Invalidate order details cache so modal loads fresh data on reopen
+        if (typeof window.invalidateOrderDetailsCache === 'function') {
+            window.invalidateOrderDetailsCache(orderId);
+        }
+
+        // Update the order table row (quantity column & total)
+        if (typeof updateOrderInTable === 'function') {
+            updateOrderInTable(orderId, {
+                TotalQuantity: totalQuantity,
+                TotalAmount: totalAmount
+            });
+        }
+
         // Update local data
         window.currentChatOrderData = freshOrderData;
         currentChatOrderDetails = mainProducts;
@@ -1910,6 +1949,20 @@ async function removeChatProduct(index) {
             );
 
             console.log('[REMOVE-PRODUCT] ✓ Order updated successfully');
+
+            // Invalidate order details cache so modal loads fresh data on reopen
+            const orderId = window.currentChatOrderData.Id;
+            if (typeof window.invalidateOrderDetailsCache === 'function') {
+                window.invalidateOrderDetailsCache(orderId);
+            }
+
+            // Update the order table row (quantity column & total)
+            if (typeof updateOrderInTable === 'function') {
+                updateOrderInTable(orderId, {
+                    TotalQuantity: totalQuantity,
+                    TotalAmount: totalAmount
+                });
+            }
         }
 
         // 4. Sync both arrays if needed

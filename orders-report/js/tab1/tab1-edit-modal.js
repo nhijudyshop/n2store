@@ -885,6 +885,11 @@ async function saveAllOrderChanges() {
             currentEditOrderData.Tags = preservedTags;
         }
 
+        // Invalidate order details cache so chat modal loads fresh data
+        if (typeof window.invalidateOrderDetailsCache === 'function') {
+            window.invalidateOrderDetailsCache(currentEditOrderId);
+        }
+
         // 🔄 CẬP NHẬT BẢNG CHÍNH VỚI DỮ LIỆU MỚI
         updateOrderInTable(currentEditOrderId, currentEditOrderData);
 
