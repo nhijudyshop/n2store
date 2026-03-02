@@ -22,23 +22,7 @@ const PAGES_REGISTRY = {
     // =====================================================
     // CATEGORY: SALES - Bán hàng & Livestream
     // =====================================================
-    live: {
-        id: "live",
-        name: "Hình Ảnh Live",
-        shortName: "Live",
-        icon: "image",
-        href: "../live/index.html",
-        description: "Xem và quản lý hình ảnh live stream",
-        adminOnly: false,
-        category: "sales",
-        detailedPermissions: {
-            view: { name: "Xem hình ảnh", icon: "eye", description: "Xem danh sách hình ảnh live" },
-            upload: { name: "Upload hình ảnh", icon: "upload", description: "Tải lên hình ảnh mới" },
-            edit: { name: "Chỉnh sửa", icon: "edit", description: "Sửa thông tin hình ảnh" },
-            delete: { name: "Xóa hình ảnh", icon: "trash-2", description: "Xóa hình ảnh khỏi hệ thống" }
-        }
-    },
-
+    // REMOVED: live (module deleted)
     // REMOVED: livestream (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
 
