@@ -5,14 +5,7 @@
 
 // Menu Configuration with Permissions
 const MENU_CONFIG = [
-    {
-        href: "../live/index.html",
-        icon: "image",
-        text: "Hình Ảnh Live",
-        shortText: "Live",
-        pageIdentifier: "live",
-        permissionRequired: "live",
-    },
+    // REMOVED: live nav item (module deleted)
     // REMOVED: livestream nav item (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive nav item (module deleted - cleanup task 9.1)
     {
@@ -154,7 +147,7 @@ const MENU_CONFIG = [
         text: "NCC",
         shortText: "NCC",
         pageIdentifier: "supplier-debt",
-        publicAccess: true,
+        permissionRequired: "supplier-debt",
     },
     {
         href: "../invoice-compare/index.html",
@@ -180,6 +173,7 @@ const MENU_CONFIG = [
         text: "Quy Trình Nghiệp Vụ",
         shortText: "Quy Trình",
         pageIdentifier: "quy-trinh",
+        permissionRequired: "quy-trinh",
     },
     {
         href: "../soquy/index.html",
@@ -378,7 +372,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Live & Streaming",
         icon: "video",
-        items: ["live", "soluong-live"]
+        items: ["soluong-live"]
     },
     {
         name: "Đơn Hàng",

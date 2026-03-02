@@ -502,7 +502,7 @@
 
     /**
      * Decrease main product quantity by ProductId
-     * Shows confirmation, updates order via API, moves 1 product to dropped
+     * Shows confirmation, updates order via API
      * @param {number} productId - Product ID to decrease
      */
     window.decreaseMainProductQuantityById = async function (productId) {
@@ -530,7 +530,7 @@
 
         // Show confirmation
         const productName = product.ProductName || product.Name || 'Sản phẩm';
-        const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?\n\nSản phẩm sẽ được chuyển sang hàng rớt-xả.`;
+        const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?`;
 
         let confirmed = false;
         if (window.CustomPopup) {
@@ -569,26 +569,6 @@
             }
 
             const freshProduct = freshOrderData.Details[freshProductIndex];
-
-            // Create product object to add to dropped
-            const droppedProductData = {
-                ProductId: freshProduct.ProductId,
-                ProductName: freshProduct.ProductName || freshProduct.Name,
-                ProductNameGet: freshProduct.ProductNameGet || freshProduct.ProductName || freshProduct.Name,
-                ProductCode: freshProduct.ProductCode || freshProduct.Code,
-                Price: freshProduct.Price || 0,
-                ImageUrl: freshProduct.ImageUrl || '',
-                UOMId: freshProduct.UOMId || 1,
-                UOMName: freshProduct.UOMName || 'Cái',
-                Quantity: 1 // Moving 1 quantity to dropped
-            };
-
-            console.log('[DECREASE-BY-ID] Moving 1 to dropped:', droppedProductData);
-
-            // Add to dropped products
-            if (typeof window.addToDroppedProducts === 'function') {
-                await window.addToDroppedProducts(droppedProductData, 1, 'removed', null);
-            }
 
             // Decrease quantity in order
             if (freshProduct.Quantity <= 1) {
@@ -668,14 +648,9 @@
                 window.saveChatProductsToFirebase('shared', details);
             }
 
-            // Re-render Dropped tab if visible
-            if (typeof window.renderDroppedProductsTable === 'function') {
-                await window.renderDroppedProductsTable();
-            }
-
             // Show success notification
             if (window.notificationManager) {
-                window.notificationManager.show("✅ Đã chuyển 1 sản phẩm sang hàng rớt", "success");
+                window.notificationManager.show("✅ Đã xóa 1 sản phẩm khỏi đơn hàng", "success");
             }
 
         } catch (error) {

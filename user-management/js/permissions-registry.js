@@ -22,23 +22,7 @@ const PAGES_REGISTRY = {
     // =====================================================
     // CATEGORY: SALES - Bán hàng & Livestream
     // =====================================================
-    live: {
-        id: "live",
-        name: "Hình Ảnh Live",
-        shortName: "Live",
-        icon: "image",
-        href: "../live/index.html",
-        description: "Xem và quản lý hình ảnh live stream",
-        adminOnly: false,
-        category: "sales",
-        detailedPermissions: {
-            view: { name: "Xem hình ảnh", icon: "eye", description: "Xem danh sách hình ảnh live" },
-            upload: { name: "Upload hình ảnh", icon: "upload", description: "Tải lên hình ảnh mới" },
-            edit: { name: "Chỉnh sửa", icon: "edit", description: "Sửa thông tin hình ảnh" },
-            delete: { name: "Xóa hình ảnh", icon: "trash-2", description: "Xóa hình ảnh khỏi hệ thống" }
-        }
-    },
-
+    // REMOVED: live (module deleted)
     // REMOVED: livestream (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
 
@@ -452,10 +436,25 @@ const PAGES_REGISTRY = {
         adminOnly: false,
         category: "admin",
         detailedPermissions: {
+            view: { name: "Xem trang", icon: "eye", description: "Xem trang Công Nợ Nhà Cung Cấp" },
             payment: { name: "Đăng ký thanh toán", icon: "credit-card", description: "Tạo phiếu thanh toán cho NCC" },
             deletePayment: { name: "Xóa thanh toán", icon: "trash-2", description: "Xóa phiếu thanh toán đã tạo" },
             editNoteBill: { name: "Sửa ghi chú hóa đơn", icon: "edit", description: "Sửa ghi chú web cho bút toán BILL (mua hàng phát sinh)" },
             editNotePayment: { name: "Sửa ghi chú thanh toán", icon: "edit-3", description: "Sửa ghi chú web cho bút toán CSH2 (thanh toán NCC)" }
+        }
+    },
+
+    "quy-trinh": {
+        id: "quy-trinh",
+        name: "Quy Trình Nghiệp Vụ",
+        shortName: "Quy Trình",
+        icon: "book-open",
+        href: "../quy-trinh/index.html",
+        description: "Xem quy trình nghiệp vụ của công ty",
+        adminOnly: false,
+        category: "admin",
+        detailedPermissions: {
+            view: { name: "Xem quy trình", icon: "eye", description: "Xem các quy trình nghiệp vụ" }
         }
     }
 };
@@ -707,6 +706,13 @@ function generateTemplatePermissions(templateId) {
                             subKey.startsWith("view");
                     });
                 }
+                // Quy trình nghiệp vụ - mặc định xem cho tất cả
+                if (pageId === "quy-trinh") {
+                    pagePermissions.push(pageId);
+                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    });
+                }
                 break;
 
             case "warehouse-team":
@@ -722,6 +728,13 @@ function generateTemplatePermissions(templateId) {
                     pagePermissions.push(pageId);
                     Object.keys(page.detailedPermissions).forEach(subKey => {
                         detailedPermissions[pageId][subKey] = subKey === "view" || subKey === "export";
+                    });
+                }
+                // Quy trình nghiệp vụ - mặc định xem cho tất cả
+                if (pageId === "quy-trinh") {
+                    pagePermissions.push(pageId);
+                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                        detailedPermissions[pageId][subKey] = subKey === "view";
                     });
                 }
                 break;
