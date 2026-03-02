@@ -198,10 +198,11 @@ const KPICommission = {
         if (!select) return;
 
         try {
-            const snapshot = await db.collection('report_order_details').get();
+            const snapshot = await db.collection('campaigns').get();
             const campaigns = [];
             snapshot.forEach(doc => {
-                campaigns.push(doc.id);
+                const name = doc.data().name;
+                if (name) campaigns.push(name);
             });
 
             campaigns.sort();
@@ -1240,11 +1241,48 @@ const KPICommission = {
 };
 
 // ========================================
+// WAIT FOR FIREBASE SDK
+// ========================================
+function waitForFirebase(timeout, interval) {
+    timeout = timeout || 15000;
+    interval = interval || 100;
+    return new Promise(function (resolve, reject) {
+        if (window.firebase && window.firebase.firestore) {
+            return resolve();
+        }
+        var elapsed = 0;
+        var timer = setInterval(function () {
+            elapsed += interval;
+            if (window.firebase && window.firebase.firestore) {
+                clearInterval(timer);
+                return resolve();
+            }
+            if (elapsed >= timeout) {
+                clearInterval(timer);
+                return reject(new Error('Firebase SDK load timeout after ' + timeout + 'ms'));
+            }
+        }, interval);
+    });
+}
+
+// ========================================
 // AUTO-INIT on DOMContentLoaded
 // ========================================
 document.addEventListener('DOMContentLoaded', function () {
-    // Small delay to ensure Firebase is initialized
-    setTimeout(function () {
-        KPICommission.init();
-    }, 500);
+    waitForFirebase(15000, 100)
+        .then(function () {
+            KPICommission.init();
+        })
+        .catch(function (err) {
+            console.error('[KPI Tab] Firebase init failed:', err);
+            KPICommission.hideEl('kpiTableLoading');
+            var emptyEl = document.getElementById('kpiTableEmpty');
+            if (emptyEl) {
+                emptyEl.style.display = '';
+                var msgEl = emptyEl.querySelector('p');
+                if (msgEl) {
+                    msgEl.textContent = 'Không thể kết nối Firebase. Vui lòng tải lại trang.';
+                }
+            }
+        });
 });
