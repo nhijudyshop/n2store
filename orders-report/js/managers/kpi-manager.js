@@ -260,7 +260,7 @@
                     kpi: statistics.kpi || 0,
                     hasDiscrepancy: statistics.hasDiscrepancy || false,
                     details: statistics.details || {},
-                    updatedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                    updatedAt: new Date().toISOString()
                 };
             } else {
                 currentStats.orders.push({
@@ -272,7 +272,7 @@
                     kpi: statistics.kpi || 0,
                     hasDiscrepancy: statistics.hasDiscrepancy || false,
                     details: statistics.details || {},
-                    updatedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                    updatedAt: new Date().toISOString()
                 });
             }
 
