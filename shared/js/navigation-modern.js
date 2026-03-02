@@ -5,14 +5,7 @@
 
 // Menu Configuration with Permissions
 const MENU_CONFIG = [
-    {
-        href: "../live/index.html",
-        icon: "image",
-        text: "Hình Ảnh Live",
-        shortText: "Live",
-        pageIdentifier: "live",
-        permissionRequired: "live",
-    },
+    // REMOVED: live nav item (module deleted)
     // REMOVED: livestream nav item (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive nav item (module deleted - cleanup task 9.1)
     {
@@ -379,7 +372,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Live & Streaming",
         icon: "video",
-        items: ["live", "soluong-live"]
+        items: ["soluong-live"]
     },
     {
         name: "Đơn Hàng",
