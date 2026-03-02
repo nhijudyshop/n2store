@@ -1585,6 +1585,11 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             // Render products table
             renderChatProductsTable();
 
+            // Initialize KPI badge for this order (non-blocking)
+            if (window.kpiManager && window.kpiManager.initKPIBadge) {
+                window.kpiManager.initKPIBadge(fullOrderData.Id).catch(function () {});
+            }
+
             // Initialize search after render (with delay for DOM ready)
             setTimeout(() => {
                 initChatProductSearch();

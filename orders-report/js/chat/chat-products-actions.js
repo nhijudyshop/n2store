@@ -16,6 +16,7 @@
  * - window.productSearchManager
  * - window.tokenManager
  * - window.kpiManager
+ * - window.kpiAuditLogger - from kpi-audit-logger.js
  * - window.notificationManager
  * - window.CustomPopup
  */
@@ -75,20 +76,6 @@
             // Show loading notification
             if (window.notificationManager) {
                 window.notificationManager.show("Đang xác nhận sản phẩm...", "info");
-            }
-
-            // KPI CHECK: Before confirming first product, ask user if they want to track KPI
-            // Get current main products (before adding new one) for potential BASE save
-            const currentMainProducts = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
-            const orderSTT = window.currentChatOrderData.SessionIndex || window.currentChatOrderData.STT || window.currentChatOrderData.Stt || 0;
-
-            if (window.kpiManager) {
-                try {
-                    // This will check if BASE exists and prompt user if not
-                    await window.kpiManager.promptAndSaveKPIBase(orderId, orderSTT, currentMainProducts);
-                } catch (kpiError) {
-                    console.warn('[HELD-CONFIRM] KPI check failed (non-blocking):', kpiError);
-                }
             }
 
             // Fetch full product details from TPOS using normalized ID
@@ -221,6 +208,28 @@
             const newDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
             if (typeof window.setChatOrderDetails === 'function') {
                 window.setChatOrderDetails(newDetails);
+            }
+
+            // KPI Audit Log - ghi nhận thêm sản phẩm
+            if (window.kpiAuditLogger) {
+                try {
+                    const productToLog = newProduct || window.currentChatOrderData.Details.find(p => p.ProductId === normalizedProductId && !p.IsHeld);
+                    await window.kpiAuditLogger.logProductAction({
+                        orderId: String(orderId),
+                        action: 'add',
+                        productId: normalizedProductId,
+                        productCode: productToLog?.ProductCode || fullProduct.DefaultCode || '',
+                        productName: productToLog?.ProductName || fullProduct.Name || '',
+                        quantity: heldProduct.Quantity || 1,
+                        source: 'chat_confirm_held'
+                    });
+                    // Recalculate KPI
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                        await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+                    }
+                } catch (kpiError) {
+                    console.warn('[HELD-CONFIRM] KPI audit log failed (non-blocking):', kpiError);
+                }
             }
 
             // STEP 7: Re-render Orders tab
@@ -628,6 +637,26 @@
             // Sync arrays
             if (typeof window.setChatOrderDetails === 'function') {
                 window.setChatOrderDetails(freshOrderData.Details.filter(p => !p.IsHeld));
+            }
+
+            // KPI Audit Log - ghi nhận xóa sản phẩm
+            if (window.kpiAuditLogger) {
+                try {
+                    await window.kpiAuditLogger.logProductAction({
+                        orderId: String(orderId),
+                        action: 'remove',
+                        productId: normalizedProductId,
+                        productCode: freshProduct.ProductCode || freshProduct.Code || '',
+                        productName: freshProduct.ProductName || freshProduct.Name || '',
+                        quantity: 1,
+                        source: 'chat_decrease'
+                    });
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                        await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+                    }
+                } catch (kpiError) {
+                    console.warn('[DECREASE] KPI audit log failed (non-blocking):', kpiError);
+                }
             }
 
             // Re-render UI

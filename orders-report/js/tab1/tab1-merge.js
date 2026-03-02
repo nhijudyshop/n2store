@@ -229,6 +229,99 @@ async function executeMergeOrderProducts(mergedOrder) {
         }
 
         console.log(`[MERGE-API] ✅ Merge completed successfully!`);
+
+        // KPI Audit Log + BASE Update cho merge
+        if (window.kpiAuditLogger || window.kpiManager) {
+            try {
+                const db = window.firebase && window.firebase.firestore ? window.firebase.firestore() : null;
+                
+                // 7.1: Ghi audit log cho target order (merge action)
+                if (window.kpiAuditLogger) {
+                    for (const sourceOrder of sourceOrdersData) {
+                        const sourceProducts = sourceOrder.Details || [];
+                        for (const product of sourceProducts) {
+                            await window.kpiAuditLogger.logProductAction({
+                                orderId: String(mergedOrder.TargetOrderId),
+                                action: 'merge',
+                                productId: parseInt(product.ProductId),
+                                productCode: product.ProductCode || '',
+                                productName: product.ProductName || product.ProductNameGet || '',
+                                quantity: product.Quantity || 1,
+                                source: 'merge',
+                                mergeInfo: {
+                                    sourceOrderId: String(sourceOrder.Id),
+                                    targetOrderId: String(mergedOrder.TargetOrderId),
+                                    sourceSTT: sourceOrder.SessionIndex
+                                }
+                            });
+                        }
+                    }
+                }
+
+                if (db) {
+                    // 7.2: Đánh dấu BASE cũ target superseded_by_merge
+                    const targetBaseRef = db.collection('kpi_base').doc(String(mergedOrder.TargetOrderId));
+                    const targetBaseSnap = await targetBaseRef.get();
+                    if (targetBaseSnap.exists) {
+                        await targetBaseRef.update({
+                            superseded_by_merge: true,
+                            mergedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+
+                    // 7.3: Tạo BASE mới cho target = merge BASE cũ + source products
+                    const mergedBaseProducts = [];
+                    if (targetBaseSnap.exists) {
+                        const oldBase = targetBaseSnap.data();
+                        if (oldBase.products) mergedBaseProducts.push(...oldBase.products);
+                    }
+                    // Thêm source products từ BASE
+                    for (const sourceOrder of sourceOrdersData) {
+                        const sourceBaseRef = db.collection('kpi_base').doc(String(sourceOrder.Id));
+                        const sourceBaseSnap = await sourceBaseRef.get();
+                        if (sourceBaseSnap.exists && sourceBaseSnap.data().products) {
+                            mergedBaseProducts.push(...sourceBaseSnap.data().products);
+                        }
+                    }
+                    
+                    if (mergedBaseProducts.length > 0) {
+                        const timestamp = Date.now();
+                        const newBaseId = `${mergedOrder.TargetOrderId}_merged_${timestamp}`;
+                        await db.collection('kpi_base').doc(newBaseId).set({
+                            orderId: String(mergedOrder.TargetOrderId),
+                            campaignName: targetBaseSnap.exists ? targetBaseSnap.data().campaignName || '' : '',
+                            campaignId: targetBaseSnap.exists ? targetBaseSnap.data().campaignId || '' : '',
+                            timestamp: window.firebase.firestore.FieldValue.serverTimestamp(),
+                            userId: window.authManager ? window.authManager.getAuthState()?.userId || '' : '',
+                            userName: window.authManager ? window.authManager.getAuthState()?.userName || '' : '',
+                            stt: mergedOrder.TargetSTT || 0,
+                            products: mergedBaseProducts,
+                            merged_from: mergedOrder.SourceOrderIds.map(String)
+                        });
+                    }
+
+                    // 7.4: Đánh dấu BASE source merged_into
+                    for (const sourceOrderId of mergedOrder.SourceOrderIds) {
+                        const sourceBaseRef = db.collection('kpi_base').doc(String(sourceOrderId));
+                        const sourceBaseSnap = await sourceBaseRef.get();
+                        if (sourceBaseSnap.exists) {
+                            await sourceBaseRef.update({
+                                merged_into: String(mergedOrder.TargetOrderId),
+                                mergedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        }
+                    }
+                }
+
+                // Recalculate KPI cho target order
+                if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                    await window.kpiManager.recalculateAndSaveKPI(String(mergedOrder.TargetOrderId));
+                }
+            } catch (kpiError) {
+                console.warn('[MERGE-API] KPI audit/BASE update failed (non-blocking):', kpiError);
+            }
+        }
+
         return {
             success: true,
             message: `Đã gộp ${sourceOrdersData.length} đơn vào STT ${mergedOrder.TargetSTT}`,

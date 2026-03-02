@@ -76,6 +76,30 @@
         { "fieldPath": "businessAccounting", "order": "ASCENDING" },
         { "fieldPath": "voucherDateTime", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "kpi_audit_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orderId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "kpi_audit_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "campaignName", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "kpi_audit_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

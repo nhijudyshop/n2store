@@ -446,6 +446,12 @@
                 <span>Bill Đã Xóa</span>
                 <i data-lucide="check" class="check-icon"></i>
             </div>
+            <div class="mobile-dropdown-item" onclick="switchMobileTab('kpi-commission', 'KPI - HOA HỒNG')"
+                data-mobile-tab="kpi-commission">
+                <i data-lucide="award"></i>
+                <span>KPI - HOA HỒNG</span>
+                <i data-lucide="check" class="check-icon"></i>
+            </div>
             <div class="mobile-dropdown-item" onclick="window.location.href = '../index.html'"
                 style="border-top: 1px solid #eee; margin-top: 4px; color: #ef4444">
                 <i data-lucide="log-out"></i>
@@ -521,6 +527,11 @@
                     Bill Đã Xóa
                 </button>
 
+                <button class="tab-button" onclick="switchTab('kpi-commission')" data-tab="kpi-commission">
+                    <i data-lucide="award" class="tab-icon"></i>
+                    KPI - HOA HỒNG
+                </button>
+
                 <!-- Campaign Firebase Badge -->
                 <div class="campaign-badge-wrapper">
                     <div class="campaign-badge" id="campaignBadge">
@@ -572,6 +583,10 @@
 
         <div id="pendingDeleteTab" class="tab-content">
             <iframe id="pendingDeleteFrame" src="tab-pending-delete.html"></iframe>
+        </div>
+
+        <div id="kpiCommissionTab" class="tab-content">
+            <iframe id="kpiCommissionFrame" src="tab-kpi-commission.html"></iframe>
         </div>
 
         <div id="reportOnlineTab" class="tab-content">
@@ -643,6 +658,8 @@
                 document.getElementById('socialOrdersTab').classList.add('active');
             } else if (tabName === 'pending-delete') {
                 document.getElementById('pendingDeleteTab').classList.add('active');
+            } else if (tabName === 'kpi-commission') {
+                document.getElementById('kpiCommissionTab').classList.add('active');
             } else if (tabName === 'report-online') {
                 document.getElementById('reportOnlineTab').classList.add('active');
             }
@@ -690,6 +707,7 @@
                 overview: 'Báo Cáo Tổng Hợp',
                 'social-orders': 'Đơn Social',
                 'pending-delete': 'Bill Đã Xóa',
+                'kpi-commission': 'KPI - HOA HỒNG',
                 'report-online': 'Báo Cáo Online',
             };
 
@@ -991,6 +1009,7 @@
                     'overview',
                     'social-orders',
                     'pending-delete',
+                    'kpi-commission',
                     'report-online',
                 ].includes(savedTab)
             ) {

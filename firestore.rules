@@ -72,6 +72,31 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // KPI BASE - chỉ tạo mới, update chỉ cho merge fields
+    match /kpi_base/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated()
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['superseded_by_merge', 'mergedAt', 'merged_into']);
+      allow delete: if false;
+    }
+
+    // KPI Audit Log - append-only
+    match /kpi_audit_log/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // KPI Statistics - read/write, no delete
+    match /kpi_statistics/{userId}/{document=**} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if false;
+    }
+
     // Default: deny all other access
     match /{document=**} {
       allow read, write: if false;

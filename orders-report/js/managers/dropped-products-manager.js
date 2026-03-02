@@ -894,6 +894,27 @@
                 console.warn('[DROPPED-PRODUCTS] Firebase/AuthManager not available, cannot sync held_products');
             }
 
+            // KPI Audit Log - ghi nhận thêm sản phẩm từ hàng rớt
+            if (window.kpiAuditLogger) {
+                try {
+                    const kpiOrderId = window.currentChatOrderData.Id;
+                    await window.kpiAuditLogger.logProductAction({
+                        orderId: String(kpiOrderId),
+                        action: 'add',
+                        productId: parseInt(product.ProductId),
+                        productCode: product.ProductCode || '',
+                        productName: product.ProductName || product.ProductNameGet || '',
+                        quantity: 1,
+                        source: 'chat_from_dropped'
+                    });
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                        await window.kpiManager.recalculateAndSaveKPI(String(kpiOrderId));
+                    }
+                } catch (kpiError) {
+                    console.warn('[DROPPED-PRODUCTS] KPI audit log failed (non-blocking):', kpiError);
+                }
+            }
+
             // Decrease quantity in dropped list using TRANSACTION
             if (!firebaseDb || !product.id) {
                 showError('Firebase không khả dụng');

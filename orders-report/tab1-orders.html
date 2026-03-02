@@ -1177,6 +1177,18 @@
                         <div style="font-size: 12px; color: #94a3b8; text-align: center;">
                             <span id="productCount">0</span> sản phẩm
                         </div>
+                        <!-- KPI Badge -->
+                        <div id="kpiBadgeContainer" style="margin-top: 8px; text-align: center; display: none;">
+                            <span id="kpiBadge" style="
+                                display: inline-block;
+                                padding: 3px 10px;
+                                border-radius: 12px;
+                                font-size: 11px;
+                                font-weight: 600;
+                                background: #f1f5f9;
+                                color: #94a3b8;
+                            "></span>
+                        </div>
                     </div>
                 </div>
 
@@ -1432,6 +1444,8 @@
 
     <!-- Legacy file (backup - comment out when using modular) -->
     <!-- <script src="js/tab1/tab1-orders.js"></script> -->
+    <!-- KPI Audit Logger - phải load trước chat-products-actions.js -->
+    <script src="js/managers/kpi-audit-logger.js"></script>
     <!-- Chat Products UI & Actions - separated for easier management -->
     <script src="js/chat/chat-products-ui.js"></script>
     <script src="js/chat/chat-products-actions.js"></script>

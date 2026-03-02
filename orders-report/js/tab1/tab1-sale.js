@@ -350,6 +350,27 @@ async function addProductToSaleFromSearch(productId) {
             console.log('[SALE-ADD-PRODUCT] Calling PUT API to update order...');
             await updateSaleOrderWithAPI();
             console.log('[SALE-ADD-PRODUCT] ✅ Order updated successfully via API');
+
+            // KPI Audit Log - ghi nhận thêm sản phẩm từ sale modal
+            if (window.kpiAuditLogger) {
+                try {
+                    const orderId = currentSaleOrderData.Id;
+                    await window.kpiAuditLogger.logProductAction({
+                        orderId: String(orderId),
+                        action: 'add',
+                        productId: parseInt(productId),
+                        productCode: fullProduct.DefaultCode || '',
+                        productName: fullProduct.Name || '',
+                        quantity: 1,
+                        source: 'sale_modal'
+                    });
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                        await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+                    }
+                } catch (kpiError) {
+                    console.warn('[SALE-ADD-PRODUCT] KPI audit log failed (non-blocking):', kpiError);
+                }
+            }
         } catch (apiError) {
             console.error('[SALE-ADD-PRODUCT] ⚠️ API update failed:', apiError);
             // Show warning but don't rollback (product is already added locally)

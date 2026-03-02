@@ -859,6 +859,7 @@ class MessageTemplateManager {
 
                             // Track success order with details
                             this.sendingState.successOrders.push({
+                                Id: order.Id || '',
                                 stt: order.SessionIndex || order.stt || order.STT || '',
                                 code: order.code || order.Id || '',
                                 customerName: order.customerName || '',
@@ -920,6 +921,20 @@ class MessageTemplateManager {
 
             // Wait for all workers to finish
             await Promise.all(workers);
+
+            // AUTO BASE Snapshot - lưu BASE cho các đơn gửi tin thành công
+            if (window.kpiManager && window.kpiManager.saveAutoBaseSnapshot && this.sendingState.successOrders.length > 0) {
+                try {
+                    const campaignName = (window.campaignManager && window.campaignManager.activeCampaign)
+                        ? window.campaignManager.activeCampaign.name || window.campaignManager.activeCampaign.displayName || ''
+                        : '';
+                    const userId = window.authManager ? window.authManager.getAuthState()?.userId || '' : '';
+                    await window.kpiManager.saveAutoBaseSnapshot(this.sendingState.successOrders, campaignName, userId);
+                    console.log('[MESSAGE] ✅ KPI AUTO BASE saved for', this.sendingState.successOrders.length, 'orders');
+                } catch (kpiError) {
+                    console.warn('[MESSAGE] ⚠️ KPI AUTO BASE failed (non-blocking):', kpiError);
+                }
+            }
 
             // Finished
             this.sendingState.isRunning = false;

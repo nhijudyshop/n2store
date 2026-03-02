@@ -696,6 +696,28 @@ function updateProductQuantity(index, change, value = null) {
     if (newQty < 1) newQty = 1;
     product.Quantity = newQty;
 
+    // KPI Audit Log - ghi nhận thay đổi số lượng
+    if (window.kpiAuditLogger && change !== 0) {
+        const orderId = currentEditOrderData.Id;
+        const action = change > 0 ? 'add' : 'remove';
+        const qty = Math.abs(change);
+        window.kpiAuditLogger.logProductAction({
+            orderId: String(orderId),
+            action: action,
+            productId: parseInt(product.ProductId),
+            productCode: product.ProductCode || '',
+            productName: product.ProductName || product.ProductNameGet || '',
+            quantity: qty,
+            source: 'edit_modal_quantity'
+        }).then(() => {
+            if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                window.kpiManager.recalculateAndSaveKPI(String(orderId));
+            }
+        }).catch(err => {
+            console.warn('[EDIT-MODAL] KPI audit log failed (non-blocking):', err);
+        });
+    }
+
     const row = document.querySelector(
         `#productsTableBody tr[data-index='${index}']`,
     );
@@ -726,6 +748,27 @@ async function removeProduct(index) {
 
     // Remove product from array
     currentEditOrderData.Details.splice(index, 1);
+
+    // KPI Audit Log - ghi nhận xóa sản phẩm
+    if (window.kpiAuditLogger) {
+        try {
+            const orderId = currentEditOrderData.Id;
+            await window.kpiAuditLogger.logProductAction({
+                orderId: String(orderId),
+                action: 'remove',
+                productId: parseInt(product.ProductId),
+                productCode: product.ProductCode || '',
+                productName: product.ProductName || product.ProductNameGet || '',
+                quantity: product.Quantity || 1,
+                source: 'edit_modal_remove'
+            });
+            if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+            }
+        } catch (kpiError) {
+            console.warn('[EDIT-MODAL] KPI audit log failed (non-blocking):', kpiError);
+        }
+    }
 
     // Recalculate totals BEFORE re-rendering
     recalculateTotals();
@@ -803,6 +846,8 @@ function recalculateTotals() {
 }
 
 async function saveAllOrderChanges() {
+    // NOTE: Không ghi KPI audit log ở đây - audit log đã được ghi tại từng thao tác riêng lẻ
+    // (addProductToOrderFromInline, removeProduct, updateProductQuantity)
     console.log('[SAVE DEBUG] saveAllOrderChanges called at:', new Date().toISOString());
 
     // Use custom confirm popup since native confirm may be blocked
@@ -1413,6 +1458,28 @@ async function addProductToOrderFromInline(productId) {
 
         // ✅ FIX: Use switchEditTab instead of renderTabContent to re-init event listeners
         switchEditTab("products");
+
+        // KPI Audit Log - ghi nhận thêm sản phẩm từ edit modal (chỉ SP mới, không log khi tăng SL vì updateProductQuantity đã xử lý)
+        if (window.kpiAuditLogger && existingProductIndex === -1) {
+            try {
+                const orderId = currentEditOrderData.Id;
+                const addedProduct = currentEditOrderData.Details.find(p => p.ProductId == productId);
+                await window.kpiAuditLogger.logProductAction({
+                    orderId: String(orderId),
+                    action: 'add',
+                    productId: parseInt(productId),
+                    productCode: addedProduct?.ProductCode || fullProduct?.DefaultCode || '',
+                    productName: addedProduct?.ProductName || fullProduct?.Name || '',
+                    quantity: 1,
+                    source: 'edit_modal_inline'
+                });
+                if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                    await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+                }
+            } catch (kpiError) {
+                console.warn('[INLINE ADD] KPI audit log failed (non-blocking):', kpiError);
+            }
+        }
     } catch (error) {
         console.error("[INLINE ADD] Error:", error);
 
