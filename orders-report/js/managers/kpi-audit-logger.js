@@ -387,8 +387,42 @@
 
             return logs;
         } catch (error) {
-            console.error('[KPI Audit] Error querying audit logs for order', orderId, ':', error);
-            return [];
+            // Fallback: query without orderBy (no composite index needed)
+            console.warn('[KPI Audit] Composite index query failed, using fallback without orderBy:', error.message);
+            try {
+                var fallbackSnapshot = await db.collection(AUDIT_LOG_COLLECTION)
+                    .where('orderId', '==', orderId)
+                    .get();
+
+                var fallbackLogs = [];
+                fallbackSnapshot.forEach(function (doc) {
+                    var data = doc.data();
+                    data.id = doc.id;
+                    fallbackLogs.push(data);
+                });
+
+                // Sort client-side by timestamp
+                fallbackLogs.sort(function (a, b) {
+                    var tsA = a.timestamp;
+                    var tsB = b.timestamp;
+                    // Handle Firestore Timestamp objects
+                    if (tsA && tsA.toMillis) tsA = tsA.toMillis();
+                    else if (tsA && tsA.seconds) tsA = tsA.seconds * 1000;
+                    else if (typeof tsA === 'string') tsA = new Date(tsA).getTime();
+                    else tsA = 0;
+                    if (tsB && tsB.toMillis) tsB = tsB.toMillis();
+                    else if (tsB && tsB.seconds) tsB = tsB.seconds * 1000;
+                    else if (typeof tsB === 'string') tsB = new Date(tsB).getTime();
+                    else tsB = 0;
+                    return tsA - tsB;
+                });
+
+                console.log('[KPI Audit] Fallback query returned', fallbackLogs.length, 'logs for order', orderId);
+                return fallbackLogs;
+            } catch (fallbackError) {
+                console.error('[KPI Audit] Fallback query also failed for order', orderId, ':', fallbackError);
+                return [];
+            }
         }
     }
 

@@ -618,13 +618,26 @@ const KPICommission = {
                 if (pid) baseProductIds.add(Number(pid));
             });
 
-            // 2. Get audit logs
-            const logsSnapshot = await db.collection('kpi_audit_log')
-                .where('orderId', '==', orderId)
-                .orderBy('timestamp', 'asc')
-                .get();
-
-            const auditLogs = logsSnapshot.docs.map(doc => doc.data());
+            // 2. Get audit logs (with fallback if composite index missing)
+            let auditLogs = [];
+            try {
+                const logsSnapshot = await db.collection('kpi_audit_log')
+                    .where('orderId', '==', orderId)
+                    .orderBy('timestamp', 'asc')
+                    .get();
+                auditLogs = logsSnapshot.docs.map(doc => doc.data());
+            } catch (indexErr) {
+                console.warn('[KPI Tab] Composite index query failed, using fallback:', indexErr.message);
+                const fallbackSnapshot = await db.collection('kpi_audit_log')
+                    .where('orderId', '==', orderId)
+                    .get();
+                auditLogs = fallbackSnapshot.docs.map(doc => doc.data());
+                auditLogs.sort((a, b) => {
+                    const tsA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+                    const tsB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+                    return tsA - tsB;
+                });
+            }
 
             // 3. Filter only NEW products (not in BASE)
             const newProductLogs = auditLogs.filter(log => {
@@ -724,13 +737,26 @@ const KPICommission = {
             const db = this.getDb();
             if (!db) throw new Error('Firestore not available');
 
-            // Get audit logs
-            const logsSnapshot = await db.collection('kpi_audit_log')
-                .where('orderId', '==', orderId)
-                .orderBy('timestamp', 'asc')
-                .get();
-
-            const auditLogs = logsSnapshot.docs.map(doc => doc.data());
+            // Get audit logs (with fallback if composite index missing)
+            let auditLogs = [];
+            try {
+                const logsSnapshot = await db.collection('kpi_audit_log')
+                    .where('orderId', '==', orderId)
+                    .orderBy('timestamp', 'asc')
+                    .get();
+                auditLogs = logsSnapshot.docs.map(doc => doc.data());
+            } catch (indexErr) {
+                console.warn('[KPI Tab] Composite index query failed in audit tab, using fallback:', indexErr.message);
+                const fallbackSnapshot = await db.collection('kpi_audit_log')
+                    .where('orderId', '==', orderId)
+                    .get();
+                auditLogs = fallbackSnapshot.docs.map(doc => doc.data());
+                auditLogs.sort((a, b) => {
+                    const tsA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+                    const tsB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+                    return tsA - tsB;
+                });
+            }
 
             this.hideEl('auditLogLoading');
 

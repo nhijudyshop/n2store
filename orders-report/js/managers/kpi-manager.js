@@ -513,7 +513,7 @@
             if (window.kpiAuditLogger && window.kpiAuditLogger.getAuditLogsForOrder) {
                 auditLogs = await window.kpiAuditLogger.getAuditLogsForOrder(orderId);
             } else {
-                // Fallback: query Firestore directly
+                // Fallback: query Firestore directly (with index fallback)
                 try {
                     const snapshot = await window.firebase.firestore()
                         .collection('kpi_audit_log')
@@ -522,7 +522,21 @@
                         .get();
                     auditLogs = snapshot.docs.map(doc => doc.data());
                 } catch (e) {
-                    console.error('[KPI] Error querying audit logs:', e);
+                    console.warn('[KPI] Composite index query failed, using fallback:', e.message);
+                    try {
+                        const fallbackSnapshot = await window.firebase.firestore()
+                            .collection('kpi_audit_log')
+                            .where('orderId', '==', orderId)
+                            .get();
+                        auditLogs = fallbackSnapshot.docs.map(doc => doc.data());
+                        auditLogs.sort((a, b) => {
+                            const tsA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+                            const tsB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+                            return tsA - tsB;
+                        });
+                    } catch (fallbackErr) {
+                        console.error('[KPI] Fallback audit log query also failed:', fallbackErr);
+                    }
                 }
             }
 
@@ -531,8 +545,9 @@
                 auditLogs = auditLogs.filter(log => log.userId === employeeUserId);
             }
 
-            // 5. Exclude admin actions (KPI-neutral)
-            auditLogs = auditLogs.filter(log => !isAdminUser(log.userId));
+            // 5. NOTE: Admin filter removed - admin's own product actions
+            // should count toward KPI when admin is the BASE owner.
+            // Previously filtered out all admin actions, causing KPI = 0 for admins.
 
             // 6. Only keep logs for NEW products (not in BASE)
             const newProductLogs = auditLogs.filter(log => {
@@ -799,7 +814,21 @@
                         .get();
                     auditLogs = snapshot.docs.map(doc => doc.data());
                 } catch (e) {
-                    console.error('[KPI] Error querying audit logs for reconciliation:', e);
+                    console.warn('[KPI] Composite index query failed in reconcile, using fallback:', e.message);
+                    try {
+                        const fallbackSnapshot = await window.firebase.firestore()
+                            .collection('kpi_audit_log')
+                            .where('orderId', '==', orderId)
+                            .get();
+                        auditLogs = fallbackSnapshot.docs.map(doc => doc.data());
+                        auditLogs.sort((a, b) => {
+                            const tsA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
+                            const tsB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
+                            return tsA - tsB;
+                        });
+                    } catch (fallbackErr) {
+                        console.error('[KPI] Fallback audit log query also failed in reconcile:', fallbackErr);
+                    }
                 }
             }
 
