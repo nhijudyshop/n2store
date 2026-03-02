@@ -54,7 +54,7 @@
             if (window.authManager && typeof window.authManager.getAuthState === 'function') {
                 const authState = window.authManager.getAuthState();
                 return {
-                    userId: authState.uid || '',
+                    userId: authState.userId || authState.uid || '',
                     userName: authState.displayName || authState.email || ''
                 };
             }
