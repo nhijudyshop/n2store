@@ -282,6 +282,15 @@
 
             await statsRef.set(currentStats, { merge: true });
 
+            // Ensure parent document exists so loadAllStatistics can list users
+            const parentRef = window.firebase.firestore()
+                .collection(KPI_STATISTICS_COLLECTION)
+                .doc(userId);
+            await parentRef.set({
+                lastUpdated: window.firebase.firestore.FieldValue.serverTimestamp(),
+                userId: userId
+            }, { merge: true });
+
             console.log('[KPI] ✓ Saved statistics:', {
                 userId,
                 date,
