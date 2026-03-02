@@ -1550,7 +1550,7 @@ window.updateHeldProductQuantityById = function (productId, delta, specificValue
 
 /**
  * Decrease main product quantity by ProductId
- * Shows confirmation, updates order via API, moves 1 product to dropped
+ * Shows confirmation, updates order via API
  * @param {number} productId - Product ID to decrease
  */
 window.decreaseMainProductQuantityById = async function (productId) {
@@ -1575,7 +1575,7 @@ window.decreaseMainProductQuantityById = async function (productId) {
 
     // Show confirmation
     const productName = product.ProductName || product.Name || 'Sản phẩm';
-    const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?\n\nSản phẩm sẽ được chuyển sang hàng rớt-xả.`;
+    const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?`;
 
     let confirmed = false;
     if (window.CustomPopup) {
@@ -1614,25 +1614,6 @@ window.decreaseMainProductQuantityById = async function (productId) {
         }
 
         const freshProduct = freshOrderData.Details[freshProductIndex];
-
-        // Create product object to add to dropped
-        const droppedProductData = {
-            ProductId: freshProduct.ProductId,
-            ProductName: freshProduct.ProductName || freshProduct.Name,
-            ProductCode: freshProduct.ProductCode || freshProduct.Code,
-            Price: freshProduct.Price || 0,
-            ImageUrl: freshProduct.ImageUrl || '',
-            UOMId: freshProduct.UOMId || 1,
-            UOMName: freshProduct.UOMName || 'Cái',
-            Quantity: 1 // Moving 1 quantity to dropped
-        };
-
-        console.log('[DECREASE-BY-ID] Moving 1 to dropped:', droppedProductData);
-
-        // Add to dropped products
-        if (typeof window.addToDroppedProducts === 'function') {
-            await window.addToDroppedProducts(droppedProductData, 1, 'removed', null);
-        }
 
         // Decrease quantity in order
         if (freshProduct.Quantity <= 1) {
@@ -1683,16 +1664,10 @@ window.decreaseMainProductQuantityById = async function (productId) {
 
         // Re-render UI
         renderChatProductsTable();
-        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
-
-        // Re-render Dropped tab if visible
-        if (typeof window.renderDroppedProductsTable === 'function') {
-            await window.renderDroppedProductsTable();
-        }
 
         // Show success notification
         if (window.notificationManager) {
-            window.notificationManager.show("✅ Đã chuyển 1 sản phẩm sang hàng rớt", "success");
+            window.notificationManager.show("✅ Đã xóa 1 sản phẩm khỏi đơn hàng", "success");
         }
 
     } catch (error) {
@@ -1765,7 +1740,7 @@ async function decreaseMainProductQuantity(index) {
 
     // Show confirmation
     const productName = product.ProductName || product.Name || 'Sản phẩm';
-    const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?\n\nSản phẩm sẽ được chuyển sang hàng rớt-xả.`;
+    const confirmMsg = `Xóa 1 "${productName}" khỏi đơn hàng?`;
 
     let confirmed = false;
     if (window.CustomPopup) {
@@ -1805,12 +1780,6 @@ async function decreaseMainProductQuantity(index) {
 
         const freshProduct = freshOrderData.Details[freshProductIndex];
         const currentQty = freshProduct.Quantity || 1;
-
-        // Add 1 product to dropped
-        if (typeof window.addToDroppedProducts === 'function') {
-            await window.addToDroppedProducts(freshProduct, 1, 'removed', null);
-            console.log('[DECREASE] ✓ Added 1 to dropped products');
-        }
 
         // Update quantity or remove if qty becomes 0
         if (currentQty <= 1) {
@@ -1857,12 +1826,6 @@ async function decreaseMainProductQuantity(index) {
 
         // Re-render UI
         renderChatProductsTable();
-        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
-
-        // Re-render dropped tab
-        if (typeof window.renderDroppedProductsTable === 'function') {
-            await window.renderDroppedProductsTable();
-        }
 
         // Show success
         if (window.notificationManager) {
@@ -1885,7 +1848,6 @@ window.decreaseMainProductQuantity = decreaseMainProductQuantity;
 /**
  * Remove product from chat order
  * - Shows confirmation dialog
- * - Adds product to Dropped Products tab (with held status if applicable)
  * - Updates order on backend (for non-held products)
  * - Removes held products from Firebase
  * - Rollback on error
@@ -1917,22 +1879,12 @@ async function removeChatProduct(index) {
     const removedProduct = productsArray.splice(index, 1)[0];
 
     try {
-        // 1. Add to Dropped Products tab (with held status)
-        if (typeof window.addToDroppedProducts === 'function') {
-            await window.addToDroppedProducts(
-                removedProduct,
-                removedProduct.Quantity,
-                'removed',
-                isHeldProduct ? removedProduct.HeldBy : null  // Pass holder name if held
-            );
-        }
-
-        // 2. If held product, remove from Firebase held_products
+        // 1. If held product, remove from Firebase held_products
         if (isHeldProduct && typeof window.removeHeldProduct === 'function') {
             await window.removeHeldProduct(removedProduct.ProductId);
         }
 
-        // 3. Update order on backend (only for non-held products)
+        // 2. Update order on backend (only for non-held products)
         if (!isHeldProduct && window.currentChatOrderData) {
             const newDetails = productsArray.filter(p => !p.IsHeld);
             const totalQuantity = newDetails.reduce((sum, p) => sum + (p.Quantity || 0), 0);
@@ -1969,16 +1921,15 @@ async function removeChatProduct(index) {
             }
         }
 
-        // 4. Sync both arrays if needed
+        // 3. Sync both arrays if needed
         if (window.currentChatOrderData && window.currentChatOrderData.Details) {
             currentChatOrderDetails = window.currentChatOrderData.Details.filter(p => !p.IsHeld);
         }
 
-        // 5. Re-render UI
+        // 4. Re-render UI
         renderChatProductsTable();
-        // REMOVED: saveChatProductsToFirebase - order_products/shared không còn listener
 
-        // 6. Show success notification
+        // 5. Show success notification
         if (window.notificationManager) {
             window.notificationManager.show("✅ Đã xóa sản phẩm", "success");
         }
