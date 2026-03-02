@@ -306,6 +306,36 @@
     }
 
     // ========================================
+    // NEW: fetchProductsFromTPOS (Bug #1 fix - Tier 3 fallback)
+    // ========================================
+    /**
+     * Fetch products from TPOS API for an order.
+     * Used when report_order_details and local data both have no products.
+     * @param {string} orderId
+     * @returns {Promise<Array>} products array or [] on failure
+     */
+    async function fetchProductsFromTPOS(orderId) {
+        if (!window.tposAPI || !window.tposAPI.getOrderById) {
+            console.warn('[KPI] TPOS API not available');
+            return [];
+        }
+        try {
+            const orderData = await window.tposAPI.getOrderById(orderId);
+            const details = orderData?.Details || orderData?.OrderDetails || [];
+            return details.map(d => ({
+                ProductId: d.ProductId || null,
+                ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
+                ProductName: d.ProductName || d.Name || '',
+                Quantity: d.Quantity || 1,
+                Price: d.Price || 0
+            })).filter(p => p.ProductCode);
+        } catch (e) {
+            console.error('[KPI] TPOS API fetchProducts failed:', e);
+            return [];
+        }
+    }
+
+    // ========================================
     // NEW: saveAutoBaseSnapshot
     // ========================================
     /**
@@ -322,12 +352,12 @@
     async function saveAutoBaseSnapshot(successOrders, campaignName, userId) {
         if (!Array.isArray(successOrders) || successOrders.length === 0) {
             console.warn('[KPI] saveAutoBaseSnapshot: No orders provided');
-            return { saved: 0, skipped: 0, failed: 0 };
+            return { saved: 0, skipped: 0, failed: 0, failedBaseOrders: [] };
         }
 
         if (!window.firebase || !window.firebase.firestore) {
             console.error('[KPI] Firestore not available for saveAutoBaseSnapshot');
-            return { saved: 0, skipped: 0, failed: successOrders.length };
+            return { saved: 0, skipped: 0, failed: successOrders.length, failedBaseOrders: [] };
         }
 
         // Get user info
@@ -373,6 +403,7 @@
         let saved = 0;
         let skipped = 0;
         let failed = 0;
+        let failedBaseOrders = [];
 
         // Process orders in batches (Firestore batch limit = 500)
         const BATCH_SIZE = 400;
@@ -423,6 +454,7 @@
                         let products = [];
                         const reportOrder = reportOrdersMap[orderId];
                         if (reportOrder && reportOrder.Details && reportOrder.Details.length > 0) {
+                            // Tier 1: report_order_details
                             products = reportOrder.Details.map(d => ({
                                 ProductId: d.ProductId || null,
                                 ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
@@ -431,7 +463,7 @@
                                 Price: d.Price || 0
                             })).filter(p => p.ProductCode);
                         } else {
-                            // Fallback to local data from successOrders
+                            // Tier 2: Fallback to local data from successOrders
                             const localProducts = order.Details || order.products || order.mainProducts || [];
                             products = localProducts.map(p => ({
                                 ProductId: p.ProductId || null,
@@ -440,6 +472,22 @@
                                 Quantity: p.Quantity || 1,
                                 Price: p.Price || 0
                             })).filter(p => p.ProductCode);
+                        }
+
+                        // Tier 3: TPOS API fallback (Bug #1 fix)
+                        if (products.length === 0) {
+                            try {
+                                products = await fetchProductsFromTPOS(orderId);
+                            } catch (e) {
+                                console.warn('[KPI] TPOS API fallback failed for order', orderId, e);
+                            }
+                        }
+
+                        // Validate: KHÔNG lưu BASE với products rỗng (Bug #1 fix)
+                        if (products.length === 0) {
+                            console.warn(`[KPI] ⚠️ Cannot save BASE for order ${orderId}: no product data available`);
+                            failedBaseOrders.push(orderId);
+                            continue;
                         }
 
                         const baseData = {
@@ -478,8 +526,8 @@
             }
         }
 
-        console.log('[KPI] ✓ saveAutoBaseSnapshot complete:', { saved, skipped, failed });
-        return { saved, skipped, failed };
+        console.log('[KPI] ✓ saveAutoBaseSnapshot complete:', { saved, skipped, failed, failedBaseOrders: failedBaseOrders.length });
+        return { saved, skipped, failed, failedBaseOrders };
     }
 
     // ========================================
@@ -507,6 +555,12 @@
             const base = await getKPIBase(orderId);
             if (!base) {
                 console.log('[KPI] calculateNetKPI: No BASE found, KPI = 0');
+                return emptyResult;
+            }
+
+            // ⚠️ BUGFIX (Bug #3): Validate BASE products not empty
+            if (!base.products || base.products.length === 0) {
+                console.warn(`[KPI] ⚠️ BASE for order ${orderId} has empty products - treating as invalid`);
                 return emptyResult;
             }
 
@@ -549,22 +603,33 @@
                 }
             }
 
-            // 4. Filter by employee if specified
+            // 4. ⚠️ BUGFIX (Bug #3): Filter audit logs by base.timestamp
+            // Only count audit logs AFTER the BASE was created
+            const baseTimestamp = base.timestamp;
+            if (baseTimestamp) {
+                const baseTs = baseTimestamp.seconds || 0;
+                auditLogs = auditLogs.filter(log => {
+                    const logTs = log.timestamp && log.timestamp.seconds ? log.timestamp.seconds : 0;
+                    return logTs >= baseTs;
+                });
+            }
+
+            // 5. Filter by employee if specified
             if (employeeUserId) {
                 auditLogs = auditLogs.filter(log => log.userId === employeeUserId);
             }
 
-            // 5. NOTE: Admin filter removed - admin's own product actions
+            // 6. NOTE: Admin filter removed - admin's own product actions
             // should count toward KPI when admin is the BASE owner.
             // Previously filtered out all admin actions, causing KPI = 0 for admins.
 
-            // 6. Only keep logs for NEW products (not in BASE)
+            // 7. Only keep logs for NEW products (not in BASE)
             const newProductLogs = auditLogs.filter(log => {
                 const pid = Number(log.productId);
                 return !baseProductIds.has(pid);
             });
 
-            // 7. Group by productId, calculate net per product
+            // 8. Group by productId, calculate net per product
             const netPerProduct = {};
             for (const log of newProductLogs) {
                 const pid = String(log.productId);
@@ -584,7 +649,7 @@
                 }
             }
 
-            // 8. Calculate net (min 0 per product) and total
+            // 9. Calculate net (min 0 per product) and total
             let totalNet = 0;
             for (const pid of Object.keys(netPerProduct)) {
                 const data = netPerProduct[pid];
@@ -617,6 +682,76 @@
     }
 
     // ========================================
+    // NEW: cleanupStaleStatistics (Bug #3 fix)
+    // ========================================
+    /**
+     * Remove or invalidate stale statistics entry for an order when BASE
+     * no longer exists or has empty products.
+     * Prevents stale KPI data from being displayed on the KPI tab.
+     *
+     * @param {string} orderId - Order ID to clean up
+     * @returns {Promise<void>}
+     */
+    async function cleanupStaleStatistics(orderId) {
+        if (!orderId) return;
+
+        console.log(`[KPI] Cleaning up stale statistics for order ${orderId}`);
+
+        try {
+            if (!window.firebase || !window.firebase.firestore) {
+                console.warn('[KPI] Firestore not available for cleanupStaleStatistics');
+                return;
+            }
+
+            const db = window.firebase.firestore();
+
+            // Query all kpi_statistics user documents to find entries containing this orderId
+            const statsSnapshot = await db.collectionGroup('dates').get();
+
+            const batch = db.batch();
+            let updateCount = 0;
+
+            for (const doc of statsSnapshot.docs) {
+                const data = doc.data();
+                const orders = data.orders || [];
+
+                // Check if this document contains the orderId
+                const hasOrder = orders.some(o => o.orderId === orderId);
+                if (!hasOrder) continue;
+
+                // Remove the order entry
+                const updatedOrders = orders.filter(o => o.orderId !== orderId);
+
+                // Recalculate totals
+                let totalNetProducts = 0;
+                let totalKPI = 0;
+                for (const o of updatedOrders) {
+                    totalNetProducts += (o.netProducts || 0);
+                    totalKPI += (o.kpi || 0);
+                }
+
+                batch.update(doc.ref, {
+                    orders: updatedOrders,
+                    totalNetProducts: totalNetProducts,
+                    totalKPI: totalKPI,
+                    updatedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                });
+                updateCount++;
+            }
+
+            if (updateCount > 0) {
+                await batch.commit();
+                console.log(`[KPI] ✓ Cleaned up stale statistics for order ${orderId} from ${updateCount} document(s)`);
+            } else {
+                console.log(`[KPI] No stale statistics found for order ${orderId}`);
+            }
+
+        } catch (error) {
+            console.error(`[KPI] Error cleaning up stale statistics for order ${orderId}:`, error);
+        }
+    }
+
+    // ========================================
     // NEW: recalculateAndSaveKPI
     // ========================================
     /**
@@ -628,23 +763,34 @@
      */
     async function recalculateAndSaveKPI(orderId) {
         try {
-            // Get BASE to determine the employee userId
+            // Get BASE to determine the order's STT and campaign
             const base = await getKPIBase(orderId);
             if (!base) {
                 console.log('[KPI] recalculateAndSaveKPI: No BASE, skipping');
+                // ⚠️ BUGFIX (Bug #3): Cleanup stale statistics when BASE missing
+                await cleanupStaleStatistics(orderId);
                 return null;
             }
 
-            const employeeUserId = base.userId;
-            if (!employeeUserId) {
-                console.warn('[KPI] recalculateAndSaveKPI: No userId in BASE');
+            // ⚠️ BUGFIX (Bug #3): Validate BASE products not empty
+            if (!base.products || base.products.length === 0) {
+                console.warn(`[KPI] ⚠️ BASE for order ${orderId} has empty products - treating as invalid`);
+                await cleanupStaleStatistics(orderId);
                 return null;
             }
+
+            // ⚠️ BUGFIX (Bug #2): Determine employee via Employee_Range (STT → employee),
+            // NOT using base.userId (who sent the bulk message)
+            const assignedEmployee = await getAssignedEmployeeForSTT(base.stt, base.campaignName);
+            const employeeUserId = assignedEmployee.userId;
+
+            // When "unassigned", pass null to calculateNetKPI so it doesn't filter by userId
+            const filterUserId = employeeUserId === 'unassigned' ? null : employeeUserId;
 
             // Calculate NET KPI
-            const result = await calculateNetKPI(orderId, employeeUserId);
+            const result = await calculateNetKPI(orderId, filterUserId);
 
-            // Save to kpi_statistics
+            // Save to kpi_statistics/{assignedEmployeeUserId} (NOT base.userId)
             const date = getCurrentDateString();
             await saveKPIStatistics(employeeUserId, date, {
                 orderId: orderId,
@@ -659,6 +805,7 @@
 
             console.log('[KPI] ✓ recalculateAndSaveKPI:', {
                 orderId,
+                assignedEmployee: employeeUserId,
                 netProducts: result.netProducts,
                 kpiAmount: result.kpiAmount
             });
@@ -679,6 +826,136 @@
         } catch (error) {
             console.error('[KPI] Error in recalculateAndSaveKPI:', error);
             return null;
+        }
+    }
+
+    // ========================================
+    // NEW: getAssignedEmployeeForSTT (Bug #2 fix)
+    // ========================================
+    /**
+     * Find the employee assigned to an order based on its STT.
+     * Looks up Employee_Range: campaign-specific first, then general.
+     * Returns {userId, userName} or {userId: "unassigned", userName: "Chưa phân"}.
+     *
+     * @param {number} stt - Order sequential number (STT)
+     * @param {string} [campaignName] - Campaign name (for campaign-specific ranges)
+     * @returns {Promise<{userId: string, userName: string}>}
+     */
+    async function getAssignedEmployeeForSTT(stt, campaignName) {
+        const unassigned = { userId: 'unassigned', userName: 'Chưa phân' };
+
+        if (!stt && stt !== 0) {
+            return unassigned;
+        }
+
+        try {
+            if (!window.firebase || !window.firebase.firestore) {
+                console.warn('[KPI] Firestore not available for getAssignedEmployeeForSTT');
+                return unassigned;
+            }
+
+            const db = window.firebase.firestore();
+            const sttNum = Number(stt);
+
+            // 1. Try campaign-specific ranges first (priority)
+            if (campaignName) {
+                try {
+                    const campaignRangesDoc = await db
+                        .collection('settings')
+                        .doc('employee_ranges_by_campaign')
+                        .get();
+
+                    if (campaignRangesDoc.exists) {
+                        const data = campaignRangesDoc.data();
+                        const campaignRanges = data[campaignName] || data[campaignName.replace(/[.$#\[\]\/]/g, '_')];
+
+                        if (campaignRanges) {
+                            // Support both formats:
+                            // Format A (array): [{userId, userName, fromSTT, toSTT}, ...]
+                            // Format B (object keyed by userId): {userId: {from, to, userName}}
+                            if (Array.isArray(campaignRanges)) {
+                                for (const range of campaignRanges) {
+                                    const from = range.fromSTT || range.from || range.start || 0;
+                                    const to = range.toSTT || range.to || range.end || Infinity;
+                                    if (sttNum >= from && sttNum <= to) {
+                                        return {
+                                            userId: range.userId || 'unassigned',
+                                            userName: range.userName || range.userId || 'Chưa phân'
+                                        };
+                                    }
+                                }
+                            } else {
+                                // Object format: iterate all userId keys
+                                for (const [uid, range] of Object.entries(campaignRanges)) {
+                                    if (!range || typeof range !== 'object') continue;
+                                    const from = range.from || range.start || range.fromSTT || 0;
+                                    const to = range.to || range.end || range.toSTT || Infinity;
+                                    if (sttNum >= from && sttNum <= to) {
+                                        return {
+                                            userId: uid,
+                                            userName: range.userName || uid
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[KPI] Error reading campaign employee ranges:', e);
+                }
+            }
+
+            // 2. Fallback to general employee ranges
+            try {
+                const generalRangesDoc = await db
+                    .collection('settings')
+                    .doc('employee_ranges')
+                    .get();
+
+                if (generalRangesDoc.exists) {
+                    const data = generalRangesDoc.data();
+
+                    // Support both formats:
+                    // Format A: { ranges: [{userId, userName, fromSTT, toSTT}, ...] }
+                    // Format B: { userId: {from, to, userName}, ... }
+                    if (Array.isArray(data.ranges)) {
+                        for (const range of data.ranges) {
+                            const from = range.fromSTT || range.from || range.start || 0;
+                            const to = range.toSTT || range.to || range.end || Infinity;
+                            if (sttNum >= from && sttNum <= to) {
+                                return {
+                                    userId: range.userId || 'unassigned',
+                                    userName: range.userName || range.userId || 'Chưa phân'
+                                };
+                            }
+                        }
+                    } else {
+                        // Object format: iterate all keys (skip metadata fields)
+                        for (const [uid, range] of Object.entries(data)) {
+                            if (!range || typeof range !== 'object') continue;
+                            if (uid === 'ranges') continue; // skip if it's not an object range
+                            const from = range.from || range.start || range.fromSTT || 0;
+                            const to = range.to || range.end || range.toSTT || Infinity;
+                            if (sttNum >= from && sttNum <= to) {
+                                return {
+                                    userId: uid,
+                                    userName: range.userName || uid
+                                };
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[KPI] Error reading general employee ranges:', e);
+            }
+
+            // Not found in any range
+            console.warn(`[KPI] STT ${stt} not found in any Employee_Range`);
+            return unassigned;
+
+        } catch (error) {
+            console.error('[KPI] Error in getAssignedEmployeeForSTT:', error);
+            return unassigned;
         }
     }
 
@@ -1181,7 +1458,10 @@
         calculateNetKPI,
         recalculateAndSaveKPI,
         isOrderInEmployeeRange,
+        getAssignedEmployeeForSTT,
         reconcileKPI,
+        fetchProductsFromTPOS,
+        cleanupStaleStatistics,
 
         // Campaign functions
         calculateKPIForCampaign,

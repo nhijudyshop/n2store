@@ -456,14 +456,16 @@ describe('Preservation: Summary cards updateSummaryCards() tính toán đúng', 
         const updateSummaryBody = extractFunctionBody(sourceCode, 'updateSummaryCards(filteredData)');
         expect(updateSummaryBody).not.toBeNull();
 
-        // Phải tính totalEmployees từ filteredData.length
-        expect(updateSummaryBody).toContain('filteredData.length');
-        // Phải tính totalOrders từ emp.orders.length
-        expect(updateSummaryBody).toContain('emp.orders.length');
+        // Phải tính totalEmployees (Bug #4: đếm employees có valid orders, loại stale)
+        expect(updateSummaryBody).toContain('totalEmployees');
+        // Phải tính totalOrders (Bug #4: đếm từng order, skip stale)
+        expect(updateSummaryBody).toContain('totalOrders');
         // Phải tính totalNet từ order.netProducts
         expect(updateSummaryBody).toContain('order.netProducts');
         // Phải tính totalKPI từ order.kpi
         expect(updateSummaryBody).toContain('order.kpi');
+        // Bug #4 fix: phải exclude stale orders
+        expect(updateSummaryBody).toContain('_stale');
     });
 });
 

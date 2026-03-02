@@ -30,7 +30,8 @@ const KPICommission = {
         currentEmployeeOrders: [], // Orders for Modal L1
         currentOrderId: null,      // Current order in Modal L2
         currentEmployeeUserId: null,
-        isLoading: false
+        isLoading: false,
+        employeeNameCache: {} // Cache for resolved employee names (Bug #4 fix)
     },
 
     KPI_PER_PRODUCT: 5000,
@@ -115,6 +116,182 @@ const KPICommission = {
 
 
     // ========================================
+    // EMPLOYEE NAME RESOLUTION (20.1 - Bug #4 fix)
+    // ========================================
+    /**
+     * Resolve employee name from multiple sources with caching.
+     * Priority: kpi_statistics → kpi_base → employee_ranges → users → fallback
+     * Never returns raw userId alone.
+     * @param {string} userId
+     * @returns {Promise<string>} resolved display name
+     */
+    async resolveEmployeeName(userId) {
+        if (!userId) return 'Không xác định';
+
+        // Check cache first
+        if (this.state.employeeNameCache[userId]) {
+            return this.state.employeeNameCache[userId];
+        }
+
+        let name = null;
+        const db = this.getDb();
+
+        // Source 1: kpi_statistics (already loaded in state)
+        if (!name) {
+            for (const stat of this.state.statsData) {
+                if (stat.userId === userId && stat.userName && stat.userName !== userId) {
+                    name = stat.userName;
+                    break;
+                }
+            }
+        }
+
+        // Source 2: kpi_base collection
+        if (!name && db) {
+            try {
+                const baseSnap = await db.collection('kpi_base')
+                    .where('userId', '==', userId).limit(1).get();
+                if (!baseSnap.empty) {
+                    const baseName = baseSnap.docs[0].data().userName;
+                    if (baseName && baseName !== userId) name = baseName;
+                }
+            } catch (e) {
+                console.warn('[KPI Tab] resolveEmployeeName: kpi_base lookup failed:', e.message);
+            }
+        }
+
+        // Source 3: settings/employee_ranges
+        if (!name && db) {
+            try {
+                const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
+                if (rangesDoc.exists) {
+                    const ranges = rangesDoc.data().ranges || [];
+                    const found = ranges.find(r => r.userId === userId);
+                    if (found && found.userName) name = found.userName;
+                }
+            } catch (e) {
+                console.warn('[KPI Tab] resolveEmployeeName: employee_ranges lookup failed:', e.message);
+            }
+        }
+
+        // Source 4: users collection
+        if (!name && db) {
+            try {
+                const userDoc = await db.collection('users').doc(userId).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    name = userData.displayName || userData.name || null;
+                }
+            } catch (e) {
+                console.warn('[KPI Tab] resolveEmployeeName: users lookup failed:', e.message);
+            }
+        }
+
+        // Fallback: formatted userId (never raw userId alone)
+        if (!name) {
+            name = `Nhân viên (${userId})`;
+        }
+
+        // Cache the result
+        this.state.employeeNameCache[userId] = name;
+        return name;
+    },
+
+    // ========================================
+    // STALE STATISTICS DETECTION (20.3 - Bug #4 fix)
+    // ========================================
+    /**
+     * Detect stale statistics by checking BASE existence for each order.
+     * Batch queries kpi_base in chunks of 10 (Firestore 'in' query limit).
+     * Marks orders with missing BASE as _stale: true.
+     * @param {Array} statsData - array of {userId, userName, dates: {...}}
+     * @returns {Promise<Array>} statsData with stale markers
+     */
+    async detectStaleStatistics(statsData) {
+        const db = this.getDb();
+        if (!db || !statsData || statsData.length === 0) return statsData;
+
+        // Collect all unique orderIds from statistics
+        const allOrderIds = new Set();
+        for (const stat of statsData) {
+            for (const dateData of Object.values(stat.dates || {})) {
+                for (const order of (dateData.orders || [])) {
+                    if (order.orderId) allOrderIds.add(order.orderId);
+                }
+            }
+        }
+
+        if (allOrderIds.size === 0) return statsData;
+
+        // Batch check BASE existence (chunks of 10 for Firestore 'in' query limit)
+        const existingBases = new Set();
+        const orderIdArray = [...allOrderIds];
+
+        for (let i = 0; i < orderIdArray.length; i += 10) {
+            const chunk = orderIdArray.slice(i, i + 10);
+            try {
+                const snap = await db.collection('kpi_base')
+                    .where(firebase.firestore.FieldPath.documentId(), 'in', chunk)
+                    .get();
+                snap.forEach(doc => existingBases.add(doc.id));
+            } catch (e) {
+                console.warn('[KPI Tab] detectStaleStatistics: batch query failed for chunk:', e.message);
+            }
+        }
+
+        // Mark stale orders (BASE missing)
+        let staleCount = 0;
+        for (const stat of statsData) {
+            for (const dateData of Object.values(stat.dates || {})) {
+                for (const order of (dateData.orders || [])) {
+                    if (order.orderId && !existingBases.has(order.orderId)) {
+                        order._stale = true;
+                        order._staleReason = 'BASE đã bị xóa';
+                        staleCount++;
+                    }
+                }
+            }
+        }
+
+        if (staleCount > 0) {
+            console.log(`[KPI Tab] Detected ${staleCount} stale orders (BASE missing)`);
+        }
+
+        return statsData;
+    },
+
+    // ========================================
+    // EMPTY STATE (20.6 - Bug #4 fix)
+    // ========================================
+    /**
+     * Display empty state message when kpi_statistics is empty.
+     * Shows a user-friendly message instead of a blank table or error.
+     */
+    renderEmptyState() {
+        this.hideEl('kpiTableLoading');
+        this.hideEl('kpiTableWrapper');
+        this.showEl('kpiTableEmpty');
+
+        const emptyEl = document.getElementById('kpiTableEmpty');
+        if (emptyEl) {
+            const msgEl = emptyEl.querySelector('p');
+            if (msgEl) {
+                msgEl.textContent = 'Chưa có dữ liệu KPI. Dữ liệu sẽ xuất hiện sau khi gửi tin nhắn hàng loạt và nhân viên thao tác sản phẩm.';
+            }
+        }
+
+        // Reset summary cards to zero
+        const setVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+        setVal('totalEmployees', '0');
+        setVal('totalOrdersWithBase', '0');
+        setVal('totalNetProducts', '0');
+        setVal('totalKPIAmount', '0đ');
+    },
+
+    // ========================================
     // INIT (12.2)
     // ========================================
     async init() {
@@ -129,7 +306,7 @@ const KPICommission = {
             await this.loadEmployeeOptions();
             await this.loadAllStatistics();
 
-            this.applyFilters();
+            await this.applyFilters();
             this.reinitIcons();
             console.log('[KPI Tab] ✓ Initialized');
         } catch (error) {
@@ -166,22 +343,27 @@ const KPICommission = {
                 }
 
                 if (Object.keys(dates).length > 0) {
-                    // Try to get userName from the first order
-                    let userName = userId;
-                    for (const dateKey of Object.keys(dates)) {
-                        const orders = dates[dateKey].orders || [];
-                        if (orders.length > 0) {
-                            // We'll resolve names later from kpi_base if needed
-                            break;
-                        }
-                    }
-
-                    allStats.push({ userId, userName, dates });
+                    allStats.push({ userId, userName: userId, dates });
                 }
             }
 
             this.state.statsData = allStats;
             console.log('[KPI Tab] Loaded statistics for', allStats.length, 'users');
+
+            // Bug #4 fix: Check for empty data → render empty state
+            if (allStats.length === 0) {
+                this.renderEmptyState();
+                return;
+            }
+
+            // Bug #4 fix: Detect stale statistics (BASE missing)
+            await this.detectStaleStatistics(allStats);
+
+            // Bug #4 fix: Resolve employee names for each userId
+            for (const stat of allStats) {
+                stat.userName = await this.resolveEmployeeName(stat.userId);
+            }
+
         } catch (error) {
             console.error('[KPI Tab] Error loading statistics:', error);
         }
@@ -275,7 +457,7 @@ const KPICommission = {
     // ========================================
     // APPLY FILTERS (12.4)
     // ========================================
-    applyFilters() {
+    async applyFilters() {
         // Read filter values
         this.state.filters.campaign = (document.getElementById('kpiFilterCampaign') || {}).value || '';
         this.state.filters.employee = (document.getElementById('kpiFilterEmployee') || {}).value || '';
@@ -328,24 +510,29 @@ const KPICommission = {
 
         // Update UI
         this.updateSummaryCards(filtered);
-        this.renderKPITable(filtered);
+        await this.renderKPITable(filtered);
     },
 
     // ========================================
     // UPDATE SUMMARY CARDS (12.5)
     // ========================================
     updateSummaryCards(filteredData) {
-        let totalEmployees = filteredData.length;
+        let totalEmployees = 0;
         let totalOrders = 0;
         let totalNet = 0;
         let totalKPI = 0;
 
         for (const emp of filteredData) {
-            totalOrders += emp.orders.length;
+            let empHasValidOrders = false;
             for (const order of emp.orders) {
+                // Bug #4 fix: exclude stale orders from summary totals
+                if (order._stale) continue;
+                empHasValidOrders = true;
+                totalOrders++;
                 totalNet += order.netProducts || 0;
                 totalKPI += order.kpi || 0;
             }
+            if (empHasValidOrders) totalEmployees++;
         }
 
         const setVal = (id, val) => {
@@ -362,7 +549,7 @@ const KPICommission = {
     // ========================================
     // RENDER KPI TABLE (12.6)
     // ========================================
-    renderKPITable(filteredData) {
+    async renderKPITable(filteredData) {
         this.hideEl('kpiTableLoading');
 
         if (!filteredData || filteredData.length === 0) {
@@ -374,7 +561,7 @@ const KPICommission = {
         this.hideEl('kpiTableEmpty');
         this.showEl('kpiTableWrapper');
 
-        const aggregated = this.aggregateByEmployee(filteredData);
+        const aggregated = await this.aggregateByEmployee(filteredData);
         const tbody = document.getElementById('kpiTableBody');
         if (!tbody) return;
 
@@ -387,7 +574,7 @@ const KPICommission = {
 
             html += `<tr>
                 <td>${idx + 1}</td>
-                <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.userName)}</a></td>
+                <td><a class="employee-link" onclick="KPICommission.showEmployeeOrders('${this.escapeHtml(emp.userId)}')">${this.escapeHtml(emp.resolvedName)}</a></td>
                 <td>${emp.orders.length}</td>
                 <td>${emp.totalNetProducts}</td>
                 <td>${this.formatCurrency(emp.totalKPI)}</td>
@@ -402,9 +589,10 @@ const KPICommission = {
     // ========================================
     // AGGREGATE BY EMPLOYEE (12.7)
     // ========================================
-    aggregateByEmployee(filteredData) {
+    async aggregateByEmployee(filteredData) {
         // filteredData is already grouped by employee from applyFilters
-        return filteredData.map(emp => {
+        const results = [];
+        for (const emp of filteredData) {
             let totalNetProducts = 0;
             let totalKPI = 0;
 
@@ -413,21 +601,27 @@ const KPICommission = {
                 totalKPI += order.kpi || 0;
             }
 
-            return {
+            // Resolve employee name (Bug #4 fix - never show raw userId)
+            const resolvedName = await this.resolveEmployeeName(emp.userId);
+
+            results.push({
                 userId: emp.userId,
                 userName: emp.userName || emp.userId,
+                resolvedName,
                 orders: emp.orders,
                 totalNetProducts,
                 totalKPI
-            };
-        }).sort((a, b) => b.totalKPI - a.totalKPI); // Sort by KPI descending
+            });
+        }
+
+        return results.sort((a, b) => b.totalKPI - a.totalKPI); // Sort by KPI descending
     },
 
 
     // ========================================
     // MODAL L1: SHOW EMPLOYEE ORDERS (12.8)
     // ========================================
-    showEmployeeOrders(userId) {
+    async showEmployeeOrders(userId) {
         const emp = this.state.filteredData.find(e => e.userId === userId);
         if (!emp) {
             console.warn('[KPI Tab] Employee not found:', userId);
@@ -437,9 +631,12 @@ const KPICommission = {
         this.state.currentEmployeeUserId = userId;
         this.state.currentEmployeeOrders = emp.orders || [];
 
-        // Set header
+        // Set header - use resolved name (Bug #4 fix)
         const nameEl = document.getElementById('modalL1EmployeeName');
-        if (nameEl) nameEl.textContent = emp.userName || userId;
+        if (nameEl) {
+            const resolvedName = await this.resolveEmployeeName(userId);
+            nameEl.textContent = resolvedName;
+        }
 
         // Reset filters
         const statusFilter = document.getElementById('modalL1FilterStatus');
@@ -1149,14 +1346,14 @@ const KPICommission = {
     // ========================================
     // EXPORT EXCEL (12.15)
     // ========================================
-    exportExcel() {
+    async exportExcel() {
         try {
             if (typeof XLSX === 'undefined') {
                 alert('Thư viện XLSX chưa được tải. Vui lòng thử lại.');
                 return;
             }
 
-            const aggregated = this.aggregateByEmployee(this.state.filteredData);
+            const aggregated = await this.aggregateByEmployee(this.state.filteredData);
 
             if (aggregated.length === 0) {
                 alert('Không có dữ liệu để xuất. Hãy áp dụng bộ lọc trước.');
@@ -1172,7 +1369,7 @@ const KPICommission = {
                 const hasDisc = emp.orders.some(o => o.hasDiscrepancy);
                 rows.push([
                     idx + 1,
-                    emp.userName || emp.userId,
+                    emp.resolvedName || emp.userName || emp.userId,
                     emp.orders.length,
                     emp.totalNetProducts,
                     emp.totalKPI,
@@ -1230,32 +1427,12 @@ const KPICommission = {
         setVal('totalNetProducts', '0');
         setVal('totalKPIAmount', '0đ');
 
+        // Clear name cache to force re-resolution
+        this.state.employeeNameCache = {};
+
         try {
             await this.loadAllStatistics();
-
-            // Re-resolve employee names
-            const db = this.getDb();
-            if (db) {
-                try {
-                    const baseSnapshot = await db.collection('kpi_base').limit(200).get();
-                    const nameMap = new Map();
-                    baseSnapshot.forEach(doc => {
-                        const data = doc.data();
-                        if (data.userId && data.userName) {
-                            nameMap.set(data.userId, data.userName);
-                        }
-                    });
-                    for (const stat of this.state.statsData) {
-                        if (nameMap.has(stat.userId)) {
-                            stat.userName = nameMap.get(stat.userId);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[KPI Tab] Could not refresh employee names:', e);
-                }
-            }
-
-            this.applyFilters();
+            await this.applyFilters();
             this.reinitIcons();
             console.log('[KPI Tab] ✓ Data refreshed');
         } catch (error) {

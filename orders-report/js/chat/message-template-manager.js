@@ -863,7 +863,9 @@ class MessageTemplateManager {
                                 stt: order.SessionIndex || order.stt || order.STT || '',
                                 code: order.code || order.Id || '',
                                 customerName: order.customerName || '',
-                                account: account.name
+                                account: account.name,
+                                Details: order.Details || order.OrderDetails || [],
+                                products: order.products || order.mainProducts || []
                             });
 
                             this.log(`✅ [${account.name}] Sent successfully to order ${order.code || order.Id}`);
