@@ -916,7 +916,7 @@ class PurchaseOrderFormModal {
     }
 
     /**
-     * Apply price & images from one variant to all variants with same productCode
+     * Apply name, price & images from one variant to all variants with same productCode
      * @param {string} sourceItemId - Source item ID
      */
     applyAllFieldsToVariants(sourceItemId) {
@@ -931,6 +931,7 @@ class PurchaseOrderFormModal {
             if (item.id === sourceItemId) return; // Skip source
             if ((item.productCode || '').trim() !== productCode) return; // Skip different product
 
+            item.productName = sourceItem.productName || '';
             item.productImages = [...(sourceItem.productImages || [])];
             item.priceImages = [...(sourceItem.priceImages || [])];
             item.purchasePrice = sourceItem.purchasePrice;
@@ -941,7 +942,7 @@ class PurchaseOrderFormModal {
         if (updatedCount > 0) {
             this.refreshItemsTable();
             if (window.notificationManager) {
-                window.notificationManager.success(`Đã áp dụng giá & hình ảnh cho ${updatedCount} biến thể`);
+                window.notificationManager.success(`Đã áp dụng tên, giá & hình ảnh cho ${updatedCount} biến thể`);
             }
         } else {
             if (window.notificationManager) {
@@ -1584,7 +1585,7 @@ class PurchaseOrderFormModal {
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                             </button>
-                            <button type="button" data-action="applyVariants" title="Áp dụng giá & hình ảnh cho tất cả biến thể" style="
+                            <button type="button" data-action="applyVariants" title="Áp dụng tên, giá & hình ảnh cho tất cả biến thể" style="
                                 width: 32px;
                                 height: 32px;
                                 border: 1px solid #d1d5db;
