@@ -235,7 +235,7 @@
         let html = '';
 
         for (const emp of employees) {
-            const empId = String(emp.uid || emp.id);
+            const empId = String(emp.userId || emp.uid || emp.id);
             let totalMinutes = 0;
 
             html += '<tr>';
@@ -335,7 +335,7 @@
 
             return `
                 <div class="ts-block" style="border-left-color:#faad14; cursor:pointer;"
-                     onclick="window._attendance.showDetail('${emp.uid || emp.id}','${dateKey}')">
+                     onclick="window._attendance.showDetail('${emp.userId || emp.uid || emp.id}','${dateKey}')">
                     <div class="ts-block-time" style="color:#faad14;">--:--</div>
                     <div class="ts-block-status" style="color:#faad14;">Chưa chấm công</div>
                 </div>
@@ -358,7 +358,7 @@
 
         return `
             <div class="ts-block" style="border-left-color:${borderColor}; cursor:pointer;"
-                 onclick="window._attendance.showDetail('${emp.uid || emp.id}','${dateKey}')">
+                 onclick="window._attendance.showDetail('${emp.userId || emp.uid || emp.id}','${dateKey}')">
                 <div class="ts-block-name" style="font-size:11px; color:#1e293b;">${inTime} - ${outTime}</div>
                 <div class="ts-block-status" style="color:${statusColor};">${statusText}</div>
             </div>
@@ -547,7 +547,7 @@
         const modal = document.getElementById('attendanceModal');
         if (!modal) return;
 
-        const emp = employees.find(e => String(e.uid || e.id) === String(empId));
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
         const empName = emp ? emp.name : `User ${empId}`;
 
         // Tìm records cho ngày này

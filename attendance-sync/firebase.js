@@ -41,10 +41,14 @@ async function uploadUsers(users) {
   if (!users.length) return;
   const batch = db.batch();
   for (const u of users) {
-    const uid = String(u.uid || '');
-    if (!uid) continue;
-    batch.set(db.collection('attendance_device_users').doc(uid), {
-      uid, name: u.name || ('User ' + uid), role: u.role || 0,
+    // Use userId (enrollment number shown on device) as doc ID
+    // This matches the user_id string in attendance records
+    const userId = String(u.userId || u.uid || '');
+    if (!userId) continue;
+    batch.set(db.collection('attendance_device_users').doc(userId), {
+      uid: String(u.uid || ''),
+      userId,
+      name: u.name || ('User ' + userId), role: u.role || 0,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
   }
