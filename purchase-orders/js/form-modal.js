@@ -853,6 +853,31 @@ class PurchaseOrderFormModal {
     }
 
     /**
+     * Add new item after a specific item (by id)
+     */
+    addItemAfter(afterItemId) {
+        const newItem = {
+            id: `item_${Date.now()}_${this.itemCounter++}`,
+            productName: '',
+            variant: '',
+            productCode: '',
+            quantity: 1,
+            purchasePrice: '',
+            sellingPrice: '',
+            productImages: [],
+            priceImages: [],
+            selectedAttributeValueIds: []
+        };
+        const idx = this.formData.items.findIndex(i => i.id === afterItemId);
+        if (idx !== -1) {
+            this.formData.items.splice(idx + 1, 0, newItem);
+        } else {
+            this.formData.items.push(newItem);
+        }
+        return newItem;
+    }
+
+    /**
      * Remove item
      */
     removeItem(itemId) {
@@ -877,7 +902,12 @@ class PurchaseOrderFormModal {
             productImages: [...(sourceItem.productImages || [])],
             priceImages: [...(sourceItem.priceImages || [])]
         };
-        this.formData.items.push(newItem);
+        const idx = this.formData.items.findIndex(item => item.id === itemId);
+        if (idx !== -1) {
+            this.formData.items.splice(idx + 1, 0, newItem);
+        } else {
+            this.formData.items.push(newItem);
+        }
 
         // Auto-generate new product code for copied item
         if (newItem.productName && newItem.productName.trim()) {
@@ -2118,10 +2148,12 @@ class PurchaseOrderFormModal {
                                     item.variant = first.variant || first;
                                     item.selectedAttributeValueIds = first.selectedAttributeValueIds || [];
 
-                                    // Remaining combos create new items
+                                    // Remaining combos create new items right after the parent
+                                    let lastInsertedId = item.id;
                                     for (let i = 1; i < combinations.length; i++) {
                                         const combo = combinations[i];
-                                        const newItem = this.addItem();
+                                        const newItem = this.addItemAfter(lastInsertedId);
+                                        lastInsertedId = newItem.id;
                                         newItem.productName = baseProduct.productName;
                                         newItem.productCode = baseProduct.productCode;
                                         newItem.variant = combo.variant || combo;
