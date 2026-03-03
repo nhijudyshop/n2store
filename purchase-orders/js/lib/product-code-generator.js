@@ -107,7 +107,7 @@ window.ProductCodeGenerator = (function() {
     /**
      * Detect product category from name
      * @param {string} productName
-     * @returns {'N'|'P'|'Q'|'B'|null}
+     * @returns {'N'|'P'|'Q'|'B'|'MM'|null}
      */
     function detectProductCategory(productName) {
         if (!productName || typeof productName !== 'string') {
@@ -117,6 +117,11 @@ window.ProductCodeGenerator = (function() {
         const tokens = tokenize(productName);
         if (tokens.length === 0) {
             return null;
+        }
+
+        // Category MM: Products with MM prefix (e.g., "MM ao thun" → MM01)
+        if (tokens[0] && tokens[0] === 'MM') {
+            return 'MM';
         }
 
         // Category B: Social order products — name starts with "IB"
@@ -356,10 +361,13 @@ window.ProductCodeGenerator = (function() {
         const maxNumber = Math.max(maxFromItems, maxFromFirestore, maxFromTPOS);
         console.log(`[ProductCodeGen] Max for ${category}: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
 
+        // Pad digits: 2 for multi-char prefixes (MM01), 3 for single-char (N001)
+        const padLength = category.length > 1 ? 2 : 3;
+
         // Try to find unused code
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             const number = maxNumber + attempt;
-            const candidateCode = `${category}${number.toString().padStart(3, '0')}`;
+            const candidateCode = `${category}${number.toString().padStart(padLength, '0')}`;
 
             // Check form items
             if (codeExistsInItems(candidateCode, existingItems)) {
@@ -448,9 +456,10 @@ window.ProductCodeGenerator = (function() {
             return null;
         }
 
+        const padLength = category.length > 1 ? 2 : 3;
         const maxFromItems = getMaxNumberFromItems(existingItems, category);
         const number = maxFromItems + 1;
-        return `${category}${number.toString().padStart(3, '0')}`;
+        return `${category}${number.toString().padStart(padLength, '0')}`;
     }
 
     /**
