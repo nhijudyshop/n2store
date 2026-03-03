@@ -894,11 +894,7 @@ class PurchaseOrderFormModal {
         const newItem = {
             ...sourceItem,
             id: `item_${Date.now()}_${this.itemCounter++}`,
-            productCode: '', // Clear code so auto-generate can create new one
-            _manualCodeEdit: false,
             _isExistingItem: false,
-            variant: '',
-            selectedAttributeValueIds: [],
             productImages: [...(sourceItem.productImages || [])],
             priceImages: [...(sourceItem.priceImages || [])]
         };
@@ -907,11 +903,6 @@ class PurchaseOrderFormModal {
             this.formData.items.splice(idx + 1, 0, newItem);
         } else {
             this.formData.items.push(newItem);
-        }
-
-        // Auto-generate new product code for copied item
-        if (newItem.productName && newItem.productName.trim()) {
-            this.autoGenerateProductCode(newItem);
         }
     }
 
