@@ -1,15 +1,13 @@
 {
   "name": "attendance-sync",
-  "version": "3.0.0",
-  "description": "Sync attendance data from Ronald Jack DG-600 to Firebase Firestore",
+  "version": "4.0.0",
+  "description": "Sync Ronald Jack DG-600 to Firebase (raw ZK protocol, no ZK library)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node test.js",
-    "diagnose": "node diagnose.js"
+    "test": "node test.js"
   },
   "dependencies": {
-    "node-zklib": "^1.0.2",
     "firebase-admin": "^11.11.0"
   }
 }

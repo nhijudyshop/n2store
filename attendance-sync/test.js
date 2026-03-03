@@ -1,51 +1,62 @@
-const device = require('./device');
+const ZK = require('./zk');
+
+const IP   = '192.168.1.201';
+const PORT = 4370;
 
 async function main() {
-  console.log('--- test connection ---\n');
+  console.log('=== TEST CONNECTION ===');
+  console.log('Target: ' + IP + ':' + PORT + '\n');
 
+  const zk = new ZK(IP, PORT, 10000);
+
+  // Connect
   try {
-    await device.connect();
+    await zk.connect();
     console.log('CONNECTED\n');
   } catch (e) {
-    console.error('CONNECT FAILED:', e.message);
-    console.error('\nCheck:');
-    console.error('  1. Device is on and same LAN');
-    console.error('  2. IP correct: ' + require('./config').device.ip);
-    console.error('  3. No other software connected to device');
-    console.error('  4. Run "node diagnose.js" for details');
+    console.error('FAILED: ' + e.message);
+    console.error('\nTroubleshoot:');
+    console.error('  1. Ping ' + IP + ' first');
+    console.error('  2. Check firewall allows TCP port ' + PORT);
+    console.error('  3. Close other software connected to device');
+    console.error('  4. Set device CommKey = 0');
+    console.error('  5. Restart the device');
     process.exit(1);
   }
 
+  // Version
   try {
-    const info = await device.getInfo();
-    console.log('Info:', JSON.stringify(info, null, 2));
+    const v = await zk.getVersion();
+    console.log('Firmware: ' + v);
   } catch (e) {
-    console.log('Info: N/A (' + e.message + ')');
+    console.log('Firmware: N/A (' + e.message + ')');
   }
 
+  // Users
   try {
-    const users = await device.getUsers();
+    const users = await zk.getUsers();
     console.log('\nUsers: ' + users.length);
-    users.forEach(u => console.log('  [' + u.uid + '] ' + (u.name || 'N/A')));
+    users.forEach(u => console.log('  [' + u.uid + '] ' + u.name + (u.role === 14 ? ' (admin)' : '')));
   } catch (e) {
-    console.log('Users: error (' + e.message + ')');
+    console.log('Users: error - ' + e.message);
   }
 
+  // Attendance
   try {
-    const records = await device.getAttendances();
-    console.log('\nRecords: ' + records.length);
+    const records = await zk.getAttendances();
+    console.log('\nAttendance records: ' + records.length);
     if (records.length > 0) {
-      console.log('Last 5:');
-      records.slice(-5).forEach(r =>
-        console.log('  User ' + r.deviceUserId + ' @ ' + r.recordTime)
+      console.log('Last 10:');
+      records.slice(-10).forEach(r =>
+        console.log('  User ' + r.deviceUserId + '  ' + r.recordTime + '  state=' + r.type)
       );
     }
   } catch (e) {
-    console.log('Records: error (' + e.message + ')');
+    console.log('Attendance: error - ' + e.message);
   }
 
-  await device.disconnect();
-  console.log('\n--- done ---');
+  await zk.disconnect();
+  console.log('\nDONE');
   process.exit(0);
 }
 

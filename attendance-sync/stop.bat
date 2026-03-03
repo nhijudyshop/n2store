@@ -1,7 +1,7 @@
 @echo off
-for /f "tokens=2 delims=," %%a in ('tasklist /fi "imagename eq node.exe" /fo csv /nh') do (
-    wmic process where "ProcessId=%%~a" get commandline 2^>nul | findstr /i "index.js" >nul 2>&1
-    if not errorlevel 1 taskkill /f /pid %%~a >nul 2>&1
+taskkill /f /fi "WINDOWTITLE eq node*" >nul 2>&1
+for /f "skip=1 tokens=2" %%p in ('wmic process where "commandline like ''%%index.js%%'' " get processid 2^>nul') do (
+    taskkill /f /pid %%p >nul 2>&1
 )
 echo Stopped.
 pause

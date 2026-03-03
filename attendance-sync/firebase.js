@@ -1,18 +1,25 @@
 const admin = require('firebase-admin');
-const config = require('./config');
+const path = require('path');
+
+const CRED_PATH = path.join(__dirname, 'serviceAccountKey.json');
+const COL = {
+  records: 'attendance_records',
+  users: 'attendance_device_users',
+  commands: 'attendance_commands',
+  status: 'attendance_sync_status',
+};
 
 let db = null;
 
 function init() {
   if (db) return;
   admin.initializeApp({
-    credential: admin.credential.cert(require(config.firebase.credential)),
+    credential: admin.credential.cert(require(CRED_PATH)),
   });
   db = admin.firestore();
-  console.log('[firebase] initialized');
 }
 
-function toDateKey(d) {
+function dateKey(d) {
   return d.getFullYear() + '-' +
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
@@ -20,43 +27,34 @@ function toDateKey(d) {
 
 async function uploadRecords(records) {
   if (!records.length) return 0;
-  const col = db.collection(config.collections.records);
-  let count = 0;
-
+  let n = 0;
   for (let i = 0; i < records.length; i += 450) {
     const batch = db.batch();
-    const chunk = records.slice(i, i + 450);
-
-    for (const r of chunk) {
-      const t = new Date(r.recordTime || r.timestamp || r.time || Date.now());
-      const uid = String(r.deviceUserId || r.userId || r.uid || '');
-      const docId = uid + '_' + t.getTime();
-
-      batch.set(col.doc(docId), {
+    for (const r of records.slice(i, i + 450)) {
+      const t = new Date(r.recordTime || Date.now());
+      const uid = String(r.deviceUserId || '');
+      const id = uid + '_' + t.getTime();
+      batch.set(db.collection(COL.records).doc(id), {
         deviceUserId: uid,
         checkTime: admin.firestore.Timestamp.fromDate(t),
-        dateKey: toDateKey(t),
-        type: r.type || r.attState || 0,
+        dateKey: dateKey(t),
+        type: r.type || 0,
         syncedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
-      count++;
+      n++;
     }
-
     await batch.commit();
   }
-
-  return count;
+  return n;
 }
 
 async function uploadUsers(users) {
   if (!users.length) return;
-  const col = db.collection(config.collections.users);
   const batch = db.batch();
-
   for (const u of users) {
-    const uid = String(u.uid || u.userId || u.id || '');
+    const uid = String(u.uid || '');
     if (!uid) continue;
-    batch.set(col.doc(uid), {
+    batch.set(db.collection(COL.users).doc(uid), {
       uid,
       name: u.name || ('User ' + uid),
       role: u.role || 0,
@@ -64,19 +62,18 @@ async function uploadUsers(users) {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
   }
-
   await batch.commit();
 }
 
 async function setStatus(data) {
-  await db.collection(config.collections.status).doc('current').set({
+  await db.collection(COL.status).doc('current').set({
     ...data,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 }
 
 function onCommands(cb) {
-  return db.collection(config.collections.commands)
+  return db.collection(COL.commands)
     .where('status', '==', 'pending')
     .onSnapshot(snap => {
       snap.docChanges().forEach(c => {
@@ -86,13 +83,10 @@ function onCommands(cb) {
 }
 
 async function updateCommand(id, status, result) {
-  await db.collection(config.collections.commands).doc(id).update({
-    status,
-    result: result || '',
+  await db.collection(COL.commands).doc(id).update({
+    status, result: result || '',
     processedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 }
 
-module.exports = {
-  init, uploadRecords, uploadUsers, setStatus, onCommands, updateCommand,
-};
+module.exports = { init, uploadRecords, uploadUsers, setStatus, onCommands, updateCommand };
