@@ -672,25 +672,32 @@ class ZK {
       console.log('  [getAttendances] first 80 hex: ' + hex(raw.slice(0, Math.min(80, raw.length))));
     }
 
-    // Try with/without 4-byte header, different record sizes
+    // Auto-detect format: try skip (with/without 4-byte size header),
+    // record size (40 or 16), and timestamp offset variants
+    // DG-600 uses 40-byte with status@26 BEFORE timestamp@27 (differs from pyzk standard ts@26)
     const now = Date.now();
     const attempts = [];
     for (const skip of [0, 4]) {
-      for (const sz of [40, 16]) {
-        if (raw.length <= skip) continue;
-        const data = raw.slice(skip);
-        if (data.length < sz) continue;
-        const records = this._parseAttendances(data, sz);
+      if (raw.length <= skip) continue;
+      const data = raw.slice(skip);
+
+      for (const fmt of [
+        { sz: 40, tsOff: 27 },  // DG-600: status@26, timestamp@27, punch@31
+        { sz: 40, tsOff: 26 },  // pyzk standard: timestamp@26, status@30, punch@31
+        { sz: 16, tsOff: 4 },   // compact: uid(u32)@0, timestamp@4, punch@9
+      ]) {
+        if (data.length < fmt.sz) continue;
+        const records = this._parseAttendances(data, fmt.sz, fmt.tsOff);
         if (records.length > 0) {
-          // Score: prefer results with valid timestamps (within 10 years) and small UIDs
           const validTimes = records.filter(r => {
             const t = new Date(r.recordTime).getTime();
             return t > 1577836800000 && t < now + 86400000; // 2020-01-01 to tomorrow
           }).length;
           const avgUid = records.reduce((s, r) => s + Number(r.deviceUserId), 0) / records.length;
-          const score = validTimes + (avgUid < 1000 ? 50 : 0);
-          attempts.push({ skip, sz, records, score });
-          if (this.debug) console.log('  [getAttendances] skip=' + skip + ' sz=' + sz + ' records=' + records.length + ' validTimes=' + validTimes + ' score=' + score);
+          const validUids = records.filter(r => Number(r.deviceUserId) > 0).length;
+          const score = validTimes * 20 + validUids * 5 + (avgUid < 1000 && avgUid > 0 ? 50 : 0) + records.length + (skip === 4 ? 5 : 0);
+          attempts.push({ skip, sz: fmt.sz, tsOff: fmt.tsOff, records, score });
+          if (this.debug) console.log('  [getAttendances] skip=' + skip + ' sz=' + fmt.sz + ' tsOff=' + fmt.tsOff + ' records=' + records.length + ' validTimes=' + validTimes + ' validUids=' + validUids + ' score=' + score);
         }
       }
     }
@@ -700,32 +707,30 @@ class ZK {
     if (!best) return [];
 
     if (this.debug) {
-      console.log('  [getAttendances] BEST: skip=' + best.skip + ' sz=' + best.sz + ' records=' + best.records.length);
+      console.log('  [getAttendances] BEST: skip=' + best.skip + ' sz=' + best.sz + ' tsOff=' + best.tsOff + ' records=' + best.records.length);
       best.records.slice(-5).forEach(r => console.log('  [att] uid=' + r.deviceUserId + ' time=' + r.recordTime));
     }
 
     return best.records;
   }
 
-  _parseAttendances(data, sz) {
+  _parseAttendances(data, sz, tsOffset) {
     const records = [];
     for (let i = 0; i + sz <= data.length; i += sz) {
       try {
         let uid, state, time;
         if (sz === 40) {
-          // pyzk: struct '<H24s4sBB8s'
-          // offset 0: uid (uint16), 2: user_id (24-byte string),
-          // 26: timestamp (uint32), 30: status, 31: punch, 32: reserved (8)
-          uid = data.readUInt16LE(i);
-          time = decodeTime(data.readUInt32LE(i + 26));
-          state = data[i + 31]; // punch: 0=check-in, 1=check-out
+          // For uid: prefer user_id string at offset 2 (24 bytes), fallback to uint16 at offset 0
+          const userIdStr = data.slice(i + 2, i + 26).toString('ascii').split('\0').shift().trim();
+          uid = parseInt(userIdStr);
+          if (isNaN(uid) || uid <= 0) uid = data.readUInt16LE(i);
+          time = decodeTime(data.readUInt32LE(i + tsOffset));
+          state = data[i + 31]; // punch always at offset 31
         } else {
-          // 16-byte: struct '<I4sBB2sI'
-          // offset 0: user_id (uint32), 4: timestamp (uint32),
-          // 8: status, 9: punch, 10: reserved (2), 12: workcode (uint32)
-          uid = data.readUInt16LE(i); // lower 2 bytes of uint32 user_id
-          time = decodeTime(data.readUInt32LE(i + 4));
-          state = data[i + 9]; // punch: 0=check-in, 1=check-out
+          // 16-byte: uid(u32)@0, timestamp@4, status@8, punch@9
+          uid = data.readUInt16LE(i);
+          time = decodeTime(data.readUInt32LE(i + tsOffset));
+          state = data[i + 9];
         }
         records.push({ deviceUserId: String(uid), recordTime: time.toISOString(), type: state });
       } catch (_) { break; }
