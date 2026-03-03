@@ -936,6 +936,14 @@ class PurchaseOrderFormModal {
             item.priceImages = [...(sourceItem.priceImages || [])];
             item.purchasePrice = sourceItem.purchasePrice;
             item.sellingPrice = sourceItem.sellingPrice;
+
+            // Copy pending images so all variants get uploaded
+            if (this.pendingImages.products[sourceItemId]?.length > 0) {
+                this.pendingImages.products[item.id] = [...this.pendingImages.products[sourceItemId]];
+            }
+            if (this.pendingImages.prices[sourceItemId]?.length > 0) {
+                this.pendingImages.prices[item.id] = [...this.pendingImages.prices[sourceItemId]];
+            }
             updatedCount++;
         });
 
@@ -2431,16 +2439,14 @@ class PurchaseOrderFormModal {
         }
 
         try {
-            // Upload pending images before submitting
-            if (this.hasPendingImages()) {
-                if (window.notificationManager) {
-                    window.notificationManager.show('Đang tải ảnh lên Firebase...', 'info');
-                }
-                await this.uploadPendingImages();
-                if (window.notificationManager) {
-                    window.notificationManager.show('Đã tải ảnh lên thành công!', 'success');
-                }
-            }
+            // "Tạo đơn hàng" skips Firebase image upload
+            // TPOS will provide ImageUrl after product sync
+            // Clear pending images (data URLs will be stripped by filterFirebaseUrls)
+            this.pendingImages = {
+                invoice: [],
+                products: {},
+                prices: {}
+            };
 
             const orderData = this.getFormData();
             orderData.status = 'AWAITING_PURCHASE';

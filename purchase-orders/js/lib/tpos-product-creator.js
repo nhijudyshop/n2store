@@ -771,6 +771,43 @@ window.TPOSProductCreator = (function () {
     }
 
     // =====================================================
+    // SAVE TPOS IMAGE URL TO FIREBASE ITEMS
+    // =====================================================
+
+    /**
+     * Save TPOS ImageUrl to Firebase items' productImages field
+     * Replaces any data URLs with the TPOS-hosted image URL
+     */
+    async function saveTPOSImageUrl(orderId, itemIds, tposImageUrl) {
+        try {
+            if (!window.firebase || !window.firebase.firestore) return;
+
+            const db = firebase.firestore();
+            const docRef = db.collection('purchase_orders').doc(orderId);
+            const doc = await docRef.get();
+            if (!doc.exists) return;
+
+            const data = doc.data();
+            const items = data.items || [];
+            let changed = false;
+
+            for (const item of items) {
+                if (itemIds.includes(item.id)) {
+                    item.productImages = [tposImageUrl];
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                await docRef.update({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                console.log(`[TPOSCreator] Saved TPOS ImageUrl for ${itemIds.length} items: ${tposImageUrl}`);
+            }
+        } catch (err) {
+            console.error('[TPOSCreator] Failed to save TPOS ImageUrl:', err);
+        }
+    }
+
+    // =====================================================
     // MAIN SYNC ORCHESTRATOR
     // =====================================================
 
@@ -895,6 +932,12 @@ window.TPOSProductCreator = (function () {
                 // Update variant Barcodes from TPOS response → Firebase items
                 if (allCombinations && productData?.ProductVariants?.length > 0) {
                     await updateVariantBarcodes(orderId, groupItems, productData.ProductVariants);
+                }
+
+                // Save TPOS ImageUrl to Firebase items (replace data URLs)
+                const tposImageUrl = productData?.ImageUrl || null;
+                if (tposImageUrl) {
+                    await saveTPOSImageUrl(orderId, itemIds, tposImageUrl);
                 }
 
                 return { success: true, productCode, alreadyExists: result.alreadyExists };
