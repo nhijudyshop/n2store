@@ -315,22 +315,36 @@
      * @returns {Promise<Array>} products array or [] on failure
      */
     async function fetchProductsFromTPOS(orderId) {
-        if (!window.tposAPI || !window.tposAPI.getOrderById) {
-            console.warn('[KPI] TPOS API not available');
+        // Gọi đúng API mà fetchFullOrderData trong message-template-manager.js dùng
+        // URL: SaleOnline_Order({orderId})?$expand=Details,Partner,User
+        // Auth: window.tokenManager.getAuthHeader()
+        if (!window.tokenManager || !window.tokenManager.getAuthHeader) {
+            console.warn('[KPI] tokenManager not available, cannot fetch products');
             return [];
         }
         try {
-            const orderData = await window.tposAPI.getOrderById(orderId);
-            const details = orderData?.Details || orderData?.OrderDetails || [];
-            return details.map(d => ({
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`;
+            const response = await fetch(apiUrl, {
+                headers: { ...headers, 'accept': 'application/json' }
+            });
+            if (!response.ok) {
+                console.warn(`[KPI] fetchProducts API error: HTTP ${response.status}`);
+                return [];
+            }
+            const data = await response.json();
+            const details = data.Details || [];
+            const products = details.map(d => ({
                 ProductId: d.ProductId || null,
                 ProductCode: d.ProductCode || d.Code || d.DefaultCode || '',
-                ProductName: d.ProductName || d.Name || '',
+                ProductName: d.ProductNameGet || d.ProductName || d.Name || '',
                 Quantity: d.Quantity || 1,
                 Price: d.Price || 0
             })).filter(p => p.ProductCode);
+            console.log(`[KPI] ✓ Fetched ${products.length} products from API for order ${orderId}`);
+            return products;
         } catch (e) {
-            console.error('[KPI] TPOS API fetchProducts failed:', e);
+            console.error('[KPI] fetchProducts API failed:', e);
             return [];
         }
     }
