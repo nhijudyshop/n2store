@@ -7,7 +7,6 @@ echo.
 where node >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Node.js not found
-    echo Download: https://nodejs.org/
     pause
     exit /b 1
 )
@@ -16,14 +15,13 @@ echo Node.js: %NV%
 
 if not exist "serviceAccountKey.json" (
     echo [ERROR] Missing serviceAccountKey.json
-    echo Get from Firebase Console - Project Settings - Service Accounts
     pause
     exit /b 1
 )
 echo Firebase key: OK
 
 echo.
-echo Installing firebase-admin...
+echo Installing...
 call npm install --production
 if errorlevel 1 (
     echo [ERROR] npm install failed
@@ -33,7 +31,7 @@ if errorlevel 1 (
 echo Install: OK
 
 echo.
-echo Testing device...
+echo Testing device (TCP then UDP)...
 node test.js
 echo.
 
@@ -46,9 +44,4 @@ if /i "%A%"=="y" (
 echo.
 echo  DONE
 echo  ========================
-echo  Run:  start.vbs  (hidden)
-echo  Stop: stop.bat
-echo  Test: node test.js
-echo  Logs: logs\
-echo.
 pause

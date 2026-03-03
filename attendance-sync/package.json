@@ -1,7 +1,7 @@
 {
   "name": "attendance-sync",
-  "version": "4.0.0",
-  "description": "Sync Ronald Jack DG-600 to Firebase (raw ZK protocol, no ZK library)",
+  "version": "5.0.0",
+  "description": "Raw ZK protocol (TCP+UDP auto-detect), no ZK library",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
