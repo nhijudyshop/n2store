@@ -234,29 +234,82 @@ class ZK {
   }
 
   // -- Extract data from TCP buffer --
+  // Handles multi-packet buffers: PREPARE + DATA + ACK, or ACK_DATA (small data)
+  // Strips ALL TCP framing headers [50 50 82 7d][len][cmd][chk][ses][rep]
 
   _extract(buf) {
     if (buf.length < 16) return Buffer.alloc(0);
-    const pLen = buf.readUInt32LE(4);
-    const pktEnd = 8 + pLen;
-    const cmd = buf.readUInt16LE(8);
 
-    if (cmd === CMD_ACK_OK && pLen <= 8) return Buffer.alloc(0);
-    if (cmd === CMD_ACK_ERROR || cmd === CMD_ACK_UNAUTH) return Buffer.alloc(0);
-    if (cmd === CMD_ACK_DATA) return buf.slice(16, pktEnd);
+    if (this.debug) console.log('  [_extract] total buffer: ' + buf.length + ' bytes');
 
-    if (cmd === CMD_DATA || cmd === CMD_PREPARE) {
-      let end = buf.length;
-      if (end > 20 + 16) {
-        const t = end - 16;
-        if (buf[t]===0x50 && buf[t+1]===0x50 && buf[t+2]===0x82 && buf[t+3]===0x7d && buf.readUInt16LE(t+8)===CMD_ACK_OK) {
-          end = t;
-        }
+    // Parse ALL TCP packets in the buffer
+    const packets = [];
+    let pos = 0;
+    while (pos + 16 <= buf.length) {
+      // Look for TCP magic
+      if (buf[pos] === 0x50 && buf[pos+1] === 0x50 && buf[pos+2] === 0x82 && buf[pos+3] === 0x7d) {
+        const pLen = buf.readUInt32LE(pos + 4);
+        const cmd = buf.readUInt16LE(pos + 8);
+        const dataStart = pos + 16; // after TCP(8) + payload header(8)
+        const dataEnd = pos + 8 + pLen;
+        packets.push({ cmd, pos, dataStart, dataEnd, pLen });
+        if (this.debug) console.log('  [_extract] packet at ' + pos + ': cmd=' + cmd + ' pLen=' + pLen);
+        pos = dataEnd > pos + 16 ? dataEnd : pos + 16;
+      } else {
+        pos++;
       }
-      return buf.slice(20, end); // skip 8 TCP + 8 payload header + 4 size
     }
 
-    return pLen > 8 ? buf.slice(16, pktEnd) : Buffer.alloc(0);
+    if (packets.length === 0) return Buffer.alloc(0);
+
+    // Case 1: Single CMD_ACK_DATA packet (small data)
+    if (packets.length === 1 && packets[0].cmd === CMD_ACK_DATA) {
+      return buf.slice(packets[0].dataStart, packets[0].dataEnd);
+    }
+
+    // Case 2: Single CMD_ACK_OK (no data)
+    if (packets.length === 1 && packets[0].cmd === CMD_ACK_OK) {
+      return Buffer.alloc(0);
+    }
+
+    // Case 3: Multi-packet (PREPARE/DATA + possibly more DATA + ACK_OK)
+    // Collect raw data between/after framed packets, excluding PREPARE headers and ACK_OK
+    const dataParts = [];
+    for (let i = 0; i < packets.length; i++) {
+      const pkt = packets[i];
+
+      if (pkt.cmd === CMD_ACK_OK || pkt.cmd === CMD_ACK_ERROR || pkt.cmd === CMD_ACK_UNAUTH) {
+        continue; // skip control packets
+      }
+
+      if (pkt.cmd === CMD_PREPARE) {
+        // PREPARE has 4-byte size in its data, skip it
+        // Raw data follows after this packet
+        const rawStart = pkt.dataEnd;
+        const rawEnd = (i + 1 < packets.length) ? packets[i + 1].pos : buf.length;
+        if (rawEnd > rawStart) {
+          dataParts.push(buf.slice(rawStart, rawEnd));
+        }
+      } else if (pkt.cmd === CMD_DATA) {
+        // DATA packet: skip 4-byte size header in data, rest is raw records
+        const skip = pkt.dataEnd - pkt.dataStart > 4 ? 4 : 0;
+        const rawStart = pkt.dataStart + skip;
+        const rawEnd = (i + 1 < packets.length) ? packets[i + 1].pos : buf.length;
+        if (rawEnd > rawStart) {
+          dataParts.push(buf.slice(rawStart, rawEnd));
+        }
+      } else if (pkt.cmd === CMD_ACK_DATA) {
+        // Small data packet
+        if (pkt.dataEnd > pkt.dataStart) {
+          dataParts.push(buf.slice(pkt.dataStart, pkt.dataEnd));
+        }
+      }
+    }
+
+    if (dataParts.length === 0) return Buffer.alloc(0);
+    const result = Buffer.concat(dataParts);
+    if (this.debug) console.log('  [_extract] extracted: ' + result.length + ' bytes from ' + dataParts.length + ' parts');
+    return result;
   }
 
   // -- Combine UDP datagrams --
@@ -436,16 +489,63 @@ class ZK {
     const raw = await this._cmdData(CMD_GET_USERS);
     if (!raw || !raw.length) return [];
 
-    const sz = (raw.length % 72 === 0) ? 72 : (raw.length % 28 === 0) ? 28 : 72;
-    const users = [];
+    if (this.debug) {
+      console.log('  [getUsers] raw=' + raw.length + ' bytes');
+      console.log('  [getUsers] first 80 hex: ' + hex(raw.slice(0, Math.min(80, raw.length))));
+    }
 
-    for (let i = 0; i + sz <= raw.length; i += sz) {
-      const uid = raw.readUInt16LE(i);
-      const role = raw[i + 2];
-      const nameEnd = sz === 72 ? i + 35 : i + 19;
-      const name = raw.slice(i + 11, nameEnd).toString('utf8').replace(/\0+$/g, '').trim();
-      const cardno = raw.readUInt32LE(sz === 72 ? i + 35 : i + 19);
-      users.push({ uid, role, name: name || ('User ' + uid), cardno });
+    // Try parsing with different offsets (with/without 4-byte size header)
+    // and different record sizes (72, 28). Pick whichever produces valid results.
+    const attempts = [];
+    for (const skip of [0, 4]) {
+      for (const sz of [72, 28]) {
+        if (raw.length <= skip) continue;
+        const data = raw.slice(skip);
+        if (data.length < sz) continue;
+        const users = this._parseUsers(data, sz);
+        if (users.length > 0) {
+          // Score: prefer results where UIDs are small numbers and names are readable
+          const avgUid = users.reduce((s, u) => s + u.uid, 0) / users.length;
+          const hasNames = users.filter(u => u.name && u.name.length > 1 && !/^User /.test(u.name)).length;
+          const score = (avgUid < 1000 ? 100 : 0) + hasNames * 10 + users.length;
+          attempts.push({ skip, sz, users, score });
+          if (this.debug) console.log('  [getUsers] skip=' + skip + ' sz=' + sz + ' users=' + users.length + ' avgUid=' + Math.round(avgUid) + ' names=' + hasNames + ' score=' + score);
+        }
+      }
+    }
+
+    // Pick the best attempt
+    attempts.sort((a, b) => b.score - a.score);
+    const best = attempts[0];
+    if (!best) return [];
+
+    if (this.debug) {
+      console.log('  [getUsers] BEST: skip=' + best.skip + ' sz=' + best.sz);
+      best.users.forEach(u => console.log('  [user] uid=' + u.uid + ' name="' + u.name + '" role=' + u.role));
+    }
+
+    return best.users;
+  }
+
+  _parseUsers(data, sz) {
+    const users = [];
+    for (let i = 0; i + sz <= data.length; i += sz) {
+      try {
+        if (sz === 72) {
+          const uid = data.readUInt16LE(i);
+          const role = data[i + 2];
+          const name = data.slice(i + 11, i + 35).toString('ascii').split('\0').shift().trim();
+          const cardno = data.readUInt32LE(i + 35);
+          const userId = data.slice(i + 48, i + 57).toString('ascii').split('\0').shift().trim();
+          users.push({ uid, role, name: name || ('User ' + uid), cardno, userId: userId || String(uid) });
+        } else {
+          const uid = data.readUInt16LE(i);
+          const role = data[i + 2];
+          const name = data.slice(i + 8, i + 16).toString('ascii').split('\0').shift().trim();
+          const cardno = data.readUInt32LE(i + 16);
+          users.push({ uid, role, name: name || ('User ' + uid), cardno });
+        }
+      } catch (_) { break; }
     }
     return users;
   }
@@ -454,20 +554,61 @@ class ZK {
     const raw = await this._cmdData(CMD_GET_ATTEND);
     if (!raw || !raw.length) return [];
 
-    const sz = (raw.length % 40 === 0) ? 40 : (raw.length % 16 === 0) ? 16 : 40;
-    const records = [];
+    if (this.debug) {
+      console.log('  [getAttendances] raw=' + raw.length + ' bytes');
+      console.log('  [getAttendances] first 80 hex: ' + hex(raw.slice(0, Math.min(80, raw.length))));
+    }
 
-    for (let i = 0; i + sz <= raw.length; i += sz) {
-      const uid = raw.readUInt16LE(i);
-      let state, time;
-      if (sz === 40) {
-        state = raw[i + 27];
-        time = decodeTime(raw.readUInt32LE(i + 28));
-      } else {
-        state = raw[i + 3];
-        time = decodeTime(raw.readUInt32LE(i + 4));
+    // Try with/without 4-byte header, different record sizes
+    const now = Date.now();
+    const attempts = [];
+    for (const skip of [0, 4]) {
+      for (const sz of [40, 16]) {
+        if (raw.length <= skip) continue;
+        const data = raw.slice(skip);
+        if (data.length < sz) continue;
+        const records = this._parseAttendances(data, sz);
+        if (records.length > 0) {
+          // Score: prefer results with valid timestamps (within 10 years) and small UIDs
+          const validTimes = records.filter(r => {
+            const t = new Date(r.recordTime).getTime();
+            return t > 1577836800000 && t < now + 86400000; // 2020-01-01 to tomorrow
+          }).length;
+          const avgUid = records.reduce((s, r) => s + Number(r.deviceUserId), 0) / records.length;
+          const score = validTimes + (avgUid < 1000 ? 50 : 0);
+          attempts.push({ skip, sz, records, score });
+          if (this.debug) console.log('  [getAttendances] skip=' + skip + ' sz=' + sz + ' records=' + records.length + ' validTimes=' + validTimes + ' score=' + score);
+        }
       }
-      records.push({ deviceUserId: String(uid), recordTime: time.toISOString(), type: state });
+    }
+
+    attempts.sort((a, b) => b.score - a.score);
+    const best = attempts[0];
+    if (!best) return [];
+
+    if (this.debug) {
+      console.log('  [getAttendances] BEST: skip=' + best.skip + ' sz=' + best.sz + ' records=' + best.records.length);
+      best.records.slice(-5).forEach(r => console.log('  [att] uid=' + r.deviceUserId + ' time=' + r.recordTime));
+    }
+
+    return best.records;
+  }
+
+  _parseAttendances(data, sz) {
+    const records = [];
+    for (let i = 0; i + sz <= data.length; i += sz) {
+      try {
+        const uid = data.readUInt16LE(i);
+        let state, time;
+        if (sz === 40) {
+          state = data[i + 27];
+          time = decodeTime(data.readUInt32LE(i + 28));
+        } else {
+          state = data[i + 3];
+          time = decodeTime(data.readUInt32LE(i + 4));
+        }
+        records.push({ deviceUserId: String(uid), recordTime: time.toISOString(), type: state });
+      } catch (_) { break; }
     }
     return records;
   }
