@@ -1444,7 +1444,7 @@ class PurchaseOrderFormModal {
                 <tr data-item-id="${item.id}">
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">${index + 1}</td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
-                        <textarea data-field="productName" rows="2" placeholder="Nhập tên sản phẩm" title="${(item.productName || '').replace(/"/g, '&quot;')}" style="
+                        <textarea data-field="productName" rows="1" placeholder="Nhập tên sản phẩm" title="${(item.productName || '').replace(/"/g, '&quot;')}" style="
                             width: 100%;
                             min-width: 200px;
                             padding: 6px 8px;
@@ -1457,6 +1457,7 @@ class PurchaseOrderFormModal {
                             line-height: 1.4;
                             word-wrap: break-word;
                             overflow-wrap: break-word;
+                            overflow-y: auto;
                         ">${item.productName || ''}</textarea>
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
