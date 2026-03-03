@@ -743,6 +743,32 @@ class VariantGeneratorDialog {
         }
     }
 
+    /**
+     * Lightweight update: only button text + select-all state (no list re-render)
+     */
+    updateVariantCountUI() {
+        const combinations = this.generateCombinations();
+        const checkedCount = this.variantChecked.size;
+
+        // Update select-all checkbox
+        const selectAllEl = this.modalElement?.querySelector('#variantSelectAll');
+        if (selectAllEl) {
+            selectAllEl.checked = checkedCount === combinations.length;
+            selectAllEl.indeterminate = checkedCount > 0 && checkedCount < combinations.length;
+        }
+
+        // Update button
+        const btnGenerate = this.modalElement?.querySelector('#btnGenerateVariants');
+        if (btnGenerate) {
+            btnGenerate.textContent = combinations.length > 0
+                ? `Tạo ${checkedCount}/${combinations.length} biến thể`
+                : 'Tạo 0 biến thể';
+            btnGenerate.disabled = checkedCount === 0;
+            btnGenerate.style.background = checkedCount > 0 ? '#3b82f6' : '#9ca3af';
+            btnGenerate.style.cursor = checkedCount > 0 ? 'pointer' : 'not-allowed';
+        }
+    }
+
     bindEvents() {
         if (!this.modalElement) return;
 
@@ -781,23 +807,28 @@ class VariantGeneratorDialog {
 
                 this.updateUI(true);
             } else if (e.target.type === 'checkbox' && e.target.dataset.variantCheck !== undefined) {
-                // Variant row checkbox - don't auto-select new variants
+                // Variant row checkbox - just update state, don't re-render list
                 const variant = e.target.value;
                 if (e.target.checked) {
                     this.variantChecked.add(variant);
                 } else {
                     this.variantChecked.delete(variant);
                 }
-                this.updateUI(false);
+                this.updateVariantCountUI();
             } else if (e.target.id === 'variantSelectAll') {
-                // Select all / deselect all - don't auto-select new variants
+                // Select all / deselect all
                 const combinations = this.generateCombinations();
                 if (e.target.checked) {
                     combinations.forEach(v => this.variantChecked.add(v.variant || v));
                 } else {
                     this.variantChecked.clear();
                 }
-                this.updateUI(false);
+                // Re-render variant list to toggle all checkboxes
+                const previewEl = this.modalElement?.querySelector('#variantPreviewList');
+                if (previewEl) {
+                    previewEl.innerHTML = this.renderVariantPreviewList(combinations);
+                }
+                this.updateVariantCountUI();
             }
         });
 
