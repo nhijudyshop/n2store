@@ -2047,8 +2047,42 @@ class PurchaseOrderFormModal {
                 e.target.focus();
                 e.target.select();
             });
-            // Re-lock on blur
-            input.addEventListener('blur', (e) => {
+            // Re-lock on blur + auto-complete prefix to sequential code
+            input.addEventListener('blur', async (e) => {
+                const value = e.target.value.trim();
+                const row = e.target.closest('tr[data-item-id]');
+                const itemId = row?.dataset.itemId;
+                const item = this.formData.items.find(i => i.id === itemId);
+
+                // Auto-complete: if user typed a pure prefix (e.g., "MM"), generate MMxx
+                if (value && item && window.ProductCodeGenerator?.isPurePrefix(value)) {
+                    e.target.style.color = '#9ca3af';
+                    e.target.value = value.toUpperCase() + '...';
+                    try {
+                        const code = await window.ProductCodeGenerator.generateCodeWithPrefix(
+                            value,
+                            this.formData.items
+                        );
+                        if (code) {
+                            item.productCode = code;
+                            item._manualCodeEdit = true;
+                            e.target.value = code;
+                        } else {
+                            e.target.value = value.toUpperCase();
+                            if (window.notificationManager) {
+                                window.notificationManager.show(
+                                    `Không tạo được mã ${value.toUpperCase()}xx. Vui lòng nhập mã đầy đủ.`,
+                                    'warning'
+                                );
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Auto-complete prefix failed:', err);
+                        e.target.value = value.toUpperCase();
+                    }
+                    e.target.style.color = '';
+                }
+
                 e.target.readOnly = true;
                 e.target.style.background = '#f9fafb';
                 e.target.style.cursor = 'default';
