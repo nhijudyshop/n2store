@@ -2125,6 +2125,7 @@ class PurchaseOrderFormModal {
                     const item = this.formData.items.find(i => i.id === itemId);
                     if (item && item.productName?.trim()) {
                         item._manualCodeEdit = false;
+                        item.productCode = '';  // Clear old code so autoGenerate can run
                         await this.autoGenerateProductCode(item);
                         const codeInput = row?.querySelector('input[data-field="productCode"]');
                         if (codeInput) codeInput.value = item.productCode || '';
