@@ -583,44 +583,52 @@ document.addEventListener('DOMContentLoaded', () => {
         // =====================================================
         let reportInitialized = false;
 
-        document.querySelectorAll('.tab-header-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabName = btn.dataset.tab;
-
-                // Update button active states
-                document.querySelectorAll('.tab-header-btn').forEach(b => {
-                    b.classList.toggle('active', b.dataset.tab === tabName);
-                });
-
-                // Update content visibility
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.toggle('active', content.id === `${tabName}TabContent`);
-                });
-
-                // Re-initialize Lucide icons for new tab content
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-
-                // Load report data when switching to report tab
-                if (tabName === 'report' && !reportInitialized) {
-                    reportInitialized = true;
-                    const report = window.SoquyReport;
-                    if (report) {
-                        report.loadReportFilterState();
-                        // Restore report sidebar UI from saved state
-                        const rs = report.reportState;
-                        document.querySelectorAll('input[name="reportType"]').forEach(r => {
-                            r.checked = r.value === rs.reportType;
-                        });
-                        document.querySelectorAll('input[name="reportFundType"]').forEach(r => {
-                            r.checked = r.value === rs.fundType;
-                        });
-                        const rts = document.getElementById('reportTimeFilterSelect');
-                        if (rts && rs.timeFilter !== 'custom') rts.value = rs.timeFilter;
-                        report.refreshReport();
-                    }
-                }
+        function switchToTab(tabName) {
+            // Update button active states
+            document.querySelectorAll('.tab-header-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.tab === tabName);
             });
+
+            // Update content visibility
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.toggle('active', content.id === `${tabName}TabContent`);
+            });
+
+            // Re-initialize Lucide icons for new tab content
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Save to URL hash for refresh persistence
+            location.hash = tabName;
+
+            // Load report data when switching to report tab
+            if (tabName === 'report' && !reportInitialized) {
+                reportInitialized = true;
+                const report = window.SoquyReport;
+                if (report) {
+                    report.loadReportFilterState();
+                    const rs = report.reportState;
+                    document.querySelectorAll('input[name="reportType"]').forEach(r => {
+                        r.checked = r.value === rs.reportType;
+                    });
+                    document.querySelectorAll('input[name="reportFundType"]').forEach(r => {
+                        r.checked = r.value === rs.fundType;
+                    });
+                    const rts = document.getElementById('reportTimeFilterSelect');
+                    if (rts && rs.timeFilter !== 'custom') rts.value = rs.timeFilter;
+                    report.refreshReport();
+                }
+            }
+        }
+
+        document.querySelectorAll('.tab-header-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchToTab(btn.dataset.tab));
         });
+
+        // Restore tab from URL hash on page load
+        const hashTab = location.hash.replace('#', '');
+        if (hashTab && document.querySelector(`.tab-header-btn[data-tab="${hashTab}"]`)) {
+            switchToTab(hashTab);
+        }
 
         // =====================================================
         // REPORT TAB EVENT BINDINGS
