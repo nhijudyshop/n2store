@@ -366,7 +366,7 @@ window.TPOSPurchase = (function() {
             PaperId: 7,
             PriceListId: 1,
             ShowCurrency: false,
-            ShowBold: false,
+            ShowBold: true,
             ShowPrice: true,
             ShowProductName: true,
             IsInventory: null,
