@@ -684,45 +684,45 @@ window.TPOSProductCreator = (function () {
      * @param {Array} responseVariants - ProductVariants[] from TPOS response
      * @param {Array} allCombinations - Cartesian product combos (same order as request)
      */
-    async function updateVariantBarcodes(orderId, groupItems, responseVariants, allCombinations) {
-        console.log(`[TPOSCreator] updateVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants, ${allCombinations.length} combos`);
+    /**
+     * Extract attribute value names from TPOS variant NameGet
+     * e.g. "[Q774C3X] AO654 (3, Cam, XXL)" → ["3", "Cam", "XXL"]
+     */
+    function extractVariantAttrs(nameGet) {
+        if (!nameGet) return [];
+        const match = nameGet.match(/\(([^)]+)\)\s*$/);
+        if (!match) return [];
+        return match[1].split(',').map(s => s.trim()).filter(Boolean);
+    }
 
-        // Sort responseVariants by DefaultCode/Barcode to ensure consistent order (A1, A2, ...)
-        const sortedVariants = [...responseVariants].sort((a, b) =>
-            (a.Barcode || a.DefaultCode || '').localeCompare(b.Barcode || b.DefaultCode || '')
-        );
-        console.log(`[TPOSCreator] Sorted variants:`, sortedVariants.map(v => v.Barcode || v.DefaultCode));
+    async function updateVariantBarcodes(orderId, groupItems, responseVariants) {
+        console.log(`[TPOSCreator] updateVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants`);
 
-        // Each combo has per-variant tpos_ids (1 per attribute group)
-        // Each item stores ALL selected tpos_ids across ALL variants
-        // Match: find which combo's tpos_ids are a SUBSET of this item's tpos_ids
-        // Then use the item's variant name to identify which specific combo it is
-        const comboTposIdSets = allCombinations.map(combo =>
-            new Set(combo.map(v => v.tpos_id))
-        );
-
-        // Build combo variant names for matching
-        const comboVariantNames = allCombinations.map(combo =>
-            combo.map(v => v.value).join(' / ')
-        );
-        console.log(`[TPOSCreator] Combo names:`, comboVariantNames);
-
+        // Match items to TPOS variants directly by attribute names
+        // Item.variant = "Cam / 3 / XXL", TPOS NameGet has "(3, Cam, XXL)"
+        // Compare as sorted sets to handle different ordering
         const updates = [];
         for (const item of groupItems) {
             if (!item.variant) continue;
-            console.log(`[TPOSCreator] Item ${item.id}: variant="${item.variant}"`);
 
-            // Match by variant name → combo index → sorted variant barcode
-            const comboIndex = comboVariantNames.indexOf(item.variant);
-            if (comboIndex >= 0 && comboIndex < sortedVariants.length) {
+            const itemAttrs = item.variant.split(' / ').map(s => s.trim()).sort();
+            const itemKey = itemAttrs.join('|');
+            console.log(`[TPOSCreator] Item "${item.variant}" → attrs: [${itemAttrs}]`);
+
+            const matched = responseVariants.find(v => {
+                const vAttrs = extractVariantAttrs(v.NameGet || v.Name);
+                return vAttrs.sort().join('|') === itemKey;
+            });
+
+            if (matched) {
                 updates.push({
                     itemId: item.id,
-                    barcode: sortedVariants[comboIndex].Barcode,
-                    tposVariantId: sortedVariants[comboIndex].Id
+                    barcode: matched.Barcode || matched.DefaultCode,
+                    tposVariantId: matched.Id
                 });
-                console.log(`[TPOSCreator] Matched "${item.variant}" → combo[${comboIndex}] → ${sortedVariants[comboIndex].Barcode}`);
+                console.log(`[TPOSCreator] Matched "${item.variant}" → ${matched.Barcode || matched.DefaultCode}`);
             } else {
-                console.warn(`[TPOSCreator] No combo match for variant "${item.variant}"`);
+                console.warn(`[TPOSCreator] No TPOS variant match for "${item.variant}"`);
             }
         }
 
@@ -865,20 +865,21 @@ window.TPOSProductCreator = (function () {
                 if (result.alreadyExists && allCombinations) {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching from TPOS...`);
                     try {
-                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId`;
+                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId,Barcode,NameGet`;
                         console.log(`[TPOSCreator] Fetching: ${productUrl}`);
                         const resp = await window.TPOSClient.authenticatedFetch(productUrl);
                         if (resp.ok) {
                             const fetchData = await resp.json();
                             const variants = fetchData.value || [];
-                            console.log(`[TPOSCreator] Fetched ${variants.length} product(s) for ${productCode}:`, variants.map(v => v.DefaultCode));
+                            console.log(`[TPOSCreator] Fetched ${variants.length} product(s) for ${productCode}:`, variants.map(v => `${v.DefaultCode} ${v.NameGet || ''}`));
                             if (variants.length > 0) {
                                 productData = {
                                     Id: variants[0].ProductTmplId,
                                     ProductVariants: variants.map(v => ({
                                         Id: v.Id,
                                         Barcode: v.DefaultCode,
-                                        DefaultCode: v.DefaultCode
+                                        DefaultCode: v.DefaultCode,
+                                        NameGet: v.NameGet || null
                                     }))
                                 };
                             }
@@ -893,7 +894,7 @@ window.TPOSProductCreator = (function () {
 
                 // Update variant Barcodes from TPOS response → Firebase items
                 if (allCombinations && productData?.ProductVariants?.length > 0) {
-                    await updateVariantBarcodes(orderId, groupItems, productData.ProductVariants, allCombinations);
+                    await updateVariantBarcodes(orderId, groupItems, productData.ProductVariants);
                 }
 
                 return { success: true, productCode, alreadyExists: result.alreadyExists };
