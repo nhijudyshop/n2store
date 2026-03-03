@@ -17,6 +17,9 @@ const CMD_ACK_DATA    = 2002;
 const CMD_ACK_UNAUTH  = 2005;
 const CMD_DATA        = 1501;
 const CMD_PREPARE     = 1500;
+const CMD_FREE_DATA   = 1502;
+const CMD_DATA_WRRQ   = 1503;  // _CMD_PREPARE_BUFFER (buffered read request)
+const CMD_DATA_RDY    = 1504;  // _CMD_READ_BUFFER (read chunk from buffer)
 
 const TCP_MAGIC = Buffer.from([0x50, 0x50, 0x82, 0x7d]);
 
@@ -164,7 +167,7 @@ class ZK {
           const pLen = buf.readUInt32LE(4);
           if (buf.length >= 8 + pLen) {
             const rc = buf.readUInt16LE(8);
-            if (rc === CMD_ACK_OK || rc === CMD_ACK_DATA || rc === CMD_ACK_ERROR || rc === CMD_ACK_UNAUTH) {
+            if (rc === CMD_ACK_OK || rc === CMD_ACK_DATA || rc === CMD_ACK_ERROR || rc === CMD_ACK_UNAUTH || rc === CMD_DATA) {
               off();
               if (this.debug) console.log('  << TCP recv (' + buf.length + ' bytes, cmd=' + rc + ')');
               resolve(this._extract(buf));
@@ -480,13 +483,108 @@ class ZK {
     this.proto = null;
   }
 
+  /**
+   * Buffered read: wraps inner command in CMD 1503 (like pyzk read_with_buffer).
+   * Modern ZK devices (ZK6/ZK8, including DG-600) require this instead of direct CMD.
+   * Payload format: pack('<bhii', 1, innerCmd, fct, ext) = 11 bytes
+   */
+  async readWithBuffer(innerCmd, fct = 0, ext = 0) {
+    const payload = Buffer.alloc(11);
+    payload.writeInt8(1, 0);
+    payload.writeInt16LE(innerCmd, 1);
+    payload.writeInt32LE(fct, 3);
+    payload.writeInt32LE(ext, 7);
+
+    if (this.debug) console.log('  [readWithBuffer] cmd=' + innerCmd + ' fct=' + fct + ' payload=' + hex(payload));
+
+    // Send CMD 1503 and read initial response
+    const res = await this._cmd(CMD_DATA_WRRQ, payload);
+
+    if (this.debug) console.log('  [readWithBuffer] response: cmd=' + res.cmd + ' dataLen=' + (res.data ? res.data.length : 0) + (res.data && res.data.length > 0 ? ' hex=' + hex(res.data.slice(0, Math.min(20, res.data.length))) : ''));
+
+    // Small data: CMD_DATA (1501) or CMD_ACK_DATA (2002) - data inline
+    if (res.cmd === CMD_DATA || res.cmd === CMD_ACK_DATA) {
+      if (this.debug) console.log('  [readWithBuffer] small data path: ' + (res.data ? res.data.length : 0) + ' bytes');
+      return res.data || Buffer.alloc(0);
+    }
+
+    // Large data: CMD_ACK_OK with size info → chunked read via CMD 1504
+    if (res.cmd === CMD_ACK_OK && res.data && res.data.length >= 4) {
+      // Parse total data size from response
+      // Format: [1-byte flag?] [uint32 LE size] or just [uint32 LE size]
+      let totalSize;
+      if (res.data.length >= 9) {
+        // pyzk: struct '<I5x' -> first 4 bytes are size, rest is padding
+        totalSize = res.data.readUInt32LE(1);
+        if (totalSize === 0 || totalSize > 10 * 1024 * 1024) {
+          totalSize = res.data.readUInt32LE(0);
+        }
+      } else {
+        totalSize = res.data.readUInt32LE(0);
+      }
+
+      if (totalSize === 0 || totalSize > 10 * 1024 * 1024) {
+        if (this.debug) console.log('  [readWithBuffer] invalid totalSize=' + totalSize);
+        return Buffer.alloc(0);
+      }
+
+      if (this.debug) console.log('  [readWithBuffer] large data: totalSize=' + totalSize);
+
+      // Read chunks via CMD 1504
+      const MAX_CHUNK = 16384;
+      const chunks = [];
+      let offset = 0;
+
+      while (offset < totalSize) {
+        const reqSize = Math.min(MAX_CHUNK, totalSize - offset);
+        const chunkReq = Buffer.alloc(8);
+        chunkReq.writeInt32LE(offset, 0);
+        chunkReq.writeInt32LE(reqSize, 4);
+
+        const chunkData = await this._cmdData(CMD_DATA_RDY, chunkReq);
+        if (!chunkData || !chunkData.length) break;
+        chunks.push(chunkData);
+        offset += chunkData.length;
+
+        if (this.debug) console.log('  [readWithBuffer] chunk: got=' + chunkData.length + ' progress=' + offset + '/' + totalSize);
+      }
+
+      // Free device buffer
+      try { await this._cmd(CMD_FREE_DATA); } catch (_) {}
+
+      return chunks.length ? Buffer.concat(chunks) : Buffer.alloc(0);
+    }
+
+    // CMD_ACK_OK with no data (empty result)
+    if (res.cmd === CMD_ACK_OK) return Buffer.alloc(0);
+
+    // Error
+    if (this.debug) console.log('  [readWithBuffer] unexpected response: cmd=' + res.cmd);
+    return Buffer.alloc(0);
+  }
+
   async getVersion() {
     const res = await this._cmd(CMD_GET_VERSION);
     return res.data ? res.data.toString('ascii').replace(/\0+$/, '') : '';
   }
 
   async getUsers() {
-    const raw = await this._cmdData(CMD_GET_USERS);
+    // Try CMD 1503 buffered read (modern ZK devices), fallback to direct CMD 9
+    let raw;
+    try {
+      raw = await this.readWithBuffer(CMD_GET_USERS, 5); // FCT_USER = 5
+      if (this.debug) console.log('  [getUsers] readWithBuffer: ' + (raw ? raw.length : 0) + ' bytes');
+    } catch (e) {
+      if (this.debug) console.log('  [getUsers] readWithBuffer failed: ' + e.message);
+    }
+    if (!raw || !raw.length) {
+      try {
+        raw = await this._cmdData(CMD_GET_USERS);
+        if (this.debug) console.log('  [getUsers] direct CMD: ' + (raw ? raw.length : 0) + ' bytes');
+      } catch (e) {
+        if (this.debug) console.log('  [getUsers] direct CMD failed: ' + e.message);
+      }
+    }
     if (!raw || !raw.length) return [];
 
     if (this.debug) {
@@ -551,7 +649,22 @@ class ZK {
   }
 
   async getAttendances() {
-    const raw = await this._cmdData(CMD_GET_ATTEND);
+    // Try CMD 1503 buffered read (modern ZK devices), fallback to direct CMD 13
+    let raw;
+    try {
+      raw = await this.readWithBuffer(CMD_GET_ATTEND); // fct=0, ext=0
+      if (this.debug) console.log('  [getAttendances] readWithBuffer: ' + (raw ? raw.length : 0) + ' bytes');
+    } catch (e) {
+      if (this.debug) console.log('  [getAttendances] readWithBuffer failed: ' + e.message);
+    }
+    if (!raw || !raw.length) {
+      try {
+        raw = await this._cmdData(CMD_GET_ATTEND);
+        if (this.debug) console.log('  [getAttendances] direct CMD: ' + (raw ? raw.length : 0) + ' bytes');
+      } catch (e) {
+        if (this.debug) console.log('  [getAttendances] direct CMD failed: ' + e.message);
+      }
+    }
     if (!raw || !raw.length) return [];
 
     if (this.debug) {
@@ -598,14 +711,21 @@ class ZK {
     const records = [];
     for (let i = 0; i + sz <= data.length; i += sz) {
       try {
-        const uid = data.readUInt16LE(i);
-        let state, time;
+        let uid, state, time;
         if (sz === 40) {
-          state = data[i + 27];
-          time = decodeTime(data.readUInt32LE(i + 28));
+          // pyzk: struct '<H24s4sBB8s'
+          // offset 0: uid (uint16), 2: user_id (24-byte string),
+          // 26: timestamp (uint32), 30: status, 31: punch, 32: reserved (8)
+          uid = data.readUInt16LE(i);
+          time = decodeTime(data.readUInt32LE(i + 26));
+          state = data[i + 31]; // punch: 0=check-in, 1=check-out
         } else {
-          state = data[i + 3];
+          // 16-byte: struct '<I4sBB2sI'
+          // offset 0: user_id (uint32), 4: timestamp (uint32),
+          // 8: status, 9: punch, 10: reserved (2), 12: workcode (uint32)
+          uid = data.readUInt16LE(i); // lower 2 bytes of uint32 user_id
           time = decodeTime(data.readUInt32LE(i + 4));
+          state = data[i + 9]; // punch: 0=check-in, 1=check-out
         }
         records.push({ deviceUserId: String(uid), recordTime: time.toISOString(), type: state });
       } catch (_) { break; }
