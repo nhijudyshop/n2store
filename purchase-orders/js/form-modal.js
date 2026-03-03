@@ -1037,7 +1037,7 @@ class PurchaseOrderFormModal {
                 background: white;
                 border-radius: 12px;
                 width: 100%;
-                max-width: 1600px;
+                max-width: 100%;
                 max-height: 95vh;
                 display: flex;
                 flex-direction: column;
@@ -1257,7 +1257,7 @@ class PurchaseOrderFormModal {
                                 <thead>
                                     <tr style="background: #f9fafb;">
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">STT</th>
-                                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; min-width: 150px;">Tên sản phẩm</th>
+                                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100%;">Tên sản phẩm</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Biến thể</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Mã sản phẩm</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">SL</th>
@@ -1444,15 +1444,20 @@ class PurchaseOrderFormModal {
                 <tr data-item-id="${item.id}">
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">${index + 1}</td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
-                        <input type="text" data-field="productName" value="${item.productName || ''}" placeholder="Nhập tên sản phẩm" style="
+                        <textarea data-field="productName" rows="2" placeholder="Nhập tên sản phẩm" title="${(item.productName || '').replace(/"/g, '&quot;')}" style="
                             width: 100%;
-                            height: 36px;
-                            padding: 0 8px;
+                            min-width: 200px;
+                            padding: 6px 8px;
                             border: 1px solid #d1d5db;
                             border-radius: 6px;
                             font-size: 13px;
                             box-sizing: border-box;
-                        ">
+                            resize: vertical;
+                            font-family: inherit;
+                            line-height: 1.4;
+                            word-wrap: break-word;
+                            overflow-wrap: break-word;
+                        ">${item.productName || ''}</textarea>
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
                         <button type="button" data-action="variant" style="
@@ -1975,6 +1980,42 @@ class PurchaseOrderFormModal {
         // Debounce timer for auto code generation
         let codeGenTimer = null;
 
+        // Textarea changes (productName)
+        tbody.querySelectorAll('textarea[data-field]').forEach(textarea => {
+            textarea.addEventListener('input', (e) => {
+                const row = e.target.closest('tr');
+                const itemId = row?.dataset.itemId;
+                const field = e.target.dataset.field;
+                const item = this.formData.items.find(i => i.id === itemId);
+
+                if (item && field) {
+                    item[field] = e.target.value;
+
+                    // Update tooltip to show full text on hover
+                    e.target.title = e.target.value;
+
+                    if (field === 'productName') {
+                        if (e.target.value.trim()) {
+                            if (this.formData.items.indexOf(item) === 0) {
+                                this.autoDetectSupplier(e.target.value);
+                            }
+                            clearTimeout(codeGenTimer);
+                            codeGenTimer = setTimeout(() => {
+                                this.autoGenerateProductCode(item);
+                            }, 800);
+                        } else {
+                            clearTimeout(codeGenTimer);
+                            if (!item._manualCodeEdit) {
+                                item.productCode = '';
+                                const codeInput = row?.querySelector('input[data-field="productCode"]');
+                                if (codeInput) codeInput.value = '';
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
         // Input changes
         tbody.querySelectorAll('input[data-field]').forEach(input => {
             input.addEventListener('input', (e) => {
@@ -1998,30 +2039,6 @@ class PurchaseOrderFormModal {
                     // Update price input red borders dynamically
                     if (field === 'purchasePrice' || field === 'sellingPrice') {
                         this.updatePriceInputBorders(row);
-                    }
-
-                    // Auto-generate product code when product name changes
-                    if (field === 'productName') {
-                        if (e.target.value.trim()) {
-                            // Auto-detect supplier from first product
-                            if (this.formData.items.indexOf(item) === 0) {
-                                this.autoDetectSupplier(e.target.value);
-                            }
-
-                            // Debounce code generation
-                            clearTimeout(codeGenTimer);
-                            codeGenTimer = setTimeout(() => {
-                                this.autoGenerateProductCode(item);
-                            }, 800);
-                        } else {
-                            // Name cleared → clear product code too
-                            clearTimeout(codeGenTimer);
-                            if (!item._manualCodeEdit) {
-                                item.productCode = '';
-                                const codeInput = row?.querySelector('input[data-field="productCode"]');
-                                if (codeInput) codeInput.value = '';
-                            }
-                        }
                     }
 
                     // Mark as manual edit if user changes product code
