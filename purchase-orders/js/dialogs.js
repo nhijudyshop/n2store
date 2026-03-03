@@ -677,7 +677,7 @@ class VariantGeneratorDialog {
         }).join('');
     }
 
-    updateUI() {
+    updateUI(autoSelectNew = true) {
         // Update summary
         const summaryEl = this.modalElement?.querySelector('#selectedSummary');
         if (summaryEl) {
@@ -695,15 +695,17 @@ class VariantGeneratorDialog {
         // Update preview
         const combinations = this.generateCombinations();
 
-        // Auto-select all new variants by default
+        // Sync variantChecked with current combinations
         const currentVariants = new Set(combinations.map(v => v.variant || v));
-        // Remove stale entries
+        // Remove stale entries (variants that no longer exist)
         for (const v of this.variantChecked) {
             if (!currentVariants.has(v)) this.variantChecked.delete(v);
         }
-        // Add new entries as checked
-        for (const v of currentVariants) {
-            if (!this.variantChecked.has(v)) this.variantChecked.add(v);
+        // Auto-select new variants only when attribute selection changes
+        if (autoSelectNew) {
+            for (const v of currentVariants) {
+                if (!this.variantChecked.has(v)) this.variantChecked.add(v);
+            }
         }
 
         const previewEl = this.modalElement?.querySelector('#variantPreviewList');
@@ -777,25 +779,25 @@ class VariantGeneratorDialog {
                     this.selected[attr] = this.selected[attr].filter(v => v !== value);
                 }
 
-                this.updateUI();
+                this.updateUI(true);
             } else if (e.target.type === 'checkbox' && e.target.dataset.variantCheck !== undefined) {
-                // Variant row checkbox
+                // Variant row checkbox - don't auto-select new variants
                 const variant = e.target.value;
                 if (e.target.checked) {
                     this.variantChecked.add(variant);
                 } else {
                     this.variantChecked.delete(variant);
                 }
-                this.updateUI();
+                this.updateUI(false);
             } else if (e.target.id === 'variantSelectAll') {
-                // Select all / deselect all
+                // Select all / deselect all - don't auto-select new variants
                 const combinations = this.generateCombinations();
                 if (e.target.checked) {
                     combinations.forEach(v => this.variantChecked.add(v.variant || v));
                 } else {
                     this.variantChecked.clear();
                 }
-                this.updateUI();
+                this.updateUI(false);
             }
         });
 
