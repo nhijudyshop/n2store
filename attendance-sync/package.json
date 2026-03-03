@@ -1,11 +1,11 @@
 {
   "name": "attendance-sync",
-  "version": "2.0.0",
-  "description": "Dong bo du lieu cham cong tu may Ronald Jack DG-600 len Firebase (UDP protocol)",
-  "main": "sync-service.js",
+  "version": "3.0.0",
+  "description": "Sync attendance data from Ronald Jack DG-600 to Firebase Firestore",
+  "main": "index.js",
   "scripts": {
-    "start": "node sync-service.js",
-    "test": "node test-connection.js",
+    "start": "node index.js",
+    "test": "node test.js",
     "diagnose": "node diagnose.js"
   },
   "dependencies": {

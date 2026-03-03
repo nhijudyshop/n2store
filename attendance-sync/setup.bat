@@ -1,75 +1,59 @@
 @echo off
-echo ========================================
-echo   CAI DAT ATTENDANCE SYNC SERVICE
-echo ========================================
+echo.
+echo  ATTENDANCE SYNC - SETUP
+echo  ========================
 echo.
 
-REM Kiem tra Node.js
 where node >nul 2>&1
 if errorlevel 1 (
-    echo [LOI] Chua cai Node.js
-    echo Tai tai: https://nodejs.org/
+    echo [ERROR] Node.js not installed
+    echo Download: https://nodejs.org/
     pause
     exit /b 1
 )
+for /f "tokens=*" %%a in ('node -v') do set NV=%%a
+echo Node.js: %NV%
 
-for /f "tokens=*" %%a in ('node -v') do set NODE_VER=%%a
-echo Node.js: %NODE_VER%
-echo.
-
-REM Kiem tra serviceAccountKey.json
 if not exist "serviceAccountKey.json" (
-    echo [LOI] Thieu file serviceAccountKey.json
-    echo.
-    echo Huong dan:
-    echo   1. Vao Firebase Console -^> Project Settings
-    echo   2. Tab Service accounts -^> Generate new private key
-    echo   3. Luu file vao thu muc nay voi ten serviceAccountKey.json
-    echo.
+    echo [ERROR] Missing serviceAccountKey.json
+    echo Get it from Firebase Console ^> Project Settings ^> Service Accounts
     pause
     exit /b 1
 )
-echo serviceAccountKey.json: OK
-echo.
+echo Firebase key: OK
 
-REM Cai dat npm packages
-echo Dang cai dat thu vien...
-call npm install
+echo.
+echo Installing packages...
+call npm install --production
 if errorlevel 1 (
-    echo [LOI] npm install that bai
+    echo [ERROR] npm install failed
     pause
     exit /b 1
 )
-echo Thu vien: OK
+echo Packages: OK
+
+echo.
+echo Testing device connection...
+node test.js
 echo.
 
-REM Test ket noi
-echo Dang test ket noi may cham cong...
-echo (Neu treo qua 15 giay, nhan Ctrl+C)
-echo.
-node test-connection.js
-echo.
-
-REM Hoi cai autostart
-echo ========================================
-set /p AUTOSTART="Ban muon tu dong chay khi bat may? (y/n): "
-if /i "%AUTOSTART%"=="y" (
-    echo Dang cai autostart...
-    copy /y start-hidden.vbs "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\attendance-sync.vbs" >nul
+set /p A="Auto-start on boot? (y/n): "
+if /i "%A%"=="y" (
+    copy /y start.vbs "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\attendance-sync.vbs" >nul 2>&1
     if errorlevel 1 (
-        echo [LOI] Khong the cai autostart
+        echo [ERROR] Cannot install autostart
     ) else (
         echo Autostart: OK
     )
 )
 
 echo.
-echo ========================================
-echo   CAI DAT HOAN TAT!
+echo  SETUP COMPLETE
+echo  ========================
+echo  Start:    start.vbs
+echo  Stop:     stop.bat
+echo  Test:     node test.js
+echo  Diagnose: node diagnose.js
+echo  Logs:     logs\
 echo.
-echo   Chay service:   start-hidden.vbs
-echo   Dung service:   stop.bat
-echo   Chan doan:      node diagnose.js
-echo   Test ket noi:   node test-connection.js
-echo ========================================
 pause
