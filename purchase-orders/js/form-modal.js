@@ -1213,24 +1213,6 @@ class PurchaseOrderFormModal {
                                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                             </svg>
                         </button>
-                        <button type="button" id="btnAddProduct" style="
-                            height: 40px;
-                            padding: 0 16px;
-                            border: 1px solid #d1d5db;
-                            border-radius: 8px;
-                            background: white;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            gap: 8px;
-                            font-size: 14px;
-                        ">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                            Thêm sản phẩm
-                        </button>
                         <button type="button" id="btnChooseInventory" style="
                             height: 40px;
                             padding: 0 16px;
@@ -1353,6 +1335,25 @@ class PurchaseOrderFormModal {
                     </div>
 
                     <div style="display: flex; align-items: center; gap: 16px;">
+                        <button type="button" id="btnAddProduct" style="
+                            height: 36px;
+                            padding: 0 14px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            font-size: 13px;
+                            white-space: nowrap;
+                        ">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Thêm sản phẩm
+                        </button>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <span style="font-size: 14px; font-weight: 600; color: #6b7280;">THÀNH TIỀN:</span>
                             <span style="font-size: 20px; font-weight: 700; color: #3b82f6;" id="finalAmount">${this.formatNumber(totals.finalAmount)} đ</span>
