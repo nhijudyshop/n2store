@@ -7,6 +7,7 @@ const dgram = require('dgram');
 
 const CMD_CONNECT     = 1000;
 const CMD_EXIT        = 1001;
+const CMD_AUTH        = 28;
 const CMD_GET_VERSION = 1100;
 const CMD_GET_USERS   = 9;
 const CMD_GET_ATTEND  = 13;
@@ -41,10 +42,11 @@ function hex(buf) {
 }
 
 class ZK {
-  constructor(ip, port, timeout) {
+  constructor(ip, port, timeout, commkey) {
     this.ip = ip;
     this.port = port || 4370;
     this.timeout = timeout || 10000;
+    this.commkey = commkey || 0;
     this.proto = null; // 'tcp' or 'udp'
     this.tcp = null;
     this.udp = null;
@@ -290,6 +292,17 @@ class ZK {
     throw new Error('Cannot connect.\n  ' + errors.join('\n  '));
   }
 
+  // Authenticate with CommKey after CMD_CONNECT returns UNAUTH
+  async _auth(sendFn) {
+    const keyBuf = Buffer.alloc(4);
+    keyBuf.writeUInt32LE(this.commkey, 0);
+    if (this.debug) console.log('  >> AUTH commkey=' + this.commkey);
+    const res = await sendFn(CMD_AUTH, keyBuf);
+    if (this.debug) console.log('  << AUTH response cmd=' + res.cmd);
+    if (res.cmd === CMD_ACK_OK) return true;
+    return false;
+  }
+
   async _tryTCP() {
     return new Promise((resolve, reject) => {
       const sock = new net.Socket();
@@ -305,7 +318,16 @@ class ZK {
             this.session = res.session;
             resolve();
           } else if (res.cmd === CMD_ACK_UNAUTH) {
-            reject(new Error('CommKey != 0'));
+            // Device requires CommKey authentication
+            this.session = res.session;
+            console.log('[zk] TCP: device requires auth (session=' + this.session + ')');
+            const ok = await this._auth(this._tcpSend.bind(this));
+            if (ok) {
+              resolve();
+            } else {
+              sock.destroy(); this.tcp = null;
+              reject(new Error('AUTH failed (wrong CommKey? current=' + this.commkey + ')'));
+            }
           } else {
             reject(new Error('Rejected cmd=' + res.cmd));
           }
@@ -328,13 +350,27 @@ class ZK {
       sock.bind(0, () => {
         this.udp = sock;
         this._udpSend(CMD_CONNECT)
-          .then(res => {
+          .then(async res => {
             clearTimeout(timer);
             if (res.cmd === CMD_ACK_OK) {
               this.session = res.session;
               resolve();
             } else if (res.cmd === CMD_ACK_UNAUTH) {
-              reject(new Error('CommKey != 0'));
+              // Device requires CommKey authentication
+              this.session = res.session;
+              console.log('[zk] UDP: device requires auth (session=' + this.session + ')');
+              try {
+                const ok = await this._auth(this._udpSend.bind(this));
+                if (ok) {
+                  resolve();
+                } else {
+                  sock.close(); this.udp = null;
+                  reject(new Error('AUTH failed (wrong CommKey? current=' + this.commkey + ')'));
+                }
+              } catch (e) {
+                sock.close(); this.udp = null;
+                reject(e);
+              }
             } else {
               reject(new Error('Rejected cmd=' + res.cmd));
             }

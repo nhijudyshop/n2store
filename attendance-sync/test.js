@@ -3,7 +3,8 @@
  * Shows detailed output for debugging
  *
  * Usage: node test.js
- *        node test.js debug    (show raw hex bytes)
+ *        node test.js debug       (show raw hex bytes)
+ *        node test.js key 1234    (try CommKey 1234)
  */
 const ZK = require('./zk');
 
@@ -11,11 +12,19 @@ const IP   = '192.168.1.201';
 const PORT = 4370;
 
 async function main() {
+  // Parse CommKey from args: node test.js key 1234
+  let commkey = 0;
+  const keyIdx = process.argv.indexOf('key');
+  if (keyIdx !== -1 && process.argv[keyIdx + 1]) {
+    commkey = parseInt(process.argv[keyIdx + 1]) || 0;
+  }
+
   console.log('============================');
   console.log(' TEST: ' + IP + ':' + PORT);
+  console.log(' CommKey: ' + commkey);
   console.log('============================\n');
 
-  const zk = new ZK(IP, PORT, 10000);
+  const zk = new ZK(IP, PORT, 10000, commkey);
 
   // Enable debug mode if requested
   if (process.argv.includes('debug')) {

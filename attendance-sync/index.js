@@ -5,6 +5,7 @@ const path = require('path');
 
 const IP = '192.168.1.201';
 const PORT = 4370;
+const COMMKEY = 0; // CommKey cua may cham cong (mac dinh 0)
 const INTERVAL = 5 * 60 * 1000;
 const LOG_DIR = path.join(__dirname, 'logs');
 
@@ -43,7 +44,7 @@ async function main() {
 
   try { fb.init(); } catch (e) { log('FATAL firebase: ' + e.message); process.exit(1); }
 
-  zk = new ZK(IP, PORT, 10000);
+  zk = new ZK(IP, PORT, 10000, COMMKEY);
   for (let i = 1; i <= 3; i++) {
     try {
       log('connect (' + i + '/3)...');
