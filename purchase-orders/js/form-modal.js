@@ -1197,6 +1197,22 @@ class PurchaseOrderFormModal {
                                 box-sizing: border-box;
                             ">
                         </div>
+                        <button type="button" id="btnAddProductTop" title="Thêm sản phẩm" style="
+                            height: 40px;
+                            width: 40px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
                         <button type="button" id="btnSettings" style="
                             height: 40px;
                             width: 40px;
@@ -1674,11 +1690,13 @@ class PurchaseOrderFormModal {
         // Do NOT close on outside click - prevent accidental data loss
         // User must use X button or Cancel to close
 
-        // Add product button
-        this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', () => {
+        // Add product buttons (top toolbar + footer)
+        const addProductHandler = () => {
             this.addItem();
             this.refreshItemsTable();
-        });
+        };
+        this.modalElement.querySelector('#btnAddProductTop')?.addEventListener('click', addProductHandler);
+        this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', addProductHandler);
 
         // Choose from inventory button
         this.modalElement.querySelector('#btnChooseInventory')?.addEventListener('click', () => {
