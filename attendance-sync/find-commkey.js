@@ -12,10 +12,10 @@ const PORT = 4370;
 const TIMEOUT = 5000;
 
 const TCP_MAGIC = Buffer.from([0x50, 0x50, 0x82, 0x7d]);
-const CMD_CONNECT = 1000;
-const CMD_AUTH    = 28;
-const CMD_EXIT    = 1001;
-const CMD_ACK_OK  = 2000;
+const CMD_CONNECT    = 1000;
+const CMD_AUTH       = 1102;  // NOT 28!
+const CMD_EXIT       = 1001;
+const CMD_ACK_OK     = 2000;
 const CMD_ACK_UNAUTH = 2005;
 
 function checksum(buf) {
@@ -24,6 +24,47 @@ function checksum(buf) {
   if (buf.length % 2) sum += buf[buf.length - 1];
   while (sum > 0xffff) sum = (sum & 0xffff) + (sum >>> 16);
   return (~sum) & 0xffff;
+}
+
+/**
+ * Hash CommKey with session ID (from commpro.c MakeKey)
+ * Device expects scrambled key, NOT raw value.
+ */
+function makeCommKey(key, sessionId, ticks) {
+  ticks = ticks || 50;
+  key = Number(key);
+  sessionId = Number(sessionId);
+
+  // Bit-reverse the key
+  let k = 0;
+  for (let i = 0; i < 32; i++) {
+    if (key & (1 << i)) {
+      k = ((k << 1) | 1) >>> 0;
+    } else {
+      k = (k << 1) >>> 0;
+    }
+  }
+  k = (k + sessionId) >>> 0;
+
+  // Pack as uint32 LE
+  const buf = Buffer.alloc(4);
+  buf.writeUInt32LE(k, 0);
+
+  // XOR with 'ZKSO'
+  buf[0] ^= 0x5A; // 'Z'
+  buf[1] ^= 0x4B; // 'K'
+  buf[2] ^= 0x53; // 'S'
+  buf[3] ^= 0x4F; // 'O'
+
+  // Swap the two uint16 halves
+  const h0 = buf.readUInt16LE(0);
+  const h1 = buf.readUInt16LE(2);
+  buf.writeUInt16LE(h1, 0);
+  buf.writeUInt16LE(h0, 2);
+
+  // XOR with ticks
+  const B = ticks & 0xFF;
+  return Buffer.from([buf[0] ^ B, buf[1] ^ B, B, buf[3] ^ B]);
 }
 
 function buildPacket(cmd, session, reply, data) {
@@ -69,7 +110,7 @@ async function tryCommKey(key) {
         const res1 = await tcpSend(sock, connectPkt);
 
         if (res1.cmd === CMD_ACK_OK) {
-          // No CommKey needed! Key=0 works or no auth required
+          // No CommKey needed!
           sock.destroy();
           resolve({ key, status: 'NO_AUTH_NEEDED' });
           return;
@@ -81,11 +122,10 @@ async function tryCommKey(key) {
           return;
         }
 
-        // Step 2: CMD_AUTH with CommKey
+        // Step 2: CMD_AUTH with hashed CommKey
         const session = res1.session;
-        const keyBuf = Buffer.alloc(4);
-        keyBuf.writeUInt32LE(key, 0);
-        const authPkt = buildPacket(CMD_AUTH, session, 1, keyBuf);
+        const hashedKey = makeCommKey(key, session);
+        const authPkt = buildPacket(CMD_AUTH, session, 1, hashedKey);
         const res2 = await tcpSend(sock, authPkt);
 
         // Disconnect
@@ -132,7 +172,7 @@ async function main() {
       1111, 1234, 1357, 1688, 2345, 2468, 3456, 4321, 4567, 4370,
       5555, 5678, 6666, 6789, 7777, 7890, 8888, 9999,
       11111, 12345, 22222, 33333, 44444, 55555, 66666, 77777, 88888, 99999,
-      111111, 123456, 234567, 345678, 456789, 654321, 666666, 777777, 888888, 999999,
+      111111, 123456, 181015, 234567, 345678, 456789, 654321, 666666, 777777, 888888, 999999,
       1234567, 12345678
     ];
     console.log('Trying ' + keys.length + ' common CommKey values...\n');
@@ -152,7 +192,6 @@ async function main() {
       found = result;
       break;
     } else {
-      // Clear the line
       process.stdout.write(' fail\n');
     }
 

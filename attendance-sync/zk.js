@@ -7,7 +7,7 @@ const dgram = require('dgram');
 
 const CMD_CONNECT     = 1000;
 const CMD_EXIT        = 1001;
-const CMD_AUTH        = 28;
+const CMD_AUTH        = 1102;  // NOT 28! 28 is CMD_TZ_WRQ
 const CMD_GET_VERSION = 1100;
 const CMD_GET_USERS   = 9;
 const CMD_GET_ATTEND  = 13;
@@ -19,6 +19,47 @@ const CMD_DATA        = 1501;
 const CMD_PREPARE     = 1500;
 
 const TCP_MAGIC = Buffer.from([0x50, 0x50, 0x82, 0x7d]);
+
+/**
+ * Hash CommKey with session ID before sending (from commpro.c MakeKey)
+ * The device expects a scrambled key, NOT the raw commkey value.
+ */
+function makeCommKey(key, sessionId, ticks) {
+  ticks = ticks || 50;
+  key = Number(key);
+  sessionId = Number(sessionId);
+
+  // Bit-reverse the key
+  let k = 0;
+  for (let i = 0; i < 32; i++) {
+    if (key & (1 << i)) {
+      k = ((k << 1) | 1) >>> 0;
+    } else {
+      k = (k << 1) >>> 0;
+    }
+  }
+  k = (k + sessionId) >>> 0;
+
+  // Pack as uint32 LE
+  const buf = Buffer.alloc(4);
+  buf.writeUInt32LE(k, 0);
+
+  // XOR with 'ZKSO'
+  buf[0] ^= 0x5A; // 'Z'
+  buf[1] ^= 0x4B; // 'K'
+  buf[2] ^= 0x53; // 'S'
+  buf[3] ^= 0x4F; // 'O'
+
+  // Swap the two uint16 halves
+  const h0 = buf.readUInt16LE(0);
+  const h1 = buf.readUInt16LE(2);
+  buf.writeUInt16LE(h1, 0);
+  buf.writeUInt16LE(h0, 2);
+
+  // XOR with ticks
+  const B = ticks & 0xFF;
+  return Buffer.from([buf[0] ^ B, buf[1] ^ B, B, buf[3] ^ B]);
+}
 
 function checksum(buf) {
   let sum = 0;
@@ -294,9 +335,8 @@ class ZK {
 
   // Authenticate with CommKey after CMD_CONNECT returns UNAUTH
   async _auth(sendFn) {
-    const keyBuf = Buffer.alloc(4);
-    keyBuf.writeUInt32LE(this.commkey, 0);
-    if (this.debug) console.log('  >> AUTH commkey=' + this.commkey);
+    const keyBuf = makeCommKey(this.commkey, this.session);
+    if (this.debug) console.log('  >> AUTH commkey=' + this.commkey + ' session=' + this.session + ' hashed=' + hex(keyBuf));
     const res = await sendFn(CMD_AUTH, keyBuf);
     if (this.debug) console.log('  << AUTH response cmd=' + res.cmd);
     if (res.cmd === CMD_ACK_OK) return true;
