@@ -953,6 +953,35 @@ window.TPOSProductCreator = (function () {
     }
 
     /**
+     * Process items in parallel batches
+     * @param {Array} items - Array of items to process
+     * @param {Function} processFn - Async function to call for each item
+     * @param {number} batchSize - Number of concurrent items per batch
+     * @returns {Array} results
+     */
+    async function processInParallelBatches(items, processFn, batchSize = 8) {
+        const results = [];
+        for (let i = 0; i < items.length; i += batchSize) {
+            const batch = items.slice(i, i + batchSize);
+            const batchResults = await Promise.allSettled(
+                batch.map(item => processFn(item))
+            );
+            for (const r of batchResults) {
+                if (r.status === 'fulfilled') {
+                    results.push(r.value);
+                } else {
+                    results.push({ success: false, error: r.reason?.message || 'Unknown error' });
+                }
+            }
+            // Small delay between batches to avoid rate limiting
+            if (i + batchSize < items.length) {
+                await new Promise(r => setTimeout(r, 300));
+            }
+        }
+        return results;
+    }
+
+    /**
      * Main entry point: sync an order's items to TPOS (fire-and-forget)
      * @param {string} orderId - Firestore document ID
      * @param {Array} items - order items with productCode, selectedAttributeValueIds, etc.
@@ -974,23 +1003,22 @@ window.TPOSProductCreator = (function () {
 
             console.log(`[TPOSCreator] ${groups.size} product groups to sync`);
 
-            // Step 3: Process each group sequentially (avoid rate limits)
+            // Step 3: Process groups in parallel batches (8 concurrent)
+            const groupEntries = [...groups.entries()];
+            console.log(`[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of 8`);
+            const results = await processInParallelBatches(
+                groupEntries,
+                ([groupKey, groupItems]) => processGroup(orderId, groupItems),
+                8
+            );
+
             let successCount = 0;
             let failCount = 0;
-            const results = [];
-
-            for (const [groupKey, groupItems] of groups) {
-                const result = await processGroup(orderId, groupItems);
-                results.push(result);
+            for (const result of results) {
                 if (result.success) {
                     successCount++;
                 } else {
                     failCount++;
-                }
-
-                // Small delay between groups to avoid rate limiting
-                if (groups.size > 1) {
-                    await new Promise(r => setTimeout(r, 500));
                 }
             }
 
