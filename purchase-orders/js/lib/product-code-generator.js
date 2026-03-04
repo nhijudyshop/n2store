@@ -107,7 +107,7 @@ window.ProductCodeGenerator = (function() {
     /**
      * Detect product category from name
      * @param {string} productName
-     * @returns {'N'|'P'|'Q'|'B'|'MM'|null}
+     * @returns {'N'|'P'|'Q'|'B'|'H'|'MM'|null}
      */
     function detectProductCategory(productName) {
         if (!productName || typeof productName !== 'string') {
@@ -122,6 +122,11 @@ window.ProductCodeGenerator = (function() {
         // Category MM: Products with MM prefix (e.g., "MM ao thun" → MM01)
         if (tokens[0] && tokens[0] === 'MM') {
             return 'MM';
+        }
+
+        // Category H: Products with HH prefix (e.g., "HH ao thun" → H001)
+        if (tokens[0] && tokens[0].startsWith('HH')) {
+            return 'H';
         }
 
         // Category B: Social order products — name starts with "IB"
