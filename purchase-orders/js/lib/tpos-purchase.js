@@ -257,9 +257,19 @@ window.TPOSPurchase = (function() {
     // MAIN: Full flow - Excel → PurchaseByExcel → FastPurchaseOrder
     // =====================================================
 
+    let _createInProgress = false;
+
     async function createFromExcel(workbook, order) {
         const showToast = window.notificationManager?.show?.bind(window.notificationManager)
             || ((msg, type) => console.log(`[TPOSPurchase] ${type}: ${msg}`));
+
+        // Guard: prevent concurrent/duplicate submissions
+        if (_createInProgress) {
+            console.warn('[TPOSPurchase] createFromExcel already in progress, skipping duplicate call');
+            showToast('Đang tạo đơn TPOS, vui lòng chờ...', 'warning');
+            return { success: false, error: 'Đang xử lý, vui lòng chờ' };
+        }
+        _createInProgress = true;
 
         try {
             // 1. Find NCC
@@ -307,6 +317,8 @@ window.TPOSPurchase = (function() {
             console.error('[TPOSPurchase] createFromExcel failed:', error);
             showToast('Lỗi tạo đơn TPOS: ' + error.message, 'error');
             return { success: false, error: error.message };
+        } finally {
+            _createInProgress = false;
         }
     }
 
