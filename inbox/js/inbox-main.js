@@ -24,6 +24,11 @@ function showToast(message, type = 'info') {
 
 window.showToast = showToast;
 
+// Compatibility shim for tab1-pancake-settings.js (uses notificationManager.show)
+window.notificationManager = {
+    show: (message, type) => showToast(message, type)
+};
+
 /* =====================================================
    COLUMN RESIZER - Draggable dividers between columns
    ===================================================== */

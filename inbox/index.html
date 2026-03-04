@@ -30,6 +30,9 @@
         <!-- Lucide Icons CDN -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
+        <!-- Font Awesome (for Pancake Settings modal) -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
         <!-- Firebase SDKs -->
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -84,6 +87,9 @@
                 <div class="col-header">
                     <h2>Inbox</h2>
                     <div class="col-header-actions">
+                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Quản lý Pancake Accounts" onclick="openPancakeSettingsModal()">
+                            <i data-lucide="settings"></i>
+                        </button>
                         <button class="btn-icon-sm" id="btnRefreshInbox" title="Làm mới">
                             <i data-lucide="refresh-cw"></i>
                         </button>
@@ -351,6 +357,188 @@
             </div>
         </main>
 
+        <!-- Pancake Settings Modal -->
+        <div class="tag-modal" id="pancakeSettingsModal" style="display: none;">
+            <div class="tag-modal-content" style="max-width: 800px;">
+                <div class="tag-modal-header">
+                    <h3><i class="fas fa-cog"></i> Quản lý Pancake Accounts</h3>
+                    <button class="tag-modal-close" onclick="closePancakeSettingsModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tag-modal-body">
+                    <!-- Accounts List -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                                <i class="fas fa-users"></i> Danh sách tài khoản
+                            </h4>
+                            <button id="btnAddAccount" onclick="showAddAccountForm()"
+                                style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-plus"></i> Thêm tài khoản
+                            </button>
+                        </div>
+                        <div id="pancakeAccountsList"
+                            style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
+                            <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                                Đang tải...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add Account Form (Hidden by default) -->
+                    <div id="addAccountForm"
+                        style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 14px; color: #374151;">
+                                <i class="fas fa-user-plus"></i> Thêm tài khoản mới
+                            </h4>
+                            <button onclick="hideAddAccountForm()"
+                                style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <!-- Token Input -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                JWT Token:
+                            </label>
+                            <textarea id="newAccountTokenInput" placeholder="Nhập JWT token từ cookie pancake.vn..."
+                                style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"
+                                oninput="validateTokenInput()"></textarea>
+                            <div id="tokenValidationMessage"
+                                style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none;">
+                            </div>
+                            <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
+                                Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
+                            </div>
+                        </div>
+
+                        <!-- Instructions -->
+                        <div style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
+                                Cách lấy JWT token:
+                            </div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
+                                <li>Mở tab mới: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
+                                <li>Đăng nhập vào tài khoản Pancake</li>
+                                <li>Mở DevTools (F12) → Console tab</li>
+                                <li>Gõ: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
+                                <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
+                            </ol>
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="display: flex; gap: 8px;">
+                            <button class="tag-btn-save" onclick="addAccountFromCookie()"
+                                style="flex: 1; background: #10b981; font-size: 13px;">
+                                <i class="fas fa-sync"></i> Lấy từ Cookie
+                            </button>
+                            <button onclick="debugTokenInput()"
+                                style="flex: 1; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-bug"></i> Debug
+                            </button>
+                            <button class="tag-btn-save" onclick="addAccountManual()"
+                                style="flex: 1; background: #3b82f6; font-size: 13px;">
+                                <i class="fas fa-save"></i> Thêm Token
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Page Access Tokens Section -->
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                                <i class="fas fa-key"></i> Page Access Tokens
+                            </h4>
+                            <button id="btnAddPageToken" onclick="showAddPageTokenForm()"
+                                style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-plus"></i> Thêm Page Token
+                            </button>
+                        </div>
+
+                        <!-- Page Tokens List -->
+                        <div id="pageAccessTokensList"
+                            style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
+                            <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                                <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
+                                <div>Chưa có page token nào</div>
+                                <div style="font-size: 11px; margin-top: 4px;">Page token giúp gửi tin nhắn không bị giới hạn rate limit</div>
+                            </div>
+                        </div>
+
+                        <!-- Add Page Token Form (Hidden by default) -->
+                        <div id="addPageTokenForm"
+                            style="display: none; padding: 16px; background: #faf5ff; border-radius: 8px; border: 2px solid #8b5cf6;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h4 style="margin: 0; font-size: 14px; color: #374151;">
+                                    <i class="fas fa-plus-circle"></i> Thêm Page Access Token
+                                </h4>
+                                <button onclick="hideAddPageTokenForm()"
+                                    style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <!-- Page Selector -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                    Chọn Page:
+                                </label>
+                                <select id="pageTokenPageSelector"
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                                    <option value="">-- Đang tải pages... --</option>
+                                </select>
+                            </div>
+
+                            <!-- Token Input -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                    Page Access Token:
+                                </label>
+                                <textarea id="newPageAccessTokenInput" placeholder="Paste page_access_token vào đây..."
+                                    style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                                <div id="pageTokenValidationMessage" style="margin-top: 6px; font-size: 11px; display: none;"></div>
+                            </div>
+
+                            <!-- Instructions -->
+                            <div style="padding: 10px; background: #f3e8ff; border-left: 3px solid #8b5cf6; border-radius: 4px; margin-bottom: 12px;">
+                                <div style="font-size: 12px; color: #6b21a8; font-weight: 500; margin-bottom: 6px;">
+                                    Cách lấy Page Access Token:
+                                </div>
+                                <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #6b21a8;">
+                                    <li>Vào <a href="https://pancake.vn" target="_blank" style="color: #7c3aed;">Pancake</a> → Chọn Page</li>
+                                    <li>Vào Settings → Tools → API</li>
+                                    <li>Copy "Page Access Token"</li>
+                                </ol>
+                            </div>
+
+                            <!-- Actions -->
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="generatePageTokenFromAPI()"
+                                    style="flex: 1; padding: 8px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                    <i class="fas fa-magic"></i> Tự động tạo
+                                </button>
+                                <button onclick="addPageAccessTokenManual()"
+                                    style="flex: 1; padding: 8px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                    <i class="fas fa-save"></i> Lưu Token
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tag-modal-footer">
+                    <button class="tag-btn-cancel" onclick="closePancakeSettingsModal()">
+                        Đóng
+                    </button>
+                    <button id="btnClearAllAccounts" class="tag-btn-cancel" onclick="clearAllPancakeAccounts()" style="background: #ef4444; color: white;">
+                        <i class="fas fa-trash"></i> Xóa tất cả
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Toast notification -->
         <div id="toastContainer" class="toast-container"></div>
 
@@ -364,6 +552,9 @@
         <script src="../orders-report/js/managers/pancake-token-manager.js"></script>
         <!-- Data Manager: tpos-pancake version (has IG page filter) -->
         <script src="../tpos-pancake/js/pancake-data-manager.js"></script>
+
+        <!-- Pancake Settings (account management modal) -->
+        <script src="../orders-report/js/tab1/tab1-pancake-settings.js"></script>
 
         <!-- Inbox modules -->
         <script src="js/inbox-data.js"></script>
