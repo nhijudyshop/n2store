@@ -578,6 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // TAB NAVIGATION
         // =====================================================
         let reportInitialized = false;
+        let editHistoryLoaded = false;
 
         function switchToTab(tabName) {
             // Update button active states
@@ -612,6 +613,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     const rts = document.getElementById('reportTimeFilterSelect');
                     if (rts && rs.timeFilter !== 'custom') rts.value = rs.timeFilter;
                     report.refreshReport();
+                }
+            }
+
+            // Load edit history data when switching to editHistory tab
+            if (tabName === 'editHistory' && !editHistoryLoaded) {
+                editHistoryLoaded = true;
+                const editHistory = window.SoquyEditHistory;
+                if (editHistory) {
+                    editHistory.initTab();
+                    editHistory.loadHistory();
                 }
             }
         }

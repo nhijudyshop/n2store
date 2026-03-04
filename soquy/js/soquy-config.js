@@ -225,7 +225,10 @@ window.SoquyState = {
     dynamicSources: [], // Array of { code: 'AA', name: 'Bán hàng' }
 
     // All users from Firestore (for collector/creator dropdowns)
-    allUsers: []
+    allUsers: [],
+
+    // Edit history tab loaded flag
+    editHistoryLoaded: false
 };
 
 // =====================================================

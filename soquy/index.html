@@ -130,6 +130,10 @@
                         <i data-lucide="bar-chart-3"></i>
                         <span>Báo cáo</span>
                     </button>
+                    <button class="tab-header-btn" data-tab="editHistory" id="tabEditHistoryBtn">
+                        <i data-lucide="history"></i>
+                        <span>Lịch sử chỉnh sửa</span>
+                    </button>
                 </div>
             </div>
             <div class="top-bar-right"></div>
@@ -1302,6 +1306,90 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Edit History Tab -->
+            <div id="editHistoryTabContent" class="tab-content" style="padding: 20px;">
+                <!-- Filters -->
+                <div class="edit-history-filters">
+                    <div class="edit-history-filter-row">
+                        <select id="ehFilterActionType" class="edit-history-select">
+                            <option value="all">Tất cả hành động</option>
+                            <option value="create">Tạo phiếu</option>
+                            <option value="edit">Sửa phiếu</option>
+                            <option value="cancel">Hủy phiếu</option>
+                            <option value="delete">Xóa phiếu</option>
+                            <option value="import">Import</option>
+                            <option value="delete_all">Xóa toàn bộ</option>
+                            <option value="category">Quản lý danh mục</option>
+                            <option value="source">Quản lý nguồn</option>
+                        </select>
+                        <select id="ehFilterUserName" class="edit-history-select">
+                            <option value="all">Tất cả người thực hiện</option>
+                        </select>
+                        <select id="ehFilterTimeRange" class="edit-history-select">
+                            <option value="this_month">Tháng này</option>
+                            <option value="today">Hôm nay</option>
+                            <option value="last_7_days">7 ngày qua</option>
+                            <option value="last_month">Tháng trước</option>
+                            <option value="custom">Tùy chỉnh</option>
+                        </select>
+                        <input type="date" id="ehFilterCustomStart" class="edit-history-date-input" style="display:none;">
+                        <input type="date" id="ehFilterCustomEnd" class="edit-history-date-input" style="display:none;">
+                        <div class="edit-history-search-wrapper">
+                            <i data-lucide="search" class="edit-history-search-icon"></i>
+                            <input type="text" id="ehFilterKeyword" class="edit-history-search" placeholder="Tìm theo mã phiếu, mô tả...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Table -->
+                <div class="edit-history-table-container">
+                    <table class="edit-history-table">
+                        <thead>
+                            <tr>
+                                <th>Thời gian</th>
+                                <th>Người thực hiện</th>
+                                <th>Loại hành động</th>
+                                <th>Mã phiếu</th>
+                                <th>Mô tả</th>
+                                <th>Chi tiết</th>
+                            </tr>
+                        </thead>
+                        <tbody id="editHistoryTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center;padding:40px;color:#999;">
+                                    Chọn tab để tải dữ liệu lịch sử chỉnh sửa
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Cards -->
+                <div class="edit-history-mobile-cards" id="editHistoryMobileCards"></div>
+
+                <!-- Pagination -->
+                <div class="edit-history-pagination">
+                    <div class="edit-history-page-size">
+                        <span>Hiển thị</span>
+                        <select id="ehPageSizeSelect">
+                            <option value="15" selected>15 dòng</option>
+                            <option value="30">30 dòng</option>
+                            <option value="50">50 dòng</option>
+                            <option value="100">100 dòng</option>
+                        </select>
+                    </div>
+                    <div class="edit-history-page-controls">
+                        <button class="btn-icon" id="ehBtnPrevPage" disabled>
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <span id="ehPageInfo">Trang 1 / 1</span>
+                        <button class="btn-icon" id="ehBtnNextPage" disabled>
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -2003,6 +2091,7 @@
     <script src="js/soquy-database.js"></script>
     <script src="js/soquy-ui.js"></script>
     <script src="js/soquy-report.js"></script>
+    <script src="js/soquy-edit-history.js"></script>
     <script src="js/soquy-main.js"></script>
     <script src="js/attendance.js"></script>
     <script>

@@ -100,6 +100,16 @@ const SoquyDatabase = (function () {
             const docRef = await config.soquyCollectionRef.add(voucher);
             console.log('[SoquyDB] Voucher created:', voucherCode);
 
+            // Log edit history (fire and forget)
+            const typeLabel = config.VOUCHER_TYPE_LABELS[voucher.type] || voucher.type;
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('create', {
+                    voucherCode: voucherCode,
+                    voucherType: voucher.type,
+                    description: `Tạo ${typeLabel} ${voucherCode} - ${formatCurrency(voucher.amount)}đ`
+                });
+            }
+
             return { id: docRef.id, ...voucher };
         } catch (error) {
             console.error('[SoquyDB] Error creating voucher:', error);
@@ -281,6 +291,21 @@ const SoquyDatabase = (function () {
      */
     async function updateVoucher(docId, updateData) {
         try {
+            // Save old data BEFORE update for change tracking
+            let oldData = null;
+            let voucherCode = '';
+            let voucherType = '';
+            try {
+                const oldDoc = await config.soquyCollectionRef.doc(docId).get();
+                if (oldDoc.exists) {
+                    oldData = oldDoc.data();
+                    voucherCode = oldData.code || '';
+                    voucherType = oldData.type || '';
+                }
+            } catch (e) {
+                console.error('[SoquyDB] Error fetching old data for edit log:', e);
+            }
+
             const cleanData = {
                 ...updateData,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -301,6 +326,22 @@ const SoquyDatabase = (function () {
 
             await config.soquyCollectionRef.doc(docId).update(cleanData);
             console.log('[SoquyDB] Voucher updated:', docId);
+
+            // Log edit history with changes (fire and forget)
+            if (window.SoquyEditHistory && oldData) {
+                const changes = SoquyEditHistory.computeChanges(oldData, cleanData);
+                // Remove internal fields from changes
+                delete changes.updatedAt;
+                if (Object.keys(changes).length > 0) {
+                    SoquyEditHistory.logEditHistory('edit', {
+                        voucherCode: voucherCode,
+                        voucherType: voucherType,
+                        changes: changes,
+                        description: `Sửa phiếu ${voucherCode}`
+                    });
+                }
+            }
+
             return true;
         } catch (error) {
             console.error('[SoquyDB] Error updating voucher:', error);
@@ -313,6 +354,17 @@ const SoquyDatabase = (function () {
      */
     async function cancelVoucher(docId, reason) {
         try {
+            // Get voucher info for logging
+            let voucherCode = '';
+            let voucherType = '';
+            try {
+                const doc = await config.soquyCollectionRef.doc(docId).get();
+                if (doc.exists) {
+                    voucherCode = doc.data().code || '';
+                    voucherType = doc.data().type || '';
+                }
+            } catch (e) { /* ignore */ }
+
             await config.soquyCollectionRef.doc(docId).update({
                 status: config.VOUCHER_STATUS.CANCELLED,
                 cancelledAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -320,6 +372,18 @@ const SoquyDatabase = (function () {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log('[SoquyDB] Voucher cancelled:', docId);
+
+            // Log edit history (fire and forget)
+            if (window.SoquyEditHistory) {
+                const reasonText = reason ? ` - Lý do: ${reason}` : '';
+                SoquyEditHistory.logEditHistory('cancel', {
+                    voucherCode: voucherCode,
+                    voucherType: voucherType,
+                    extra: { cancelReason: reason || '' },
+                    description: `Hủy phiếu ${voucherCode}${reasonText}`
+                });
+            }
+
             return true;
         } catch (error) {
             console.error('[SoquyDB] Error cancelling voucher:', error);
@@ -336,8 +400,29 @@ const SoquyDatabase = (function () {
      */
     async function deleteVoucher(docId) {
         try {
+            // Get voucher info for logging before deletion
+            let voucherCode = '';
+            let voucherType = '';
+            try {
+                const doc = await config.soquyCollectionRef.doc(docId).get();
+                if (doc.exists) {
+                    voucherCode = doc.data().code || '';
+                    voucherType = doc.data().type || '';
+                }
+            } catch (e) { /* ignore */ }
+
             await config.soquyCollectionRef.doc(docId).delete();
             console.log('[SoquyDB] Voucher deleted:', docId);
+
+            // Log edit history (fire and forget)
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('delete', {
+                    voucherCode: voucherCode,
+                    voucherType: voucherType,
+                    description: `Xóa phiếu ${voucherCode}`
+                });
+            }
+
             return true;
         } catch (error) {
             console.error('[SoquyDB] Error deleting voucher:', error);
@@ -376,6 +461,14 @@ const SoquyDatabase = (function () {
                 countersSnapshot.forEach(doc => counterBatch.delete(doc.ref));
                 await counterBatch.commit();
                 console.log('[SoquyDB] Counters reset');
+            }
+
+            // Log edit history (fire and forget)
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('delete_all', {
+                    extra: { deletedCount: deleted },
+                    description: `Xóa toàn bộ ${deleted} phiếu`
+                });
             }
 
             return { deleted };
@@ -490,6 +583,14 @@ const SoquyDatabase = (function () {
                 console.error(`[SoquyDB] Error importing row ${i + 1}:`, error);
                 results.errors.push({ row: i + 1, error: error.message });
             }
+        }
+
+        // Log edit history for import (fire and forget)
+        if (window.SoquyEditHistory && results.success > 0) {
+            SoquyEditHistory.logEditHistory('import', {
+                extra: { importCount: results.success },
+                description: `Import ${results.success} phiếu từ Excel`
+            });
         }
 
         return results;
@@ -671,6 +772,14 @@ const SoquyDatabase = (function () {
             }
 
             console.log('[SoquyDB] Auto-added category:', category, sourceCode ? `(source: ${sourceCode})` : '');
+
+            // Log edit history (fire and forget)
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('category_add', {
+                    extra: { categoryName: category, categoryType: voucherType },
+                    description: `Thêm danh mục ${category}`
+                });
+            }
         } catch (error) {
             console.error('[SoquyDB] Error auto-adding category:', error);
         }
@@ -723,6 +832,14 @@ const SoquyDatabase = (function () {
             setCategoryDynamicList(voucherType, filtered);
 
             console.log('[SoquyDB] Deleted categories:', categories);
+
+            // Log edit history (fire and forget)
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('category_delete', {
+                    extra: { categoryNames: categories },
+                    description: `Xóa danh mục ${categories.join(', ')}`
+                });
+            }
         } catch (error) {
             console.error('[SoquyDB] Error deleting categories:', error);
             throw error;
@@ -811,6 +928,14 @@ const SoquyDatabase = (function () {
             }
 
             console.log('[SoquyDB] Added source:', code, name);
+
+            // Log edit history (fire and forget)
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('source_add', {
+                    extra: { sourceCode: code, sourceName: name },
+                    description: `Thêm nguồn ${name} (${code})`
+                });
+            }
         } catch (error) {
             console.error('[SoquyDB] Error adding source:', error);
         }
@@ -877,6 +1002,14 @@ const SoquyDatabase = (function () {
             state.dynamicSources = state.dynamicSources.filter(s => !codes.includes(s.code));
 
             console.log('[SoquyDB] Deleted sources:', codes);
+
+            // Log edit history (fire and forget)
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('source_delete', {
+                    extra: { sourceCode: codes.join(', '), sourceName: codes.join(', ') },
+                    description: `Xóa nguồn ${codes.join(', ')}`
+                });
+            }
         } catch (error) {
             console.error('[SoquyDB] Error deleting sources:', error);
             throw error;
