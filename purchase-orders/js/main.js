@@ -1420,7 +1420,7 @@ class PurchaseOrderController {
                     order.supplier?.name || '',       // Thương hiệu (using supplier)
                     '',                               // Xuất xứ
                     `Đơn hàng: ${order.orderNumber}`, // Ghi chú
-                    (item.productImages || [])[0] || '' // Hình ảnh URL
+                    (item.productImages && item.productImages.length > 0 ? item.productImages[0] : item.tposImageUrl) || '' // Hình ảnh URL
                 ]);
             });
         });

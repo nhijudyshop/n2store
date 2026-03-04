@@ -391,7 +391,7 @@ class PurchaseOrderTableRenderer {
             <!-- Giá bán với hình ảnh sản phẩm -->
             <td class="col-selling-price">
                 <div class="cell-price">
-                    ${this.renderProductImages(item.productImages)}
+                    ${this.renderProductImages(item.productImages && item.productImages.length > 0 ? item.productImages : (item.tposImageUrl ? [item.tposImageUrl] : null))}
                     <span class="price-value">${config.formatVND(item.sellingPrice || 0)}</span>
                 </div>
             </td>
