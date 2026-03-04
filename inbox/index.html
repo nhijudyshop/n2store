@@ -80,7 +80,7 @@
         <!-- Main Content - 3 Column Inbox Layout -->
         <main class="main-content">
             <!-- ========== COLUMN 1: Conversation List ========== -->
-            <div class="inbox-col inbox-col-conversations">
+            <div class="inbox-col inbox-col-conversations" id="col1">
                 <div class="col-header">
                     <h2>Inbox</h2>
                     <div class="col-header-actions">
@@ -111,8 +111,11 @@
                 </div>
             </div>
 
+            <!-- Resize Handle 1: between col1 and col2 -->
+            <div class="resize-handle" id="resizeHandle1" data-left="col1" data-right="col2"></div>
+
             <!-- ========== COLUMN 2: Chat Area ========== -->
-            <div class="inbox-col inbox-col-chat">
+            <div class="inbox-col inbox-col-chat" id="col2">
                 <!-- Chat Header -->
                 <div class="chat-header" id="chatHeader">
                     <div class="chat-header-info">
@@ -142,6 +145,16 @@
                     </div>
                 </div>
 
+                <!-- Label Bar (moved from col3) -->
+                <div class="chat-label-bar" id="chatLabelBar" style="display:none;">
+                    <div class="chat-label-bar-inner">
+                        <span class="chat-label-bar-title">Nhãn:</span>
+                        <div class="chat-label-bar-list" id="chatLabelBarList">
+                            <!-- Label buttons rendered by JS -->
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Chat Input -->
                 <div class="chat-input-area" id="chatInputArea">
                     <div class="chat-input-toolbar">
@@ -161,8 +174,11 @@
                 </div>
             </div>
 
+            <!-- Resize Handle 2: between col2 and col3 -->
+            <div class="resize-handle" id="resizeHandle2" data-left="col2" data-right="col3"></div>
+
             <!-- ========== COLUMN 3: Info Panel (Stats + Orders) ========== -->
-            <div class="inbox-col inbox-col-info" id="infoPanel">
+            <div class="inbox-col inbox-col-info" id="col3">
                 <!-- Tab Headers -->
                 <div class="info-tabs">
                     <button class="info-tab active" data-tab="stats">
@@ -175,47 +191,18 @@
                     </button>
                 </div>
 
-                <!-- Tab 1: Stats / Group Labels -->
+                <!-- Tab 1: Stats / Group Labels - Full-width cards -->
                 <div class="info-tab-content active" id="tabStats">
-                    <!-- Stats Summary Cards -->
-                    <div class="stats-mini-cards">
-                        <div class="stats-mini-card blue">
-                            <div class="stats-mini-value" id="statTotal">0</div>
-                            <div class="stats-mini-label">Tổng Inbox</div>
-                        </div>
-                        <div class="stats-mini-card green">
-                            <div class="stats-mini-value" id="statProcessing">0</div>
-                            <div class="stats-mini-label">Đang Xử Lý</div>
-                        </div>
-                        <div class="stats-mini-card orange">
-                            <div class="stats-mini-value" id="statWaiting">0</div>
-                            <div class="stats-mini-label">Chờ Phản Hồi</div>
-                        </div>
-                        <div class="stats-mini-card red">
-                            <div class="stats-mini-value" id="statUrgent">0</div>
-                            <div class="stats-mini-label">Cần Gấp</div>
-                        </div>
+                    <!-- Group Stats Cards (rendered by JS) -->
+                    <div class="group-stats-header">
+                        <h3>Nhóm Phân Loại</h3>
+                        <button class="btn-manage-groups" id="btnManageGroups">
+                            <i data-lucide="settings"></i>
+                            Quản Lý
+                        </button>
                     </div>
-
-                    <!-- Group Labels -->
-                    <div class="group-section">
-                        <div class="group-section-header">
-                            <h3>Nhóm Phân Loại</h3>
-                            <button class="btn-icon-sm" id="btnAddGroup" title="Thêm nhóm">
-                                <i data-lucide="plus"></i>
-                            </button>
-                        </div>
-                        <div class="group-list" id="groupList">
-                            <!-- Groups rendered by JS -->
-                        </div>
-                    </div>
-
-                    <!-- Assigned Label for current conversation -->
-                    <div class="assign-section" id="assignSection" style="display:none;">
-                        <h3>Gán nhãn cho cuộc hội thoại</h3>
-                        <div class="assign-label-list" id="assignLabelList">
-                            <!-- Label options rendered by JS -->
-                        </div>
+                    <div class="group-stats-list" id="groupStatsList">
+                        <!-- Full-width stats cards rendered by JS -->
                     </div>
                 </div>
 
