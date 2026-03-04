@@ -43,6 +43,10 @@ class InboxDataManager {
             await window.pancakeDataManager.initialize();
             console.log('[InboxData] Pancake data manager initialized');
 
+            // Filter out Instagram pages (igo_ prefix) to avoid subscription errors
+            // Reference: tpos-pancake/js/pancake-data-manager.js
+            this.filterInstagramPages();
+
             // Load conversations from Pancake API
             await this.loadConversations();
             this.isInitialized = true;
@@ -81,6 +85,28 @@ class InboxDataManager {
             localStorage.setItem('inbox_livestream_convs', JSON.stringify([...this.livestreamConvIds]));
         } catch (e) {
             console.warn('[InboxData] Error saving local state:', e);
+        }
+    }
+
+    /**
+     * Filter out Instagram pages (igo_ prefix) from pancakeDataManager
+     * Instagram pages require separate subscription and cause error_code 122
+     */
+    filterInstagramPages() {
+        const pdm = window.pancakeDataManager;
+        if (!pdm) return;
+
+        const beforeCount = pdm.pageIds?.length || 0;
+        if (pdm.pages) {
+            pdm.pages = pdm.pages.filter(p => !p.id?.startsWith('igo_'));
+        }
+        if (pdm.pageIds) {
+            pdm.pageIds = pdm.pageIds.filter(id => !id.startsWith('igo_'));
+        }
+        const afterCount = pdm.pageIds?.length || 0;
+
+        if (beforeCount > afterCount) {
+            console.log(`[InboxData] Filtered out ${beforeCount - afterCount} Instagram pages`);
         }
     }
 

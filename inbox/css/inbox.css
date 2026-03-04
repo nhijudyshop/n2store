@@ -1933,6 +1933,306 @@ body.col-resizing .resize-handle {
 }
 
 /* =====================================================
+   PAGE SELECTOR DROPDOWN
+   ===================================================== */
+
+.page-selector {
+    position: relative;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+}
+
+.page-selector-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.page-selector-btn:hover {
+    border-color: var(--primary);
+    background: var(--gray-50);
+}
+
+.page-selector-btn i,
+.page-selector-btn svg {
+    width: 16px;
+    height: 16px;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.page-selector-arrow {
+    margin-left: auto;
+}
+
+.page-selector-dropdown {
+    position: absolute;
+    top: 100%;
+    left: var(--spacing-md);
+    right: var(--spacing-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.page-selector-dropdown::-webkit-scrollbar {
+    width: 4px;
+}
+
+.page-selector-dropdown::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 2px;
+}
+
+.page-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.page-item:hover {
+    background: var(--gray-50);
+}
+
+.page-item.active {
+    background: var(--primary-bg);
+    color: var(--primary);
+}
+
+.page-item-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.page-item-icon i,
+.page-item-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.page-item-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.page-item-avatar-ph {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.page-item-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.page-item-name {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.page-item-hint {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+}
+
+/* =====================================================
+   AVATAR WRAP & GRADIENT PLACEHOLDERS
+   ===================================================== */
+
+.conv-avatar-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.conv-avatar-wrap img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.conv-avatar-wrap .conv-unread-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    z-index: 2;
+    border: 2px solid var(--surface);
+}
+
+.conv-avatar-ph {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: white;
+}
+
+/* =====================================================
+   CONVERSATION TAGS
+   ===================================================== */
+
+.conv-tag {
+    display: inline-block;
+    padding: 0 6px;
+    border-radius: var(--radius-full);
+    font-size: 0.5625rem;
+    font-weight: 600;
+    line-height: 1.6;
+    white-space: nowrap;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =====================================================
+   CONVERSATION TYPE ICON
+   ===================================================== */
+
+.conv-type-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.conv-type-icon i,
+.conv-type-icon svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* =====================================================
+   MESSAGE MEDIA, FILE, LIKE, REACTIONS
+   ===================================================== */
+
+.message-media {
+    margin-bottom: 4px;
+}
+
+.message-media img {
+    max-width: 240px;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.message-media video {
+    max-width: 240px;
+    border-radius: var(--radius);
+}
+
+.message-media audio {
+    max-width: 240px;
+}
+
+.message-file {
+    margin-bottom: 4px;
+}
+
+.message-file a {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.8125rem;
+    padding: 4px 8px;
+    background: var(--gray-100);
+    border-radius: var(--radius);
+    transition: var(--transition-fast);
+}
+
+.message-file a:hover {
+    background: var(--primary-bg);
+    text-decoration: underline;
+}
+
+.message-file i,
+.message-file svg {
+    width: 14px;
+    height: 14px;
+}
+
+.message-like {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.message-reactions {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 1px 6px;
+    background: var(--gray-100);
+    border-radius: var(--radius-full);
+    margin-top: 2px;
+}
+
+.message-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.message-sender {
+    font-size: 0.625rem;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.message-row.outgoing .message-sender {
+    color: rgba(255,255,255,0.7);
+}
+
+.message-row.incoming .message-sender {
+    color: var(--text-tertiary);
+}
+
+/* =====================================================
    RESPONSIVE
    ===================================================== */
 

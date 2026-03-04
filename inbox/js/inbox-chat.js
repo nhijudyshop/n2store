@@ -1,6 +1,19 @@
 /* =====================================================
    INBOX CHAT - Chat UI Controller with Pancake API
+   Reference: tpos-pancake/js/pancake-chat.js
    ===================================================== */
+
+// Gradient colors for avatar placeholders (from tpos-pancake)
+const AVATAR_GRADIENTS = [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+];
 
 class InboxChatController {
     constructor(dataManager) {
@@ -9,6 +22,7 @@ class InboxChatController {
         this.currentFilter = 'all';
         this.currentGroupFilter = null;
         this.searchQuery = '';
+        this.selectedPageId = null; // Page filter
         this.isSending = false;
         this.isLoadingMessages = false;
 
@@ -26,11 +40,15 @@ class InboxChatController {
             chatLabelBar: document.getElementById('chatLabelBar'),
             chatLabelBarList: document.getElementById('chatLabelBarList'),
             groupStatsList: document.getElementById('groupStatsList'),
+            pageSelectorBtn: document.getElementById('pageSelectorBtn'),
+            pageSelectorDropdown: document.getElementById('pageSelectorDropdown'),
+            pageSelectorLabel: document.getElementById('pageSelectorLabel'),
         };
     }
 
     init() {
         this.bindEvents();
+        this.renderPageSelector();
         this.renderConversationList();
         this.renderGroupStats();
     }
@@ -84,6 +102,7 @@ class InboxChatController {
             btn.style.opacity = '0.5';
             try {
                 await this.data.loadConversations(true);
+                this.renderPageSelector();
                 this.renderConversationList();
                 this.renderGroupStats();
                 showToast('Đã làm mới dữ liệu từ Pancake', 'success');
@@ -127,16 +146,131 @@ class InboxChatController {
         if (btnAttachImage) {
             btnAttachImage.addEventListener('click', () => this.attachImage());
         }
+
+        // Page selector toggle
+        if (this.elements.pageSelectorBtn) {
+            this.elements.pageSelectorBtn.addEventListener('click', () => {
+                const dd = this.elements.pageSelectorDropdown;
+                dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+            });
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.page-selector')) {
+                    this.elements.pageSelectorDropdown.style.display = 'none';
+                }
+            });
+        }
+    }
+
+    // ===== Page Selector (from tpos-pancake) =====
+
+    renderPageSelector() {
+        const dropdown = this.elements.pageSelectorDropdown;
+        if (!dropdown) return;
+
+        const pages = this.data.pages || [];
+        if (pages.length === 0) {
+            dropdown.innerHTML = '<div class="page-item" style="padding:8px;color:var(--text-tertiary);">Chưa có pages</div>';
+            return;
+        }
+
+        let html = `
+            <div class="page-item ${!this.selectedPageId ? 'active' : ''}" data-page-id="">
+                <div class="page-item-icon"><i data-lucide="layout-grid"></i></div>
+                <div class="page-item-info">
+                    <div class="page-item-name">Tất cả Pages</div>
+                    <div class="page-item-hint">${pages.length} pages</div>
+                </div>
+            </div>
+        `;
+
+        for (const page of pages) {
+            const pageId = page.id;
+            const pageName = page.name || 'Page';
+            const isActive = this.selectedPageId === pageId;
+            const initial = pageName.charAt(0).toUpperCase();
+            const avatarHtml = page.avatar
+                ? `<img src="${page.avatar}" class="page-item-avatar" alt="${this.escapeHtml(pageName)}" onerror="this.outerHTML='<div class=page-item-avatar-ph>${initial}</div>'">`
+                : `<div class="page-item-avatar-ph">${initial}</div>`;
+
+            html += `
+                <div class="page-item ${isActive ? 'active' : ''}" data-page-id="${pageId}">
+                    ${avatarHtml}
+                    <div class="page-item-info">
+                        <div class="page-item-name">${this.escapeHtml(pageName)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        dropdown.innerHTML = html;
+
+        // Bind click events
+        dropdown.querySelectorAll('.page-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.selectedPageId = item.dataset.pageId || null;
+                const label = this.elements.pageSelectorLabel;
+                if (this.selectedPageId) {
+                    const page = pages.find(p => p.id === this.selectedPageId);
+                    label.textContent = page?.name || 'Page';
+                } else {
+                    label.textContent = 'Tất cả Pages';
+                }
+                dropdown.style.display = 'none';
+                this.renderPageSelector(); // Update active state
+                this.renderConversationList();
+            });
+        });
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ===== Avatar Helper (from tpos-pancake) =====
+
+    getAvatarHtml(conv, size = 'list') {
+        const name = conv.name || 'U';
+        const initial = name.charAt(0).toUpperCase();
+        const colorIndex = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
+        const gradient = AVATAR_GRADIENTS[colorIndex];
+
+        // Try multiple avatar fields
+        const avatarUrl = conv.avatar
+            || conv._raw?.from?.picture?.data?.url
+            || conv._raw?.from?.profile_pic
+            || conv._raw?.customers?.[0]?.avatar
+            || null;
+
+        if (avatarUrl) {
+            return `<img src="${avatarUrl}" alt="${this.escapeHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                    <div class="conv-avatar-ph" style="display:none;background:${gradient};">${initial}</div>`;
+        }
+        return `<div class="conv-avatar-ph" style="background:${gradient};">${initial}</div>`;
+    }
+
+    // ===== Tags Helper =====
+
+    getTagsHtml(conv) {
+        const tags = conv._raw?.tags;
+        if (!tags || tags.length === 0) return '';
+        return tags.slice(0, 3).map(tag => {
+            const color = tag.color || '#6b7280';
+            return `<span class="conv-tag" style="background:${color}20;color:${color};">${this.escapeHtml(tag.name || '')}</span>`;
+        }).join('');
     }
 
     // ===== Conversation List =====
 
     renderConversationList() {
-        const conversations = this.data.getConversations({
+        let conversations = this.data.getConversations({
             search: this.searchQuery,
             filter: this.currentFilter,
             groupFilter: this.currentGroupFilter,
         });
+
+        // Apply page filter
+        if (this.selectedPageId) {
+            conversations = conversations.filter(c => c.pageId === this.selectedPageId);
+        }
 
         if (conversations.length === 0) {
             this.elements.conversationList.innerHTML = `
@@ -148,17 +282,18 @@ class InboxChatController {
         }
 
         this.elements.conversationList.innerHTML = conversations.map(conv => {
-            const avatarBg = 'bg-' + ((conv.name.charCodeAt(0) % 8) + 1);
-            const initials = conv.name.split(' ').map(w => w[0]).slice(-2).join('');
             const labelClass = this.getLabelClass(conv.label);
             const labelText = this.getLabelText(conv.label);
             const isActive = conv.id === this.activeConversationId;
             const isUnread = conv.unread > 0;
 
-            // Avatar: use Pancake avatar or initials
-            const avatarContent = conv.avatar
-                ? `<img src="${conv.avatar}" alt="${this.escapeHtml(conv.name)}" onerror="this.outerHTML='${initials}'">`
-                : initials;
+            // Avatar with gradient fallback
+            const avatarHtml = this.getAvatarHtml(conv);
+
+            // Unread badge (9+ cap like tpos-pancake)
+            const unreadBadge = isUnread
+                ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>`
+                : '';
 
             // Livestream badge
             const livestreamBadge = conv.isLivestream
@@ -170,17 +305,18 @@ class InboxChatController {
                 ? `<span class="conv-page-name">${this.escapeHtml(conv.pageName)}</span>`
                 : '';
 
-            // Type badge (COMMENT vs INBOX)
-            const typeBadge = conv.type === 'COMMENT'
-                ? '<span class="conv-type-badge comment">CMT</span>'
-                : '';
+            // Type icon (like tpos-pancake: message-circle for inbox, message-square for comment)
+            const typeIcon = conv.type === 'COMMENT' ? 'message-square' : 'message-circle';
+
+            // Tags
+            const tagsHtml = this.getTagsHtml(conv);
 
             return `
                 <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
                      data-id="${conv.id}" onclick="window.inboxChat.selectConversation('${conv.id}')">
-                    <div class="conv-avatar ${avatarBg}">
-                        ${avatarContent}
-                        ${conv.online ? '<div class="conv-online-dot"></div>' : ''}
+                    <div class="conv-avatar-wrap">
+                        ${avatarHtml}
+                        ${unreadBadge}
                     </div>
                     <div class="conv-content">
                         <div class="conv-header">
@@ -188,19 +324,23 @@ class InboxChatController {
                             <span class="conv-time">${this.formatTime(conv.time)}</span>
                         </div>
                         ${pageNameHtml}
-                        <div class="conv-preview">${this.escapeHtml(conv.lastMessage)}</div>
+                        <div class="conv-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(conv.lastMessage)}</div>
                         <div class="conv-footer">
                             <div class="conv-footer-left">
                                 <span class="conv-label ${labelClass}">${labelText}</span>
-                                ${typeBadge}
+                                ${tagsHtml}
                                 ${livestreamBadge}
                             </div>
-                            ${isUnread ? `<span class="conv-unread-badge">${conv.unread}</span>` : ''}
+                            <span class="conv-type-icon" title="${conv.type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn'}">
+                                <i data-lucide="${typeIcon}"></i>
+                            </span>
                         </div>
                     </div>
                 </div>
             `;
         }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     // ===== Select Conversation =====
@@ -220,19 +360,24 @@ class InboxChatController {
         if (conv.isLivestream) statusParts.push('Livestream');
         this.elements.chatUserStatus.textContent = statusParts.join(' · ') || 'Đang tải...';
 
-        // Update chat avatar
+        // Update chat avatar with gradient
         const chatAvatar = this.elements.chatHeader.querySelector('.chat-avatar');
-        const avatarBg = 'bg-' + ((conv.name.charCodeAt(0) % 8) + 1);
-        const initials = conv.name.split(' ').map(w => w[0]).slice(-2).join('');
-        if (conv.avatar) {
-            chatAvatar.innerHTML = `<img src="${conv.avatar}" alt="${this.escapeHtml(conv.name)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='${initials}'">`;
+        const name = conv.name || 'U';
+        const initial = name.charAt(0).toUpperCase();
+        const colorIndex = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
+        const gradient = AVATAR_GRADIENTS[colorIndex];
+        const avatarUrl = conv.avatar || conv._raw?.from?.picture?.data?.url || null;
+
+        if (avatarUrl) {
+            chatAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<span>${initial}</span>'">`;
         } else {
-            chatAvatar.innerHTML = initials;
+            chatAvatar.innerHTML = `<span>${initial}</span>`;
         }
-        chatAvatar.className = 'chat-avatar conv-avatar ' + avatarBg;
+        chatAvatar.style.background = gradient;
         chatAvatar.style.color = 'white';
         chatAvatar.style.fontSize = '0.875rem';
         chatAvatar.style.fontWeight = '700';
+        chatAvatar.className = 'chat-avatar';
 
         this.updateStarButton(conv.starred);
         this.renderChatLabelBar(conv);
@@ -283,17 +428,14 @@ class InboxChatController {
             const messages = result.messages || [];
 
             // Detect livestream from response data
-            // The messages response may contain a 'post' object with type info
             if (result.conversation?.post?.type === 'livestream') {
                 this.data.markAsLivestream(conv.id);
                 conv.isLivestream = true;
-                // Update status text
                 const statusParts = [];
                 if (conv.pageName) statusParts.push(conv.pageName);
                 if (conv.type === 'COMMENT') statusParts.push('Bình luận');
                 statusParts.push('Livestream');
                 this.elements.chatUserStatus.textContent = statusParts.join(' · ');
-                // Re-render conversation list to show LIVE badge
                 this.renderConversationList();
             }
 
@@ -307,6 +449,7 @@ class InboxChatController {
                     sender: isFromPage ? 'shop' : 'customer',
                     attachments: msg.attachments || [],
                     senderName: msg.from?.name || '',
+                    reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
                 };
             });
 
@@ -343,8 +486,10 @@ class InboxChatController {
             return;
         }
 
-        const avatarBg = 'bg-' + ((conv.name.charCodeAt(0) % 8) + 1);
-        const initials = conv.name.split(' ').map(w => w[0]).slice(-2).join('');
+        const name = conv.name || 'U';
+        const initial = name.charAt(0).toUpperCase();
+        const colorIndex = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
+        const gradient = AVATAR_GRADIENTS[colorIndex];
         let lastDate = '';
 
         const html = conv.messages.map(msg => {
@@ -363,43 +508,45 @@ class InboxChatController {
 
             // Build message content (text + attachments)
             let messageContent = '';
+
+            // Render attachments first (above text, like tpos-pancake)
+            const mediaAttachments = (msg.attachments || []).filter(a => a.type !== 'reaction');
+            if (mediaAttachments.length > 0) {
+                messageContent += this.renderAttachments(mediaAttachments);
+            }
+
             if (msg.text) {
                 messageContent += `<div class="message-text">${this.formatMessageText(msg.text)}</div>`;
             }
 
-            // Render attachments (images, etc.)
-            if (msg.attachments && msg.attachments.length > 0) {
-                msg.attachments.forEach(att => {
-                    if (att.type === 'image' || att.type === 'photo') {
-                        const imgUrl = att.url || att.payload?.url || att.src || '';
-                        if (imgUrl) {
-                            messageContent += `<img class="message-image" src="${imgUrl}" alt="Ảnh" onclick="window.open('${imgUrl}', '_blank')" loading="lazy">`;
-                        }
-                    } else if (att.type === 'sticker') {
-                        const stickerUrl = att.url || att.payload?.url || '';
-                        if (stickerUrl) {
-                            messageContent += `<img class="message-sticker" src="${stickerUrl}" alt="Sticker" loading="lazy">`;
-                        }
-                    } else if (att.type === 'video') {
-                        const videoUrl = att.url || att.payload?.url || '';
-                        if (videoUrl) {
-                            messageContent += `<div class="message-attachment"><a href="${videoUrl}" target="_blank">Video</a></div>`;
-                        }
-                    }
-                });
+            // Reactions
+            const reactions = msg.reactions || [];
+            let reactionsHtml = '';
+            if (reactions.length > 0) {
+                const emojis = reactions.map(r => r.emoji || '❤️').join('');
+                reactionsHtml = `<span class="message-reactions">${emojis}</span>`;
             }
 
-            if (!messageContent) {
+            if (!messageContent && !reactionsHtml) {
                 messageContent = '<div class="message-text" style="opacity:0.5">[Tin nhắn trống]</div>';
             }
+
+            // Sender name for outgoing messages (staff name)
+            const senderHtml = isOutgoing && msg.senderName
+                ? `<span class="message-sender">${this.escapeHtml(msg.senderName)}</span>`
+                : '';
 
             return `
                 ${dateSeparator}
                 <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'}">
-                    ${!isOutgoing ? `<div class="message-avatar conv-avatar ${avatarBg}">${initials}</div>` : ''}
+                    ${!isOutgoing ? `<div class="message-avatar" style="background:${gradient};">${initial}</div>` : ''}
                     <div class="message-bubble">
                         ${messageContent}
-                        <div class="message-time">${this.formatMessageTime(msg.time)}</div>
+                        ${reactionsHtml}
+                        <div class="message-meta">
+                            ${senderHtml}
+                            <span class="message-time">${this.formatMessageTime(msg.time)}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -407,6 +554,43 @@ class InboxChatController {
 
         this.elements.chatMessages.innerHTML = html;
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+    }
+
+    /**
+     * Render attachments (reference: tpos-pancake renderMessage)
+     */
+    renderAttachments(attachments) {
+        return attachments.map(att => {
+            const url = att.url || att.file_url || att.preview_url || att.payload?.url || att.src || '';
+            if (!url) return '';
+
+            // Image
+            if (att.type === 'image' || att.type === 'photo' || att.mime_type?.startsWith('image/')) {
+                return `<div class="message-media"><img class="message-image" src="${url}" alt="Ảnh" onclick="window.open('${url}','_blank')" loading="lazy"></div>`;
+            }
+            // Sticker / GIF
+            if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_url') {
+                return `<div class="message-media"><img class="message-sticker" src="${url}" alt="Sticker" loading="lazy"></div>`;
+            }
+            // Video
+            if (att.type === 'video' || att.mime_type?.startsWith('video/')) {
+                return `<div class="message-media"><video controls src="${url}" preload="metadata" style="max-width:240px;border-radius:8px;"></video></div>`;
+            }
+            // Audio
+            if (att.type === 'audio' || att.mime_type?.startsWith('audio/')) {
+                return `<div class="message-media"><audio controls src="${url}" preload="metadata"></audio></div>`;
+            }
+            // File
+            if (att.type === 'file' || att.type === 'document') {
+                const fileName = att.name || att.filename || 'Tệp đính kèm';
+                return `<div class="message-file"><a href="${url}" target="_blank" rel="noopener"><i data-lucide="file-text"></i> ${this.escapeHtml(fileName)}</a></div>`;
+            }
+            // Like/thumbsup
+            if (att.type === 'like' || att.type === 'thumbsup') {
+                return `<div class="message-like">👍</div>`;
+            }
+            return '';
+        }).join('');
     }
 
     /**
@@ -432,13 +616,11 @@ class InboxChatController {
         this.renderConversationList();
 
         try {
-            // Get page access token
             const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
             if (!pageAccessToken) {
                 throw new Error('Không lấy được page access token');
             }
 
-            // Send message via Pancake Official API
             const url = window.API_CONFIG.buildUrl.pancakeOfficial(
                 `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
                 pageAccessToken
@@ -447,9 +629,7 @@ class InboxChatController {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: { text: text }
-                })
+                body: JSON.stringify({ message: { text } })
             });
 
             if (!response.ok) {
@@ -459,7 +639,6 @@ class InboxChatController {
 
             console.log('[InboxChat] Message sent successfully');
 
-            // Refresh messages after a short delay to get server-side updates
             setTimeout(async () => {
                 if (this.activeConversationId === conv.id) {
                     await this.loadMessages(conv);
@@ -496,14 +675,11 @@ class InboxChatController {
 
             try {
                 showToast('Đang tải ảnh lên...', 'info');
-
-                // Upload image via pancakeDataManager
                 const pdm = window.pancakeDataManager;
                 if (!pdm) throw new Error('pancakeDataManager not available');
 
                 const result = await pdm.uploadImage(conv.pageId, file);
                 if (result && result.url) {
-                    // Send image message
                     const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
                     const url = window.API_CONFIG.buildUrl.pancakeOfficial(
                         `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
@@ -514,18 +690,11 @@ class InboxChatController {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            message: {
-                                attachment: {
-                                    type: 'image',
-                                    payload: { url: result.url }
-                                }
-                            }
+                            message: { attachment: { type: 'image', payload: { url: result.url } } }
                         })
                     });
 
                     showToast('Đã gửi ảnh', 'success');
-
-                    // Refresh messages
                     setTimeout(() => this.loadMessages(conv), 2000);
                 }
             } catch (err) {
@@ -536,7 +705,7 @@ class InboxChatController {
         input.click();
     }
 
-    // ===== Chat Label Bar (inside chat column) =====
+    // ===== Chat Label Bar =====
 
     renderChatLabelBar(conv) {
         this.elements.chatLabelBar.style.display = 'block';
@@ -563,19 +732,13 @@ class InboxChatController {
         showToast('Đã cập nhật nhãn', 'success');
     }
 
-    // ===== Group Stats Cards (Column 3) =====
+    // ===== Group Stats =====
 
     renderGroupStats() {
         this.data.recalculateGroupCounts();
-
-        // Icon map for default groups
         const iconMap = {
-            'new': 'inbox',
-            'processing': 'loader',
-            'waiting': 'clock',
-            'ordered': 'shopping-cart',
-            'urgent': 'alert-triangle',
-            'done': 'check-circle',
+            'new': 'inbox', 'processing': 'loader', 'waiting': 'clock',
+            'ordered': 'shopping-cart', 'urgent': 'alert-triangle', 'done': 'check-circle',
         };
 
         this.elements.groupStatsList.innerHTML = this.data.groups.map(group => {
@@ -591,9 +754,7 @@ class InboxChatController {
                     </div>
                     <div class="group-stats-card-body">
                         <div class="group-stats-card-name">${this.escapeHtml(group.name)}</div>
-                        <div class="group-stats-card-count">
-                            <strong>${group.count}</strong> khách hàng
-                        </div>
+                        <div class="group-stats-card-count"><strong>${group.count}</strong> khách hàng</div>
                     </div>
                     <button class="group-stats-card-help" onclick="event.stopPropagation()" title="Thông tin">
                         ?
@@ -607,26 +768,15 @@ class InboxChatController {
     }
 
     filterByGroup(groupId) {
-        if (this.currentGroupFilter === groupId) {
-            this.currentGroupFilter = null;
-        } else {
-            this.currentGroupFilter = groupId;
-        }
+        this.currentGroupFilter = this.currentGroupFilter === groupId ? null : groupId;
         this.renderConversationList();
         this.renderGroupStats();
     }
 
-    // ===== Star =====
-
     updateStarButton(starred) {
         const btn = this.elements.btnStarConversation;
-        if (starred) {
-            btn.style.color = '#f59e0b';
-            btn.title = 'Bỏ đánh dấu';
-        } else {
-            btn.style.color = '';
-            btn.title = 'Đánh dấu';
-        }
+        if (starred) { btn.style.color = '#f59e0b'; btn.title = 'Bỏ đánh dấu'; }
+        else { btn.style.color = ''; btn.title = 'Đánh dấu'; }
     }
 
     // ===== Manage Groups Modal =====
@@ -638,38 +788,24 @@ class InboxChatController {
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
             <div class="modal-content">
-                <div class="modal-title">
-                    <i data-lucide="settings"></i>
-                    Quản Lý Nhóm
-                </div>
-
+                <div class="modal-title"><i data-lucide="settings"></i> Quản Lý Nhóm</div>
                 <div class="modal-body">
-                    <!-- Existing groups -->
                     <div class="modal-group-list" id="modalGroupList">
-                        ${this.data.groups.map((group, idx) => `
+                        ${this.data.groups.map((group) => `
                             <div class="modal-group-item" data-group-id="${group.id}">
-                                <div class="modal-group-color-pick"
-                                     style="background: ${group.color}"
-                                     data-idx="${idx}"
-                                     onclick="window.inboxChat._toggleColorPicker(this, '${group.id}')">
-                                </div>
+                                <div class="modal-group-color-pick" style="background: ${group.color}"
+                                     onclick="window.inboxChat._toggleColorPicker(this, '${group.id}')"></div>
                                 <div class="modal-group-fields">
-                                    <input type="text" class="modal-group-name-input"
-                                           value="${this.escapeHtml(group.name)}"
+                                    <input type="text" class="modal-group-name-input" value="${this.escapeHtml(group.name)}"
                                            placeholder="Tên nhóm" data-group-id="${group.id}" />
-                                    <textarea class="modal-group-note-input"
-                                              placeholder="Ghi chú (hiển thị ở tooltip ?)"
+                                    <textarea class="modal-group-note-input" placeholder="Ghi chú"
                                               data-group-id="${group.id}" rows="2">${this.escapeHtml(group.note || '')}</textarea>
                                 </div>
                                 <button class="modal-group-delete" title="Xóa nhóm"
-                                        onclick="window.inboxChat._deleteGroupInModal('${group.id}', this)">
-                                    &times;
-                                </button>
+                                        onclick="window.inboxChat._deleteGroupInModal('${group.id}', this)">&times;</button>
                             </div>
                         `).join('')}
                     </div>
-
-                    <!-- Add new group -->
                     <div class="modal-add-section">
                         <h4>Thêm Nhóm Mới</h4>
                         <div class="modal-add-row">
@@ -678,10 +814,8 @@ class InboxChatController {
                                 <textarea id="modalNewGroupNote" placeholder="Ghi chú cho nhóm..." rows="2"></textarea>
                                 <div class="modal-color-picker">
                                     ${colors.map((c, i) => `
-                                        <div class="color-option ${i === 0 ? 'selected' : ''}"
-                                             style="background: ${c}" data-color="${c}"
-                                             onclick="this.parentElement.querySelectorAll('.color-option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected');">
-                                        </div>
+                                        <div class="color-option ${i === 0 ? 'selected' : ''}" style="background: ${c}" data-color="${c}"
+                                             onclick="this.parentElement.querySelectorAll('.color-option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected');"></div>
                                     `).join('')}
                                 </div>
                             </div>
@@ -689,7 +823,6 @@ class InboxChatController {
                         </div>
                     </div>
                 </div>
-
                 <div class="modal-footer">
                     <button class="btn-modal-cancel" id="btnModalCancel">Đóng</button>
                     <button class="btn-modal-confirm" id="btnModalSave">Lưu Thay Đổi</button>
@@ -700,79 +833,53 @@ class InboxChatController {
         document.body.appendChild(overlay);
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        // Close on overlay click
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) overlay.remove();
-        });
-
-        // Cancel
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
         document.getElementById('btnModalCancel').addEventListener('click', () => overlay.remove());
 
-        // Add new group
         document.getElementById('btnModalAddGroup').addEventListener('click', () => {
             const name = document.getElementById('modalNewGroupName').value.trim();
             const note = document.getElementById('modalNewGroupNote').value.trim();
             const color = overlay.querySelector('.modal-add-section .color-option.selected')?.dataset.color || '#3b82f6';
-
-            if (!name) {
-                showToast('Vui lòng nhập tên nhóm', 'warning');
-                return;
-            }
-
+            if (!name) { showToast('Vui lòng nhập tên nhóm', 'warning'); return; }
             this.data.addGroup(name, color, note);
-
-            const listEl = document.getElementById('modalGroupList');
             const newGroup = this.data.groups[this.data.groups.length - 1];
+            const listEl = document.getElementById('modalGroupList');
             const newItem = document.createElement('div');
             newItem.className = 'modal-group-item';
             newItem.dataset.groupId = newGroup.id;
             newItem.innerHTML = `
-                <div class="modal-group-color-pick"
-                     style="background: ${newGroup.color}"
-                     onclick="window.inboxChat._toggleColorPicker(this, '${newGroup.id}')">
-                </div>
+                <div class="modal-group-color-pick" style="background: ${newGroup.color}"
+                     onclick="window.inboxChat._toggleColorPicker(this, '${newGroup.id}')"></div>
                 <div class="modal-group-fields">
-                    <input type="text" class="modal-group-name-input"
-                           value="${this.escapeHtml(newGroup.name)}"
+                    <input type="text" class="modal-group-name-input" value="${this.escapeHtml(newGroup.name)}"
                            placeholder="Tên nhóm" data-group-id="${newGroup.id}" />
-                    <textarea class="modal-group-note-input"
-                              placeholder="Ghi chú (hiển thị ở tooltip ?)"
+                    <textarea class="modal-group-note-input" placeholder="Ghi chú"
                               data-group-id="${newGroup.id}" rows="2">${this.escapeHtml(newGroup.note || '')}</textarea>
                 </div>
                 <button class="modal-group-delete" title="Xóa nhóm"
-                        onclick="window.inboxChat._deleteGroupInModal('${newGroup.id}', this)">
-                    &times;
-                </button>
+                        onclick="window.inboxChat._deleteGroupInModal('${newGroup.id}', this)">&times;</button>
             `;
             listEl.appendChild(newItem);
-
             document.getElementById('modalNewGroupName').value = '';
             document.getElementById('modalNewGroupNote').value = '';
-
             showToast('Đã thêm nhóm: ' + name, 'success');
         });
 
-        // Save all edits
         document.getElementById('btnModalSave').addEventListener('click', () => {
             overlay.querySelectorAll('.modal-group-item').forEach(item => {
                 const groupId = item.dataset.groupId;
                 const nameInput = item.querySelector('.modal-group-name-input');
                 const noteInput = item.querySelector('.modal-group-note-input');
                 if (nameInput && noteInput) {
-                    this.data.updateGroup(groupId, {
-                        name: nameInput.value.trim(),
-                        note: noteInput.value.trim(),
-                    });
+                    this.data.updateGroup(groupId, { name: nameInput.value.trim(), note: noteInput.value.trim() });
                 }
             });
-
             this.renderGroupStats();
             this.renderConversationList();
             if (this.activeConversationId) {
                 const conv = this.data.getConversation(this.activeConversationId);
                 if (conv) this.renderChatLabelBar(conv);
             }
-
             overlay.remove();
             showToast('Đã lưu thay đổi nhóm', 'success');
         });
@@ -781,41 +888,30 @@ class InboxChatController {
     _deleteGroupInModal(groupId, btnEl) {
         if (!confirm('Xóa nhóm này? Các cuộc hội thoại sẽ chuyển về "Inbox Mới".')) return;
         this.data.deleteGroup(groupId);
-        const item = btnEl.closest('.modal-group-item');
-        if (item) item.remove();
+        btnEl.closest('.modal-group-item')?.remove();
         showToast('Đã xóa nhóm', 'success');
     }
 
     _toggleColorPicker(el, groupId) {
         const existing = el.parentElement.querySelector('.color-popover');
         if (existing) { existing.remove(); return; }
-
         const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#14b8a6', '#6366f1', '#f97316', '#6b7280'];
         const popover = document.createElement('div');
         popover.className = 'color-popover';
-        popover.innerHTML = colors.map(c => `
-            <div class="color-option" style="background: ${c}" data-color="${c}"></div>
-        `).join('');
-
+        popover.innerHTML = colors.map(c => `<div class="color-option" style="background: ${c}" data-color="${c}"></div>`).join('');
         el.style.position = 'relative';
         el.appendChild(popover);
-
         popover.addEventListener('click', (e) => {
             const opt = e.target.closest('.color-option');
             if (!opt) return;
-            const newColor = opt.dataset.color;
-            el.style.background = newColor;
-            this.data.updateGroup(groupId, { color: newColor });
+            el.style.background = opt.dataset.color;
+            this.data.updateGroup(groupId, { color: opt.dataset.color });
             popover.remove();
             e.stopPropagation();
         });
-
         setTimeout(() => {
             const closeHandler = (e) => {
-                if (!popover.contains(e.target) && e.target !== el) {
-                    popover.remove();
-                    document.removeEventListener('click', closeHandler);
-                }
+                if (!popover.contains(e.target) && e.target !== el) { popover.remove(); document.removeEventListener('click', closeHandler); }
             };
             document.addEventListener('click', closeHandler);
         }, 0);
@@ -824,41 +920,40 @@ class InboxChatController {
     // ===== Utility Methods =====
 
     getLabelClass(label) {
-        const map = {
-            'new': 'label-new',
-            'processing': 'label-processing',
-            'waiting': 'label-waiting',
-            'ordered': 'label-done',
-            'urgent': 'label-urgent',
-            'done': 'label-done',
-        };
-        return map[label] || 'label-new';
+        return { 'new': 'label-new', 'processing': 'label-processing', 'waiting': 'label-waiting',
+                 'ordered': 'label-done', 'urgent': 'label-urgent', 'done': 'label-done' }[label] || 'label-new';
     }
 
     getLabelText(label) {
         const group = this.data.groups.find(g => g.id === label);
         if (group) return group.name;
-        const map = {
-            'new': 'Mới',
-            'processing': 'Đang XL',
-            'waiting': 'Chờ PH',
-            'ordered': 'Đã Đặt',
-            'urgent': 'Cần Gấp',
-            'done': 'Xong',
-        };
-        return map[label] || label;
+        return { 'new': 'Mới', 'processing': 'Đang XL', 'waiting': 'Chờ PH',
+                 'ordered': 'Đã Đặt', 'urgent': 'Cần Gấp', 'done': 'Xong' }[label] || label;
     }
 
+    /**
+     * Format time for conversation list (reference: tpos-pancake formatTime)
+     * Today: show HH:mm, within 7 days: show day of week, else: dd/mm
+     */
     formatTime(date) {
         if (!(date instanceof Date)) date = new Date(date);
+        if (isNaN(date.getTime())) return '';
+
         const now = new Date();
-        const diff = now - date;
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const diffDays = Math.floor((today - msgDay) / 86400000);
 
-        if (diff < 60000) return 'Vừa xong';
-        if (diff < 3600000) return Math.floor(diff / 60000) + ' phút';
-        if (diff < 86400000) return Math.floor(diff / 3600000) + ' giờ';
-        if (diff < 172800000) return 'Hôm qua';
-
+        // Today: show time
+        if (diffDays === 0) {
+            return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+        // Within 7 days: day of week
+        if (diffDays > 0 && diffDays < 7) {
+            const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+            return days[date.getDay()];
+        }
+        // Older: dd/mm
         return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
     }
 
@@ -879,18 +974,9 @@ class InboxChatController {
         return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     }
 
-    /**
-     * Format message text - convert URLs to links, handle HTML entities
-     */
     formatMessageText(text) {
-        // Escape HTML first
         let safe = this.escapeHtml(text);
-        // Convert URLs to clickable links
-        safe = safe.replace(
-            /(https?:\/\/[^\s<]+)/gi,
-            '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">$1</a>'
-        );
-        // Convert newlines to <br>
+        safe = safe.replace(/(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">$1</a>');
         safe = safe.replace(/\n/g, '<br>');
         return safe;
     }
