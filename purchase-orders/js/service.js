@@ -133,6 +133,7 @@ class PurchaseOrderService {
             // Prepare document data
             const docData = {
                 orderNumber,
+                orderType: orderData.orderType || 'NJD SHOP',
                 orderDate: orderData.orderDate || firebase.firestore.Timestamp.now(),
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
