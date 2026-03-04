@@ -1,75 +1,74 @@
 @echo off
-echo ========================================
-echo   CAI DAT ATTENDANCE SYNC SERVICE
-echo ========================================
+echo.
+echo  ATTENDANCE SYNC - SETUP
+echo  ========================
 echo.
 
-REM Kiem tra Node.js
+:: Check Node.js
 where node >nul 2>&1
 if errorlevel 1 (
-    echo [LOI] Chua cai Node.js
-    echo Tai tai: https://nodejs.org/
+    echo [ERROR] Node.js not found! Install from https://nodejs.org
     pause
     exit /b 1
 )
+for /f "tokens=*" %%a in ('node -v') do set NV=%%a
+echo Node.js: %NV%
 
-for /f "tokens=*" %%a in ('node -v') do set NODE_VER=%%a
-echo Node.js: %NODE_VER%
-echo.
-
-REM Kiem tra serviceAccountKey.json
+:: Check Firebase key
 if not exist "serviceAccountKey.json" (
-    echo [LOI] Thieu file serviceAccountKey.json
-    echo.
-    echo Huong dan:
-    echo   1. Vao Firebase Console -^> Project Settings
-    echo   2. Tab Service accounts -^> Generate new private key
-    echo   3. Luu file vao thu muc nay voi ten serviceAccountKey.json
-    echo.
+    echo [ERROR] Missing serviceAccountKey.json
+    echo   Copy your Firebase service account key to this folder.
     pause
     exit /b 1
 )
-echo serviceAccountKey.json: OK
-echo.
+echo Firebase key: OK
 
-REM Cai dat npm packages
-echo Dang cai dat thu vien...
-call npm install
+:: Install dependencies
+echo.
+echo Installing dependencies...
+call npm install --production
 if errorlevel 1 (
-    echo [LOI] npm install that bai
+    echo [ERROR] npm install failed
     pause
     exit /b 1
 )
-echo Thu vien: OK
+echo Dependencies: OK
+
+:: Quick connection test
+echo.
+echo Testing device connection...
+node test.js
 echo.
 
-REM Test ket noi
-echo Dang test ket noi may cham cong...
-echo (Neu treo qua 15 giay, nhan Ctrl+C)
-echo.
-node test-connection.js
-echo.
+:: Kill any existing instance
+taskkill /f /fi "WINDOWTITLE eq attendance-sync" >nul 2>&1
+for /f "tokens=2" %%a in ('wmic process where "commandline like '%%attendance-sync%%index.js%%'" get processid 2^>nul ^| findstr /r "[0-9]"') do taskkill /f /pid %%a >nul 2>&1
 
-REM Hoi cai autostart
-echo ========================================
-set /p AUTOSTART="Ban muon tu dong chay khi bat may? (y/n): "
-if /i "%AUTOSTART%"=="y" (
-    echo Dang cai autostart...
-    copy /y start-hidden.vbs "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\attendance-sync.vbs" >nul
-    if errorlevel 1 (
-        echo [LOI] Khong the cai autostart
-    ) else (
-        echo Autostart: OK
-    )
-)
+:: Create startup VBS with hardcoded absolute path
+set "SYNC_DIR=%~dp0"
+set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+set "STARTUP_VBS=%STARTUP_DIR%\attendance-sync.vbs"
+
+echo Creating startup script...
+> "%STARTUP_VBS%" echo Set sh = CreateObject("WScript.Shell")
+>>"%STARTUP_VBS%" echo sh.CurrentDirectory = "%SYNC_DIR:~0,-1%"
+>>"%STARTUP_VBS%" echo sh.Run "cmd /c node index.js >> logs\service.log 2>&1", 0, False
+echo Startup: OK (runs on boot)
+
+:: Start service NOW (hidden)
+echo.
+echo Starting service (hidden)...
+if not exist "logs" mkdir logs
+start "" wscript.exe "%STARTUP_VBS%"
+echo Service: RUNNING
 
 echo.
-echo ========================================
-echo   CAI DAT HOAN TAT!
+echo  ========================
+echo  SETUP COMPLETE!
+echo  - Service is running in background
+echo  - Will auto-start on Windows boot
+echo  - Use stop.bat to stop
+echo  - Logs: %SYNC_DIR%logs\
+echo  ========================
 echo.
-echo   Chay service:   start-hidden.vbs
-echo   Dung service:   stop.bat
-echo   Chan doan:      node diagnose.js
-echo   Test ket noi:   node test-connection.js
-echo ========================================
 pause

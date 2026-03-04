@@ -50,6 +50,14 @@ const MENU_CONFIG = [
         permissionRequired: "ib",
     },
     {
+        href: "../inbox/index.html",
+        icon: "messages-square",
+        text: "Inbox Chat",
+        shortText: "Chat",
+        pageIdentifier: "inbox",
+        permissionRequired: "inbox",
+    },
+    {
         href: "../ck/index.html",
         icon: "credit-card",
         text: "Thông Tin Chuyển Khoản",

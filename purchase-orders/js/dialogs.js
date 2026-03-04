@@ -419,6 +419,9 @@ class VariantGeneratorDialog {
             this.searchFilters[key] = '';
         }
 
+        // Track which variants are checked for adding to PO (all checked by default)
+        this.variantChecked = new Set();
+
         this.render();
     }
 
@@ -582,12 +585,15 @@ class VariantGeneratorDialog {
 
                         <!-- Variant Preview Column -->
                         <div style="border: 1px solid #e5e7eb; border-radius: 8px; display: flex; flex-direction: column;">
-                            <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600;">Danh sách Biến Thể</div>
+                            <div id="variantPreviewHeader" style="padding: 12px; border-bottom: 1px solid #e5e7eb; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Danh sách Biến Thể</span>
+                                ${combinations.length > 0 ? `<label style="font-weight: 400; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #6b7280;">
+                                    <input type="checkbox" id="variantSelectAll" checked style="width: 14px; height: 14px; accent-color: #3b82f6;">
+                                    Chọn tất cả
+                                </label>` : ''}
+                            </div>
                             <div style="flex: 1; overflow-y: auto; padding: 12px; max-height: 350px;" id="variantPreviewList">
-                                ${combinations.length > 0
-                                    ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v.variant || v}</div>`).join('')
-                                    : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>'
-                                }
+                                ${this.renderVariantPreviewList(combinations)}
                             </div>
                         </div>
                     </div>
@@ -619,7 +625,7 @@ class VariantGeneratorDialog {
                         cursor: ${combinations.length > 0 ? 'pointer' : 'not-allowed'};
                         font-size: 14px;
                         font-weight: 500;
-                    " ${combinations.length === 0 ? 'disabled' : ''}>Tạo ${combinations.length} biến thể</button>
+                    " ${combinations.length === 0 ? 'disabled' : ''}>Tạo ${combinations.length > 0 ? `${combinations.length}/${combinations.length}` : '0'} biến thể</button>
                 </div>
             </div>
         `;
@@ -657,7 +663,21 @@ class VariantGeneratorDialog {
         `).join('');
     }
 
-    updateUI() {
+    renderVariantPreviewList(combinations) {
+        if (combinations.length === 0) {
+            return '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>';
+        }
+        return combinations.map((v, idx) => {
+            const variant = v.variant || v;
+            const checked = this.variantChecked.has(variant);
+            return `<label style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; cursor: pointer;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                <input type="checkbox" data-variant-check="${idx}" value="${variant}" ${checked ? 'checked' : ''} style="width: 15px; height: 15px; accent-color: #3b82f6; flex-shrink: 0;">
+                <span>${variant}</span>
+            </label>`;
+        }).join('');
+    }
+
+    updateUI(autoSelectNew = true) {
         // Update summary
         const summaryEl = this.modalElement?.querySelector('#selectedSummary');
         if (summaryEl) {
@@ -674,20 +694,78 @@ class VariantGeneratorDialog {
 
         // Update preview
         const combinations = this.generateCombinations();
+
+        // Sync variantChecked with current combinations
+        const currentVariants = new Set(combinations.map(v => v.variant || v));
+        // Remove stale entries (variants that no longer exist)
+        for (const v of this.variantChecked) {
+            if (!currentVariants.has(v)) this.variantChecked.delete(v);
+        }
+        // Auto-select new variants only when attribute selection changes
+        if (autoSelectNew) {
+            for (const v of currentVariants) {
+                if (!this.variantChecked.has(v)) this.variantChecked.add(v);
+            }
+        }
+
         const previewEl = this.modalElement?.querySelector('#variantPreviewList');
         if (previewEl) {
-            previewEl.innerHTML = combinations.length > 0
-                ? combinations.map(v => `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px;">${v.variant || v}</div>`).join('')
-                : '<p style="color: #9ca3af; text-align: center; padding: 40px 20px;">Chọn giá trị thuộc tính<br>để tạo biến thể</p>';
+            previewEl.innerHTML = this.renderVariantPreviewList(combinations);
+        }
+
+        // Update select-all checkbox in header (re-render header if needed)
+        const headerEl = this.modalElement?.querySelector('#variantPreviewHeader');
+        if (headerEl) {
+            const selectAllHtml = combinations.length > 0
+                ? `<label style="font-weight: 400; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: #6b7280;">
+                    <input type="checkbox" id="variantSelectAll" style="width: 14px; height: 14px; accent-color: #3b82f6;">
+                    Chọn tất cả
+                </label>`
+                : '';
+            headerEl.innerHTML = `<span>Danh sách Biến Thể</span>${selectAllHtml}`;
+            const selectAllEl = headerEl.querySelector('#variantSelectAll');
+            if (selectAllEl) {
+                selectAllEl.checked = this.variantChecked.size === combinations.length;
+                selectAllEl.indeterminate = this.variantChecked.size > 0 && this.variantChecked.size < combinations.length;
+            }
+        }
+
+        // Update button
+        const checkedCount = this.variantChecked.size;
+        const btnGenerate = this.modalElement?.querySelector('#btnGenerateVariants');
+        if (btnGenerate) {
+            btnGenerate.textContent = combinations.length > 0
+                ? `Tạo ${checkedCount}/${combinations.length} biến thể`
+                : 'Tạo 0 biến thể';
+            btnGenerate.disabled = checkedCount === 0;
+            btnGenerate.style.background = checkedCount > 0 ? '#3b82f6' : '#9ca3af';
+            btnGenerate.style.cursor = checkedCount > 0 ? 'pointer' : 'not-allowed';
+        }
+    }
+
+    /**
+     * Lightweight update: only button text + select-all state (no list re-render)
+     */
+    updateVariantCountUI() {
+        const combinations = this.generateCombinations();
+        const checkedCount = this.variantChecked.size;
+
+        // Update select-all checkbox
+        const selectAllEl = this.modalElement?.querySelector('#variantSelectAll');
+        if (selectAllEl) {
+            selectAllEl.checked = checkedCount === combinations.length;
+            selectAllEl.indeterminate = checkedCount > 0 && checkedCount < combinations.length;
         }
 
         // Update button
         const btnGenerate = this.modalElement?.querySelector('#btnGenerateVariants');
         if (btnGenerate) {
-            btnGenerate.textContent = `Tạo ${combinations.length} biến thể`;
-            btnGenerate.disabled = combinations.length === 0;
-            btnGenerate.style.background = combinations.length > 0 ? '#3b82f6' : '#9ca3af';
-            btnGenerate.style.cursor = combinations.length > 0 ? 'pointer' : 'not-allowed';
+            btnGenerate.textContent = combinations.length > 0
+                ? `Tạo ${checkedCount}/${combinations.length} biến thể`
+                : 'Tạo 0 biến thể';
+            btnGenerate.disabled = checkedCount === 0;
+            btnGenerate.style.background = checkedCount > 0 ? '#3b82f6' : '#9ca3af';
+            btnGenerate.style.cursor = checkedCount > 0 ? 'pointer' : 'not-allowed';
         }
     }
 
@@ -712,9 +790,10 @@ class VariantGeneratorDialog {
         };
         document.addEventListener('keydown', escHandler);
 
-        // Checkbox changes
+        // Checkbox changes (attribute selection + variant selection)
         this.modalElement.addEventListener('change', (e) => {
             if (e.target.type === 'checkbox' && e.target.dataset.attribute) {
+                // Attribute checkbox
                 const attr = e.target.dataset.attribute;
                 const value = e.target.value;
 
@@ -726,7 +805,30 @@ class VariantGeneratorDialog {
                     this.selected[attr] = this.selected[attr].filter(v => v !== value);
                 }
 
-                this.updateUI();
+                this.updateUI(true);
+            } else if (e.target.type === 'checkbox' && e.target.dataset.variantCheck !== undefined) {
+                // Variant row checkbox - just update state, don't re-render list
+                const variant = e.target.value;
+                if (e.target.checked) {
+                    this.variantChecked.add(variant);
+                } else {
+                    this.variantChecked.delete(variant);
+                }
+                this.updateVariantCountUI();
+            } else if (e.target.id === 'variantSelectAll') {
+                // Select all / deselect all
+                const combinations = this.generateCombinations();
+                if (e.target.checked) {
+                    combinations.forEach(v => this.variantChecked.add(v.variant || v));
+                } else {
+                    this.variantChecked.clear();
+                }
+                // Re-render variant list to toggle all checkboxes
+                const previewEl = this.modalElement?.querySelector('#variantPreviewList');
+                if (previewEl) {
+                    previewEl.innerHTML = this.renderVariantPreviewList(combinations);
+                }
+                this.updateVariantCountUI();
             }
         });
 
@@ -744,11 +846,12 @@ class VariantGeneratorDialog {
             }
         });
 
-        // Generate variants
+        // Generate variants - only pass checked variants to PO
         this.modalElement.querySelector('#btnGenerateVariants')?.addEventListener('click', () => {
             const combinations = this.generateCombinations();
-            if (combinations.length > 0 && this.onGenerate) {
-                this.onGenerate(combinations, this.baseProduct);
+            const checkedCombinations = combinations.filter(v => this.variantChecked.has(v.variant || v));
+            if (checkedCombinations.length > 0 && this.onGenerate) {
+                this.onGenerate(checkedCombinations, this.baseProduct);
                 this.close();
             }
         });

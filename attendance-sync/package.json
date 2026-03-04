@@ -1,15 +1,13 @@
 {
   "name": "attendance-sync",
-  "version": "2.0.0",
-  "description": "Dong bo du lieu cham cong tu may Ronald Jack DG-600 len Firebase (UDP protocol)",
-  "main": "sync-service.js",
+  "version": "5.0.0",
+  "description": "Raw ZK protocol (TCP+UDP auto-detect), no ZK library",
+  "main": "index.js",
   "scripts": {
-    "start": "node sync-service.js",
-    "test": "node test-connection.js",
-    "diagnose": "node diagnose.js"
+    "start": "node index.js",
+    "test": "node test.js"
   },
   "dependencies": {
-    "node-zklib": "^1.0.2",
     "firebase-admin": "^11.11.0"
   }
 }

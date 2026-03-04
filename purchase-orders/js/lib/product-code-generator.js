@@ -107,7 +107,7 @@ window.ProductCodeGenerator = (function() {
     /**
      * Detect product category from name
      * @param {string} productName
-     * @returns {'N'|'P'|'Q'|'B'|null}
+     * @returns {'N'|'P'|'Q'|'B'|'MM'|null}
      */
     function detectProductCategory(productName) {
         if (!productName || typeof productName !== 'string') {
@@ -117,6 +117,11 @@ window.ProductCodeGenerator = (function() {
         const tokens = tokenize(productName);
         if (tokens.length === 0) {
             return null;
+        }
+
+        // Category MM: Products with MM prefix (e.g., "MM ao thun" → MM01)
+        if (tokens[0] && tokens[0] === 'MM') {
+            return 'MM';
         }
 
         // Category B: Social order products — name starts with "IB"
@@ -356,10 +361,13 @@ window.ProductCodeGenerator = (function() {
         const maxNumber = Math.max(maxFromItems, maxFromFirestore, maxFromTPOS);
         console.log(`[ProductCodeGen] Max for ${category}: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
 
+        // Pad digits: 2 for multi-char prefixes (MM01), 3 for single-char (N001)
+        const padLength = category.length > 1 ? 2 : 3;
+
         // Try to find unused code
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             const number = maxNumber + attempt;
-            const candidateCode = `${category}${number.toString().padStart(3, '0')}`;
+            const candidateCode = `${category}${number.toString().padStart(padLength, '0')}`;
 
             // Check form items
             if (codeExistsInItems(candidateCode, existingItems)) {
@@ -387,6 +395,56 @@ window.ProductCodeGenerator = (function() {
     }
 
     /**
+     * Generate product code from a custom prefix (e.g., "MM" → MM01, MM02, ...)
+     * @param {string} prefix - The prefix to use (e.g., "MM")
+     * @param {Array} existingItems - Form items to check against
+     * @param {number} maxAttempts - Max attempts before giving up
+     * @returns {Promise<string|null>}
+     */
+    async function generateCodeWithPrefix(prefix, existingItems = [], maxAttempts = 30) {
+        if (!prefix || typeof prefix !== 'string') return null;
+
+        const upperPrefix = prefix.toUpperCase();
+
+        // Get max numbers from all sources (parallel)
+        const [maxFromFirestore, maxFromTPOS] = await Promise.all([
+            getMaxNumberFromFirestore(upperPrefix),
+            getMaxNumberFromTPOS(upperPrefix)
+        ]);
+        const maxFromItems = getMaxNumberFromItems(existingItems, upperPrefix);
+        const maxNumber = Math.max(maxFromItems, maxFromFirestore, maxFromTPOS);
+        console.log(`[ProductCodeGen] Prefix "${upperPrefix}" max: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
+
+        // Try to find unused code
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const number = maxNumber + attempt;
+            const candidateCode = `${upperPrefix}${number.toString().padStart(2, '0')}`;
+
+            if (codeExistsInItems(candidateCode, existingItems)) continue;
+
+            const existsInDB = await codeExistsInFirestore(candidateCode);
+            if (existsInDB) continue;
+
+            const existsOnTPOS = await codeExistsOnTPOS(candidateCode);
+            if (existsOnTPOS) continue;
+
+            return candidateCode;
+        }
+
+        console.warn(`Failed to generate code with prefix "${upperPrefix}" after ${maxAttempts} attempts`);
+        return null;
+    }
+
+    /**
+     * Check if a string is a pure letter prefix (no digits)
+     * @param {string} str
+     * @returns {boolean}
+     */
+    function isPurePrefix(str) {
+        return /^[A-Za-z]{2,}$/.test(str?.trim());
+    }
+
+    /**
      * Simple synchronous code generation (without DB checks)
      * @param {string} productName
      * @param {Array} existingItems
@@ -398,9 +456,10 @@ window.ProductCodeGenerator = (function() {
             return null;
         }
 
+        const padLength = category.length > 1 ? 2 : 3;
         const maxFromItems = getMaxNumberFromItems(existingItems, category);
         const number = maxFromItems + 1;
-        return `${category}${number.toString().padStart(3, '0')}`;
+        return `${category}${number.toString().padStart(padLength, '0')}`;
     }
 
     /**
@@ -437,6 +496,8 @@ window.ProductCodeGenerator = (function() {
         getMaxNumberFromFirestore,
         getMaxNumberFromTPOS,
         generateProductCodeFromMax,
+        generateCodeWithPrefix,
+        isPurePrefix,
         generateProductCodeSync,
         extractBaseProductCode,
         isValidProductCode,

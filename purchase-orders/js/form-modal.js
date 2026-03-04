@@ -853,6 +853,31 @@ class PurchaseOrderFormModal {
     }
 
     /**
+     * Add new item after a specific item (by id)
+     */
+    addItemAfter(afterItemId) {
+        const newItem = {
+            id: `item_${Date.now()}_${this.itemCounter++}`,
+            productName: '',
+            variant: '',
+            productCode: '',
+            quantity: 1,
+            purchasePrice: '',
+            sellingPrice: '',
+            productImages: [],
+            priceImages: [],
+            selectedAttributeValueIds: []
+        };
+        const idx = this.formData.items.findIndex(i => i.id === afterItemId);
+        if (idx !== -1) {
+            this.formData.items.splice(idx + 1, 0, newItem);
+        } else {
+            this.formData.items.push(newItem);
+        }
+        return newItem;
+    }
+
+    /**
      * Remove item
      */
     removeItem(itemId) {
@@ -877,7 +902,12 @@ class PurchaseOrderFormModal {
             productImages: [...(sourceItem.productImages || [])],
             priceImages: [...(sourceItem.priceImages || [])]
         };
-        this.formData.items.push(newItem);
+        const idx = this.formData.items.findIndex(item => item.id === itemId);
+        if (idx !== -1) {
+            this.formData.items.splice(idx + 1, 0, newItem);
+        } else {
+            this.formData.items.push(newItem);
+        }
 
         // Auto-generate new product code for copied item
         if (newItem.productName && newItem.productName.trim()) {
@@ -886,7 +916,7 @@ class PurchaseOrderFormModal {
     }
 
     /**
-     * Apply price & images from one variant to all variants with same productCode
+     * Apply name, price & images from one variant to all variants with same productCode
      * @param {string} sourceItemId - Source item ID
      */
     applyAllFieldsToVariants(sourceItemId) {
@@ -901,17 +931,26 @@ class PurchaseOrderFormModal {
             if (item.id === sourceItemId) return; // Skip source
             if ((item.productCode || '').trim() !== productCode) return; // Skip different product
 
+            item.productName = sourceItem.productName || '';
             item.productImages = [...(sourceItem.productImages || [])];
             item.priceImages = [...(sourceItem.priceImages || [])];
             item.purchasePrice = sourceItem.purchasePrice;
             item.sellingPrice = sourceItem.sellingPrice;
+
+            // Copy pending images so all variants get uploaded
+            if (this.pendingImages.products[sourceItemId]?.length > 0) {
+                this.pendingImages.products[item.id] = [...this.pendingImages.products[sourceItemId]];
+            }
+            if (this.pendingImages.prices[sourceItemId]?.length > 0) {
+                this.pendingImages.prices[item.id] = [...this.pendingImages.prices[sourceItemId]];
+            }
             updatedCount++;
         });
 
         if (updatedCount > 0) {
             this.refreshItemsTable();
             if (window.notificationManager) {
-                window.notificationManager.success(`Đã áp dụng giá & hình ảnh cho ${updatedCount} biến thể`);
+                window.notificationManager.success(`Đã áp dụng tên, giá & hình ảnh cho ${updatedCount} biến thể`);
             }
         } else {
             if (window.notificationManager) {
@@ -1006,7 +1045,7 @@ class PurchaseOrderFormModal {
                 background: white;
                 border-radius: 12px;
                 width: 100%;
-                max-width: 1600px;
+                max-width: 100%;
                 max-height: 95vh;
                 display: flex;
                 flex-direction: column;
@@ -1167,6 +1206,22 @@ class PurchaseOrderFormModal {
                                 box-sizing: border-box;
                             ">
                         </div>
+                        <button type="button" id="btnAddProductTop" title="Thêm sản phẩm" style="
+                            height: 40px;
+                            width: 40px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
                         <button type="button" id="btnSettings" style="
                             height: 40px;
                             width: 40px;
@@ -1182,24 +1237,6 @@ class PurchaseOrderFormModal {
                                 <circle cx="12" cy="12" r="3"></circle>
                                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                             </svg>
-                        </button>
-                        <button type="button" id="btnAddProduct" style="
-                            height: 40px;
-                            padding: 0 16px;
-                            border: 1px solid #d1d5db;
-                            border-radius: 8px;
-                            background: white;
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            gap: 8px;
-                            font-size: 14px;
-                        ">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                            Thêm sản phẩm
                         </button>
                         <button type="button" id="btnChooseInventory" style="
                             height: 40px;
@@ -1228,7 +1265,7 @@ class PurchaseOrderFormModal {
                                 <thead>
                                     <tr style="background: #f9fafb;">
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">STT</th>
-                                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; min-width: 150px;">Tên sản phẩm</th>
+                                        <th style="padding: 12px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100%;">Tên sản phẩm</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Biến thể</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">Mã sản phẩm</th>
                                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">SL</th>
@@ -1323,6 +1360,25 @@ class PurchaseOrderFormModal {
                     </div>
 
                     <div style="display: flex; align-items: center; gap: 16px;">
+                        <button type="button" id="btnAddProduct" style="
+                            height: 36px;
+                            padding: 0 14px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                            font-size: 13px;
+                            white-space: nowrap;
+                        ">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Thêm sản phẩm
+                        </button>
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <span style="font-size: 14px; font-weight: 600; color: #6b7280;">THÀNH TIỀN:</span>
                             <span style="font-size: 20px; font-weight: 700; color: #3b82f6;" id="finalAmount">${this.formatNumber(totals.finalAmount)} đ</span>
@@ -1396,15 +1452,21 @@ class PurchaseOrderFormModal {
                 <tr data-item-id="${item.id}">
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">${index + 1}</td>
                     <td style="padding: 12px 8px; border-bottom: 1px solid #f3f4f6;">
-                        <input type="text" data-field="productName" value="${item.productName || ''}" placeholder="Nhập tên sản phẩm" style="
+                        <textarea data-field="productName" rows="1" placeholder="Nhập tên sản phẩm" title="${(item.productName || '').replace(/"/g, '&quot;')}" style="
                             width: 100%;
-                            height: 36px;
-                            padding: 0 8px;
+                            min-width: 200px;
+                            padding: 6px 8px;
                             border: 1px solid #d1d5db;
                             border-radius: 6px;
                             font-size: 13px;
                             box-sizing: border-box;
-                        ">
+                            resize: vertical;
+                            font-family: inherit;
+                            line-height: 1.4;
+                            word-wrap: break-word;
+                            overflow-wrap: break-word;
+                            overflow-y: auto;
+                        ">${item.productName || ''}</textarea>
                     </td>
                     <td style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #f3f4f6;">
                         <button type="button" data-action="variant" style="
@@ -1537,7 +1599,7 @@ class PurchaseOrderFormModal {
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                             </button>
-                            <button type="button" data-action="applyVariants" title="Áp dụng giá & hình ảnh cho tất cả biến thể" style="
+                            <button type="button" data-action="applyVariants" title="Áp dụng tên, giá & hình ảnh cho tất cả biến thể" style="
                                 width: 32px;
                                 height: 32px;
                                 border: 1px solid #d1d5db;
@@ -1643,11 +1705,13 @@ class PurchaseOrderFormModal {
         // Do NOT close on outside click - prevent accidental data loss
         // User must use X button or Cancel to close
 
-        // Add product button
-        this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', () => {
+        // Add product buttons (top toolbar + footer)
+        const addProductHandler = () => {
             this.addItem();
             this.refreshItemsTable();
-        });
+        };
+        this.modalElement.querySelector('#btnAddProductTop')?.addEventListener('click', addProductHandler);
+        this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', addProductHandler);
 
         // Choose from inventory button
         this.modalElement.querySelector('#btnChooseInventory')?.addEventListener('click', () => {
@@ -1925,6 +1989,42 @@ class PurchaseOrderFormModal {
         // Debounce timer for auto code generation
         let codeGenTimer = null;
 
+        // Textarea changes (productName)
+        tbody.querySelectorAll('textarea[data-field]').forEach(textarea => {
+            textarea.addEventListener('input', (e) => {
+                const row = e.target.closest('tr');
+                const itemId = row?.dataset.itemId;
+                const field = e.target.dataset.field;
+                const item = this.formData.items.find(i => i.id === itemId);
+
+                if (item && field) {
+                    item[field] = e.target.value;
+
+                    // Update tooltip to show full text on hover
+                    e.target.title = e.target.value;
+
+                    if (field === 'productName') {
+                        if (e.target.value.trim()) {
+                            if (this.formData.items.indexOf(item) === 0) {
+                                this.autoDetectSupplier(e.target.value);
+                            }
+                            clearTimeout(codeGenTimer);
+                            codeGenTimer = setTimeout(() => {
+                                this.autoGenerateProductCode(item);
+                            }, 800);
+                        } else {
+                            clearTimeout(codeGenTimer);
+                            if (!item._manualCodeEdit) {
+                                item.productCode = '';
+                                const codeInput = row?.querySelector('input[data-field="productCode"]');
+                                if (codeInput) codeInput.value = '';
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
         // Input changes
         tbody.querySelectorAll('input[data-field]').forEach(input => {
             input.addEventListener('input', (e) => {
@@ -1948,30 +2048,6 @@ class PurchaseOrderFormModal {
                     // Update price input red borders dynamically
                     if (field === 'purchasePrice' || field === 'sellingPrice') {
                         this.updatePriceInputBorders(row);
-                    }
-
-                    // Auto-generate product code when product name changes
-                    if (field === 'productName') {
-                        if (e.target.value.trim()) {
-                            // Auto-detect supplier from first product
-                            if (this.formData.items.indexOf(item) === 0) {
-                                this.autoDetectSupplier(e.target.value);
-                            }
-
-                            // Debounce code generation
-                            clearTimeout(codeGenTimer);
-                            codeGenTimer = setTimeout(() => {
-                                this.autoGenerateProductCode(item);
-                            }, 800);
-                        } else {
-                            // Name cleared → clear product code too
-                            clearTimeout(codeGenTimer);
-                            if (!item._manualCodeEdit) {
-                                item.productCode = '';
-                                const codeInput = row?.querySelector('input[data-field="productCode"]');
-                                if (codeInput) codeInput.value = '';
-                            }
-                        }
                     }
 
                     // Mark as manual edit if user changes product code
@@ -2017,8 +2093,42 @@ class PurchaseOrderFormModal {
                 e.target.focus();
                 e.target.select();
             });
-            // Re-lock on blur
-            input.addEventListener('blur', (e) => {
+            // Re-lock on blur + auto-complete prefix to sequential code
+            input.addEventListener('blur', async (e) => {
+                const value = e.target.value.trim();
+                const row = e.target.closest('tr[data-item-id]');
+                const itemId = row?.dataset.itemId;
+                const item = this.formData.items.find(i => i.id === itemId);
+
+                // Auto-complete: if user typed a pure prefix (e.g., "MM"), generate MMxx
+                if (value && item && window.ProductCodeGenerator?.isPurePrefix(value)) {
+                    e.target.style.color = '#9ca3af';
+                    e.target.value = value.toUpperCase() + '...';
+                    try {
+                        const code = await window.ProductCodeGenerator.generateCodeWithPrefix(
+                            value,
+                            this.formData.items
+                        );
+                        if (code) {
+                            item.productCode = code;
+                            item._manualCodeEdit = true;
+                            e.target.value = code;
+                        } else {
+                            e.target.value = value.toUpperCase();
+                            if (window.notificationManager) {
+                                window.notificationManager.show(
+                                    `Không tạo được mã ${value.toUpperCase()}xx. Vui lòng nhập mã đầy đủ.`,
+                                    'warning'
+                                );
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Auto-complete prefix failed:', err);
+                        e.target.value = value.toUpperCase();
+                    }
+                    e.target.style.color = '';
+                }
+
                 e.target.readOnly = true;
                 e.target.style.background = '#f9fafb';
                 e.target.style.cursor = 'default';
@@ -2061,6 +2171,7 @@ class PurchaseOrderFormModal {
                     const item = this.formData.items.find(i => i.id === itemId);
                     if (item && item.productName?.trim()) {
                         item._manualCodeEdit = false;
+                        item.productCode = '';  // Clear old code so autoGenerate can run
                         await this.autoGenerateProductCode(item);
                         const codeInput = row?.querySelector('input[data-field="productCode"]');
                         if (codeInput) codeInput.value = item.productCode || '';
@@ -2118,10 +2229,12 @@ class PurchaseOrderFormModal {
                                     item.variant = first.variant || first;
                                     item.selectedAttributeValueIds = first.selectedAttributeValueIds || [];
 
-                                    // Remaining combos create new items
+                                    // Remaining combos create new items right after the parent
+                                    let lastInsertedId = item.id;
                                     for (let i = 1; i < combinations.length; i++) {
                                         const combo = combinations[i];
-                                        const newItem = this.addItem();
+                                        const newItem = this.addItemAfter(lastInsertedId);
+                                        lastInsertedId = newItem.id;
                                         newItem.productName = baseProduct.productName;
                                         newItem.productCode = baseProduct.productCode;
                                         newItem.variant = combo.variant || combo;
@@ -2327,16 +2440,14 @@ class PurchaseOrderFormModal {
         }
 
         try {
-            // Upload pending images before submitting
-            if (this.hasPendingImages()) {
-                if (window.notificationManager) {
-                    window.notificationManager.show('Đang tải ảnh lên Firebase...', 'info');
-                }
-                await this.uploadPendingImages();
-                if (window.notificationManager) {
-                    window.notificationManager.show('Đã tải ảnh lên thành công!', 'success');
-                }
-            }
+            // "Tạo đơn hàng" skips Firebase image upload
+            // TPOS will provide ImageUrl after product sync
+            // Clear pending images (data URLs will be stripped by filterFirebaseUrls)
+            this.pendingImages = {
+                invoice: [],
+                products: {},
+                prices: {}
+            };
 
             const orderData = this.getFormData();
             orderData.status = 'AWAITING_PURCHASE';
