@@ -691,12 +691,11 @@ const SoquyDatabase = (function () {
             const docRef = config.soquyMetaRef.doc(docId);
             const doc = await docRef.get();
 
-            if (!doc.exists) return;
-
-            let items = doc.data().items || [];
-            items = items.filter(item => !deleteLower.includes(getCategoryName(item).toLowerCase()));
-
-            await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            if (doc.exists) {
+                let items = doc.data().items || [];
+                items = items.filter(item => !deleteLower.includes(getCategoryName(item).toLowerCase()));
+                await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            }
 
             // Also remove from old payment_categories doc to prevent migration re-adding
             if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN || voucherType === config.VOUCHER_TYPES.PAYMENT_KD) {
