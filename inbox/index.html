@@ -360,8 +360,9 @@
         <!-- API Config (must load before Pancake managers) -->
         <script src="js/inbox-api-config.js"></script>
 
-        <!-- Pancake Managers (use tpos-pancake versions - has IG page filter & simpler caching) -->
-        <script src="../tpos-pancake/js/pancake-token-manager.js"></script>
+        <!-- Token Manager: orders-report version (no Firestore timeout, better account loading) -->
+        <script src="../orders-report/js/managers/pancake-token-manager.js"></script>
+        <!-- Data Manager: tpos-pancake version (has IG page filter) -->
         <script src="../tpos-pancake/js/pancake-data-manager.js"></script>
 
         <!-- Inbox modules -->

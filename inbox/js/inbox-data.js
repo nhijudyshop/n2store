@@ -30,26 +30,25 @@ class InboxDataManager {
 
     /**
      * Initialize Pancake managers and load data
-     * Uses tpos-pancake managers which have built-in IG page filtering
+     * Token manager: orders-report (no Firestore timeout, loads accounts from Firebase)
+     * Data manager: tpos-pancake (has built-in IG page filtering)
      */
     async init() {
         this.loadGroups();
         this.loadLocalState();
 
         try {
-            // Initialize Pancake token manager (global instance auto-created by script)
+            // Initialize Pancake token manager (orders-report version - no timeout)
             await window.pancakeTokenManager.initialize();
-            console.log('[InboxData] Pancake token manager initialized');
+            console.log('[InboxData] Pancake token manager initialized, accounts:', Object.keys(window.pancakeTokenManager.accounts || {}).length);
 
-            // Initialize Pancake data manager
-            // tpos-pancake version filters IG pages in fetchPages() automatically
+            // Initialize Pancake data manager (tpos-pancake version - IG filter)
             await window.pancakeDataManager.initialize();
-            console.log('[InboxData] Pancake data manager initialized');
+            console.log('[InboxData] Pancake data manager initialized, pages:', window.pancakeDataManager.pageIds?.length);
 
             // Check if initialize() already loaded conversations
             const pdm = window.pancakeDataManager;
             if (pdm.conversations && pdm.conversations.length > 0) {
-                // Use conversations already fetched during initialize()
                 this.pages = pdm.pages || [];
                 this.conversations = pdm.conversations.map(conv => this.mapConversation(conv));
                 console.log(`[InboxData] Got ${this.conversations.length} conversations from initialize()`);
@@ -113,6 +112,47 @@ class InboxDataManager {
     }
 
     /**
+     * Fetch conversations with proper error checking
+     * The data manager's fetchConversations doesn't check data.success,
+     * so we intercept the raw response to detect API errors
+     */
+    async fetchConversationsWithErrorCheck(forceRefresh = false) {
+        const pdm = window.pancakeDataManager;
+
+        // Patch: intercept the response to check for API errors
+        const origFetch = pdm._origSmartFetch || API_CONFIG.smartFetch;
+        if (!pdm._origSmartFetch) {
+            pdm._origSmartFetch = API_CONFIG.smartFetch;
+        }
+
+        let lastResponseData = null;
+        API_CONFIG.smartFetch = async function(url, options) {
+            const response = await origFetch.call(this, url, options);
+            // Clone so the data manager can still read it
+            const cloned = response.clone();
+            try {
+                lastResponseData = await cloned.json();
+            } catch (e) { /* ignore */ }
+            return response;
+        };
+
+        const result = await pdm.fetchConversations(forceRefresh);
+
+        // Restore original
+        API_CONFIG.smartFetch = origFetch;
+
+        // Check if API returned an error
+        if (lastResponseData && lastResponseData.success === false) {
+            const errorCode = lastResponseData.error_code;
+            const errorMsg = lastResponseData.message || 'Unknown error';
+            console.error(`[InboxData] ❌ Pancake API error: code=${errorCode}, message="${errorMsg}"`);
+            return { conversations: [], error: errorCode, message: errorMsg };
+        }
+
+        return { conversations: result, error: null };
+    }
+
+    /**
      * Load conversations from Pancake API and map to inbox format
      * If active account returns 0, auto-try other accounts
      */
@@ -124,8 +164,12 @@ class InboxDataManager {
                 return;
             }
 
-            // Fetch conversations from Pancake
-            let rawConversations = await pdm.fetchConversations(forceRefresh);
+            // Fetch with error checking
+            let { conversations: rawConversations, error, message } = await this.fetchConversationsWithErrorCheck(forceRefresh);
+
+            if (error) {
+                console.warn(`[InboxData] Account error (${error}): ${message}, trying others...`);
+            }
 
             // If 0 results, try other Pancake accounts
             if (rawConversations.length === 0) {
@@ -177,7 +221,11 @@ class InboxDataManager {
             if (!switched) continue;
 
             try {
-                const convs = await pdm.fetchConversations(true);
+                const { conversations: convs, error, message } = await this.fetchConversationsWithErrorCheck(true);
+                if (error) {
+                    console.warn(`[InboxData] Account "${account.name}" API error (${error}): ${message}`);
+                    continue;
+                }
                 if (convs.length > 0) {
                     console.log(`[InboxData] Account "${account.name}" works! ${convs.length} conversations`);
                     showToast(`Đã chuyển sang tài khoản: ${account.name || accountId}`, 'success');
