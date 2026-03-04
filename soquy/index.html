@@ -2035,6 +2035,29 @@
             if (navLinkSchedule) navLinkSchedule.addEventListener('click', (e) => { e.preventDefault(); showView('schedule'); });
         });
     </script>
+
+    <!-- ==================== MODAL: CONFIRM DELETE ==================== -->
+    <div class="modal" id="soquyConfirmModal" style="display: none;">
+        <div class="modal-overlay" id="soquyConfirmOverlay"></div>
+        <div class="modal-content k-modal k-modal-confirm">
+            <div class="modal-header k-modal-header k-modal-header--danger">
+                <h3 id="confirmModalTitle">Xác nhận xóa</h3>
+                <button class="btn-icon" id="btnConfirmClose">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="confirm-modal-body">
+                <div class="confirm-modal-icon">
+                    <i data-lucide="alert-triangle"></i>
+                </div>
+                <p id="confirmModalMessage">Bạn có chắc chắn muốn xóa?</p>
+            </div>
+            <div class="confirm-modal-actions">
+                <button class="k-btn k-btn--outline" id="btnConfirmCancel">Hủy</button>
+                <button class="k-btn k-btn--danger" id="btnConfirmOk">Xóa</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
