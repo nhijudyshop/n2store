@@ -721,6 +721,109 @@ class PurchaseOrderService {
     }
 
     // ========================================
+    // IMAGE CLEANUP (runs daily on page load)
+    // ========================================
+
+    /**
+     * Delete a file from Firebase Storage by its download URL.
+     * @param {string} downloadUrl - Firebase Storage download URL
+     */
+    async deleteStorageFile(downloadUrl) {
+        try {
+            const ref = this.storage.refFromURL(downloadUrl);
+            await ref.delete();
+            return true;
+        } catch (error) {
+            // File may already be deleted or URL invalid
+            if (error.code !== 'storage/object-not-found') {
+                console.warn('[Cleanup] Failed to delete:', downloadUrl, error.message);
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Clean up Firebase Storage images for orders older than 10 days
+     * in AWAITING_PURCHASE / AWAITING_DELIVERY statuses.
+     * Replaces productImages with tposImageUrl to free storage space.
+     * Runs once per day (tracked via localStorage).
+     */
+    async cleanupOldFirebaseImages() {
+        const STORAGE_KEY = 'po_image_cleanup_last_run';
+        const DAYS_THRESHOLD = 10;
+
+        try {
+            // Check if already ran today
+            const lastRun = localStorage.getItem(STORAGE_KEY);
+            const today = new Date().toDateString();
+            if (lastRun === today) return;
+
+            console.log('[Cleanup] Starting daily Firebase image cleanup...');
+
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - DAYS_THRESHOLD);
+            const cutoffTimestamp = firebase.firestore.Timestamp.fromDate(cutoffDate);
+
+            // Query orders in target statuses created before cutoff
+            const statuses = ['AWAITING_PURCHASE', 'AWAITING_DELIVERY'];
+            const snapshot = await this.db.collection(this.COLLECTION)
+                .where('status', 'in', statuses)
+                .where('createdAt', '<=', cutoffTimestamp)
+                .get();
+
+            if (snapshot.empty) {
+                console.log('[Cleanup] No old orders to clean up');
+                localStorage.setItem(STORAGE_KEY, today);
+                return;
+            }
+
+            let totalDeleted = 0;
+            let totalOrders = 0;
+
+            for (const doc of snapshot.docs) {
+                const order = doc.data();
+                const items = order.items || [];
+                let orderChanged = false;
+
+                for (const item of items) {
+                    // Skip if no Firebase images to clean
+                    if (!item.productImages || item.productImages.length === 0) continue;
+                    // Skip if no tposImageUrl fallback
+                    if (!item.tposImageUrl) continue;
+
+                    // Delete Firebase Storage files
+                    const firebaseUrls = item.productImages.filter(url =>
+                        typeof url === 'string' && url.includes('firebasestorage.googleapis.com')
+                    );
+
+                    for (const url of firebaseUrls) {
+                        const deleted = await this.deleteStorageFile(url);
+                        if (deleted) totalDeleted++;
+                    }
+
+                    // Replace with tposImageUrl
+                    item.productImages = [];
+                    orderChanged = true;
+                }
+
+                if (orderChanged) {
+                    await doc.ref.update({
+                        items,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    totalOrders++;
+                }
+            }
+
+            localStorage.setItem(STORAGE_KEY, today);
+            console.log(`[Cleanup] Done. Deleted ${totalDeleted} files from ${totalOrders} orders.`);
+        } catch (error) {
+            console.error('[Cleanup] Image cleanup failed:', error);
+            // Don't throw - cleanup is non-critical
+        }
+    }
+
+    // ========================================
     // COPY OPERATIONS
     // ========================================
 

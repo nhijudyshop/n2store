@@ -161,6 +161,11 @@ class PurchaseOrderController {
             this.initialized = true;
             console.log('[PurchaseOrderController] Initialized successfully');
 
+            // Run daily image cleanup in background (non-blocking)
+            this.service.cleanupOldFirebaseImages().catch(err =>
+                console.warn('[Init] Image cleanup failed:', err)
+            );
+
         } catch (error) {
             console.error('[PurchaseOrderController] Initialization failed:', error);
             this.ui.showToast('Không thể khởi tạo module. Vui lòng tải lại trang.', 'error');
