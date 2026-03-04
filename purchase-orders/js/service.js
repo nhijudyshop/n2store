@@ -778,10 +778,7 @@ class PurchaseOrderService {
                 tposSyncStatus: null,
                 tposProductId: null,
                 tposSynced: false,
-                tposSyncError: null,
-                // Restore original productCode if it was overwritten by variant barcode
-                productCode: item.parentProductCode || item.productCode,
-                parentProductCode: null
+                tposSyncError: null
             }));
 
             // Re-upload external (TPOS) images to Firebase Storage in parallel
