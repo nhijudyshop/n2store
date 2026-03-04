@@ -370,8 +370,6 @@ const SoquyUI = (function () {
 
         // Show modal
         els.receiptModal.style.display = 'flex';
-        // Guard against double-click closing modal immediately
-        state._receiptModalOpenedAt = Date.now();
     }
 
     function resetReceiptForm() {
@@ -387,10 +385,7 @@ const SoquyUI = (function () {
     }
 
     function closeReceiptModal() {
-        if (!els.receiptModal) return;
-        // Prevent double-click from closing modal right after opening
-        if (state._receiptModalOpenedAt && (Date.now() - state._receiptModalOpenedAt < 400)) return;
-        els.receiptModal.style.display = 'none';
+        if (els.receiptModal) els.receiptModal.style.display = 'none';
     }
 
     async function saveReceipt() {
@@ -466,8 +461,6 @@ const SoquyUI = (function () {
         }
 
         els.paymentModal.style.display = 'flex';
-        // Guard against double-click closing modal immediately
-        state._paymentModalOpenedAt = Date.now();
     }
 
     function resetPaymentForm() {
@@ -483,10 +476,7 @@ const SoquyUI = (function () {
     }
 
     function closePaymentModal() {
-        if (!els.paymentModal) return;
-        // Prevent double-click from closing modal right after opening
-        if (state._paymentModalOpenedAt && (Date.now() - state._paymentModalOpenedAt < 400)) return;
-        els.paymentModal.style.display = 'none';
+        if (els.paymentModal) els.paymentModal.style.display = 'none';
     }
 
     async function savePayment() {

@@ -322,9 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.btnCancelReceipt) {
             els.btnCancelReceipt.addEventListener('click', ui.closeReceiptModal);
         }
-        if (els.receiptOverlay) {
-            els.receiptOverlay.addEventListener('click', ui.closeReceiptModal);
-        }
+        // Removed: overlay click no longer closes receipt modal (prevents accidental dismissal)
         if (els.btnSaveReceipt) {
             els.btnSaveReceipt.addEventListener('click', () => {
                 if (state.editingVoucherId) {
@@ -341,9 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.btnCancelPayment) {
             els.btnCancelPayment.addEventListener('click', ui.closePaymentModal);
         }
-        if (els.paymentOverlay) {
-            els.paymentOverlay.addEventListener('click', ui.closePaymentModal);
-        }
+        // Removed: overlay click no longer closes payment modal (prevents accidental dismissal)
         if (els.btnSavePayment) {
             els.btnSavePayment.addEventListener('click', () => {
                 if (state.editingVoucherId) {
