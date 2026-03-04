@@ -210,8 +210,10 @@
                 window.setChatOrderDetails(newDetails);
             }
 
-            // KPI Audit Log - ghi nhận thêm sản phẩm
-            if (window.kpiAuditLogger) {
+            // KPI Audit Log - CHỈ ghi nếu SP KHÔNG từ hàng rớt
+            // (moveDroppedToOrder đã ghi audit log với source "chat_from_dropped" rồi)
+            const isFromDropped = heldProduct.IsFromDropped === true;
+            if (window.kpiAuditLogger && !isFromDropped) {
                 try {
                     const productToLog = newProduct || window.currentChatOrderData.Details.find(p => p.ProductId === normalizedProductId && !p.IsHeld);
                     await window.kpiAuditLogger.logProductAction({
@@ -230,6 +232,8 @@
                 } catch (kpiError) {
                     console.warn('[HELD-CONFIRM] KPI audit log failed (non-blocking):', kpiError);
                 }
+            } else if (isFromDropped) {
+                console.log('[HELD-CONFIRM] Skipped KPI audit log - product is from dropped (already logged by moveDroppedToOrder)');
             }
 
             // STEP 7: Re-render Orders tab

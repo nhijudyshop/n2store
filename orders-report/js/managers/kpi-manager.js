@@ -214,96 +214,102 @@
      * @returns {Promise<void>}
      */
     async function saveKPIStatistics(userId, date, statistics) {
-        if (!userId || !date || !statistics) {
-            throw new Error('userId, date, and statistics are required');
-        }
-
-        try {
-            if (!window.firebase || !window.firebase.firestore) {
-                throw new Error('Firestore not available');
+            if (!userId || !date || !statistics) {
+                throw new Error('userId, date, and statistics are required');
             }
 
-            const statsRef = window.firebase.firestore()
-                .collection(KPI_STATISTICS_COLLECTION)
-                .doc(userId)
-                .collection('dates')
-                .doc(date);
+            try {
+                if (!window.firebase || !window.firebase.firestore) {
+                    throw new Error('Firestore not available');
+                }
 
-            const doc = await statsRef.get();
-            let currentStats = doc.exists ? doc.data() : {
-                totalNetProducts: 0,
-                totalKPI: 0,
-                orders: []
-            };
+                const statsRef = window.firebase.firestore()
+                    .collection(KPI_STATISTICS_COLLECTION)
+                    .doc(userId)
+                    .collection('dates')
+                    .doc(date);
 
-            // Ensure we have the new field names
-            if (currentStats.totalDifferences !== undefined && currentStats.totalNetProducts === undefined) {
-                currentStats.totalNetProducts = currentStats.totalDifferences;
-                delete currentStats.totalDifferences;
-            }
+                // Use Firestore transaction to ensure atomic read-modify-write
+                // This prevents race conditions when recalculateAndSaveKPI() is called
+                // multiple times concurrently for the same orderId
+                await window.firebase.firestore().runTransaction(async (transaction) => {
+                    const doc = await transaction.get(statsRef);
+                    let currentStats = doc.exists ? doc.data() : {
+                        totalNetProducts: 0,
+                        totalKPI: 0,
+                        orders: []
+                    };
 
-            const existingOrderIndex = currentStats.orders.findIndex(
-                o => o.orderId === statistics.orderId
-            );
+                    // Ensure we have the new field names
+                    if (currentStats.totalDifferences !== undefined && currentStats.totalNetProducts === undefined) {
+                        currentStats.totalNetProducts = currentStats.totalDifferences;
+                        delete currentStats.totalDifferences;
+                    }
 
-            if (existingOrderIndex >= 0) {
-                const oldOrder = currentStats.orders[existingOrderIndex];
-                currentStats.totalNetProducts -= oldOrder.netProducts || oldOrder.differences || 0;
-                currentStats.totalKPI -= oldOrder.kpi || 0;
+                    const existingOrderIndex = currentStats.orders.findIndex(
+                        o => o.orderId === statistics.orderId
+                    );
 
-                currentStats.orders[existingOrderIndex] = {
-                    orderId: statistics.orderId,
-                    stt: statistics.stt,
-                    campaignId: statistics.campaignId || null,
-                    campaignName: statistics.campaignName || null,
-                    netProducts: statistics.netProducts || 0,
-                    kpi: statistics.kpi || 0,
-                    hasDiscrepancy: statistics.hasDiscrepancy || false,
-                    details: statistics.details || {},
-                    updatedAt: new Date().toISOString()
-                };
-            } else {
-                currentStats.orders.push({
-                    orderId: statistics.orderId,
-                    stt: statistics.stt,
-                    campaignId: statistics.campaignId || null,
-                    campaignName: statistics.campaignName || null,
-                    netProducts: statistics.netProducts || 0,
-                    kpi: statistics.kpi || 0,
-                    hasDiscrepancy: statistics.hasDiscrepancy || false,
-                    details: statistics.details || {},
-                    updatedAt: new Date().toISOString()
+                    if (existingOrderIndex >= 0) {
+                        const oldOrder = currentStats.orders[existingOrderIndex];
+                        currentStats.totalNetProducts -= oldOrder.netProducts || oldOrder.differences || 0;
+                        currentStats.totalKPI -= oldOrder.kpi || 0;
+
+                        currentStats.orders[existingOrderIndex] = {
+                            orderId: statistics.orderId,
+                            stt: statistics.stt,
+                            campaignId: statistics.campaignId || null,
+                            campaignName: statistics.campaignName || null,
+                            netProducts: statistics.netProducts || 0,
+                            kpi: statistics.kpi || 0,
+                            hasDiscrepancy: statistics.hasDiscrepancy || false,
+                            details: statistics.details || {},
+                            updatedAt: new Date().toISOString()
+                        };
+                    } else {
+                        currentStats.orders.push({
+                            orderId: statistics.orderId,
+                            stt: statistics.stt,
+                            campaignId: statistics.campaignId || null,
+                            campaignName: statistics.campaignName || null,
+                            netProducts: statistics.netProducts || 0,
+                            kpi: statistics.kpi || 0,
+                            hasDiscrepancy: statistics.hasDiscrepancy || false,
+                            details: statistics.details || {},
+                            updatedAt: new Date().toISOString()
+                        });
+                    }
+
+                    currentStats.totalNetProducts += statistics.netProducts || 0;
+                    currentStats.totalKPI += statistics.kpi || 0;
+                    currentStats.updatedAt = window.firebase.firestore.FieldValue.serverTimestamp();
+
+                    transaction.set(statsRef, currentStats, { merge: true });
                 });
+
+                // Parent document set stays outside the transaction since it only
+                // merges lastUpdated - no race condition risk here
+                const parentRef = window.firebase.firestore()
+                    .collection(KPI_STATISTICS_COLLECTION)
+                    .doc(userId);
+                await parentRef.set({
+                    lastUpdated: window.firebase.firestore.FieldValue.serverTimestamp(),
+                    userId: userId
+                }, { merge: true });
+
+                console.log('[KPI] ✓ Saved statistics (transaction):', {
+                    userId,
+                    date,
+                    orderId: statistics.orderId
+                });
+
+            } catch (error) {
+                console.error('[KPI] Error saving statistics:', error);
+                throw error;
             }
-
-            currentStats.totalNetProducts += statistics.netProducts || 0;
-            currentStats.totalKPI += statistics.kpi || 0;
-            currentStats.updatedAt = window.firebase.firestore.FieldValue.serverTimestamp();
-
-            await statsRef.set(currentStats, { merge: true });
-
-            // Ensure parent document exists so loadAllStatistics can list users
-            const parentRef = window.firebase.firestore()
-                .collection(KPI_STATISTICS_COLLECTION)
-                .doc(userId);
-            await parentRef.set({
-                lastUpdated: window.firebase.firestore.FieldValue.serverTimestamp(),
-                userId: userId
-            }, { merge: true });
-
-            console.log('[KPI] ✓ Saved statistics:', {
-                userId,
-                date,
-                totalNetProducts: currentStats.totalNetProducts,
-                totalKPI: currentStats.totalKPI,
-                ordersCount: currentStats.orders.length
-            });
-
-        } catch (error) {
-            console.error('[KPI] Error saving statistics:', error);
-            throw error;
         }
-    }
+
+
 
     // ========================================
     // NEW: fetchProductsFromTPOS (Bug #1 fix - Tier 3 fallback)
