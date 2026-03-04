@@ -2141,6 +2141,46 @@
     font-weight: 600;
 }
 
+.source-default-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border: 1px solid #e2e8f0;
+    background: transparent;
+    color: #94a3b8;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.source-default-btn i,
+.source-default-btn svg {
+    width: 13px;
+    height: 13px;
+}
+
+.source-default-btn:hover {
+    background: #fffbeb;
+    color: #f59e0b;
+    border-color: #fcd34d;
+}
+
+.source-default-btn.active {
+    background: #fffbeb;
+    color: #f59e0b;
+    border-color: #fcd34d;
+    font-weight: 600;
+}
+
+.source-default-btn.active i,
+.source-default-btn.active svg {
+    fill: #f59e0b;
+}
+
 .category-item-delete {
     width: 28px;
     height: 28px;

@@ -1677,8 +1677,14 @@ const SoquyUI = (function () {
         if (!select) return;
 
         const sources = state.dynamicSources || [];
+        const defaultCode = db.getDefaultSource();
         select.innerHTML = '<option value="">-- Chọn nguồn --</option>' +
             sources.map(s => `<option value="${escapeHtml(s.code)}">${escapeHtml(s.code)} ${escapeHtml(s.name)}</option>`).join('');
+
+        // Auto-select the default source if one is set
+        if (defaultCode && sources.some(s => s.code === defaultCode)) {
+            select.value = defaultCode;
+        }
     }
 
     /**
@@ -2002,9 +2008,11 @@ const SoquyUI = (function () {
         const sources = state.dynamicSources || [];
         let html = '';
 
+        const defaultCode = db.getDefaultSource();
         sources.forEach(src => {
             const code = typeof src === 'string' ? src : src.code;
             const name = typeof src === 'string' ? src : src.name;
+            const isDefault = code === defaultCode;
             html += `
                 <div class="category-item" data-source-code="${escapeHtml(code)}">
                     <label class="category-check-label">
@@ -2015,6 +2023,10 @@ const SoquyUI = (function () {
                         <div class="category-item-name"><strong>${escapeHtml(code)}</strong> - ${escapeHtml(name)}</div>
                     </div>
                     <span class="category-item-badge category-item-badge--source">Nguồn</span>
+                    <button class="source-default-btn ${isDefault ? 'active' : ''}" data-source-code="${escapeHtml(code)}" title="${isDefault ? 'Đang là mặc định' : 'Chọn làm mặc định'}">
+                        <i data-lucide="${isDefault ? 'star' : 'star'}"></i>
+                        ${isDefault ? 'Mặc định' : 'Mặc định'}
+                    </button>
                     <button class="category-item-delete" data-source-code="${escapeHtml(code)}" title="Xóa">
                         <i data-lucide="trash-2"></i>
                     </button>
@@ -2041,6 +2053,25 @@ const SoquyUI = (function () {
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
+        // Bind default source buttons
+        listContainer.querySelectorAll('.source-default-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const code = btn.dataset.sourceCode;
+                if (!code) return;
+                const currentDefault = db.getDefaultSource();
+                const newDefault = currentDefault === code ? '' : code;
+                try {
+                    await db.setDefaultSource(newDefault);
+                    showNotification(newDefault ? `Đã chọn "${code}" làm nguồn mặc định` : 'Đã bỏ nguồn mặc định', 'success');
+                    renderSourcesInCategoryModal();
+                } catch (error) {
+                    console.error('[SoquyUI] Error setting default source:', error);
+                    showNotification('Lỗi khi đặt nguồn mặc định', 'error');
+                }
+            });
+        });
+
         // Bind individual delete buttons
         listContainer.querySelectorAll('.category-item-delete').forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -2048,6 +2079,10 @@ const SoquyUI = (function () {
                 const code = btn.dataset.sourceCode;
                 if (!code) return;
                 try {
+                    // If deleting the default source, clear it
+                    if (db.getDefaultSource() === code) {
+                        await db.setDefaultSource('');
+                    }
                     await db.deleteDynamicSources([code]);
                     showNotification(`Đã xóa nguồn: ${code}`, 'success');
                     populateCategorySourceDropdown();

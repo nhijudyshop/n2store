@@ -815,6 +815,28 @@ const SoquyDatabase = (function () {
     }
 
     /**
+     * Set a source as the default source (saved to Firestore)
+     */
+    async function setDefaultSource(code) {
+        try {
+            const docRef = config.soquyMetaRef.doc('sources');
+            await docRef.set({ defaultSource: code || '' }, { merge: true });
+            state.defaultSourceCode = code || '';
+            console.log('[SoquyDB] Set default source:', code);
+        } catch (error) {
+            console.error('[SoquyDB] Error setting default source:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get the default source code from state
+     */
+    function getDefaultSource() {
+        return state.defaultSourceCode || '';
+    }
+
+    /**
      * Delete specific dynamic sources
      */
     async function deleteDynamicSources(codes) {
@@ -905,9 +927,11 @@ const SoquyDatabase = (function () {
             }
             if (crDoc.exists) state.dynamicCreators = crDoc.data().items || [];
             if (srcDoc.exists) {
-                const rawSources = srcDoc.data().items || [];
+                const srcData = srcDoc.data();
+                const rawSources = srcData.items || [];
                 // Migrate: convert old string items to {code, name} objects
                 state.dynamicSources = rawSources.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+                state.defaultSourceCode = srcData.defaultSource || '';
             }
             state.removedPredefinedReceiptCategories = rrcDoc.exists ? (rrcDoc.data().items || []) : [];
             state.removedPredefinedPaymentCNCategories = rpcnDoc.exists ? (rpcnDoc.data().items || []) : [];
@@ -1123,6 +1147,8 @@ const SoquyDatabase = (function () {
         autoAddCreator,
         addSource,
         deleteDynamicSources,
+        setDefaultSource,
+        getDefaultSource,
         getSourceByCode,
         getSourceLabel,
         loadDynamicMeta,
