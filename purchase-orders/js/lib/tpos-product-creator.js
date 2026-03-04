@@ -784,7 +784,8 @@ window.TPOSProductCreator = (function () {
     // =====================================================
 
     /**
-     * Save TPOS ImageUrl to Firebase items' productImages field.
+     * Save TPOS ImageUrl to Firebase items' tposImageUrl field.
+     * Preserves original productImages (Firebase URLs) so they can be reused when copying orders.
      * Uses transaction to prevent race conditions when multiple groups update concurrently.
      */
     async function saveTPOSImageUrl(orderId, itemIds, tposImageUrl) {
@@ -804,7 +805,7 @@ window.TPOSProductCreator = (function () {
 
                 for (const item of items) {
                     if (itemIds.includes(item.id)) {
-                        item.productImages = [tposImageUrl];
+                        item.tposImageUrl = tposImageUrl;
                         changed = true;
                     }
                 }

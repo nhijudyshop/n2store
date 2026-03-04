@@ -421,7 +421,9 @@ class PurchaseOrderFormModal {
      * Render item image cell HTML
      */
     renderItemImageCell(item, type) {
-        const images = type === 'product' ? (item.productImages || []) : (item.priceImages || []);
+        const images = type === 'product'
+            ? (item.productImages && item.productImages.length > 0 ? item.productImages : (item.tposImageUrl ? [item.tposImageUrl] : []))
+            : (item.priceImages || []);
 
         if (images.length === 0) {
             return `

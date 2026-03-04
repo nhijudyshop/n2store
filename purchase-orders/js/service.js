@@ -721,40 +721,115 @@ class PurchaseOrderService {
     }
 
     // ========================================
-    // COPY OPERATIONS
+    // IMAGE CLEANUP (runs daily on page load)
     // ========================================
 
     /**
-     * Re-upload an external image URL (e.g. TPOS) to Firebase Storage.
-     * Returns the new Firebase download URL, or the original URL on failure.
-     * @param {string} url - External image URL
-     * @returns {Promise<string>} Firebase download URL or original URL
+     * Delete a file from Firebase Storage by its download URL.
+     * @param {string} downloadUrl - Firebase Storage download URL
      */
-    async reuploadExternalImage(url) {
+    async deleteStorageFile(downloadUrl) {
         try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-
-            const blob = await response.blob();
-            const ext = (blob.type || 'image/jpeg').split('/')[1] || 'jpg';
-            const timestamp = Date.now();
-            const filename = `purchase-orders/copy_${timestamp}_${Math.random().toString(36).substring(7)}.${ext}`;
-
-            const ref = this.storage.ref().child(filename);
-            const snapshot = await ref.put(blob);
-            const downloadURL = await snapshot.ref.getDownloadURL();
-
-            console.log('[PurchaseOrderService] Re-uploaded external image:', url, '->', downloadURL);
-            return downloadURL;
+            const ref = this.storage.refFromURL(downloadUrl);
+            await ref.delete();
+            return true;
         } catch (error) {
-            console.warn('[PurchaseOrderService] Failed to re-upload image, keeping original:', url, error.message);
-            return url;
+            // File may already be deleted or URL invalid
+            if (error.code !== 'storage/object-not-found') {
+                console.warn('[Cleanup] Failed to delete:', downloadUrl, error.message);
+            }
+            return false;
         }
     }
 
     /**
+     * Clean up Firebase Storage images for orders older than 10 days
+     * in AWAITING_PURCHASE / AWAITING_DELIVERY statuses.
+     * Replaces productImages with tposImageUrl to free storage space.
+     * Runs once per day (tracked via localStorage).
+     */
+    async cleanupOldFirebaseImages() {
+        const STORAGE_KEY = 'po_image_cleanup_last_run';
+        const DAYS_THRESHOLD = 10;
+
+        try {
+            // Check if already ran today
+            const lastRun = localStorage.getItem(STORAGE_KEY);
+            const today = new Date().toDateString();
+            if (lastRun === today) return;
+
+            console.log('[Cleanup] Starting daily Firebase image cleanup...');
+
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - DAYS_THRESHOLD);
+            const cutoffTimestamp = firebase.firestore.Timestamp.fromDate(cutoffDate);
+
+            // Query orders in target statuses created before cutoff
+            const statuses = ['AWAITING_PURCHASE', 'AWAITING_DELIVERY'];
+            const snapshot = await this.db.collection(this.COLLECTION)
+                .where('status', 'in', statuses)
+                .where('createdAt', '<=', cutoffTimestamp)
+                .get();
+
+            if (snapshot.empty) {
+                console.log('[Cleanup] No old orders to clean up');
+                localStorage.setItem(STORAGE_KEY, today);
+                return;
+            }
+
+            let totalDeleted = 0;
+            let totalOrders = 0;
+
+            for (const doc of snapshot.docs) {
+                const order = doc.data();
+                const items = order.items || [];
+                let orderChanged = false;
+
+                for (const item of items) {
+                    // Skip if no Firebase images to clean
+                    if (!item.productImages || item.productImages.length === 0) continue;
+                    // Skip if no tposImageUrl fallback
+                    if (!item.tposImageUrl) continue;
+
+                    // Delete Firebase Storage files
+                    const firebaseUrls = item.productImages.filter(url =>
+                        typeof url === 'string' && url.includes('firebasestorage.googleapis.com')
+                    );
+
+                    for (const url of firebaseUrls) {
+                        const deleted = await this.deleteStorageFile(url);
+                        if (deleted) totalDeleted++;
+                    }
+
+                    // Replace with tposImageUrl
+                    item.productImages = [];
+                    orderChanged = true;
+                }
+
+                if (orderChanged) {
+                    await doc.ref.update({
+                        items,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    totalOrders++;
+                }
+            }
+
+            localStorage.setItem(STORAGE_KEY, today);
+            console.log(`[Cleanup] Done. Deleted ${totalDeleted} files from ${totalOrders} orders.`);
+        } catch (error) {
+            console.error('[Cleanup] Image cleanup failed:', error);
+            // Don't throw - cleanup is non-critical
+        }
+    }
+
+    // ========================================
+    // COPY OPERATIONS
+    // ========================================
+
+    /**
      * Copy order (create draft from existing order)
-     * Re-uploads external (TPOS) product images to Firebase Storage so they work when syncing back to TPOS.
+     * productImages are preserved as Firebase URLs (no re-upload needed).
      * @param {string} sourceOrderId - Source document ID
      * @returns {Promise<string>} New document ID
      */
@@ -778,24 +853,9 @@ class PurchaseOrderService {
                 tposSyncStatus: null,
                 tposProductId: null,
                 tposSynced: false,
-                tposSyncError: null
+                tposSyncError: null,
+                tposImageUrl: null
             }));
-
-            // Re-upload external (TPOS) images to Firebase Storage in parallel
-            const isExternalImage = (url) => url && !url.includes('firebasestorage.googleapis.com');
-
-            const reuploadPromises = newItems.map(async (item) => {
-                if (item.productImages && item.productImages.length > 0) {
-                    const urls = await Promise.all(
-                        item.productImages.map(url =>
-                            isExternalImage(url) ? this.reuploadExternalImage(url) : Promise.resolve(url)
-                        )
-                    );
-                    item.productImages = urls;
-                }
-            });
-
-            await Promise.all(reuploadPromises);
 
             // Create new draft from source
             const newOrderData = {
