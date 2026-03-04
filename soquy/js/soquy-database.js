@@ -698,6 +698,25 @@ const SoquyDatabase = (function () {
 
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
+            // Also remove from old payment_categories doc to prevent migration re-adding
+            if (voucherType === config.VOUCHER_TYPES.PAYMENT_CN || voucherType === config.VOUCHER_TYPES.PAYMENT_KD) {
+                try {
+                    const oldDocRef = config.soquyMetaRef.doc('payment_categories');
+                    const oldDoc = await oldDocRef.get();
+                    if (oldDoc.exists) {
+                        let oldItems = oldDoc.data().items || [];
+                        const before = oldItems.length;
+                        oldItems = oldItems.filter(item => {
+                            const name = typeof item === 'string' ? item : (item.name || '');
+                            return !deleteLower.includes(name.toLowerCase());
+                        });
+                        if (oldItems.length !== before) {
+                            await oldDocRef.set({ items: oldItems, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        }
+                    }
+                } catch (e) { /* ignore old doc cleanup errors */ }
+            }
+
             // Update local state
             const dynamicList = getCategoryDynamicList(voucherType);
             const filtered = dynamicList.filter(c => !deleteLower.includes(getCategoryName(c).toLowerCase()));
