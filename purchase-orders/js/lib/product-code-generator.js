@@ -124,9 +124,9 @@ window.ProductCodeGenerator = (function() {
             return 'MM';
         }
 
-        // Category H: Products with HH prefix (e.g., "HH ao thun" → H001)
+        // Category HH: Products with HH prefix (e.g., "HH ao thun" → HH01)
         if (tokens[0] && tokens[0].startsWith('HH')) {
-            return 'H';
+            return 'HH';
         }
 
         // Category B: Social order products — name starts with "IB"
