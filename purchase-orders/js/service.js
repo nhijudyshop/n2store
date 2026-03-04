@@ -725,7 +725,36 @@ class PurchaseOrderService {
     // ========================================
 
     /**
+     * Re-upload an external image URL (e.g. TPOS) to Firebase Storage.
+     * Returns the new Firebase download URL, or the original URL on failure.
+     * @param {string} url - External image URL
+     * @returns {Promise<string>} Firebase download URL or original URL
+     */
+    async reuploadExternalImage(url) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+
+            const blob = await response.blob();
+            const ext = (blob.type || 'image/jpeg').split('/')[1] || 'jpg';
+            const timestamp = Date.now();
+            const filename = `purchase-orders/copy_${timestamp}_${Math.random().toString(36).substring(7)}.${ext}`;
+
+            const ref = this.storage.ref().child(filename);
+            const snapshot = await ref.put(blob);
+            const downloadURL = await snapshot.ref.getDownloadURL();
+
+            console.log('[PurchaseOrderService] Re-uploaded external image:', url, '->', downloadURL);
+            return downloadURL;
+        } catch (error) {
+            console.warn('[PurchaseOrderService] Failed to re-upload image, keeping original:', url, error.message);
+            return url;
+        }
+    }
+
+    /**
      * Copy order (create draft from existing order)
+     * Re-uploads external (TPOS) product images to Firebase Storage so they work when syncing back to TPOS.
      * @param {string} sourceOrderId - Source document ID
      * @returns {Promise<string>} New document ID
      */
@@ -742,6 +771,32 @@ class PurchaseOrderService {
                 throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng nguồn không tồn tại.');
             }
 
+            // Clone items with new IDs and cleared TPOS sync status
+            const newItems = sourceOrder.items.map(item => ({
+                ...item,
+                id: config.generateUUID(),
+                tposSyncStatus: null,
+                tposProductId: null,
+                tposSynced: false,
+                tposSyncError: null
+            }));
+
+            // Re-upload external (TPOS) images to Firebase Storage in parallel
+            const isExternalImage = (url) => url && !url.includes('firebasestorage.googleapis.com');
+
+            const reuploadPromises = newItems.map(async (item) => {
+                if (item.productImages && item.productImages.length > 0) {
+                    const urls = await Promise.all(
+                        item.productImages.map(url =>
+                            isExternalImage(url) ? this.reuploadExternalImage(url) : Promise.resolve(url)
+                        )
+                    );
+                    item.productImages = urls;
+                }
+            });
+
+            await Promise.all(reuploadPromises);
+
             // Create new draft from source
             const newOrderData = {
                 orderDate: firebase.firestore.Timestamp.now(),
@@ -752,12 +807,7 @@ class PurchaseOrderService {
                 shippingFee: 0,
                 invoiceImages: [],
                 notes: sourceOrder.notes ? `[Sao chép từ ${sourceOrder.orderNumber}] ${sourceOrder.notes}` : `Sao chép từ ${sourceOrder.orderNumber}`,
-                items: sourceOrder.items.map(item => ({
-                    ...item,
-                    id: config.generateUUID(),
-                    tposSyncStatus: null,
-                    tposProductId: null
-                }))
+                items: newItems
             };
 
             const newOrderId = await this.createOrder(newOrderData);
