@@ -1,6 +1,7 @@
 /* =====================================================
    INBOX DATA - Pancake API integration & group management
-   Uses pancakeDataManager + pancakeTokenManager (reuse from orders-report)
+   Uses pancakeDataManager + pancakeTokenManager (from tpos-pancake)
+   tpos-pancake version has built-in Instagram page filtering
    ===================================================== */
 
 // Default group labels for categorizing conversations
@@ -29,6 +30,7 @@ class InboxDataManager {
 
     /**
      * Initialize Pancake managers and load data
+     * Uses tpos-pancake managers which have built-in IG page filtering
      */
     async init() {
         this.loadGroups();
@@ -39,16 +41,24 @@ class InboxDataManager {
             await window.pancakeTokenManager.initialize();
             console.log('[InboxData] Pancake token manager initialized');
 
-            // Initialize Pancake data manager (global instance auto-created by script)
+            // Initialize Pancake data manager
+            // tpos-pancake version filters IG pages in fetchPages() automatically
             await window.pancakeDataManager.initialize();
             console.log('[InboxData] Pancake data manager initialized');
 
-            // Filter out Instagram pages (igo_ prefix) to avoid subscription errors
-            // Reference: tpos-pancake/js/pancake-data-manager.js
-            this.filterInstagramPages();
+            // Check if initialize() already loaded conversations
+            const pdm = window.pancakeDataManager;
+            if (pdm.conversations && pdm.conversations.length > 0) {
+                // Use conversations already fetched during initialize()
+                this.pages = pdm.pages || [];
+                this.conversations = pdm.conversations.map(conv => this.mapConversation(conv));
+                console.log(`[InboxData] Got ${this.conversations.length} conversations from initialize()`);
+            } else {
+                // Try other accounts if current one returned 0
+                await this.loadConversations(true);
+            }
 
-            // Load conversations from Pancake API
-            await this.loadConversations();
+            this.recalculateGroupCounts();
             this.isInitialized = true;
             console.log('[InboxData] Initialization complete');
         } catch (error) {
@@ -88,28 +98,6 @@ class InboxDataManager {
         }
     }
 
-    /**
-     * Filter out Instagram pages (igo_ prefix) from pancakeDataManager
-     * Instagram pages require separate subscription and cause error_code 122
-     */
-    filterInstagramPages() {
-        const pdm = window.pancakeDataManager;
-        if (!pdm) return;
-
-        const beforeCount = pdm.pageIds?.length || 0;
-        if (pdm.pages) {
-            pdm.pages = pdm.pages.filter(p => !p.id?.startsWith('igo_'));
-        }
-        if (pdm.pageIds) {
-            pdm.pageIds = pdm.pageIds.filter(id => !id.startsWith('igo_'));
-        }
-        const afterCount = pdm.pageIds?.length || 0;
-
-        if (beforeCount > afterCount) {
-            console.log(`[InboxData] Filtered out ${beforeCount - afterCount} Instagram pages`);
-        }
-    }
-
     loadGroups() {
         try {
             const saved = localStorage.getItem('inbox_groups');
@@ -126,7 +114,7 @@ class InboxDataManager {
 
     /**
      * Load conversations from Pancake API and map to inbox format
-     * If active account's subscription expired, auto-try other accounts
+     * If active account returns 0, auto-try other accounts
      */
     async loadConversations(forceRefresh = false) {
         try {
@@ -139,14 +127,9 @@ class InboxDataManager {
             // Fetch conversations from Pancake
             let rawConversations = await pdm.fetchConversations(forceRefresh);
 
-            // If 0 results, check if the API returned an error (e.g. expired subscription)
-            // The fetchConversations doesn't throw on error_code, it just returns []
+            // If 0 results, try other Pancake accounts
             if (rawConversations.length === 0) {
-                const switched = await this.tryOtherAccounts();
-                if (switched) {
-                    // Re-fetch with new account
-                    rawConversations = await pdm.fetchConversations(true);
-                }
+                rawConversations = await this.tryOtherAccounts();
             }
 
             console.log(`[InboxData] Got ${rawConversations.length} conversations from Pancake`);
@@ -170,12 +153,13 @@ class InboxDataManager {
     }
 
     /**
-     * Try switching to other Pancake accounts if current one fails
-     * Returns true if successfully switched to a working account
+     * Try switching to other Pancake accounts if current one returns 0 conversations
+     * Returns conversations array from the first working account, or []
      */
     async tryOtherAccounts() {
         const ptm = window.pancakeTokenManager;
-        if (!ptm || !ptm.accounts) return false;
+        const pdm = window.pancakeDataManager;
+        if (!ptm || !ptm.accounts || !pdm) return [];
 
         const currentId = ptm.activeAccountId;
         const accountIds = Object.keys(ptm.accounts);
@@ -186,36 +170,29 @@ class InboxDataManager {
             if (accountId === currentId) continue;
 
             const account = ptm.accounts[accountId];
-            // Skip expired tokens
             if (ptm.isTokenExpired && ptm.isTokenExpired(account.exp)) continue;
 
             console.log(`[InboxData] Trying account: ${account.name || accountId}`);
             const switched = await ptm.setActiveAccount(accountId);
             if (!switched) continue;
 
-            // Clear sessionStorage cache so fetchConversations re-fetches
-            try { sessionStorage.removeItem(window.pancakeDataManager?.CONVERSATIONS_CACHE_KEY); } catch (e) {}
-
-            // Test this account by fetching conversations
             try {
-                const testConvs = await window.pancakeDataManager.fetchConversations(true);
-                if (testConvs.length > 0) {
-                    console.log(`[InboxData] Account "${account.name}" works! ${testConvs.length} conversations`);
+                const convs = await pdm.fetchConversations(true);
+                if (convs.length > 0) {
+                    console.log(`[InboxData] Account "${account.name}" works! ${convs.length} conversations`);
                     showToast(`Đã chuyển sang tài khoản: ${account.name || accountId}`, 'success');
-                    return true;
+                    return convs;
                 }
             } catch (e) {
                 console.warn(`[InboxData] Account "${account.name}" failed:`, e.message);
             }
         }
 
-        // All accounts failed, restore original
-        if (currentId) {
-            await ptm.setActiveAccount(currentId);
-        }
+        // All failed, restore original
+        if (currentId) await ptm.setActiveAccount(currentId);
         console.warn('[InboxData] All accounts failed to load conversations');
-        showToast('Tất cả tài khoản Pancake không tải được hội thoại. Gói cước có thể đã hết hạn.', 'error');
-        return false;
+        showToast('Tất cả tài khoản Pancake không tải được hội thoại.', 'error');
+        return [];
     }
 
     /**
