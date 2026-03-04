@@ -1,8 +1,10 @@
 /**
- * Unit Tests - KPI Upselling Double Count Fix (Bug 1)
+ * Unit Tests - KPI Upselling Double Count Fix
  *
- * Tests for confirmHeldProduct() skipping audit log when IsFromDropped = true.
- * Verifies the fix prevents double audit logging for products from "Hàng rớt xả".
+ * Tests for the corrected audit log flow:
+ * - moveDroppedToOrder() does NOT log audit (only moves to held)
+ * - confirmHeldProduct() logs audit for ALL products (both dropped and search)
+ * - Source is 'chat_from_dropped' for dropped products, 'chat_confirm_held' for search
  *
  * **Validates: Requirements 2.1, 3.1**
  */
@@ -19,6 +21,10 @@ function readN2File(relativePath) {
 // ============================================================
 // Pure function: Simulates the KPI audit log decision in confirmHeldProduct
 // Mirrors the exact conditional logic from chat-products-actions.js
+//
+// NEW LOGIC: confirmHeldProduct ALWAYS logs audit for all products.
+// moveDroppedToOrder does NOT log audit (removed).
+// Source differs: 'chat_from_dropped' for dropped, 'chat_confirm_held' for search.
 // ============================================================
 
 /**
@@ -36,13 +42,11 @@ function simulateConfirmHeldProductAuditDecision(heldProduct, options = {}) {
     } = options;
 
     const normalizedProductId = parseInt(heldProduct.ProductId);
-
-    // This mirrors the exact logic from confirmHeldProduct:
-    // const isFromDropped = heldProduct.IsFromDropped === true;
-    // if (window.kpiAuditLogger && !isFromDropped) { ... }
     const isFromDropped = heldProduct.IsFromDropped === true;
 
-    if (kpiAuditLoggerAvailable && !isFromDropped) {
+    // NEW: confirmHeldProduct ALWAYS logs audit (for both dropped and search products)
+    // moveDroppedToOrder no longer logs audit
+    if (kpiAuditLoggerAvailable) {
         return {
             shouldLog: true,
             logData: {
@@ -52,7 +56,7 @@ function simulateConfirmHeldProductAuditDecision(heldProduct, options = {}) {
                 productCode: heldProduct.ProductCode || '',
                 productName: heldProduct.ProductName || '',
                 quantity: heldProduct.Quantity || 1,
-                source: 'chat_confirm_held'
+                source: isFromDropped ? 'chat_from_dropped' : 'chat_confirm_held'
             },
             shouldRecalculate: true
         };
@@ -66,11 +70,12 @@ function simulateConfirmHeldProductAuditDecision(heldProduct, options = {}) {
 }
 
 // ============================================================
-// 1.2 - confirmHeldProduct KHÔNG ghi audit log khi IsFromDropped = true
+// 1.2 - confirmHeldProduct GHI audit log cho SP từ hàng rớt với source 'chat_from_dropped'
+// moveDroppedToOrder KHÔNG ghi audit log nữa
 // Validates: Requirement 2.1
 // ============================================================
-describe('1.2 confirmHeldProduct: KHÔNG ghi audit log khi IsFromDropped = true', () => {
-    it('should NOT log audit when IsFromDropped = true', () => {
+describe('1.2 confirmHeldProduct: GHI audit log cho SP từ hàng rớt (source: chat_from_dropped)', () => {
+    it('should log audit when IsFromDropped = true with source chat_from_dropped', () => {
         const heldProduct = {
             ProductId: 1001,
             ProductCode: 'N2356D1',
@@ -82,12 +87,14 @@ describe('1.2 confirmHeldProduct: KHÔNG ghi audit log khi IsFromDropped = true'
 
         const result = simulateConfirmHeldProductAuditDecision(heldProduct);
 
-        expect(result.shouldLog).toBe(false);
-        expect(result.logData).toBeNull();
-        expect(result.shouldRecalculate).toBe(false);
+        expect(result.shouldLog).toBe(true);
+        expect(result.logData).not.toBeNull();
+        expect(result.logData.source).toBe('chat_from_dropped');
+        expect(result.logData.quantity).toBe(1);
+        expect(result.shouldRecalculate).toBe(true);
     });
 
-    it('should NOT recalculate KPI when IsFromDropped = true', () => {
+    it('should use source chat_from_dropped for dropped products', () => {
         const heldProduct = {
             ProductId: 3062,
             ProductCode: 'N3062A31',
@@ -101,11 +108,26 @@ describe('1.2 confirmHeldProduct: KHÔNG ghi audit log khi IsFromDropped = true'
             orderId: '01770000-5d70-0015-4462-08de3bb33c97'
         });
 
-        expect(result.shouldLog).toBe(false);
-        expect(result.shouldRecalculate).toBe(false);
+        expect(result.shouldLog).toBe(true);
+        expect(result.logData.source).toBe('chat_from_dropped');
+        expect(result.logData.productId).toBe(3062);
     });
 
-    it('should skip audit even when kpiAuditLogger is available and IsFromDropped = true', () => {
+    it('moveDroppedToOrder should NOT contain audit log code', () => {
+        const sourceCode = readN2File('orders-report/js/managers/dropped-products-manager.js');
+
+        const fnStart = sourceCode.indexOf('window.moveDroppedToOrder');
+        expect(fnStart).toBeGreaterThan(-1);
+
+        const fnBody = sourceCode.substring(fnStart, fnStart + 8000);
+
+        // Should NOT contain logProductAction call
+        expect(fnBody).not.toContain('logProductAction');
+        // Should contain comment explaining why
+        expect(fnBody).toContain('KHÔNG ghi ở đây');
+    });
+
+    it('only ONE audit log per dropped product (from confirmHeldProduct only)', () => {
         const heldProduct = {
             ProductId: 5001,
             ProductCode: 'TEST01',
@@ -115,29 +137,11 @@ describe('1.2 confirmHeldProduct: KHÔNG ghi audit log khi IsFromDropped = true'
             IsFromDropped: true
         };
 
-        const result = simulateConfirmHeldProductAuditDecision(heldProduct, {
-            kpiAuditLoggerAvailable: true
-        });
-
-        expect(result.shouldLog).toBe(false);
-    });
-
-    it('source code should check IsFromDropped before logging audit in confirmHeldProduct', () => {
-        const sourceCode = readN2File('orders-report/js/chat/chat-products-actions.js');
-
-        // Find the confirmHeldProduct function
-        const fnStart = sourceCode.indexOf('window.confirmHeldProduct');
-        expect(fnStart).toBeGreaterThan(-1);
-
-        // The function is long (~300 lines), need enough chars to reach KPI audit section
-        const fnBody = sourceCode.substring(fnStart, fnStart + 10000);
-
-        // Should contain the IsFromDropped check
-        expect(fnBody).toContain('IsFromDropped');
-        expect(fnBody).toContain('isFromDropped');
-
-        // Should have the guard: if (window.kpiAuditLogger && !isFromDropped)
-        expect(fnBody).toContain('!isFromDropped');
+        // moveDroppedToOrder: no audit log (removed)
+        // confirmHeldProduct: 1 audit log
+        const result = simulateConfirmHeldProductAuditDecision(heldProduct);
+        expect(result.shouldLog).toBe(true);
+        // Total audit logs = 1 (only from confirmHeldProduct)
     });
 });
 
@@ -264,22 +268,17 @@ describe('1.3 confirmHeldProduct: VẪN ghi audit log khi IsFromDropped = false/
         });
     });
 
-    it('source code should still call logProductAction when IsFromDropped is not true', () => {
+    it('source code should call logProductAction for all products in confirmHeldProduct', () => {
         const sourceCode = readN2File('orders-report/js/chat/chat-products-actions.js');
 
-        // Search the entire file for the KPI audit log section within confirmHeldProduct
-        // The function is very long, so we search the whole source
+        // Verify confirmHeldProduct logs audit for all products
         expect(sourceCode).toContain('logProductAction');
-        expect(sourceCode).toContain("source: 'chat_confirm_held'");
+        expect(sourceCode).toContain("source: isFromDropped ? 'chat_from_dropped' : 'chat_confirm_held'");
         expect(sourceCode).toContain('recalculateAndSaveKPI');
 
-        // Verify the IsFromDropped guard wraps the audit log block
+        // Verify the IsFromDropped variable is used for source selection
         const isFromDroppedIdx = sourceCode.indexOf('const isFromDropped = heldProduct.IsFromDropped === true');
-        const logProductIdx = sourceCode.indexOf("source: 'chat_confirm_held'");
         expect(isFromDroppedIdx).toBeGreaterThan(-1);
-        expect(logProductIdx).toBeGreaterThan(-1);
-        // isFromDropped check should come BEFORE the logProductAction call
-        expect(isFromDroppedIdx).toBeLessThan(logProductIdx);
     });
 });
 

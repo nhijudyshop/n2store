@@ -894,26 +894,10 @@
                 console.warn('[DROPPED-PRODUCTS] Firebase/AuthManager not available, cannot sync held_products');
             }
 
-            // KPI Audit Log - ghi nhận thêm sản phẩm từ hàng rớt
-            if (window.kpiAuditLogger) {
-                try {
-                    const kpiOrderId = window.currentChatOrderData.Id;
-                    await window.kpiAuditLogger.logProductAction({
-                        orderId: String(kpiOrderId),
-                        action: 'add',
-                        productId: parseInt(product.ProductId),
-                        productCode: product.ProductCode || '',
-                        productName: product.ProductName || product.ProductNameGet || '',
-                        quantity: 1,
-                        source: 'chat_from_dropped'
-                    });
-                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
-                        await window.kpiManager.recalculateAndSaveKPI(String(kpiOrderId));
-                    }
-                } catch (kpiError) {
-                    console.warn('[DROPPED-PRODUCTS] KPI audit log failed (non-blocking):', kpiError);
-                }
-            }
+            // KPI Audit Log - KHÔNG ghi ở đây
+            // SP mới chỉ ở trạng thái held (chưa confirm vào đơn hàng)
+            // Audit log sẽ được ghi khi confirmHeldProduct() thực sự thêm SP vào đơn
+            // Tránh double count: moveDroppedToOrder +1 rồi confirmHeldProduct +1 = 2
 
             // Decrease quantity in dropped list using TRANSACTION
             if (!firebaseDb || !product.id) {

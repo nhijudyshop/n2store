@@ -210,10 +210,11 @@
                 window.setChatOrderDetails(newDetails);
             }
 
-            // KPI Audit Log - CHỈ ghi nếu SP KHÔNG từ hàng rớt
-            // (moveDroppedToOrder đã ghi audit log với source "chat_from_dropped" rồi)
+            // KPI Audit Log - ghi DUY NHẤT ở đây khi SP thực sự được thêm vào đơn hàng
+            // moveDroppedToOrder() KHÔNG ghi audit log (chỉ chuyển về held)
+            // confirmHeldProduct() ghi audit log cho TẤT CẢ SP (cả từ hàng rớt lẫn tìm kiếm)
             const isFromDropped = heldProduct.IsFromDropped === true;
-            if (window.kpiAuditLogger && !isFromDropped) {
+            if (window.kpiAuditLogger) {
                 try {
                     const productToLog = newProduct || window.currentChatOrderData.Details.find(p => p.ProductId === normalizedProductId && !p.IsHeld);
                     await window.kpiAuditLogger.logProductAction({
@@ -223,7 +224,7 @@
                         productCode: productToLog?.ProductCode || fullProduct.DefaultCode || '',
                         productName: productToLog?.ProductName || fullProduct.Name || '',
                         quantity: heldProduct.Quantity || 1,
-                        source: 'chat_confirm_held'
+                        source: isFromDropped ? 'chat_from_dropped' : 'chat_confirm_held'
                     });
                     // Recalculate KPI
                     if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
@@ -232,8 +233,6 @@
                 } catch (kpiError) {
                     console.warn('[HELD-CONFIRM] KPI audit log failed (non-blocking):', kpiError);
                 }
-            } else if (isFromDropped) {
-                console.log('[HELD-CONFIRM] Skipped KPI audit log - product is from dropped (already logged by moveDroppedToOrder)');
             }
 
             // STEP 7: Re-render Orders tab

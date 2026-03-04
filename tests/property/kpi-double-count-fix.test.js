@@ -18,7 +18,8 @@ import * as fc from 'fast-check';
 
 /**
  * Simulates the KPI audit log decision logic in confirmHeldProduct.
- * Returns whether audit log should be written and what data would be logged.
+ * NEW: confirmHeldProduct ALWAYS logs audit. moveDroppedToOrder does NOT log.
+ * Source differs: 'chat_from_dropped' for dropped, 'chat_confirm_held' for search.
  */
 function simulateConfirmHeldProductAuditDecision(heldProduct, options = {}) {
     const {
@@ -29,7 +30,7 @@ function simulateConfirmHeldProductAuditDecision(heldProduct, options = {}) {
     const normalizedProductId = parseInt(heldProduct.ProductId);
     const isFromDropped = heldProduct.IsFromDropped === true;
 
-    if (kpiAuditLoggerAvailable && !isFromDropped) {
+    if (kpiAuditLoggerAvailable) {
         return {
             shouldLog: true,
             logData: {
@@ -39,7 +40,7 @@ function simulateConfirmHeldProductAuditDecision(heldProduct, options = {}) {
                 productCode: heldProduct.ProductCode || '',
                 productName: heldProduct.ProductName || '',
                 quantity: heldProduct.Quantity || 1,
-                source: 'chat_confirm_held'
+                source: isFromDropped ? 'chat_from_dropped' : 'chat_confirm_held'
             },
             shouldRecalculate: true
         };
@@ -178,11 +179,12 @@ function arbStatistics(orderId) {
 const arbStatisticsRandom = fc.uuid().chain(id => arbStatistics(id));
 
 // ============================================================
-// Property 1 (Task 3.1): Fault Condition - IsFromDropped=true → no audit log
+// Property 1 (Task 3.1): Fault Condition - IsFromDropped=true → logs with source 'chat_from_dropped'
+// moveDroppedToOrder does NOT log, only confirmHeldProduct logs
 // **Validates: Requirements 2.1**
 // ============================================================
-describe('Property 1: Fault Condition - IsFromDropped=true → shouldLog=false', () => {
-    it('For any random product with IsFromDropped=true, simulateConfirmHeldProductAuditDecision SHALL return shouldLog=false', () => {
+describe('Property 1: Fault Condition - IsFromDropped=true → logs with source chat_from_dropped', () => {
+    it('For any random product with IsFromDropped=true, confirmHeldProduct SHALL log with source chat_from_dropped (only 1 log total)', () => {
         fc.assert(
             fc.property(
                 arbHeldProduct(true),
@@ -193,10 +195,12 @@ describe('Property 1: Fault Condition - IsFromDropped=true → shouldLog=false',
                         kpiAuditLoggerAvailable: true
                     });
 
-                    // Fixed code: products from dropped list must NOT generate audit log
-                    expect(result.shouldLog).toBe(false);
-                    expect(result.logData).toBeNull();
-                    expect(result.shouldRecalculate).toBe(false);
+                    // Fixed code: confirmHeldProduct logs for ALL products (including dropped)
+                    // moveDroppedToOrder no longer logs → total = 1 audit log
+                    expect(result.shouldLog).toBe(true);
+                    expect(result.logData).not.toBeNull();
+                    expect(result.logData.source).toBe('chat_from_dropped');
+                    expect(result.shouldRecalculate).toBe(true);
                 }
             ),
             { numRuns: 200 }
