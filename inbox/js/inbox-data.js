@@ -100,6 +100,7 @@ class InboxDataManager {
 
     /**
      * Load conversations from Pancake API and map to inbox format
+     * If active account's subscription expired, auto-try other accounts
      */
     async loadConversations(forceRefresh = false) {
         try {
@@ -110,8 +111,23 @@ class InboxDataManager {
             }
 
             // Fetch conversations from Pancake
-            const rawConversations = await pdm.fetchConversations(forceRefresh);
+            let rawConversations = await pdm.fetchConversations(forceRefresh);
+
+            // If 0 results, check if the API returned an error (e.g. expired subscription)
+            // The fetchConversations doesn't throw on error_code, it just returns []
+            if (rawConversations.length === 0) {
+                const switched = await this.tryOtherAccounts();
+                if (switched) {
+                    // Re-fetch with new account
+                    rawConversations = await pdm.fetchConversations(true);
+                }
+            }
+
             console.log(`[InboxData] Got ${rawConversations.length} conversations from Pancake`);
+
+            if (rawConversations.length === 0) {
+                showToast('Không có cuộc hội thoại. Kiểm tra tài khoản Pancake.', 'warning');
+            }
 
             // Get pages for page name lookup
             this.pages = pdm.pages || [];
@@ -125,6 +141,55 @@ class InboxDataManager {
             console.error('[InboxData] Error loading conversations:', error);
             return [];
         }
+    }
+
+    /**
+     * Try switching to other Pancake accounts if current one fails
+     * Returns true if successfully switched to a working account
+     */
+    async tryOtherAccounts() {
+        const ptm = window.pancakeTokenManager;
+        if (!ptm || !ptm.accounts) return false;
+
+        const currentId = ptm.activeAccountId;
+        const accountIds = Object.keys(ptm.accounts);
+
+        console.log(`[InboxData] Active account returned 0 conversations, trying ${accountIds.length - 1} other accounts...`);
+
+        for (const accountId of accountIds) {
+            if (accountId === currentId) continue;
+
+            const account = ptm.accounts[accountId];
+            // Skip expired tokens
+            if (ptm.isTokenExpired && ptm.isTokenExpired(account.exp)) continue;
+
+            console.log(`[InboxData] Trying account: ${account.name || accountId}`);
+            const switched = await ptm.setActiveAccount(accountId);
+            if (!switched) continue;
+
+            // Clear sessionStorage cache so fetchConversations re-fetches
+            try { sessionStorage.removeItem(window.pancakeDataManager?.CONVERSATIONS_CACHE_KEY); } catch (e) {}
+
+            // Test this account by fetching conversations
+            try {
+                const testConvs = await window.pancakeDataManager.fetchConversations(true);
+                if (testConvs.length > 0) {
+                    console.log(`[InboxData] Account "${account.name}" works! ${testConvs.length} conversations`);
+                    showToast(`Đã chuyển sang tài khoản: ${account.name || accountId}`, 'success');
+                    return true;
+                }
+            } catch (e) {
+                console.warn(`[InboxData] Account "${account.name}" failed:`, e.message);
+            }
+        }
+
+        // All accounts failed, restore original
+        if (currentId) {
+            await ptm.setActiveAccount(currentId);
+        }
+        console.warn('[InboxData] All accounts failed to load conversations');
+        showToast('Tất cả tài khoản Pancake không tải được hội thoại. Gói cước có thể đã hết hạn.', 'error');
+        return false;
     }
 
     /**
