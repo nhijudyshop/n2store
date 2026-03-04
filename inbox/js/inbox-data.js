@@ -178,10 +178,13 @@ class InboxDataManager {
 
         for (const pageId of pageIds) {
             try {
-                const params = `unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
-                const url = API_CONFIG.buildUrl.pancake(`pages/${pageId}/conversations`, params);
+                // Use pancakeDirect route: sends JWT as cookie + page-specific Referer
+                // (generic /api/pancake/ route has no JWT cookie → error 102)
+                const baseUrl = API_CONFIG.buildUrl.pancakeDirect(`pages/${pageId}/conversations`, pageId, token, token);
+                const extraParams = `&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&cursor_mode=true&from_platform=web`;
+                const url = baseUrl + extraParams;
 
-                console.log(`[InboxData] Fetching page ${pageId}...`);
+                console.log(`[InboxData] Fetching page ${pageId} via pancake-direct...`);
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json' }
