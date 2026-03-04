@@ -3844,3 +3844,91 @@
     border-bottom-color: #1890ff;
     font-weight: 500;
 }
+
+/* ==================== CONFIRM DELETE MODAL ==================== */
+.k-modal-confirm {
+    width: 400px;
+    max-width: 90vw;
+    border-radius: 12px;
+}
+
+.k-modal-header--danger {
+    border-bottom: 1px solid #fecaca;
+}
+
+.k-modal-header--danger h3 {
+    color: #dc2626;
+}
+
+.confirm-modal-body {
+    padding: 24px 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+}
+
+.confirm-modal-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #fef2f2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ef4444;
+}
+
+.confirm-modal-icon i,
+.confirm-modal-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.confirm-modal-body p {
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.confirm-modal-actions {
+    padding: 12px 24px 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.k-btn--danger {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.k-btn--danger:hover {
+    background: #dc2626;
+}
+
+.k-btn--outline {
+    background: #fff;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.k-btn--outline:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}

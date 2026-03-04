@@ -1922,6 +1922,12 @@ const SoquyUI = (function () {
     }
 
     async function deleteSingleCategory(categoryName, source) {
+        const confirmed = await showConfirmModal(
+            `Bạn có chắc chắn muốn xóa "${categoryName}"?`,
+            'Xác nhận xóa loại thu chi'
+        );
+        if (!confirmed) return;
+
         const voucherType = categoryTabToVoucherType(_categoryModalTab);
 
         try {
@@ -1945,6 +1951,12 @@ const SoquyUI = (function () {
 
         const checkboxes = document.querySelectorAll('.category-item-checkbox:checked');
         if (checkboxes.length === 0) return;
+
+        const confirmed = await showConfirmModal(
+            `Bạn có chắc chắn muốn xóa ${checkboxes.length} mục đã chọn?`,
+            'Xác nhận xóa loại thu chi'
+        );
+        if (!confirmed) return;
 
         const dynamicToDelete = [];
         const predefinedToDelete = [];
@@ -2078,6 +2090,11 @@ const SoquyUI = (function () {
                 e.stopPropagation();
                 const code = btn.dataset.sourceCode;
                 if (!code) return;
+                const confirmed = await showConfirmModal(
+                    `Bạn có chắc chắn muốn xóa nguồn "${code}"?`,
+                    'Xác nhận xóa nguồn'
+                );
+                if (!confirmed) return;
                 try {
                     // If deleting the default source, clear it
                     if (db.getDefaultSource() === code) {
@@ -2105,6 +2122,11 @@ const SoquyUI = (function () {
                         catDeleteBtn.style.display = 'inline-flex';
                         catDeleteBtn.onclick = async () => {
                             const codes = [...checked].map(c => c.value);
+                            const confirmed = await showConfirmModal(
+                                `Bạn có chắc chắn muốn xóa ${codes.length} nguồn đã chọn?`,
+                                'Xác nhận xóa nguồn'
+                            );
+                            if (!confirmed) return;
                             try {
                                 await db.deleteDynamicSources(codes);
                                 showNotification(`Đã xóa ${codes.length} nguồn`, 'success');
@@ -2279,10 +2301,17 @@ const SoquyUI = (function () {
     async function deleteSingleSource(sourceCode) {
         if (!sourceCode) return;
 
+        const srcObj = db.getSourceByCode(sourceCode);
+        const label = srcObj ? `${sourceCode} - ${srcObj.name}` : sourceCode;
+        const confirmed = await showConfirmModal(
+            `Bạn có chắc chắn muốn xóa nguồn "${label}"?`,
+            'Xác nhận xóa nguồn'
+        );
+        if (!confirmed) return;
+
         try {
             await db.deleteDynamicSources([sourceCode]);
-            const srcObj = db.getSourceByCode(sourceCode);
-            showNotification(`Đã xóa: ${sourceCode}${srcObj ? ' - ' + srcObj.name : ''}`, 'success');
+            showNotification(`Đã xóa: ${label}`, 'success');
             renderSourceList();
             populateCategorySourceDropdown();
             populateCategoryDropdowns();
@@ -2298,6 +2327,12 @@ const SoquyUI = (function () {
 
         const toDelete = [];
         checkboxes.forEach(cb => toDelete.push(cb.value));
+
+        const confirmed = await showConfirmModal(
+            `Bạn có chắc chắn muốn xóa ${toDelete.length} nguồn đã chọn?`,
+            'Xác nhận xóa nguồn'
+        );
+        if (!confirmed) return;
 
         try {
             await db.deleteDynamicSources(toDelete);
@@ -2316,6 +2351,47 @@ const SoquyUI = (function () {
             cb.checked = checked;
         });
         updateSourceDeleteButton();
+    }
+
+    // =====================================================
+    // CONFIRM DELETE MODAL
+    // =====================================================
+
+    function showConfirmModal(message, title) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('soquyConfirmModal');
+            const titleEl = document.getElementById('confirmModalTitle');
+            const msgEl = document.getElementById('confirmModalMessage');
+            const btnOk = document.getElementById('btnConfirmOk');
+            const btnCancel = document.getElementById('btnConfirmCancel');
+            const btnClose = document.getElementById('btnConfirmClose');
+            const overlay = document.getElementById('soquyConfirmOverlay');
+
+            if (!modal) { resolve(false); return; }
+
+            if (titleEl) titleEl.textContent = title || 'Xác nhận xóa';
+            if (msgEl) msgEl.textContent = message || 'Bạn có chắc chắn muốn xóa?';
+
+            modal.style.display = 'flex';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            function cleanup(result) {
+                modal.style.display = 'none';
+                btnOk.removeEventListener('click', onOk);
+                btnCancel.removeEventListener('click', onCancel);
+                btnClose.removeEventListener('click', onCancel);
+                overlay.removeEventListener('click', onCancel);
+                resolve(result);
+            }
+
+            function onOk() { cleanup(true); }
+            function onCancel() { cleanup(false); }
+
+            btnOk.addEventListener('click', onOk);
+            btnCancel.addEventListener('click', onCancel);
+            btnClose.addEventListener('click', onCancel);
+            overlay.addEventListener('click', onCancel);
+        });
     }
 
     // =====================================================
