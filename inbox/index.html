@@ -102,6 +102,7 @@
                 <div class="conversation-filters">
                     <button class="filter-tab active" data-filter="all">Tất cả</button>
                     <button class="filter-tab" data-filter="unread">Chưa đọc</button>
+                    <button class="filter-tab" data-filter="livestream">Livestream</button>
                     <button class="filter-tab" data-filter="starred">Đánh dấu</button>
                 </div>
 
@@ -343,6 +344,15 @@
 
         <!-- JavaScript -->
         <script src="../shared/js/permissions-helper.js"></script>
+
+        <!-- API Config (must load before Pancake managers) -->
+        <script src="js/inbox-api-config.js"></script>
+
+        <!-- Pancake Managers (reuse from orders-report) -->
+        <script src="../orders-report/js/managers/pancake-token-manager.js"></script>
+        <script src="../orders-report/js/managers/pancake-data-manager.js"></script>
+
+        <!-- Inbox modules -->
         <script src="js/inbox-data.js"></script>
         <script src="js/inbox-chat.js"></script>
         <script src="js/inbox-orders.js"></script>

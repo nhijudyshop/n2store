@@ -1,5 +1,5 @@
 /* =====================================================
-   INBOX CHAT - Chat UI Controller
+   INBOX CHAT - Chat UI Controller with Pancake API
    ===================================================== */
 
 class InboxChatController {
@@ -9,6 +9,8 @@ class InboxChatController {
         this.currentFilter = 'all';
         this.currentGroupFilter = null;
         this.searchQuery = '';
+        this.isSending = false;
+        this.isLoadingMessages = false;
 
         this.elements = {
             conversationList: document.getElementById('conversationList'),
@@ -75,12 +77,22 @@ class InboxChatController {
             }
         });
 
-        // Refresh
-        this.elements.btnRefreshInbox.addEventListener('click', () => {
-            this.data.init();
-            this.renderConversationList();
-            this.renderGroupStats();
-            showToast('Đã làm mới dữ liệu', 'success');
+        // Refresh - reload from Pancake API
+        this.elements.btnRefreshInbox.addEventListener('click', async () => {
+            const btn = this.elements.btnRefreshInbox;
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            try {
+                await this.data.loadConversations(true);
+                this.renderConversationList();
+                this.renderGroupStats();
+                showToast('Đã làm mới dữ liệu từ Pancake', 'success');
+            } catch (err) {
+                showToast('Lỗi làm mới: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
         });
 
         // Info panel tabs
@@ -108,6 +120,12 @@ class InboxChatController {
         const btnManageGroups = document.getElementById('btnManageGroups');
         if (btnManageGroups) {
             btnManageGroups.addEventListener('click', () => this.showManageGroupsModal());
+        }
+
+        // Attach image button
+        const btnAttachImage = document.getElementById('btnAttachImage');
+        if (btnAttachImage) {
+            btnAttachImage.addEventListener('click', () => this.attachImage());
         }
     }
 
@@ -137,11 +155,31 @@ class InboxChatController {
             const isActive = conv.id === this.activeConversationId;
             const isUnread = conv.unread > 0;
 
+            // Avatar: use Pancake avatar or initials
+            const avatarContent = conv.avatar
+                ? `<img src="${conv.avatar}" alt="${this.escapeHtml(conv.name)}" onerror="this.outerHTML='${initials}'">`
+                : initials;
+
+            // Livestream badge
+            const livestreamBadge = conv.isLivestream
+                ? '<span class="conv-livestream-badge">LIVE</span>'
+                : '';
+
+            // Page name
+            const pageNameHtml = conv.pageName
+                ? `<span class="conv-page-name">${this.escapeHtml(conv.pageName)}</span>`
+                : '';
+
+            // Type badge (COMMENT vs INBOX)
+            const typeBadge = conv.type === 'COMMENT'
+                ? '<span class="conv-type-badge comment">CMT</span>'
+                : '';
+
             return `
                 <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
                      data-id="${conv.id}" onclick="window.inboxChat.selectConversation('${conv.id}')">
                     <div class="conv-avatar ${avatarBg}">
-                        ${initials}
+                        ${avatarContent}
                         ${conv.online ? '<div class="conv-online-dot"></div>' : ''}
                     </div>
                     <div class="conv-content">
@@ -149,9 +187,14 @@ class InboxChatController {
                             <span class="conv-name">${this.escapeHtml(conv.name)}</span>
                             <span class="conv-time">${this.formatTime(conv.time)}</span>
                         </div>
+                        ${pageNameHtml}
                         <div class="conv-preview">${this.escapeHtml(conv.lastMessage)}</div>
                         <div class="conv-footer">
-                            <span class="conv-label ${labelClass}">${labelText}</span>
+                            <div class="conv-footer-left">
+                                <span class="conv-label ${labelClass}">${labelText}</span>
+                                ${typeBadge}
+                                ${livestreamBadge}
+                            </div>
                             ${isUnread ? `<span class="conv-unread-badge">${conv.unread}</span>` : ''}
                         </div>
                     </div>
@@ -162,7 +205,7 @@ class InboxChatController {
 
     // ===== Select Conversation =====
 
-    selectConversation(convId) {
+    async selectConversation(convId) {
         this.activeConversationId = convId;
         const conv = this.data.getConversation(convId);
         if (!conv) return;
@@ -171,27 +214,118 @@ class InboxChatController {
 
         // Update header
         this.elements.chatUserName.textContent = conv.name;
-        this.elements.chatUserStatus.textContent = conv.online ? 'Đang hoạt động' : 'Ngoại tuyến';
+        const statusParts = [];
+        if (conv.pageName) statusParts.push(conv.pageName);
+        if (conv.type === 'COMMENT') statusParts.push('Bình luận');
+        if (conv.isLivestream) statusParts.push('Livestream');
+        this.elements.chatUserStatus.textContent = statusParts.join(' · ') || 'Đang tải...';
 
         // Update chat avatar
         const chatAvatar = this.elements.chatHeader.querySelector('.chat-avatar');
         const avatarBg = 'bg-' + ((conv.name.charCodeAt(0) % 8) + 1);
         const initials = conv.name.split(' ').map(w => w[0]).slice(-2).join('');
-        chatAvatar.innerHTML = initials;
+        if (conv.avatar) {
+            chatAvatar.innerHTML = `<img src="${conv.avatar}" alt="${this.escapeHtml(conv.name)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='${initials}'">`;
+        } else {
+            chatAvatar.innerHTML = initials;
+        }
         chatAvatar.className = 'chat-avatar conv-avatar ' + avatarBg;
         chatAvatar.style.color = 'white';
         chatAvatar.style.fontSize = '0.875rem';
         chatAvatar.style.fontWeight = '700';
 
         this.updateStarButton(conv.starred);
-        this.renderMessages(conv);
         this.renderChatLabelBar(conv);
         this.renderConversationList();
         this.renderGroupStats();
 
+        // Show loading state
+        this.elements.chatMessages.innerHTML = `
+            <div class="chat-empty-state">
+                <div class="loading-spinner"></div>
+                <p>Đang tải tin nhắn...</p>
+            </div>
+        `;
+
+        // Fetch real messages from Pancake API
+        await this.loadMessages(conv);
+
         // Auto-fill order form
         if (window.inboxOrders) {
             window.inboxOrders.fillCustomerInfo(conv);
+        }
+    }
+
+    /**
+     * Load messages for a conversation from Pancake API
+     */
+    async loadMessages(conv) {
+        if (this.isLoadingMessages) return;
+        this.isLoadingMessages = true;
+
+        try {
+            const pdm = window.pancakeDataManager;
+            if (!pdm) {
+                console.warn('[InboxChat] pancakeDataManager not available');
+                return;
+            }
+
+            const result = await pdm.fetchMessagesForConversation(
+                conv.pageId,
+                conv.conversationId,
+                null,
+                conv.customerId
+            );
+
+            // Check if user switched to a different conversation while loading
+            if (this.activeConversationId !== conv.id) return;
+
+            const messages = result.messages || [];
+
+            // Detect livestream from response data
+            // The messages response may contain a 'post' object with type info
+            if (result.conversation?.post?.type === 'livestream') {
+                this.data.markAsLivestream(conv.id);
+                conv.isLivestream = true;
+                // Update status text
+                const statusParts = [];
+                if (conv.pageName) statusParts.push(conv.pageName);
+                if (conv.type === 'COMMENT') statusParts.push('Bình luận');
+                statusParts.push('Livestream');
+                this.elements.chatUserStatus.textContent = statusParts.join(' · ');
+                // Re-render conversation list to show LIVE badge
+                this.renderConversationList();
+            }
+
+            // Map Pancake messages to inbox format
+            conv.messages = messages.map(msg => {
+                const isFromPage = msg.from?.id === conv.pageId;
+                return {
+                    id: msg.id,
+                    text: msg.message || msg.original_message || '',
+                    time: new Date(msg.inserted_at || msg.created_time || Date.now()),
+                    sender: isFromPage ? 'shop' : 'customer',
+                    attachments: msg.attachments || [],
+                    senderName: msg.from?.name || '',
+                };
+            });
+
+            // Messages from API are newest-first, reverse for display
+            conv.messages.reverse();
+
+            this.renderMessages(conv);
+
+        } catch (error) {
+            console.error('[InboxChat] Error loading messages:', error);
+            if (this.activeConversationId === conv.id) {
+                this.elements.chatMessages.innerHTML = `
+                    <div class="chat-empty-state">
+                        <p>Lỗi tải tin nhắn: ${this.escapeHtml(error.message)}</p>
+                    </div>
+                `;
+            }
+        } finally {
+            this.isLoadingMessages = false;
         }
     }
 
@@ -226,12 +360,45 @@ class InboxChatController {
             }
 
             const isOutgoing = msg.sender === 'shop';
+
+            // Build message content (text + attachments)
+            let messageContent = '';
+            if (msg.text) {
+                messageContent += `<div class="message-text">${this.formatMessageText(msg.text)}</div>`;
+            }
+
+            // Render attachments (images, etc.)
+            if (msg.attachments && msg.attachments.length > 0) {
+                msg.attachments.forEach(att => {
+                    if (att.type === 'image' || att.type === 'photo') {
+                        const imgUrl = att.url || att.payload?.url || att.src || '';
+                        if (imgUrl) {
+                            messageContent += `<img class="message-image" src="${imgUrl}" alt="Ảnh" onclick="window.open('${imgUrl}', '_blank')" loading="lazy">`;
+                        }
+                    } else if (att.type === 'sticker') {
+                        const stickerUrl = att.url || att.payload?.url || '';
+                        if (stickerUrl) {
+                            messageContent += `<img class="message-sticker" src="${stickerUrl}" alt="Sticker" loading="lazy">`;
+                        }
+                    } else if (att.type === 'video') {
+                        const videoUrl = att.url || att.payload?.url || '';
+                        if (videoUrl) {
+                            messageContent += `<div class="message-attachment"><a href="${videoUrl}" target="_blank">Video</a></div>`;
+                        }
+                    }
+                });
+            }
+
+            if (!messageContent) {
+                messageContent = '<div class="message-text" style="opacity:0.5">[Tin nhắn trống]</div>';
+            }
+
             return `
                 ${dateSeparator}
                 <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'}">
                     ${!isOutgoing ? `<div class="message-avatar conv-avatar ${avatarBg}">${initials}</div>` : ''}
                     <div class="message-bubble">
-                        <div class="message-text">${this.escapeHtml(msg.text)}</div>
+                        ${messageContent}
                         <div class="message-time">${this.formatMessageTime(msg.time)}</div>
                     </div>
                 </div>
@@ -242,19 +409,131 @@ class InboxChatController {
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
     }
 
-    sendMessage() {
-        if (!this.activeConversationId) return;
+    /**
+     * Send a real message via Pancake API
+     */
+    async sendMessage() {
+        if (!this.activeConversationId || this.isSending) return;
 
         const text = this.elements.chatInput.value.trim();
         if (!text) return;
 
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        this.isSending = true;
+        this.elements.btnSend.disabled = true;
+
+        // Optimistic UI update
         this.data.addMessage(this.activeConversationId, text, 'shop');
         this.elements.chatInput.value = '';
         this.elements.chatInput.style.height = 'auto';
-
-        const conv = this.data.getConversation(this.activeConversationId);
         this.renderMessages(conv);
         this.renderConversationList();
+
+        try {
+            // Get page access token
+            const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
+            if (!pageAccessToken) {
+                throw new Error('Không lấy được page access token');
+            }
+
+            // Send message via Pancake Official API
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                pageAccessToken
+            );
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: { text: text }
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errData}`);
+            }
+
+            console.log('[InboxChat] Message sent successfully');
+
+            // Refresh messages after a short delay to get server-side updates
+            setTimeout(async () => {
+                if (this.activeConversationId === conv.id) {
+                    await this.loadMessages(conv);
+                }
+            }, 2000);
+
+        } catch (error) {
+            console.error('[InboxChat] Error sending message:', error);
+            showToast('Lỗi gửi tin nhắn: ' + error.message, 'error');
+        } finally {
+            this.isSending = false;
+            this.elements.btnSend.disabled = false;
+        }
+    }
+
+    /**
+     * Attach and send an image
+     */
+    async attachImage() {
+        if (!this.activeConversationId) {
+            showToast('Vui lòng chọn cuộc hội thoại trước', 'warning');
+            return;
+        }
+
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                showToast('Đang tải ảnh lên...', 'info');
+
+                // Upload image via pancakeDataManager
+                const pdm = window.pancakeDataManager;
+                if (!pdm) throw new Error('pancakeDataManager not available');
+
+                const result = await pdm.uploadImage(conv.pageId, file);
+                if (result && result.url) {
+                    // Send image message
+                    const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
+                    const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                        `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                        pageAccessToken
+                    );
+
+                    await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            message: {
+                                attachment: {
+                                    type: 'image',
+                                    payload: { url: result.url }
+                                }
+                            }
+                        })
+                    });
+
+                    showToast('Đã gửi ảnh', 'success');
+
+                    // Refresh messages
+                    setTimeout(() => this.loadMessages(conv), 2000);
+                }
+            } catch (err) {
+                console.error('[InboxChat] Image upload error:', err);
+                showToast('Lỗi tải ảnh: ' + err.message, 'error');
+            }
+        };
+        input.click();
     }
 
     // ===== Chat Label Bar (inside chat column) =====
@@ -442,7 +721,6 @@ class InboxChatController {
 
             this.data.addGroup(name, color, note);
 
-            // Add to the list in modal
             const listEl = document.getElementById('modalGroupList');
             const newGroup = this.data.groups[this.data.groups.length - 1];
             const newItem = document.createElement('div');
@@ -468,7 +746,6 @@ class InboxChatController {
             `;
             listEl.appendChild(newItem);
 
-            // Clear inputs
             document.getElementById('modalNewGroupName').value = '';
             document.getElementById('modalNewGroupNote').value = '';
 
@@ -477,7 +754,6 @@ class InboxChatController {
 
         // Save all edits
         document.getElementById('btnModalSave').addEventListener('click', () => {
-            // Save name and note edits
             overlay.querySelectorAll('.modal-group-item').forEach(item => {
                 const groupId = item.dataset.groupId;
                 const nameInput = item.querySelector('.modal-group-name-input');
@@ -511,7 +787,6 @@ class InboxChatController {
     }
 
     _toggleColorPicker(el, groupId) {
-        // Remove existing popover
         const existing = el.parentElement.querySelector('.color-popover');
         if (existing) { existing.remove(); return; }
 
@@ -535,7 +810,6 @@ class InboxChatController {
             e.stopPropagation();
         });
 
-        // Close on outside click
         setTimeout(() => {
             const closeHandler = (e) => {
                 if (!popover.contains(e.target) && e.target !== el) {
@@ -605,7 +879,24 @@ class InboxChatController {
         return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     }
 
+    /**
+     * Format message text - convert URLs to links, handle HTML entities
+     */
+    formatMessageText(text) {
+        // Escape HTML first
+        let safe = this.escapeHtml(text);
+        // Convert URLs to clickable links
+        safe = safe.replace(
+            /(https?:\/\/[^\s<]+)/gi,
+            '<a href="$1" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">$1</a>'
+        );
+        // Convert newlines to <br>
+        safe = safe.replace(/\n/g, '<br>');
+        return safe;
+    }
+
     escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;

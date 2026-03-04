@@ -116,13 +116,32 @@ function initColumnResizer() {
 }
 
 /* =====================================================
-   INIT APP
+   INIT APP - Async for Pancake API initialization
    ===================================================== */
 
-function initInboxApp() {
-    // Initialize data manager
+async function initInboxApp() {
+    // Show loading state in conversation list
+    const convList = document.getElementById('conversationList');
+    if (convList) {
+        convList.innerHTML = `
+            <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 0.5rem;">Đang kết nối Pancake...</p>
+            </div>
+        `;
+    }
+
+    // Initialize Lucide icons early
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+
+    // Initialize column resizer
+    initColumnResizer();
+
+    // Initialize data manager with Pancake API
     const dataManager = new InboxDataManager();
-    dataManager.init();
+    await dataManager.init();
 
     // Initialize chat controller
     const chatController = new InboxChatController(dataManager);
@@ -134,15 +153,12 @@ function initInboxApp() {
     orderController.init();
     window.inboxOrders = orderController;
 
-    // Initialize column resizer
-    initColumnResizer();
-
-    // Initialize Lucide icons
+    // Re-initialize Lucide icons after rendering
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 
-    console.log('[Inbox] App initialized successfully');
+    console.log('[Inbox] App initialized successfully with Pancake API');
 }
 
 // Wait for DOM ready
