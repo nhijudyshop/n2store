@@ -1097,15 +1097,17 @@ class PancakeTokenManager {
 
             // Support both formats:
             // 1. Nested: { data: { pageId: {...}, ... } }
-            // 2. Root-level: { pageId: {...}, ... } (older format in Firestore)
+            // 2. Root-level: { pageId: {...}, ... } (current format in Firestore)
             let firestoreTokens = {};
             if (docData.data && typeof docData.data === 'object') {
                 firestoreTokens = { ...docData.data };
             }
             // Also check root-level entries (each has a 'token' field)
+            // If both exist for same pageId, keep the newer one (by savedAt)
             for (const [key, value] of Object.entries(docData)) {
                 if (key !== 'data' && value && typeof value === 'object' && value.token) {
-                    if (!firestoreTokens[key]) {
+                    const existing = firestoreTokens[key];
+                    if (!existing || (value.savedAt || 0) > (existing.savedAt || 0)) {
                         firestoreTokens[key] = value;
                     }
                 }

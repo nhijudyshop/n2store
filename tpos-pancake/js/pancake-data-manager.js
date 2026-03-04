@@ -214,13 +214,20 @@ class PancakeDataManager {
             }
 
             if (extractedCount > 0) {
-                // Merge with existing tokens and save to localStorage (synchronous, fast)
+                // Merge with existing tokens and save to localStorage
                 const existingTokens = window.pancakeTokenManager.pageAccessTokens || {};
                 window.pancakeTokenManager.pageAccessTokens = {
                     ...existingTokens,
                     ...tokensToSave
                 };
                 window.pancakeTokenManager.savePageAccessTokensToLocalStorage();
+
+                // Also sync to Firestore for cross-device access
+                if (window.pancakeTokenManager.pageTokensRef) {
+                    window.pancakeTokenManager.pageTokensRef.set(
+                        tokensToSave, { merge: true }
+                    ).catch(err => console.warn('[PANCAKE] Error syncing page tokens to Firestore:', err));
+                }
 
                 console.log(`[PANCAKE] ✅ Extracted and cached ${extractedCount} page_access_tokens from /pages response`);
             }
