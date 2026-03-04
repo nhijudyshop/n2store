@@ -300,6 +300,58 @@ input, textarea, select {
 }
 
 /* =====================================================
+   RESIZE HANDLE - Draggable column divider
+   ===================================================== */
+
+.resize-handle {
+    width: 5px;
+    cursor: col-resize;
+    background: var(--gray-200);
+    position: relative;
+    flex-shrink: 0;
+    z-index: 10;
+    transition: background var(--transition-fast);
+}
+
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px;
+    height: 32px;
+    border-radius: 2px;
+    background: var(--gray-300);
+    transition: background var(--transition-fast);
+}
+
+.resize-handle:hover,
+.resize-handle.dragging {
+    background: var(--primary-light);
+}
+
+.resize-handle:hover::after,
+.resize-handle.dragging::after {
+    background: var(--primary);
+}
+
+body.col-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+body.col-resizing * {
+    cursor: col-resize !important;
+    pointer-events: none !important;
+}
+
+body.col-resizing .resize-handle {
+    pointer-events: auto !important;
+}
+
+/* =====================================================
    COLUMN SHARED STYLES
    ===================================================== */
 
@@ -307,8 +359,8 @@ input, textarea, select {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--border);
     background: var(--surface);
+    overflow: hidden;
 }
 
 .col-header {
@@ -357,7 +409,7 @@ input, textarea, select {
 
 .inbox-col-conversations {
     width: var(--col1-width);
-    min-width: var(--col1-width);
+    min-width: 240px;
     flex-shrink: 0;
 }
 
@@ -598,7 +650,7 @@ input, textarea, select {
 
 .inbox-col-chat {
     flex: 1;
-    min-width: 0;
+    min-width: 300px;
 }
 
 /* Chat Header */
@@ -801,6 +853,75 @@ input, textarea, select {
     color: var(--text-tertiary);
 }
 
+/* =====================================================
+   CHAT LABEL BAR - Inline label assignment in chat
+   ===================================================== */
+
+.chat-label-bar {
+    border-top: 1px solid var(--border);
+    background: var(--gray-50);
+    padding: 6px var(--spacing-md);
+}
+
+.chat-label-bar-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    overflow-x: auto;
+}
+
+.chat-label-bar-inner::-webkit-scrollbar {
+    height: 0;
+}
+
+.chat-label-bar-title {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.chat-label-bar-list {
+    display: flex;
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+
+.chat-label-btn {
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.chat-label-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-bg);
+}
+
+.chat-label-btn.active {
+    color: white;
+    border-color: transparent;
+}
+
+.chat-label-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
 /* Chat Input Area */
 .chat-input-area {
     border-top: 1px solid var(--border);
@@ -871,9 +992,8 @@ input, textarea, select {
 
 .inbox-col-info {
     width: var(--col3-width);
-    min-width: var(--col3-width);
+    min-width: 280px;
     flex-shrink: 0;
-    border-right: none;
 }
 
 .inbox-col-info.hidden {
@@ -943,171 +1063,179 @@ input, textarea, select {
     border-radius: 2px;
 }
 
-/* Stats Mini Cards */
-.stats-mini-cards {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-sm);
-}
+/* =====================================================
+   GROUP STATS - Full-width stats cards
+   ===================================================== */
 
-.stats-mini-card {
-    padding: var(--spacing-md);
-    border-radius: var(--radius-md);
-    text-align: center;
-}
-
-.stats-mini-card.blue {
-    background: var(--info-bg);
-    border: 1px solid #bfdbfe;
-}
-
-.stats-mini-card.green {
-    background: var(--success-bg);
-    border: 1px solid #a7f3d0;
-}
-
-.stats-mini-card.orange {
-    background: var(--warning-bg);
-    border: 1px solid #fde68a;
-}
-
-.stats-mini-card.red {
-    background: var(--danger-bg);
-    border: 1px solid #fecaca;
-}
-
-.stats-mini-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: 4px;
-}
-
-.stats-mini-card.blue .stats-mini-value { color: var(--info); }
-.stats-mini-card.green .stats-mini-value { color: var(--success); }
-.stats-mini-card.orange .stats-mini-value { color: var(--warning); }
-.stats-mini-card.red .stats-mini-value { color: var(--danger); }
-
-.stats-mini-label {
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-}
-
-/* Group Section */
-.group-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-}
-
-.group-section-header {
-    padding: var(--spacing-sm) var(--spacing-md);
+.group-stats-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    background: var(--gray-50);
+    padding-bottom: var(--spacing-sm);
 }
 
-.group-section-header h3 {
-    font-size: 0.8125rem;
-    font-weight: 600;
+.group-stats-header h3 {
+    font-size: 0.9375rem;
+    font-weight: 700;
     color: var(--text-primary);
 }
 
-/* Group List */
-.group-list {
-    padding: var(--spacing-sm);
-}
-
-.group-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
+.btn-manage-groups {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
     border-radius: var(--radius);
-    cursor: pointer;
-    transition: var(--transition-fast);
-    margin-bottom: 2px;
-}
-
-.group-item:hover {
-    background: var(--gray-50);
-}
-
-.group-item.active {
-    background: var(--primary-bg);
-}
-
-.group-color-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.group-name {
-    flex: 1;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--text-primary);
-}
-
-.group-count {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--text-tertiary);
-    background: var(--gray-100);
-    padding: 1px 8px;
-    border-radius: var(--radius-full);
-}
-
-/* Assign Section */
-.assign-section {
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-md);
-}
-
-.assign-section h3 {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: var(--spacing-sm);
-}
-
-.assign-label-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-}
-
-.assign-label-btn {
-    padding: 4px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-full);
-    background: var(--surface);
+    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition-fast);
     display: flex;
     align-items: center;
     gap: 4px;
+    cursor: pointer;
+    transition: var(--transition-fast);
 }
 
-.assign-label-btn:hover {
+.btn-manage-groups:hover {
+    background: var(--gray-100);
+    color: var(--primary);
     border-color: var(--primary);
+}
+
+.btn-manage-groups i,
+.btn-manage-groups svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Stats cards list */
+.group-stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+/* Individual full-width stats card */
+.group-stats-card {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    position: relative;
+}
+
+.group-stats-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.group-stats-card.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
+}
+
+.group-stats-card-color {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.group-stats-card-color i,
+.group-stats-card-color svg {
+    width: 20px;
+    height: 20px;
+    color: white;
+}
+
+.group-stats-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.group-stats-card-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.group-stats-card-count {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.group-stats-card-count strong {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin-right: 4px;
+}
+
+.group-stats-card-help {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: var(--gray-100);
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+    position: relative;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.group-stats-card-help:hover {
+    background: var(--primary-bg);
     color: var(--primary);
 }
 
-.assign-label-btn.active {
-    background: var(--primary);
+/* Tooltip */
+.stats-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    background: var(--gray-800);
     color: white;
-    border-color: var(--primary);
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.5;
+    max-width: 260px;
+    white-space: normal;
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.stats-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    right: 8px;
+    border: 5px solid transparent;
+    border-top-color: var(--gray-800);
+}
+
+.group-stats-card-help:hover .stats-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
 
 /* =====================================================
@@ -1412,7 +1540,7 @@ input, textarea, select {
 }
 
 /* =====================================================
-   ADD GROUP MODAL
+   MANAGE GROUPS MODAL
    ===================================================== */
 
 .modal-overlay {
@@ -1436,8 +1564,11 @@ input, textarea, select {
     border-radius: var(--radius-lg);
     padding: var(--spacing-xl);
     width: 90%;
-    max-width: 400px;
+    max-width: 520px;
     box-shadow: var(--shadow-xl);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-title {
@@ -1445,43 +1576,187 @@ input, textarea, select {
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
 }
 
-.modal-field {
-    margin-bottom: var(--spacing-md);
+.modal-title i,
+.modal-title svg {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
 }
 
-.modal-field label {
-    display: block;
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: var(--spacing-lg);
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 2px;
+}
+
+/* Existing groups list in modal */
+.modal-group-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+.modal-group-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--gray-50);
+}
+
+.modal-group-color-pick {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    position: relative;
+}
+
+.modal-group-color-pick:hover {
+    opacity: 0.8;
+}
+
+.modal-group-fields {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.modal-group-fields input,
+.modal-group-fields textarea {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 0.8125rem;
+    outline: none;
+    transition: var(--transition-fast);
+}
+
+.modal-group-fields input:focus,
+.modal-group-fields textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
+}
+
+.modal-group-fields textarea {
+    resize: vertical;
+    min-height: 36px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.modal-group-fields input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.modal-group-fields textarea::placeholder {
+    color: var(--text-tertiary);
+}
+
+.modal-group-delete {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.modal-group-delete:hover {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+/* Add new group in modal */
+.modal-add-section {
+    border-top: 1px solid var(--border);
+    padding-top: var(--spacing-md);
+}
+
+.modal-add-section h4 {
     font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 4px;
+    margin-bottom: var(--spacing-sm);
 }
 
-.modal-field input {
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    outline: none;
-    font-size: 0.875rem;
-}
-
-.modal-field input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--primary-bg);
-}
-
-.color-picker-row {
+.modal-add-row {
     display: flex;
     gap: var(--spacing-sm);
+    align-items: flex-start;
+}
+
+.modal-add-fields {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.modal-add-fields input,
+.modal-add-fields textarea {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 0.8125rem;
+    outline: none;
+}
+
+.modal-add-fields input:focus,
+.modal-add-fields textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-bg);
+}
+
+.modal-add-fields textarea {
+    resize: vertical;
+    min-height: 36px;
+    font-size: 0.75rem;
+}
+
+.modal-color-picker {
+    display: flex;
+    gap: 4px;
     flex-wrap: wrap;
+    margin-top: 4px;
 }
 
 .color-option {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     border: 2px solid transparent;
     cursor: pointer;
@@ -1489,19 +1764,40 @@ input, textarea, select {
 }
 
 .color-option:hover {
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
 .color-option.selected {
     border-color: var(--text-primary);
-    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text-primary);
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--text-primary);
 }
 
-.modal-actions {
+.btn-modal-add {
+    padding: 6px 14px;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: white;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition-fast);
+    align-self: flex-start;
+    margin-top: 4px;
+}
+
+.btn-modal-add:hover {
+    background: var(--primary-dark);
+}
+
+/* Modal footer */
+.modal-footer {
     display: flex;
     gap: var(--spacing-sm);
-    margin-top: var(--spacing-lg);
     justify-content: flex-end;
+    border-top: 1px solid var(--border);
+    padding-top: var(--spacing-md);
 }
 
 .btn-modal-cancel {
@@ -1532,16 +1828,27 @@ input, textarea, select {
     background: var(--primary-dark);
 }
 
+/* Color picker popover for inline color change */
+.color-popover {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px;
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 160px;
+    box-shadow: var(--shadow-md);
+    z-index: 10;
+}
+
 /* =====================================================
    RESPONSIVE
    ===================================================== */
-
-@media (max-width: 1200px) {
-    .inbox-col-info {
-        width: 300px;
-        min-width: 300px;
-    }
-}
 
 @media (max-width: 1024px) {
     .inbox-col-info {
@@ -1556,6 +1863,10 @@ input, textarea, select {
         height: 100vh;
         z-index: 900;
         box-shadow: var(--shadow-xl);
+    }
+
+    #resizeHandle2 {
+        display: none;
     }
 }
 
@@ -1588,12 +1899,7 @@ input, textarea, select {
         z-index: 800;
     }
 
-    .chat-header {
-        padding-left: var(--spacing-md);
-    }
-
-    .chat-header-info::before {
-        content: '';
-        display: block;
+    .resize-handle {
+        display: none;
     }
 }

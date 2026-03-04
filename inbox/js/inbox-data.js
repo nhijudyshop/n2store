@@ -4,12 +4,12 @@
 
 // Default group labels for categorizing conversations
 const DEFAULT_GROUPS = [
-    { id: 'new', name: 'Inbox Mới', color: '#3b82f6', count: 0 },
-    { id: 'processing', name: 'Đang Xử Lý', color: '#f59e0b', count: 0 },
-    { id: 'waiting', name: 'Chờ Phản Hồi', color: '#f97316', count: 0 },
-    { id: 'ordered', name: 'Đã Đặt Hàng', color: '#10b981', count: 0 },
-    { id: 'urgent', name: 'Cần Gấp', color: '#ef4444', count: 0 },
-    { id: 'done', name: 'Hoàn Tất', color: '#6b7280', count: 0 },
+    { id: 'new', name: 'Inbox Mới', color: '#3b82f6', count: 0, note: 'Các tin nhắn mới từ khách hàng chưa được xử lý, cần phản hồi sớm.' },
+    { id: 'processing', name: 'Đang Xử Lý', color: '#f59e0b', count: 0, note: 'Các cuộc hội thoại đang được nhân viên xử lý, chưa hoàn tất.' },
+    { id: 'waiting', name: 'Chờ Phản Hồi', color: '#f97316', count: 0, note: 'Đã trả lời khách, đang chờ khách phản hồi lại.' },
+    { id: 'ordered', name: 'Đã Đặt Hàng', color: '#10b981', count: 0, note: 'Khách đã chốt đơn và đặt hàng thành công.' },
+    { id: 'urgent', name: 'Cần Gấp', color: '#ef4444', count: 0, note: 'Các trường hợp cần xử lý gấp: khiếu nại, đổi trả, lỗi đơn hàng.' },
+    { id: 'done', name: 'Hoàn Tất', color: '#6b7280', count: 0, note: 'Cuộc hội thoại đã xử lý xong, không cần theo dõi thêm.' },
 ];
 
 // Sample conversations for demo
@@ -158,33 +158,29 @@ class InboxDataManager {
     constructor() {
         this.conversations = [];
         this.groups = [];
-        this.listeners = [];
     }
 
-    /**
-     * Initialize data (load from localStorage or use sample)
-     */
     init() {
         this.loadGroups();
         this.loadConversations();
         this.recalculateGroupCounts();
     }
 
-    /**
-     * Load groups from localStorage or use defaults
-     */
     loadGroups() {
         try {
             const saved = localStorage.getItem('inbox_groups');
-            this.groups = saved ? JSON.parse(saved) : [...DEFAULT_GROUPS];
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Ensure note field exists for all groups
+                this.groups = parsed.map(g => ({ note: '', ...g }));
+            } else {
+                this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
+            }
         } catch {
-            this.groups = [...DEFAULT_GROUPS];
+            this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
         }
     }
 
-    /**
-     * Load conversations from localStorage or use sample data
-     */
     loadConversations() {
         try {
             const saved = localStorage.getItem('inbox_conversations');
@@ -203,9 +199,6 @@ class InboxDataManager {
         }
     }
 
-    /**
-     * Save data to localStorage
-     */
     save() {
         try {
             localStorage.setItem('inbox_conversations', JSON.stringify(this.conversations));
@@ -215,9 +208,6 @@ class InboxDataManager {
         }
     }
 
-    /**
-     * Recalculate group counts based on conversations
-     */
     recalculateGroupCounts() {
         this.groups.forEach(g => { g.count = 0; });
         this.conversations.forEach(conv => {
@@ -226,9 +216,6 @@ class InboxDataManager {
         });
     }
 
-    /**
-     * Get conversations filtered by search/label
-     */
     getConversations({ search = '', filter = 'all', groupFilter = null } = {}) {
         let result = [...this.conversations];
 
@@ -255,16 +242,10 @@ class InboxDataManager {
         return result;
     }
 
-    /**
-     * Get a conversation by ID
-     */
     getConversation(id) {
         return this.conversations.find(c => c.id === id);
     }
 
-    /**
-     * Update conversation label
-     */
     setConversationLabel(convId, labelId) {
         const conv = this.getConversation(convId);
         if (conv) {
@@ -274,9 +255,6 @@ class InboxDataManager {
         }
     }
 
-    /**
-     * Mark conversation as read
-     */
     markAsRead(convId) {
         const conv = this.getConversation(convId);
         if (conv) {
@@ -285,9 +263,6 @@ class InboxDataManager {
         }
     }
 
-    /**
-     * Toggle star on conversation
-     */
     toggleStar(convId) {
         const conv = this.getConversation(convId);
         if (conv) {
@@ -298,9 +273,6 @@ class InboxDataManager {
         return false;
     }
 
-    /**
-     * Add a message to a conversation
-     */
     addMessage(convId, text, sender = 'shop') {
         const conv = this.getConversation(convId);
         if (!conv) return null;
@@ -319,20 +291,37 @@ class InboxDataManager {
         return message;
     }
 
-    /**
-     * Add a new group/label
-     */
-    addGroup(name, color) {
+    addGroup(name, color, note) {
         const id = 'group_' + Date.now();
-        const group = { id, name, color, count: 0 };
+        const group = { id, name, color, count: 0, note: note || '' };
         this.groups.push(group);
         this.save();
         return group;
     }
 
-    /**
-     * Get stats
-     */
+    updateGroup(id, updates) {
+        const group = this.groups.find(g => g.id === id);
+        if (group) {
+            if (updates.name !== undefined) group.name = updates.name;
+            if (updates.color !== undefined) group.color = updates.color;
+            if (updates.note !== undefined) group.note = updates.note;
+            this.save();
+        }
+    }
+
+    deleteGroup(id) {
+        const idx = this.groups.findIndex(g => g.id === id);
+        if (idx !== -1) {
+            // Move conversations from this group to 'new'
+            this.conversations.forEach(c => {
+                if (c.label === id) c.label = 'new';
+            });
+            this.groups.splice(idx, 1);
+            this.recalculateGroupCounts();
+            this.save();
+        }
+    }
+
     getStats() {
         const total = this.conversations.length;
         const processing = this.conversations.filter(c => c.label === 'processing').length;

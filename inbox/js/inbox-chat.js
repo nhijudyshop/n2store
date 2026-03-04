@@ -21,29 +21,18 @@ class InboxChatController {
             btnSend: document.getElementById('btnSend'),
             btnStarConversation: document.getElementById('btnStarConversation'),
             btnRefreshInbox: document.getElementById('btnRefreshInbox'),
-            groupList: document.getElementById('groupList'),
-            assignSection: document.getElementById('assignSection'),
-            assignLabelList: document.getElementById('assignLabelList'),
-            statTotal: document.getElementById('statTotal'),
-            statProcessing: document.getElementById('statProcessing'),
-            statWaiting: document.getElementById('statWaiting'),
-            statUrgent: document.getElementById('statUrgent'),
+            chatLabelBar: document.getElementById('chatLabelBar'),
+            chatLabelBarList: document.getElementById('chatLabelBarList'),
+            groupStatsList: document.getElementById('groupStatsList'),
         };
     }
 
-    /**
-     * Initialize the chat controller
-     */
     init() {
         this.bindEvents();
         this.renderConversationList();
-        this.renderGroups();
-        this.updateStats();
+        this.renderGroupStats();
     }
 
-    /**
-     * Bind all event listeners
-     */
     bindEvents() {
         // Search
         this.elements.searchInput.addEventListener('input', (e) => {
@@ -90,8 +79,7 @@ class InboxChatController {
         this.elements.btnRefreshInbox.addEventListener('click', () => {
             this.data.init();
             this.renderConversationList();
-            this.renderGroups();
-            this.updateStats();
+            this.renderGroupStats();
             showToast('Đã làm mới dữ liệu', 'success');
         });
 
@@ -110,22 +98,21 @@ class InboxChatController {
         const btnToggle = document.getElementById('btnToggleRightPanel');
         if (btnToggle) {
             btnToggle.addEventListener('click', () => {
-                const panel = document.getElementById('infoPanel');
+                const panel = document.getElementById('col3');
                 panel.classList.toggle('hidden');
                 panel.classList.toggle('force-show');
             });
         }
 
-        // Add group button
-        const btnAddGroup = document.getElementById('btnAddGroup');
-        if (btnAddGroup) {
-            btnAddGroup.addEventListener('click', () => this.showAddGroupModal());
+        // Manage groups button
+        const btnManageGroups = document.getElementById('btnManageGroups');
+        if (btnManageGroups) {
+            btnManageGroups.addEventListener('click', () => this.showManageGroupsModal());
         }
     }
 
-    /**
-     * Render conversation list
-     */
+    // ===== Conversation List =====
+
     renderConversationList() {
         const conversations = this.data.getConversations({
             search: this.searchQuery,
@@ -173,15 +160,13 @@ class InboxChatController {
         }).join('');
     }
 
-    /**
-     * Select a conversation and display messages
-     */
+    // ===== Select Conversation =====
+
     selectConversation(convId) {
         this.activeConversationId = convId;
         const conv = this.data.getConversation(convId);
         if (!conv) return;
 
-        // Mark as read
         this.data.markAsRead(convId);
 
         // Update header
@@ -198,30 +183,20 @@ class InboxChatController {
         chatAvatar.style.fontSize = '0.875rem';
         chatAvatar.style.fontWeight = '700';
 
-        // Update star button
         this.updateStarButton(conv.starred);
-
-        // Render messages
         this.renderMessages(conv);
-
-        // Update assign section
-        this.renderAssignLabels(conv);
-
-        // Update conversation list to reflect active state
+        this.renderChatLabelBar(conv);
         this.renderConversationList();
+        this.renderGroupStats();
 
-        // Update stats
-        this.updateStats();
-
-        // Auto-fill order form with customer info
+        // Auto-fill order form
         if (window.inboxOrders) {
             window.inboxOrders.fillCustomerInfo(conv);
         }
     }
 
-    /**
-     * Render messages for a conversation
-     */
+    // ===== Chat Messages =====
+
     renderMessages(conv) {
         if (!conv.messages || conv.messages.length === 0) {
             this.elements.chatMessages.innerHTML = `
@@ -264,14 +239,9 @@ class InboxChatController {
         }).join('');
 
         this.elements.chatMessages.innerHTML = html;
-
-        // Scroll to bottom
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
     }
 
-    /**
-     * Send a message
-     */
     sendMessage() {
         if (!this.activeConversationId) return;
 
@@ -279,34 +249,84 @@ class InboxChatController {
         if (!text) return;
 
         this.data.addMessage(this.activeConversationId, text, 'shop');
-
-        // Clear input
         this.elements.chatInput.value = '';
         this.elements.chatInput.style.height = 'auto';
 
-        // Re-render
         const conv = this.data.getConversation(this.activeConversationId);
         this.renderMessages(conv);
         this.renderConversationList();
     }
 
-    /**
-     * Render group labels in the stats tab
-     */
-    renderGroups() {
-        this.elements.groupList.innerHTML = this.data.groups.map(group => `
-            <div class="group-item ${this.currentGroupFilter === group.id ? 'active' : ''}"
-                 data-group="${group.id}" onclick="window.inboxChat.filterByGroup('${group.id}')">
-                <div class="group-color-dot" style="background: ${group.color}"></div>
-                <span class="group-name">${this.escapeHtml(group.name)}</span>
-                <span class="group-count">${group.count}</span>
-            </div>
-        `).join('');
+    // ===== Chat Label Bar (inside chat column) =====
+
+    renderChatLabelBar(conv) {
+        this.elements.chatLabelBar.style.display = 'block';
+        this.elements.chatLabelBarList.innerHTML = this.data.groups.map(group => {
+            const isActive = conv.label === group.id;
+            const activeStyle = isActive ? `background: ${group.color}; border-color: ${group.color};` : '';
+            return `
+                <button class="chat-label-btn ${isActive ? 'active' : ''}"
+                        style="${activeStyle}"
+                        onclick="window.inboxChat.assignLabel('${conv.id}', '${group.id}')">
+                    <span class="chat-label-dot" style="background: ${isActive ? 'rgba(255,255,255,0.7)' : group.color}"></span>
+                    ${this.escapeHtml(group.name)}
+                </button>
+            `;
+        }).join('');
     }
 
-    /**
-     * Filter conversations by group
-     */
+    assignLabel(convId, labelId) {
+        this.data.setConversationLabel(convId, labelId);
+        this.renderConversationList();
+        this.renderGroupStats();
+        const conv = this.data.getConversation(convId);
+        if (conv) this.renderChatLabelBar(conv);
+        showToast('Đã cập nhật nhãn', 'success');
+    }
+
+    // ===== Group Stats Cards (Column 3) =====
+
+    renderGroupStats() {
+        this.data.recalculateGroupCounts();
+
+        // Icon map for default groups
+        const iconMap = {
+            'new': 'inbox',
+            'processing': 'loader',
+            'waiting': 'clock',
+            'ordered': 'shopping-cart',
+            'urgent': 'alert-triangle',
+            'done': 'check-circle',
+        };
+
+        this.elements.groupStatsList.innerHTML = this.data.groups.map(group => {
+            const icon = iconMap[group.id] || 'tag';
+            const isActive = this.currentGroupFilter === group.id;
+            const note = group.note || 'Chưa có mô tả cho nhóm này.';
+
+            return `
+                <div class="group-stats-card ${isActive ? 'active' : ''}"
+                     onclick="window.inboxChat.filterByGroup('${group.id}')">
+                    <div class="group-stats-card-color" style="background: ${group.color}">
+                        <i data-lucide="${icon}"></i>
+                    </div>
+                    <div class="group-stats-card-body">
+                        <div class="group-stats-card-name">${this.escapeHtml(group.name)}</div>
+                        <div class="group-stats-card-count">
+                            <strong>${group.count}</strong> khách hàng
+                        </div>
+                    </div>
+                    <button class="group-stats-card-help" onclick="event.stopPropagation()" title="Thông tin">
+                        ?
+                        <div class="stats-tooltip">${this.escapeHtml(note)}</div>
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     filterByGroup(groupId) {
         if (this.currentGroupFilter === groupId) {
             this.currentGroupFilter = null;
@@ -314,50 +334,11 @@ class InboxChatController {
             this.currentGroupFilter = groupId;
         }
         this.renderConversationList();
-        this.renderGroups();
+        this.renderGroupStats();
     }
 
-    /**
-     * Render assign label options for current conversation
-     */
-    renderAssignLabels(conv) {
-        this.elements.assignSection.style.display = 'block';
-        this.elements.assignLabelList.innerHTML = this.data.groups.map(group => `
-            <button class="assign-label-btn ${conv.label === group.id ? 'active' : ''}"
-                    onclick="window.inboxChat.assignLabel('${conv.id}', '${group.id}')">
-                <div class="group-color-dot" style="background: ${group.color}; width: 8px; height: 8px;"></div>
-                ${this.escapeHtml(group.name)}
-            </button>
-        `).join('');
-    }
+    // ===== Star =====
 
-    /**
-     * Assign a label to a conversation
-     */
-    assignLabel(convId, labelId) {
-        this.data.setConversationLabel(convId, labelId);
-        this.renderConversationList();
-        this.renderGroups();
-        this.updateStats();
-        const conv = this.data.getConversation(convId);
-        if (conv) this.renderAssignLabels(conv);
-        showToast('Đã cập nhật nhãn', 'success');
-    }
-
-    /**
-     * Update stats display
-     */
-    updateStats() {
-        const stats = this.data.getStats();
-        this.elements.statTotal.textContent = stats.total;
-        this.elements.statProcessing.textContent = stats.processing;
-        this.elements.statWaiting.textContent = stats.waiting;
-        this.elements.statUrgent.textContent = stats.urgent;
-    }
-
-    /**
-     * Update star button visual
-     */
     updateStarButton(starred) {
         const btn = this.elements.btnStarConversation;
         if (starred) {
@@ -369,59 +350,201 @@ class InboxChatController {
         }
     }
 
-    /**
-     * Show modal to add a new group
-     */
-    showAddGroupModal() {
+    // ===== Manage Groups Modal =====
+
+    showManageGroupsModal() {
         const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#14b8a6', '#6366f1', '#f97316', '#6b7280'];
 
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
             <div class="modal-content">
-                <div class="modal-title">Thêm Nhóm Mới</div>
-                <div class="modal-field">
-                    <label>Tên nhóm</label>
-                    <input type="text" id="modalGroupName" placeholder="Nhập tên nhóm..." autofocus />
+                <div class="modal-title">
+                    <i data-lucide="settings"></i>
+                    Quản Lý Nhóm
                 </div>
-                <div class="modal-field">
-                    <label>Màu sắc</label>
-                    <div class="color-picker-row">
-                        ${colors.map((c, i) => `
-                            <div class="color-option ${i === 0 ? 'selected' : ''}"
-                                 style="background: ${c}" data-color="${c}"
-                                 onclick="document.querySelectorAll('.color-option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected');">
+
+                <div class="modal-body">
+                    <!-- Existing groups -->
+                    <div class="modal-group-list" id="modalGroupList">
+                        ${this.data.groups.map((group, idx) => `
+                            <div class="modal-group-item" data-group-id="${group.id}">
+                                <div class="modal-group-color-pick"
+                                     style="background: ${group.color}"
+                                     data-idx="${idx}"
+                                     onclick="window.inboxChat._toggleColorPicker(this, '${group.id}')">
+                                </div>
+                                <div class="modal-group-fields">
+                                    <input type="text" class="modal-group-name-input"
+                                           value="${this.escapeHtml(group.name)}"
+                                           placeholder="Tên nhóm" data-group-id="${group.id}" />
+                                    <textarea class="modal-group-note-input"
+                                              placeholder="Ghi chú (hiển thị ở tooltip ?)"
+                                              data-group-id="${group.id}" rows="2">${this.escapeHtml(group.note || '')}</textarea>
+                                </div>
+                                <button class="modal-group-delete" title="Xóa nhóm"
+                                        onclick="window.inboxChat._deleteGroupInModal('${group.id}', this)">
+                                    &times;
+                                </button>
                             </div>
                         `).join('')}
                     </div>
+
+                    <!-- Add new group -->
+                    <div class="modal-add-section">
+                        <h4>Thêm Nhóm Mới</h4>
+                        <div class="modal-add-row">
+                            <div class="modal-add-fields">
+                                <input type="text" id="modalNewGroupName" placeholder="Tên nhóm mới..." />
+                                <textarea id="modalNewGroupNote" placeholder="Ghi chú cho nhóm..." rows="2"></textarea>
+                                <div class="modal-color-picker">
+                                    ${colors.map((c, i) => `
+                                        <div class="color-option ${i === 0 ? 'selected' : ''}"
+                                             style="background: ${c}" data-color="${c}"
+                                             onclick="this.parentElement.querySelectorAll('.color-option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected');">
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <button class="btn-modal-add" id="btnModalAddGroup">+ Thêm</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-actions">
-                    <button class="btn-modal-cancel" onclick="this.closest('.modal-overlay').remove()">Hủy</button>
-                    <button class="btn-modal-confirm" id="btnConfirmAddGroup">Thêm</button>
+
+                <div class="modal-footer">
+                    <button class="btn-modal-cancel" id="btnModalCancel">Đóng</button>
+                    <button class="btn-modal-confirm" id="btnModalSave">Lưu Thay Đổi</button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(overlay);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
 
+        // Close on overlay click
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) overlay.remove();
         });
 
-        document.getElementById('btnConfirmAddGroup').addEventListener('click', () => {
-            const name = document.getElementById('modalGroupName').value.trim();
-            const color = document.querySelector('.color-option.selected')?.dataset.color || '#3b82f6';
+        // Cancel
+        document.getElementById('btnModalCancel').addEventListener('click', () => overlay.remove());
+
+        // Add new group
+        document.getElementById('btnModalAddGroup').addEventListener('click', () => {
+            const name = document.getElementById('modalNewGroupName').value.trim();
+            const note = document.getElementById('modalNewGroupNote').value.trim();
+            const color = overlay.querySelector('.modal-add-section .color-option.selected')?.dataset.color || '#3b82f6';
 
             if (!name) {
                 showToast('Vui lòng nhập tên nhóm', 'warning');
                 return;
             }
 
-            this.data.addGroup(name, color);
-            this.renderGroups();
-            overlay.remove();
+            this.data.addGroup(name, color, note);
+
+            // Add to the list in modal
+            const listEl = document.getElementById('modalGroupList');
+            const newGroup = this.data.groups[this.data.groups.length - 1];
+            const newItem = document.createElement('div');
+            newItem.className = 'modal-group-item';
+            newItem.dataset.groupId = newGroup.id;
+            newItem.innerHTML = `
+                <div class="modal-group-color-pick"
+                     style="background: ${newGroup.color}"
+                     onclick="window.inboxChat._toggleColorPicker(this, '${newGroup.id}')">
+                </div>
+                <div class="modal-group-fields">
+                    <input type="text" class="modal-group-name-input"
+                           value="${this.escapeHtml(newGroup.name)}"
+                           placeholder="Tên nhóm" data-group-id="${newGroup.id}" />
+                    <textarea class="modal-group-note-input"
+                              placeholder="Ghi chú (hiển thị ở tooltip ?)"
+                              data-group-id="${newGroup.id}" rows="2">${this.escapeHtml(newGroup.note || '')}</textarea>
+                </div>
+                <button class="modal-group-delete" title="Xóa nhóm"
+                        onclick="window.inboxChat._deleteGroupInModal('${newGroup.id}', this)">
+                    &times;
+                </button>
+            `;
+            listEl.appendChild(newItem);
+
+            // Clear inputs
+            document.getElementById('modalNewGroupName').value = '';
+            document.getElementById('modalNewGroupNote').value = '';
+
             showToast('Đã thêm nhóm: ' + name, 'success');
         });
+
+        // Save all edits
+        document.getElementById('btnModalSave').addEventListener('click', () => {
+            // Save name and note edits
+            overlay.querySelectorAll('.modal-group-item').forEach(item => {
+                const groupId = item.dataset.groupId;
+                const nameInput = item.querySelector('.modal-group-name-input');
+                const noteInput = item.querySelector('.modal-group-note-input');
+                if (nameInput && noteInput) {
+                    this.data.updateGroup(groupId, {
+                        name: nameInput.value.trim(),
+                        note: noteInput.value.trim(),
+                    });
+                }
+            });
+
+            this.renderGroupStats();
+            this.renderConversationList();
+            if (this.activeConversationId) {
+                const conv = this.data.getConversation(this.activeConversationId);
+                if (conv) this.renderChatLabelBar(conv);
+            }
+
+            overlay.remove();
+            showToast('Đã lưu thay đổi nhóm', 'success');
+        });
+    }
+
+    _deleteGroupInModal(groupId, btnEl) {
+        if (!confirm('Xóa nhóm này? Các cuộc hội thoại sẽ chuyển về "Inbox Mới".')) return;
+        this.data.deleteGroup(groupId);
+        const item = btnEl.closest('.modal-group-item');
+        if (item) item.remove();
+        showToast('Đã xóa nhóm', 'success');
+    }
+
+    _toggleColorPicker(el, groupId) {
+        // Remove existing popover
+        const existing = el.parentElement.querySelector('.color-popover');
+        if (existing) { existing.remove(); return; }
+
+        const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#14b8a6', '#6366f1', '#f97316', '#6b7280'];
+        const popover = document.createElement('div');
+        popover.className = 'color-popover';
+        popover.innerHTML = colors.map(c => `
+            <div class="color-option" style="background: ${c}" data-color="${c}"></div>
+        `).join('');
+
+        el.style.position = 'relative';
+        el.appendChild(popover);
+
+        popover.addEventListener('click', (e) => {
+            const opt = e.target.closest('.color-option');
+            if (!opt) return;
+            const newColor = opt.dataset.color;
+            el.style.background = newColor;
+            this.data.updateGroup(groupId, { color: newColor });
+            popover.remove();
+            e.stopPropagation();
+        });
+
+        // Close on outside click
+        setTimeout(() => {
+            const closeHandler = (e) => {
+                if (!popover.contains(e.target) && e.target !== el) {
+                    popover.remove();
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            document.addEventListener('click', closeHandler);
+        }, 0);
     }
 
     // ===== Utility Methods =====
@@ -439,6 +562,8 @@ class InboxChatController {
     }
 
     getLabelText(label) {
+        const group = this.data.groups.find(g => g.id === label);
+        if (group) return group.name;
         const map = {
             'new': 'Mới',
             'processing': 'Đang XL',
