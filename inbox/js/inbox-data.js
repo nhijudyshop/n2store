@@ -128,7 +128,6 @@ class InboxDataManager {
         let lastResponseData = null;
         API_CONFIG.smartFetch = async function(url, options) {
             const response = await origFetch.call(this, url, options);
-            // Clone so the data manager can still read it
             const cloned = response.clone();
             try {
                 lastResponseData = await cloned.json();
@@ -153,8 +152,78 @@ class InboxDataManager {
     }
 
     /**
+     * Fetch conversations per-page using /pages/{pageId}/conversations endpoint
+     * This endpoint works even when the multi-page /conversations endpoint
+     * returns error 122 (subscription expired)
+     */
+    async fetchConversationsPerPage() {
+        const ptm = window.pancakeTokenManager;
+        const pdm = window.pancakeDataManager;
+        if (!ptm || !pdm) return [];
+
+        const token = ptm.getToken();
+        if (!token) {
+            console.warn('[InboxData] No token available for per-page fetch');
+            return [];
+        }
+
+        const pageIds = pdm.pageIds || [];
+        if (pageIds.length === 0) {
+            console.warn('[InboxData] No pages available');
+            return [];
+        }
+
+        console.log(`[InboxData] 🔄 Fetching conversations per-page for ${pageIds.length} pages...`);
+        let allConversations = [];
+
+        for (const pageId of pageIds) {
+            try {
+                const params = `unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
+                const url = API_CONFIG.buildUrl.pancake(`pages/${pageId}/conversations`, params);
+
+                console.log(`[InboxData] Fetching page ${pageId}...`);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    console.warn(`[InboxData] Page ${pageId}: HTTP ${response.status}`);
+                    continue;
+                }
+
+                const data = await response.json();
+
+                if (data.success === false) {
+                    console.warn(`[InboxData] Page ${pageId}: error ${data.error_code} - ${data.message}`);
+                    continue;
+                }
+
+                const convs = data.conversations || [];
+                console.log(`[InboxData] ✅ Page ${pageId}: ${convs.length} conversations`);
+                allConversations = allConversations.concat(convs);
+            } catch (e) {
+                console.warn(`[InboxData] Page ${pageId} failed:`, e.message);
+            }
+        }
+
+        // Sort by updated_at descending
+        allConversations.sort((a, b) => {
+            const ta = new Date(a.updated_at || 0).getTime();
+            const tb = new Date(b.updated_at || 0).getTime();
+            return tb - ta;
+        });
+
+        // Update pdm cache so other parts of the app can use it
+        pdm.conversations = allConversations;
+
+        console.log(`[InboxData] ✅ Per-page total: ${allConversations.length} conversations`);
+        return allConversations;
+    }
+
+    /**
      * Load conversations from Pancake API and map to inbox format
-     * If active account returns 0, auto-try other accounts
+     * Strategy: try multi-page endpoint first, fallback to per-page endpoint
      */
     async loadConversations(forceRefresh = false) {
         try {
@@ -164,15 +233,20 @@ class InboxDataManager {
                 return;
             }
 
-            // Fetch with error checking
+            // Try multi-page endpoint first
             let { conversations: rawConversations, error, message } = await this.fetchConversationsWithErrorCheck(forceRefresh);
 
-            if (error) {
-                console.warn(`[InboxData] Account error (${error}): ${message}, trying others...`);
-            }
+            // If multi-page fails with subscription error, try per-page endpoint
+            if (error === 122 || error === 105) {
+                console.log(`[InboxData] Multi-page endpoint failed (${error}), trying per-page...`);
+                rawConversations = await this.fetchConversationsPerPage();
 
-            // If 0 results, try other Pancake accounts
-            if (rawConversations.length === 0) {
+                // If per-page also fails for current account, try other accounts
+                if (rawConversations.length === 0) {
+                    rawConversations = await this.tryOtherAccountsPerPage();
+                }
+            } else if (rawConversations.length === 0) {
+                // No error but 0 results, try other accounts
                 rawConversations = await this.tryOtherAccounts();
             }
 
@@ -197,7 +271,47 @@ class InboxDataManager {
     }
 
     /**
-     * Try switching to other Pancake accounts if current one returns 0 conversations
+     * Try other accounts using per-page endpoint
+     */
+    async tryOtherAccountsPerPage() {
+        const ptm = window.pancakeTokenManager;
+        if (!ptm || !ptm.accounts) return [];
+
+        const currentId = ptm.activeAccountId;
+        const accountIds = Object.keys(ptm.accounts);
+
+        console.log(`[InboxData] Per-page failed for active account, trying ${accountIds.length - 1} others...`);
+
+        for (const accountId of accountIds) {
+            if (accountId === currentId) continue;
+
+            const account = ptm.accounts[accountId];
+            if (ptm.isTokenExpired && ptm.isTokenExpired(account.exp)) continue;
+
+            console.log(`[InboxData] Trying account: ${account.name || accountId}`);
+            const switched = await ptm.setActiveAccount(accountId);
+            if (!switched) continue;
+
+            try {
+                const convs = await this.fetchConversationsPerPage();
+                if (convs.length > 0) {
+                    console.log(`[InboxData] ✅ Account "${account.name}" works! ${convs.length} conversations`);
+                    showToast(`Đã chuyển sang tài khoản: ${account.name || accountId}`, 'success');
+                    return convs;
+                }
+            } catch (e) {
+                console.warn(`[InboxData] Account "${account.name}" failed:`, e.message);
+            }
+        }
+
+        // All failed, restore original
+        if (currentId) await ptm.setActiveAccount(currentId);
+        console.warn('[InboxData] All accounts failed (per-page)');
+        return [];
+    }
+
+    /**
+     * Try switching to other Pancake accounts (multi-page endpoint)
      * Returns conversations array from the first working account, or []
      */
     async tryOtherAccounts() {
@@ -239,7 +353,6 @@ class InboxDataManager {
         // All failed, restore original
         if (currentId) await ptm.setActiveAccount(currentId);
         console.warn('[InboxData] All accounts failed to load conversations');
-        showToast('Tất cả tài khoản Pancake không tải được hội thoại.', 'error');
         return [];
     }
 
