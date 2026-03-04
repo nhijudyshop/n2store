@@ -5,7 +5,7 @@
  * @module cloudflare-worker/modules/handlers/tpos-handler
  */
 
-import { fetchWithRetry } from '../utils/fetch-utils.js';
+import { fetchWithRetry, fetchWithTimeout } from '../utils/fetch-utils.js';
 import { jsonResponse, errorResponse, proxyResponseWithCors, CORS_HEADERS } from '../utils/cors-utils.js';
 import { buildTposHeaders, learnFromResponse, getDynamicHeader } from '../utils/header-learner.js';
 import { getCachedToken, cacheToken } from '../utils/token-cache.js';
@@ -313,14 +313,29 @@ export async function handleTposGeneric(request, url, pathname) {
     headers.set('Origin', 'https://tomato.tpos.vn/');
     headers.set('Referer', 'https://tomato.tpos.vn/');
 
+    const body = request.method !== 'GET' && request.method !== 'HEAD'
+        ? await request.arrayBuffer()
+        : null;
+
     try {
-        const response = await fetchWithRetry(targetUrl, {
-            method: request.method,
-            headers: headers,
-            body: request.method !== 'GET' && request.method !== 'HEAD'
-                ? await request.arrayBuffer()
-                : null,
-        }, 3, 1000, 15000);
+        let response;
+
+        if (request.method === 'POST' || request.method === 'PUT' || request.method === 'PATCH') {
+            // Non-idempotent methods: NO retry, longer timeout (60s)
+            // Retrying POST creates duplicate data (e.g. FastPurchaseOrder)
+            response = await fetchWithTimeout(targetUrl, {
+                method: request.method,
+                headers: headers,
+                body: body,
+            }, 60000);
+        } else {
+            // GET/DELETE: safe to retry with standard timeout
+            response = await fetchWithRetry(targetUrl, {
+                method: request.method,
+                headers: headers,
+                body: body,
+            }, 3, 1000, 15000);
+        }
 
         return proxyResponseWithCors(response);
 
