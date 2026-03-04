@@ -1094,11 +1094,12 @@ window.deletePageAccessToken = async function(pageId) {
         // Save to storage
         await window.pancakeTokenManager.savePageAccessTokensToStorage();
 
-        // Sync to Firebase if available
+        // Sync to Firebase - delete the field for this pageId
         if (window.pancakeTokenManager.pageTokensRef) {
-            await window.pancakeTokenManager.pageTokensRef.set({
-                data: window.pancakeTokenManager.pageAccessTokens
-            }, { merge: true });
+            const firebase = window.firebase;
+            await window.pancakeTokenManager.pageTokensRef.update({
+                [pageId]: firebase.firestore.FieldValue.delete()
+            });
         }
 
         if (window.notificationManager) {

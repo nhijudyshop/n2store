@@ -1093,7 +1093,23 @@ class PancakeTokenManager {
             }
 
             const doc = await this.pageTokensRef.get();
-            const firestoreTokens = doc.exists ? (doc.data()?.data || {}) : {};
+            const docData = doc.exists ? (doc.data() || {}) : {};
+
+            // Support both formats:
+            // 1. Nested: { data: { pageId: {...}, ... } }
+            // 2. Root-level: { pageId: {...}, ... } (older format in Firestore)
+            let firestoreTokens = {};
+            if (docData.data && typeof docData.data === 'object') {
+                firestoreTokens = { ...docData.data };
+            }
+            // Also check root-level entries (each has a 'token' field)
+            for (const [key, value] of Object.entries(docData)) {
+                if (key !== 'data' && value && typeof value === 'object' && value.token) {
+                    if (!firestoreTokens[key]) {
+                        firestoreTokens[key] = value;
+                    }
+                }
+            }
 
             // Smart merge: keep the newer version for each pageId based on savedAt
             const mergedTokens = { ...this.pageAccessTokens };
@@ -1169,10 +1185,10 @@ class PancakeTokenManager {
             // Save to localStorage (fast, synchronous)
             this.savePageAccessTokensToLocalStorage();
 
-            // Save to Firestore (async, backup)
+            // Save to Firestore (async, backup) - save at root level
             if (this.pageTokensRef) {
                 await this.pageTokensRef.set({
-                    data: { [pageId]: data }
+                    [pageId]: data
                 }, { merge: true });
             }
 
