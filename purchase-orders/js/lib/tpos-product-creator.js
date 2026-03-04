@@ -634,7 +634,8 @@ window.TPOSProductCreator = (function () {
     // =====================================================
 
     /**
-     * Update tposSyncStatus for specific items in a Firestore order document
+     * Update tposSyncStatus for specific items in a Firestore order document.
+     * Uses transaction to prevent race conditions when multiple groups update concurrently.
      */
     async function updateSyncStatus(orderId, itemIds, status, tposProductId, error) {
         try {
@@ -642,31 +643,35 @@ window.TPOSProductCreator = (function () {
 
             const db = firebase.firestore();
             const docRef = db.collection('purchase_orders').doc(orderId);
-            const doc = await docRef.get();
-            if (!doc.exists) return;
 
-            const data = doc.data();
-            const items = data.items || [];
-            let changed = false;
+            await db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(docRef);
+                if (!doc.exists) return;
 
-            for (const item of items) {
-                if (itemIds.includes(item.id)) {
-                    item.tposSyncStatus = status;
-                    if (tposProductId) item.tposProductId = tposProductId;
-                    if (error) item.tposSyncError = error;
-                    if (status === 'success') item.tposSynced = true;
-                    item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
-                    changed = true;
+                const data = doc.data();
+                const items = data.items || [];
+                let changed = false;
+
+                for (const item of items) {
+                    if (itemIds.includes(item.id)) {
+                        item.tposSyncStatus = status;
+                        if (tposProductId) item.tposProductId = tposProductId;
+                        if (error) item.tposSyncError = error;
+                        if (status === 'success') item.tposSynced = true;
+                        item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
+                        changed = true;
+                    }
                 }
-            }
 
-            if (changed) {
-                await docRef.update({
-                    items,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log(`[TPOSCreator] Updated sync status for ${itemIds.length} items: ${status}`);
-            }
+                if (changed) {
+                    transaction.update(docRef, {
+                        items,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            });
+
+            console.log(`[TPOSCreator] Updated sync status for ${itemIds.length} items: ${status}`);
         } catch (err) {
             console.error('[TPOSCreator] Failed to update sync status:', err);
         }
@@ -705,13 +710,13 @@ window.TPOSProductCreator = (function () {
         for (const item of groupItems) {
             if (!item.variant) continue;
 
-            const itemAttrs = item.variant.split(' / ').map(s => s.trim()).sort();
+            const itemAttrs = item.variant.split(' / ').map(s => s.trim()).slice().sort();
             const itemKey = itemAttrs.join('|');
             console.log(`[TPOSCreator] Item "${item.variant}" → attrs: [${itemAttrs}]`);
 
             const matched = responseVariants.find(v => {
                 const vAttrs = extractVariantAttrs(v.NameGet || v.Name);
-                return vAttrs.sort().join('|') === itemKey;
+                return vAttrs.slice().sort().join('|') === itemKey;
             });
 
             if (matched) {
@@ -729,41 +734,45 @@ window.TPOSProductCreator = (function () {
         console.log(`[TPOSCreator] Total updates: ${updates.length}`);
         if (updates.length === 0) return;
 
-        // Update Firebase items with variant Barcodes
+        // Update Firebase items with variant Barcodes (transaction for concurrency safety)
         try {
             const db = firebase.firestore();
             const docRef = db.collection('purchase_orders').doc(orderId);
-            const doc = await docRef.get();
-            if (!doc.exists) return;
 
-            const data = doc.data();
-            const items = data.items || [];
-            let changed = false;
+            await db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(docRef);
+                if (!doc.exists) return;
 
-            for (const update of updates) {
-                const item = items.find(i => i.id === update.itemId);
-                if (item && update.barcode) {
-                    console.log(`[TPOSCreator] Variant code: ${item.productCode} → ${update.barcode}`);
-                    if (!item.parentProductCode) {
-                        item.parentProductCode = item.productCode;
+                const data = doc.data();
+                const items = data.items || [];
+                let changed = false;
+
+                for (const update of updates) {
+                    const item = items.find(i => i.id === update.itemId);
+                    if (item && update.barcode) {
+                        console.log(`[TPOSCreator] Variant code: ${item.productCode} → ${update.barcode}`);
+                        if (!item.parentProductCode) {
+                            item.parentProductCode = item.productCode;
+                        }
+                        item.productCode = update.barcode;
+                        item.tposProductId = update.tposVariantId;
+                        item.tposSynced = true;
+                        changed = true;
                     }
-                    item.productCode = update.barcode;
-                    item.tposProductId = update.tposVariantId;
-                    item.tposSynced = true;
-                    changed = true;
                 }
-            }
 
-            if (changed) {
-                await docRef.update({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                console.log(`[TPOSCreator] Updated ${updates.length} items with variant Barcodes`);
-
-                // Refresh table to show updated variant codes
-                if (window.purchaseOrderDataManager?.loadOrders) {
-                    window.purchaseOrderDataManager.loadOrders(
-                        window.purchaseOrderDataManager.currentStatus, true
-                    );
+                if (changed) {
+                    transaction.update(docRef, { items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
                 }
+            });
+
+            console.log(`[TPOSCreator] Updated ${updates.length} items with variant Barcodes`);
+
+            // Refresh table to show updated variant codes
+            if (window.purchaseOrderDataManager?.loadOrders) {
+                window.purchaseOrderDataManager.loadOrders(
+                    window.purchaseOrderDataManager.currentStatus, true
+                );
             }
         } catch (err) {
             console.error('[TPOSCreator] Failed to update variant barcodes:', err);
@@ -775,8 +784,8 @@ window.TPOSProductCreator = (function () {
     // =====================================================
 
     /**
-     * Save TPOS ImageUrl to Firebase items' productImages field
-     * Replaces any data URLs with the TPOS-hosted image URL
+     * Save TPOS ImageUrl to Firebase items' productImages field.
+     * Uses transaction to prevent race conditions when multiple groups update concurrently.
      */
     async function saveTPOSImageUrl(orderId, itemIds, tposImageUrl) {
         try {
@@ -784,24 +793,28 @@ window.TPOSProductCreator = (function () {
 
             const db = firebase.firestore();
             const docRef = db.collection('purchase_orders').doc(orderId);
-            const doc = await docRef.get();
-            if (!doc.exists) return;
 
-            const data = doc.data();
-            const items = data.items || [];
-            let changed = false;
+            await db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(docRef);
+                if (!doc.exists) return;
 
-            for (const item of items) {
-                if (itemIds.includes(item.id)) {
-                    item.productImages = [tposImageUrl];
-                    changed = true;
+                const data = doc.data();
+                const items = data.items || [];
+                let changed = false;
+
+                for (const item of items) {
+                    if (itemIds.includes(item.id)) {
+                        item.productImages = [tposImageUrl];
+                        changed = true;
+                    }
                 }
-            }
 
-            if (changed) {
-                await docRef.update({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                console.log(`[TPOSCreator] Saved TPOS ImageUrl for ${itemIds.length} items: ${tposImageUrl}`);
-            }
+                if (changed) {
+                    transaction.update(docRef, { items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                }
+            });
+
+            console.log(`[TPOSCreator] Saved TPOS ImageUrl for ${itemIds.length} items: ${tposImageUrl}`);
         } catch (err) {
             console.error('[TPOSCreator] Failed to save TPOS ImageUrl:', err);
         }
