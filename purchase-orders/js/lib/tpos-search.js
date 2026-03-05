@@ -74,6 +74,48 @@ window.TPOSClient = (function() {
         return false;
     }
 
+    /**
+     * Try to get a refresh_token from localStorage (even if access_token expired)
+     */
+    function getStoredRefreshToken(companyId) {
+        try {
+            const stored = localStorage.getItem(storageKey(companyId));
+            if (stored) {
+                const data = JSON.parse(stored);
+                if (data.refresh_token) return data.refresh_token;
+            }
+        } catch (e) { /* ignore */ }
+        return null;
+    }
+
+    /**
+     * Refresh token directly using a stored refresh_token.
+     * Returns true if successful, false otherwise.
+     */
+    async function refreshWithToken(companyId, refreshToken) {
+        try {
+            console.log(`[TPOS-Search] Refreshing token for company ${companyId} using refresh_token...`);
+            const response = await fetch(TOKEN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+            });
+
+            if (!response.ok) {
+                console.warn(`[TPOS-Search] Refresh token failed: ${response.status}`);
+                return false;
+            }
+
+            const data = await response.json();
+            saveToken(companyId, data);
+            console.log(`[TPOS-Search] Token refreshed OK for company ${companyId}`);
+            return true;
+        } catch (e) {
+            console.warn('[TPOS-Search] Refresh token error:', e);
+            return false;
+        }
+    }
+
     async function loadFromFirestore(companyId) {
         try {
             if (!window.firebase || !window.firebase.firestore) return false;
@@ -241,9 +283,24 @@ window.TPOSClient = (function() {
             if (isTokenValid(companyId)) return tokenStore[companyId].access_token;
         }
 
-        // Need to fetch new token
-        // Always SwitchCompany even for Company 1, because password login
-        // returns whatever company the server is currently set to
+        // Try refresh_token from localStorage first (avoids SwitchCompany)
+        const storedRefresh = getStoredRefreshToken(companyId);
+        if (storedRefresh) {
+            refreshPromise = (async () => {
+                try {
+                    return await refreshWithToken(companyId, storedRefresh);
+                } finally {
+                    refreshPromise = null;
+                }
+            })();
+
+            const refreshOk = await refreshPromise;
+            if (refreshOk && isTokenValid(companyId)) {
+                return tokenStore[companyId].access_token;
+            }
+        }
+
+        // Last resort: full login → SwitchCompany flow
         refreshPromise = (async () => {
             try {
                 await switchCompanyToken(companyId);
@@ -270,14 +327,15 @@ window.TPOSClient = (function() {
             }
         });
 
-        // Handle 401 - clear token for current company, force fresh, retry once
+        // Handle 401 - clear access_token, keep refresh_token for retry, then refresh
         if (response.status === 401) {
             const companyId = getCompanyId();
-            console.log(`[TPOS-Search] 401, clearing token for company ${companyId} and refreshing...`);
+            console.log(`[TPOS-Search] 401, clearing access_token for company ${companyId} and refreshing...`);
 
-            // Clear this company's token from all caches
+            // Preserve refresh_token in localStorage before clearing in-memory
+            const savedRefresh = tokenStore[companyId]?.refresh_token || getStoredRefreshToken(companyId);
             delete tokenStore[companyId];
-            try { localStorage.removeItem(storageKey(companyId)); } catch (e) { /* ignore */ }
+            // Keep localStorage entry (has refresh_token) — only clear Firestore
             try {
                 if (window.firebase && window.firebase.firestore) {
                     const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
