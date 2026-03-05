@@ -858,15 +858,22 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Toggle trend section
+        // Toggle trend section and category full-width
         const toggleTrendBtn = document.getElementById('toggleTrendBtn');
         if (toggleTrendBtn) {
-            toggleTrendBtn.addEventListener('click', () => {
+            // Set initial state: category full-width since trend is hidden
+            const catSection = document.querySelector('.report-section--category');
+            if (catSection) catSection.style.gridColumn = '1 / -1';
+
+            toggleTrendBtn.addEventListener('click', function() {
                 const section = document.getElementById('trendSection');
-                if (section) {
-                    const isHidden = section.style.display === 'none';
-                    section.style.display = isHidden ? '' : 'none';
-                    toggleTrendBtn.classList.toggle('active', isHidden);
+                const catSec = document.querySelector('.report-section--category');
+                if (!section) return;
+                const isHidden = section.style.display === 'none';
+                section.style.display = isHidden ? '' : 'none';
+                this.classList.toggle('active', isHidden);
+                if (catSec) {
+                    catSec.style.gridColumn = isHidden ? '' : '1 / -1';
                 }
             });
         }

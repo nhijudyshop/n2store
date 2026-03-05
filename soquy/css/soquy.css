@@ -2427,6 +2427,7 @@
     display: grid;
     grid-template-columns: 1.3fr 0.7fr;
     gap: 20px;
+    position: relative;
 }
 
 .report-section {
@@ -2450,10 +2451,10 @@
 }
 
 .report-trend-toggle-wrapper {
-    grid-column: 2 / 3;
-    display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 10;
 }
 
 .btn-toggle-trend {
@@ -2989,8 +2990,7 @@
     }
 
     .report-section--category,
-    .report-section--trend,
-    .report-trend-toggle-wrapper {
+    .report-section--trend {
         grid-column: 1 / -1;
     }
 
