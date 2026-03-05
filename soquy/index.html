@@ -1162,10 +1162,13 @@
 
                         <!-- Monthly Trend -->
                         <div class="report-section report-section--trend">
-                            <div class="report-section-header">
-                                <h3><i data-lucide="calendar-range"></i> Xu hướng theo tháng</h3>
+                            <div class="report-section-header" style="display: flex; align-items: center; justify-content: space-between;">
+                                <h3 style="margin:0;"><i data-lucide="calendar-range"></i> Xu hướng theo tháng</h3>
+                                <button type="button" id="toggleTrendBtn" class="btn-toggle-trend" title="Nhấn vào để xem Xu Hướng Thu/Chi Theo Tháng">
+                                    <i data-lucide="trending-up"></i>
+                                </button>
                             </div>
-                            <div class="report-section-body">
+                            <div class="report-section-body" id="trendSectionBody" style="display: none;">
                                 <table class="report-table" id="reportTrendTable">
                                     <thead>
                                         <tr>

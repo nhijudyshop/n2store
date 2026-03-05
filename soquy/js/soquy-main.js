@@ -858,6 +858,19 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Toggle trend section
+        const toggleTrendBtn = document.getElementById('toggleTrendBtn');
+        if (toggleTrendBtn) {
+            toggleTrendBtn.addEventListener('click', () => {
+                const body = document.getElementById('trendSectionBody');
+                if (body) {
+                    const isHidden = body.style.display === 'none';
+                    body.style.display = isHidden ? '' : 'none';
+                    toggleTrendBtn.classList.toggle('active', isHidden);
+                }
+            });
+        }
+
         // Export report button
         const btnExportReport = document.getElementById('btnExportReport');
         if (btnExportReport) {
