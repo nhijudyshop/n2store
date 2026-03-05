@@ -19,6 +19,7 @@ window.AuditLogApp = (function () {
         { id: 'inbox', name: 'Check Inbox Khách', implemented: false },
         { id: 'ck', name: 'Thông Tin Chuyển Khoản', implemented: false },
         { id: 'hanghoan', name: 'Hàng Hoàn', implemented: false },
+        { id: 'nhanhang', name: 'Nhận Hàng', implemented: false },
         { id: 'issue-tracking', name: 'CSKH + Hàng Hoàn Bưu Cục', implemented: true },
         { id: 'customer-hub', name: 'Customer 360°', implemented: true },
         { id: 'orders-report', name: 'Báo Cáo Sale-Online', implemented: false },
@@ -31,13 +32,39 @@ window.AuditLogApp = (function () {
         { id: 'supplier-debt', name: 'NCC', implemented: false },
         { id: 'invoice-compare', name: 'So Sánh Đơn Hàng', implemented: false },
         { id: 'soquy', name: 'Sổ Quỹ', implemented: false },
-        { id: 'quy-trinh', name: 'Quy Trình Nghiệp Vụ', implemented: false }
+        { id: 'quy-trinh', name: 'Quy Trình Nghiệp Vụ', implemented: false },
+        { id: 'lichsuchinhsua', name: 'Lịch Sử Chỉnh Sửa', implemented: false }
     ];
+
+    // Map legacy Vietnamese page names → module IDs
+    // Dữ liệu cũ dùng tên tiếng Việt, dữ liệu mới dùng kebab-case ID
+    var PAGE_ALIAS_MAP = {
+        'Hàng rớt - xả':           'hangrotxa',
+        'Hàng hoàn':               'hanghoan',
+        'Nhận Hàng':               'nhanhang',
+        'Kiểm Hàng':               'bangkiemhang',
+        'Chuyển khoản':            'ck',
+        'Check Inbox Khách Hàng':  'inbox',
+        'inventory-tracking':      'inventory-tracking',
+        'Lịch sử chỉnh sửa':      'lichsuchinhsua',
+        'Customer 360°':           'customer-hub',
+        'Báo cáo livestream':      'tpos-pancake',
+        'Báo Cáo Sale-Online':     'orders-report'
+    };
 
     var MODULE_ACTION_MAP = {
         'customer-hub': ['wallet_add_debt', 'wallet_subtract_debt', 'wallet_adjust_debt', 'customer_info_update', 'wallet_transaction'],
         'issue-tracking': ['ticket_create', 'ticket_add_debt', 'ticket_receive_goods', 'ticket_payment', 'ticket_update'],
-        'balance-history': ['transaction_assign', 'livemode_confirm_customer', 'transaction_approve', 'transaction_adjust', 'customer_info_update_bh', 'transaction_verify', 'accountant_entry_create']
+        'balance-history': ['transaction_assign', 'livemode_confirm_customer', 'transaction_approve', 'transaction_adjust', 'customer_info_update_bh', 'transaction_verify', 'accountant_entry_create'],
+        // Legacy modules dùng action cũ: add, edit, delete, update, mark
+        'hangrotxa': ['add', 'edit', 'delete', 'update', 'mark'],
+        'hanghoan': ['add', 'edit', 'delete', 'update', 'mark'],
+        'nhanhang': ['add', 'edit', 'delete', 'update', 'mark'],
+        'bangkiemhang': ['add', 'edit', 'delete', 'update', 'mark'],
+        'ck': ['add', 'edit', 'delete', 'update', 'mark'],
+        'inbox': ['add', 'edit', 'delete', 'update', 'mark'],
+        'inventory-tracking': ['add', 'edit', 'delete', 'update', 'mark'],
+        'lichsuchinhsua': ['delete']
     };
 
     var ACTION_BADGE_MAP = {
@@ -79,13 +106,25 @@ window.AuditLogApp = (function () {
     // NORMALIZE RECORD (tương thích ngược)
     // =====================================================
 
+    function resolveModule(rawPage) {
+        if (!rawPage) return '';
+        // Nếu đã là module ID hợp lệ → giữ nguyên
+        if (ALL_MODULES.some(function(m) { return m.id === rawPage; })) return rawPage;
+        // Tra cứu alias (tên tiếng Việt cũ → module ID)
+        return PAGE_ALIAS_MAP[rawPage] || rawPage;
+    }
+
     function normalizeRecord(record) {
-        if (record.performerUserId) return record; // Format mới
+        if (record.performerUserId) {
+            // Format mới - vẫn cần resolve module phòng trường hợp
+            record.module = resolveModule(record.module);
+            return record;
+        }
         return {
             timestamp: record.timestamp || null,
             performerUserId: record.user || '',
             performerUserName: record.user || '',
-            module: record.page || '',
+            module: resolveModule(record.page || ''),
             actionType: record.action || '',
             description: record.description || '',
             oldData: record.oldData || null,
@@ -579,11 +618,13 @@ window.AuditLogApp = (function () {
     return {
         init: init,
         normalizeRecord: normalizeRecord,
+        resolveModule: resolveModule,
         computeDiff: computeDiff,
         computeStats: computeStats,
         applyFilters: applyFilters,
         getActionBadge: getActionBadge,
         ALL_MODULES: ALL_MODULES,
+        PAGE_ALIAS_MAP: PAGE_ALIAS_MAP,
         MODULE_ACTION_MAP: MODULE_ACTION_MAP
     };
 
