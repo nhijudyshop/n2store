@@ -162,7 +162,6 @@ class PurchaseOrderService {
                 totalItems: orderData.items.length,
                 totalQuantity: orderData.items.reduce((sum, item) => sum + (item.quantity || 0), 0),
 
-                created_by: this.currentUser ? this.currentUser.uid : 'anonymous',
                 createdBy: userSnapshot,
                 lastModifiedBy: userSnapshot
             };
