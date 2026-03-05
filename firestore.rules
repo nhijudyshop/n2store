@@ -29,12 +29,12 @@ service cloud.firestore {
     match /purchase_orders/{orderId} {
       // Helper: Check if user owns the order
       function isOwner() {
-        return resource.data.created_by == request.auth.uid;
+        return resource.data.createdBy.uid == request.auth.uid;
       }
 
       // Helper: Check if user is creating with their own ID
       function isCreatingAsOwner() {
-        return request.resource.data.created_by == request.auth.uid;
+        return request.resource.data.createdBy.uid == request.auth.uid;
       }
 
       // Anyone authenticated can read
