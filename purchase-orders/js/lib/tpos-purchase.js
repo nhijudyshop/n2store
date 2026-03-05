@@ -25,16 +25,29 @@ window.TPOSPurchase = (function() {
         PaymentJournalId: 1,
         UserId: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
 
-        Company: {
-            Id: 1, Name: 'NJD Live',
-            Sender: 'Tổng đài:19003357', Phone: '19003357',
-            Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-            CurrencyId: 1, Active: true, AllowSaleNegative: true,
-            Customer: false, Supplier: false,
-            DepositAccountId: 11, DeliveryCarrierId: 7,
-            City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
-            District: { name: 'Quận 12', code: '761', cityCode: '79' },
-            Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+        Companies: {
+            1: {
+                Id: 1, Name: 'NJD Live',
+                Sender: 'Tổng đài:19003357', Phone: '19003357',
+                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
+                CurrencyId: 1, Active: true, AllowSaleNegative: true,
+                Customer: false, Supplier: false,
+                DepositAccountId: 11, DeliveryCarrierId: 7,
+                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
+                District: { name: 'Quận 12', code: '761', cityCode: '79' },
+                Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+            },
+            2: {
+                Id: 2, Name: 'NJD Shop',
+                Sender: 'Tổng đài:19003357', Phone: '19003357',
+                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
+                CurrencyId: 1, Active: true, AllowSaleNegative: true,
+                Customer: false, Supplier: false,
+                DepositAccountId: 11, DeliveryCarrierId: 7,
+                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
+                District: { name: 'Quận 12', code: '761', cityCode: '79' },
+                Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+            }
         },
 
         PickingType: {
@@ -48,10 +61,17 @@ window.TPOSPurchase = (function() {
             TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false
         },
 
-        User: {
-            Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
-            Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt',
-            CompanyId: 1, CompanyName: 'NJD Live', Active: true
+        Users: {
+            1: {
+                Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
+                Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt',
+                CompanyId: 1, CompanyName: 'NJD Live', Active: true
+            },
+            2: {
+                Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
+                Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt',
+                CompanyId: 2, CompanyName: 'NJD Shop', Active: true
+            }
         },
 
         PaymentJournal: {
@@ -211,11 +231,11 @@ window.TPOSPurchase = (function() {
             PaymentInfo: [],
             Error: null,
 
-            // Static nested objects
-            Company: STATIC.Company,
+            // Static nested objects (Company & User dynamic per shop)
+            Company: STATIC.Companies[getCompanyId()] || STATIC.Companies[1],
             PickingType: STATIC.PickingType,
             Journal: STATIC.Journal,
-            User: STATIC.User,
+            User: STATIC.Users[getCompanyId()] || STATIC.Users[1],
             PaymentJournal: STATIC.PaymentJournal,
             DestConvertCurrencyUnit: null,
             Partner: partner,
