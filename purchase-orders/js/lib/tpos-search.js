@@ -242,15 +242,11 @@ window.TPOSClient = (function() {
         }
 
         // Need to fetch new token
+        // Always SwitchCompany even for Company 1, because password login
+        // returns whatever company the server is currently set to
         refreshPromise = (async () => {
             try {
-                // Always start with a fresh password login
-                await loginWithPassword();
-
-                if (companyId !== 1) {
-                    // CompanyId 2+: need SwitchCompany after login
-                    await switchCompanyToken(companyId);
-                }
+                await switchCompanyToken(companyId);
             } finally {
                 refreshPromise = null;
             }
