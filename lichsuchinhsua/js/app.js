@@ -72,8 +72,7 @@ window.AuditLogApp = (function () {
     var state = {
         allRecords: [],
         filteredRecords: [],
-        currentUserId: '',
-        expandedModules: {}
+        currentUserId: ''
     };
 
     // =====================================================
@@ -298,50 +297,6 @@ window.AuditLogApp = (function () {
         document.getElementById('statMine').textContent = stats.mine;
     }
 
-    function renderModuleSections(records) {
-        var container = document.getElementById('moduleSections');
-        var html = '';
-
-        ALL_MODULES.forEach(function(mod) {
-            var count = records.filter(function(r) { return r.module === mod.id; }).length;
-            var isExpanded = state.expandedModules[mod.id] || false;
-
-            html += '<div class="module-section">';
-            html += '<div class="module-section-header" data-module="' + mod.id + '">';
-            html += '<span class="module-expand-icon">' + (isExpanded ? '▼' : '▶') + '</span>';
-            html += '<span class="module-name">' + escapeHtml(mod.name) + '</span>';
-            html += '<span class="module-badge">' + count + '</span>';
-            html += '</div>';
-
-            if (isExpanded) {
-                html += '<div class="module-section-content">';
-                if (!mod.implemented) {
-                    html += '<p class="module-placeholder">Sẽ được hiện thực trong phiên bản tiếp theo</p>';
-                } else {
-                    var moduleRecords = records.filter(function(r) { return r.module === mod.id; });
-                    if (moduleRecords.length === 0) {
-                        html += '<p class="module-placeholder">Chưa có bản ghi nào</p>';
-                    } else {
-                        html += '<p class="module-record-count">' + moduleRecords.length + ' bản ghi</p>';
-                    }
-                }
-                html += '</div>';
-            }
-            html += '</div>';
-        });
-
-        container.innerHTML = html;
-
-        // Bind click events
-        container.querySelectorAll('.module-section-header').forEach(function(header) {
-            header.addEventListener('click', function() {
-                var modId = this.dataset.module;
-                state.expandedModules[modId] = !state.expandedModules[modId];
-                renderModuleSections(state.filteredRecords);
-            });
-        });
-    }
-
     function renderHistoryTable(records) {
         var tbody = document.getElementById('historyTableBody');
         var emptyState = document.getElementById('emptyState');
@@ -522,7 +477,6 @@ window.AuditLogApp = (function () {
 
         var stats = computeStats(state.filteredRecords, state.currentUserId);
         renderStatsCards(stats);
-        renderModuleSections(state.filteredRecords);
         renderHistoryTable(state.filteredRecords);
     }
 
@@ -564,7 +518,6 @@ window.AuditLogApp = (function () {
                     document.getElementById('resultCount').textContent = records.length;
                     var stats = computeStats(records, state.currentUserId);
                     renderStatsCards(stats);
-                    renderModuleSections(records);
                     renderHistoryTable(records);
 
                     loading.style.display = 'none';

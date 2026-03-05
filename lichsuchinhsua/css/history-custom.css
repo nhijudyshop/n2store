@@ -139,65 +139,6 @@
 }
 .filter-result-count strong { color: #3b82f6; }
 
-/* Module Sections */
-.module-sections { margin-bottom: 24px; }
-.module-section {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    margin-bottom: 8px;
-    overflow: hidden;
-}
-.module-section-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 18px;
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.15s;
-}
-.module-section-header:hover { background: #f8fafc; }
-.module-expand-icon {
-    font-size: 11px;
-    color: #94a3b8;
-    width: 16px;
-    text-align: center;
-}
-.module-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1e293b;
-    flex: 1;
-}
-.module-badge {
-    background: #eff6ff;
-    color: #3b82f6;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 2px 10px;
-    border-radius: 12px;
-    min-width: 24px;
-    text-align: center;
-}
-.module-section-content {
-    padding: 0 18px 14px;
-    border-top: 1px solid #f1f5f9;
-}
-.module-placeholder {
-    color: #94a3b8;
-    font-size: 13px;
-    font-style: italic;
-    padding: 8px 0;
-    margin: 0;
-}
-.module-record-count {
-    color: #64748b;
-    font-size: 13px;
-    padding: 8px 0;
-    margin: 0;
-}
-
 /* History Table */
 .history-table-container {
     background: #fff;
