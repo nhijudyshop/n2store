@@ -10,8 +10,7 @@ window.TPOSPurchase = (function() {
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // =====================================================
-    // STATIC CONFIG (from TPOS - shared across all shops)
-    // Only CompanyId changes per shop (via ShopConfig)
+    // STATIC CONFIG - per company (from real TPOS payloads)
     // =====================================================
 
     function getCompanyId() {
@@ -19,71 +18,54 @@ window.TPOSPurchase = (function() {
     }
 
     const STATIC = {
-        JournalId: 4,
-        AccountId: 4,
-        PickingTypeId: 1,
-        PaymentJournalId: 1,
         UserId: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
 
-        Companies: {
+        // Per-company config (extracted from real TPOS payloads)
+        Config: {
             1: {
-                Id: 1, Name: 'NJD Live',
-                Sender: 'Tổng đài:19003357', Phone: '19003357',
-                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-                CurrencyId: 1, Active: true, AllowSaleNegative: true,
-                Customer: false, Supplier: false,
-                DepositAccountId: 11, DeliveryCarrierId: 7,
-                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
-                District: { name: 'Quận 12', code: '761', cityCode: '79' },
-                Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+                JournalId: 4, AccountId: 4, PickingTypeId: 1, PaymentJournalId: 1,
+                Company: {
+                    Id: 1, Name: 'NJD Live',
+                    Sender: 'Tổng đài:19003357', Phone: '19003357',
+                    Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
+                    CurrencyId: 1, Active: true, AllowSaleNegative: true,
+                    Customer: false, Supplier: false,
+                    DepositAccountId: 11, DeliveryCarrierId: 7,
+                    City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
+                    District: { name: 'Quận 12', code: '761', cityCode: '79' },
+                    Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+                },
+                User: { Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc', Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt', CompanyId: 1, CompanyName: 'NJD Live', Active: true },
+                Journal: { Id: 4, Name: 'Nhật ký mua hàng', Type: 'purchase', TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false },
+                PaymentJournal: { Id: 1, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt', UpdatePosted: true },
+                PickingType: { Id: 1, Code: 'incoming', Name: 'Nhận hàng', Active: true, WarehouseId: 1, UseCreateLots: true, UseExistingLots: true, NameGet: 'Nhi Judy Store: Nhận hàng' },
+                Account: { Id: 4, Name: 'Phải trả người bán', Code: '331', Active: true, NameGet: '331 Phải trả người bán', Reconcile: false }
             },
             2: {
-                Id: 2, Name: 'NJD Shop',
-                Sender: 'Tổng đài:19003357', Phone: '19003357',
-                Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-                CurrencyId: 1, Active: true, AllowSaleNegative: true,
-                Customer: false, Supplier: false,
-                DepositAccountId: 11, DeliveryCarrierId: 7,
-                City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
-                District: { name: 'Quận 12', code: '761', cityCode: '79' },
-                Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+                JournalId: 11, AccountId: 32, PickingTypeId: 5, PaymentJournalId: 8,
+                Company: {
+                    Id: 2, Name: 'NJD Shop',
+                    Sender: 'Tổng đài:19003357', Phone: '19003357',
+                    Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
+                    CurrencyId: 1, Active: true, AllowSaleNegative: true,
+                    Customer: false, Supplier: false,
+                    DepositAccountId: 11, DeliveryCarrierId: 7,
+                    City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
+                    District: { name: 'Quận 12', code: '761', cityCode: '79' },
+                    Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
+                },
+                User: { Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc', Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt', CompanyId: 2, CompanyName: 'NJD Shop', Active: true },
+                Journal: { Id: 11, Name: 'Nhật ký mua hàng', Type: 'purchase', TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false },
+                PaymentJournal: { Id: 8, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt', UpdatePosted: true },
+                PickingType: { Id: 5, Code: 'incoming', Name: 'Nhận hàng', Active: true, WarehouseId: 2, UseCreateLots: true, UseExistingLots: true, NameGet: 'Shop NJD: Nhận hàng' },
+                Account: { Id: 32, Name: 'Phải trả người bán', Code: '331', Active: true, NameGet: '331 Phải trả người bán', Reconcile: false }
             }
-        },
-
-        PickingType: {
-            Id: 1, Code: 'incoming', Name: 'Nhận hàng', Active: true,
-            WarehouseId: 1, UseCreateLots: true, UseExistingLots: true,
-            NameGet: 'Nhi Judy Store: Nhận hàng'
-        },
-
-        Journal: {
-            Id: 4, Name: 'Nhật ký mua hàng', Type: 'purchase',
-            TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false
-        },
-
-        Users: {
-            1: {
-                Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
-                Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt',
-                CompanyId: 1, CompanyName: 'NJD Live', Active: true
-            },
-            2: {
-                Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
-                Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt',
-                CompanyId: 2, CompanyName: 'NJD Shop', Active: true
-            }
-        },
-
-        PaymentJournal: {
-            Id: 1, Name: 'Tiền mặt', Type: 'cash',
-            TypeGet: 'Tiền mặt', UpdatePosted: true
-        },
-
-        Account: {
-            Id: 4, Name: 'Phải trả người bán', Code: '331',
-            Active: true, NameGet: '331 Phải trả người bán', Reconcile: false
         }
     };
+
+    function getConfig() {
+        return STATIC.Config[getCompanyId()] || STATIC.Config[1];
+    }
 
     // Format date as Vietnam timezone (+07:00) matching TPOS payload format
     function toVNDateString(date) {
@@ -91,60 +73,6 @@ window.TPOSPurchase = (function() {
         const offset = 7 * 60; // +07:00 in minutes
         const local = new Date(d.getTime() + offset * 60000);
         return local.toISOString().replace('Z', '') + '+07:00';
-    }
-
-    // =====================================================
-    // DYNAMIC CONFIG - extract Journal/Account/PickingType from existing PO
-    // IDs differ per company, fetched from TPOS via FastPurchaseOrder $expand
-    // =====================================================
-
-    const _companyConfigCache = {};
-
-    async function getCompanyConfig() {
-        const companyId = getCompanyId();
-        if (_companyConfigCache[companyId]) return _companyConfigCache[companyId];
-
-        console.log(`[TPOSPurchase] Fetching config for company ${companyId}...`);
-
-        try {
-            // Fetch a recent FastPurchaseOrder with expanded config objects
-            const res = await window.TPOSClient.authenticatedFetch(
-                `${PROXY_URL}/api/odata/FastPurchaseOrder?$top=1&$orderby=DateInvoice desc&$expand=Journal,Account,PickingType,PaymentJournal&$select=Id,JournalId,AccountId,PickingTypeId,PaymentJournalId`
-            );
-
-            if (res.ok) {
-                const data = await res.json();
-                const po = data.value?.[0];
-                if (po) {
-                    const config = {
-                        JournalId: po.JournalId || po.Journal?.Id || STATIC.JournalId,
-                        AccountId: po.AccountId || po.Account?.Id || STATIC.AccountId,
-                        PickingTypeId: po.PickingTypeId || po.PickingType?.Id || STATIC.PickingTypeId,
-                        PaymentJournalId: po.PaymentJournalId || po.PaymentJournal?.Id || STATIC.PaymentJournalId,
-                        Journal: po.Journal || STATIC.Journal,
-                        Account: po.Account || STATIC.Account,
-                        PickingType: po.PickingType || STATIC.PickingType,
-                        PaymentJournal: po.PaymentJournal || STATIC.PaymentJournal
-                    };
-                    console.log(`[TPOSPurchase] Company ${companyId} config from PO: Journal=${config.JournalId}, Account=${config.AccountId}, PickingType=${config.PickingTypeId}, PaymentJournal=${config.PaymentJournalId}`);
-                    _companyConfigCache[companyId] = config;
-                    return config;
-                }
-            }
-        } catch (e) {
-            console.warn('[TPOSPurchase] Failed to fetch PO config:', e);
-        }
-
-        // Fallback: use static Company 1 defaults
-        console.warn(`[TPOSPurchase] No PO found for company ${companyId}, using static defaults`);
-        const fallback = {
-            JournalId: STATIC.JournalId, AccountId: STATIC.AccountId,
-            PickingTypeId: STATIC.PickingTypeId, PaymentJournalId: STATIC.PaymentJournalId,
-            Journal: STATIC.Journal, Account: STATIC.Account,
-            PickingType: STATIC.PickingType, PaymentJournal: STATIC.PaymentJournal
-        };
-        _companyConfigCache[companyId] = fallback;
-        return fallback;
     }
 
     // =====================================================
@@ -202,8 +130,8 @@ window.TPOSPurchase = (function() {
         const partnerId = partnerData.tposId || partnerData.Id || partnerData.id;
         if (!partnerId) throw new Error('Partner has no TPOS ID');
 
-        // Fetch dynamic config (Journal/Account/PickingType IDs) for current company
-        const companyConfig = await getCompanyConfig();
+        // Get per-company config (Journal/Account/PickingType IDs)
+        const companyConfig = getConfig();
 
         // Calculate totals from orderLines
         let amountTotal = 0;
@@ -288,11 +216,11 @@ window.TPOSPurchase = (function() {
             PaymentInfo: [],
             Error: null,
 
-            // Nested objects (dynamic per company)
-            Company: STATIC.Companies[getCompanyId()] || STATIC.Companies[1],
+            // Nested objects (per company)
+            Company: companyConfig.Company,
             PickingType: companyConfig.PickingType,
             Journal: companyConfig.Journal,
-            User: STATIC.Users[getCompanyId()] || STATIC.Users[1],
+            User: companyConfig.User,
             PaymentJournal: companyConfig.PaymentJournal,
             DestConvertCurrencyUnit: null,
             Partner: partner,
