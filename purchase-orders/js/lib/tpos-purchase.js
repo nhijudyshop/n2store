@@ -293,17 +293,17 @@ window.TPOSPurchase = (function() {
             // 2. Convert workbook to base64
             const base64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
 
-            // 3. PurchaseByExcel → get OrderLines
+            // 3+4. PurchaseByExcel + getFullPartnerData in parallel
             const orderDate = toVNDateString();
 
-            const excelResult = await purchaseByExcel(base64, ncc.tposId, orderDate);
+            const [excelResult, partnerData] = await Promise.all([
+                purchaseByExcel(base64, ncc.tposId, orderDate),
+                window.NCCManager.getFullPartnerData(ncc.docId)
+            ]);
 
             if (excelResult.orderLines.length === 0) {
                 throw new Error('TPOS không nhận diện được sản phẩm nào từ Excel');
             }
-
-            // 4. Get full Partner data from Firebase
-            const partnerData = await window.NCCManager.getFullPartnerData(ncc.docId);
             if (!partnerData) {
                 throw new Error('Không lấy được dữ liệu NCC từ Firebase');
             }

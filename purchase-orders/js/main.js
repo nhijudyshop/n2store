@@ -1057,69 +1057,113 @@ class PurchaseOrderController {
                         'success'
                     );
 
-                    // Print barcode labels
+                    // Run barcode print & Firebase update in parallel
+                    const parallelTasks = [];
+
+                    // Task 1: Print barcode labels (2 TPOS API calls — slowest)
                     if (tposResult.poId && tposResult.orderLines?.length > 0 && window.TPOSPurchase?.printBarcodeLabel) {
-                        try {
-                            this.ui.showToast('Đang tạo tem barcode...', 'info');
-                            await window.TPOSPurchase.printBarcodeLabel(tposResult.poId, tposResult.orderLines);
-                        } catch (printErr) {
-                            console.warn('[Print] Barcode print failed:', printErr);
-                            this.ui.showToast('Không thể in tem: ' + printErr.message, 'warning');
-                        }
+                        parallelTasks.push(
+                            (async () => {
+                                this.ui.showToast('Đang tạo tem barcode...', 'info');
+                                await window.TPOSPurchase.printBarcodeLabel(tposResult.poId, tposResult.orderLines);
+                            })().catch(err => {
+                                console.warn('[Print] Barcode print failed:', err);
+                                this.ui.showToast('Không thể in tem: ' + err.message, 'warning');
+                            })
+                        );
                     }
 
-                    // Save TPOS PO data to Firebase for later barcode printing
-                    if (singleOrder.id && tposResult.poId) {
-                        try {
-                            const tposData = {
-                                tposPoId: tposResult.poId,
-                                tposPoNumber: tposResult.poNumber || null,
-                                tposOrderLines: (tposResult.orderLines || []).map(l => ({
-                                    ProductId: l.Product?.Id || l.ProductId,
-                                    ProductQty: l.ProductQty || 1,
-                                    PriceUnit: l.PriceUnit || 0,
-                                    PriceVariant: l.Product?.PriceVariant || 0,
-                                    Product: l.Product ? {
-                                        Id: l.Product.Id,
-                                        DefaultCode: l.Product.DefaultCode,
-                                        Barcode: l.Product.Barcode,
-                                        NameTemplate: l.Product.NameTemplate,
-                                        PriceVariant: l.Product.PriceVariant,
-                                        ProductTmplId: l.Product.ProductTmplId,
-                                        ImageUrl: l.Product.ImageUrl
-                                    } : null
-                                }))
-                            };
-                            const db = firebase.firestore();
-                            await db.collection('purchase_orders').doc(singleOrder.id).update(tposData);
-                            console.log('[TPOSPurchase] Saved TPOS PO data to Firebase:', tposData.tposPoId);
-                        } catch (err) {
-                            console.warn('[TPOSPurchase] Failed to save TPOS PO data:', err);
-                        }
+                    // Task 2: Single combined Firebase write (TPOS data + variant codes + status)
+                    if (singleOrder.id) {
+                        parallelTasks.push(
+                            (async () => {
+                                const updateData = {};
+
+                                // 2a. TPOS PO data (for later barcode reprinting)
+                                if (tposResult.poId) {
+                                    updateData.tposPoId = tposResult.poId;
+                                    updateData.tposPoNumber = tposResult.poNumber || null;
+                                    updateData.tposOrderLines = (tposResult.orderLines || []).map(l => ({
+                                        ProductId: l.Product?.Id || l.ProductId,
+                                        ProductQty: l.ProductQty || 1,
+                                        PriceUnit: l.PriceUnit || 0,
+                                        PriceVariant: l.Product?.PriceVariant || 0,
+                                        Product: l.Product ? {
+                                            Id: l.Product.Id,
+                                            DefaultCode: l.Product.DefaultCode,
+                                            Barcode: l.Product.Barcode,
+                                            NameTemplate: l.Product.NameTemplate,
+                                            PriceVariant: l.Product.PriceVariant,
+                                            ProductTmplId: l.Product.ProductTmplId,
+                                            ImageUrl: l.Product.ImageUrl
+                                        } : null
+                                    }));
+                                }
+
+                                // 2b. Update items with TPOS variant codes
+                                if (tposResult.orderLines && result.itemCodeMap) {
+                                    const updatedItems = [...(singleOrder.items || [])];
+                                    let updatedCount = 0;
+                                    for (let i = 0; i < tposResult.orderLines.length && i < result.itemCodeMap.length; i++) {
+                                        const line = tposResult.orderLines[i];
+                                        const mapping = result.itemCodeMap[i];
+                                        const barcode = line.Product?.Barcode || line.Product?.DefaultCode;
+                                        const tposProductId = line.Product?.Id || line.ProductId;
+                                        if (barcode && mapping.itemIndex < updatedItems.length) {
+                                            const item = updatedItems[mapping.itemIndex];
+                                            if (item.productCode !== barcode || !item.tposProductId) {
+                                                updatedItems[mapping.itemIndex] = { ...item, productCode: barcode, tposProductId };
+                                                updatedCount++;
+                                            }
+                                        }
+                                    }
+                                    if (updatedCount > 0) {
+                                        updateData.items = updatedItems;
+                                        console.log(`[TPOSPurchase] Updated ${updatedCount} items with TPOS variant codes`);
+                                    }
+                                }
+
+                                // 2c. Auto-update status (AWAITING_PURCHASE → AWAITING_DELIVERY)
+                                const config = window.PurchaseOrderConfig;
+                                if (singleOrder.status === config?.OrderStatus?.AWAITING_PURCHASE) {
+                                    const userSnapshot = window.purchaseOrderService?.getUserSnapshot?.()
+                                        || { uid: 'system', displayName: 'System', email: '' };
+                                    updateData.status = config.OrderStatus.AWAITING_DELIVERY;
+                                    updateData.statusHistory = firebase.firestore.FieldValue.arrayUnion({
+                                        from: singleOrder.status,
+                                        to: config.OrderStatus.AWAITING_DELIVERY,
+                                        changedAt: firebase.firestore.Timestamp.now(),
+                                        changedBy: userSnapshot,
+                                        reason: null
+                                    });
+                                    updateData.lastModifiedBy = userSnapshot;
+                                }
+
+                                // Single Firestore write (was 3 separate writes)
+                                if (Object.keys(updateData).length > 0) {
+                                    updateData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                                    const db = firebase.firestore();
+                                    await db.collection('purchase_orders').doc(singleOrder.id).update(updateData);
+                                    console.log('[TPOSPurchase] Saved all TPOS data to Firebase in 1 write');
+                                }
+
+                                // UI feedback
+                                if (updateData.items) {
+                                    this.ui.showToast(`Đã cập nhật mã biến thể từ TPOS`, 'info');
+                                }
+                                if (updateData.status) {
+                                    this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'info');
+                                }
+
+                                // Refresh table once
+                                if (this.dataManager?.loadOrders) {
+                                    this.dataManager.loadOrders(this.currentTab, true);
+                                }
+                            })().catch(err => console.error('[TPOSPurchase] Firebase update failed:', err))
+                        );
                     }
 
-                    // Update Firebase items with TPOS variant codes
-                    if (tposResult.orderLines && result.itemCodeMap && singleOrder.id) {
-                        try {
-                            await this.updateItemsWithTPOSCodes(singleOrder, tposResult.orderLines, result.itemCodeMap);
-                        } catch (err) {
-                            console.warn('[TPOSPurchase] Failed to update variant codes:', err);
-                        }
-                    }
-
-                    // Auto-update status
-                    const config = window.PurchaseOrderConfig;
-                    if (singleOrder.status === config?.OrderStatus?.AWAITING_PURCHASE) {
-                        try {
-                            await this.dataManager.updateOrderStatus(singleOrder.id, config.OrderStatus.AWAITING_DELIVERY);
-                            this.ui.showToast('Đơn hàng chuyển sang trạng thái Chờ Hàng', 'info');
-                            if (this.dataManager?.loadOrders) {
-                                this.dataManager.loadOrders(this.currentTab, true);
-                            }
-                        } catch (statusErr) {
-                            console.warn('[PO Preview] Auto-update status failed:', statusErr);
-                        }
-                    }
+                    await Promise.allSettled(parallelTasks);
                 }
             } catch (error) {
                 console.error('[PO Preview] Submit failed:', error);
