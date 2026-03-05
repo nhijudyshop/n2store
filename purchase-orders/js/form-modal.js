@@ -16,7 +16,7 @@ class PurchaseOrderFormModal {
 
         // Form state
         this.formData = {
-            orderType: 'NJD SHOP',
+            orderType: window.ShopConfig?.getConfig()?.label || 'NJD SHOP',
             supplier: '',
             orderDate: new Date().toISOString().split('T')[0],
             invoiceAmount: '',
@@ -796,7 +796,7 @@ class PurchaseOrderFormModal {
      */
     resetFormData() {
         this.formData = {
-            orderType: 'NJD SHOP',
+            orderType: window.ShopConfig?.getConfig()?.label || 'NJD SHOP',
             supplier: '',
             orderDate: new Date().toISOString().split('T')[0],
             invoiceAmount: '',
@@ -1064,23 +1064,7 @@ class PurchaseOrderFormModal {
                     justify-content: space-between;
                     align-items: center;
                 ">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <h2 style="margin: 0; font-size: 20px; font-weight: 600;">${title}</h2>
-                        <select id="selectOrderType" style="
-                            padding: 6px 12px;
-                            border: 1px solid #d1d5db;
-                            border-radius: 6px;
-                            font-size: 14px;
-                            font-weight: 500;
-                            color: #374151;
-                            background: #f9fafb;
-                            cursor: pointer;
-                            outline: none;
-                        ">
-                            <option value="NJD LIVE" ${this.formData.orderType === 'NJD LIVE' ? 'selected' : ''}>NJD LIVE</option>
-                            <option value="NJD SHOP" ${this.formData.orderType === 'NJD SHOP' ? 'selected' : ''}>NJD SHOP</option>
-                        </select>
-                    </div>
+                    <h2 style="margin: 0; font-size: 20px; font-weight: 600;">${title}</h2>
                     <button type="button" id="btnCloseModal" style="
                         background: none;
                         border: none;
@@ -1720,11 +1704,6 @@ class PurchaseOrderFormModal {
             }
             this.onCancel?.();
             this.close();
-        });
-
-        // Order type dropdown
-        this.modalElement.querySelector('#selectOrderType')?.addEventListener('change', (e) => {
-            this.formData.orderType = e.target.value;
         });
 
         // Close on overlay click
@@ -2507,7 +2486,7 @@ class PurchaseOrderFormModal {
      */
     collectFormData() {
         // Top-level fields
-        this.formData.orderType = this.modalElement?.querySelector('#selectOrderType')?.value || 'NJD SHOP';
+        this.formData.orderType = window.ShopConfig?.getConfig()?.label || 'NJD SHOP';
         this.formData.supplier = this.modalElement?.querySelector('#inputSupplier')?.value || '';
         this.formData.orderDate = this.modalElement?.querySelector('#inputOrderDate')?.value || '';
         this.formData.invoiceAmount = this.modalElement?.querySelector('#inputInvoiceAmount')?.value || '';
