@@ -1,5 +1,6 @@
 // customer-hub/js/modules/wallet-panel.js
 import apiService from '../api-service.js';
+import { logAction } from '../../../shared/js/audit-logger.js';
 
 const TYPE_LABELS = {
     'DEPOSIT': 'Nạp tiền',
@@ -217,6 +218,9 @@ export class WalletPanelModule {
 
             try {
                 const user = this._getCurrentUser();
+                const actionTypeMap = { deposit: 'wallet_add_debt', withdraw: 'wallet_subtract_debt', issue_vc: 'wallet_adjust_debt' };
+                const descMap = { deposit: `Nạp ${amount.toLocaleString('vi-VN')}đ vào ví ${this.customerPhone}`, withdraw: `Rút ${amount.toLocaleString('vi-VN')}đ từ ví ${this.customerPhone}`, issue_vc: `Cấp công nợ ảo ${amount.toLocaleString('vi-VN')}đ cho ${this.customerPhone} (${expiry} ngày)` };
+
                 if (action === 'deposit') {
                     await apiService.walletDeposit(this.customerPhone, amount, { source: 'MANUAL_ADJUSTMENT', note: note || 'Nạp tiền từ Customer 360', created_by: user });
                 } else if (action === 'withdraw') {
@@ -224,6 +228,19 @@ export class WalletPanelModule {
                 } else if (action === 'issue_vc') {
                     await apiService.issueVirtualCredit(this.customerPhone, amount, { source_type: 'ADMIN_ISSUE', expiry_days: expiry, note: note || `Cấp công nợ ảo (${expiry} ngày)`, created_by: user });
                 }
+
+                // Audit logging - fire-and-forget
+                try {
+                    logAction(actionTypeMap[action] || 'wallet_transaction', {
+                        module: 'customer-hub',
+                        description: descMap[action] || `Thao tác ví: ${action}`,
+                        oldData: null,
+                        newData: { amount, action, note, customerId: this.customerPhone },
+                        entityId: this.customerPhone,
+                        entityType: 'customer'
+                    });
+                } catch (e) { /* audit log error - ignore */ }
+
                 close();
                 await this.loadWalletDetails();
             } catch (err) {

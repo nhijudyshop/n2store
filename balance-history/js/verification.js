@@ -245,6 +245,22 @@ async function approveTransaction(transactionId) {
 
         showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
 
+        // Audit logging - duyệt giao dịch
+        try {
+            if (window.AuditLogger) {
+                window.AuditLogger.logAction('transaction_approve', {
+                    module: 'balance-history',
+                    description: 'Duyệt giao dịch #' + transactionId,
+                    oldData: { status: 'PENDING_VERIFICATION' },
+                    newData: { status: 'APPROVED', txId: String(transactionId), approver: performedBy },
+                    approverUserId: performedBy,
+                    approverUserName: performedBy,
+                    entityId: String(transactionId),
+                    entityType: 'transaction'
+                });
+            }
+        } catch (e) { /* audit log error - ignore */ }
+
         // Refresh verification queue
         loadVerificationQueue(verificationCurrentPage);
 

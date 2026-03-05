@@ -1166,6 +1166,20 @@ async function handleSubmitTicket() {
     try {
         await ApiService.createTicket(ticketData);
 
+        // Audit logging - ghi nhận tạo ticket
+        try {
+            if (window.AuditLogger) {
+                window.AuditLogger.logAction('ticket_create', {
+                    module: 'issue-tracking',
+                    description: 'Tạo phiếu ' + type + ' cho KH ' + customerPhone + (tposOrderId ? ' - Đơn ' + tposOrderId : ''),
+                    oldData: null,
+                    newData: { type, status, money, customerId: customerPhone, orderId: tposOrderId, channel },
+                    entityId: tposOrderId || customerPhone,
+                    entityType: 'ticket'
+                });
+            }
+        } catch (e) { /* audit log error - ignore */ }
+
         // =====================================================
         // RETURN_SHIPPER: KHÔNG tự động cấp virtual_credit khi tạo ticket
         // User phải bấm nút "+ Công Nợ Ảo" để cấp (cần quyền issueVirtualCredit)
@@ -1364,6 +1378,20 @@ async function handleConfirmAction() {
             const refundNumber = result.confirmResult?.value?.[0]?.Number || result.refundOrderId;
             notificationManager.success(`Đã tạo phiếu hoàn: ${refundNumber}`, 3000, 'Nhận hàng thành công');
 
+            // Audit logging - nhận hàng hoàn
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('ticket_receive_goods', {
+                        module: 'issue-tracking',
+                        description: 'Nhận hàng hoàn đơn ' + (ticket.orderId || '') + ' - ' + (ticket.phone || ''),
+                        oldData: { status: ticket.status },
+                        newData: { status: 'RECEIVED', ticketId: pendingActionTicketId, refundNumber: refundNumber },
+                        entityId: pendingActionTicketId,
+                        entityType: 'ticket'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
+
             // Show print dialog with the HTML bill (only if enabled in settings)
             if (result.printHtml && appSettings.printBillEnabled) {
                 showPrintDialog(result.printHtml);
@@ -1386,6 +1414,20 @@ async function handleConfirmAction() {
             loadingId = null;
 
             notificationManager.success('Đã xác nhận thanh toán', 2000, 'Thành công');
+
+            // Audit logging - thanh toán ticket
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('ticket_payment', {
+                        module: 'issue-tracking',
+                        description: 'Thanh toán ticket ' + (ticket.ticketCode || ticket.orderId || '') + ' - ' + formatCurrency(ticket.money),
+                        oldData: { status: ticket.status },
+                        newData: { status: 'COMPLETED', amount: ticket.money, ticketId: pendingActionTicketId },
+                        entityId: pendingActionTicketId,
+                        entityType: 'ticket'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
 
         } else if (pendingActionType === 'ISSUE_CREDIT') {
             // =====================================================
@@ -1429,6 +1471,20 @@ async function handleConfirmAction() {
                     3000,
                     'Công nợ ảo'
                 );
+
+                // Audit logging - cấp công nợ ảo
+                try {
+                    if (window.AuditLogger) {
+                        window.AuditLogger.logAction('ticket_add_debt', {
+                            module: 'issue-tracking',
+                            description: 'Cấp ' + money.toLocaleString() + 'đ công nợ ảo cho ' + customerPhone + ' từ ticket ' + ticketCode,
+                            oldData: null,
+                            newData: { amount: money, customerId: customerPhone, ticketId: pendingActionTicketId, ticketCode: ticketCode },
+                            entityId: pendingActionTicketId,
+                            entityType: 'ticket'
+                        });
+                    }
+                } catch (e) { /* audit log error - ignore */ }
 
                 // Update local ticket data để UI refresh đúng nút (backup in case Firebase slow)
                 ticket.virtual_credit_id = virtualCreditId;

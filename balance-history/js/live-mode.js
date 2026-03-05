@@ -603,6 +603,20 @@ const LiveModeModule = (function() {
 
             showNotification('Đã gán và xác nhận giao dịch!', 'success');
 
+            // Audit logging - xác nhận khách live-mode (manual phone entry)
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('livemode_confirm_customer', {
+                        module: 'balance-history',
+                        description: 'Gán SĐT ' + phone + ' và xác nhận giao dịch #' + txId,
+                        oldData: null,
+                        newData: { txId: String(txId), customerPhone: phone, staffNote: staffNote },
+                        entityId: String(txId),
+                        entityType: 'transaction'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
+
             // Move item from manualItems to confirmedItems locally
             const txIndex = state.manualItems.findIndex(t => String(t.id) === String(txId));
             if (txIndex !== -1) {
@@ -735,6 +749,21 @@ const LiveModeModule = (function() {
             }
 
             showNotification('Đã xác nhận giao dịch!', 'success');
+
+            // Audit logging - xác nhận khách live-mode
+            try {
+                if (window.AuditLogger) {
+                    var confirmedTx = state.confirmedItems[0]; // just moved to top
+                    window.AuditLogger.logAction('livemode_confirm_customer', {
+                        module: 'balance-history',
+                        description: 'Xác nhận giao dịch #' + txId + ' (auto-matched)',
+                        oldData: null,
+                        newData: { txId: String(txId), customerPhone: confirmedTx?.customer_phone || '', customerName: confirmedTx?.customer_name || '', staffNote: staffNote },
+                        entityId: String(txId),
+                        entityType: 'transaction'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
 
             // Re-render without fetching from API
             renderKanbanBoard();

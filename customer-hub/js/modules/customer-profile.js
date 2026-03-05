@@ -2,6 +2,7 @@
 import apiService from '../api-service.js';
 import { PermissionHelper } from '../utils/permissions.js';
 import { WalletPanelModule } from './wallet-panel.js';
+import { logAction } from '../../../shared/js/audit-logger.js';
 
 export class CustomerProfileModule {
     constructor(containerId, permissionHelper) {
@@ -1060,6 +1061,18 @@ export class CustomerProfileModule {
 
             const response = await apiService.addCustomerNote(this.customerPhone, content.trim(), { created_by: createdBy });
             if (response) {
+                // Audit logging - ghi nhận thao tác cập nhật thông tin KH
+                try {
+                    logAction('customer_info_update', {
+                        module: 'customer-hub',
+                        description: `Thêm ghi chú cho KH ${this.customerPhone}`,
+                        oldData: null,
+                        newData: { note: content.trim(), createdBy },
+                        entityId: this.customerPhone,
+                        entityType: 'customer'
+                    });
+                } catch (e) { /* audit log error - ignore */ }
+
                 // Reload profile to show new note
                 this.render(this.customerPhone);
             } else {

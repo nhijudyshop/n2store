@@ -142,6 +142,20 @@ async function resolvePendingMatch(pendingMatchId, selectElement) {
         if (result.success) {
             showNotification(`Đã chọn khách hàng: ${customerName} (${customerPhone})`, 'success');
 
+            // Audit logging - gán giao dịch cho khách hàng
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('transaction_assign', {
+                        module: 'balance-history',
+                        description: 'Gán giao dịch #' + transactionId + ' cho KH ' + customerName + ' (' + customerPhone + ')',
+                        oldData: null,
+                        newData: { txId: transactionId, customerId: selectedValue, customerName: customerName, customerPhone: customerPhone },
+                        entityId: String(transactionId),
+                        entityType: 'transaction'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
+
             // Small delay to ensure DB is updated, then refresh table
             setTimeout(async () => {
                 await loadData();
@@ -2658,6 +2672,20 @@ async function toggleHideTransaction(transactionId, hidden) {
                     'success'
                 );
             }
+
+            // Audit logging - điều chỉnh giao dịch (ẩn/hiện)
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('transaction_adjust', {
+                        module: 'balance-history',
+                        description: (hidden ? 'Ẩn' : 'Bỏ ẩn') + ' giao dịch #' + transactionId,
+                        oldData: { is_hidden: !hidden },
+                        newData: { is_hidden: hidden },
+                        entityId: String(transactionId),
+                        entityType: 'transaction'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
         } else {
             throw new Error(result.error || 'Failed to update');
         }
@@ -2862,6 +2890,20 @@ async function saveEditCustomerInfo(event) {
 
     if (success) {
         showNotification('Đã cập nhật thông tin khách hàng!', 'success');
+
+        // Audit logging - cập nhật thông tin KH từ Balance History
+        try {
+            if (window.AuditLogger) {
+                window.AuditLogger.logAction('customer_info_update_bh', {
+                    module: 'balance-history',
+                    description: 'Cập nhật thông tin KH cho mã ' + uniqueCode + ': ' + name + ' (' + phone + ')',
+                    oldData: null,
+                    newData: { name: name, phone: phone, uniqueCode: uniqueCode },
+                    entityId: uniqueCode,
+                    entityType: 'customer'
+                });
+            }
+        } catch (e) { /* audit log error - ignore */ }
 
         // Close modal
         document.getElementById('editCustomerModal').style.display = 'none';

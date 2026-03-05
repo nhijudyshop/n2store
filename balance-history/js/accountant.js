@@ -1336,6 +1336,22 @@
                 showNotification(`Đã duyệt giao dịch #${transactionId}`, 'success');
             }
 
+            // Audit logging - duyệt giao dịch từ tab kế toán
+            try {
+                if (window.AuditLogger) {
+                    window.AuditLogger.logAction('accountant_entry_create', {
+                        module: 'balance-history',
+                        description: 'Kế toán duyệt giao dịch #' + transactionId + (newPhone ? ' (đổi SĐT: ' + newPhone + ')' : ''),
+                        oldData: { status: 'PENDING_VERIFICATION' },
+                        newData: { status: 'APPROVED', txId: String(transactionId), note: note, imageUrl: imageUrl || null },
+                        approverUserId: performedBy,
+                        approverUserName: performedBy,
+                        entityId: String(transactionId),
+                        entityType: 'accountant_entry'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
+
             closeAllModals();
 
             // Refresh data
