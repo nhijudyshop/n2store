@@ -14,6 +14,19 @@ const SoquyUI = (function () {
         return type === config.VOUCHER_TYPES.PAYMENT_CN || type === config.VOUCHER_TYPES.PAYMENT_KD;
     }
 
+    // Throttle click utility - prevents rapid/double clicks
+    const _uiClickTimestamps = {};
+    let _uiClickId = 0;
+    function throttleClick(fn, delay = 350) {
+        const id = ++_uiClickId;
+        return function (...args) {
+            const now = Date.now();
+            if (now - (_uiClickTimestamps[id] || 0) < delay) return;
+            _uiClickTimestamps[id] = now;
+            return fn.apply(this, args);
+        };
+    }
+
     // =====================================================
     // TABLE RENDERING (Dynamic Columns)
     // =====================================================
@@ -218,13 +231,13 @@ const SoquyUI = (function () {
     }
 
     function bindTableEvents() {
-        // Voucher code click -> open detail
+        // Voucher code click -> open detail (throttled)
         document.querySelectorAll('.voucher-code-link').forEach(link => {
-            link.addEventListener('click', (e) => {
+            link.addEventListener('click', throttleClick((e) => {
                 e.preventDefault();
                 const id = e.currentTarget.dataset.id;
                 openDetailModal(id);
-            });
+            }));
         });
 
         // Row double-click -> open detail (desktop)
@@ -235,12 +248,12 @@ const SoquyUI = (function () {
             });
         });
 
-        // Mobile card tap -> open detail
+        // Mobile card tap -> open detail (throttled)
         document.querySelectorAll('.m-voucher-card[data-id]').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', throttleClick(() => {
                 const id = card.dataset.id;
                 openDetailModal(id);
-            });
+            }));
         });
     }
 
@@ -636,13 +649,13 @@ const SoquyUI = (function () {
 
             // Bind footer button events
             const btnClose = detailFooter.querySelector('#btnCloseDetailFooter');
-            if (btnClose) btnClose.addEventListener('click', closeDetailModal);
+            if (btnClose) btnClose.addEventListener('click', throttleClick(closeDetailModal));
 
             const btnCancel = detailFooter.querySelector('#btnCancelVoucher');
-            if (btnCancel) btnCancel.addEventListener('click', () => openCancelModal(voucherId));
+            if (btnCancel) btnCancel.addEventListener('click', throttleClick(() => openCancelModal(voucherId)));
 
             const btnEdit = detailFooter.querySelector('#btnEditVoucher');
-            if (btnEdit) btnEdit.addEventListener('click', () => openEditFromDetail(voucherId));
+            if (btnEdit) btnEdit.addEventListener('click', throttleClick(() => openEditFromDetail(voucherId)));
         }
 
         // Update modal title
