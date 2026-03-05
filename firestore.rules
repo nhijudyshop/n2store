@@ -105,9 +105,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Default: deny all other access
+    // Default: allow authenticated users access to all other collections
+    // This ensures existing collections (menu_layouts, settings, etc.) keep working
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isAuthenticated();
     }
   }
 }
