@@ -3938,6 +3938,11 @@
    EDIT HISTORY TAB
    ===================================================== */
 
+/* --- Tab Layout --- */
+#editHistoryTabContent {
+    flex-direction: column;
+}
+
 /* --- Filters --- */
 .edit-history-filters {
     margin-bottom: 16px;
