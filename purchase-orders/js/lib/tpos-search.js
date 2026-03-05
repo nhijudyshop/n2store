@@ -31,19 +31,13 @@ window.TPOSClient = (function() {
     // =====================================================
 
     function getHeaders(authToken) {
-        const headers = {
+        return {
             'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'feature-version': '2',
             'tposappversion': '6.2.6.1'
         };
-        // Add company ID from ShopConfig
-        const companyId = window.ShopConfig?.getConfig()?.CompanyId;
-        if (companyId) {
-            headers['X-Company-Id'] = String(companyId);
-        }
-        return headers;
     }
 
     // =====================================================
@@ -113,14 +107,9 @@ window.TPOSClient = (function() {
 
     async function fetchNewToken() {
         console.log('[TPOS-Search] Fetching new token...');
-        const headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
-        const companyId = window.ShopConfig?.getConfig()?.CompanyId;
-        if (companyId) {
-            headers['X-Company-Id'] = String(companyId);
-        }
         const response = await fetch(TOKEN_URL, {
             method: 'POST',
-            headers,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams(CREDENTIALS).toString()
         });
 
@@ -318,13 +307,6 @@ window.TPOSClient = (function() {
     // Initialize
     loadFromStorage();
     console.log('[TPOS-Search] Loaded, token valid:', isTokenValid());
-
-    // Clear cached token when shop changes (need new token for different company)
-    window.addEventListener('shopChanged', () => {
-        token = null;
-        tokenExpiry = null;
-        console.log('[TPOS-Search] Token cleared due to shop change');
-    });
 
     return {
         searchProduct,
