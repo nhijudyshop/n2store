@@ -13,48 +13,233 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Customers collection - accessible by authenticated users, writable by admin
-    match /customers/{customerId} {
+    // =============================================
+    // App Config & Settings
+    // =============================================
+
+    // App configuration (version check, etc.)
+    match /app_config/{docId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Users collection - only admins can read/write
+    // Application settings
+    match /settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // =============================================
+    // Users & Permissions
+    // =============================================
+
+    // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Purchase Orders collection
+    // Permission templates
+    match /permission_templates/{templateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Customers collection
+    match /customers/{customerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // =============================================
+    // Tokens & Integration
+    // =============================================
+
+    // TPOS tokens
+    match /tokens/{tokenId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Pancake integration tokens
+    match /pancake_tokens/{tokenId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Pancake cached images
+    match /pancake_images/{imageId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // =============================================
+    // Products
+    // =============================================
+
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /product_stats/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /balance_history/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // =============================================
+    // Purchase Orders & Goods Receiving
+    // =============================================
+
     match /purchase_orders/{orderId} {
-      // Helper: Check if user owns the order
       function isOwner() {
         return resource.data.created_by == request.auth.uid;
       }
-
-      // Helper: Check if user is creating with their own ID
       function isCreatingAsOwner() {
         return request.resource.data.created_by == request.auth.uid;
       }
 
-      // Anyone authenticated can read
       allow read: if isAuthenticated();
-
-      // Can create if authenticated AND setting themselves as owner
       allow create: if isAuthenticated() && isCreatingAsOwner();
-
-      // Can update if authenticated, is owner or admin, and order is not COMPLETED
       allow update: if isAuthenticated()
         && (isOwner() || isAdmin())
         && resource.data.status != 'COMPLETED';
-
-      // Can delete if authenticated, is owner or admin, and order is DRAFT or CANCELLED
       allow delete: if isAuthenticated()
         && (isOwner() || isAdmin())
         && resource.data.status in ['DRAFT', 'CANCELLED'];
     }
 
-    // Sổ Quỹ (Cash Book) - vouchers collection
+    match /purchase_order_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /goods_receiving/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /goods_receiving_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /supplier_debt_notes/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // =============================================
+    // Inventory Tracking
+    // =============================================
+
+    match /inventory_tracking/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /inventory_prepayments/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /inventory_other_expenses/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // =============================================
+    // Nhận Hàng (Goods Receipt)
+    // =============================================
+
+    match /nhanhang/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // =============================================
+    // Hàng Hoán, Bán Hàng, Trả Hàng, Đối Soát
+    // =============================================
+
+    match /hanghoan/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /ban_hang/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /tra_hang/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /doi_soat/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // =============================================
+    // Other Business Modules
+    // =============================================
+
+    // CK module
+    match /ck/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Hàng Rót Xả
+    match /hangrotxa/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // IB (Inventory Book)
+    match /ib/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Đặt Hàng
+    match /dathang/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Bảng Kiểm Hàng (NCC names)
+    match /ncc-names/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // =============================================
+    // Sổ Quỹ (Cash Book)
+    // =============================================
+
     match /soquy_vouchers/{voucherId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
@@ -62,17 +247,74 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Sổ Quỹ - auto-increment counters
     match /soquy_counters/{counterId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Sổ Quỹ - dynamic metadata (categories, creators)
     match /soquy_meta/{metaId} {
       allow read, write: if isAuthenticated();
     }
 
-    // KPI BASE - chỉ tạo mới, update chỉ cho merge fields
+    match /soquy_edit_history/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // =============================================
+    // Orders & Reports
+    // =============================================
+
+    match /order-logs/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /return-logs/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /report_order_details/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // Invoice status tracking
+    match /invoice_status_v2/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /invoice_status_delete_v2/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /order_creation_history/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /merge_orders_history/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // =============================================
+    // KPI
+    // =============================================
+
     match /kpi_base/{docId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
@@ -82,7 +324,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // KPI Audit Log - append-only
     match /kpi_audit_log/{logId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
@@ -90,7 +331,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Edit History (Audit Log) - append-only, readable by authenticated users
+    match /kpi_statistics/{userId}/{document=**} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // =============================================
+    // Edit History (Audit Log)
+    // =============================================
+
     match /edit_history/{logId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
@@ -98,14 +348,69 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // KPI Statistics - read/write, no delete
-    match /kpi_statistics/{userId}/{document=**} {
+    // =============================================
+    // Attendance
+    // =============================================
+
+    match /attendance_records/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /attendance_device_users/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /attendance_commands/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /attendance_sync_status/{docId} {
       allow read: if isAuthenticated();
       allow create, update: if isAuthenticated();
       allow delete: if false;
     }
 
+    // =============================================
+    // Communication & Chat
+    // =============================================
+
+    match /message_templates/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /message_campaigns/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /quickReplies/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // =============================================
+    // Livestream
+    // =============================================
+
+    match /livestream_reports/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // =============================================
     // Default: deny all other access
+    // =============================================
     match /{document=**} {
       allow read, write: if false;
     }
