@@ -2291,6 +2291,334 @@ body.col-resizing .resize-handle {
 }
 
 /* =====================================================
+   CUSTOMER STATS BAR (below chat header)
+   ===================================================== */
+
+.customer-stats-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px var(--spacing-md);
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--border);
+    gap: var(--spacing-sm);
+    min-height: 36px;
+}
+
+.stats-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.stats-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.phone-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    background: var(--success-bg);
+    color: var(--success);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.phone-badge:hover {
+    background: var(--success);
+    color: white;
+}
+
+.phone-badge i,
+.phone-badge svg {
+    width: 12px;
+    height: 12px;
+}
+
+.stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: default;
+}
+
+.stat-badge i,
+.stat-badge svg {
+    width: 12px;
+    height: 12px;
+}
+
+.stat-badge.comment {
+    background: var(--info-bg);
+    color: var(--info);
+}
+
+.stat-badge.success {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.stat-badge.return {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.stat-badge.warning {
+    background: var(--danger-bg);
+    color: var(--danger);
+    animation: livePulse 2s ease-in-out infinite;
+}
+
+/* =====================================================
+   POST INFO BANNER (livestream post thumbnail + title)
+   ===================================================== */
+
+.post-info-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--border);
+}
+
+.post-thumbnail {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius);
+    object-fit: cover;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.post-info-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.post-info-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.post-status-badge {
+    display: inline-flex;
+    padding: 1px 6px;
+    border-radius: var(--radius-full);
+    font-size: 0.5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.post-status-badge.live {
+    background: var(--danger);
+    color: white;
+    animation: livePulse 2s ease-in-out infinite;
+}
+
+.post-status-badge.vod {
+    background: var(--info);
+    color: white;
+}
+
+.post-status-badge.video {
+    background: var(--gray-500);
+    color: white;
+}
+
+.post-page-name {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.post-info-title {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.post-info-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.6875rem;
+    color: var(--primary);
+    text-decoration: none;
+    margin-top: 2px;
+}
+
+.post-info-link:hover {
+    text-decoration: underline;
+}
+
+.post-info-link i,
+.post-info-link svg {
+    width: 11px;
+    height: 11px;
+}
+
+/* =====================================================
+   MESSAGE PHONE TAGS & STATUS INDICATORS
+   ===================================================== */
+
+.msg-phone-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    background: var(--success-bg);
+    color: var(--success);
+    border-radius: var(--radius-full);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: var(--transition-fast);
+}
+
+.msg-phone-tag:hover {
+    background: var(--success);
+    color: white;
+}
+
+.msg-phone-tag i,
+.msg-phone-tag svg {
+    width: 10px;
+    height: 10px;
+}
+
+.msg-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 2px;
+}
+
+.msg-status-indicator i,
+.msg-status-indicator svg {
+    width: 10px;
+    height: 10px;
+}
+
+.msg-status-indicator.hidden-msg {
+    color: var(--warning);
+}
+
+.msg-status-indicator.removed {
+    color: var(--danger);
+}
+
+.message-row.removed .message-bubble {
+    opacity: 0.4;
+    text-decoration: line-through;
+}
+
+.message-row.hidden-msg .message-bubble {
+    opacity: 0.6;
+    border-style: dashed;
+}
+
+/* =====================================================
+   ACTIVITIES PANEL (col3 tab)
+   ===================================================== */
+
+.activities-header {
+    padding-bottom: var(--spacing-sm);
+}
+
+.activities-header h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.activities-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.activity-item {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.activity-item:hover {
+    background: var(--gray-50);
+    box-shadow: var(--shadow-sm);
+}
+
+.activity-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.activity-thumb-ph {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    background: var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.activity-thumb-ph i,
+.activity-thumb-ph svg {
+    width: 20px;
+    height: 20px;
+}
+
+.activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-title {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.activity-time {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+/* =====================================================
    PANCAKE SETTINGS MODAL (reused from orders-report)
    ===================================================== */
 

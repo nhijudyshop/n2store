@@ -120,7 +120,8 @@ class InboxChatController {
                 document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.info-tab-content').forEach(c => c.classList.remove('active'));
                 tab.classList.add('active');
-                const target = document.getElementById(tab.dataset.tab === 'stats' ? 'tabStats' : 'tabOrders');
+                const tabMap = { stats: 'tabStats', activities: 'tabActivities', orders: 'tabOrders' };
+                const target = document.getElementById(tabMap[tab.dataset.tab] || 'tabStats');
                 if (target) target.classList.add('active');
             });
         });
@@ -384,6 +385,12 @@ class InboxChatController {
         this.renderConversationList();
         this.renderGroupStats();
 
+        // Reset stats bar and post info while loading
+        const statsBar = document.getElementById('customerStatsBar');
+        if (statsBar) statsBar.style.display = 'none';
+        const postBanner = document.getElementById('postInfoBanner');
+        if (postBanner) postBanner.style.display = 'none';
+
         // Show loading state
         this.elements.chatMessages.innerHTML = `
             <div class="chat-empty-state">
@@ -394,11 +401,6 @@ class InboxChatController {
 
         // Fetch real messages from Pancake API
         await this.loadMessages(conv);
-
-        // Auto-fill order form
-        if (window.inboxOrders) {
-            window.inboxOrders.fillCustomerInfo(conv);
-        }
     }
 
     /**
@@ -427,29 +429,59 @@ class InboxChatController {
 
             const messages = result.messages || [];
 
-            // Detect livestream from response data
-            if (result.conversation?.post?.type === 'livestream') {
+            // Store full response metadata for stats bar, post info, activities
+            conv._messagesData = {
+                post: result.post || result.conversation?.post || null,
+                customers: result.customers || [],
+                reports_by_phone: result.reports_by_phone || {},
+                comment_count: result.comment_count || 0,
+                recent_phone_numbers: result.recent_phone_numbers || result.conv_recent_phone_numbers || [],
+                activities: result.activities || [],
+                conv_phone_numbers: result.conv_phone_numbers || [],
+            };
+
+            // Detect livestream from post data
+            const postType = conv._messagesData.post?.type;
+            if (postType === 'livestream') {
                 this.data.markAsLivestream(conv.id);
                 conv.isLivestream = true;
-                const statusParts = [];
-                if (conv.pageName) statusParts.push(conv.pageName);
-                if (conv.type === 'COMMENT') statusParts.push('Bình luận');
-                statusParts.push('Livestream');
-                this.elements.chatUserStatus.textContent = statusParts.join(' · ');
-                this.renderConversationList();
             }
+
+            // Update status line
+            const statusParts = [];
+            if (conv.pageName) statusParts.push(conv.pageName);
+            if (conv.type === 'COMMENT') statusParts.push('Bình luận');
+            if (conv.isLivestream) statusParts.push('Livestream');
+            if (postType && postType !== 'livestream') statusParts.push(postType);
+            this.elements.chatUserStatus.textContent = statusParts.join(' · ') || '';
+            if (conv.isLivestream) this.renderConversationList();
+
+            // Extract phone from response for order form
+            // recent_phone_numbers can be string[] or {phone_number}[]
+            const rpn = conv._messagesData.recent_phone_numbers?.[0];
+            const rpnPhone = typeof rpn === 'string' ? rpn : rpn?.phone_number || '';
+            const extractedPhone = conv._messagesData.conv_phone_numbers?.[0]
+                || rpnPhone
+                || conv._messagesData.customers?.[0]?.recent_phone_numbers?.[0]?.phone_number
+                || '';
+            if (extractedPhone) conv.phone = extractedPhone;
 
             // Map Pancake messages to inbox format
             conv.messages = messages.map(msg => {
                 const isFromPage = msg.from?.id === conv.pageId;
+                // Prefer original_message (clean text) over message (has HTML tags)
+                const text = msg.original_message || this.stripHtml(msg.message || '');
                 return {
                     id: msg.id,
-                    text: msg.message || msg.original_message || '',
+                    text,
                     time: new Date(msg.inserted_at || msg.created_time || Date.now()),
                     sender: isFromPage ? 'shop' : 'customer',
                     attachments: msg.attachments || [],
                     senderName: msg.from?.name || '',
                     reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                    phoneInfo: msg.phone_info || [],
+                    isHidden: msg.is_hidden || false,
+                    isRemoved: msg.is_removed || false,
                 };
             });
 
@@ -457,6 +489,16 @@ class InboxChatController {
             conv.messages.reverse();
 
             this.renderMessages(conv);
+
+            // Render customer stats bar and post info
+            this.renderCustomerStatsBar(conv);
+            this.renderPostInfo(conv);
+            this.renderActivities(conv);
+
+            // Auto-fill order form with extracted phone
+            if (window.inboxOrders && conv.phone) {
+                window.inboxOrders.fillCustomerInfo(conv);
+            }
 
         } catch (error) {
             console.error('[InboxChat] Error loading messages:', error);
@@ -505,6 +547,8 @@ class InboxChatController {
             }
 
             const isOutgoing = msg.sender === 'shop';
+            const isHidden = msg.isHidden || false;
+            const isRemoved = msg.isRemoved || false;
 
             // Build message content (text + attachments)
             let messageContent = '';
@@ -519,6 +563,17 @@ class InboxChatController {
                 messageContent += `<div class="message-text">${this.formatMessageText(msg.text)}</div>`;
             }
 
+            // Phone tags from phone_info
+            const phoneInfo = msg.phoneInfo || [];
+            let phoneTagsHtml = '';
+            if (phoneInfo.length > 0) {
+                phoneTagsHtml = phoneInfo.map(pi =>
+                    `<span class="msg-phone-tag" onclick="navigator.clipboard.writeText('${this.escapeHtml(pi.phone_number)}');showToast('Đã copy: ${this.escapeHtml(pi.phone_number)}','success')" title="Click để copy">
+                        <i data-lucide="phone"></i> ${this.escapeHtml(pi.phone_number)}
+                    </span>`
+                ).join('');
+            }
+
             // Reactions
             const reactions = msg.reactions || [];
             let reactionsHtml = '';
@@ -527,8 +582,16 @@ class InboxChatController {
                 reactionsHtml = `<span class="message-reactions">${emojis}</span>`;
             }
 
-            if (!messageContent && !reactionsHtml) {
+            if (!messageContent && !reactionsHtml && !phoneTagsHtml) {
                 messageContent = '<div class="message-text" style="opacity:0.5">[Tin nhắn trống]</div>';
+            }
+
+            // Hidden/removed indicator
+            let statusIndicator = '';
+            if (isRemoved) {
+                statusIndicator = '<span class="msg-status-indicator removed" title="Đã xóa"><i data-lucide="trash-2"></i></span>';
+            } else if (isHidden) {
+                statusIndicator = '<span class="msg-status-indicator hidden-msg" title="Đã ẩn"><i data-lucide="eye-off"></i></span>';
             }
 
             // Sender name for outgoing messages (staff name)
@@ -538,12 +601,14 @@ class InboxChatController {
 
             return `
                 ${dateSeparator}
-                <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'}">
+                <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isRemoved ? 'removed' : ''} ${isHidden ? 'hidden-msg' : ''}">
                     ${!isOutgoing ? `<div class="message-avatar" style="background:${gradient};">${initial}</div>` : ''}
                     <div class="message-bubble">
                         ${messageContent}
+                        ${phoneTagsHtml}
                         ${reactionsHtml}
                         <div class="message-meta">
+                            ${statusIndicator}
                             ${senderHtml}
                             <span class="message-time">${this.formatMessageTime(msg.time)}</span>
                         </div>
@@ -915,6 +980,167 @@ class InboxChatController {
             };
             document.addEventListener('click', closeHandler);
         }, 0);
+    }
+
+    // ===== Customer Stats Bar (reference: tpos-pancake renderCustomerStatsBar) =====
+
+    renderCustomerStatsBar(conv) {
+        const bar = document.getElementById('customerStatsBar');
+        if (!bar) return;
+
+        const data = conv._messagesData;
+        if (!data) { bar.style.display = 'none'; return; }
+
+        // Phone number
+        const phone = conv.phone || '';
+
+        // Comment count
+        const commentCount = data.comment_count || 0;
+
+        // Order stats from reports_by_phone or customer data
+        let successOrders = 0, failOrders = 0;
+        const customer = data.customers?.[0];
+
+        if (phone && data.reports_by_phone) {
+            // Try both formats: "0944333435" and "+84944333435"
+            const phoneKey = Object.keys(data.reports_by_phone).find(k =>
+                k.includes(phone.replace(/^0/, '')) || k === phone
+            );
+            if (phoneKey) {
+                const report = data.reports_by_phone[phoneKey];
+                successOrders = report.order_success || 0;
+                failOrders = report.order_fail || 0;
+            }
+        }
+        if (!successOrders && customer) {
+            successOrders = customer.succeed_order_count || customer.order_count || 0;
+        }
+
+        const totalOrders = successOrders + failOrders;
+        const returnRate = totalOrders > 0 ? Math.round((failOrders / totalOrders) * 100) : 0;
+        const isWarning = returnRate > 30;
+
+        // Phone badge
+        const phoneBadge = phone
+            ? `<span class="phone-badge" onclick="navigator.clipboard.writeText('${this.escapeHtml(phone)}');showToast('Đã copy: ${this.escapeHtml(phone)}','success')" title="Click để copy">
+                    <i data-lucide="phone"></i>
+                    <span>${this.escapeHtml(phone)}</span>
+               </span>`
+            : '';
+
+        bar.innerHTML = `
+            <div class="stats-left">${phoneBadge}</div>
+            <div class="stats-right">
+                <span class="stat-badge comment" title="Đã bình luận ${commentCount} lần">
+                    <i data-lucide="message-square"></i><span>${commentCount}</span>
+                </span>
+                <span class="stat-badge success" title="Đơn thành công: ${successOrders}">
+                    <i data-lucide="check-circle"></i><span>${successOrders}</span>
+                </span>
+                <span class="stat-badge return" title="Đơn hoàn: ${failOrders}">
+                    <i data-lucide="undo-2"></i><span>${failOrders}</span>
+                </span>
+                ${isWarning ? `
+                    <span class="stat-badge warning" title="Tỉ lệ hoàn ${returnRate}%">
+                        <i data-lucide="alert-triangle"></i>
+                    </span>
+                ` : ''}
+            </div>
+        `;
+        bar.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ===== Post Info Banner (livestream post thumbnail + title) =====
+
+    renderPostInfo(conv) {
+        const banner = document.getElementById('postInfoBanner');
+        if (!banner) return;
+
+        const post = conv._messagesData?.post;
+        if (!post || !post.message) {
+            banner.style.display = 'none';
+            return;
+        }
+
+        const isLivestream = post.type === 'livestream';
+        const thumbnail = post.attachments?.data?.[0]?.url || '';
+        const postUrl = post.attachments?.target?.url || '';
+        const title = post.message || '';
+        const truncatedTitle = title.length > 100 ? title.substring(0, 100) + '...' : title;
+        const liveStatus = post.live_video_status;
+        const statusBadge = isLivestream
+            ? `<span class="post-status-badge ${liveStatus === 'vod' ? 'vod' : 'live'}">${liveStatus === 'vod' ? 'VOD' : 'LIVE'}</span>`
+            : `<span class="post-status-badge video">${post.type || 'POST'}</span>`;
+
+        banner.innerHTML = `
+            ${thumbnail ? `<img class="post-thumbnail" src="${thumbnail}" alt="Post" onclick="${postUrl ? `window.open('${postUrl}','_blank')` : ''}">` : ''}
+            <div class="post-info-content">
+                <div class="post-info-header">
+                    ${statusBadge}
+                    <span class="post-page-name">${this.escapeHtml(post.from?.name || conv.pageName || '')}</span>
+                </div>
+                <div class="post-info-title" title="${this.escapeHtml(title)}">${this.escapeHtml(truncatedTitle)}</div>
+                ${postUrl ? `<a class="post-info-link" href="${postUrl}" target="_blank" rel="noopener"><i data-lucide="external-link"></i> Xem trên Facebook</a>` : ''}
+            </div>
+        `;
+        banner.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ===== Activities Panel (col3 tab) =====
+
+    renderActivities(conv) {
+        const container = document.getElementById('tabActivities');
+        if (!container) return;
+
+        const activities = conv._messagesData?.activities || [];
+
+        if (activities.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center;color:var(--text-tertiary);padding:2rem;">
+                    <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
+                    <p style="margin-top:0.5rem;">Chưa có hoạt động</p>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="activities-header">
+                <h3>Hoạt động trên ${activities.length} bài viết</h3>
+            </div>
+            <div class="activities-list">
+                ${activities.map(act => {
+                    const thumb = act.attachments?.data?.[0]?.url || '';
+                    const actUrl = act.attachments?.target?.url || '';
+                    const actTitle = act.message || '';
+                    const truncTitle = actTitle.length > 80 ? actTitle.substring(0, 80) + '...' : actTitle;
+                    const actTime = act.inserted_at ? this.formatDate(new Date(act.inserted_at)) : '';
+                    return `
+                        <div class="activity-item" ${actUrl ? `onclick="window.open('${actUrl}','_blank')"` : ''}>
+                            ${thumb ? `<img class="activity-thumb" src="${thumb}" alt="">` : '<div class="activity-thumb-ph"><i data-lucide="video"></i></div>'}
+                            <div class="activity-content">
+                                <div class="activity-title">${this.escapeHtml(truncTitle)}</div>
+                                <div class="activity-time">${actTime}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ===== Strip HTML helper =====
+
+    stripHtml(html) {
+        if (!html) return '';
+        // Remove HTML tags, decode entities
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
     }
 
     // ===== Utility Methods =====

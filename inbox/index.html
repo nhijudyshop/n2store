@@ -156,6 +156,12 @@
                     </div>
                 </div>
 
+                <!-- Customer Stats Bar (phone, comments, orders) -->
+                <div class="customer-stats-bar" id="customerStatsBar" style="display:none;"></div>
+
+                <!-- Post Info Banner (livestream post thumbnail + title) -->
+                <div class="post-info-banner" id="postInfoBanner" style="display:none;"></div>
+
                 <!-- Chat Messages -->
                 <div class="chat-messages" id="chatMessages">
                     <div class="chat-empty-state">
@@ -204,6 +210,10 @@
                         <i data-lucide="bar-chart-2"></i>
                         <span>Phân Nhóm</span>
                     </button>
+                    <button class="info-tab" data-tab="activities">
+                        <i data-lucide="activity"></i>
+                        <span>Hoạt Động</span>
+                    </button>
                     <button class="info-tab" data-tab="orders">
                         <i data-lucide="shopping-bag"></i>
                         <span>Đơn Hàng</span>
@@ -225,7 +235,15 @@
                     </div>
                 </div>
 
-                <!-- Tab 2: Order Creation -->
+                <!-- Tab 2: Activities -->
+                <div class="info-tab-content" id="tabActivities">
+                    <div style="text-align:center; color:var(--text-tertiary); padding:2rem;">
+                        <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
+                        <p style="margin-top:0.5rem;">Chọn cuộc hội thoại để xem hoạt động</p>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Order Creation -->
                 <div class="info-tab-content" id="tabOrders">
                     <div class="order-form-wrapper">
                         <h3 class="order-form-title">
