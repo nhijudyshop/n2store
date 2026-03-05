@@ -1669,7 +1669,7 @@ const NoteSystem = {
 
       const loadingEl = document.createElement('div');
       loadingEl.className = 'note-image-loading';
-      loadingEl.textContent = '⏳ Đang tải ảnh lên... (có thể mất 10-20s nếu server đang khởi động)';
+      loadingEl.textContent = '⏳ Đang tải ảnh lên...';
       preview.appendChild(loadingEl);
 
       try {
@@ -1700,22 +1700,8 @@ const NoteSystem = {
     }
   },
 
-  _serverWarm: false,
-
-  async _warmupServer() {
-    if (this._serverWarm) return;
-    try {
-      await fetch('https://n2shop.onrender.com/api/upload/health', { method: 'GET', mode: 'cors' });
-      this._serverWarm = true;
-    } catch (e) {
-      // Server waking up, wait and try once more
-      await new Promise(r => setTimeout(r, 3000));
-      try {
-        await fetch('https://n2shop.onrender.com/api/upload/health', { method: 'GET', mode: 'cors' });
-        this._serverWarm = true;
-      } catch (e2) { /* will retry in upload */ }
-    }
-  },
+  // Upload qua Cloudflare Worker proxy (xử lý CORS)
+  UPLOAD_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/upload/image',
 
   async uploadImage(file) {
     const base64 = await new Promise((resolve, reject) => {
@@ -1728,33 +1714,20 @@ const NoteSystem = {
     const rand = Math.random().toString(36).substring(2, 8);
     const ext = file.name.split('.').pop() || 'jpg';
     const fileName = ts + '_' + rand + '.' + ext;
-    const body = JSON.stringify({
-      image: base64,
-      fileName: fileName,
-      folderPath: 'quy-trinh-notes',
-      mimeType: file.type
-    });
 
-    // Retry up to 3 times (server may be cold-starting)
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        if (attempt === 1) await this._warmupServer();
-        const resp = await fetch('https://n2shop.onrender.com/api/upload/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: body
-        });
-        const result = await resp.json();
-        if (!result.success) throw new Error(result.error || 'Upload failed');
-        this._serverWarm = true;
-        return result.url;
-      } catch (err) {
-        console.warn('[NoteSystem] Upload attempt ' + attempt + ' failed:', err.message);
-        if (attempt === 3) throw new Error('Không thể tải ảnh lên. Server có thể đang khởi động, vui lòng thử lại sau vài giây.');
-        this._serverWarm = false;
-        await new Promise(r => setTimeout(r, 3000 * attempt));
-      }
-    }
+    const resp = await fetch(this.UPLOAD_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image: base64,
+        fileName: fileName,
+        folderPath: 'quy-trinh-notes',
+        mimeType: file.type
+      })
+    });
+    const result = await resp.json();
+    if (!result.success) throw new Error(result.error || 'Upload failed');
+    return result.url;
   },
 
   async saveNote(noteId, editor) {
