@@ -658,21 +658,90 @@ body.nav-collapsed #local-sidebar { left: 0; }
         <div class="step-content">
           <div class="step-title">Bạn 3 — Ngồi máy (check chuyển khoản + nhập giỏ hàng)</div>
           <div class="step-body">
-            <ul>
-              <li><strong>Check khách báo chuyển khoản:</strong> vào web shop xem lịch sử biến động số dư, kiểm tra đúng số tiền khách chuyển chưa, sau đó nhắn báo khách ví dụ: <em>"Dạ đã nhận 100k ACB 23/2"</em></li>
-              <li><strong>Check khách boom</strong> (khách có lịch sử boom hàng).</li>
-              <li><strong>Nhập sản phẩm vào giỏ hàng của khách:</strong> Nhập mã sản phẩm (ví dụ: <code>N1234</code>) → Nhập STT của khách hàng trên phiếu → Nhập hết thì bấm <code>Update</code> là hoàn thành.</li>
-              <li><strong>Khách mới:</strong> nhắn tin báo khách chuyển khoản + nhập thông tin khách hàng vào hệ thống.</li>
-              <li><strong>Khách đã có thông tin và đã chuyển khoản:</strong> đưa ngược lại cho bạn phân phiếu để bỏ vào cục phiếu của mẫu đó.</li>
-            </ul>
+
+            <!-- Check khách mới + báo cọc -->
+            <div style="background:var(--bp2-light);border-radius:var(--radius-sm);padding:12px;border-left:4px solid var(--bp2);margin-bottom:10px">
+              <div style="font-weight:700;color:var(--bp2-dark);margin-bottom:6px">📲 Check khách mới + báo cọc</div>
+              <ul style="padding-left:18px">
+                <li>Nhắn câu báo cọc <strong>100k</strong> + gửi <strong>mã QR</strong> cho khách.</li>
+                <li>Sau <strong>15–20 phút</strong> khách chưa phản hồi → nhắn hối cọc.</li>
+              </ul>
+            </div>
+
+            <!-- Check chuyển khoản -->
+            <div style="background:#f0fdf4;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #22c55e;margin-bottom:10px">
+              <div style="font-weight:700;color:#15803d;margin-bottom:6px">💳 Check chuyển khoản</div>
+              <ul style="padding-left:18px">
+                <li>Vào web shop xem lịch sử biến động số dư, kiểm tra đúng số tiền khách chuyển chưa.</li>
+                <li>Sau đó nhắn báo khách ví dụ: <em>"Dạ đã nhận 100k ACB 23/2"</em></li>
+              </ul>
+            </div>
+
+            <!-- Check khách boom -->
+            <div style="background:#fffbeb;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #f59e0b;margin-bottom:10px">
+              <div style="font-weight:700;color:#92400e;margin-bottom:6px">⚠️ Check khách boom (khách có lịch sử boom hàng)</div>
+              <div style="margin-bottom:8px">
+                <div style="font-weight:600;color:#b45309;margin-bottom:4px">🚫 Trường hợp bắt buộc phải cọc mới để đơn:</div>
+                <ul style="padding-left:18px">
+                  <li>Khách mới boom gần đây (2 năm trở lại)</li>
+                  <li>Hoàn đơn</li>
+                  <li>Xả đơn trước nhiều sản phẩm</li>
+                </ul>
+              </div>
+              <div>
+                <div style="font-weight:600;color:#15803d;margin-bottom:4px">✅ Trường hợp liên hệ được để đơn lại:</div>
+                <ul style="padding-left:18px">
+                  <li>Khách boom trên 2 năm, gọi được và cho lại thông tin đúng</li>
+                  <li>Chị Nhi ưu tiên cho để đơn lại</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Khách cũ -->
+            <div style="background:var(--bp4-light);border-radius:var(--radius-sm);padding:12px;border-left:4px solid var(--bp4);margin-bottom:10px">
+              <div style="font-weight:700;color:var(--bp4-dark);margin-bottom:6px">👤 Khách cũ (đã mua hàng trước đó, có thông tin)</div>
+              <ul style="padding-left:18px">
+                <li>Chỉ cần xác nhận lại địa chỉ → <strong>không cọc</strong></li>
+                <li>Đánh dấu <strong>OK</strong> và đưa bill lại cho bộ phận chia bill</li>
+              </ul>
+            </div>
+
+            <!-- Khách đã chuyển khoản -->
+            <div style="background:#f0fdf4;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #22c55e;margin-bottom:10px">
+              <div style="font-weight:700;color:#15803d;margin-bottom:6px">✅ Khách đã có thông tin và đã chuyển khoản</div>
+              <ul style="padding-left:18px">
+                <li>Báo nhận tiền trong tin nhắn, ví dụ: <em>"Dạ đã nhận 100k ACB 23/2"</em></li>
+                <li>Đánh dấu <strong>✅</strong> lên phiếu và đưa lại cho bộ phận chia bill</li>
+              </ul>
+            </div>
+
+            <!-- Khách không cọc -->
             <div class="callout danger">
               <span class="callout-icon">🚫</span>
               <div class="callout-body"><strong>Khách không cọc</strong>Gửi phiếu lại để báo trừ sản phẩm đó (khi nào khách chuyển khoản thì báo để đặt hàng lại). Hạn chế khách lạ đặt hàng sau live mà không có thông tin.</div>
             </div>
-            <div class="callout tip">
-              <span class="callout-icon">✅</span>
-              <div class="callout-body"><strong>Sau khi nhập hết sản phẩm</strong>Đưa lại cọc phiếu cho bạn nhận oder để khi hàng về trả hàng theo từng phiếu của khách.</div>
+
+            <!-- Khách kiểm tra đơn cũ trên live -->
+            <div class="callout info" style="margin-top:10px">
+              <span class="callout-icon">📦</span>
+              <div class="callout-body"><strong>Khách cần kiểm tra đơn cũ — báo trực tiếp trên live</strong>Liên hệ với bạn <strong>CSKH – Xử lý đơn bưu cục</strong> (VD: khách hỏi đơn có vấn đề khi giao hàng,...)</div>
             </div>
+
+            <!-- Khách báo xả ngoài live -->
+            <div class="callout warn" style="margin-top:10px">
+              <span class="callout-icon">🗑️</span>
+              <div class="callout-body"><strong>Khách báo xả ngoài live / báo xả buổi live sau</strong>Xóa mã → báo bạn đi chợ bỏ hàng thực tế lên kệ hoặc bạn trả đơn bỏ bill.</div>
+            </div>
+
+            <!-- Nhập giỏ hàng -->
+            <div style="background:var(--bp2-light);border-radius:var(--radius-sm);padding:12px;border-left:4px solid var(--bp2);margin-top:10px">
+              <div style="font-weight:700;color:var(--bp2-dark);margin-bottom:6px">🛒 Nhập sản phẩm vào giỏ hàng</div>
+              <ul style="padding-left:18px">
+                <li>Nhập mã sản phẩm (ví dụ: <code>N1234</code>) → Nhập STT của khách hàng trên phiếu → Nhập hết thì bấm <code>Update</code> là hoàn thành.</li>
+                <li>Đưa lại cọc phiếu cho bạn nhận oder để khi hàng về trả hàng theo từng phiếu của khách.</li>
+              </ul>
+            </div>
+
           </div>
         </div>
       </div>
@@ -777,11 +846,30 @@ body.nav-collapsed #local-sidebar { left: 0; }
         <div class="step-content">
           <div class="step-title">Gộp đơn &amp; Đẩy tin nhắn</div>
           <div class="step-body">
-            <ul>
-              <li>Vào web shop: gộp đơn xong.</li>
-              <li>Đẩy tin nhắn chốt đơn cho khách xác nhận.</li>
-              <li>Chia số đơn cho từng bạn sale → bạn sale nào làm số bao nhiêu chịu trách nhiệm với đơn đó.</li>
-            </ul>
+            <div style="background:var(--bp4-light);border-radius:var(--radius-sm);padding:12px;border-left:4px solid var(--bp4);margin-bottom:10px">
+              <div style="font-weight:700;color:var(--bp4-dark);margin-bottom:6px">🔀 Gộp đơn</div>
+              <ul style="padding-left:18px">
+                <li>Vào web shop → chọn <strong>chiến dịch live</strong> → chọn thẻ <strong>Gộp đơn</strong></li>
+                <li>Khách mua ở 2 page sẽ được gộp sản phẩm vào <strong>1 giỏ</strong>, giỏ còn lại sẽ được gắn thẻ <span class="tag" style="background:#e0e7ff;color:#3730a3;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600">Đã gộp không chốt</span></li>
+              </ul>
+            </div>
+            <div style="background:#f0fdf4;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #22c55e;margin-bottom:10px">
+              <div style="font-weight:700;color:#15803d;margin-bottom:6px">📨 Đẩy tin nhắn chốt đơn</div>
+              <ul style="padding-left:18px">
+                <li>Lọc ngày theo đợt live đó</li>
+                <li>Vào <strong>Cài đặt cột</strong> → bỏ chọn (không đẩy tin nhắn) các thẻ sau:
+                  <ul style="margin-top:4px">
+                    <li><span class="tag" style="background:#e0e7ff;color:#3730a3;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600">Đã gộp không chốt</span></li>
+                    <li><span class="tag" style="background:#f1f5f9;color:#475569;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600">Giỏ trống</span></li>
+                    <li><span class="tag" style="background:#fef9c3;color:#854d0e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600">Đã đi đơn gấp</span></li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+            <div class="callout info">
+              <span class="callout-icon">👥</span>
+              <div class="callout-body"><strong>Chia số đơn cho sale</strong>Bạn sale nào làm số bao nhiêu chịu trách nhiệm với đơn đó.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -797,9 +885,46 @@ body.nav-collapsed #local-sidebar { left: 0; }
                 <div style="font-weight:700;color:var(--bp4-dark);margin-bottom:6px">✅ Khách xác nhận OKI</div>
                 <ul style="padding-left:18px">
                   <li>Gắn thẻ <span class="tag tag-ok">OK [tên bạn sale]</span></li>
-                  <li>Ra bill đi đơn</li>
-                  <li>Báo cho 2 bạn ở ngoài khu vực đi chợ vào lấy bill đi đơn đúng theo STT trên bill</li>
                 </ul>
+
+                <!-- Công nợ -->
+                <div style="background:#fff7ed;border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid #f97316;margin:8px 0">
+                  <div style="font-weight:700;color:#c2410c;margin-bottom:6px">💰 Đơn có công nợ</div>
+                  <div style="margin-bottom:8px">
+                    <div style="font-weight:600;color:#9a3412;margin-bottom:4px">Trừ thu về (tp):</div>
+                    <ul style="padding-left:18px;font-size:13px">
+                      <li>Đơn cũ có hàng lỗi / chật / khách không thích (chịu lỗ 80k)</li>
+                      <li>Nhầm mẫu hoặc size</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <div style="font-weight:600;color:#9a3412;margin-bottom:4px">Trừ công nợ (tỉnh):</div>
+                    <ul style="padding-left:18px;font-size:13px">
+                      <li>Hàng đơn trước khách nhận có vấn đề → khách gửi lên</li>
+                      <li>Đơn cũ khách chuyển khoản dư</li>
+                      <li>Kho sẽ báo trong tin nhắn, ví dụ: <em>"ĐÃ NHẬN ĐƯỢC HÀNG KHÁCH GỬI LÊN ĐI ĐƠN TRỪ 290K"</em> hoặc <em>"NỢ LẠI 290K TRỪ VÀO ĐƠN SAU"</em></li>
+                      <li>Đi đơn mới sẽ trừ vào bill luôn</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- Ra bill thông thường -->
+                <div style="margin-top:8px">
+                  <div style="font-weight:600;color:var(--bp4-dark);margin-bottom:4px">📋 Ra bill đi đơn (thông thường)</div>
+                  <ul style="padding-left:18px">
+                    <li>Báo cho 2 bạn ở ngoài khu vực đi chợ vào lấy bill đi đơn đúng theo STT trên bill</li>
+                  </ul>
+                </div>
+
+                <!-- Đơn Bookgrap -->
+                <div style="background:#eff6ff;border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid #3b82f6;margin-top:8px">
+                  <div style="font-weight:700;color:#1d4ed8;margin-bottom:6px">🚚 Đơn Bookgrap</div>
+                  <ul style="padding-left:18px;font-size:13px">
+                    <li>Ra bill → chọn <strong>"Bán hàng shop"</strong></li>
+                    <li>Đối soát sản phẩm → đưa đơn cho shipper</li>
+                    <li>Đơn thu COD: đưa <strong>tiền mặt cho anh Phước</strong> + bill của đơn hàng</li>
+                  </ul>
+                </div>
               </div>
               <div style="background:#fffbeb;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #f59e0b">
                 <div style="font-weight:700;color:#92400e;margin-bottom:6px">⏳ Khách chưa OKI</div>
