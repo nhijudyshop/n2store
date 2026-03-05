@@ -6,7 +6,7 @@
 //
 // Sử dụng:
 // - IIFE: window.AuditLogger.logAction(actionType, details)
-// - ES Module: import { logAction } from '../../shared/js/audit-logger.js'
+// - ES Module: import { logAction } from '../../shared/js/audit-logger.esm.js'
 // =====================================================
 
 window.AuditLogger = (function () {
@@ -16,9 +16,9 @@ window.AuditLogger = (function () {
     // CONSTANTS
     // =====================================================
 
-    const COLLECTION_NAME = 'edit_history';
+    var COLLECTION_NAME = 'edit_history';
 
-    const VALID_ACTION_TYPES = [
+    var VALID_ACTION_TYPES = [
         // Customer Hub
         'wallet_add_debt', 'wallet_subtract_debt', 'wallet_adjust_debt',
         'customer_info_update', 'wallet_transaction',
@@ -38,11 +38,6 @@ window.AuditLogger = (function () {
     // HELPER: Validate actionType
     // =====================================================
 
-    /**
-     * Kiểm tra actionType có hợp lệ không
-     * @param {string} actionType
-     * @returns {boolean}
-     */
     function isValidActionType(actionType) {
         return typeof actionType === 'string' && VALID_ACTION_TYPES.indexOf(actionType) !== -1;
     }
@@ -51,11 +46,6 @@ window.AuditLogger = (function () {
     // HELPER: Get current user info
     // =====================================================
 
-    /**
-     * Lấy thông tin user hiện tại từ authManager
-     * Pattern giống kpi-audit-logger.js
-     * @returns {{ userId: string, userName: string }}
-     */
     function getCurrentUser() {
         try {
             if (window.authManager && typeof window.authManager.getAuthState === 'function') {
@@ -68,15 +58,56 @@ window.AuditLogger = (function () {
         } catch (error) {
             console.warn('[AuditLogger] Could not get user info from authManager:', error);
         }
+        // Fallback: try sessionStorage/localStorage
+        try {
+            var authStr = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth') || '{}';
+            var authData = JSON.parse(authStr);
+            if (authData.username || authData.uid) {
+                return {
+                    userId: authData.username || authData.uid || '',
+                    userName: authData.username || ''
+                };
+            }
+        } catch (e) { /* ignore */ }
         return { userId: '', userName: 'Unknown' };
+    }
+
+    // =====================================================
+    // HELPER: Get server timestamp safely
+    // =====================================================
+
+    function getServerTimestamp() {
+        try {
+            // Try compat SDK path (firebase.firestore.FieldValue)
+            if (window.firebase && window.firebase.firestore &&
+                window.firebase.firestore.FieldValue &&
+                typeof window.firebase.firestore.FieldValue.serverTimestamp === 'function') {
+                return window.firebase.firestore.FieldValue.serverTimestamp();
+            }
+        } catch (e) {
+            console.warn('[AuditLogger] serverTimestamp via FieldValue failed:', e);
+        }
+        // Fallback: use client-side Date
+        return new Date();
     }
 
     // =====================================================
     // HELPER: Get Firestore instance
     // =====================================================
 
-    function getFirestore() {
+    function getFirestoreDB() {
         try {
+            // Method 1: Use global initializeFirestore from firebase-config.js
+            if (typeof window.initializeFirestore === 'function') {
+                var db = window.initializeFirestore({ enablePersistence: false });
+                if (db) return db;
+            }
+            // Method 2: Use global getFirestore from firebase-config.js
+            if (typeof window.getFirestore === 'function') {
+                var db2 = window.getFirestore();
+                if (db2) return db2;
+            }
+            // Method 3: Direct firebase.firestore() call
             if (window.firebase && typeof window.firebase.firestore === 'function') {
                 return window.firebase.firestore();
             }
@@ -90,16 +121,9 @@ window.AuditLogger = (function () {
     // CORE: Build Audit Record
     // =====================================================
 
-    /**
-     * Build Audit Record chuẩn hóa từ actionType và details
-     * @param {string} actionType
-     * @param {object} details
-     * @param {{ userId: string, userName: string }} user
-     * @returns {object|null}
-     */
     function buildRecord(actionType, details, user) {
         var record = {
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            timestamp: getServerTimestamp(),
             performerUserId: user.userId,
             performerUserName: user.userName,
             module: details.module,
@@ -109,7 +133,6 @@ window.AuditLogger = (function () {
             newData: details.newData || null
         };
 
-        // Trường tùy chọn - chỉ thêm khi được cung cấp
         var optionalFields = [
             'approverUserId', 'approverUserName',
             'creatorUserId', 'creatorUserName',
@@ -130,25 +153,9 @@ window.AuditLogger = (function () {
     // CORE: logAction - API chính
     // =====================================================
 
-    /**
-     * Ghi nhận audit action vào Firestore
-     * Fire-and-forget: không await trong flow chính, lỗi chỉ console.error
-     *
-     * @param {string} actionType - Loại thao tác (phải thuộc VALID_ACTION_TYPES)
-     * @param {object} details - Chi tiết thao tác
-     * @param {string} details.module - Tên module (bắt buộc)
-     * @param {string} [details.description] - Mô tả thao tác
-     * @param {object} [details.oldData] - Dữ liệu trước thay đổi
-     * @param {object} [details.newData] - Dữ liệu sau thay đổi
-     * @param {string} [details.approverUserId] - ID người duyệt
-     * @param {string} [details.approverUserName] - Tên người duyệt
-     * @param {string} [details.creatorUserId] - ID người tạo
-     * @param {string} [details.creatorUserName] - Tên người tạo
-     * @param {string} [details.entityId] - ID đối tượng
-     * @param {string} [details.entityType] - Loại đối tượng
-     * @param {object} [details.metadata] - Dữ liệu bổ sung
-     */
     function logAction(actionType, details) {
+        console.log('[AuditLogger] logAction called:', actionType, details ? details.module : 'no-details');
+
         // Validate actionType
         if (!isValidActionType(actionType)) {
             console.warn('[AuditLogger] Invalid actionType:', actionType);
@@ -164,17 +171,22 @@ window.AuditLogger = (function () {
         // Fire-and-forget
         try {
             var user = getCurrentUser();
-            var record = buildRecord(actionType, details, user);
-            var db = getFirestore();
+            console.log('[AuditLogger] User:', user.userId, user.userName);
 
+            var record = buildRecord(actionType, details, user);
+            console.log('[AuditLogger] Record built, timestamp type:', typeof record.timestamp);
+
+            var db = getFirestoreDB();
             if (!db) {
-                console.error('[AuditLogger] Firestore not available, cannot log action');
+                console.error('[AuditLogger] Firestore DB is null - cannot log action');
                 return;
             }
 
-            // Ghi bất đồng bộ - không block thao tác chính
-            db.collection(COLLECTION_NAME).add(record).catch(function (error) {
-                console.error('[AuditLogger] Failed to write audit record:', error);
+            console.log('[AuditLogger] Writing to', COLLECTION_NAME, '...');
+            db.collection(COLLECTION_NAME).add(record).then(function(docRef) {
+                console.log('[AuditLogger] SUCCESS - doc written:', docRef.id);
+            }).catch(function (error) {
+                console.error('[AuditLogger] FAILED to write audit record:', error);
             });
         } catch (error) {
             console.error('[AuditLogger] Error in logAction:', error);
@@ -184,6 +196,8 @@ window.AuditLogger = (function () {
     // =====================================================
     // PUBLIC API
     // =====================================================
+
+    console.log('[AuditLogger] Module loaded. firebase available:', typeof window.firebase !== 'undefined');
 
     return {
         logAction: logAction,
