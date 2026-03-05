@@ -94,8 +94,8 @@ window.TPOSPurchase = (function() {
     }
 
     // =====================================================
-    // DYNAMIC CONFIG - fetch Journal/Account/PickingType per company
-    // IDs differ per company, so we fetch them from TPOS OData API
+    // DYNAMIC CONFIG - extract Journal/Account/PickingType from existing PO
+    // IDs differ per company, fetched from TPOS via FastPurchaseOrder $expand
     // =====================================================
 
     const _companyConfigCache = {};
@@ -106,48 +106,45 @@ window.TPOSPurchase = (function() {
 
         console.log(`[TPOSPurchase] Fetching config for company ${companyId}...`);
 
-        // Fetch in parallel: purchase journal, cash journal, picking type, account 331
-        const [journalRes, cashRes, pickingRes, accountRes] = await Promise.all([
-            window.TPOSClient.authenticatedFetch(
-                `${PROXY_URL}/api/odata/AccountJournal?$filter=Type eq 'purchase'&$top=1&$select=Id,Name,Type,TypeGet,UpdatePosted,DedicatedRefund`
-            ),
-            window.TPOSClient.authenticatedFetch(
-                `${PROXY_URL}/api/odata/AccountJournal?$filter=Type eq 'cash'&$top=1&$select=Id,Name,Type,TypeGet,UpdatePosted`
-            ),
-            window.TPOSClient.authenticatedFetch(
-                `${PROXY_URL}/api/odata/StockPickingType?$filter=Code eq 'incoming'&$top=1&$select=Id,Code,Name,Active,WarehouseId,UseCreateLots,UseExistingLots,NameGet`
-            ),
-            window.TPOSClient.authenticatedFetch(
-                `${PROXY_URL}/api/odata/AccountAccount?$filter=Code eq '331'&$top=1&$select=Id,Name,Code,Active,NameGet,Reconcile`
-            )
-        ]);
+        try {
+            // Fetch a recent FastPurchaseOrder with expanded config objects
+            const res = await window.TPOSClient.authenticatedFetch(
+                `${PROXY_URL}/api/odata/FastPurchaseOrder?$top=1&$orderby=DateInvoice desc&$expand=Journal,Account,PickingType,PaymentJournal&$select=Id,JournalId,AccountId,PickingTypeId,PaymentJournalId`
+            );
 
-        const [journalData, cashData, pickingData, accountData] = await Promise.all([
-            journalRes.ok ? journalRes.json() : null,
-            cashRes.ok ? cashRes.json() : null,
-            pickingRes.ok ? pickingRes.json() : null,
-            accountRes.ok ? accountRes.json() : null
-        ]);
+            if (res.ok) {
+                const data = await res.json();
+                const po = data.value?.[0];
+                if (po) {
+                    const config = {
+                        JournalId: po.JournalId || po.Journal?.Id || STATIC.JournalId,
+                        AccountId: po.AccountId || po.Account?.Id || STATIC.AccountId,
+                        PickingTypeId: po.PickingTypeId || po.PickingType?.Id || STATIC.PickingTypeId,
+                        PaymentJournalId: po.PaymentJournalId || po.PaymentJournal?.Id || STATIC.PaymentJournalId,
+                        Journal: po.Journal || STATIC.Journal,
+                        Account: po.Account || STATIC.Account,
+                        PickingType: po.PickingType || STATIC.PickingType,
+                        PaymentJournal: po.PaymentJournal || STATIC.PaymentJournal
+                    };
+                    console.log(`[TPOSPurchase] Company ${companyId} config from PO: Journal=${config.JournalId}, Account=${config.AccountId}, PickingType=${config.PickingTypeId}, PaymentJournal=${config.PaymentJournalId}`);
+                    _companyConfigCache[companyId] = config;
+                    return config;
+                }
+            }
+        } catch (e) {
+            console.warn('[TPOSPurchase] Failed to fetch PO config:', e);
+        }
 
-        const journal = journalData?.value?.[0] || STATIC.Journal;
-        const paymentJournal = cashData?.value?.[0] || STATIC.PaymentJournal;
-        const pickingType = pickingData?.value?.[0] || STATIC.PickingType;
-        const account = accountData?.value?.[0] || STATIC.Account;
-
-        const config = {
-            JournalId: journal.Id,
-            AccountId: account.Id,
-            PickingTypeId: pickingType.Id,
-            PaymentJournalId: paymentJournal.Id,
-            Journal: { Id: journal.Id, Name: journal.Name, Type: journal.Type, TypeGet: journal.TypeGet || 'Mua hàng', UpdatePosted: journal.UpdatePosted ?? true, DedicatedRefund: journal.DedicatedRefund ?? false },
-            PaymentJournal: { Id: paymentJournal.Id, Name: paymentJournal.Name, Type: paymentJournal.Type, TypeGet: paymentJournal.TypeGet || 'Tiền mặt', UpdatePosted: paymentJournal.UpdatePosted ?? true },
-            PickingType: { Id: pickingType.Id, Code: pickingType.Code, Name: pickingType.Name, Active: pickingType.Active ?? true, WarehouseId: pickingType.WarehouseId, UseCreateLots: pickingType.UseCreateLots ?? true, UseExistingLots: pickingType.UseExistingLots ?? true, NameGet: pickingType.NameGet },
-            Account: { Id: account.Id, Name: account.Name, Code: account.Code, Active: account.Active ?? true, NameGet: account.NameGet, Reconcile: account.Reconcile ?? false }
+        // Fallback: use static Company 1 defaults
+        console.warn(`[TPOSPurchase] No PO found for company ${companyId}, using static defaults`);
+        const fallback = {
+            JournalId: STATIC.JournalId, AccountId: STATIC.AccountId,
+            PickingTypeId: STATIC.PickingTypeId, PaymentJournalId: STATIC.PaymentJournalId,
+            Journal: STATIC.Journal, Account: STATIC.Account,
+            PickingType: STATIC.PickingType, PaymentJournal: STATIC.PaymentJournal
         };
-
-        console.log(`[TPOSPurchase] Company ${companyId} config: Journal=${config.JournalId}, Account=${config.AccountId}, PickingType=${config.PickingTypeId}, PaymentJournal=${config.PaymentJournalId}`);
-        _companyConfigCache[companyId] = config;
-        return config;
+        _companyConfigCache[companyId] = fallback;
+        return fallback;
     }
 
     // =====================================================
