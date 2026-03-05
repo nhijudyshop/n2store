@@ -368,6 +368,9 @@ const SoquyUI = (function () {
         const dateStr = formatDateTimeForInput(now);
         if (els.receiptDateTime) els.receiptDateTime.value = dateStr;
 
+        // Set initial save button state based on category selection
+        toggleSaveButton('receipt');
+
         // Show modal
         els.receiptModal.style.display = 'flex';
     }
@@ -459,6 +462,9 @@ const SoquyUI = (function () {
                 : '<span class="modal-type-badge badge-cn">CN</span>';
             titleEl.innerHTML = `Tạo phiếu chi ${badge}`;
         }
+
+        // Set initial save button state based on category selection
+        toggleSaveButton('payment');
 
         els.paymentModal.style.display = 'flex';
     }
@@ -680,6 +686,9 @@ const SoquyUI = (function () {
             if (els.receiptNote) els.receiptNote.value = voucher.note || '';
             if (els.receiptBusinessAccounting) els.receiptBusinessAccounting.checked = voucher.businessAccounting;
 
+            // Re-check save button state after setting category
+            toggleSaveButton('receipt');
+
             // Switch save button to update mode
             state.editingVoucherId = voucherId;
         } else {
@@ -694,6 +703,9 @@ const SoquyUI = (function () {
             if (els.paymentAmount) els.paymentAmount.value = db.formatCurrency(voucher.amount);
             if (els.paymentNote) els.paymentNote.value = voucher.note || '';
             if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = voucher.businessAccounting;
+
+            // Re-check save button state after setting category
+            toggleSaveButton('payment');
 
             // Update title for edit mode with badge (Nhóm 5)
             const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
@@ -2395,6 +2407,26 @@ const SoquyUI = (function () {
     }
 
     // =====================================================
+    // CATEGORY VALIDATION: Toggle save button
+    // =====================================================
+
+    function toggleSaveButton(modalType) {
+        if (modalType === 'receipt') {
+            const hasCategory = els.receiptCategory && els.receiptCategory.value !== '';
+            if (els.btnSaveReceipt) els.btnSaveReceipt.disabled = !hasCategory;
+            if (els.saveReceiptWrapper) {
+                els.saveReceiptWrapper.classList.toggle('disabled', !hasCategory);
+            }
+        } else if (modalType === 'payment') {
+            const hasCategory = els.paymentCategory && els.paymentCategory.value !== '';
+            if (els.btnSavePayment) els.btnSavePayment.disabled = !hasCategory;
+            if (els.savePaymentWrapper) {
+                els.savePaymentWrapper.classList.toggle('disabled', !hasCategory);
+            }
+        }
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -2408,6 +2440,7 @@ const SoquyUI = (function () {
         openReceiptModal,
         closeReceiptModal,
         saveReceipt,
+        toggleSaveButton,
         openPaymentModal,
         closePaymentModal,
         savePayment,

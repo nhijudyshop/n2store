@@ -1549,9 +1549,51 @@
     transition: all 0.2s ease;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     background: #40a9ff;
     box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+.btn-primary:disabled {
+    background: #a0cfff;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Save button wrapper with tooltip for disabled state */
+.save-btn-wrapper {
+    position: relative;
+    display: inline-flex;
+}
+
+.save-btn-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.save-btn-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #333;
+}
+
+.save-btn-wrapper.disabled:hover .save-btn-tooltip {
+    display: block;
 }
 
 .btn-primary svg {
