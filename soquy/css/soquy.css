@@ -2882,7 +2882,7 @@
     padding: 4px 8px;
     text-align: left;
     font-weight: 700;
-    border-bottom: 1px solid #e8ecf1;
+    border-bottom: 1px solid rgba(203, 213, 225, 0.4);
 }
 
 .report-detail-table thead th:nth-child(1) { width: 120px; }
