@@ -2835,6 +2835,15 @@
 
 .report-cat-row {
     cursor: pointer;
+    border-bottom: 2px solid #cbd5e1 !important;
+}
+
+.report-cat-row td {
+    border-bottom: 2px solid #cbd5e1 !important;
+}
+
+.report-cat-row.expanded {
+    background: #f1f5f9;
 }
 
 .report-cat-row:hover {

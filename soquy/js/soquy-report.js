@@ -681,6 +681,7 @@ const SoquyReport = (function () {
                 if (detailRow) {
                     const isVisible = detailRow.style.display !== 'none';
                     detailRow.style.display = isVisible ? 'none' : 'table-row';
+                    row.classList.toggle('expanded', !isVisible);
                     if (chevron) {
                         chevron.style.transform = isVisible ? '' : 'rotate(90deg)';
                     }
