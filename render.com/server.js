@@ -193,6 +193,7 @@ const geminiRoutes = require('./routes/gemini');
 const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
 const uploadImageRoutes = require('./routes/upload');
+const quyTrinhRoutes = require('./routes/quy-trinh');
 
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
 const realtimeSseRoutes = require('./routes/realtime-sse');
@@ -225,6 +226,7 @@ app.use('/api/gemini', geminiRoutes);
 app.use('/api/deepseek', deepseekRoutes);
 app.use('/api/telegram', telegramBotRoutes);
 app.use('/api/upload', uploadImageRoutes);
+app.use('/api/quy-trinh', quyTrinhRoutes);
 
 // === FIREBASE REPLACEMENT ROUTES ===
 // SSE for realtime updates (replaces Firebase listeners)
