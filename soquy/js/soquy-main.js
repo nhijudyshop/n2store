@@ -81,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.receiptNote = document.getElementById('receiptNote');
         els.receiptBusinessAccounting = document.getElementById('receiptBusinessAccounting');
         els.btnSaveReceipt = document.getElementById('btnSaveReceipt');
+        els.saveReceiptWrapper = document.getElementById('saveReceiptWrapper');
         els.btnCancelReceipt = document.getElementById('btnSoquyCancelReceipt');
         els.btnCloseReceipt = document.getElementById('btnSoquyCloseReceipt');
         els.receiptOverlay = document.getElementById('soquyCreateReceiptOverlay');
@@ -97,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         els.paymentNote = document.getElementById('paymentNote');
         els.paymentBusinessAccounting = document.getElementById('paymentBusinessAccounting');
         els.btnSavePayment = document.getElementById('btnSavePayment');
+        els.savePaymentWrapper = document.getElementById('savePaymentWrapper');
         els.btnCancelPayment = document.getElementById('btnSoquyCancelPayment');
         els.btnClosePayment = document.getElementById('btnSoquyClosePayment');
         els.paymentOverlay = document.getElementById('soquyCreatePaymentOverlay');
@@ -312,6 +314,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sd = document.getElementById('settingsDropdown');
                 if (sd) sd.style.display = 'none';
                 ui.handleExport();
+            });
+        }
+
+        // Category validation: toggle save button on category change
+        if (els.receiptCategory) {
+            els.receiptCategory.addEventListener('change', () => {
+                ui.toggleSaveButton('receipt');
+            });
+        }
+        if (els.paymentCategory) {
+            els.paymentCategory.addEventListener('change', () => {
+                ui.toggleSaveButton('payment');
             });
         }
 
