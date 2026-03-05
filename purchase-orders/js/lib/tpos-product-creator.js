@@ -857,8 +857,7 @@ window.TPOSProductCreator = (function () {
             }
         }
 
-        // Mark as processing
-        await updateSyncStatus(orderId, itemIds, 'processing', null, null);
+        // Note: 'processing' status is set in batch before parallel launch (see syncOrderToTPOS)
 
         try {
             // Convert image to base64 for TPOS (fire-and-forget style, don't block on failure)
@@ -981,35 +980,6 @@ window.TPOSProductCreator = (function () {
     }
 
     /**
-     * Process items in parallel batches
-     * @param {Array} items - Array of items to process
-     * @param {Function} processFn - Async function to call for each item
-     * @param {number} batchSize - Number of concurrent items per batch
-     * @returns {Array} results
-     */
-    async function processInParallelBatches(items, processFn, batchSize = 8) {
-        const results = [];
-        for (let i = 0; i < items.length; i += batchSize) {
-            const batch = items.slice(i, i + batchSize);
-            const batchResults = await Promise.allSettled(
-                batch.map(item => processFn(item))
-            );
-            for (const r of batchResults) {
-                if (r.status === 'fulfilled') {
-                    results.push(r.value);
-                } else {
-                    results.push({ success: false, error: r.reason?.message || 'Unknown error' });
-                }
-            }
-            // Small delay between batches to avoid rate limiting
-            if (i + batchSize < items.length) {
-                await new Promise(r => setTimeout(r, 300));
-            }
-        }
-        return results;
-    }
-
-    /**
      * Main entry point: sync an order's items to TPOS (fire-and-forget)
      * @param {string} orderId - Firestore document ID
      * @param {Array} items - order items with productCode, selectedAttributeValueIds, etc.
@@ -1034,11 +1004,40 @@ window.TPOSProductCreator = (function () {
             // Step 3: Process groups in parallel batches
             const groupEntries = [...groups.entries()];
             console.log(`[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of ${TPOS_SYNC_CONCURRENCY}`);
-            const results = await processInParallelBatches(
-                groupEntries,
-                ([groupKey, groupItems]) => processGroup(orderId, groupItems),
-                TPOS_SYNC_CONCURRENCY
-            );
+
+            // Process in batches with single 'processing' status update per batch
+            const results = [];
+            for (let i = 0; i < groupEntries.length; i += TPOS_SYNC_CONCURRENCY) {
+                const batch = groupEntries.slice(i, i + TPOS_SYNC_CONCURRENCY);
+
+                // Collect all itemIds in this batch, mark 'processing' in ONE transaction
+                const batchItemIds = [];
+                for (const [, groupItems] of batch) {
+                    if (!groupItems.every(item => item.tposSynced)) {
+                        for (const item of groupItems) batchItemIds.push(item.id);
+                    }
+                }
+                if (batchItemIds.length > 0) {
+                    await updateSyncStatus(orderId, batchItemIds, 'processing', null, null);
+                }
+
+                // Launch all groups in this batch concurrently
+                const batchResults = await Promise.allSettled(
+                    batch.map(([groupKey, groupItems]) => processGroup(orderId, groupItems))
+                );
+                for (const r of batchResults) {
+                    if (r.status === 'fulfilled') {
+                        results.push(r.value);
+                    } else {
+                        results.push({ success: false, error: r.reason?.message || 'Unknown error' });
+                    }
+                }
+
+                // Small delay between batches to avoid rate limiting
+                if (i + TPOS_SYNC_CONCURRENCY < groupEntries.length) {
+                    await new Promise(r => setTimeout(r, 300));
+                }
+            }
 
             let successCount = 0;
             let failCount = 0;
