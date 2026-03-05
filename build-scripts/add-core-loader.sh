@@ -16,7 +16,6 @@ MODULES=(
     "hanghoan"
     "hangrotxa"
     "ib"
-    "lichsuchinhsua"
     "nhanhang"
     "tpos-import"
     "tpos-manager"

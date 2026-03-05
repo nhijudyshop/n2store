@@ -53,7 +53,6 @@
 | 9 | inventory-tracking/index.html | ✅ Done |
 | 10 | invoice-compare/index.html | ✅ Done |
 | 11 | issue-tracking/index.html | ✅ Done |
-| 12 | lichsuchinhsua/index.html | ✅ Done |
 | 13 | live/index.html | ✅ Done |
 | 14 | livestream/index.html | ✅ Done |
 | 15 | nhanhang/index.html | ✅ Done |

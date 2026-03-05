@@ -148,7 +148,6 @@ const PAGES_REGISTRY = {
 | `customer-hub` | Customer 360° | `view`, `viewWallet`, `manageWallet`, `viewTickets`, `createTicket`, `viewActivities`, `addNote`, `editCustomer`, `linkTransactions` |
 | `issue-tracking` | CSKH - Quản Lý Sự Vụ | `view`, `create`, `edit`, `delete`, `searchOrder`, `processRefund`, `receiveGoods`, `updateStatus`, `viewFinance`, `export`, `issueVirtualCredit` |
 | `invoice-compare` | So Sánh Đơn Hàng | `view`, `compare`, `import`, `export`, `resolve` |
-| `lichsuchinhsua` | Lịch Sử Chỉnh Sửa | `view`, `viewDetails`, `export`, `restore`, `delete` |
 
 ### 2.4 Permission Templates
 
@@ -170,8 +169,6 @@ const PERMISSION_TEMPLATES = {
         color: "#f59e0b"
         // Generated: ALL permissions = true EXCEPT:
         //   - user-management.delete = false
-        //   - lichsuchinhsua.restore = false
-        //   - lichsuchinhsua.delete = false
     },
     "sales-team": {
         id: "sales-team",

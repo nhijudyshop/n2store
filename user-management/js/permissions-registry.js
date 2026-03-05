@@ -408,23 +408,6 @@ const PAGES_REGISTRY = {
         }
     },
 
-    lichsuchinhsua: {
-        id: "lichsuchinhsua",
-        name: "Lịch Sử Chỉnh Sửa",
-        shortName: "Lịch Sử",
-        icon: "bar-chart-2",
-        href: "../lichsuchinhsua/index.html",
-        description: "Xem lịch sử thay đổi dữ liệu hệ thống",
-        adminOnly: true,
-        category: "admin",
-        detailedPermissions: {
-            view: { name: "Xem lịch sử", icon: "eye", description: "Xem log thay đổi" },
-            viewDetails: { name: "Xem chi tiết", icon: "list", description: "Xem chi tiết từng thay đổi" },
-            export: { name: "Xuất báo cáo", icon: "download", description: "Export lịch sử" },
-            restore: { name: "Khôi phục", icon: "rotate-ccw", description: "Khôi phục dữ liệu cũ" },
-            delete: { name: "Xóa lịch sử", icon: "trash-2", description: "Xóa log lịch sử" }
-        }
-    },
 
     "supplier-debt": {
         id: "supplier-debt",
@@ -677,8 +660,6 @@ function generateTemplatePermissions(templateId) {
                 pagePermissions.push(pageId);
                 Object.keys(page.detailedPermissions).forEach(subKey => {
                     if (pageId === "user-management" && subKey === "delete") {
-                        detailedPermissions[pageId][subKey] = false;
-                    } else if (pageId === "lichsuchinhsua" && (subKey === "restore" || subKey === "delete")) {
                         detailedPermissions[pageId][subKey] = false;
                     } else {
                         detailedPermissions[pageId][subKey] = true;

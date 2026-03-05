@@ -68,8 +68,7 @@ describe('Preservation: Admin permissions for non-supplier-debt modules', () => 
         "tpos-pancake": { view: true, sync: true, import: true, export: true, configure: true },
         "user-management": { view: true, create: true, edit: true, delete: true, permissions: true, resetPassword: true, manageTemplates: true },
         "balance-history": { view: true, viewDetails: true, export: true, adjust: true },
-        "invoice-compare": { view: true, compare: true, import: true, export: true, resolve: true },
-        lichsuchinhsua: { view: true, viewDetails: true, export: true, restore: true, delete: true }
+        "invoice-compare": { view: true, compare: true, import: true, export: true, resolve: true }
     };
 
     const ALL_NON_SUPPLIER_DEBT_MODULES = Object.keys(BASELINE_SNAPSHOT);

@@ -167,15 +167,6 @@ const MENU_CONFIG = [
         permissionRequired: "invoice-compare",
     },
     {
-        href: "../lichsuchinhsua/index.html",
-        icon: "bar-chart-2",
-        text: "Lịch Sử Chỉnh Sửa",
-        shortText: "Lịch Sử",
-        pageIdentifier: "lichsuchinhsua",
-        adminOnly: true,
-        permissionRequired: "lichsuchinhsua",
-    },
-    {
         href: "../quy-trinh/index.html",
         icon: "book-open",
         text: "Quy Trình Nghiệp Vụ",
@@ -405,7 +396,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Quản Trị",
         icon: "settings",
-        items: ["user-management", "balance-history", "soquy", "invoice-compare", "lichsuchinhsua", "quy-trinh"]
+        items: ["user-management", "balance-history", "soquy", "invoice-compare", "quy-trinh"]
     },
     {
         name: "Khác",
