@@ -703,7 +703,7 @@ window.TPOSProductCreator = (function () {
 
     /**
      * Match items to TPOS variant barcodes (in-memory only, no Firestore)
-     * Returns array of { itemId, barcode, tposVariantId } for updateSyncResult
+     * Returns array of { itemId, barcode, tposVariantId } for batchUpdateSyncResults
      */
     function matchVariantBarcodes(groupItems, responseVariants) {
         console.log(`[TPOSCreator] updateVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants`);
@@ -746,16 +746,15 @@ window.TPOSProductCreator = (function () {
      * Preserves original productImages (Firebase URLs) so they can be reused when copying orders.
      * Uses transaction to prevent race conditions when multiple groups update concurrently.
      */
-    // saveTPOSImageUrl logic is now merged into updateSyncResult()
+    // saveTPOSImageUrl logic is now merged into batchUpdateSyncResults()
 
     /**
-     * Combined sync result update - single Firestore transaction for:
-     * - updateSyncStatus (success/failed)
-     * - updateVariantBarcodes (if variants)
-     * - saveTPOSImageUrl (if image)
-     * Reduces 3 separate transactions to 1, avoids contention with concurrent groups.
+     * Batch update sync results for multiple groups in ONE Firestore transaction.
+     * @param {string} orderId
+     * @param {Array} groupResults - array of { itemIds, syncData: { status, tposProductId, error, variantUpdates, tposImageUrl } }
      */
-    async function updateSyncResult(orderId, itemIds, { status, tposProductId, error, variantUpdates, tposImageUrl }) {
+    async function batchUpdateSyncResults(orderId, groupResults) {
+        if (!groupResults || groupResults.length === 0) return;
         try {
             if (!window.firebase || !window.firebase.firestore) return;
 
@@ -770,40 +769,45 @@ window.TPOSProductCreator = (function () {
                 const items = data.items || [];
                 let changed = false;
 
-                // 1. Update sync status for all items in this group
-                for (const item of items) {
-                    if (itemIds.includes(item.id)) {
-                        item.tposSyncStatus = status;
-                        if (tposProductId) item.tposProductId = tposProductId;
-                        if (error) item.tposSyncError = error;
-                        if (status === 'success') item.tposSynced = true;
-                        item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
-                        changed = true;
-                    }
-                }
+                for (const { itemIds, syncData } of groupResults) {
+                    if (!itemIds || !syncData) continue;
+                    const { status, tposProductId, error, variantUpdates, tposImageUrl } = syncData;
 
-                // 2. Update variant barcodes (if provided)
-                if (variantUpdates && variantUpdates.length > 0) {
-                    for (const update of variantUpdates) {
-                        const item = items.find(i => i.id === update.itemId);
-                        if (item && update.barcode) {
-                            if (!item.parentProductCode) {
-                                item.parentProductCode = item.productCode;
-                            }
-                            item.productCode = update.barcode;
-                            item.tposProductId = update.tposVariantId;
-                            item.tposSynced = true;
+                    // 1. Update sync status
+                    for (const item of items) {
+                        if (itemIds.includes(item.id)) {
+                            item.tposSyncStatus = status;
+                            if (tposProductId) item.tposProductId = tposProductId;
+                            if (error) item.tposSyncError = error;
+                            if (status === 'success') item.tposSynced = true;
+                            item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
                             changed = true;
                         }
                     }
-                }
 
-                // 3. Save TPOS ImageUrl (if provided)
-                if (tposImageUrl) {
-                    for (const item of items) {
-                        if (itemIds.includes(item.id)) {
-                            item.tposImageUrl = tposImageUrl;
-                            changed = true;
+                    // 2. Update variant barcodes
+                    if (variantUpdates && variantUpdates.length > 0) {
+                        for (const update of variantUpdates) {
+                            const item = items.find(i => i.id === update.itemId);
+                            if (item && update.barcode) {
+                                if (!item.parentProductCode) {
+                                    item.parentProductCode = item.productCode;
+                                }
+                                item.productCode = update.barcode;
+                                item.tposProductId = update.tposVariantId;
+                                item.tposSynced = true;
+                                changed = true;
+                            }
+                        }
+                    }
+
+                    // 3. Save TPOS ImageUrl
+                    if (tposImageUrl) {
+                        for (const item of items) {
+                            if (itemIds.includes(item.id)) {
+                                item.tposImageUrl = tposImageUrl;
+                                changed = true;
+                            }
                         }
                     }
                 }
@@ -813,9 +817,10 @@ window.TPOSProductCreator = (function () {
                 }
             });
 
-            console.log(`[TPOSCreator] Updated sync result for ${itemIds.length} items: ${status}`);
+            const totalItems = groupResults.reduce((sum, g) => sum + (g.itemIds?.length || 0), 0);
+            console.log(`[TPOSCreator] Batch updated ${groupResults.length} groups (${totalItems} items)`);
         } catch (err) {
-            console.error('[TPOSCreator] Failed to update sync result:', err);
+            console.error('[TPOSCreator] Failed to batch update sync results:', err);
         }
     }
 
@@ -946,36 +951,26 @@ window.TPOSProductCreator = (function () {
                     variantUpdates = matchVariantBarcodes(groupItems, productData.ProductVariants);
                 }
 
-                // Single combined Firestore transaction: status + barcodes + imageUrl
-                await updateSyncResult(orderId, itemIds, {
-                    status: 'success',
-                    tposProductId: tposId,
-                    error: null,
-                    variantUpdates,
-                    tposImageUrl: tposImgUrl
-                });
-
-                return { success: true, productCode, alreadyExists: result.alreadyExists };
+                // Return result data (Firestore write is batched in syncOrderToTPOS)
+                return {
+                    success: true, productCode, alreadyExists: result.alreadyExists,
+                    itemIds,
+                    syncData: { status: 'success', tposProductId: tposId, error: null, variantUpdates, tposImageUrl: tposImgUrl }
+                };
             } else {
-                await updateSyncResult(orderId, itemIds, {
-                    status: 'failed',
-                    tposProductId: null,
-                    error: result.error,
-                    variantUpdates: null,
-                    tposImageUrl: null
-                });
-                return { success: false, productCode, error: result.error };
+                return {
+                    success: false, productCode, error: result.error,
+                    itemIds,
+                    syncData: { status: 'failed', tposProductId: null, error: result.error, variantUpdates: null, tposImageUrl: null }
+                };
             }
         } catch (error) {
             console.error(`[TPOSCreator] Error processing ${productCode}:`, error);
-            await updateSyncResult(orderId, itemIds, {
-                status: 'failed',
-                tposProductId: null,
-                error: error.message,
-                variantUpdates: null,
-                tposImageUrl: null
-            });
-            return { success: false, productCode, error: error.message };
+            return {
+                success: false, productCode, error: error.message,
+                itemIds,
+                syncData: { status: 'failed', tposProductId: null, error: error.message, variantUpdates: null, tposImageUrl: null }
+            };
         }
     }
 
@@ -1025,12 +1020,20 @@ window.TPOSProductCreator = (function () {
                 const batchResults = await Promise.allSettled(
                     batch.map(([groupKey, groupItems]) => processGroup(orderId, groupItems))
                 );
+
+                // Collect results and batch-write to Firestore in ONE transaction
+                const syncUpdates = [];
                 for (const r of batchResults) {
-                    if (r.status === 'fulfilled') {
-                        results.push(r.value);
-                    } else {
-                        results.push({ success: false, error: r.reason?.message || 'Unknown error' });
+                    const result = r.status === 'fulfilled'
+                        ? r.value
+                        : { success: false, error: r.reason?.message || 'Unknown error' };
+                    results.push(result);
+                    if (result.itemIds && result.syncData) {
+                        syncUpdates.push({ itemIds: result.itemIds, syncData: result.syncData });
                     }
+                }
+                if (syncUpdates.length > 0) {
+                    await batchUpdateSyncResults(orderId, syncUpdates);
                 }
 
                 // Small delay between batches to avoid rate limiting
