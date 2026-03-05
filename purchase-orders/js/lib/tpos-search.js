@@ -159,11 +159,13 @@ window.TPOSClient = (function() {
             }
         });
 
-        // Handle 401 - refresh token and retry once
+        // Handle 401 - clear cached token, fetch new one, retry once
         if (response.status === 401) {
-            console.log('[TPOS-Search] 401, refreshing token...');
+            console.log('[TPOS-Search] 401, clearing cached token and refreshing...');
             token = null;
             tokenExpiry = null;
+            // Clear storage so getToken() won't reload the same bad token
+            try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
             const newToken = await getToken();
             return fetch(url, {
                 ...options,
