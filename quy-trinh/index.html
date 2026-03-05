@@ -259,9 +259,17 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
 .note-item {
   background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%);
   border-left: 4px solid #f59e0b; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding: 12px 16px; margin-bottom: 8px;
+  padding: 12px 16px; margin-bottom: 8px; position: relative;
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
+.note-delete-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: none; border: none; cursor: pointer;
+  font-size: 14px; color: var(--gray-300); padding: 2px 6px; border-radius: 4px;
+  opacity: 0; transition: all .2s;
+}
+.note-item:hover .note-delete-btn { opacity: 1; }
+.note-delete-btn:hover { color: #ef4444; background: #fee2e2; }
 .note-content { font-size: 13px; line-height: 1.7; color: var(--gray-700); white-space: pre-wrap; word-break: break-word; }
 .note-images { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .note-images a { display: block; }
@@ -1805,6 +1813,14 @@ const NoteSystem = {
         const noteEl = document.createElement('div');
         noteEl.className = 'note-item';
 
+        // Delete button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'note-delete-btn';
+        delBtn.title = 'Xóa ghi chú';
+        delBtn.textContent = '🗑️';
+        delBtn.addEventListener('click', () => this.deleteNote(note._id));
+        noteEl.appendChild(delBtn);
+
         // Content
         const contentDiv = document.createElement('div');
         contentDiv.className = 'note-content';
@@ -1842,6 +1858,18 @@ const NoteSystem = {
 
       anchor.insertAdjacentElement('afterend', container);
     });
+  },
+
+  async deleteNote(docId) {
+    if (!confirm('Bạn có chắc muốn xóa ghi chú này?')) return;
+    try {
+      await this.db.collection('quy-trinh-notes').doc(docId).delete();
+      await this.loadNotes();
+      this.generateAndSaveMD();
+    } catch (err) {
+      console.error('[NoteSystem] Delete error:', err);
+      alert('Lỗi xóa ghi chú: ' + err.message);
+    }
   },
 
   escapeHtml(str) {
