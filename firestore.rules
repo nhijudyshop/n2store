@@ -90,6 +90,14 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Edit History (Audit Log) - append-only, readable by authenticated users
+    match /edit_history/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     // KPI Statistics - read/write, no delete
     match /kpi_statistics/{userId}/{document=**} {
       allow read: if isAuthenticated();
