@@ -94,6 +94,63 @@ window.TPOSPurchase = (function() {
     }
 
     // =====================================================
+    // DYNAMIC CONFIG - fetch Journal/Account/PickingType per company
+    // IDs differ per company, so we fetch them from TPOS OData API
+    // =====================================================
+
+    const _companyConfigCache = {};
+
+    async function getCompanyConfig() {
+        const companyId = getCompanyId();
+        if (_companyConfigCache[companyId]) return _companyConfigCache[companyId];
+
+        console.log(`[TPOSPurchase] Fetching config for company ${companyId}...`);
+
+        // Fetch in parallel: purchase journal, cash journal, picking type, account 331
+        const [journalRes, cashRes, pickingRes, accountRes] = await Promise.all([
+            window.TPOSClient.authenticatedFetch(
+                `${PROXY_URL}/api/odata/AccountJournal?$filter=Type eq 'purchase'&$top=1&$select=Id,Name,Type,TypeGet,UpdatePosted,DedicatedRefund`
+            ),
+            window.TPOSClient.authenticatedFetch(
+                `${PROXY_URL}/api/odata/AccountJournal?$filter=Type eq 'cash'&$top=1&$select=Id,Name,Type,TypeGet,UpdatePosted`
+            ),
+            window.TPOSClient.authenticatedFetch(
+                `${PROXY_URL}/api/odata/StockPickingType?$filter=Code eq 'incoming'&$top=1&$select=Id,Code,Name,Active,WarehouseId,UseCreateLots,UseExistingLots,NameGet`
+            ),
+            window.TPOSClient.authenticatedFetch(
+                `${PROXY_URL}/api/odata/AccountAccount?$filter=Code eq '331'&$top=1&$select=Id,Name,Code,Active,NameGet,Reconcile`
+            )
+        ]);
+
+        const [journalData, cashData, pickingData, accountData] = await Promise.all([
+            journalRes.ok ? journalRes.json() : null,
+            cashRes.ok ? cashRes.json() : null,
+            pickingRes.ok ? pickingRes.json() : null,
+            accountRes.ok ? accountRes.json() : null
+        ]);
+
+        const journal = journalData?.value?.[0] || STATIC.Journal;
+        const paymentJournal = cashData?.value?.[0] || STATIC.PaymentJournal;
+        const pickingType = pickingData?.value?.[0] || STATIC.PickingType;
+        const account = accountData?.value?.[0] || STATIC.Account;
+
+        const config = {
+            JournalId: journal.Id,
+            AccountId: account.Id,
+            PickingTypeId: pickingType.Id,
+            PaymentJournalId: paymentJournal.Id,
+            Journal: { Id: journal.Id, Name: journal.Name, Type: journal.Type, TypeGet: journal.TypeGet || 'Mua hàng', UpdatePosted: journal.UpdatePosted ?? true, DedicatedRefund: journal.DedicatedRefund ?? false },
+            PaymentJournal: { Id: paymentJournal.Id, Name: paymentJournal.Name, Type: paymentJournal.Type, TypeGet: paymentJournal.TypeGet || 'Tiền mặt', UpdatePosted: paymentJournal.UpdatePosted ?? true },
+            PickingType: { Id: pickingType.Id, Code: pickingType.Code, Name: pickingType.Name, Active: pickingType.Active ?? true, WarehouseId: pickingType.WarehouseId, UseCreateLots: pickingType.UseCreateLots ?? true, UseExistingLots: pickingType.UseExistingLots ?? true, NameGet: pickingType.NameGet },
+            Account: { Id: account.Id, Name: account.Name, Code: account.Code, Active: account.Active ?? true, NameGet: account.NameGet, Reconcile: account.Reconcile ?? false }
+        };
+
+        console.log(`[TPOSPurchase] Company ${companyId} config: Journal=${config.JournalId}, Account=${config.AccountId}, PickingType=${config.PickingTypeId}, PaymentJournal=${config.PaymentJournalId}`);
+        _companyConfigCache[companyId] = config;
+        return config;
+    }
+
+    // =====================================================
     // STEP 1: PurchaseByExcel - Convert Excel → OrderLines
     // =====================================================
 
@@ -148,6 +205,9 @@ window.TPOSPurchase = (function() {
         const partnerId = partnerData.tposId || partnerData.Id || partnerData.id;
         if (!partnerId) throw new Error('Partner has no TPOS ID');
 
+        // Fetch dynamic config (Journal/Account/PickingType IDs) for current company
+        const companyConfig = await getCompanyConfig();
+
         // Calculate totals from orderLines
         let amountTotal = 0;
         for (const line of orderLines) {
@@ -189,7 +249,7 @@ window.TPOSPurchase = (function() {
             PartnerDisplayName: null,
             State: 'draft',
             Date: null,
-            PickingTypeId: STATIC.PickingTypeId,
+            PickingTypeId: companyConfig.PickingTypeId,
             AmountTotal: finalAmount,
             TotalQuantity: 0,
             Amount: null,
@@ -201,21 +261,21 @@ window.TPOSPurchase = (function() {
             TaxId: null,
             Note: tposNote,
             CompanyId: getCompanyId(),
-            JournalId: STATIC.JournalId,
+            JournalId: companyConfig.JournalId,
             DateInvoice: toVNDateString(now),
             Number: null,
             Type: 'invoice',
             Residual: null,
             RefundOrderId: null,
             Reconciled: null,
-            AccountId: STATIC.AccountId,
+            AccountId: companyConfig.AccountId,
             UserId: STATIC.UserId,
             AmountTotalSigned: null,
             ResidualSigned: null,
             ShowState: 'Nháp',
             UserName: null,
             PartnerNameNoSign: null,
-            PaymentJournalId: STATIC.PaymentJournalId,
+            PaymentJournalId: companyConfig.PaymentJournalId,
             PaymentAmount: 0,
             Origin: null,
             CompanyName: null,
@@ -231,15 +291,15 @@ window.TPOSPurchase = (function() {
             PaymentInfo: [],
             Error: null,
 
-            // Static nested objects (Company & User dynamic per shop)
+            // Nested objects (dynamic per company)
             Company: STATIC.Companies[getCompanyId()] || STATIC.Companies[1],
-            PickingType: STATIC.PickingType,
-            Journal: STATIC.Journal,
+            PickingType: companyConfig.PickingType,
+            Journal: companyConfig.Journal,
             User: STATIC.Users[getCompanyId()] || STATIC.Users[1],
-            PaymentJournal: STATIC.PaymentJournal,
+            PaymentJournal: companyConfig.PaymentJournal,
             DestConvertCurrencyUnit: null,
             Partner: partner,
-            Account: STATIC.Account,
+            Account: companyConfig.Account,
 
             // OrderLines from PurchaseByExcel response
             OrderLines: orderLines.map(line => ({
@@ -247,7 +307,7 @@ window.TPOSPurchase = (function() {
                 Name: line.Name,
                 Account: line.Account,
                 PriceUnit: line.PriceUnit,
-                AccountId: line.Account?.Id || 7,
+                AccountId: line.Account?.Id || companyConfig.AccountId,
                 PriceRecent: line.PriceRecent || line.PriceUnit,
                 ProductQty: line.ProductQty,
                 Product: line.Product,
