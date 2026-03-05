@@ -862,10 +862,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const toggleTrendBtn = document.getElementById('toggleTrendBtn');
         if (toggleTrendBtn) {
             toggleTrendBtn.addEventListener('click', () => {
-                const body = document.getElementById('trendSectionBody');
-                if (body) {
-                    const isHidden = body.style.display === 'none';
-                    body.style.display = isHidden ? '' : 'none';
+                const section = document.getElementById('trendSection');
+                if (section) {
+                    const isHidden = section.style.display === 'none';
+                    section.style.display = isHidden ? '' : 'none';
                     toggleTrendBtn.classList.toggle('active', isHidden);
                 }
             });

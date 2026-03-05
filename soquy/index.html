@@ -1160,15 +1160,19 @@
                             </div>
                         </div>
 
+                        <!-- Toggle Trend Button -->
+                        <div class="report-trend-toggle-wrapper">
+                            <button type="button" id="toggleTrendBtn" class="btn-toggle-trend" title="Nhấn vào để xem Xu Hướng Thu/Chi Theo Tháng">
+                                <i data-lucide="trending-up"></i>
+                            </button>
+                        </div>
+
                         <!-- Monthly Trend -->
-                        <div class="report-section report-section--trend">
+                        <div class="report-section report-section--trend" id="trendSection" style="display: none;">
                             <div class="report-section-header" style="display: flex; align-items: center; justify-content: space-between;">
                                 <h3 style="margin:0;"><i data-lucide="calendar-range"></i> Xu hướng theo tháng</h3>
-                                <button type="button" id="toggleTrendBtn" class="btn-toggle-trend" title="Nhấn vào để xem Xu Hướng Thu/Chi Theo Tháng">
-                                    <i data-lucide="trending-up"></i>
-                                </button>
                             </div>
-                            <div class="report-section-body" id="trendSectionBody" style="display: none;">
+                            <div class="report-section-body">
                                 <table class="report-table" id="reportTrendTable">
                                     <thead>
                                         <tr>
