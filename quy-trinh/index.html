@@ -298,6 +298,13 @@ code { background: var(--gray-100); padding: 1px 6px; border-radius: 4px; font-s
   transition: background .2s;
 }
 .note-upload-btn:hover { background: #e0e7ff; }
+.note-paste-hint {
+  font-size: 11px; color: var(--gray-500); margin-top: 6px;
+  padding: 6px 10px; background: var(--gray-50); border: 1px dashed var(--gray-300);
+  border-radius: var(--radius-sm); text-align: center; transition: all .2s;
+}
+.note-paste-hint.drag-over { border-color: #6366f1; background: #eef2ff; color: #6366f1; }
+.note-paste-active { border-color: #6366f1 !important; background: #f5f3ff !important; }
 .note-cancel-btn {
   font-size: 12px; padding: 6px 16px; border-radius: var(--radius-sm);
   border: 1px solid var(--gray-200); background: #fff; cursor: pointer; color: var(--gray-500);
@@ -1579,6 +1586,7 @@ const NoteSystem = {
     editor.innerHTML =
       '<div class="note-editor-header">📝 Thêm ghi chú đóng góp</div>' +
       '<textarea class="note-textarea" placeholder="Nhập nội dung ghi chú đóng góp..." rows="3"></textarea>' +
+      '<div class="note-paste-hint">📋 Ctrl+V để dán ảnh từ clipboard | Kéo thả ảnh vào đây</div>' +
       '<div class="note-image-preview"></div>' +
       '<div class="note-editor-actions">' +
         '<label class="note-upload-btn">📷 Thêm ảnh<input type="file" accept="image/*" multiple style="display:none"></label>' +
@@ -1614,6 +1622,42 @@ const NoteSystem = {
     editor.querySelector('input[type="file"]').addEventListener('change', (e) => {
       this.handleImageUpload(e.target.files, editor);
       e.target.value = '';
+    });
+
+    // Clipboard paste support (Ctrl+V)
+    editor.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      const imageFiles = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        this.handleImageUpload(imageFiles, editor);
+      }
+    });
+
+    // Drag & drop support
+    const pasteHint = editor.querySelector('.note-paste-hint');
+    editor.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (pasteHint) pasteHint.classList.add('drag-over');
+    });
+    editor.addEventListener('dragleave', (e) => {
+      if (pasteHint) pasteHint.classList.remove('drag-over');
+    });
+    editor.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (pasteHint) pasteHint.classList.remove('drag-over');
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if (files && files.length > 0) {
+        const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+        if (imageFiles.length > 0) this.handleImageUpload(imageFiles, editor);
+      }
     });
   },
 
