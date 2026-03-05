@@ -29,12 +29,12 @@ service cloud.firestore {
     match /purchase_orders/{orderId} {
       // Helper: Check if user owns the order
       function isOwner() {
-        return resource.data.createdBy.uid == request.auth.uid;
+        return resource.data.created_by == request.auth.uid;
       }
 
       // Helper: Check if user is creating with their own ID
       function isCreatingAsOwner() {
-        return request.resource.data.createdBy.uid == request.auth.uid;
+        return request.resource.data.created_by == request.auth.uid;
       }
 
       // Anyone authenticated can read
@@ -90,14 +90,6 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Edit History (Audit Log) - append-only, readable by authenticated users
-    match /edit_history/{logId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if isAdmin();
-    }
-
     // KPI Statistics - read/write, no delete
     match /kpi_statistics/{userId}/{document=**} {
       allow read: if isAuthenticated();
@@ -105,10 +97,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Default: allow authenticated users access to all other collections
-    // This ensures existing collections (menu_layouts, settings, etc.) keep working
+    // Default: deny all other access
     match /{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if false;
     }
   }
 }
