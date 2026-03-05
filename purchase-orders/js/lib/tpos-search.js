@@ -332,10 +332,19 @@ window.TPOSClient = (function() {
             const companyId = getCompanyId();
             console.log(`[TPOS-Search] 401, clearing access_token for company ${companyId} and refreshing...`);
 
-            // Preserve refresh_token in localStorage before clearing in-memory
+            // Preserve refresh_token, invalidate access_token in all caches
             const savedRefresh = tokenStore[companyId]?.refresh_token || getStoredRefreshToken(companyId);
             delete tokenStore[companyId];
-            // Keep localStorage entry (has refresh_token) — only clear Firestore
+            // Invalidate localStorage access_token but keep refresh_token
+            try {
+                if (savedRefresh) {
+                    localStorage.setItem(storageKey(companyId), JSON.stringify({
+                        refresh_token: savedRefresh, expires_at: 0
+                    }));
+                } else {
+                    localStorage.removeItem(storageKey(companyId));
+                }
+            } catch (e) { /* ignore */ }
             try {
                 if (window.firebase && window.firebase.firestore) {
                     const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
