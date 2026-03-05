@@ -40,7 +40,7 @@ const FIRESTORE_COLLECTIONS = [
     {
         name: 'edit_history',
         description: 'Lịch sử chỉnh sửa của tất cả modules',
-        modules: ['lichsuchinhsua', 'all modules'],
+        modules: ['all modules'],
         countable: true
     },
     {

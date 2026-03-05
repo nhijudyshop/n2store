@@ -152,7 +152,6 @@ User có array `pagePermissions` chứa danh sách pages được truy cập.
 | | `balance-history` | Lịch Sử Số Dư | ✅ |
 | | `customer-hub` | Customer 360 | ✅ |
 | | `invoice-compare` | So Sánh Đơn Hàng | ✅ |
-| | `lichsuchinhsua` | Lịch Sử Chỉnh Sửa | ✅ |
 
 ---
 

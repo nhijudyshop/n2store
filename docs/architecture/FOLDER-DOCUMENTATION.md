@@ -23,7 +23,6 @@
 14. [inventory-tracking](#14-inventory-tracking)
 15. [invoice-compare](#15-invoice-compare)
 16. [shared (formerly js)](#16-shared-formerly-js)
-17. [lichsuchinhsua](#17-lichsuchinhsua)
 18. [live](#18-live)
 19. [livestream](#19-livestream)
 20. [nhanhang](#20-nhanhang)
@@ -381,17 +380,6 @@ grep -r 'src="notification-system.js"' . --include="*.html" | grep -v shared
 - Logger system
 - Optimization helper
 - Service worker registration
-
----
-
-## 17. lichsuchinhsua
-
-**Mục đích:** Xem lịch sử chỉnh sửa (edit history)
-
-### Chức Năng
-- Hiển thị lịch sử thay đổi
-- Filter theo user, ngày, loại
-- Modern UI styling
 
 ---
 
