@@ -2449,6 +2449,38 @@
     grid-column: 2 / 3;
 }
 
+.btn-toggle-trend {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-toggle-trend:hover {
+    background: #e0f2fe;
+    color: #0284c7;
+    border-color: #0284c7;
+}
+
+.btn-toggle-trend.active {
+    background: #0284c7;
+    color: #fff;
+    border-color: #0284c7;
+}
+
+.btn-toggle-trend svg,
+.btn-toggle-trend i {
+    width: 16px;
+    height: 16px;
+}
+
 .report-section--top {
     grid-column: 1 / -1;
 }
@@ -2839,8 +2871,12 @@
 .report-detail-table thead th:nth-child(1) { width: 120px; }
 .report-detail-table thead th:nth-child(2) { width: 110px; }
 .report-detail-table thead th:nth-child(3) { width: 80px; }
-.report-detail-table thead th:nth-child(4) { width: 110px; }
+.report-detail-table thead th:nth-child(4) { width: 110px; padding-right: 20px; }
 .report-detail-table thead th:nth-child(5) { width: auto; }
+
+.report-detail-table tbody td:nth-child(4) {
+    padding-right: 20px;
+}
 
 .report-detail-table tbody td {
     padding: 6px 8px;
