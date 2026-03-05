@@ -2879,11 +2879,11 @@
 .report-detail-table thead th:nth-child(1) { width: 120px; }
 .report-detail-table thead th:nth-child(2) { width: 110px; }
 .report-detail-table thead th:nth-child(3) { width: 80px; }
-.report-detail-table thead th:nth-child(4) { width: 308px; padding-right: 20px; }
+.report-detail-table thead th:nth-child(4) { width: 120px; padding-right: 30px; }
 .report-detail-table thead th:nth-child(5) { width: auto; }
 
 .report-detail-table tbody td:nth-child(4) {
-    padding-right: 20px;
+    padding-right: 30px;
 }
 
 .report-detail-table tbody td {

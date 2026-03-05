@@ -630,7 +630,7 @@ const SoquyReport = (function () {
                     <td>${escapeHtml(dateStr)}</td>
                     <td>${escapeHtml(v.personName || v.collector || '-')}</td>
                     <td>${typeLabel}</td>
-                    <td style="text-align:right;" class="${isPayment ? 'text-danger' : 'text-success'}">${isPayment ? '-' : ''}${fmt(v.amount)}</td>
+                    <td class="${isPayment ? 'text-danger' : 'text-success'}">${isPayment ? '-' : ''}${fmt(v.amount)}</td>
                     <td>${escapeHtml(v.note || '-')}</td>
                 </tr>`;
             }).join('');
@@ -661,7 +661,7 @@ const SoquyReport = (function () {
                 <td colspan="4">
                     <div class="report-cat-details">
                         <table class="report-detail-table">
-                            <thead><tr><th>Ngày</th><th>Người</th><th>Loại thu chi</th><th style="text-align:right;">Số tiền</th><th>Ghi chú</th></tr></thead>
+                            <thead><tr><th>Ngày</th><th>Người</th><th>Loại thu chi</th><th>Số tiền</th><th>Ghi chú</th></tr></thead>
                             <tbody>${detailRows || '<tr><td colspan="5">Không có phiếu</td></tr>'}</tbody>
                         </table>
                         ${cat.vouchers.length > 20 ? `<div class="report-detail-more">Hiện ${cat.vouchers.length - 20} phiếu nữa...</div>` : ''}
