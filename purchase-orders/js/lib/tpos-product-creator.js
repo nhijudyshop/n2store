@@ -13,6 +13,7 @@
 window.TPOSProductCreator = (function () {
     'use strict';
 
+    const TPOS_SYNC_CONCURRENCY = 10;
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const TPOS_INSERT_URL = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.InsertV2?$expand=ProductVariants,UOM,UOMPO`;
 
@@ -700,12 +701,13 @@ window.TPOSProductCreator = (function () {
         return match[1].split(',').map(s => s.trim()).filter(Boolean);
     }
 
-    async function updateVariantBarcodes(orderId, groupItems, responseVariants) {
+    /**
+     * Match items to TPOS variant barcodes (in-memory only, no Firestore)
+     * Returns array of { itemId, barcode, tposVariantId } for updateSyncResult
+     */
+    function matchVariantBarcodes(groupItems, responseVariants) {
         console.log(`[TPOSCreator] updateVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants`);
 
-        // Match items to TPOS variants directly by attribute names
-        // Item.variant = "Cam / 3 / XXL", TPOS NameGet has "(3, Cam, XXL)"
-        // Compare as sorted sets to handle different ordering
         const updates = [];
         for (const item of groupItems) {
             if (!item.variant) continue;
@@ -732,51 +734,7 @@ window.TPOSProductCreator = (function () {
         }
 
         console.log(`[TPOSCreator] Total updates: ${updates.length}`);
-        if (updates.length === 0) return;
-
-        // Update Firebase items with variant Barcodes (transaction for concurrency safety)
-        try {
-            const db = firebase.firestore();
-            const docRef = db.collection('purchase_orders').doc(orderId);
-
-            await db.runTransaction(async (transaction) => {
-                const doc = await transaction.get(docRef);
-                if (!doc.exists) return;
-
-                const data = doc.data();
-                const items = data.items || [];
-                let changed = false;
-
-                for (const update of updates) {
-                    const item = items.find(i => i.id === update.itemId);
-                    if (item && update.barcode) {
-                        console.log(`[TPOSCreator] Variant code: ${item.productCode} → ${update.barcode}`);
-                        if (!item.parentProductCode) {
-                            item.parentProductCode = item.productCode;
-                        }
-                        item.productCode = update.barcode;
-                        item.tposProductId = update.tposVariantId;
-                        item.tposSynced = true;
-                        changed = true;
-                    }
-                }
-
-                if (changed) {
-                    transaction.update(docRef, { items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                }
-            });
-
-            console.log(`[TPOSCreator] Updated ${updates.length} items with variant Barcodes`);
-
-            // Refresh table to show updated variant codes
-            if (window.purchaseOrderDataManager?.loadOrders) {
-                window.purchaseOrderDataManager.loadOrders(
-                    window.purchaseOrderDataManager.currentStatus, true
-                );
-            }
-        } catch (err) {
-            console.error('[TPOSCreator] Failed to update variant barcodes:', err);
-        }
+        return updates.length > 0 ? updates : null;
     }
 
     // =====================================================
@@ -788,7 +746,16 @@ window.TPOSProductCreator = (function () {
      * Preserves original productImages (Firebase URLs) so they can be reused when copying orders.
      * Uses transaction to prevent race conditions when multiple groups update concurrently.
      */
-    async function saveTPOSImageUrl(orderId, itemIds, tposImageUrl) {
+    // saveTPOSImageUrl logic is now merged into updateSyncResult()
+
+    /**
+     * Combined sync result update - single Firestore transaction for:
+     * - updateSyncStatus (success/failed)
+     * - updateVariantBarcodes (if variants)
+     * - saveTPOSImageUrl (if image)
+     * Reduces 3 separate transactions to 1, avoids contention with concurrent groups.
+     */
+    async function updateSyncResult(orderId, itemIds, { status, tposProductId, error, variantUpdates, tposImageUrl }) {
         try {
             if (!window.firebase || !window.firebase.firestore) return;
 
@@ -803,10 +770,41 @@ window.TPOSProductCreator = (function () {
                 const items = data.items || [];
                 let changed = false;
 
+                // 1. Update sync status for all items in this group
                 for (const item of items) {
                     if (itemIds.includes(item.id)) {
-                        item.tposImageUrl = tposImageUrl;
+                        item.tposSyncStatus = status;
+                        if (tposProductId) item.tposProductId = tposProductId;
+                        if (error) item.tposSyncError = error;
+                        if (status === 'success') item.tposSynced = true;
+                        item.tposSyncCompletedAt = firebase.firestore.Timestamp.now();
                         changed = true;
+                    }
+                }
+
+                // 2. Update variant barcodes (if provided)
+                if (variantUpdates && variantUpdates.length > 0) {
+                    for (const update of variantUpdates) {
+                        const item = items.find(i => i.id === update.itemId);
+                        if (item && update.barcode) {
+                            if (!item.parentProductCode) {
+                                item.parentProductCode = item.productCode;
+                            }
+                            item.productCode = update.barcode;
+                            item.tposProductId = update.tposVariantId;
+                            item.tposSynced = true;
+                            changed = true;
+                        }
+                    }
+                }
+
+                // 3. Save TPOS ImageUrl (if provided)
+                if (tposImageUrl) {
+                    for (const item of items) {
+                        if (itemIds.includes(item.id)) {
+                            item.tposImageUrl = tposImageUrl;
+                            changed = true;
+                        }
                     }
                 }
 
@@ -815,9 +813,9 @@ window.TPOSProductCreator = (function () {
                 }
             });
 
-            console.log(`[TPOSCreator] Saved TPOS ImageUrl for ${itemIds.length} items: ${tposImageUrl}`);
+            console.log(`[TPOSCreator] Updated sync result for ${itemIds.length} items: ${status}`);
         } catch (err) {
-            console.error('[TPOSCreator] Failed to save TPOS ImageUrl:', err);
+            console.error('[TPOSCreator] Failed to update sync result:', err);
         }
     }
 
@@ -941,27 +939,43 @@ window.TPOSProductCreator = (function () {
                 }
 
                 const tposId = productData?.Id || null;
-                await updateSyncStatus(orderId, itemIds, 'success', tposId, null);
+                const tposImgUrl = productData?.ImageUrl || null;
 
-                // Update variant Barcodes from TPOS response → Firebase items
+                // Compute variant barcode updates (in-memory, no Firestore)
+                let variantUpdates = null;
                 if (allCombinations && productData?.ProductVariants?.length > 0) {
-                    await updateVariantBarcodes(orderId, groupItems, productData.ProductVariants);
+                    variantUpdates = matchVariantBarcodes(groupItems, productData.ProductVariants);
                 }
 
-                // Save TPOS ImageUrl to Firebase items (replace data URLs)
-                const tposImageUrl = productData?.ImageUrl || null;
-                if (tposImageUrl) {
-                    await saveTPOSImageUrl(orderId, itemIds, tposImageUrl);
-                }
+                // Single combined Firestore transaction: status + barcodes + imageUrl
+                await updateSyncResult(orderId, itemIds, {
+                    status: 'success',
+                    tposProductId: tposId,
+                    error: null,
+                    variantUpdates,
+                    tposImageUrl: tposImgUrl
+                });
 
                 return { success: true, productCode, alreadyExists: result.alreadyExists };
             } else {
-                await updateSyncStatus(orderId, itemIds, 'failed', null, result.error);
+                await updateSyncResult(orderId, itemIds, {
+                    status: 'failed',
+                    tposProductId: null,
+                    error: result.error,
+                    variantUpdates: null,
+                    tposImageUrl: null
+                });
                 return { success: false, productCode, error: result.error };
             }
         } catch (error) {
             console.error(`[TPOSCreator] Error processing ${productCode}:`, error);
-            await updateSyncStatus(orderId, itemIds, 'failed', null, error.message);
+            await updateSyncResult(orderId, itemIds, {
+                status: 'failed',
+                tposProductId: null,
+                error: error.message,
+                variantUpdates: null,
+                tposImageUrl: null
+            });
             return { success: false, productCode, error: error.message };
         }
     }
@@ -1017,13 +1031,13 @@ window.TPOSProductCreator = (function () {
 
             console.log(`[TPOSCreator] ${groups.size} product groups to sync`);
 
-            // Step 3: Process groups in parallel batches (8 concurrent)
+            // Step 3: Process groups in parallel batches
             const groupEntries = [...groups.entries()];
-            console.log(`[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of 8`);
+            console.log(`[TPOSCreator] Processing ${groupEntries.length} groups in parallel batches of ${TPOS_SYNC_CONCURRENCY}`);
             const results = await processInParallelBatches(
                 groupEntries,
                 ([groupKey, groupItems]) => processGroup(orderId, groupItems),
-                8
+                TPOS_SYNC_CONCURRENCY
             );
 
             let successCount = 0;
