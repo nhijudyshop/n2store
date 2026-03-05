@@ -2,9 +2,12 @@
  * TPOS Search Client for Purchase Orders
  * Provides window.TPOSClient for product code operations
  *
- * Token flow: localStorage → Firestore → fetch new from /api/token
+ * Token flow:
+ *   CompanyId 1: password login → token (CompanyId 1) + refresh_token
+ *   CompanyId 2: SwitchCompany(2) → refresh_token → token (CompanyId 2)
+ *
+ * Tokens cached per company in localStorage
  * All requests go through Cloudflare proxy to bypass CORS
- * Ref: /docs/architecture/SHARED_TPOS.md
  */
 
 window.TPOSClient = (function() {
@@ -12,7 +15,7 @@ window.TPOSClient = (function() {
 
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const TOKEN_URL = `${PROXY_URL}/api/token`;
-    const STORAGE_KEY = 'bearer_token_data';
+    const SWITCH_COMPANY_URL = `${PROXY_URL}/api/odata/ApplicationUser/ODataService.SwitchCompany`;
     const TOKEN_BUFFER = 5 * 60 * 1000; // 5 minutes before expiry
 
     const CREDENTIALS = {
@@ -22,9 +25,17 @@ window.TPOSClient = (function() {
         client_id: 'tmtWebApp'
     };
 
-    let token = null;
-    let tokenExpiry = null;
+    // Token storage per company: { access_token, refresh_token, expires_at }
+    const tokenStore = {};
     let refreshPromise = null;
+
+    function storageKey(companyId) {
+        return `bearer_token_data_${companyId}`;
+    }
+
+    function getCompanyId() {
+        return window.ShopConfig?.getConfig()?.CompanyId || 1;
+    }
 
     // =====================================================
     // HEADERS - match working pattern from dialogs.js
@@ -41,21 +52,21 @@ window.TPOSClient = (function() {
     }
 
     // =====================================================
-    // TOKEN MANAGEMENT
+    // TOKEN MANAGEMENT - per company
     // =====================================================
 
-    function isTokenValid() {
-        return token && tokenExpiry && Date.now() < (tokenExpiry - TOKEN_BUFFER);
+    function isTokenValid(companyId) {
+        const t = tokenStore[companyId];
+        return t && t.access_token && t.expires_at && Date.now() < (t.expires_at - TOKEN_BUFFER);
     }
 
-    function loadFromStorage() {
+    function loadFromStorage(companyId) {
         try {
-            const stored = localStorage.getItem(STORAGE_KEY);
+            const stored = localStorage.getItem(storageKey(companyId));
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.access_token && data.expires_at && Date.now() < (data.expires_at - TOKEN_BUFFER)) {
-                    token = data.access_token;
-                    tokenExpiry = Number(data.expires_at);
+                    tokenStore[companyId] = data;
                     return true;
                 }
             }
@@ -63,20 +74,19 @@ window.TPOSClient = (function() {
         return false;
     }
 
-    async function loadFromFirestore() {
+    async function loadFromFirestore(companyId) {
         try {
             if (!window.firebase || !window.firebase.firestore) return false;
-            const doc = await firebase.firestore().collection('tokens').doc('tpos_token').get();
+            const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
+            const doc = await firebase.firestore().collection('tokens').doc(docId).get();
             if (!doc.exists) return false;
             const data = doc.data();
             if (data.access_token && data.expires_at && Date.now() < (data.expires_at - TOKEN_BUFFER)) {
-                token = data.access_token;
-                tokenExpiry = Number(data.expires_at);
-                // Sync to localStorage
+                tokenStore[companyId] = data;
                 try {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                    localStorage.setItem(storageKey(companyId), JSON.stringify(data));
                 } catch (e) { /* ignore */ }
-                console.log('[TPOS-Search] Token loaded from Firestore');
+                console.log(`[TPOS-Search] Token loaded from Firestore for company ${companyId}`);
                 return true;
             }
         } catch (e) {
@@ -85,28 +95,36 @@ window.TPOSClient = (function() {
         return false;
     }
 
-    function saveToStorage(tokenData) {
+    function saveToken(companyId, tokenData) {
         const expiresAt = Date.now() + (tokenData.expires_in * 1000);
         const dataToSave = {
             access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token || null,
             token_type: 'Bearer',
             expires_in: tokenData.expires_in,
             expires_at: expiresAt,
             issued_at: Date.now()
         };
+        tokenStore[companyId] = dataToSave;
+
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            localStorage.setItem(storageKey(companyId), JSON.stringify(dataToSave));
         } catch (e) { /* ignore */ }
+
         // Also save to Firestore
         try {
             if (window.firebase && window.firebase.firestore) {
-                firebase.firestore().collection('tokens').doc('tpos_token').set(dataToSave, { merge: true });
+                const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
+                firebase.firestore().collection('tokens').doc(docId).set(dataToSave, { merge: true });
             }
         } catch (e) { /* ignore */ }
     }
 
-    async function fetchNewToken() {
-        console.log('[TPOS-Search] Fetching new token...');
+    /**
+     * Password login → always gets CompanyId 1 token + refresh_token
+     */
+    async function loginWithPassword() {
+        console.log('[TPOS-Search] Password login...');
         const response = await fetch(TOKEN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -118,31 +136,124 @@ window.TPOSClient = (function() {
         }
 
         const data = await response.json();
-        token = data.access_token;
-        tokenExpiry = Date.now() + (data.expires_in * 1000);
-        saveToStorage(data);
-        console.log('[TPOS-Search] Token refreshed');
-        return token;
+        saveToken(1, data);
+        console.log('[TPOS-Search] Password login OK, CompanyId 1 token saved');
+        return data;
     }
 
+    /**
+     * SwitchCompany + refresh_token → get token for target company
+     * Flow: SwitchCompany(targetCompanyId) → refresh_token → new token
+     */
+    async function switchCompanyToken(targetCompanyId) {
+        console.log(`[TPOS-Search] Switching to company ${targetCompanyId}...`);
+
+        // Need a valid token (any company) to call SwitchCompany
+        let currentToken = null;
+        for (const cid of Object.keys(tokenStore)) {
+            if (tokenStore[cid]?.access_token) {
+                currentToken = tokenStore[cid];
+                break;
+            }
+        }
+        if (!currentToken) {
+            // No token at all, login first
+            const loginData = await loginWithPassword();
+            currentToken = tokenStore[1];
+        }
+
+        // Step 1: Call SwitchCompany
+        const switchResponse = await fetch(SWITCH_COMPANY_URL, {
+            method: 'POST',
+            headers: {
+                ...getHeaders(currentToken.access_token),
+                'Content-Type': 'application/json;charset=UTF-8'
+            },
+            body: JSON.stringify({ companyId: targetCompanyId })
+        });
+
+        if (!switchResponse.ok) {
+            console.error(`[TPOS-Search] SwitchCompany failed: ${switchResponse.status}`);
+            throw new Error(`SwitchCompany failed: ${switchResponse.status}`);
+        }
+        console.log(`[TPOS-Search] SwitchCompany(${targetCompanyId}) OK`);
+
+        // Step 2: Refresh token to get new token with target CompanyId
+        const refreshToken = currentToken.refresh_token;
+        if (!refreshToken) {
+            throw new Error('No refresh_token available for token refresh');
+        }
+
+        const refreshResponse = await fetch(TOKEN_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Bearer ${currentToken.access_token}`
+            },
+            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+        });
+
+        if (!refreshResponse.ok) {
+            console.error(`[TPOS-Search] Token refresh failed: ${refreshResponse.status}`);
+            throw new Error(`Token refresh failed: ${refreshResponse.status}`);
+        }
+
+        const newTokenData = await refreshResponse.json();
+        saveToken(targetCompanyId, newTokenData);
+        console.log(`[TPOS-Search] Company ${targetCompanyId} token saved`);
+        return newTokenData;
+    }
+
+    /**
+     * Get valid token for current company
+     */
     async function getToken() {
-        if (isTokenValid()) return token;
-        if (loadFromStorage() && isTokenValid()) return token;
-        if (await loadFromFirestore() && isTokenValid()) return token;
+        const companyId = getCompanyId();
+
+        // Check in-memory
+        if (isTokenValid(companyId)) {
+            return tokenStore[companyId].access_token;
+        }
+
+        // Check localStorage
+        if (loadFromStorage(companyId) && isTokenValid(companyId)) {
+            return tokenStore[companyId].access_token;
+        }
+
+        // Check Firestore
+        if (await loadFromFirestore(companyId) && isTokenValid(companyId)) {
+            return tokenStore[companyId].access_token;
+        }
 
         // Prevent concurrent refresh
         if (refreshPromise) {
             await refreshPromise;
-            return token;
+            if (isTokenValid(companyId)) return tokenStore[companyId].access_token;
         }
 
-        refreshPromise = fetchNewToken();
-        try {
-            await refreshPromise;
-        } finally {
-            refreshPromise = null;
-        }
-        return token;
+        // Need to fetch new token
+        refreshPromise = (async () => {
+            try {
+                if (companyId === 1) {
+                    // CompanyId 1: direct password login
+                    await loginWithPassword();
+                } else {
+                    // CompanyId 2+: need SwitchCompany flow
+                    // First ensure we have a base token (CompanyId 1)
+                    if (!isTokenValid(1)) {
+                        if (!loadFromStorage(1) || !isTokenValid(1)) {
+                            await loginWithPassword();
+                        }
+                    }
+                    await switchCompanyToken(companyId);
+                }
+            } finally {
+                refreshPromise = null;
+            }
+        })();
+
+        await refreshPromise;
+        return tokenStore[companyId]?.access_token;
     }
 
     // =====================================================
@@ -161,11 +272,11 @@ window.TPOSClient = (function() {
 
         // Handle 401 - clear cached token, fetch new one, retry once
         if (response.status === 401) {
-            console.log('[TPOS-Search] 401, clearing cached token and refreshing...');
-            token = null;
-            tokenExpiry = null;
-            // Clear storage so getToken() won't reload the same bad token
-            try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+            const companyId = getCompanyId();
+            console.log(`[TPOS-Search] 401, clearing token for company ${companyId} and refreshing...`);
+            delete tokenStore[companyId];
+            try { localStorage.removeItem(storageKey(companyId)); } catch (e) { /* ignore */ }
+
             const newToken = await getToken();
             return fetch(url, {
                 ...options,
@@ -222,8 +333,6 @@ window.TPOSClient = (function() {
         const prefix = category.toUpperCase();
 
         try {
-            // Use OData $filter on Product entity (supports startswith)
-            // /api/odata/Product → tomato.tpos.vn/odata/Product
             const url = `${PROXY_URL}/api/odata/Product`
                 + `?$filter=Active eq true and startswith(DefaultCode,'${prefix}')`
                 + `&$orderby=Id desc`
@@ -236,7 +345,6 @@ window.TPOSClient = (function() {
 
             if (!response.ok) {
                 console.warn(`[TPOS-Search] getMaxProductCode failed: ${response.status}`);
-                // Fallback: try GetViewV2 with high range probe
                 return await getMaxProductCodeFallback(prefix);
             }
 
@@ -273,7 +381,6 @@ window.TPOSClient = (function() {
         console.log(`[TPOS-Search] Using fallback probe for ${prefix}`);
         const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
 
-        // Probe recent products from GetViewV2 (sorted by DateCreated desc = newest first)
         try {
             const url = `${PROXY_URL}/api/odata/Product/OdataService.GetViewV2`
                 + `?Active=true`
@@ -306,15 +413,30 @@ window.TPOSClient = (function() {
         }
     }
 
-    // Initialize
-    loadFromStorage();
-    console.log('[TPOS-Search] Loaded, token valid:', isTokenValid());
+    // =====================================================
+    // INITIALIZE - migrate old storage key
+    // =====================================================
+
+    // Migrate old single-key storage to company-1 key
+    try {
+        const oldData = localStorage.getItem('bearer_token_data');
+        if (oldData) {
+            const parsed = JSON.parse(oldData);
+            if (parsed.access_token && !localStorage.getItem(storageKey(1))) {
+                localStorage.setItem(storageKey(1), oldData);
+            }
+            localStorage.removeItem('bearer_token_data');
+        }
+    } catch (e) { /* ignore */ }
+
+    loadFromStorage(getCompanyId());
+    console.log(`[TPOS-Search] Loaded, company: ${getCompanyId()}, token valid: ${isTokenValid(getCompanyId())}`);
 
     return {
         searchProduct,
         getMaxProductCode,
         getToken,
         authenticatedFetch,
-        isTokenValid: () => isTokenValid()
+        isTokenValid: () => isTokenValid(getCompanyId())
     };
 })();
