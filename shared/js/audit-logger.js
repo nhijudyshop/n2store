@@ -192,10 +192,3 @@ window.AuditLogger = (function () {
     };
 
 })();
-
-// =====================================================
-// ES Module exports (cho Customer Hub dùng import)
-// =====================================================
-export var logAction = window.AuditLogger.logAction;
-export var isValidActionType = window.AuditLogger.isValidActionType;
-export var VALID_ACTION_TYPES = window.AuditLogger.VALID_ACTION_TYPES;

@@ -1,6 +1,6 @@
 // customer-hub/js/modules/wallet-panel.js
 import apiService from '../api-service.js';
-import { logAction } from '../../../shared/js/audit-logger.js';
+import { logAction } from '../../../shared/js/audit-logger.esm.js';
 
 const TYPE_LABELS = {
     'DEPOSIT': 'Nạp tiền',

@@ -2,7 +2,7 @@
 import apiService from '../api-service.js';
 import { PermissionHelper } from '../utils/permissions.js';
 import { WalletPanelModule } from './wallet-panel.js';
-import { logAction } from '../../../shared/js/audit-logger.js';
+import { logAction } from '../../../shared/js/audit-logger.esm.js';
 
 export class CustomerProfileModule {
     constructor(containerId, permissionHelper) {
