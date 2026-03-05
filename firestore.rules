@@ -7,70 +7,61 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if user is admin
-    function isAdmin() {
-      return isAuthenticated() &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
     // =============================================
     // App Config & Settings
     // =============================================
 
-    // App configuration (version check, etc.)
     match /app_config/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Application settings
     match /settings/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
     // Users & Permissions
     // =============================================
 
-    // Users collection - read allowed without auth for login flow
-    // (app reads user doc to verify password BEFORE signInAnonymously)
     match /users/{userId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAuthenticated();
     }
 
-    // Permission templates
     match /permission_templates/{templateId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /user_preferences/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // Customers collection
     match /customers/{customerId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
     // Tokens & Integration
     // =============================================
 
-    // TPOS tokens
     match /tokens/{tokenId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
-    // Pancake integration tokens
     match /pancake_tokens/{tokenId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
-    // Pancake cached images
     match /pancake_images/{imageId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
@@ -79,17 +70,17 @@ service cloud.firestore {
     // =============================================
 
     match /products/{productId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
     match /product_stats/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
     match /balance_history/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
@@ -98,45 +89,28 @@ service cloud.firestore {
     // =============================================
 
     match /purchase_orders/{orderId} {
-      function isOwner() {
-        return resource.data.created_by == request.auth.uid;
-      }
-      function isCreatingAsOwner() {
-        return request.resource.data.created_by == request.auth.uid;
-      }
-
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isCreatingAsOwner();
-      allow update: if isAuthenticated()
-        && (isOwner() || isAdmin())
-        && resource.data.status != 'COMPLETED';
-      allow delete: if isAuthenticated()
-        && (isOwner() || isAdmin())
-        && resource.data.status in ['DRAFT', 'CANCELLED'];
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /purchase_order_items/{itemId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /goods_receiving/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /goods_receiving_items/{itemId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /supplier_debt_notes/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
@@ -144,21 +118,18 @@ service cloud.firestore {
     // =============================================
 
     match /inventory_tracking/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /inventory_prepayments/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /inventory_other_expenses/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
@@ -166,9 +137,8 @@ service cloud.firestore {
     // =============================================
 
     match /nhanhang/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
@@ -176,64 +146,56 @@ service cloud.firestore {
     // =============================================
 
     match /hanghoan/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /ban_hang/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /tra_hang/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /doi_soat/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
     // Other Business Modules
     // =============================================
 
-    // CK module
     match /ck/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Hàng Rót Xả
     match /hangrotxa/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // IB (Inventory Book)
     match /ib/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Đặt Hàng
     match /dathang/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Bảng Kiểm Hàng (NCC names)
     match /ncc-names/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /campaigns/{docId} {
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
@@ -242,25 +204,25 @@ service cloud.firestore {
     // =============================================
 
     match /soquy_vouchers/{voucherId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /soquy_counters/{counterId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /soquy_meta/{metaId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /soquy_edit_history/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update: if false;
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated();
     }
 
     // =============================================
@@ -268,48 +230,46 @@ service cloud.firestore {
     // =============================================
 
     match /order-logs/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /return-logs/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /report_order_details/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if false;
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
-    // Invoice status tracking
+    // Subcollection for report chunks
+    match /report_order_details/{docId}/order_chunks/{chunkId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
     match /invoice_status_v2/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /invoice_status_delete_v2/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /order_creation_history/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
+      allow update, delete: if false;
     }
 
     match /merge_orders_history/{docId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
+      allow update, delete: if false;
     }
 
     // =============================================
@@ -317,25 +277,19 @@ service cloud.firestore {
     // =============================================
 
     match /kpi_base/{docId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated()
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['superseded_by_merge', 'mergedAt', 'merged_into']);
-      allow delete: if false;
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /kpi_audit_log/{logId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
+      allow update, delete: if false;
     }
 
     match /kpi_statistics/{userId}/{document=**} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if false;
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
@@ -343,10 +297,10 @@ service cloud.firestore {
     // =============================================
 
     match /edit_history/{logId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow create: if isAuthenticated();
       allow update: if false;
-      allow delete: if isAdmin();
+      allow delete: if isAuthenticated();
     }
 
     // =============================================
@@ -354,27 +308,23 @@ service cloud.firestore {
     // =============================================
 
     match /attendance_records/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /attendance_device_users/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /attendance_commands/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /attendance_sync_status/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if false;
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
@@ -382,21 +332,18 @@ service cloud.firestore {
     // =============================================
 
     match /message_templates/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /message_campaigns/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     match /quickReplies/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
@@ -404,9 +351,8 @@ service cloud.firestore {
     // =============================================
 
     match /livestream_reports/{docId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
 
     // =============================================
