@@ -148,6 +148,9 @@ class PurchaseOrderController {
             // Bind UI events
             this.bindEvents();
 
+            // Init shop selector
+            this.initShopSelector();
+
             // Pre-load NCC names for supplier autocomplete
             if (window.NCCManager) {
                 window.NCCManager.loadNCCNames().catch(err =>
@@ -259,6 +262,23 @@ class PurchaseOrderController {
                 this.renderTableForCurrentPage();
             })
         );
+    }
+
+    /**
+     * Init shop selector dropdown in sidebar
+     */
+    initShopSelector() {
+        const selector = document.getElementById('shopSelector');
+        if (!selector || !window.ShopConfig) return;
+
+        // Set current value from localStorage
+        selector.value = window.ShopConfig.getSelectedShopId();
+
+        // Handle change
+        selector.addEventListener('change', (e) => {
+            window.ShopConfig.setShop(e.target.value);
+            console.log('[ShopSelector] Switched to:', e.target.value);
+        });
     }
 
     /**

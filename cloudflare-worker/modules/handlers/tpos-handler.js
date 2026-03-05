@@ -93,12 +93,13 @@ export async function handleTposExportStandardPrice(request, url) {
  */
 export async function handleTposOrderLines(request, pathname) {
     const orderId = pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)?.[1];
+    const companyId = request.headers.get('X-Company-Id') || null;
 
-    console.log('[TPOS-ORDER-LINES] Fetching OrderLines for order:', orderId);
+    console.log('[TPOS-ORDER-LINES] Fetching OrderLines for order:', orderId, companyId ? `company: ${companyId}` : '');
 
     try {
         // Get or fetch TPOS token
-        let token = getCachedToken()?.access_token;
+        let token = getCachedToken('nvkt', companyId)?.access_token;
 
         if (!token) {
             console.log('[TPOS-ORDER-LINES] No cached token, fetching new one...');
@@ -113,7 +114,7 @@ export async function handleTposOrderLines(request, pathname) {
             }
 
             const tokenData = await tokenResponse.json();
-            cacheToken(tokenData);
+            cacheToken(tokenData, 'nvkt', companyId);
             token = tokenData.access_token;
         }
 
@@ -168,9 +169,11 @@ export async function handleTposOrderLinesByRef(request, pathname) {
         return errorResponse('Invalid order reference', 400);
     }
 
+    const companyId = request.headers.get('X-Company-Id') || null;
+
     try {
         // Get token
-        let token = getCachedToken()?.access_token;
+        let token = getCachedToken('nvkt', companyId)?.access_token;
 
         if (!token) {
             const tokenResponse = await fetchWithRetry(API_ENDPOINTS.TPOS.TOKEN, {
@@ -184,7 +187,7 @@ export async function handleTposOrderLinesByRef(request, pathname) {
             }
 
             const tokenData = await tokenResponse.json();
-            cacheToken(tokenData);
+            cacheToken(tokenData, 'nvkt', companyId);
             token = tokenData.access_token;
         }
 

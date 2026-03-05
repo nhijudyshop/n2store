@@ -261,7 +261,7 @@ window.TPOSProductCreator = (function () {
             Tracking: "none",
             DescriptionPurchase: null,
             DescriptionSale: null,
-            CompanyId: 1,
+            CompanyId: window.ShopConfig ? window.ShopConfig.getConfig().CompanyId : 1,
             NameGet: null,
             PropertyStockProductionId: null,
             SaleDelay: 0,

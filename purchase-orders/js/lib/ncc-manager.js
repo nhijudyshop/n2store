@@ -276,7 +276,7 @@ window.NCCManager = (function() {
             Active: true,
             Employee: false,
             IsCompany: false,
-            CompanyId: 1,
+            CompanyId: window.ShopConfig ? window.ShopConfig.getConfig().CompanyId : 1,
             Type: 'contact',
             CompanyType: 'person',
             Credit: 0,

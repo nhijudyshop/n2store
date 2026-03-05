@@ -10,56 +10,22 @@ window.TPOSPurchase = (function() {
     const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // =====================================================
-    // STATIC CONFIG (from TPOS - constant for NJD Live)
+    // DYNAMIC CONFIG - loaded from ShopConfig module
     // =====================================================
 
-    const STATIC = {
-        CompanyId: 1,
-        JournalId: 4,
-        AccountId: 4,
-        PickingTypeId: 1,
-        PaymentJournalId: 1,
-        UserId: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
-
-        Company: {
-            Id: 1, Name: 'NJD Live',
-            Sender: 'Tổng đài:19003357', Phone: '19003357',
-            Street: '39/9A đường TMT 9A, Khu phố 2, Phường Trung Mỹ Tây, Quận 12, Hồ Chí Minh',
-            CurrencyId: 1, Active: true, AllowSaleNegative: true,
-            Customer: false, Supplier: false,
-            DepositAccountId: 11, DeliveryCarrierId: 7,
-            City: { name: 'Thành phố Hồ Chí Minh', code: '79' },
-            District: { name: 'Quận 12', code: '761', cityCode: '79' },
-            Ward: { name: 'Phường Trung Mỹ Tây', code: '26785', cityCode: '79', districtCode: '761' }
-        },
-
-        PickingType: {
-            Id: 1, Code: 'incoming', Name: 'Nhận hàng', Active: true,
-            WarehouseId: 1, UseCreateLots: true, UseExistingLots: true,
-            NameGet: 'Nhi Judy Store: Nhận hàng'
-        },
-
-        Journal: {
-            Id: 4, Name: 'Nhật ký mua hàng', Type: 'purchase',
-            TypeGet: 'Mua hàng', UpdatePosted: true, DedicatedRefund: false
-        },
-
-        User: {
-            Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
-            Email: 'nvkt@gmail.com', Name: 'nvkt', UserName: 'nvkt',
-            CompanyId: 1, CompanyName: 'NJD Live', Active: true
-        },
-
-        PaymentJournal: {
-            Id: 1, Name: 'Tiền mặt', Type: 'cash',
-            TypeGet: 'Tiền mặt', UpdatePosted: true
-        },
-
-        Account: {
-            Id: 4, Name: 'Phải trả người bán', Code: '331',
-            Active: true, NameGet: '331 Phải trả người bán', Reconcile: false
-        }
-    };
+    function getSTATIC() {
+        return window.ShopConfig ? window.ShopConfig.getConfig() : {
+            CompanyId: 1, JournalId: 4, AccountId: 4,
+            PickingTypeId: 1, PaymentJournalId: 1,
+            UserId: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc',
+            Company: { Id: 1, Name: 'NJD Live' },
+            PickingType: { Id: 1, Code: 'incoming', Name: 'Nhận hàng', Active: true, WarehouseId: 1 },
+            Journal: { Id: 4, Name: 'Nhật ký mua hàng', Type: 'purchase' },
+            User: { Id: 'ae5c70a1-898c-4e9f-b248-acc10b7036bc', Email: 'nvkt@gmail.com', Name: 'nvkt' },
+            PaymentJournal: { Id: 1, Name: 'Tiền mặt', Type: 'cash' },
+            Account: { Id: 4, Name: 'Phải trả người bán', Code: '331' }
+        };
+    }
 
     // Format date as Vietnam timezone (+07:00) matching TPOS payload format
     function toVNDateString(date) {
@@ -158,6 +124,7 @@ window.TPOSPurchase = (function() {
 
         // Build payload
         const now = new Date();
+        const STATIC = getSTATIC();
         const payload = {
             Id: 0,
             Name: null,
