@@ -33,9 +33,10 @@ service cloud.firestore {
     // Users & Permissions
     // =============================================
 
-    // Users collection
+    // Users collection - read allowed without auth for login flow
+    // (app reads user doc to verify password BEFORE signInAnonymously)
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
