@@ -188,22 +188,6 @@ window.TPOSClient = (function() {
         }
         console.log(`[TPOS-Search] SwitchCompany(${targetCompanyId}) OK`);
 
-        // SwitchCompany invalidates other company tokens on server side
-        // Clear all other company tokens to prevent stale token usage
-        for (const cid of Object.keys(tokenStore)) {
-            if (Number(cid) !== targetCompanyId) {
-                delete tokenStore[cid];
-                try { localStorage.removeItem(storageKey(cid)); } catch (e) { /* ignore */ }
-                // Clear Firestore token too
-                try {
-                    if (window.firebase && window.firebase.firestore) {
-                        const docId = Number(cid) === 1 ? 'tpos_token' : `tpos_token_${cid}`;
-                        firebase.firestore().collection('tokens').doc(docId).delete();
-                    }
-                } catch (e) { /* ignore */ }
-            }
-        }
-
         // Step 2: Refresh token to get new token with target CompanyId
         const refreshToken = currentToken.refresh_token;
         if (!refreshToken) {
@@ -290,25 +274,20 @@ window.TPOSClient = (function() {
             }
         });
 
-        // Handle 401 - clear ALL cached tokens, force fresh login, retry once
+        // Handle 401 - clear token for current company, force fresh, retry once
         if (response.status === 401) {
             const companyId = getCompanyId();
-            console.log(`[TPOS-Search] 401, clearing ALL tokens and forcing fresh login...`);
+            console.log(`[TPOS-Search] 401, clearing token for company ${companyId} and refreshing...`);
 
-            // Clear ALL company tokens (in-memory, localStorage, Firestore)
-            for (const cid of Object.keys(tokenStore)) {
-                delete tokenStore[cid];
-                try { localStorage.removeItem(storageKey(cid)); } catch (e) { /* ignore */ }
-                try {
-                    if (window.firebase && window.firebase.firestore) {
-                        const docId = Number(cid) === 1 ? 'tpos_token' : `tpos_token_${cid}`;
-                        firebase.firestore().collection('tokens').doc(docId).delete();
-                    }
-                } catch (e) { /* ignore */ }
-            }
-            // Also clear any un-keyed entries
-            try { localStorage.removeItem(storageKey(1)); } catch (e) { /* ignore */ }
-            try { localStorage.removeItem(storageKey(2)); } catch (e) { /* ignore */ }
+            // Clear this company's token from all caches
+            delete tokenStore[companyId];
+            try { localStorage.removeItem(storageKey(companyId)); } catch (e) { /* ignore */ }
+            try {
+                if (window.firebase && window.firebase.firestore) {
+                    const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
+                    firebase.firestore().collection('tokens').doc(docId).delete();
+                }
+            } catch (e) { /* ignore */ }
 
             const newToken = await getToken();
             return fetch(url, {
