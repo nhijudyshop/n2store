@@ -148,22 +148,14 @@ window.TPOSClient = (function() {
     async function switchCompanyToken(targetCompanyId) {
         console.log(`[TPOS-Search] Switching to company ${targetCompanyId}...`);
 
-        // Need a valid token (any company) to call SwitchCompany
-        let currentToken = null;
-        for (const cid of Object.keys(tokenStore)) {
-            if (tokenStore[cid]?.access_token) {
-                currentToken = tokenStore[cid];
-                break;
-            }
+        // Always ensure a fresh, valid company 1 token first
+        if (!isTokenValid(1) || !tokenStore[1]?.refresh_token) {
+            await loginWithPassword();
         }
-        if (!currentToken) {
-            // No token at all, login first
-            const loginData = await loginWithPassword();
-            currentToken = tokenStore[1];
-        }
+        let currentToken = tokenStore[1];
 
         // Step 1: Call SwitchCompany
-        const switchResponse = await fetch(SWITCH_COMPANY_URL, {
+        let switchResponse = await fetch(SWITCH_COMPANY_URL, {
             method: 'POST',
             headers: {
                 ...getHeaders(currentToken.access_token),
@@ -171,6 +163,24 @@ window.TPOSClient = (function() {
             },
             body: JSON.stringify({ companyId: targetCompanyId })
         });
+
+        // If 401, force fresh login and retry SwitchCompany once
+        if (switchResponse.status === 401) {
+            console.log('[TPOS-Search] SwitchCompany 401, forcing fresh login...');
+            delete tokenStore[1];
+            try { localStorage.removeItem(storageKey(1)); } catch (e) { /* ignore */ }
+            await loginWithPassword();
+            currentToken = tokenStore[1];
+
+            switchResponse = await fetch(SWITCH_COMPANY_URL, {
+                method: 'POST',
+                headers: {
+                    ...getHeaders(currentToken.access_token),
+                    'Content-Type': 'application/json;charset=UTF-8'
+                },
+                body: JSON.stringify({ companyId: targetCompanyId })
+            });
+        }
 
         if (!switchResponse.ok) {
             console.error(`[TPOS-Search] SwitchCompany failed: ${switchResponse.status}`);
