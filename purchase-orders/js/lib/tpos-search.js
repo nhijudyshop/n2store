@@ -262,13 +262,13 @@ window.TPOSClient = (function() {
     async function getToken() {
         const companyId = getCompanyId();
 
-        // Check in-memory
-        if (isTokenValid(companyId)) {
+        // Always try localStorage first (another tab may have refreshed)
+        if (loadFromStorage(companyId) && isTokenValid(companyId)) {
             return tokenStore[companyId].access_token;
         }
 
-        // Check localStorage
-        if (loadFromStorage(companyId) && isTokenValid(companyId)) {
+        // Fallback to in-memory (if localStorage was cleared but memory still valid)
+        if (isTokenValid(companyId)) {
             return tokenStore[companyId].access_token;
         }
 
@@ -503,6 +503,24 @@ window.TPOSClient = (function() {
 
     loadFromStorage(getCompanyId());
     console.log(`[TPOS-Search] Loaded, company: ${getCompanyId()}, token valid: ${isTokenValid(getCompanyId())}`);
+
+    // Sync token across tabs — when another tab refreshes token, update in-memory cache
+    try {
+        window.addEventListener('storage', (e) => {
+            if (e.key && e.key.startsWith('bearer_token_data_') && e.newValue) {
+                const cid = parseInt(e.key.replace('bearer_token_data_', ''));
+                if (!isNaN(cid)) {
+                    try {
+                        const data = JSON.parse(e.newValue);
+                        if (data.access_token) {
+                            tokenStore[cid] = data;
+                            console.log(`[TPOS-Search] Token synced from another tab for company ${cid}`);
+                        }
+                    } catch (err) { /* ignore */ }
+                }
+            }
+        });
+    } catch (e) { /* ignore */ }
 
     return {
         searchProduct,

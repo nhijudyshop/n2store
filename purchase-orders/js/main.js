@@ -1012,6 +1012,12 @@ class PurchaseOrderController {
             btn.textContent = 'Đang tạo...';
             btn.style.opacity = '0.6';
 
+            const resetBtn = () => {
+                btn.disabled = false;
+                btn.textContent = 'Tạo đơn TPOS';
+                btn.style.opacity = '';
+            };
+
             try {
                 // Attach extra fields to order for TPOS
                 singleOrder.decreaseAmount = parseFloat(overlay.querySelector('#poDecreaseAmount').value) || 0;
@@ -1019,26 +1025,41 @@ class PurchaseOrderController {
                 singleOrder.tposNote = overlay.querySelector('#poNote').value || '';
 
                 // Step 1: Export MH (resolve codes + build workbook, no download)
+                console.log('[PO Preview] Step 1: exportMuaHang...');
                 const result = await this.exportMuaHang(orders, { download: false });
+                console.log('[PO Preview] exportMuaHang result:', { exported: result.exported, skipped: result.skipped, errors: result.errors });
 
                 if (result.exported === 0) {
-                    this.ui.showToast('Không thể tạo đơn TPOS - Không có SP nào phù hợp', 'error');
-                    btn.disabled = false;
-                    btn.textContent = 'Tạo đơn TPOS';
-                    btn.style.opacity = '';
+                    const errMsg = result.errors?.length > 0
+                        ? 'Không tìm thấy SP trên TPOS:\n' + result.errors.join('\n')
+                        : 'Không có SP nào phù hợp để tạo đơn TPOS';
+                    this.ui.showToast(errMsg, 'error');
+                    resetBtn();
                     return;
                 }
 
                 if (!ncc?.tposId) {
                     this.ui.showToast('NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.', 'error');
-                    btn.disabled = false;
-                    btn.textContent = 'Tạo đơn TPOS';
-                    btn.style.opacity = '';
+                    resetBtn();
+                    return;
+                }
+
+                if (!window.TPOSPurchase?.createFromExcel) {
+                    this.ui.showToast('Module TPOSPurchase chưa được tải. Hãy reload trang.', 'error');
+                    resetBtn();
                     return;
                 }
 
                 // Step 2: Create on TPOS
+                console.log('[PO Preview] Step 2: createFromExcel...');
                 const tposResult = await window.TPOSPurchase.createFromExcel(result.workbook, singleOrder);
+                console.log('[PO Preview] createFromExcel result:', tposResult);
+
+                if (!tposResult.success) {
+                    this.ui.showToast('Lỗi tạo đơn TPOS: ' + (tposResult.error || 'Không rõ lỗi'), 'error');
+                    resetBtn();
+                    return;
+                }
 
                 overlay.remove();
 
@@ -1159,7 +1180,7 @@ class PurchaseOrderController {
             } catch (error) {
                 console.error('[PO Preview] Submit failed:', error);
                 this.ui.showToast('Lỗi tạo đơn TPOS: ' + error.message, 'error');
-                overlay.remove();
+                resetBtn();
             }
         });
     }
