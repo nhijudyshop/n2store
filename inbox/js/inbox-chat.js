@@ -1693,46 +1693,113 @@ class InboxChatController {
     }
 
     /**
-     * Format time for conversation list (reference: tpos-pancake formatTime)
-     * Today: show HH:mm, within 7 days: show day of week, else: dd/mm
+     * Parse timestamp from Pancake API to proper Date object
+     * Handles UTC timestamps without timezone suffix
      */
-    formatTime(date) {
-        if (!(date instanceof Date)) date = new Date(date);
-        if (isNaN(date.getTime())) return '';
-
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        const diffDays = Math.floor((today - msgDay) / 86400000);
-
-        // Today: show time
-        if (diffDays === 0) {
-            return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    parseTimestamp(timestamp) {
+        if (!timestamp) return null;
+        try {
+            let date;
+            if (typeof timestamp === 'string') {
+                if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                    date = new Date(timestamp + 'Z');
+                } else {
+                    date = new Date(timestamp);
+                }
+            } else if (typeof timestamp === 'number') {
+                date = timestamp > 9999999999 ? new Date(timestamp) : new Date(timestamp * 1000);
+            } else {
+                date = new Date(timestamp);
+            }
+            return isNaN(date.getTime()) ? null : date;
+        } catch (error) {
+            return null;
         }
-        // Within 7 days: day of week
-        if (diffDays > 0 && diffDays < 7) {
-            const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-            return days[date.getDay()];
-        }
-        // Older: dd/mm
-        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
     }
 
-    formatDate(date) {
-        if (!(date instanceof Date)) date = new Date(date);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        const diff = today - msgDay;
+    /**
+     * Format time for conversation list - always Vietnam timezone (GMT+7)
+     */
+    formatTime(timestamp) {
+        const date = this.parseTimestamp(timestamp);
+        if (!date) return '';
 
-        if (diff === 0) return 'Hôm nay';
-        if (diff === 86400000) return 'Hôm qua';
-        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        try {
+            const now = new Date();
+            const vnFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Ho_Chi_Minh',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', hour12: false
+            });
+
+            const dateParts = vnFormatter.formatToParts(date);
+            const nowParts = vnFormatter.formatToParts(now);
+            const getVal = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+
+            const isSameDay = getVal(dateParts, 'year') === getVal(nowParts, 'year') &&
+                              getVal(dateParts, 'month') === getVal(nowParts, 'month') &&
+                              getVal(dateParts, 'day') === getVal(nowParts, 'day');
+
+            if (isSameDay) {
+                return new Intl.DateTimeFormat('vi-VN', {
+                    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false
+                }).format(date);
+            }
+
+            const vnDateObj = new Date(getVal(dateParts, 'year'), getVal(dateParts, 'month') - 1, getVal(dateParts, 'day'));
+            const vnNowObj = new Date(getVal(nowParts, 'year'), getVal(nowParts, 'month') - 1, getVal(nowParts, 'day'));
+            const diffDays = Math.floor((vnNowObj - vnDateObj) / 86400000);
+
+            if (diffDays > 0 && diffDays < 7) {
+                const dayOfWeek = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'short' }).format(date);
+                const days = { 'Sun': 'CN', 'Mon': 'T2', 'Tue': 'T3', 'Wed': 'T4', 'Thu': 'T5', 'Fri': 'T6', 'Sat': 'T7' };
+                return days[dayOfWeek] || dayOfWeek;
+            }
+
+            return new Intl.DateTimeFormat('vi-VN', {
+                day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh'
+            }).format(date);
+        } catch (error) {
+            return '';
+        }
     }
 
-    formatMessageTime(date) {
-        if (!(date instanceof Date)) date = new Date(date);
-        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    formatDate(timestamp) {
+        const date = this.parseTimestamp(timestamp);
+        if (!date) return '';
+
+        try {
+            const now = new Date();
+            const vnFormatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'
+            });
+            const dateParts = vnFormatter.formatToParts(date);
+            const nowParts = vnFormatter.formatToParts(now);
+            const getVal = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
+
+            const dateKey = `${getVal(dateParts, 'year')}-${getVal(dateParts, 'month')}-${getVal(dateParts, 'day')}`;
+            const nowKey = `${getVal(nowParts, 'year')}-${getVal(nowParts, 'month')}-${getVal(nowParts, 'day')}`;
+
+            if (dateKey === nowKey) return 'Hôm nay';
+
+            const vnDateObj = new Date(getVal(dateParts, 'year'), getVal(dateParts, 'month') - 1, getVal(dateParts, 'day'));
+            const vnNowObj = new Date(getVal(nowParts, 'year'), getVal(nowParts, 'month') - 1, getVal(nowParts, 'day'));
+            if (vnNowObj - vnDateObj === 86400000) return 'Hôm qua';
+
+            return new Intl.DateTimeFormat('vi-VN', {
+                day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh'
+            }).format(date);
+        } catch (error) {
+            return '';
+        }
+    }
+
+    formatMessageTime(timestamp) {
+        const date = this.parseTimestamp(timestamp);
+        if (!date) return '';
+        return new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false
+        }).format(date);
     }
 
     formatMessageText(text) {
