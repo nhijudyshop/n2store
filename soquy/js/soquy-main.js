@@ -388,7 +388,9 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnCloseDetail.addEventListener('click', throttleClick(ui.closeDetailModal));
         }
         if (els.detailOverlay) {
-            els.detailOverlay.addEventListener('click', throttleClick(ui.closeDetailModal));
+            els.detailOverlay.addEventListener('click', throttleClick(() => {
+                if (!ui.isModalJustOpened()) ui.closeDetailModal();
+            }));
         }
 
         // Cancel modal events (throttled)
@@ -396,7 +398,9 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnCloseCancel.addEventListener('click', throttleClick(ui.closeCancelModal));
         }
         if (els.cancelOverlay) {
-            els.cancelOverlay.addEventListener('click', throttleClick(ui.closeCancelModal));
+            els.cancelOverlay.addEventListener('click', throttleClick(() => {
+                if (!ui.isModalJustOpened()) ui.closeCancelModal();
+            }));
         }
         if (els.btnDismissCancel) {
             els.btnDismissCancel.addEventListener('click', throttleClick(ui.closeCancelModal));
@@ -500,7 +504,9 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnCancelImport.addEventListener('click', throttleClick(() => ui.closeImportModal()));
         }
         if (els.importOverlay) {
-            els.importOverlay.addEventListener('click', throttleClick(() => ui.closeImportModal()));
+            els.importOverlay.addEventListener('click', throttleClick(() => {
+                if (!ui.isModalJustOpened()) ui.closeImportModal();
+            }));
         }
         if (els.importFileInput) {
             els.importFileInput.addEventListener('change', (e) => ui.handleImportFileChange(e));
@@ -526,7 +532,9 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnCloseCategory.addEventListener('click', throttleClick(() => ui.closeCategoryModal()));
         }
         if (els.categoryOverlay) {
-            els.categoryOverlay.addEventListener('click', throttleClick(() => ui.closeCategoryModal()));
+            els.categoryOverlay.addEventListener('click', throttleClick(() => {
+                if (!ui.isModalJustOpened()) ui.closeCategoryModal();
+            }));
         }
         if (els.btnSaveNewCategory) {
             els.btnSaveNewCategory.addEventListener('click', throttleClick(() => ui.saveNewCategory()));
@@ -567,7 +575,9 @@ document.addEventListener('DOMContentLoaded', () => {
             els.btnCloseSource.addEventListener('click', throttleClick(() => ui.closeSourceModal()));
         }
         if (els.sourceOverlay) {
-            els.sourceOverlay.addEventListener('click', throttleClick(() => ui.closeSourceModal()));
+            els.sourceOverlay.addEventListener('click', throttleClick(() => {
+                if (!ui.isModalJustOpened()) ui.closeSourceModal();
+            }));
         }
         if (els.btnSaveNewSource) {
             els.btnSaveNewSource.addEventListener('click', throttleClick(() => ui.saveNewSource()));
