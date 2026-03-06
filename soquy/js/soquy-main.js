@@ -35,9 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================
 
     function initElements() {
-        // Fund type radios
-        els.fundTypeRadios = document.querySelectorAll('input[name="quytien"]');
-
         // Time filter
         els.timeFilterSelect = document.getElementById('timeFilterSelect');
         els.timeFilterCustom = document.getElementById('timeFilterCustom');
@@ -182,22 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================
 
     function bindEvents() {
-        // Fund type radios
-        els.fundTypeRadios.forEach((radio, index) => {
-            const fundTypes = [
-                config.FUND_TYPES.CASH,
-                config.FUND_TYPES.BANK,
-                config.FUND_TYPES.EWALLET,
-                config.FUND_TYPES.ALL
-            ];
-            radio.addEventListener('change', () => {
-                if (radio.checked) {
-                    ui.handleFundTypeChange(fundTypes[index]);
-                    ui.saveFilterState();
-                }
-            });
-        });
-
         // Time filter select
         if (els.timeFilterSelect) {
             els.timeFilterSelect.addEventListener('change', (e) => {

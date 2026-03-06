@@ -478,10 +478,7 @@ const SoquyUI = (function () {
 
     function updateSidebarTitle() {
         if (els.sidebarTitle) {
-            els.sidebarTitle.textContent = `Sổ quỹ ${config.FUND_TYPE_LABELS[state.fundType] || ''}`.toLowerCase();
-            // Capitalize first letter
-            const text = els.sidebarTitle.textContent;
-            els.sidebarTitle.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+            els.sidebarTitle.textContent = 'Sổ quỹ tiền mặt';
         }
     }
 
@@ -1027,7 +1024,6 @@ const SoquyUI = (function () {
     function saveFilterState() {
         try {
             const filters = {
-                fundType: state.fundType,
                 timeFilter: state.timeFilter,
                 customStartDate: state.customStartDate,
                 customEndDate: state.customEndDate,
@@ -1045,7 +1041,6 @@ const SoquyUI = (function () {
             const saved = localStorage.getItem('soquy_filters');
             if (!saved) return;
             const filters = JSON.parse(saved);
-            if (filters.fundType) state.fundType = filters.fundType;
             if (filters.timeFilter) state.timeFilter = filters.timeFilter;
             if (filters.customStartDate) state.customStartDate = filters.customStartDate;
             if (filters.customEndDate) state.customEndDate = filters.customEndDate;
@@ -1057,13 +1052,6 @@ const SoquyUI = (function () {
     }
 
     function restoreFilterUI() {
-        // Restore fund type radios
-        const fundTypeRadios = document.querySelectorAll('input[name="quytien"]');
-        const fundTypes = ['cash', 'bank', 'ewallet', 'all'];
-        fundTypeRadios.forEach((radio, i) => {
-            radio.checked = fundTypes[i] === state.fundType;
-        });
-
         // Restore time filter
         const timeSelect = document.getElementById('timeFilterSelect');
         if (timeSelect && state.timeFilter !== 'custom') {
