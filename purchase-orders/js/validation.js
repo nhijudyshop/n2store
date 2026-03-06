@@ -250,12 +250,6 @@ function validateOrderItem(item, index) {
             'SELLING_PRICE_NEGATIVE',
             VALIDATION_MESSAGES.SELLING_PRICE_NEGATIVE
         ));
-    } else if (item.purchasePrice && item.sellingPrice <= item.purchasePrice) {
-        errors.push(createValidationError(
-            `${fieldPrefix}.sellingPrice`,
-            'SELLING_PRICE_LESS_THAN_PURCHASE',
-            VALIDATION_MESSAGES.SELLING_PRICE_LESS_THAN_PURCHASE
-        ));
     }
 
     return errors;
@@ -269,15 +263,10 @@ function validateOrderItem(item, index) {
 function validateOrderItems(items) {
     const errors = [];
 
-    // Check if items exist
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    // Check if items is a valid array
+    if (!items || !Array.isArray(items)) {
         errors.push(createValidationError('items', 'ITEMS_REQUIRED', VALIDATION_MESSAGES.ITEMS_REQUIRED));
         return errors;
-    }
-
-    // Check max items
-    if (items.length > 100) {
-        errors.push(createValidationError('items', 'ITEMS_MAX_EXCEEDED', VALIDATION_MESSAGES.ITEMS_MAX_EXCEEDED));
     }
 
     // Validate each item
