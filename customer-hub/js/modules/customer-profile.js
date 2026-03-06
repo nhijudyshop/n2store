@@ -597,8 +597,9 @@ export class CustomerProfileModule {
         // Get auth token from localStorage (same as orders-report)
         const getAuthToken = () => {
             try {
-                // Priority 1: bearer_token_data (main TPOS key)
-                const bearerData = localStorage.getItem('bearer_token_data');
+                // Priority 1: bearer_token_data_{companyId} (main TPOS key)
+                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
+                const bearerData = localStorage.getItem('bearer_token_data_' + companyId);
                 if (bearerData) {
                     const parsed = JSON.parse(bearerData);
                     if (parsed.access_token) return parsed.access_token;

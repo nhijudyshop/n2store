@@ -591,15 +591,16 @@ async function fetchDeliveryCarriers() {
     }
 
     // Get auth token from various possible localStorage keys
-    // Priority: bearer_token_data > auth > tpos_token
+    // Priority: bearer_token_data_{companyId} > auth > tpos_token
     let token = null;
     try {
-        // Try bearer_token_data first (most common key used by TPOS)
-        const bearerData = localStorage.getItem('bearer_token_data');
+        // Try bearer_token_data_{companyId} first (multi-company TPOS key)
+        const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
+        const bearerData = localStorage.getItem('bearer_token_data_' + companyId);
         if (bearerData) {
             const parsed = JSON.parse(bearerData);
             token = parsed.access_token || parsed.AccessToken;
-            console.log('[DELIVERY-CARRIER] Found token in bearer_token_data');
+            console.log('[DELIVERY-CARRIER] Found token in bearer_token_data_' + companyId);
         }
 
         // Fallback to auth
@@ -626,7 +627,7 @@ async function fetchDeliveryCarriers() {
     }
 
     if (!token) {
-        console.warn('[DELIVERY-CARRIER] No auth token found in: bearer_token_data, auth, tpos_token');
+        console.warn('[DELIVERY-CARRIER] No auth token found in: bearer_token_data_{companyId}, auth, tpos_token');
         return [];
     }
 
@@ -1573,8 +1574,9 @@ async function fetchOrderDetailsForSale(orderUuid) {
         if (window.tokenManager) {
             token = await window.tokenManager.getToken();
         } else {
-            // Fallback: try to get from bearer_token_data storage
-            const storedData = localStorage.getItem('bearer_token_data');
+            // Fallback: try to get from bearer_token_data_{companyId} storage
+            const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
+            const storedData = localStorage.getItem('bearer_token_data_' + companyId);
             if (storedData) {
                 const data = JSON.parse(storedData);
                 token = data.access_token;

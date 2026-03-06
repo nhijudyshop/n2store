@@ -3198,7 +3198,8 @@ const CUSTOMER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  */
 function getTposToken() {
     try {
-        const tokenData = localStorage.getItem('bearer_token_data');
+        const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
+        const tokenData = localStorage.getItem('bearer_token_data_' + companyId);
         if (tokenData) {
             const parsed = JSON.parse(tokenData);
             // Check if token is still valid (with 5 minute buffer)

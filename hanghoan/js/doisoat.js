@@ -228,7 +228,8 @@ const DoiSoatModule = (function () {
             } else {
                 console.warn('[DoiSoat] TokenManager not available, using fallback auth');
                 // Fallback to manual token retrieval
-                const authData = JSON.parse(localStorage.getItem('bearer_token_data') || '{}');
+                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
+                const authData = JSON.parse(localStorage.getItem('bearer_token_data_' + companyId) || '{}');
                 token = authData.access_token || '';
             }
 
@@ -697,7 +698,8 @@ const DoiSoatModule = (function () {
             if (tokenManager) {
                 token = await tokenManager.getToken();
             } else {
-                const authData = JSON.parse(localStorage.getItem('bearer_token_data') || '{}');
+                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
+                const authData = JSON.parse(localStorage.getItem('bearer_token_data_' + companyId) || '{}');
                 token = authData.access_token || '';
             }
 

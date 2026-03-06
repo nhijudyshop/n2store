@@ -671,7 +671,8 @@ async function confirmAndPrintSale() {
             if (window.tokenManager) {
                 token = await window.tokenManager.getToken();
             } else {
-                const storedData = localStorage.getItem('bearer_token_data');
+                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
+                const storedData = localStorage.getItem('bearer_token_data_' + companyId);
                 if (storedData) {
                     const data = JSON.parse(storedData);
                     token = data.access_token;
