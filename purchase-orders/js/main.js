@@ -268,17 +268,8 @@ class PurchaseOrderController {
      * Init shop selector dropdown in sidebar
      */
     initShopSelector() {
-        const selector = document.getElementById('shopSelector');
-        if (!selector || !window.ShopConfig) return;
-
-        // Set current value from localStorage
-        selector.value = window.ShopConfig.getSelectedShopId();
-
-        // Handle change
-        selector.addEventListener('change', (e) => {
-            window.ShopConfig.setShop(e.target.value);
-            console.log('[ShopSelector] Switched to:', e.target.value);
-        });
+        // Prevent page reload on shop change — purchase-orders handles it in-place
+        window._shopChangeNoReload = true;
     }
 
     /**

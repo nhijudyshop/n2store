@@ -3,6 +3,44 @@
    Auto-detect device and render appropriate UI
    ===================================================== */
 
+// =====================================================
+// SHOP CONFIG - Multi-company selector (NJD LIVE / NJD SHOP)
+// =====================================================
+window.ShopConfig = window.ShopConfig || (function() {
+    'use strict';
+
+    const STORAGE_KEY = 'n2store_selected_shop';
+
+    const SHOPS = {
+        'njd-live': { id: 'njd-live', label: 'NJD LIVE', CompanyId: 1 },
+        'njd-shop': { id: 'njd-shop', label: 'NJD SHOP', CompanyId: 2 }
+    };
+
+    function getSelectedShopId() {
+        return localStorage.getItem(STORAGE_KEY) || 'njd-live';
+    }
+
+    function getConfig() {
+        return SHOPS[getSelectedShopId()] || SHOPS['njd-live'];
+    }
+
+    function setShop(shopId) {
+        if (!SHOPS[shopId]) return;
+        const prev = getSelectedShopId();
+        if (prev === shopId) return;
+        localStorage.setItem(STORAGE_KEY, shopId);
+        window.dispatchEvent(new CustomEvent('shopChanged', {
+            detail: { shopId, config: SHOPS[shopId], previousShopId: prev }
+        }));
+    }
+
+    function getShops() {
+        return Object.values(SHOPS).map(s => ({ id: s.id, label: s.label }));
+    }
+
+    return { getSelectedShopId, getConfig, setShop, getShops };
+})();
+
 // Menu Configuration with Permissions
 const MENU_CONFIG = [
     // REMOVED: live nav item (module deleted)
@@ -1275,6 +1313,11 @@ class UnifiedNavigationManager {
                         <div class="mobile-user-role">${roleName}</div>
                     </div>
                 </div>
+                <select class="shop-selector mobile-shop-selector" id="mobileShopSelector">
+                    ${window.ShopConfig.getShops().map(s =>
+                        `<option value="${s.id}"${s.id === window.ShopConfig.getSelectedShopId() ? ' selected' : ''}>${s.label}</option>`
+                    ).join('')}
+                </select>
                 <button class="mobile-menu-btn" id="mobileMenuBtn">
                     <i data-lucide="menu"></i>
                 </button>
@@ -1295,6 +1338,20 @@ class UnifiedNavigationManager {
                 this.showEditDisplayNameModal();
             });
         }
+
+        // Mobile shop selector
+        const mobileShopSelector = topBar.querySelector('#mobileShopSelector');
+        if (mobileShopSelector) {
+            mobileShopSelector.addEventListener('change', (e) => {
+                window.ShopConfig.setShop(e.target.value);
+                if (!window._shopChangeNoReload) {
+                    window.location.reload();
+                }
+            });
+        }
+
+        // Inject mobile shop selector styles
+        this.injectShopSelectorStyles();
     }
 
     createMobileBottomNav() {
@@ -1614,6 +1671,7 @@ class UnifiedNavigationManager {
         }
 
         this.updateSidebarLogo();
+        this.initShopSelector();
         this.renderDesktopSidebar();
         this.initializeSidebarToggle();
     }
@@ -1637,6 +1695,100 @@ class UnifiedNavigationManager {
             <img src="${logoPath}" alt="N2STORE" class="sidebar-logo-img">
             <span>N2STORE</span>
         `;
+    }
+
+    /**
+     * Initialize shop selector (NJD LIVE / NJD SHOP) in sidebar header
+     */
+    initShopSelector() {
+        const header = document.querySelector('.sidebar-header');
+        if (!header || !window.ShopConfig) return;
+
+        // Remove existing shop selector if any (from HTML or previous render)
+        const existing = header.querySelector('.shop-selector');
+        if (existing) existing.remove();
+
+        // Create shop selector
+        const select = document.createElement('select');
+        select.className = 'shop-selector';
+        select.id = 'shopSelector';
+
+        window.ShopConfig.getShops().forEach(shop => {
+            const opt = document.createElement('option');
+            opt.value = shop.id;
+            opt.textContent = shop.label;
+            select.appendChild(opt);
+        });
+
+        select.value = window.ShopConfig.getSelectedShopId();
+
+        select.addEventListener('change', (e) => {
+            window.ShopConfig.setShop(e.target.value);
+            console.log('[ShopSelector] Switched to:', e.target.value);
+            // Reload page to re-init TokenManager with new company
+            // Pages that handle shop change in-place (e.g. purchase-orders)
+            // should set window._shopChangeNoReload = true before this fires
+            if (!window._shopChangeNoReload) {
+                window.location.reload();
+            }
+        });
+
+        // Insert after logo, before toggle button
+        const toggle = header.querySelector('.sidebar-toggle');
+        if (toggle) {
+            header.insertBefore(select, toggle);
+        } else {
+            header.appendChild(select);
+        }
+
+        // Inject shop selector styles
+        this.injectShopSelectorStyles();
+    }
+
+    /**
+     * Inject CSS for shop selector
+     */
+    injectShopSelectorStyles() {
+        if (document.getElementById('shop-selector-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'shop-selector-styles';
+        style.textContent = `
+            .shop-selector {
+                padding: 4px 8px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #374151;
+                background: #f9fafb;
+                cursor: pointer;
+                outline: none;
+                transition: border-color 0.2s;
+                -webkit-appearance: none;
+                appearance: none;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 6px center;
+                padding-right: 22px;
+            }
+            .shop-selector:hover {
+                border-color: #6366f1;
+            }
+            .shop-selector:focus {
+                border-color: #6366f1;
+                box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+            }
+            .sidebar.collapsed .shop-selector {
+                display: none;
+            }
+            .mobile-shop-selector {
+                margin-left: auto;
+                margin-right: 8px;
+                font-size: 11px;
+                padding: 3px 20px 3px 6px;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     renderDesktopSidebar() {
