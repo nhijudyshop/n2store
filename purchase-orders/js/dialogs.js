@@ -1318,41 +1318,15 @@ class InventoryPickerDialog {
      * Get auth token from localStorage or tokenManager
      */
     async getAuthToken() {
-        // Try TPOSClient.getToken (purchase-orders page, from tpos-search.js)
+        // Use TPOSClient (purchase-orders) or tokenManager (other pages)
+        // Only use the selected company's token, no fallback to other tokens
         if (window.TPOSClient?.getToken) {
-            try {
-                return await window.TPOSClient.getToken();
-            } catch (e) {
-                console.warn('TPOSClient.getToken failed:', e);
-            }
+            return await window.TPOSClient.getToken();
         }
-
-        // Try tokenManager (other pages)
         if (window.tokenManager?.getToken) {
-            try {
-                return await window.tokenManager.getToken();
-            } catch (e) {
-                console.warn('tokenManager.getToken failed:', e);
-            }
+            return await window.tokenManager.getToken();
         }
-
-        // Fallback to localStorage with company-specific key
-        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId ||
-            (localStorage.getItem('n2store_selected_shop') === 'njd-shop' ? 2 : 1);
-        const storageKey = 'bearer_token_data_' + companyId;
-        const tokenData = localStorage.getItem(storageKey);
-        if (tokenData) {
-            try {
-                const parsed = JSON.parse(tokenData);
-                if (parsed.access_token && parsed.expires_at && Date.now() < parsed.expires_at) {
-                    return parsed.access_token;
-                }
-            } catch (e) {
-                console.warn('Failed to parse token from localStorage');
-            }
-        }
-
-        return null;
+        throw new Error('Không có token manager khả dụng');
     }
 
     /**

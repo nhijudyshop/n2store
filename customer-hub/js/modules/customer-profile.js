@@ -594,32 +594,15 @@ export class CustomerProfileModule {
             return;
         }
 
-        // Get auth token from localStorage (same as orders-report)
-        const getAuthToken = () => {
-            try {
-                // Priority 1: bearer_token_data_{companyId} (main TPOS key)
-                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
-                const bearerData = localStorage.getItem('bearer_token_data_' + companyId);
-                if (bearerData) {
-                    const parsed = JSON.parse(bearerData);
-                    if (parsed.access_token) return parsed.access_token;
-                }
-                // Priority 2: auth
-                const auth = localStorage.getItem('auth');
-                if (auth) {
-                    const parsed = JSON.parse(auth);
-                    if (parsed.access_token) return parsed.access_token;
-                }
-                // Priority 3: tpos_token
-                const tposToken = localStorage.getItem('tpos_token');
-                if (tposToken) return tposToken;
-            } catch (e) {
-                console.error('[OrderDetail] Error reading token:', e);
+        // Get token for selected company only (no fallback to other tokens)
+        let token = null;
+        try {
+            if (window.tokenManager) {
+                token = await window.tokenManager.getToken();
             }
-            return null;
-        };
-
-        const token = getAuthToken();
+        } catch (e) {
+            console.error('[OrderDetail] Token error:', e);
+        }
         if (!token) {
             alert('Không thể tải chi tiết đơn hàng. Vui lòng đăng nhập TPOS trước.');
             return;

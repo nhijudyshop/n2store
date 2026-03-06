@@ -3193,25 +3193,16 @@ const customerListCache = {};
 const CUSTOMER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Get TPOS bearer token from localStorage
- * @returns {string|null} - Bearer token or null if not found
+ * Get TPOS bearer token for selected company (auto-refreshes if expired)
+ * @returns {Promise<string|null>} - Bearer token or null if not found
  */
-function getTposToken() {
+async function getTposToken() {
     try {
-        const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
-        const tokenData = localStorage.getItem('bearer_token_data_' + companyId);
-        if (tokenData) {
-            const parsed = JSON.parse(tokenData);
-            // Check if token is still valid (with 5 minute buffer)
-            if (parsed.access_token && parsed.expires_at) {
-                const bufferTime = 5 * 60 * 1000;
-                if (Date.now() < (parsed.expires_at - bufferTime)) {
-                    return parsed.access_token;
-                }
-            }
+        if (window.tokenManager) {
+            return await window.tokenManager.getToken();
         }
     } catch (error) {
-        console.error('[CUSTOMER-LIST] Error reading token:', error);
+        console.error('[CUSTOMER-LIST] Token error:', error);
     }
     return null;
 }
@@ -3222,7 +3213,7 @@ function getTposToken() {
  * @returns {Promise<Array>} - Array of customers from TPOS
  */
 async function fetchCustomersFromTpos(phone) {
-    const token = getTposToken();
+    const token = await getTposToken();
     if (!token) {
         console.warn('[CUSTOMER-LIST] No valid TPOS token available for fallback');
         return [];

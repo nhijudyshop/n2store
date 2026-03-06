@@ -590,44 +590,18 @@ async function fetchDeliveryCarriers() {
         return cached;
     }
 
-    // Get auth token from various possible localStorage keys
-    // Priority: bearer_token_data_{companyId} > auth > tpos_token
+    // Get token for selected company only (no fallback to other tokens)
     let token = null;
     try {
-        // Try bearer_token_data_{companyId} first (multi-company TPOS key)
-        const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
-        const bearerData = localStorage.getItem('bearer_token_data_' + companyId);
-        if (bearerData) {
-            const parsed = JSON.parse(bearerData);
-            token = parsed.access_token || parsed.AccessToken;
-            console.log('[DELIVERY-CARRIER] Found token in bearer_token_data_' + companyId);
-        }
-
-        // Fallback to auth
-        if (!token) {
-            const authData = localStorage.getItem('auth');
-            if (authData) {
-                const parsed = JSON.parse(authData);
-                token = parsed.AccessToken || parsed.access_token;
-                console.log('[DELIVERY-CARRIER] Found token in auth');
-            }
-        }
-
-        // Fallback to tpos_token
-        if (!token) {
-            const tokenData = localStorage.getItem('tpos_token');
-            if (tokenData) {
-                const parsed = JSON.parse(tokenData);
-                token = parsed.AccessToken || parsed.access_token;
-                console.log('[DELIVERY-CARRIER] Found token in tpos_token');
-            }
+        if (window.tokenManager) {
+            token = await window.tokenManager.getToken();
         }
     } catch (e) {
-        console.error('[DELIVERY-CARRIER] Error parsing auth:', e);
+        console.error('[DELIVERY-CARRIER] Token error:', e);
     }
 
     if (!token) {
-        console.warn('[DELIVERY-CARRIER] No auth token found in: bearer_token_data_{companyId}, auth, tpos_token');
+        console.warn('[DELIVERY-CARRIER] No auth token available');
         return [];
     }
 
@@ -1569,18 +1543,10 @@ async function fetchOrderDetailsForSale(orderUuid) {
     console.log('[SALE-MODAL] Fetching order details for UUID:', orderUuid);
 
     try {
-        // Use tokenManager to get valid token (auto-refreshes if expired)
+        // Use tokenManager to get valid token for selected company
         let token;
         if (window.tokenManager) {
             token = await window.tokenManager.getToken();
-        } else {
-            // Fallback: try to get from bearer_token_data_{companyId} storage
-            const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
-            const storedData = localStorage.getItem('bearer_token_data_' + companyId);
-            if (storedData) {
-                const data = JSON.parse(storedData);
-                token = data.access_token;
-            }
         }
 
         if (!token) {

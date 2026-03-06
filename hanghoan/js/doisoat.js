@@ -221,16 +221,10 @@ const DoiSoatModule = (function () {
         try {
             showLoading(true);
 
-            // Get fresh token from TokenManager
+            // Get token for selected company only
             let token = '';
             if (tokenManager) {
                 token = await tokenManager.getToken();
-            } else {
-                console.warn('[DoiSoat] TokenManager not available, using fallback auth');
-                // Fallback to manual token retrieval
-                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
-                const authData = JSON.parse(localStorage.getItem('bearer_token_data_' + companyId) || '{}');
-                token = authData.access_token || '';
             }
 
             if (!token) {
@@ -697,10 +691,6 @@ const DoiSoatModule = (function () {
             let token = '';
             if (tokenManager) {
                 token = await tokenManager.getToken();
-            } else {
-                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
-                const authData = JSON.parse(localStorage.getItem('bearer_token_data_' + companyId) || '{}');
-                token = authData.access_token || '';
             }
 
             if (!token) {

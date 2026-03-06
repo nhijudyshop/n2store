@@ -666,18 +666,8 @@ async function confirmAndPrintSale() {
             headers = await window.billTokenManager.getAuthHeader();
             console.log('[SALE-CONFIRM] Using billTokenManager for auth');
         } else {
-            // Fallback to regular token
-            let token;
-            if (window.tokenManager) {
-                token = await window.tokenManager.getToken();
-            } else {
-                const companyId = (localStorage.getItem('n2store_selected_shop') === 'njd-shop') ? 2 : 1;
-                const storedData = localStorage.getItem('bearer_token_data_' + companyId);
-                if (storedData) {
-                    const data = JSON.parse(storedData);
-                    token = data.access_token;
-                }
-            }
+            // Use tokenManager for selected company token
+            const token = window.tokenManager ? await window.tokenManager.getToken() : null;
             if (!token) {
                 throw new Error('Không tìm thấy token xác thực');
             }
