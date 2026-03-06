@@ -776,57 +776,6 @@ function resetFilters() {
     // startDate and endDate are already set by setDefaultCurrentMonth()
 }
 
-/**
- * Filter data by customer name/phone (client-side filtering)
- * This searches in CustomerInfoManager data which is stored locally
- * @param {Array} data - Transaction data from API
- * @param {string} searchQuery - Search term
- * @returns {Array} Filtered data
- */
-function filterByCustomerInfo(data, searchQuery) {
-    if (!searchQuery || !data || data.length === 0) return data;
-    if (!window.CustomerInfoManager) return data;
-
-    const lowerQuery = searchQuery.toLowerCase().trim();
-    const isSearchingNoInfo = lowerQuery === 'chưa có thông tin';
-
-    return data.filter(row => {
-        // Extract unique code from content
-        const content = row.content || '';
-        const uniqueCodeMatch = content.match(/\bN2[A-Z0-9]{16}\b/);
-        const uniqueCode = uniqueCodeMatch ? uniqueCodeMatch[0] : null;
-
-        // Skip rows without unique code (these show N/A, not customer info)
-        // This also excludes gap rows which don't have unique codes
-        if (!uniqueCode) return false;
-
-        // Get customer info
-        const customerDisplay = window.CustomerInfoManager.getCustomerDisplay(uniqueCode);
-
-        // Special case: searching for "Chưa có thông tin" - only match phone column
-        if (isSearchingNoInfo) {
-            return customerDisplay.phone === 'Chưa có thông tin';
-        }
-
-        // Check if search matches customer name (case-insensitive)
-        const nameMatch = customerDisplay.name &&
-            customerDisplay.name.toLowerCase().includes(lowerQuery);
-
-        // Check if search matches customer phone
-        const phoneMatch = customerDisplay.phone &&
-            customerDisplay.phone.includes(searchQuery.trim());
-
-        // Also check backend fields (content, reference_code, gateway)
-        const contentMatch = content.toLowerCase().includes(lowerQuery);
-        const refMatch = row.reference_code &&
-            row.reference_code.toLowerCase().includes(lowerQuery);
-        const gatewayMatch = row.gateway &&
-            row.gateway.toLowerCase().includes(lowerQuery);
-
-        return nameMatch || phoneMatch || contentMatch || refMatch || gatewayMatch;
-    });
-}
-
 // Balance History Cache helpers (prefixed to avoid conflict with global cache.js)
 const BH_CACHE_KEY_PREFIX = 'bh_cache_';
 const BH_CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
@@ -909,19 +858,6 @@ function hasDataChanged(oldData, newData) {
 
 // Load Data with localStorage cache
 async function loadData(forceRefresh = false) {
-    const searchQuery = filters.search;
-
-    // Check if search matches customer names/phones (client-side data)
-    if (searchQuery && window.CustomerInfoManager) {
-        const customerMatches = window.CustomerInfoManager.searchCustomers(searchQuery);
-        if (customerMatches.length > 0) {
-            console.log('[SEARCH] Customer match found:', customerMatches.length, 'results');
-            await loadDataByCustomerSearch(customerMatches, searchQuery);
-            return;
-        }
-    }
-
-    // Normal flow: server-side search
     const cached = !forceRefresh ? getBHCache() : null;
 
     // If cache exists, render immediately without loading spinner
@@ -957,62 +893,6 @@ async function loadData(forceRefresh = false) {
     } catch (error) {
         console.error('Error loading data:', error);
         showError('Lỗi khi tải dữ liệu: ' + error.message);
-    } finally {
-        hideLoading();
-    }
-}
-
-// Load data by searching unique codes from customer name/phone matches
-async function loadDataByCustomerSearch(customerMatches, originalSearch) {
-    showLoading();
-    try {
-        const allResults = [];
-        const savedSearch = filters.search;
-        const seenIds = new Set();
-
-        // Search API for each unique code (they appear in content field)
-        // Limit to 20 codes to avoid too many API calls
-        const codesToSearch = customerMatches.slice(0, 20).map(m => m.uniqueCode);
-
-        for (const code of codesToSearch) {
-            filters.search = code;
-            const result = await fetchFromAPI();
-            if (result.success && result.data) {
-                for (const item of result.data) {
-                    if (!seenIds.has(item.id)) {
-                        seenIds.add(item.id);
-                        allResults.push(item);
-                    }
-                }
-            }
-        }
-
-        // Also search with original query for content/ref_code matches
-        filters.search = savedSearch;
-        const directResult = await fetchFromAPI();
-        if (directResult.success && directResult.data) {
-            for (const item of directResult.data) {
-                if (!seenIds.has(item.id)) {
-                    seenIds.add(item.id);
-                    allResults.push(item);
-                }
-            }
-        }
-
-        // Restore original search
-        filters.search = savedSearch;
-
-        // Sort by date descending
-        allResults.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
-
-        console.log('[SEARCH] Customer search results:', allResults.length, 'transactions');
-        allLoadedData = allResults;
-        renderCurrentView();
-        updatePagination({ total: allResults.length, page: 1, pages: 1, limit: allResults.length });
-        updateHiddenCount();
-    } catch (error) {
-        console.error('[SEARCH] Customer search error:', error);
-        showError('Lỗi tìm kiếm: ' + error.message);
     } finally {
         hideLoading();
     }
@@ -2436,14 +2316,22 @@ function transactionMatchesFilters(transaction) {
         }
     }
 
-    // Search filter
+    // Search filter (matches server-side search fields)
     if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const content = (transaction.content || '').toLowerCase();
         const refCode = (transaction.reference_code || '').toLowerCase();
         const code = (transaction.code || '').toLowerCase();
+        const customerName = (transaction.customer_name || '').toLowerCase();
+        const customerPhone = (transaction.customer_phone || '').toLowerCase();
+        const displayName = (transaction.display_name || '').toLowerCase();
 
-        if (!content.includes(searchLower) && !refCode.includes(searchLower) && !code.includes(searchLower)) {
+        if (!content.includes(searchLower) &&
+            !refCode.includes(searchLower) &&
+            !code.includes(searchLower) &&
+            !customerName.includes(searchLower) &&
+            !customerPhone.includes(searchLower) &&
+            !displayName.includes(searchLower)) {
             return false;
         }
     }

@@ -424,7 +424,11 @@ router.get('/history', async (req, res) => {
                 bh.content ILIKE $${paramCounter} OR
                 bh.reference_code ILIKE $${paramCounter} OR
                 bh.code ILIKE $${paramCounter} OR
-                bh.linked_customer_phone ILIKE $${paramCounter}
+                bh.linked_customer_phone ILIKE $${paramCounter} OR
+                bh.display_name ILIKE $${paramCounter} OR
+                c.name ILIKE $${paramCounter} OR
+                c.aliases::text ILIKE $${paramCounter} OR
+                bci.customer_name ILIKE $${paramCounter}
             )`);
             queryParams.push(`%${search}%`);
             paramCounter++;
@@ -448,8 +452,22 @@ router.get('/history', async (req, res) => {
             ? 'WHERE ' + queryConditions.join(' AND ')
             : '';
 
-        // Get total count
-        const countQuery = `SELECT COUNT(*) FROM balance_history bh ${whereClause}`;
+        // Get total count (add JOINs when search references customer fields)
+        let countJoins = '';
+        if (search) {
+            countJoins = `
+                LEFT JOIN customers c ON c.id = bh.customer_id
+                LEFT JOIN (
+                    SELECT DISTINCT ON (customer_phone)
+                        customer_phone, customer_name
+                    FROM balance_customer_info
+                    ORDER BY customer_phone,
+                        CASE WHEN customer_name IS NOT NULL AND customer_name != '' THEN 0 ELSE 1 END,
+                        created_at DESC
+                ) bci ON bci.customer_phone = bh.linked_customer_phone
+            `;
+        }
+        const countQuery = `SELECT COUNT(*) FROM balance_history bh ${countJoins} ${whereClause}`;
         const countResult = await db.query(countQuery, queryParams);
         const total = parseInt(countResult.rows[0].count);
 
