@@ -3196,41 +3196,23 @@ const CUSTOMER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
  * Get TPOS bearer token for selected company (auto-refreshes if expired)
  * @returns {Promise<string|null>} - Bearer token or null if not found
  */
-async function getTposToken() {
-    try {
-        if (window.tokenManager) {
-            return await window.tokenManager.getToken();
-        }
-    } catch (error) {
-        console.error('[CUSTOMER-LIST] Token error:', error);
-    }
-    return null;
-}
-
 /**
  * Fallback to TPOS OData API when proxy API returns empty
  * @param {string} phone - Phone number to search
  * @returns {Promise<Array>} - Array of customers from TPOS
  */
 async function fetchCustomersFromTpos(phone) {
-    const token = await getTposToken();
-    if (!token) {
-        console.warn('[CUSTOMER-LIST] No valid TPOS token available for fallback');
+    if (!window.tokenManager) {
+        console.warn('[CUSTOMER-LIST] No tokenManager available for TPOS fallback');
         return [];
     }
 
     try {
-        const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Name=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+        const tposUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Name=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
 
-        console.log('[CUSTOMER-LIST] Fallback to TPOS OData API:', tposUrl);
+        console.log('[CUSTOMER-LIST] Fallback to TPOS OData API via proxy');
 
-        const response = await fetch(tposUrl, {
-            headers: {
-                'accept': 'application/json, text/javascript, */*; q=0.01',
-                'authorization': `Bearer ${token}`,
-                'x-requested-with': 'XMLHttpRequest'
-            }
-        });
+        const response = await window.tokenManager.authenticatedFetch(tposUrl);
 
         if (!response.ok) {
             console.warn('[CUSTOMER-LIST] TPOS API returned status:', response.status);
