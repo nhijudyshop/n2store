@@ -909,6 +909,19 @@ function hasDataChanged(oldData, newData) {
 
 // Load Data with localStorage cache
 async function loadData(forceRefresh = false) {
+    const searchQuery = filters.search;
+
+    // Check if search matches customer names/phones (client-side data)
+    if (searchQuery && window.CustomerInfoManager) {
+        const customerMatches = window.CustomerInfoManager.searchCustomers(searchQuery);
+        if (customerMatches.length > 0) {
+            console.log('[SEARCH] Customer match found:', customerMatches.length, 'results');
+            await loadDataByCustomerSearch(customerMatches, searchQuery);
+            return;
+        }
+    }
+
+    // Normal flow: server-side search
     const cached = !forceRefresh ? getBHCache() : null;
 
     // If cache exists, render immediately without loading spinner
@@ -944,6 +957,62 @@ async function loadData(forceRefresh = false) {
     } catch (error) {
         console.error('Error loading data:', error);
         showError('Lỗi khi tải dữ liệu: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Load data by searching unique codes from customer name/phone matches
+async function loadDataByCustomerSearch(customerMatches, originalSearch) {
+    showLoading();
+    try {
+        const allResults = [];
+        const savedSearch = filters.search;
+        const seenIds = new Set();
+
+        // Search API for each unique code (they appear in content field)
+        // Limit to 20 codes to avoid too many API calls
+        const codesToSearch = customerMatches.slice(0, 20).map(m => m.uniqueCode);
+
+        for (const code of codesToSearch) {
+            filters.search = code;
+            const result = await fetchFromAPI();
+            if (result.success && result.data) {
+                for (const item of result.data) {
+                    if (!seenIds.has(item.id)) {
+                        seenIds.add(item.id);
+                        allResults.push(item);
+                    }
+                }
+            }
+        }
+
+        // Also search with original query for content/ref_code matches
+        filters.search = savedSearch;
+        const directResult = await fetchFromAPI();
+        if (directResult.success && directResult.data) {
+            for (const item of directResult.data) {
+                if (!seenIds.has(item.id)) {
+                    seenIds.add(item.id);
+                    allResults.push(item);
+                }
+            }
+        }
+
+        // Restore original search
+        filters.search = savedSearch;
+
+        // Sort by date descending
+        allResults.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+
+        console.log('[SEARCH] Customer search results:', allResults.length, 'transactions');
+        allLoadedData = allResults;
+        renderCurrentView();
+        updatePagination({ total: allResults.length, page: 1, pages: 1, limit: allResults.length });
+        updateHiddenCount();
+    } catch (error) {
+        console.error('[SEARCH] Customer search error:', error);
+        showError('Lỗi tìm kiếm: ' + error.message);
     } finally {
         hideLoading();
     }
