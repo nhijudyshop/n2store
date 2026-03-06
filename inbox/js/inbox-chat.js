@@ -203,10 +203,73 @@ class InboxChatController {
             });
         }
 
+        // Message action buttons (like, hide, delete, copy) via event delegation
+        this.elements.chatMessages.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.msg-action-btn');
+            if (!btn) return;
+            e.stopPropagation();
+            const action = btn.dataset.action;
+            const msgId = btn.dataset.msgId;
+            if (!action || !msgId) return;
+            await this.handleMessageAction(action, msgId, btn);
+        });
+
         // File attachment
         const btnAttachFile = document.getElementById('btnAttachFile');
         if (btnAttachFile) {
             btnAttachFile.addEventListener('click', () => this.attachFile());
+        }
+
+        // Emoji picker
+        this.emojiData = {
+            recent: ['😊', '👍', '❤️', '😂', '🙏', '😍', '🔥', '✨'],
+            smileys: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬'],
+            gestures: ['👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁️','👅','👄','🫦'],
+            hearts: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','🫶','💏','💑','👪'],
+            animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🪸','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦣','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'],
+            food: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🫘','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾','🫗'],
+            objects: ['💡','🔦','🏮','🪔','📱','💻','⌨️','🖥️','🖨️','🖱️','🖲️','💾','💿','📀','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🪫','🔌','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','🪬','💈','⚗️','🔭','🔬','🕳️','🩹','🩺','🩻','🩼','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🪣','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞','🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎊','🎉','🎎','🏮','🎐','🧧','✉️','📩','📨','📧','💌','📥','📤','📦','🏷️','🪧','📪','📫','📬','📭','📮','📯','📜','📃','📄','📑','🧾','📊','📈','📉','🗒️','🗓️','📆','📅','🗑️','📇','🗃️','🗳️','🗄️','📋','📁','📂','🗂️','🗞️','📰','📓','📔','📒','📕','📗','📘','📙','📚','📖','🔖','🧷','🔗','📎','🖇️','📐','📏','🧮','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝','✏️','🔍','🔎','🔏','🔐','🔒','🔓']
+        };
+        const savedRecent = localStorage.getItem('inbox_recent_emojis');
+        if (savedRecent) { try { this.emojiData.recent = JSON.parse(savedRecent); } catch(e){} }
+
+        const emojiBtn = document.getElementById('btnEmoji');
+        const emojiPicker = document.getElementById('emojiPicker');
+        const emojiGrid = document.getElementById('emojiGrid');
+        if (emojiBtn && emojiPicker && emojiGrid) {
+            emojiBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const vis = emojiPicker.style.display === 'block';
+                emojiPicker.style.display = vis ? 'none' : 'block';
+                if (!vis) this.renderEmojiGrid('recent');
+            });
+            document.addEventListener('click', (e) => {
+                if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) emojiPicker.style.display = 'none';
+            });
+            document.getElementById('emojiCategories').addEventListener('click', (e) => {
+                const cat = e.target.closest('.emoji-cat');
+                if (!cat) return;
+                document.querySelectorAll('.emoji-cat').forEach(c => c.classList.remove('active'));
+                cat.classList.add('active');
+                this.renderEmojiGrid(cat.dataset.cat);
+            });
+            emojiGrid.addEventListener('click', (e) => {
+                const item = e.target.closest('.emoji-item');
+                if (!item) return;
+                const emoji = item.textContent;
+                const input = this.elements.chatInput;
+                const start = input.selectionStart;
+                const end = input.selectionEnd;
+                input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
+                input.selectionStart = input.selectionEnd = start + emoji.length;
+                input.focus();
+                // Save to recent
+                const idx = this.emojiData.recent.indexOf(emoji);
+                if (idx > -1) this.emojiData.recent.splice(idx, 1);
+                this.emojiData.recent.unshift(emoji);
+                this.emojiData.recent = this.emojiData.recent.slice(0, 24);
+                localStorage.setItem('inbox_recent_emojis', JSON.stringify(this.emojiData.recent));
+            });
         }
 
         // Star conversation
@@ -679,6 +742,10 @@ class InboxChatController {
                     phoneInfo: msg.phone_info || [],
                     isHidden: msg.is_hidden || false,
                     isRemoved: msg.is_removed || false,
+                    userLikes: msg.user_likes || false,
+                    canHide: msg.can_hide !== false,
+                    canRemove: msg.can_remove !== false,
+                    canLike: msg.can_like !== false,
                 };
             });
 
@@ -811,6 +878,14 @@ class InboxChatController {
                 ? `<span class="message-sender">${this.escapeHtml(msg.senderName)}</span>`
                 : '';
 
+            // Hover action buttons (like, hide/unhide, delete)
+            const isComment = conv.type === 'COMMENT';
+            const likeBtn = isComment ? `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="like" data-msg-id="${msg.id}" title="${msg.userLikes ? 'Bỏ thích' : 'Thích'}"><i data-lucide="${msg.userLikes ? 'heart' : 'heart'}"></i></button>` : '';
+            const hideBtn = isComment ? `<button class="msg-action-btn ${isHidden ? 'active' : ''}" data-action="hide" data-msg-id="${msg.id}" title="${isHidden ? 'Hiện bình luận' : 'Ẩn bình luận'}"><i data-lucide="${isHidden ? 'eye' : 'eye-off'}"></i></button>` : '';
+            const deleteBtn = isComment ? `<button class="msg-action-btn danger" data-action="delete" data-msg-id="${msg.id}" title="Xóa bình luận"><i data-lucide="trash-2"></i></button>` : '';
+            const copyBtn = `<button class="msg-action-btn" data-action="copy" data-msg-id="${msg.id}" title="Copy tin nhắn"><i data-lucide="copy"></i></button>`;
+            const actionsHtml = `<div class="msg-hover-actions">${likeBtn}${hideBtn}${copyBtn}${deleteBtn}</div>`;
+
             return `
                 ${dateSeparator}
                 <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isRemoved ? 'removed' : ''} ${isHidden ? 'hidden-msg' : ''}">
@@ -819,6 +894,7 @@ class InboxChatController {
                         ${messageContent}
                         ${phoneTagsHtml}
                         ${reactionsHtml}
+                        ${actionsHtml}
                         <div class="message-meta">
                             ${statusIndicator}
                             ${senderHtml}
@@ -1429,6 +1505,10 @@ class InboxChatController {
                         phoneInfo: msg.phone_info || [],
                         isHidden: msg.is_hidden || false,
                         isRemoved: msg.is_removed || false,
+                        userLikes: msg.user_likes || false,
+                        canHide: msg.can_hide !== false,
+                        canRemove: msg.can_remove !== false,
+                        canLike: msg.can_like !== false,
                     };
                 }).reverse();
 
@@ -1515,6 +1595,76 @@ class InboxChatController {
             }
         };
         input.click();
+    }
+
+    // ===== Emoji Grid =====
+
+    renderEmojiGrid(category) {
+        const grid = document.getElementById('emojiGrid');
+        if (!grid || !this.emojiData[category]) return;
+        grid.innerHTML = this.emojiData[category].map(e => `<button class="emoji-item">${e}</button>`).join('');
+    }
+
+    // ===== Message Actions (like, hide/unhide, delete, copy) =====
+
+    async handleMessageAction(action, msgId, btn) {
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+        const msg = conv.messages?.find(m => m.id === msgId);
+        if (!msg) return;
+        const pdm = window.pancakeDataManager;
+        if (!pdm) return;
+
+        try {
+            if (action === 'like') {
+                btn.disabled = true;
+                if (msg.userLikes) {
+                    const ok = await pdm.unlikeComment(conv.pageId, msgId);
+                    if (ok) { msg.userLikes = false; btn.classList.remove('liked'); btn.title = 'Thích'; }
+                } else {
+                    const ok = await pdm.likeComment(conv.pageId, msgId);
+                    if (ok) { msg.userLikes = true; btn.classList.add('liked'); btn.title = 'Bỏ thích'; }
+                }
+                btn.disabled = false;
+            } else if (action === 'hide') {
+                btn.disabled = true;
+                if (msg.isHidden) {
+                    const ok = await pdm.unhideComment(conv.pageId, msgId);
+                    if (ok) {
+                        msg.isHidden = false;
+                        showToast('Đã hiện bình luận', 'success');
+                        this.renderMessages(conv);
+                    }
+                } else {
+                    const ok = await pdm.hideComment(conv.pageId, msgId);
+                    if (ok) {
+                        msg.isHidden = true;
+                        showToast('Đã ẩn bình luận', 'success');
+                        this.renderMessages(conv);
+                    }
+                }
+                btn.disabled = false;
+            } else if (action === 'delete') {
+                if (!confirm('Xóa bình luận này?')) return;
+                btn.disabled = true;
+                const ok = await pdm.deleteComment(conv.pageId, msgId);
+                if (ok) {
+                    msg.isRemoved = true;
+                    showToast('Đã xóa bình luận', 'success');
+                    this.renderMessages(conv);
+                }
+                btn.disabled = false;
+            } else if (action === 'copy') {
+                if (msg.text) {
+                    await navigator.clipboard.writeText(msg.text);
+                    showToast('Đã copy', 'success');
+                }
+            }
+        } catch (error) {
+            console.error('[InboxChat] Message action error:', error);
+            showToast('Lỗi: ' + error.message, 'error');
+            btn.disabled = false;
+        }
     }
 
     // ===== Search (2-tier: local + API, like tpos-pancake) =====

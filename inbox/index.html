@@ -198,6 +198,22 @@
                         <button class="btn-icon-sm" title="Gửi file" id="btnAttachFile">
                             <i data-lucide="paperclip"></i>
                         </button>
+                        <button class="btn-icon-sm" title="Emoji" id="btnEmoji">
+                            <i data-lucide="smile"></i>
+                        </button>
+                    </div>
+                    <!-- Emoji Picker -->
+                    <div class="emoji-picker" id="emojiPicker" style="display:none;">
+                        <div class="emoji-categories" id="emojiCategories">
+                            <button class="emoji-cat active" data-cat="recent" title="Gần đây">🕐</button>
+                            <button class="emoji-cat" data-cat="smileys" title="Mặt cười">😊</button>
+                            <button class="emoji-cat" data-cat="gestures" title="Cử chỉ">👋</button>
+                            <button class="emoji-cat" data-cat="hearts" title="Trái tim">❤️</button>
+                            <button class="emoji-cat" data-cat="animals" title="Động vật">🐱</button>
+                            <button class="emoji-cat" data-cat="food" title="Đồ ăn">🍔</button>
+                            <button class="emoji-cat" data-cat="objects" title="Đồ vật">💡</button>
+                        </div>
+                        <div class="emoji-grid" id="emojiGrid"></div>
                     </div>
                     <div class="chat-input-wrapper">
                         <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="1"></textarea>

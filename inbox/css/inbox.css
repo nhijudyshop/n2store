@@ -2888,3 +2888,98 @@ body.col-resizing .resize-handle {
 .conv-tag.tag-purple { background: #faf5ff; color: #8b5cf6; }
 .conv-tag.tag-pink { background: #fdf2f8; color: #ec4899; }
 .conv-tag.tag-teal { background: #f0fdfa; color: #14b8a6; }
+
+/* ===== Message Hover Actions ===== */
+.msg-hover-actions {
+    display: flex;
+    gap: 2px;
+    position: absolute;
+    top: -8px;
+    right: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 6px;
+    padding: 2px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    z-index: 5;
+}
+.message-row:hover .msg-hover-actions { opacity: 1; }
+.message-row.incoming .msg-hover-actions { right: auto; left: 44px; }
+.message-bubble { position: relative; }
+
+.msg-action-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--text-tertiary, #9ca3af);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+.msg-action-btn:hover { background: var(--bg-secondary, #f3f4f6); color: var(--text-primary, #111); }
+.msg-action-btn.liked { color: #e74c3c; }
+.msg-action-btn.liked:hover { color: #c0392b; }
+.msg-action-btn.active { color: #f59e0b; }
+.msg-action-btn.danger:hover { color: #ef4444; background: #fef2f2; }
+.msg-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.msg-action-btn svg, .msg-action-btn i { width: 14px; height: 14px; }
+
+/* ===== Emoji Picker ===== */
+.emoji-picker {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 320px;
+    max-height: 280px;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 100;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.emoji-categories {
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+    background: var(--bg-secondary, #f9fafb);
+}
+.emoji-cat {
+    background: transparent;
+    border: none;
+    padding: 4px 6px;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: background 0.15s;
+}
+.emoji-cat:hover { background: var(--bg-hover, #e5e7eb); }
+.emoji-cat.active { background: var(--primary-light, #e0f2fe); }
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 8px;
+    overflow-y: auto;
+    max-height: 220px;
+}
+.emoji-item {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    font-size: 20px;
+    border-radius: 6px;
+    transition: background 0.15s;
+    text-align: center;
+}
+.emoji-item:hover { background: var(--bg-secondary, #f3f4f6); transform: scale(1.2); }
+.chat-input-area { position: relative; }
