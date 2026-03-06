@@ -67,6 +67,9 @@ class InboxChatController {
             { label: 'Nv My', color: 'blue', template: '' },
         ];
 
+        // Reply state
+        this.replyingTo = null; // { msgId, text, senderName, isOutgoing }
+
         // Page unread counts
         this.pageUnreadCounts = {};
 
@@ -213,6 +216,26 @@ class InboxChatController {
             if (!action || !msgId) return;
             await this.handleMessageAction(action, msgId, btn);
         });
+
+        // Cancel reply button
+        const btnCancelReply = document.getElementById('btnCancelReply');
+        if (btnCancelReply) {
+            btnCancelReply.addEventListener('click', () => this.cancelReply());
+        }
+
+        // Reaction picker clicks
+        const reactionPicker = document.getElementById('reactionPicker');
+        if (reactionPicker) {
+            reactionPicker.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.reaction-emoji');
+                if (!btn) return;
+                const reaction = btn.dataset.reaction;
+                const msgId = reactionPicker.dataset.msgId;
+                if (reaction && msgId) {
+                    await this.sendReaction(msgId, reaction);
+                }
+            });
+        }
 
         // File attachment
         const btnAttachFile = document.getElementById('btnAttachFile');
@@ -579,6 +602,7 @@ class InboxChatController {
 
     async selectConversation(convId) {
         this.activeConversationId = convId;
+        this.cancelReply(); // Clear any pending reply
         let conv = this.data.getConversation(convId);
 
         // If not found locally, check search results (API returned conversation not in loaded list)
@@ -738,7 +762,9 @@ class InboxChatController {
                     sender: isFromPage ? 'shop' : 'customer',
                     attachments: msg.attachments || [],
                     senderName: msg.from?.name || '',
+                    fromId: msg.from?.id || '',
                     reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                    reactionSummary: msg.reaction_summary || msg.reactions || null,
                     phoneInfo: msg.phone_info || [],
                     isHidden: msg.is_hidden || false,
                     isRemoved: msg.is_removed || false,
@@ -853,12 +879,23 @@ class InboxChatController {
                 ).join('');
             }
 
-            // Reactions
+            // Reactions (from attachments + reaction_summary)
             const reactions = msg.reactions || [];
             let reactionsHtml = '';
             if (reactions.length > 0) {
                 const emojis = reactions.map(r => r.emoji || '❤️').join('');
                 reactionsHtml = `<span class="message-reactions">${emojis}</span>`;
+            }
+            // Also show reaction_summary (LIKE, LOVE, HAHA, WOW, SAD, ANGRY)
+            const reactionSummary = msg.reactionSummary;
+            if (reactionSummary && typeof reactionSummary === 'object') {
+                const reactionIcons = { LIKE: '👍', LOVE: '❤️', HAHA: '😆', WOW: '😮', SAD: '😢', ANGRY: '😠', CARE: '🤗' };
+                const parts = Object.entries(reactionSummary)
+                    .filter(([, count]) => count > 0)
+                    .map(([type, count]) => `<span class="reaction-badge">${reactionIcons[type] || '👍'}${count > 1 ? ' ' + count : ''}</span>`);
+                if (parts.length > 0) {
+                    reactionsHtml += `<div class="message-reaction-summary">${parts.join('')}</div>`;
+                }
             }
 
             if (!messageContent && !reactionsHtml && !phoneTagsHtml) {
@@ -878,13 +915,18 @@ class InboxChatController {
                 ? `<span class="message-sender">${this.escapeHtml(msg.senderName)}</span>`
                 : '';
 
-            // Hover action buttons (like, hide/unhide, delete)
+            // Hover action buttons (like, hide/unhide, delete, reply, react)
             const isComment = conv.type === 'COMMENT';
+            const isInbox = conv.type === 'INBOX';
             const likeBtn = isComment ? `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="like" data-msg-id="${msg.id}" title="${msg.userLikes ? 'Bỏ thích' : 'Thích'}"><i data-lucide="${msg.userLikes ? 'heart' : 'heart'}"></i></button>` : '';
+            const replyBtn = (isComment && !isOutgoing) ? `<button class="msg-action-btn" data-action="reply" data-msg-id="${msg.id}" title="Trả lời"><i data-lucide="reply"></i></button>` : '';
+            const reactBtn = isComment ? `<button class="msg-action-btn" data-action="react" data-msg-id="${msg.id}" title="React"><i data-lucide="smile-plus"></i></button>` : '';
             const hideBtn = isComment ? `<button class="msg-action-btn ${isHidden ? 'active' : ''}" data-action="hide" data-msg-id="${msg.id}" title="${isHidden ? 'Hiện bình luận' : 'Ẩn bình luận'}"><i data-lucide="${isHidden ? 'eye' : 'eye-off'}"></i></button>` : '';
             const deleteBtn = isComment ? `<button class="msg-action-btn danger" data-action="delete" data-msg-id="${msg.id}" title="Xóa bình luận"><i data-lucide="trash-2"></i></button>` : '';
             const copyBtn = `<button class="msg-action-btn" data-action="copy" data-msg-id="${msg.id}" title="Copy tin nhắn"><i data-lucide="copy"></i></button>`;
-            const actionsHtml = `<div class="msg-hover-actions">${likeBtn}${hideBtn}${copyBtn}${deleteBtn}</div>`;
+            // Reply for inbox messages too
+            const inboxReplyBtn = isInbox ? `<button class="msg-action-btn" data-action="reply" data-msg-id="${msg.id}" title="Trả lời"><i data-lucide="reply"></i></button>` : '';
+            const actionsHtml = `<div class="msg-hover-actions">${replyBtn}${inboxReplyBtn}${reactBtn}${likeBtn}${hideBtn}${copyBtn}${deleteBtn}</div>`;
 
             return `
                 ${dateSeparator}
@@ -988,6 +1030,10 @@ class InboxChatController {
             showToast(`Cửa sổ 24h còn ${windowCheck.hoursRemaining}h. Gửi nhanh!`, 'warning');
         }
 
+        // Capture reply state before clearing
+        const replyData = this.replyingTo;
+        this.cancelReply();
+
         // Optimistic UI update
         this.data.addMessage(this.activeConversationId, text, 'shop');
         this.elements.chatInput.value = '';
@@ -1001,15 +1047,39 @@ class InboxChatController {
                 throw new Error('Không lấy được page access token');
             }
 
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
-                pageAccessToken
-            );
+            let url, payload;
+
+            if (replyData && replyData.convType === 'COMMENT') {
+                // Reply to comment: reply_comment (public) or private_replies
+                const commentId = replyData.msgId;
+                // For reply_comment, conversationId = commentId
+                const conversationId = commentId;
+                url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${conv.pageId}/conversations/${conversationId}/messages`,
+                    pageAccessToken
+                );
+
+                // Default to reply_comment (public reply on post)
+                payload = {
+                    action: 'reply_comment',
+                    message_id: commentId,
+                    message: text
+                };
+
+                console.log('[InboxChat] Sending reply_comment:', { pageId: conv.pageId, commentId, text });
+            } else {
+                // Normal message or inbox reply
+                url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                    pageAccessToken
+                );
+                payload = { message: { text } };
+            }
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: { text } })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -1017,7 +1087,8 @@ class InboxChatController {
                 throw new Error(`HTTP ${response.status}: ${errData}`);
             }
 
-            console.log('[InboxChat] Message sent successfully');
+            const successMsg = replyData ? 'Đã trả lời thành công' : 'Đã gửi tin nhắn';
+            console.log('[InboxChat]', successMsg);
 
             setTimeout(async () => {
                 if (this.activeConversationId === conv.id) {
@@ -1501,7 +1572,9 @@ class InboxChatController {
                         sender: isFromPage ? 'shop' : 'customer',
                         attachments: msg.attachments || [],
                         senderName: msg.from?.name || '',
+                        fromId: msg.from?.id || '',
                         reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                        reactionSummary: msg.reaction_summary || msg.reactions || null,
                         phoneInfo: msg.phone_info || [],
                         isHidden: msg.is_hidden || false,
                         isRemoved: msg.is_removed || false,
@@ -1659,11 +1732,125 @@ class InboxChatController {
                     await navigator.clipboard.writeText(msg.text);
                     showToast('Đã copy', 'success');
                 }
+            } else if (action === 'reply') {
+                this.setReplyingTo(msg, conv);
+            } else if (action === 'react') {
+                this.showReactionPicker(msgId, btn);
             }
         } catch (error) {
             console.error('[InboxChat] Message action error:', error);
             showToast('Lỗi: ' + error.message, 'error');
             btn.disabled = false;
+        }
+    }
+
+    // ===== Reply to Message =====
+
+    setReplyingTo(msg, conv) {
+        this.replyingTo = {
+            msgId: msg.id,
+            text: msg.text || '[Tệp đính kèm]',
+            senderName: msg.senderName || (msg.sender === 'shop' ? 'Bạn' : conv.name),
+            isOutgoing: msg.sender === 'shop',
+            fromId: msg.fromId || '',
+            convType: conv.type,
+        };
+
+        const bar = document.getElementById('replyPreviewBar');
+        const sender = document.getElementById('replyPreviewSender');
+        const msgEl = document.getElementById('replyPreviewMsg');
+        if (bar && sender && msgEl) {
+            sender.textContent = this.replyingTo.senderName;
+            msgEl.textContent = this.replyingTo.text.length > 80
+                ? this.replyingTo.text.substring(0, 80) + '...'
+                : this.replyingTo.text;
+            bar.style.display = 'flex';
+        }
+        this.elements.chatInput.focus();
+    }
+
+    cancelReply() {
+        this.replyingTo = null;
+        const bar = document.getElementById('replyPreviewBar');
+        if (bar) bar.style.display = 'none';
+    }
+
+    // ===== Reaction Picker =====
+
+    showReactionPicker(msgId, btn) {
+        const picker = document.getElementById('reactionPicker');
+        if (!picker) return;
+
+        // Position near the button
+        const rect = btn.getBoundingClientRect();
+        const chatArea = document.getElementById('col2');
+        const chatRect = chatArea ? chatArea.getBoundingClientRect() : { left: 0, top: 0 };
+
+        picker.style.left = (rect.left - chatRect.left) + 'px';
+        picker.style.top = (rect.top - chatRect.top - 44) + 'px';
+        picker.dataset.msgId = msgId;
+        picker.style.display = 'flex';
+
+        // Close on outside click
+        const closeHandler = (e) => {
+            if (!picker.contains(e.target) && !btn.contains(e.target)) {
+                picker.style.display = 'none';
+                document.removeEventListener('click', closeHandler);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler), 10);
+    }
+
+    async sendReaction(msgId, reactionType) {
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        const picker = document.getElementById('reactionPicker');
+        if (picker) picker.style.display = 'none';
+
+        try {
+            const pdm = window.pancakeDataManager;
+            if (!pdm) throw new Error('pancakeDataManager not available');
+
+            // Use likeComment for LIKE, or the specific reaction API if available
+            if (reactionType === 'LIKE') {
+                const msg = conv.messages?.find(m => m.id === msgId);
+                if (msg?.userLikes) {
+                    await pdm.unlikeComment(conv.pageId, msgId);
+                    msg.userLikes = false;
+                } else {
+                    await pdm.likeComment(conv.pageId, msgId);
+                    if (msg) msg.userLikes = true;
+                }
+            } else {
+                // For other reactions, use the reaction API if available
+                // Pancake uses likeComment with reaction_type parameter
+                const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
+                if (!pageAccessToken) throw new Error('Không lấy được page access token');
+
+                const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${conv.pageId}/comments/${msgId}/reactions`,
+                    pageAccessToken
+                );
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reaction_type: reactionType })
+                });
+                if (!response.ok) {
+                    // Fallback: try likeComment
+                    await pdm.likeComment(conv.pageId, msgId);
+                    const msg = conv.messages?.find(m => m.id === msgId);
+                    if (msg) msg.userLikes = true;
+                }
+            }
+
+            showToast('Đã react', 'success');
+            // Refresh messages to show updated reactions
+            setTimeout(() => this.loadMessages(conv), 1000);
+        } catch (error) {
+            console.error('[InboxChat] Reaction error:', error);
+            showToast('Lỗi react: ' + error.message, 'error');
         }
     }
 

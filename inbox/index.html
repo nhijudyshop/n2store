@@ -189,6 +189,30 @@
                     <div class="quick-reply-row" id="quickReplyRow2"></div>
                 </div>
 
+                <!-- Reply Preview Bar -->
+                <div class="reply-preview-bar" id="replyPreviewBar" style="display:none;">
+                    <div class="reply-preview-content">
+                        <div class="reply-preview-indicator"></div>
+                        <div class="reply-preview-text">
+                            <span class="reply-preview-sender" id="replyPreviewSender"></span>
+                            <span class="reply-preview-msg" id="replyPreviewMsg"></span>
+                        </div>
+                    </div>
+                    <button class="reply-preview-close" id="btnCancelReply" title="Hủy trả lời">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <!-- Reaction Picker (floating, positioned near message) -->
+                <div class="reaction-picker" id="reactionPicker" style="display:none;">
+                    <button class="reaction-emoji" data-reaction="LIKE">👍</button>
+                    <button class="reaction-emoji" data-reaction="LOVE">❤️</button>
+                    <button class="reaction-emoji" data-reaction="HAHA">😆</button>
+                    <button class="reaction-emoji" data-reaction="WOW">😮</button>
+                    <button class="reaction-emoji" data-reaction="SAD">😢</button>
+                    <button class="reaction-emoji" data-reaction="ANGRY">😠</button>
+                </div>
+
                 <!-- Chat Input -->
                 <div class="chat-input-area" id="chatInputArea">
                     <div class="chat-input-toolbar">

@@ -2983,3 +2983,108 @@ body.col-resizing .resize-handle {
 }
 .emoji-item:hover { background: var(--bg-secondary, #f3f4f6); transform: scale(1.2); }
 .chat-input-area { position: relative; }
+
+/* ===== Reply Preview Bar ===== */
+.reply-preview-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-secondary, #f3f4f6);
+    border-left: 3px solid var(--primary, #3b82f6);
+    margin: 0 12px;
+    border-radius: 0 8px 8px 0;
+    gap: 8px;
+}
+.reply-preview-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+.reply-preview-indicator {
+    width: 3px;
+    height: 28px;
+    background: var(--primary, #3b82f6);
+    border-radius: 2px;
+    flex-shrink: 0;
+    display: none;
+}
+.reply-preview-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.reply-preview-sender {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary, #3b82f6);
+}
+.reply-preview-msg {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #6b7280);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.reply-preview-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--text-tertiary, #9ca3af);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.reply-preview-close:hover {
+    background: var(--bg-hover, #e5e7eb);
+    color: var(--text-primary, #111);
+}
+.reply-preview-close svg, .reply-preview-close i { width: 16px; height: 16px; }
+
+/* ===== Reaction Picker (floating) ===== */
+.reaction-picker {
+    position: absolute;
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 200;
+}
+.reaction-emoji {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 22px;
+    padding: 4px 6px;
+    border-radius: 50%;
+    transition: transform 0.15s, background 0.15s;
+    line-height: 1;
+}
+.reaction-emoji:hover {
+    transform: scale(1.35);
+    background: var(--bg-secondary, #f3f4f6);
+}
+
+/* ===== Reaction Summary (on messages) ===== */
+.message-reaction-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+.reaction-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: #fef3c7;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.4;
+}
