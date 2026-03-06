@@ -357,7 +357,7 @@ window.TPOSClient = (function() {
             try {
                 if (window.firebase && window.firebase.firestore) {
                     const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
-                    firebase.firestore().collection('tokens').doc(docId).delete();
+                    await firebase.firestore().collection('tokens').doc(docId).delete();
                 }
             } catch (e) { /* ignore */ }
 
