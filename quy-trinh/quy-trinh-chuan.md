@@ -52,6 +52,19 @@
 
 ---
 
+## Chuẩn bị trước live — Check hàng (Duyên phụ trách)
+
+> Quy trình check hàng trước khi live để nắm số lượng tồn kho NCC.
+
+### ❗ CHECK HÀNG:
+- Hàng mới về — mấy bạn làm mã mang lên để theo từng khu vực.
+- Check mẫu xem của nhà cung cấp nào (từ ngày cũ đến ngày mới nhất).
+- Mẫu nào bên nhà cung cấp hết sẽ soạn bỏ ra hàng lẻ.
+- Mẫu nào còn số lượng cụ thể ví dụ 10–20–30... thì note lại số lượng, khi chị Nhi live sẽ ghi lại và nhận đúng tương đối với số lượng NCC báo.
+- Mẫu nào còn số lượng nhiều (hoặc có thể đặt thêm chờ hàng) thì nhận thoải mái (mẫu nào chờ lâu thì báo chị Nhi ngày để báo khách đợi).
+
+---
+
 ## BP2 — Live Sale (5–6 nhân sự)
 
 ### Nhân sự khu vực live
@@ -64,8 +77,18 @@
 ### Ngoài khu vực live — 3 bạn:
 
 #### Bạn 1 — Nhận oder (bấm phiếu + đặt hàng nhà cung cấp)
-- Bấm phiếu khách đặt hàng ra.
-- Đặt hàng sản phẩm với nhà cung cấp (nhận oder số lượng sản phẩm).
+
+**Bấm phiếu:**
+- Khách CMT đặt hàng → in đơn từ CMT khách → gạch số.
+- Phiếu có **4 cột** phân loại khách:
+  1. **Khách bình thường** — Đếm số lượng tổng và quẹt hàng với nhà cung cấp.
+  2. **Khách chưa cho SĐT** — Không đặt vì không có thông tin khách hàng → sau live khách cho SĐT thì nếu còn hàng sẽ đặt cho khách, không còn hàng sẽ báo khách hết.
+  3. **Khách lạ đã cho SĐT nhưng chờ cọc** — Khách cọc OK thì đặt hàng, nếu không cọc thì không đặt hàng.
+  4. **Khách bom** — Đợi liên lạc với khách báo cọc → khách cọc OK mới đặt hàng → nếu khách cọc trễ mà NCC hết hàng thì báo khách đổi mẫu.
+
+**Đặt hàng nhà cung cấp — 2 tình huống:**
+- **Trường hợp NCC nhanh hết hàng:** Trên live nhận tới đâu sẽ đặt liền tới đó (đặt real-time).
+- **Trường hợp NCC số lượng không giới hạn (hoặc đặt thêm chờ hàng):** Khi live xong mỗi đợt live sẽ đặt cho chính xác (đặt batch sau live).
 
 #### Bạn 2 — Phân phiếu
 - Phân phiếu theo từng sản phẩm.
@@ -100,10 +123,10 @@
 - Báo nhận tiền trong tin nhắn
 - Đánh dấu ✅ lên phiếu và đưa lại cho bộ phận chia bill
 
-**🚫 Khách không cọc:**
-- Gửi phiếu lại để báo trừ sản phẩm đó
-- Khi nào khách chuyển khoản thì báo để đặt hàng lại
-- Hạn chế khách lạ đặt hàng sau live mà không có thông tin
+**🚫 Khách chưa cho SĐT / Khách không cọc:**
+- Không đặt hàng từ đầu vì không có thông tin khách hàng.
+- Sau live khách cho SĐT thì nếu còn hàng sẽ đặt cho khách, không còn hàng sẽ báo khách hết.
+- Hạn chế khách lạ đặt hàng sau live mà không có thông tin.
 
 **🛒 Nhập sản phẩm vào giỏ hàng:**
 - Nhập mã sản phẩm → Nhập STT của khách hàng trên phiếu → Bấm `Update`
@@ -267,17 +290,37 @@
 
 > **Nhiệm vụ chính:** Bán sản phẩm đăng bài hoặc nhận sản phẩm trên live sau khi đã tắt live. Hỗ trợ khách khi nhận đơn về có vấn đề cần xử lý.
 
-### Bước 1: Nhận oder & Gắn thẻ chờ (hàng oder)
+### Bước 1: Đặt hàng IB qua Zalo
+- Các bạn gửi ảnh vào Zalo nếu còn thì thả tim và đặt hàng, nếu hết thì báo lại các bạn báo khách.
+
+### Bước 2: Nhận oder & Gắn thẻ chờ (hàng oder)
 - Nhận oder và báo khách chờ **1–2 ngày**.
 - Vào web nhập thông tin khách hàng.
 - Gắn thẻ chờ sản phẩm: `"TÊN SẢN PHẨM KHÁCH ĐẶT"`
 - Khi hàng về: vào thẻ chờ món đó và **ra đơn đồng loạt** (gắn thẻ dành cho hàng oder).
 
-### Bước 2: Đi đơn ngay (hàng có sẵn)
+#### Quy trình gắn thẻ chờ trên web Hệ thống quản lí:
+
+**❗ Bước 1:** Bấm vào HIỂN THỊ BỘ LỌC → Chọn chiến dịch live của đợt live đó.
+
+**👉 NẾU GẮN THẺ CHỜ MẪU NHIỀU:**
+- Bấm vào **GẮN TAG ĐỒNG LOẠT**
+- Tạo tên thẻ cần gắn — VD: `T1 Áo smi trắng tag hoa ...`
+- Nhập số thứ tự của khách trên phiếu theo đợt live đó
+- Bấm **Lưu**
+
+**👉 NẾU GẮN THẺ CHỜ LẺ ÍT:**
+- Kéo xuống thanh tìm kiếm
+- Nhập số thứ tự của khách theo trên phiếu hoặc bấm tên khách
+- Kéo xuống sẽ hiện ra đúng theo STT hoặc tên trên phiếu
+- Bấm vào dấu **gắn tag**
+- Tạo tên tag và gắn thẻ
+
+### Bước 3: Đi đơn ngay (hàng có sẵn)
 - Note tên khách lên trên bao sản phẩm đó.
 - Đi đơn luôn.
 
-### Bước 3: Xử lý đổi size / lỗi sản phẩm
+### Bước 4: Xử lý đổi size / lỗi sản phẩm
 Khách nhận hàng về có vấn đề bị lỗi hoặc muốn đổi size:
 - **Khách ở TP:** Đi đơn **thu về** (shop gửi hàng mới, thu hàng cũ).
 - **Khách ở tỉnh:** Khách **gửi sản phẩm cần đổi lên shop**, nhận được sẽ trừ tiền sau.
