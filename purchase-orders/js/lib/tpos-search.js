@@ -3,8 +3,9 @@
  * Provides window.TPOSClient for product code operations
  *
  * Token flow:
- *   CompanyId 1: password login → token (CompanyId 1) + refresh_token
- *   CompanyId 2: SwitchCompany(2) → refresh_token → token (CompanyId 2)
+ *   Each company has its own TPOS account → direct login → correct company token
+ *   CompanyId 1 (NJD LIVE): nvktlive1
+ *   CompanyId 2 (NJD SHOP): nvktshop1
  *
  * Tokens cached per company in localStorage
  * All requests go through Cloudflare proxy to bypass CORS
@@ -18,12 +19,14 @@ window.TPOSClient = (function() {
     const SWITCH_COMPANY_URL = `${PROXY_URL}/api/odata/ApplicationUser/ODataService.SwitchCompany`;
     const TOKEN_BUFFER = 5 * 60 * 1000; // 5 minutes before expiry
 
-    const CREDENTIALS = {
-        grant_type: 'password',
-        username: 'nvkt',
-        password: 'Aa@123456789',
-        client_id: 'tmtWebApp'
+    const CREDENTIALS_BY_COMPANY = {
+        1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
+        2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
     };
+
+    function getCredentials(companyId) {
+        return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
+    }
 
     // Token storage per company: { access_token, refresh_token, expires_at }
     const tokenStore = {};
@@ -163,14 +166,17 @@ window.TPOSClient = (function() {
     }
 
     /**
-     * Password login → always gets CompanyId 1 token + refresh_token
+     * Password login → gets token for the specified company directly
+     * Each company has its own account, no SwitchCompany needed
      */
-    async function loginWithPassword() {
-        console.log('[TPOS-Search] Password login...');
+    async function loginWithPassword(companyId) {
+        const cid = companyId || getCompanyId();
+        const creds = getCredentials(cid);
+        console.log(`[TPOS-Search] Password login with ${creds.username} for company ${cid}...`);
         const response = await fetch(TOKEN_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams(CREDENTIALS).toString()
+            body: new URLSearchParams(creds).toString()
         });
 
         if (!response.ok) {
@@ -178,23 +184,25 @@ window.TPOSClient = (function() {
         }
 
         const data = await response.json();
-        saveToken(1, data);
-        console.log('[TPOS-Search] Password login OK, CompanyId 1 token saved');
+        saveToken(cid, data);
+        console.log(`[TPOS-Search] Password login OK, company ${cid} token saved`);
         return data;
     }
 
     /**
      * SwitchCompany + refresh_token → get token for target company
+     * Used ONLY for manual Settings UI action, NOT in normal token flow
      * Flow: SwitchCompany(targetCompanyId) → refresh_token → new token
      */
-    async function switchCompanyToken(targetCompanyId) {
-        console.log(`[TPOS-Search] Switching to company ${targetCompanyId}...`);
+    async function switchCompanyToken(targetCompanyId, sourceCompanyId) {
+        const srcCid = sourceCompanyId || getCompanyId();
+        console.log(`[TPOS-Search] Switching company ${srcCid} account to company ${targetCompanyId}...`);
 
-        // Always ensure a fresh, valid company 1 token first
-        if (!isTokenValid(1) || !tokenStore[1]?.refresh_token) {
-            await loginWithPassword();
+        // Ensure a fresh token for the source company
+        if (!isTokenValid(srcCid) || !tokenStore[srcCid]?.refresh_token) {
+            await loginWithPassword(srcCid);
         }
-        let currentToken = tokenStore[1];
+        let currentToken = tokenStore[srcCid];
 
         // Step 1: Call SwitchCompany
         let switchResponse = await fetch(SWITCH_COMPANY_URL, {
@@ -209,10 +217,10 @@ window.TPOSClient = (function() {
         // If 401, force fresh login and retry SwitchCompany once
         if (switchResponse.status === 401) {
             console.log('[TPOS-Search] SwitchCompany 401, forcing fresh login...');
-            delete tokenStore[1];
-            try { localStorage.removeItem(storageKey(1)); } catch (e) { /* ignore */ }
-            await loginWithPassword();
-            currentToken = tokenStore[1];
+            delete tokenStore[srcCid];
+            try { localStorage.removeItem(storageKey(srcCid)); } catch (e) { /* ignore */ }
+            await loginWithPassword(srcCid);
+            currentToken = tokenStore[srcCid];
 
             switchResponse = await fetch(SWITCH_COMPANY_URL, {
                 method: 'POST',
@@ -300,10 +308,10 @@ window.TPOSClient = (function() {
             }
         }
 
-        // Last resort: full login → SwitchCompany flow
+        // Last resort: direct login with per-company credentials
         refreshPromise = (async () => {
             try {
-                await switchCompanyToken(companyId);
+                await loginWithPassword(companyId);
             } finally {
                 refreshPromise = null;
             }
@@ -544,6 +552,8 @@ window.TPOSClient = (function() {
         getMaxProductCode,
         getToken,
         authenticatedFetch,
+        switchCompanyToken,
+        getCredentials,
         isTokenValid: () => isTokenValid(getCompanyId())
     };
 })();

@@ -8,12 +8,12 @@ window.SoOrderSupplierLoader = {
     // Cloudflare Worker proxy URL
     WORKER_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
 
-    // TPOS credentials (same as token-manager.js in orders-report)
-    TPOS_CREDENTIALS: {
-        grant_type: 'password',
-        username: 'nvkt',
-        password: 'Aa@123456789',
-        client_id: 'tmtWebApp'
+    // TPOS credentials - per-company accounts
+    get TPOS_CREDENTIALS() {
+        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+        return companyId === 2
+            ? { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+            : { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' };
     },
 
     // Queue for duplicate suppliers pending user selection

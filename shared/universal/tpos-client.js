@@ -22,12 +22,15 @@ export const TPOS_CONFIG = {
     // Token API
     TOKEN_ENDPOINT: '/api/token',
 
-    // Default credentials (should be overridden via environment)
-    DEFAULT_CREDENTIALS: {
-        grant_type: 'password',
-        username: 'nvkt',
-        password: 'Aa@123456789',
-        client_id: 'tmtWebApp'
+    // Per-company credentials
+    CREDENTIALS_BY_COMPANY: {
+        1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
+        2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+    },
+
+    // Default credentials (resolves to company 1 for backward compat)
+    get DEFAULT_CREDENTIALS() {
+        return this.CREDENTIALS_BY_COMPANY[1];
     },
 
     // Timeouts
@@ -47,7 +50,11 @@ export const TPOS_CONFIG = {
 export class TPOSClient {
     constructor(options = {}) {
         this.config = { ...TPOS_CONFIG, ...options };
-        this.credentials = options.credentials || this.config.DEFAULT_CREDENTIALS;
+        // Use per-company credentials if companyId specified
+        const companyId = options.companyId || 1;
+        this.credentials = options.credentials
+            || this.config.CREDENTIALS_BY_COMPANY?.[companyId]
+            || this.config.DEFAULT_CREDENTIALS;
         this.baseUrl = this.config.PRIMARY_URL;
 
         // Token state

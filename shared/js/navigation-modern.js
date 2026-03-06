@@ -3914,6 +3914,36 @@ class UnifiedNavigationManager {
                             ` : ''}
                         </div>
                     </div>
+
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i data-lucide="key"></i>
+                            TPOS Account
+                        </label>
+                        <div class="tpos-accounts-section">
+                            <div class="tpos-account-row">
+                                <div class="tpos-account-info">
+                                    <span class="tpos-account-label">NJD LIVE (Company 1)</span>
+                                    <span class="tpos-account-user">nvktlive1</span>
+                                </div>
+                                <button class="btn-switch-company" id="switchToCompany2From1" title="Switch account nvktlive1 sang Company 2">
+                                    <i data-lucide="arrow-right-left" style="width:14px;height:14px;"></i>
+                                    Switch → C2
+                                </button>
+                            </div>
+                            <div class="tpos-account-row">
+                                <div class="tpos-account-info">
+                                    <span class="tpos-account-label">NJD SHOP (Company 2)</span>
+                                    <span class="tpos-account-user">nvktshop1</span>
+                                </div>
+                                <button class="btn-switch-company" id="switchToCompany1From2" title="Switch account nvktshop1 sang Company 1">
+                                    <i data-lucide="arrow-right-left" style="width:14px;height:14px;"></i>
+                                    Switch → C1
+                                </button>
+                            </div>
+                            <div class="tpos-account-status" id="tposSwitchStatus"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-footer">
@@ -4014,6 +4044,101 @@ class UnifiedNavigationManager {
 
         // --- Prefix Rules ---
         this._initPrefixRulesUI(modal);
+
+        // --- TPOS SwitchCompany buttons ---
+        this._initTposSwitchButtons(modal);
+    }
+
+    /**
+     * Initialize TPOS SwitchCompany buttons in settings modal
+     */
+    _initTposSwitchButtons(modal) {
+        const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const TOKEN_URL = `${PROXY_URL}/api/token`;
+        const SWITCH_URL = `${PROXY_URL}/api/odata/ApplicationUser/ODataService.SwitchCompany`;
+        const CREDENTIALS = {
+            1: { username: 'nvktlive1', password: 'Aa@28612345678' },
+            2: { username: 'nvktshop1', password: 'Aa@28612345678' }
+        };
+
+        const statusEl = modal.querySelector('#tposSwitchStatus');
+
+        const doSwitch = async (sourceCompanyId, targetCompanyId, btn) => {
+            const creds = CREDENTIALS[sourceCompanyId];
+            btn.disabled = true;
+            btn.textContent = 'Đang xử lý...';
+            if (statusEl) statusEl.textContent = '';
+
+            try {
+                // Step 1: Login with source account
+                const loginResp = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `grant_type=password&username=${creds.username}&password=${encodeURIComponent(creds.password)}&client_id=tmtWebApp`
+                });
+                if (!loginResp.ok) throw new Error(`Login failed: ${loginResp.status}`);
+                const loginData = await loginResp.json();
+
+                // Step 2: SwitchCompany
+                const switchResp = await fetch(SWITCH_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${loginData.access_token}`,
+                        'Content-Type': 'application/json;charset=UTF-8',
+                        'Accept': 'application/json',
+                        'feature-version': '2',
+                        'tposappversion': '6.2.6.1'
+                    },
+                    body: JSON.stringify({ companyId: targetCompanyId })
+                });
+                if (!switchResp.ok) throw new Error(`SwitchCompany failed: ${switchResp.status}`);
+
+                // Step 3: Refresh token to get new company token
+                const refreshResp = await fetch(TOKEN_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Authorization': `Bearer ${loginData.access_token}`
+                    },
+                    body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(loginData.refresh_token)}&client_id=tmtWebApp`
+                });
+                if (!refreshResp.ok) throw new Error(`Token refresh failed: ${refreshResp.status}`);
+
+                const newToken = await refreshResp.json();
+                // Save to localStorage under target company key
+                const storageKey = `bearer_token_data_${targetCompanyId}`;
+                const dataToSave = {
+                    access_token: newToken.access_token,
+                    refresh_token: newToken.refresh_token || null,
+                    token_type: 'Bearer',
+                    expires_in: newToken.expires_in,
+                    expires_at: Date.now() + (newToken.expires_in * 1000),
+                    issued_at: Date.now()
+                };
+                localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+
+                if (statusEl) {
+                    statusEl.textContent = `OK! Account ${creds.username} switched to Company ${targetCompanyId}. Token saved.`;
+                    statusEl.style.color = '#22c55e';
+                }
+                console.log(`[Settings] SwitchCompany: ${creds.username} → Company ${targetCompanyId} OK`);
+            } catch (err) {
+                console.error('[Settings] SwitchCompany error:', err);
+                if (statusEl) {
+                    statusEl.textContent = `Lỗi: ${err.message}`;
+                    statusEl.style.color = '#ef4444';
+                }
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="arrow-right-left" style="width:14px;height:14px;"></i> Switch → C${targetCompanyId === 1 ? '1' : '2'}`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        };
+
+        const btn1 = modal.querySelector('#switchToCompany2From1');
+        const btn2 = modal.querySelector('#switchToCompany1From2');
+        if (btn1) btn1.addEventListener('click', () => doSwitch(1, 2, btn1));
+        if (btn2) btn2.addEventListener('click', () => doSwitch(2, 1, btn2));
     }
 
     /**
@@ -4661,6 +4786,64 @@ class UnifiedNavigationManager {
             .btn-add-prefix-rule:hover {
                 background: rgba(99, 102, 241, 0.1);
                 border-color: var(--accent-color);
+            }
+
+            /* TPOS Account Settings */
+            .tpos-accounts-section {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .tpos-account-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 12px;
+                background: var(--bg-primary);
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+            }
+            .tpos-account-info {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+            .tpos-account-label {
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--text-primary);
+            }
+            .tpos-account-user {
+                font-size: 12px;
+                color: var(--text-secondary);
+                font-family: monospace;
+            }
+            .btn-switch-company {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 6px 10px;
+                border: 1px solid var(--border-color);
+                background: transparent;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 12px;
+                color: var(--accent-color);
+                transition: all 0.2s;
+                white-space: nowrap;
+            }
+            .btn-switch-company:hover {
+                background: rgba(99, 102, 241, 0.1);
+                border-color: var(--accent-color);
+            }
+            .btn-switch-company:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            .tpos-account-status {
+                font-size: 12px;
+                padding: 0 4px;
+                min-height: 16px;
             }
 
             @media (max-width: 640px) {

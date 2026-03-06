@@ -45,12 +45,7 @@ export class TokenManager {
         this.firestoreDocId = options.firestoreDocId
             || (this.companyId === 1 ? 'tpos_token' : 'tpos_token_' + this.companyId);
 
-        this.credentials = options.credentials || {
-            grant_type: 'password',
-            username: 'nvkt',
-            password: 'Aa@123456789',
-            client_id: 'tmtWebApp'
-        };
+        this.credentials = options.credentials || TokenManager.getCredentials(this.companyId);
 
         this.firestoreRef = null;
         this.firestoreReady = false;
@@ -136,6 +131,19 @@ export class TokenManager {
      */
     static getCompanyId() {
         return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+    }
+
+    /**
+     * Get TPOS credentials for a specific company
+     * Company 1 (NJD LIVE): nvktlive1
+     * Company 2 (NJD SHOP): nvktshop1
+     */
+    static getCredentials(companyId) {
+        const CREDENTIALS_BY_COMPANY = {
+            1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
+            2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+        };
+        return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
     }
 
     /**
@@ -384,10 +392,11 @@ export class TokenManager {
     }
 
     /**
-     * Password login → always returns Company 1 token + refresh_token
+     * Password login → gets token directly for this company
+     * Each company has its own TPOS account, no SwitchCompany needed
      */
     async passwordLogin() {
-        console.log('[TOKEN] Password login...');
+        console.log(`[TOKEN] Password login with ${this.credentials.username} for company ${this.companyId}...`);
         const formData = new URLSearchParams();
         formData.append('grant_type', this.credentials.grant_type);
         formData.append('username', this.credentials.username);
@@ -404,10 +413,9 @@ export class TokenManager {
         const data = await response.json();
         if (!data.access_token) throw new Error('Invalid token response');
 
-        // Always save as Company 1 token
-        const company1Key = 'bearer_token_data_1';
+        // Save token for this company
         const expiresAt = Date.now() + (data.expires_in * 1000);
-        const c1Data = {
+        const tokenData = {
             access_token: data.access_token,
             refresh_token: data.refresh_token || null,
             token_type: 'Bearer',
@@ -415,16 +423,13 @@ export class TokenManager {
             expires_at: expiresAt,
             issued_at: Date.now()
         };
-        try { localStorage.setItem(company1Key, JSON.stringify(c1Data)); } catch (e) { /* ignore */ }
+        try { localStorage.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
 
-        // If this manager IS Company 1, also update in-memory
-        if (this.companyId === 1) {
-            this.token = data.access_token;
-            this.tokenExpiry = expiresAt;
-        }
+        this.token = data.access_token;
+        this.tokenExpiry = expiresAt;
 
-        console.log('[TOKEN] Password login OK, Company 1 token saved');
-        return { data, c1Data };
+        console.log(`[TOKEN] Password login OK, company ${this.companyId} token saved`);
+        return { data, tokenData };
     }
 
     /**
@@ -484,20 +489,15 @@ export class TokenManager {
         this.isRefreshing = true;
 
         try {
-            // Step 1: Try refresh_token first (faster, avoids password login + SwitchCompany)
+            // Step 1: Try refresh_token first (faster, avoids password login)
             const storedRefresh = this.getStoredRefreshToken();
             if (storedRefresh) {
                 const ok = await this.refreshWithToken(storedRefresh);
                 if (ok && this.isTokenValid()) return this.token;
             }
 
-            // Step 2: Password login → Company 1 token
-            const loginResult = await this.passwordLogin();
-
-            // Step 3: If Company 2+, do SwitchCompany
-            if (this.companyId !== 1) {
-                await this.switchCompanyToken(loginResult);
-            }
+            // Step 2: Direct password login with per-company credentials
+            await this.passwordLogin();
 
             console.log(`[TOKEN] Token obtained for company ${this.companyId}`);
             return this.token;

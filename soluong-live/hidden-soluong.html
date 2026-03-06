@@ -1105,7 +1105,7 @@
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: 'grant_type=password&username=nvkt&password=Aa%40123456789&client_id=tmtWebApp'
+                    body: `grant_type=password&username=${(window.ShopConfig?.getConfig?.()?.CompanyId || 1) === 2 ? 'nvktshop1' : 'nvktlive1'}&password=Aa%4028612345678&client_id=tmtWebApp`
                 });
 
                 if (!response.ok) {

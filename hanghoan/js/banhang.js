@@ -10,13 +10,13 @@ const BanHangModule = (function () {
     // Cloudflare Worker proxy URL for TPOS API
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
-    // TPOS credentials for authentication
-    const TPOS_CREDENTIALS = {
-        grant_type: 'password',
-        username: 'nvkt',
-        password: 'Aa@123456789',
-        client_id: 'tmtWebApp'
-    };
+    // TPOS credentials - per-company accounts
+    function getTposCredentials() {
+        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+        return companyId === 2
+            ? { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+            : { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' };
+    }
 
     // Background fetch state
     let isBackgroundFetching = false;
@@ -1020,10 +1020,11 @@ const BanHangModule = (function () {
             console.log('[BanHang] 🔑 Fetching TPOS token...');
 
             const formData = new URLSearchParams();
-            formData.append('grant_type', TPOS_CREDENTIALS.grant_type);
-            formData.append('username', TPOS_CREDENTIALS.username);
-            formData.append('password', TPOS_CREDENTIALS.password);
-            formData.append('client_id', TPOS_CREDENTIALS.client_id);
+            const creds = getTposCredentials();
+            formData.append('grant_type', creds.grant_type);
+            formData.append('username', creds.username);
+            formData.append('password', creds.password);
+            formData.append('client_id', creds.client_id);
 
             const response = await fetch(`${WORKER_URL}/api/token`, {
                 method: 'POST',

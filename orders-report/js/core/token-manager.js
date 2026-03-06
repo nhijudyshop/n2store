@@ -22,12 +22,7 @@ class TokenManager {
         this.PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.API_URL = this.PROXY_URL + '/api/token';
         this.SWITCH_COMPANY_URL = this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
-        this.credentials = {
-            grant_type: 'password',
-            username: 'nvkt',
-            password: 'Aa@123456789',
-            client_id: 'tmtWebApp'
-        };
+        this.credentials = TokenManager.getCredentials(this.companyId);
         this.firestoreRef = null;
         this.firestoreReady = false;
 
@@ -100,6 +95,17 @@ class TokenManager {
      */
     static getCompanyId() {
         return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+    }
+
+    /**
+     * Get TPOS credentials for a specific company
+     */
+    static getCredentials(companyId) {
+        const CREDENTIALS_BY_COMPANY = {
+            1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
+            2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+        };
+        return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
     }
 
     initFirestore() {
@@ -418,10 +424,10 @@ class TokenManager {
     }
 
     /**
-     * Password login → always returns Company 1 token + refresh_token
+     * Password login → gets token directly for this company
      */
     async passwordLogin() {
-        console.log('[TOKEN] Password login...');
+        console.log(`[TOKEN] Password login with ${this.credentials.username} for company ${this.companyId}...`);
         const formData = new URLSearchParams();
         formData.append('grant_type', this.credentials.grant_type);
         formData.append('username', this.credentials.username);
@@ -438,10 +444,8 @@ class TokenManager {
         const data = await response.json();
         if (!data.access_token) throw new Error('Invalid token response');
 
-        // Always save as Company 1 token
-        const company1Key = 'bearer_token_data_1';
         const expiresAt = Date.now() + (data.expires_in * 1000);
-        const c1Data = {
+        const tokenData = {
             access_token: data.access_token,
             refresh_token: data.refresh_token || null,
             token_type: 'Bearer',
@@ -449,16 +453,13 @@ class TokenManager {
             expires_at: expiresAt,
             issued_at: Date.now()
         };
-        try { localStorage.setItem(company1Key, JSON.stringify(c1Data)); } catch (e) { /* ignore */ }
+        try { localStorage.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
 
-        // If this manager IS Company 1, also update in-memory
-        if (this.companyId === 1) {
-            this.token = data.access_token;
-            this.tokenExpiry = expiresAt;
-        }
+        this.token = data.access_token;
+        this.tokenExpiry = expiresAt;
 
-        console.log('[TOKEN] Password login OK, Company 1 token saved');
-        return { data, c1Data };
+        console.log(`[TOKEN] Password login OK, company ${this.companyId} token saved`);
+        return { data, tokenData };
     }
 
     /**
@@ -524,7 +525,7 @@ class TokenManager {
                 );
             }
 
-            // Step 1: Try refresh_token first (faster, avoids password login + SwitchCompany)
+            // Step 1: Try refresh_token first (faster, avoids password login)
             const storedRefresh = this.getStoredRefreshToken();
             if (storedRefresh) {
                 const ok = await this.refreshWithToken(storedRefresh);
@@ -536,13 +537,8 @@ class TokenManager {
                 }
             }
 
-            // Step 2: Password login → Company 1 token
-            const loginResult = await this.passwordLogin();
-
-            // Step 3: If Company 2+, do SwitchCompany
-            if (this.companyId !== 1) {
-                await this.switchCompanyToken(loginResult);
-            }
+            // Step 2: Direct password login with per-company credentials
+            await this.passwordLogin();
 
             if (window.notificationManager && notificationId) {
                 window.notificationManager.remove(notificationId);
