@@ -36,7 +36,9 @@ export class TokenManager {
 
         // Configuration - use company-specific keys
         this.storageKey = options.storageKey || ('bearer_token_data_' + this.companyId);
+        this.PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.API_URL = options.apiUrl || API_ENDPOINTS.WORKER.TOKEN;
+        this.SWITCH_COMPANY_URL = this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
 
         // Firestore config - Company 1 uses 'tpos_token' (backward compat)
         this.firestoreCollection = options.firestoreCollection || 'tokens';
@@ -326,6 +328,159 @@ export class TokenManager {
     }
 
     /**
+     * Invalidate access_token but preserve refresh_token in localStorage
+     */
+    invalidateAccessToken() {
+        this.token = null;
+        this.tokenExpiry = null;
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (stored) {
+                const data = JSON.parse(stored);
+                if (data.refresh_token) {
+                    localStorage.setItem(this.storageKey, JSON.stringify({
+                        refresh_token: data.refresh_token, expires_at: 0
+                    }));
+                    return;
+                }
+            }
+            localStorage.removeItem(this.storageKey);
+        } catch (e) {
+            localStorage.removeItem(this.storageKey);
+        }
+    }
+
+    /**
+     * Read refresh_token from localStorage (even if access_token expired)
+     */
+    getStoredRefreshToken() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (stored) {
+                const data = JSON.parse(stored);
+                if (data.refresh_token) return data.refresh_token;
+            }
+        } catch (e) { /* ignore */ }
+        return null;
+    }
+
+    /**
+     * Try refreshing token using refresh_token (faster than password login)
+     */
+    async refreshWithToken(refreshToken) {
+        try {
+            console.log(`[TOKEN] Refreshing token for company ${this.companyId} using refresh_token...`);
+            const response = await fetch(this.API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+            });
+            if (!response.ok) {
+                console.warn(`[TOKEN] Refresh token failed: ${response.status}`);
+                return false;
+            }
+            const data = await response.json();
+            if (!data.access_token) return false;
+            await this.saveToStorage(data);
+            console.log(`[TOKEN] Token refreshed OK for company ${this.companyId}`);
+            return true;
+        } catch (e) {
+            console.warn('[TOKEN] Refresh token error:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Password login → always returns Company 1 token + refresh_token
+     */
+    async passwordLogin() {
+        console.log('[TOKEN] Password login...');
+        const formData = new URLSearchParams();
+        formData.append('grant_type', this.credentials.grant_type);
+        formData.append('username', this.credentials.username);
+        formData.append('password', this.credentials.password);
+        formData.append('client_id', this.credentials.client_id);
+
+        const response = await fetch(this.API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        });
+
+        if (!response.ok) throw new Error(`Password login failed: ${response.status}`);
+        const data = await response.json();
+        if (!data.access_token) throw new Error('Invalid token response');
+
+        // Always save as Company 1 token
+        const company1Key = 'bearer_token_data_1';
+        const expiresAt = Date.now() + (data.expires_in * 1000);
+        const c1Data = {
+            access_token: data.access_token,
+            refresh_token: data.refresh_token || null,
+            token_type: 'Bearer',
+            expires_in: data.expires_in,
+            expires_at: expiresAt,
+            issued_at: Date.now()
+        };
+        try { localStorage.setItem(company1Key, JSON.stringify(c1Data)); } catch (e) { /* ignore */ }
+
+        // If this manager IS Company 1, also update in-memory
+        if (this.companyId === 1) {
+            this.token = data.access_token;
+            this.tokenExpiry = expiresAt;
+        }
+
+        console.log('[TOKEN] Password login OK, Company 1 token saved');
+        return { data, c1Data };
+    }
+
+    /**
+     * SwitchCompany + refresh_token → get token for Company 2+
+     */
+    async switchCompanyToken(loginResult) {
+        console.log(`[TOKEN] Switching to company ${this.companyId}...`);
+        const { data: loginData } = loginResult;
+        const accessToken = loginData.access_token;
+        const refreshToken = loginData.refresh_token;
+
+        if (!refreshToken) throw new Error('No refresh_token for SwitchCompany');
+
+        // Step 1: SwitchCompany
+        const tposHeaders = {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json;charset=UTF-8',
+            'Accept': 'application/json',
+            'feature-version': '2',
+            'tposappversion': '6.2.6.1'
+        };
+
+        const switchResp = await fetch(this.SWITCH_COMPANY_URL, {
+            method: 'POST',
+            headers: tposHeaders,
+            body: JSON.stringify({ companyId: this.companyId })
+        });
+
+        if (!switchResp.ok) throw new Error(`SwitchCompany failed: ${switchResp.status}`);
+        console.log(`[TOKEN] SwitchCompany(${this.companyId}) OK`);
+
+        // Step 2: Refresh token → new token for target company
+        const refreshResp = await fetch(this.API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=tmtWebApp`
+        });
+
+        if (!refreshResp.ok) throw new Error(`Token refresh after SwitchCompany failed: ${refreshResp.status}`);
+
+        const newTokenData = await refreshResp.json();
+        await this.saveToStorage(newTokenData);
+        console.log(`[TOKEN] Company ${this.companyId} token saved`);
+    }
+
+    /**
      * Fetch new token from API
      */
     async fetchNewToken() {
@@ -336,31 +491,22 @@ export class TokenManager {
         this.isRefreshing = true;
 
         try {
-            console.log('[TOKEN] Fetching new token...');
-
-            const formData = new URLSearchParams();
-            Object.entries(this.credentials).forEach(([key, value]) => {
-                formData.append(key, value);
-            });
-
-            const response = await fetch(this.API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formData.toString()
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // Step 1: Try refresh_token first (faster, avoids password login + SwitchCompany)
+            const storedRefresh = this.getStoredRefreshToken();
+            if (storedRefresh) {
+                const ok = await this.refreshWithToken(storedRefresh);
+                if (ok && this.isTokenValid()) return this.token;
             }
 
-            const tokenData = await response.json();
+            // Step 2: Password login → Company 1 token
+            const loginResult = await this.passwordLogin();
 
-            if (!tokenData.access_token) {
-                throw new Error('Invalid token response');
+            // Step 3: If Company 2+, do SwitchCompany
+            if (this.companyId !== 1) {
+                await this.switchCompanyToken(loginResult);
             }
 
-            await this.saveToStorage(tokenData);
-            console.log('[TOKEN] New token obtained successfully');
+            console.log(`[TOKEN] Token obtained for company ${this.companyId}`);
             return this.token;
 
         } catch (error) {
@@ -419,16 +565,14 @@ export class TokenManager {
     async authenticatedFetch(url, options = {}) {
         try {
             const headers = await this.getAuthHeader();
-
             const response = await fetch(url, {
                 ...options,
                 headers: { ...headers, ...options.headers }
             });
 
-            // Retry on 401
             if (response.status === 401) {
-                console.log('[TOKEN] Received 401, refreshing token...');
-                await this.clearToken();
+                console.log(`[TOKEN] 401 for company ${this.companyId}, invalidating and retrying...`);
+                this.invalidateAccessToken();
                 const newHeaders = await this.getAuthHeader();
                 return await fetch(url, {
                     ...options,
