@@ -539,23 +539,29 @@ class InboxChatController {
         if (conv.isLivestream) statusParts.push('Livestream');
         this.elements.chatUserStatus.textContent = statusParts.join(' · ') || 'Đang tải...';
 
-        // Update chat avatar with gradient
+        // Update chat avatar with 4-tier fallback (like tpos-pancake)
         const chatAvatar = this.elements.chatHeader.querySelector('.chat-avatar');
         const name = conv.name || 'U';
         const initial = name.charAt(0).toUpperCase();
         const colorIndex = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
         const gradient = AVATAR_GRADIENTS[colorIndex];
-        const avatarUrl = conv.avatar || conv._raw?.from?.picture?.data?.url || null;
 
-        if (avatarUrl) {
-            chatAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<span>${initial}</span>'">`;
+        const fbId = conv._raw?.from?.id || conv._raw?.customers?.[0]?.fb_id || conv.psid || null;
+        const directAvatar = conv.avatar || conv._raw?.from?.picture?.data?.url || conv._raw?.from?.profile_pic || conv._raw?.customers?.[0]?.avatar || null;
+        let avatarUrl = directAvatar;
+        if (window.pancakeDataManager?.getAvatarUrl && fbId) {
+            avatarUrl = window.pancakeDataManager.getAvatarUrl(fbId, conv.pageId, null, directAvatar);
+        }
+
+        if (avatarUrl && !avatarUrl.startsWith('data:image/svg')) {
+            chatAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;border-radius:50%;background:${gradient};align-items:center;justify-content:center;color:white;font-size:0.875rem;font-weight:700">${initial}</div>`;
         } else {
             chatAvatar.innerHTML = `<span>${initial}</span>`;
+            chatAvatar.style.background = gradient;
+            chatAvatar.style.color = 'white';
+            chatAvatar.style.fontSize = '0.875rem';
+            chatAvatar.style.fontWeight = '700';
         }
-        chatAvatar.style.background = gradient;
-        chatAvatar.style.color = 'white';
-        chatAvatar.style.fontSize = '0.875rem';
-        chatAvatar.style.fontWeight = '700';
         chatAvatar.className = 'chat-avatar';
 
         this.updateStarButton(conv.starred);
@@ -727,9 +733,20 @@ class InboxChatController {
         const initial = name.charAt(0).toUpperCase();
         const colorIndex = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
         const gradient = AVATAR_GRADIENTS[colorIndex];
+
+        // Build message avatar HTML with 4-tier fallback (like tpos-pancake)
+        const fbId = conv._raw?.from?.id || conv._raw?.customers?.[0]?.fb_id || conv.psid || null;
+        const directAvatar = conv.avatar || conv._raw?.from?.picture?.data?.url || conv._raw?.from?.profile_pic || conv._raw?.customers?.[0]?.avatar || null;
+        let msgAvatarUrl = directAvatar;
+        if (window.pancakeDataManager?.getAvatarUrl && fbId) {
+            msgAvatarUrl = window.pancakeDataManager.getAvatarUrl(fbId, conv.pageId, null, directAvatar);
+        }
+        const msgAvatarHtml = (msgAvatarUrl && !msgAvatarUrl.startsWith('data:image/svg'))
+            ? `<img src="${msgAvatarUrl}" class="message-avatar" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.outerHTML='<div class=\\'message-avatar\\' style=\\'background:${gradient}\\'>${initial}</div>'">`
+            : `<div class="message-avatar" style="background:${gradient};">${initial}</div>`;
         let lastDate = '';
 
-        const html = conv.messages.map(msg => {
+        let html = conv.messages.map(msg => {
             const msgDate = this.formatDate(msg.time);
             let dateSeparator = '';
             if (msgDate !== lastDate) {
@@ -797,7 +814,7 @@ class InboxChatController {
             return `
                 ${dateSeparator}
                 <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isRemoved ? 'removed' : ''} ${isHidden ? 'hidden-msg' : ''}">
-                    ${!isOutgoing ? `<div class="message-avatar" style="background:${gradient};">${initial}</div>` : ''}
+                    ${!isOutgoing ? msgAvatarHtml : ''}
                     <div class="message-bubble">
                         ${messageContent}
                         ${phoneTagsHtml}
@@ -817,7 +834,7 @@ class InboxChatController {
         if (conv._isCustomerTyping) {
             html += `
                 <div class="message-row incoming">
-                    <div class="message-avatar" style="background:${gradient};">${initial}</div>
+                    ${msgAvatarHtml}
                     <div class="typing-indicator">
                         <div class="typing-dot"></div>
                         <div class="typing-dot"></div>
