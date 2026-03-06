@@ -25,6 +25,9 @@ import {
     getAllSalesLogs
 } from '../firebase-helpers.js';
 
+// TPOS Proxy
+const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
 // State variables
 let productsData = [];
 let isLoadingExcel = false;
@@ -724,7 +727,7 @@ function initCartHistoryState() {
 
 async function getAuthToken() {
     try {
-        const response = await fetch('https://tomato.tpos.vn/token', {
+        const response = await fetch(`${PROXY_URL}/api/token`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -772,8 +775,12 @@ async function authenticatedFetch(url, options = {}) {
     const token = await getValidToken();
 
     const headers = {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'feature-version': '2',
+        'tposappversion': '6.2.6.1',
+        ...options.headers
     };
 
     const response = await fetch(url, {
@@ -781,8 +788,17 @@ async function authenticatedFetch(url, options = {}) {
         headers
     });
 
-    if (response.status === 401) {
-        console.log('🔄 Token hết hạn, đang lấy token mới...');
+    // Handle auth failure: 401 OR 200+HTML (TPOS returns login page instead of 401)
+    const needsRetry = response.status === 401 ||
+        (response.ok && (response.headers.get('content-type') || '').includes('text/html'));
+
+    if (needsRetry) {
+        const reason = response.status === 401 ? '401' : '200+HTML';
+        console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
+        localStorage.removeItem('soluong_bearerToken');
+        localStorage.removeItem('soluong_tokenExpiry');
+        bearerToken = null;
+        tokenExpiry = null;
         const newToken = await getAuthToken();
         headers.Authorization = `Bearer ${newToken}`;
 
@@ -829,7 +845,7 @@ async function loadExcelData() {
     loadingIndicator.style.display = 'block';
 
     try {
-        const response = await authenticatedFetch('https://tomato.tpos.vn/Product/ExportFileWithVariantPrice', {
+        const response = await authenticatedFetch(`${PROXY_URL}/api/Product/ExportFileWithVariantPrice`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -965,7 +981,7 @@ function displaySuggestions(suggestions) {
 async function loadProductDetails(productId) {
     try {
         const response = await authenticatedFetch(
-            `https://tomato.tpos.vn/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+            `${PROXY_URL}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
         );
 
         if (!response.ok) {
@@ -980,7 +996,7 @@ async function loadProductDetails(productId) {
         if (productData.ProductTmplId) {
             try {
                 const templateResponse = await authenticatedFetch(
-                    `https://tomato.tpos.vn/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
+                    `${PROXY_URL}/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
                 );
 
                 if (templateResponse.ok) {

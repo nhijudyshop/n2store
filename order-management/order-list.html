@@ -13,6 +13,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <!-- Firebase Configuration (SHARED) -->
     <script src="../shared/js/firebase-config.js"></script>
@@ -1254,7 +1255,7 @@
 
         async function getAuthToken() {
             try {
-                const response = await fetch('https://tomato.tpos.vn/token', {
+                const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
@@ -1300,8 +1301,12 @@
             const token = await getValidToken();
 
             const headers = {
-                ...options.headers,
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'feature-version': '2',
+                'tposappversion': '6.2.6.1',
+                ...options.headers
             };
 
             const response = await fetch(url, {
@@ -1309,8 +1314,16 @@
                 headers
             });
 
-            if (response.status === 401) {
-                console.log('🔄 Token hết hạn, đang lấy token mới...');
+            const needsRetry = response.status === 401 ||
+                (response.ok && (response.headers.get('content-type') || '').includes('text/html'));
+
+            if (needsRetry) {
+                const reason = response.status === 401 ? '401' : '200+HTML';
+                console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
+                localStorage.removeItem('bearerToken');
+                localStorage.removeItem('tokenExpiry');
+                bearerToken = null;
+                tokenExpiry = null;
                 const newToken = await getAuthToken();
                 headers.Authorization = `Bearer ${newToken}`;
 
@@ -2373,7 +2386,7 @@
 
             try {
                 const response = await authenticatedFetch(
-                    `https://tomato.tpos.vn/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+                    `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
                 );
 
                 if (!response.ok) {
@@ -2401,7 +2414,7 @@
                 if (!newImageUrl && productData.ProductTmplId) {
                     try {
                         const templateResponse = await authenticatedFetch(
-                            `https://tomato.tpos.vn/odata/ProductTemplate(${productData.ProductTmplId})?$select=ImageUrl`
+                            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$select=ImageUrl`
                         );
                         if (templateResponse.ok) {
                             const templateData = await templateResponse.json();

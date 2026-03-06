@@ -1654,6 +1654,9 @@ class UnifiedNavigationManager {
     renderDesktopNavigation() {
         console.log("[Unified Nav] Rendering desktop UI...");
 
+        // Auto-create sidebar + main-content wrapper if page doesn't have them
+        this.ensureDesktopStructure();
+
         const sidebar = document.getElementById("sidebar");
         if (sidebar) {
             sidebar.style.display = "";
@@ -1674,6 +1677,237 @@ class UnifiedNavigationManager {
         this.initShopSelector();
         this.renderDesktopSidebar();
         this.initializeSidebarToggle();
+    }
+
+    /**
+     * Auto-create sidebar HTML + inject CSS for pages that don't have sidebar markup.
+     * Makes navigation-modern.js plug-and-play: just add <script defer src="navigation-modern.js">
+     */
+    ensureDesktopStructure() {
+        if (document.getElementById("sidebar")) return; // Already has sidebar
+
+        console.log("[Unified Nav] Sidebar not found, auto-creating...");
+
+        // Inject sidebar CSS (with hardcoded fallbacks for pages without modern.css)
+        this.injectSidebarStyles();
+
+        // Compute logo path from script src
+        const scriptTag = document.querySelector('script[src*="navigation-modern"]');
+        let logoPath = '../shared/images/logo.jpg';
+        if (scriptTag) {
+            const src = scriptTag.getAttribute('src');
+            logoPath = src.replace('js/navigation-modern.js', 'images/logo.jpg');
+        }
+
+        // Create sidebar HTML
+        const sidebar = document.createElement('aside');
+        sidebar.className = 'sidebar';
+        sidebar.id = 'sidebar';
+        sidebar.innerHTML = `
+            <div class="sidebar-header">
+                <div class="logo">
+                    <img src="${logoPath}" alt="N2STORE" class="sidebar-logo-img">
+                    <span>N2STORE</span>
+                </div>
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+                </button>
+            </div>
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">Admin</div>
+                        <div class="user-role">Quản trị viên</div>
+                    </div>
+                </div>
+                <button class="btn-permissions" id="btnPermissions">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+                    <span>Xem Quyền Của Tôi</span>
+                </button>
+                <button class="btn-logout" id="btnLogout">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                    <span>Đăng xuất</span>
+                </button>
+            </div>
+        `;
+
+        // Wrap existing body content in main-content
+        const mainContent = document.querySelector('.main-content');
+        if (!mainContent) {
+            const wrapper = document.createElement('main');
+            wrapper.className = 'main-content';
+            // Move all body children into wrapper (except scripts that shouldn't move)
+            while (document.body.firstChild) {
+                wrapper.appendChild(document.body.firstChild);
+            }
+            document.body.appendChild(sidebar);
+            document.body.appendChild(wrapper);
+        } else {
+            document.body.insertBefore(sidebar, document.body.firstChild);
+        }
+
+        console.log("[Unified Nav] Sidebar auto-created successfully");
+    }
+
+    /**
+     * Inject sidebar CSS for pages that don't have modern.css
+     */
+    injectSidebarStyles() {
+        if (document.getElementById('unified-nav-sidebar-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'unified-nav-sidebar-styles';
+        style.textContent = `
+            /* CSS Variables fallbacks for pages without modern.css */
+            :root {
+                --sidebar-width: var(--sidebar-width, 260px);
+                --surface: var(--surface, #ffffff);
+                --border: var(--border, #e5e7eb);
+                --primary: var(--primary, #6366f1);
+                --primary-dark: var(--primary-dark, #4f46e5);
+                --gray-50: var(--gray-50, #f9fafb);
+                --gray-100: var(--gray-100, #f3f4f6);
+                --gray-200: var(--gray-200, #e5e7eb);
+                --gray-300: var(--gray-300, #d1d5db);
+                --text-primary: var(--text-primary, #111827);
+                --text-secondary: var(--text-secondary, #4b5563);
+                --text-tertiary: var(--text-tertiary, #9ca3af);
+                --danger: var(--danger, #ef4444);
+                --spacing-xs: var(--spacing-xs, 0.25rem);
+                --spacing-sm: var(--spacing-sm, 0.5rem);
+                --spacing-md: var(--spacing-md, 1rem);
+                --spacing-lg: var(--spacing-lg, 1.5rem);
+                --radius: var(--radius, 0.5rem);
+                --radius-lg: var(--radius-lg, 1rem);
+                --transition-fast: var(--transition-fast, 150ms ease);
+                --transition: var(--transition, 200ms ease);
+                --transition-slow: var(--transition-slow, 300ms ease);
+                --shadow-lg: var(--shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1));
+                --shadow-xl: var(--shadow-xl, 0 20px 25px -5px rgb(0 0 0 / 0.1));
+            }
+
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 260px;
+                width: var(--sidebar-width, 260px);
+                height: 100vh;
+                background: var(--surface, #fff);
+                border-right: 1px solid var(--border, #e5e7eb);
+                display: flex;
+                flex-direction: column;
+                z-index: 1000;
+                transition: transform 300ms ease;
+                font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }
+            .sidebar.collapsed { transform: translateX(-100%); }
+
+            .sidebar-header {
+                padding: 1.5rem;
+                border-bottom: 1px solid var(--border, #e5e7eb);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            .sidebar-header .logo {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                font-size: 1.25rem;
+                font-weight: 700;
+                color: var(--primary, #6366f1);
+            }
+            .sidebar-logo-img {
+                width: 32px;
+                height: 32px;
+                object-fit: contain;
+                border-radius: 6px;
+            }
+            .sidebar-toggle {
+                width: 36px; height: 36px;
+                border: none; background: transparent;
+                color: var(--text-secondary, #4b5563);
+                border-radius: 0.5rem;
+                display: flex; align-items: center; justify-content: center;
+                cursor: pointer;
+                transition: 150ms ease;
+            }
+            .sidebar-toggle:hover { background: var(--gray-100, #f3f4f6); }
+
+            .sidebar-nav {
+                flex: 1;
+                padding: 1.5rem;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
+            .sidebar-nav::-webkit-scrollbar { width: 6px; }
+            .sidebar-nav::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+            .sidebar-footer {
+                padding: 1.5rem;
+                border-top: 1px solid var(--border, #e5e7eb);
+            }
+            .user-info {
+                display: flex; align-items: center; gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            .user-avatar {
+                width: 40px; height: 40px; border-radius: 50%;
+                background: var(--gray-100, #f3f4f6);
+                display: flex; align-items: center; justify-content: center;
+                color: var(--primary, #6366f1);
+                flex-shrink: 0;
+            }
+            .user-details { flex: 1; min-width: 0; }
+            .user-name {
+                font-weight: 600; color: var(--text-primary, #111827);
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            }
+            .user-role { font-size: 0.75rem; color: var(--text-tertiary, #9ca3af); }
+
+            .btn-permissions, .btn-logout {
+                width: 100%; padding: 1rem; border: none; border-radius: 0.5rem;
+                font-weight: 500; font-size: 0.875rem;
+                display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+                cursor: pointer; transition: 150ms ease;
+            }
+            .btn-permissions {
+                background: var(--gray-100, #f3f4f6);
+                color: var(--text-primary, #111827);
+                margin-bottom: 0.5rem;
+            }
+            .btn-permissions:hover { background: var(--gray-200, #e5e7eb); }
+            .btn-logout { background: var(--danger, #ef4444); color: white; }
+            .btn-logout:hover { background: #dc2626; }
+
+            .main-content {
+                margin-left: 260px;
+                margin-left: var(--sidebar-width, 260px);
+                min-height: 100vh;
+                transition: margin-left 300ms ease;
+            }
+            .sidebar.collapsed ~ .main-content { margin-left: 0; }
+
+            .sidebar-toggle-fixed {
+                position: fixed; left: 20px; top: 20px;
+                width: 48px; height: 48px;
+                border-radius: 1rem; background: var(--primary, #6366f1);
+                color: white; border: none;
+                box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+                display: none; align-items: center; justify-content: center;
+                cursor: pointer; z-index: 1001;
+                transition: all 200ms ease;
+            }
+            .sidebar-toggle-fixed:hover {
+                background: var(--primary-dark, #4f46e5);
+                transform: scale(1.05);
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     /**
