@@ -585,7 +585,7 @@ class InboxChatController {
                 return {
                     id: msg.id,
                     text,
-                    time: new Date(msg.inserted_at || msg.created_time || Date.now()),
+                    time: this.parseTimestamp(msg.inserted_at || msg.created_time) || new Date(),
                     sender: isFromPage ? 'shop' : 'customer',
                     attachments: msg.attachments || [],
                     senderName: msg.from?.name || '',
@@ -1259,7 +1259,7 @@ class InboxChatController {
                     const actUrl = act.attachments?.target?.url || '';
                     const actTitle = act.message || '';
                     const truncTitle = actTitle.length > 80 ? actTitle.substring(0, 80) + '...' : actTitle;
-                    const actTime = act.inserted_at ? this.formatDate(new Date(act.inserted_at)) : '';
+                    const actTime = act.inserted_at ? this.formatDate(act.inserted_at) : '';
                     return `
                         <div class="activity-item" ${actUrl ? `onclick="window.open('${actUrl}','_blank')"` : ''}>
                             ${thumb ? `<img class="activity-thumb" src="${thumb}" alt="">` : '<div class="activity-thumb-ph"><i data-lucide="video"></i></div>'}
@@ -1324,7 +1324,7 @@ class InboxChatController {
                     return {
                         id: msg.id,
                         text: msg.original_message || this.stripHtml(msg.message || ''),
-                        time: new Date(msg.inserted_at || msg.created_time || Date.now()),
+                        time: this.parseTimestamp(msg.inserted_at || msg.created_time) || new Date(),
                         sender: isFromPage ? 'shop' : 'customer',
                         attachments: msg.attachments || [],
                         senderName: msg.from?.name || '',
@@ -1563,7 +1563,7 @@ class InboxChatController {
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
             existing.lastMessage = conversation.snippet || existing.lastMessage;
-            existing.time = new Date(conversation.updated_at || Date.now());
+            existing.time = this.parseTimestamp(conversation.updated_at) || new Date();
             existing.unread = conversation.unread_count ?? existing.unread;
             if (conversation.tags) existing._raw.tags = conversation.tags;
         } else {

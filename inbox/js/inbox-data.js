@@ -381,7 +381,7 @@ class InboxDataManager {
             name: customerName,
             avatar: conv.from?.avatar || null,
             lastMessage: conv.snippet || conv.last_message?.text || conv.last_message?.message || '',
-            time: new Date(conv.updated_at || conv.last_message?.inserted_at || Date.now()),
+            time: this.parseTimestamp(conv.updated_at || conv.last_message?.inserted_at) || new Date(),
             unread: conv.unread_count || 0,
             online: false,
             phone: '',
@@ -397,6 +397,30 @@ class InboxDataManager {
             messages: [], // Messages loaded on demand
             _raw: conv,   // Keep raw data for reference
         };
+    }
+
+    /**
+     * Parse timestamp from Pancake API - handles UTC timestamps without timezone suffix
+     */
+    parseTimestamp(timestamp) {
+        if (!timestamp) return null;
+        try {
+            let date;
+            if (typeof timestamp === 'string') {
+                if (!timestamp.includes('Z') && !timestamp.includes('+') && !timestamp.includes('-', 10)) {
+                    date = new Date(timestamp + 'Z');
+                } else {
+                    date = new Date(timestamp);
+                }
+            } else if (typeof timestamp === 'number') {
+                date = timestamp > 9999999999 ? new Date(timestamp) : new Date(timestamp * 1000);
+            } else {
+                date = new Date(timestamp);
+            }
+            return isNaN(date.getTime()) ? null : date;
+        } catch (e) {
+            return null;
+        }
     }
 
     /**
