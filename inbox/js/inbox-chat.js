@@ -26,6 +26,48 @@ class InboxChatController {
         this.isSending = false;
         this.isLoadingMessages = false;
 
+        // Message pagination (like tpos-pancake)
+        this.isLoadingMoreMessages = false;
+        this.hasMoreMessages = true;
+        this.messageCurrentCount = 0;
+
+        // WebSocket real-time (Phoenix Protocol v2.0.0, like tpos-pancake)
+        this.socket = null;
+        this.isSocketConnected = false;
+        this.isSocketConnecting = false;
+        this.socketReconnectAttempts = 0;
+        this.socketMaxReconnectAttempts = 3;
+        this.socketReconnectDelay = 2000;
+        this.socketReconnectTimer = null;
+        this.heartbeatInterval = null;
+        this.HEARTBEAT_INTERVAL = 30000;
+        this.socketJoinRef = 0;
+        this.socketMsgRef = 0;
+        this.userId = null;
+        this.autoRefreshInterval = null;
+        this.AUTO_REFRESH_INTERVAL = 30000;
+
+        // Quick replies (like tpos-pancake)
+        this.quickReplies = [
+            { label: 'NV My KH dat', color: 'blue', template: '' },
+            { label: 'NV My CK + Gap', color: 'blue', template: '' },
+            { label: 'NHAC KHACH', color: 'red', template: '' },
+            { label: 'XIN DIA CHI', color: 'purple', template: '' },
+            { label: 'NV .BO', color: 'teal', template: '' },
+            { label: 'NJD OI', color: 'green', template: '' },
+            { label: 'NV. Lai', color: 'orange', template: '' },
+            { label: 'NV. Hanh', color: 'pink', template: '' },
+            { label: 'Nv.Huyen', color: 'pink', template: '' },
+            { label: 'Nv. Duyen', color: 'teal', template: '' },
+            { label: 'XU LY BC', color: 'purple', template: '' },
+            { label: 'BOOM', color: 'red', template: '' },
+            { label: 'CHECK IB', color: 'green', template: '' },
+            { label: 'Nv My', color: 'blue', template: '' },
+        ];
+
+        // Page unread counts
+        this.pageUnreadCounts = {};
+
         this.elements = {
             conversationList: document.getElementById('conversationList'),
             chatMessages: document.getElementById('chatMessages'),
@@ -85,6 +127,55 @@ class InboxChatController {
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
         });
+
+        // Typing indicator - send typing status to Pancake API
+        let typingTimeout = null;
+        let isTyping = false;
+        this.elements.chatInput.addEventListener('input', () => {
+            if (!this.activeConversationId) return;
+            const conv = this.data.getConversation(this.activeConversationId);
+            if (!conv) return;
+            if (!isTyping) {
+                isTyping = true;
+                window.pancakeDataManager?.sendTypingIndicator?.(conv.pageId, conv.conversationId, true);
+            }
+            if (typingTimeout) clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                window.pancakeDataManager?.sendTypingIndicator?.(conv.pageId, conv.conversationId, false);
+            }, 2000);
+        });
+
+        // Message scroll: pagination (scroll up)
+        this.elements.chatMessages.addEventListener('scroll', () => {
+            const container = this.elements.chatMessages;
+            if (container.scrollTop < 100 &&
+                this.hasMoreMessages &&
+                !this.isLoadingMoreMessages &&
+                this.activeConversationId) {
+                this.loadMoreMessages();
+            }
+        });
+
+        // Quick reply bar click
+        const qrBar = document.getElementById('quickReplyBar');
+        if (qrBar) {
+            qrBar.addEventListener('click', (e) => {
+                const btn = e.target.closest('.qr-btn');
+                if (!btn) return;
+                const template = btn.dataset.template;
+                if (template) {
+                    this.elements.chatInput.value = template;
+                    this.elements.chatInput.focus();
+                }
+            });
+        }
+
+        // File attachment
+        const btnAttachFile = document.getElementById('btnAttachFile');
+        if (btnAttachFile) {
+            btnAttachFile.addEventListener('click', () => this.attachFile());
+        }
 
         // Star conversation
         this.elements.btnStarConversation.addEventListener('click', () => {
@@ -194,12 +285,18 @@ class InboxChatController {
                 ? `<img src="${page.avatar}" class="page-item-avatar" alt="${this.escapeHtml(pageName)}" onerror="this.outerHTML='<div class=page-item-avatar-ph>${initial}</div>'">`
                 : `<div class="page-item-avatar-ph">${initial}</div>`;
 
+            const unreadCount = this.pageUnreadCounts[pageId] || 0;
+            const unreadBadgeHtml = unreadCount > 0
+                ? `<span class="page-unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>`
+                : '';
+
             html += `
                 <div class="page-item ${isActive ? 'active' : ''}" data-page-id="${pageId}">
                     ${avatarHtml}
                     <div class="page-item-info">
                         <div class="page-item-name">${this.escapeHtml(pageName)}</div>
                     </div>
+                    ${unreadBadgeHtml}
                 </div>
             `;
         }
@@ -234,14 +331,20 @@ class InboxChatController {
         const colorIndex = name.charCodeAt(0) % AVATAR_GRADIENTS.length;
         const gradient = AVATAR_GRADIENTS[colorIndex];
 
-        // Try multiple avatar fields
-        const avatarUrl = conv.avatar
+        // 4-tier avatar fallback (like tpos-pancake)
+        const fbId = conv._raw?.from?.id || conv._raw?.customers?.[0]?.fb_id || conv.psid || null;
+        const directAvatar = conv.avatar
             || conv._raw?.from?.picture?.data?.url
             || conv._raw?.from?.profile_pic
             || conv._raw?.customers?.[0]?.avatar
             || null;
 
-        if (avatarUrl) {
+        let avatarUrl = directAvatar;
+        if (window.pancakeDataManager?.getAvatarUrl && fbId) {
+            avatarUrl = window.pancakeDataManager.getAvatarUrl(fbId, conv.pageId, null, directAvatar);
+        }
+
+        if (avatarUrl && !avatarUrl.startsWith('data:image/svg')) {
             return `<img src="${avatarUrl}" alt="${this.escapeHtml(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                     <div class="conv-avatar-ph" style="display:none;background:${gradient};">${initial}</div>`;
         }
@@ -253,9 +356,14 @@ class InboxChatController {
     getTagsHtml(conv) {
         const tags = conv._raw?.tags;
         if (!tags || tags.length === 0) return '';
-        return tags.slice(0, 3).map(tag => {
-            const color = tag.color || '#6b7280';
-            return `<span class="conv-tag" style="background:${color}20;color:${color};">${this.escapeHtml(tag.name || '')}</span>`;
+        const colorPalette = ['red', 'green', 'blue', 'orange', 'purple', 'pink', 'teal'];
+        return tags.slice(0, 3).map((tag, idx) => {
+            const tagName = tag.name || tag.tag_name || tag;
+            const tagColor = tag.color || colorPalette[idx % colorPalette.length];
+            if (tagColor.startsWith('#')) {
+                return `<span class="conv-tag" style="background:${tagColor}20;color:${tagColor};">${this.escapeHtml(tagName)}</span>`;
+            }
+            return `<span class="conv-tag tag-${tagColor}">${this.escapeHtml(tagName)}</span>`;
         }).join('');
     }
 
@@ -401,6 +509,9 @@ class InboxChatController {
 
         // Fetch real messages from Pancake API
         await this.loadMessages(conv);
+
+        // Show quick reply bar
+        this.renderQuickReplies();
     }
 
     /**
@@ -487,6 +598,10 @@ class InboxChatController {
 
             // Messages from API are newest-first, reverse for display
             conv.messages.reverse();
+
+            // Reset pagination state
+            this.hasMoreMessages = true;
+            this.messageCurrentCount = conv.messages.length;
 
             this.renderMessages(conv);
 
@@ -611,11 +726,26 @@ class InboxChatController {
                             ${statusIndicator}
                             ${senderHtml}
                             <span class="message-time">${this.formatMessageTime(msg.time)}</span>
+                            ${isOutgoing ? '<span class="message-read-receipt"><i data-lucide="check-check"></i></span>' : ''}
                         </div>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Typing indicator (set via WebSocket)
+        if (conv._isCustomerTyping) {
+            html += `
+                <div class="message-row incoming">
+                    <div class="message-avatar" style="background:${gradient};">${initial}</div>
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+        }
 
         this.elements.chatMessages.innerHTML = html;
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
@@ -672,6 +802,18 @@ class InboxChatController {
 
         this.isSending = true;
         this.elements.btnSend.disabled = true;
+
+        // 24h window check (Facebook messaging policy)
+        const windowCheck = this.data.check24hWindow(this.activeConversationId);
+        if (!windowCheck.isOpen) {
+            showToast('Cửa sổ 24h đã hết hạn. Không thể gửi tin nhắn.', 'warning');
+            this.isSending = false;
+            this.elements.btnSend.disabled = false;
+            return;
+        }
+        if (windowCheck.hoursRemaining !== null && windowCheck.hoursRemaining <= 2) {
+            showToast(`Cửa sổ 24h còn ${windowCheck.hoursRemaining}h. Gửi nhanh!`, 'warning');
+        }
 
         // Optimistic UI update
         this.data.addMessage(this.activeConversationId, text, 'shop');
@@ -1137,10 +1279,403 @@ class InboxChatController {
 
     stripHtml(html) {
         if (!html) return '';
-        // Remove HTML tags, decode entities
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
         return tmp.textContent || tmp.innerText || '';
+    }
+
+    // ===== Message Pagination (like tpos-pancake) =====
+
+    async loadMoreMessages() {
+        if (this.isLoadingMoreMessages || !this.hasMoreMessages || !this.activeConversationId) return;
+
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv || !conv.messages || conv.messages.length === 0) return;
+
+        this.isLoadingMoreMessages = true;
+        const container = this.elements.chatMessages;
+        const scrollHeightBefore = container.scrollHeight;
+
+        // Show loading indicator at top
+        const loader = document.createElement('div');
+        loader.className = 'load-more-indicator';
+        loader.innerHTML = '<div class="loading-spinner" style="width:24px;height:24px;"></div><span>Đang tải tin nhắn cũ...</span>';
+        container.insertBefore(loader, container.firstChild);
+
+        try {
+            const pdm = window.pancakeDataManager;
+            const result = await pdm.fetchMessagesForConversation(
+                conv.pageId, conv.conversationId, this.messageCurrentCount, conv.customerId
+            );
+
+            if (this.activeConversationId !== conv.id) return;
+            loader.remove();
+
+            const olderMessages = result.messages || [];
+            if (olderMessages.length === 0) {
+                this.hasMoreMessages = false;
+                const endMarker = document.createElement('div');
+                endMarker.className = 'chat-date-separator';
+                endMarker.innerHTML = '<span>— Đầu cuộc hội thoại —</span>';
+                container.insertBefore(endMarker, container.firstChild);
+            } else {
+                const mapped = olderMessages.map(msg => {
+                    const isFromPage = msg.from?.id === conv.pageId;
+                    return {
+                        id: msg.id,
+                        text: msg.original_message || this.stripHtml(msg.message || ''),
+                        time: new Date(msg.inserted_at || msg.created_time || Date.now()),
+                        sender: isFromPage ? 'shop' : 'customer',
+                        attachments: msg.attachments || [],
+                        senderName: msg.from?.name || '',
+                        reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                        phoneInfo: msg.phone_info || [],
+                        isHidden: msg.is_hidden || false,
+                        isRemoved: msg.is_removed || false,
+                    };
+                }).reverse();
+
+                conv.messages = [...mapped, ...conv.messages];
+                this.messageCurrentCount = conv.messages.length;
+                this.renderMessages(conv);
+
+                // Maintain scroll position
+                const scrollHeightAfter = container.scrollHeight;
+                container.scrollTop = scrollHeightAfter - scrollHeightBefore;
+            }
+        } catch (error) {
+            console.error('[InboxChat] Error loading more messages:', error);
+            loader.remove();
+        } finally {
+            this.isLoadingMoreMessages = false;
+        }
+    }
+
+    // ===== Quick Replies (like tpos-pancake) =====
+
+    renderQuickReplies() {
+        const bar = document.getElementById('quickReplyBar');
+        if (!bar || !this.activeConversationId) { if (bar) bar.style.display = 'none'; return; }
+
+        const row1 = this.quickReplies.slice(0, 7);
+        const row2 = this.quickReplies.slice(7);
+
+        const row1El = document.getElementById('quickReplyRow1');
+        const row2El = document.getElementById('quickReplyRow2');
+        if (row1El) row1El.innerHTML = row1.map(qr =>
+            `<button class="qr-btn qr-${qr.color}" data-template="${this.escapeHtml(qr.template)}">${this.escapeHtml(qr.label)}</button>`
+        ).join('');
+        if (row2El) row2El.innerHTML = row2.map(qr =>
+            `<button class="qr-btn qr-${qr.color}" data-template="${this.escapeHtml(qr.template)}">${this.escapeHtml(qr.label)}</button>`
+        ).join('');
+
+        bar.style.display = 'flex';
+    }
+
+    // ===== File Attachment =====
+
+    async attachFile() {
+        if (!this.activeConversationId) {
+            showToast('Vui lòng chọn cuộc hội thoại trước', 'warning');
+            return;
+        }
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 25 * 1024 * 1024) {
+                showToast('File quá lớn (tối đa 25MB)', 'warning');
+                return;
+            }
+            try {
+                showToast('Đang tải file lên...', 'info');
+                const pdm = window.pancakeDataManager;
+                if (!pdm) throw new Error('pancakeDataManager not available');
+
+                const result = await pdm.uploadImage(conv.pageId, file);
+                if (result && result.url) {
+                    const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
+                    const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                        `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                        pageAccessToken
+                    );
+                    await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: { attachment: { type: 'file', payload: { url: result.url } } } })
+                    });
+                    showToast('Đã gửi file: ' + file.name, 'success');
+                    setTimeout(() => this.loadMessages(conv), 2000);
+                }
+            } catch (err) {
+                console.error('[InboxChat] File upload error:', err);
+                showToast('Lỗi tải file: ' + err.message, 'error');
+            }
+        };
+        input.click();
+    }
+
+    // ===== WebSocket Real-Time (Phoenix Protocol v2.0.0, like tpos-pancake) =====
+
+    async initializeWebSocket() {
+        if (this.isSocketConnected || this.isSocketConnecting) return true;
+
+        try {
+            const ptm = window.pancakeTokenManager;
+            if (!ptm) return false;
+
+            const token = ptm.getToken();
+            if (!token) {
+                console.warn('[InboxChat] No Pancake token for WebSocket');
+                return false;
+            }
+
+            // Decode token to get userId
+            try {
+                const parts = token.split('.');
+                if (parts.length >= 2) {
+                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    this.userId = payload.uid || payload.user_id || payload.sub;
+                }
+            } catch (e) {
+                console.warn('[InboxChat] Failed to decode JWT:', e);
+                return false;
+            }
+
+            if (!this.userId) {
+                console.warn('[InboxChat] No userId from JWT');
+                return false;
+            }
+
+            this.isSocketConnecting = true;
+            const wsUrl = `wss://pancake.vn/socket/websocket?token=${token}&vsn=2.0.0`;
+            console.log('[InboxChat] Connecting WebSocket...');
+
+            this.socket = new WebSocket(wsUrl);
+
+            this.socket.onopen = () => this.onSocketOpen();
+            this.socket.onclose = (e) => this.onSocketClose(e);
+            this.socket.onerror = (e) => {
+                console.error('[InboxChat] WebSocket error:', e);
+                this.isSocketConnecting = false;
+            };
+            this.socket.onmessage = (e) => this.onSocketMessage(e);
+
+            return true;
+        } catch (error) {
+            console.error('[InboxChat] WebSocket init error:', error);
+            this.isSocketConnecting = false;
+            return false;
+        }
+    }
+
+    onSocketOpen() {
+        console.log('[InboxChat] WebSocket connected');
+        this.isSocketConnected = true;
+        this.isSocketConnecting = false;
+        this.socketReconnectAttempts = 0;
+        this.socketReconnectDelay = 2000;
+
+        this.joinChannels();
+        this.startHeartbeat();
+        this.updateSocketStatusUI(true);
+        this.stopAutoRefresh();
+    }
+
+    onSocketClose(event) {
+        console.log('[InboxChat] WebSocket closed:', event.code, event.reason);
+        this.isSocketConnected = false;
+        this.isSocketConnecting = false;
+        this.stopHeartbeat();
+        this.updateSocketStatusUI(false);
+
+        // Reconnect with exponential backoff
+        if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
+            this.socketReconnectAttempts++;
+            const delay = this.socketReconnectDelay;
+            this.socketReconnectDelay = Math.min(delay * 1.5, 15000);
+            console.log(`[InboxChat] Reconnecting in ${delay}ms (attempt ${this.socketReconnectAttempts}/${this.socketMaxReconnectAttempts})...`);
+            this.socketReconnectTimer = setTimeout(() => this.initializeWebSocket(), delay);
+        } else {
+            console.log('[InboxChat] Max reconnect attempts reached, falling back to polling');
+            this.startAutoRefresh();
+        }
+    }
+
+    onSocketMessage(event) {
+        try {
+            const data = JSON.parse(event.data);
+            const [joinRef, ref, topic, eventName, payload] = data;
+
+            if (eventName === 'phx_reply') return;
+
+            if (eventName === 'pages:update_conversation' || eventName === 'update_conversation') {
+                this.handleConversationUpdate(payload);
+            } else if (eventName === 'pages:new_message' || eventName === 'new_message') {
+                this.handleNewMessage(payload);
+            }
+        } catch (e) {
+            // Ignore parse errors for heartbeat responses etc.
+        }
+    }
+
+    joinChannels() {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.userId) return;
+
+        // Join user channel
+        this.sendPhxMessage(`users:${this.userId}`, 'phx_join', {});
+        // Join multi-page channel
+        this.sendPhxMessage(`multiple_pages:${this.userId}`, 'phx_join', {});
+        console.log('[InboxChat] Joined channels for userId:', this.userId);
+    }
+
+    sendPhxMessage(topic, event, payload) {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+        this.socketJoinRef++;
+        this.socketMsgRef++;
+        const msg = [this.socketJoinRef.toString(), this.socketMsgRef.toString(), topic, event, payload];
+        this.socket.send(JSON.stringify(msg));
+    }
+
+    startHeartbeat() {
+        this.stopHeartbeat();
+        this.heartbeatInterval = setInterval(() => {
+            this.sendPhxMessage('phoenix', 'heartbeat', {});
+        }, this.HEARTBEAT_INTERVAL);
+    }
+
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+    }
+
+    handleConversationUpdate(payload) {
+        const conversation = payload?.conversation || payload;
+        if (!conversation || !conversation.id) return;
+
+        const existing = this.data.getConversation(conversation.id);
+        if (existing) {
+            existing.lastMessage = conversation.snippet || existing.lastMessage;
+            existing.time = new Date(conversation.updated_at || Date.now());
+            existing.unread = conversation.unread_count ?? existing.unread;
+            if (conversation.tags) existing._raw.tags = conversation.tags;
+        } else {
+            // New conversation
+            const mapped = this.data.mapConversation(conversation);
+            this.data.conversations.unshift(mapped);
+            this.data.buildMaps();
+        }
+
+        this.data.conversations.sort((a, b) => b.time - a.time);
+        this.renderConversationList();
+        this.renderGroupStats();
+    }
+
+    handleNewMessage(payload) {
+        const message = payload?.message || payload;
+        if (!message) return;
+
+        const convId = message.conversation_id;
+        if (!convId) return;
+
+        const conv = this.data.getConversation(convId);
+        if (conv) {
+            conv.time = new Date();
+            conv.lastMessage = message.original_message || message.message || conv.lastMessage;
+            this.data.conversations.sort((a, b) => b.time - a.time);
+            this.renderConversationList();
+
+            // If this is the active conversation, reload messages
+            if (this.activeConversationId === convId) {
+                this.loadMessages(conv);
+            }
+        }
+    }
+
+    startAutoRefresh() {
+        this.stopAutoRefresh();
+        this.autoRefreshInterval = setInterval(async () => {
+            try {
+                await this.data.loadConversations(true);
+                this.renderConversationList();
+                this.renderGroupStats();
+            } catch (e) {
+                console.warn('[InboxChat] Auto-refresh error:', e);
+            }
+        }, this.AUTO_REFRESH_INTERVAL);
+        console.log('[InboxChat] Auto-refresh started (every 30s)');
+    }
+
+    stopAutoRefresh() {
+        if (this.autoRefreshInterval) {
+            clearInterval(this.autoRefreshInterval);
+            this.autoRefreshInterval = null;
+        }
+    }
+
+    closeWebSocket() {
+        this.stopHeartbeat();
+        this.stopAutoRefresh();
+        if (this.socketReconnectTimer) clearTimeout(this.socketReconnectTimer);
+        if (this.socket) {
+            this.socket.onclose = null;
+            this.socket.close();
+            this.socket = null;
+        }
+        this.isSocketConnected = false;
+        this.isSocketConnecting = false;
+    }
+
+    // ===== WebSocket Status Indicator =====
+
+    updateSocketStatusUI(connected) {
+        const el = document.getElementById('wsStatus');
+        if (!el) return;
+        if (connected) {
+            el.innerHTML = '<i data-lucide="wifi"></i>';
+            el.title = 'Realtime: Đã kết nối';
+            el.className = 'ws-status connected';
+        } else {
+            el.innerHTML = '<i data-lucide="wifi-off"></i>';
+            el.title = 'Realtime: Mất kết nối';
+            el.className = 'ws-status disconnected';
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ===== Page Unread Counts =====
+
+    async updatePageUnreadCounts() {
+        const pdm = window.pancakeDataManager;
+        if (!pdm?.fetchPagesWithUnreadCount) {
+            // Fallback: count from loaded conversations
+            this.pageUnreadCounts = {};
+            for (const conv of this.data.conversations) {
+                if (conv.unread > 0 && conv.pageId) {
+                    this.pageUnreadCounts[conv.pageId] = (this.pageUnreadCounts[conv.pageId] || 0) + 1;
+                }
+            }
+            this.renderPageSelector();
+            return;
+        }
+        try {
+            const unreadData = await pdm.fetchPagesWithUnreadCount();
+            if (!unreadData || unreadData.length === 0) return;
+            this.pageUnreadCounts = {};
+            for (const item of unreadData) {
+                this.pageUnreadCounts[item.page_id] = item.unread_conv_count || 0;
+            }
+            this.renderPageSelector();
+        } catch (err) {
+            console.warn('[InboxChat] Error fetching unread counts:', err);
+        }
     }
 
     // ===== Utility Methods =====

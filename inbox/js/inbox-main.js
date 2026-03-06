@@ -158,12 +158,35 @@ async function initInboxApp() {
     orderController.init();
     window.inboxOrders = orderController;
 
+    // Initialize WebSocket real-time (like tpos-pancake)
+    const socketConnected = await chatController.initializeWebSocket();
+    if (!socketConnected) {
+        console.log('[Inbox] WebSocket unavailable, using polling fallback');
+        chatController.startAutoRefresh();
+    }
+
+    // Update page unread counts
+    chatController.updatePageUnreadCounts();
+
+    // Listen for account changes from Pancake Settings modal
+    window.addEventListener('pancakeAccountChanged', async () => {
+        showToast('Đang chuyển tài khoản...', 'info');
+        chatController.closeWebSocket();
+        await dataManager.init();
+        chatController.renderPageSelector();
+        chatController.renderConversationList();
+        chatController.renderGroupStats();
+        chatController.updatePageUnreadCounts();
+        await chatController.initializeWebSocket();
+        showToast('Đã chuyển tài khoản thành công', 'success');
+    });
+
     // Re-initialize Lucide icons after rendering
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 
-    console.log('[Inbox] App initialized successfully with Pancake API');
+    console.log('[Inbox] App initialized successfully with Pancake API + WebSocket');
 }
 
 // Wait for DOM ready

@@ -147,6 +147,9 @@
                         </div>
                     </div>
                     <div class="chat-header-actions">
+                        <span class="ws-status disconnected" id="wsStatus" title="Realtime: Mất kết nối">
+                            <i data-lucide="wifi-off"></i>
+                        </span>
                         <button class="btn-icon-sm" id="btnStarConversation" title="Đánh dấu">
                             <i data-lucide="star"></i>
                         </button>
@@ -178,6 +181,12 @@
                             <!-- Label buttons rendered by JS -->
                         </div>
                     </div>
+                </div>
+
+                <!-- Quick Reply Bar (like tpos-pancake) -->
+                <div class="quick-reply-bar" id="quickReplyBar" style="display:none;">
+                    <div class="quick-reply-row" id="quickReplyRow1"></div>
+                    <div class="quick-reply-row" id="quickReplyRow2"></div>
                 </div>
 
                 <!-- Chat Input -->

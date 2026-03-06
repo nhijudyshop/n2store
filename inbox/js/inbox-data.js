@@ -26,6 +26,11 @@ class InboxDataManager {
         this.labelMap = {};       // convId -> labelId (saved to localStorage)
         this.starredSet = new Set(); // convId set (saved to localStorage)
         this.isInitialized = false;
+
+        // Conversation maps for O(1) lookup (like tpos-pancake)
+        this.conversationMap = new Map();           // id -> conversation
+        this.conversationByPsidMap = new Map();     // psid -> conversation
+        this.conversationByCustomerIdMap = new Map(); // customerId -> conversation
     }
 
     /**
@@ -58,6 +63,7 @@ class InboxDataManager {
             }
 
             this.recalculateGroupCounts();
+            this.buildMaps();
             this.isInitialized = true;
             console.log('[InboxData] Initialization complete');
         } catch (error) {
@@ -266,6 +272,7 @@ class InboxDataManager {
             this.conversations = rawConversations.map(conv => this.mapConversation(conv));
 
             this.recalculateGroupCounts();
+            this.buildMaps();
             return this.conversations;
         } catch (error) {
             console.error('[InboxData] Error loading conversations:', error);
@@ -446,8 +453,64 @@ class InboxDataManager {
         return result;
     }
 
+    /**
+     * Build O(1) lookup maps (like tpos-pancake buildConversationMap)
+     */
+    buildMaps() {
+        this.conversationMap.clear();
+        this.conversationByPsidMap.clear();
+        this.conversationByCustomerIdMap.clear();
+        for (const conv of this.conversations) {
+            this.conversationMap.set(conv.id, conv);
+            if (conv.psid) this.conversationByPsidMap.set(conv.psid, conv);
+            if (conv.customerId) this.conversationByCustomerIdMap.set(conv.customerId, conv);
+        }
+    }
+
     getConversation(id) {
-        return this.conversations.find(c => c.id === id);
+        return this.conversationMap.get(id) || this.conversations.find(c => c.id === id);
+    }
+
+    getConversationByPsid(psid) {
+        return this.conversationByPsidMap.get(psid) || null;
+    }
+
+    /**
+     * Check Facebook 24h messaging window (like tpos-pancake check24HourWindow)
+     */
+    check24hWindow(convId) {
+        const conv = this.getConversation(convId);
+        if (!conv) return { isOpen: true, hoursRemaining: null };
+
+        // Find last customer message time from stored messages or raw data
+        let lastCustomerTime = null;
+
+        // Check stored messages first
+        if (conv.messages && conv.messages.length > 0) {
+            for (let i = conv.messages.length - 1; i >= 0; i--) {
+                if (conv.messages[i].sender === 'customer') {
+                    lastCustomerTime = conv.messages[i].time;
+                    break;
+                }
+            }
+        }
+
+        // Fallback to conversation updated_at
+        if (!lastCustomerTime) {
+            lastCustomerTime = conv.time || conv._raw?.updated_at;
+        }
+
+        if (!lastCustomerTime) return { isOpen: true, hoursRemaining: null };
+
+        const lastTime = new Date(lastCustomerTime).getTime();
+        const elapsed = Date.now() - lastTime;
+        const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+        const remaining = TWENTY_FOUR_HOURS - elapsed;
+
+        return {
+            isOpen: remaining > 0,
+            hoursRemaining: remaining > 0 ? Math.ceil(remaining / (60 * 60 * 1000)) : 0,
+        };
     }
 
     setConversationLabel(convId, labelId) {
