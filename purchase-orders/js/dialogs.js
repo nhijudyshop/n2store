@@ -1318,7 +1318,16 @@ class InventoryPickerDialog {
      * Get auth token from localStorage or tokenManager
      */
     async getAuthToken() {
-        // Try tokenManager first
+        // Try TPOSClient.getToken (purchase-orders page, from tpos-search.js)
+        if (window.TPOSClient?.getToken) {
+            try {
+                return await window.TPOSClient.getToken();
+            } catch (e) {
+                console.warn('TPOSClient.getToken failed:', e);
+            }
+        }
+
+        // Try tokenManager (other pages)
         if (window.tokenManager?.getToken) {
             try {
                 return await window.tokenManager.getToken();
@@ -1327,12 +1336,17 @@ class InventoryPickerDialog {
             }
         }
 
-        // Fallback to localStorage
-        const tokenData = localStorage.getItem('bearer_token_data');
+        // Fallback to localStorage with company-specific key
+        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId ||
+            (localStorage.getItem('n2store_selected_shop') === 'njd-shop' ? 2 : 1);
+        const storageKey = 'bearer_token_data_' + companyId;
+        const tokenData = localStorage.getItem(storageKey);
         if (tokenData) {
             try {
                 const parsed = JSON.parse(tokenData);
-                return parsed.access_token || parsed.token;
+                if (parsed.access_token && parsed.expires_at && Date.now() < parsed.expires_at) {
+                    return parsed.access_token;
+                }
             } catch (e) {
                 console.warn('Failed to parse token from localStorage');
             }
