@@ -15,7 +15,10 @@ class TokenManager {
         this.isRefreshing = false;
         this.isInitialized = false;
         this.initPromise = null;
-        this.storageKey = 'bearer_token_data';
+        // Multi-company: use bearer_token_data_{companyId} format
+        // Default to Company 1 — old modules always operate on Company 1
+        this.companyId = TokenManager.getCompanyId();
+        this.storageKey = 'bearer_token_data_' + this.companyId;
         this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
         this.credentials = {
             grant_type: 'password',
@@ -60,7 +63,7 @@ class TokenManager {
             await this.init();
 
             this.isInitialized = true;
-            console.log('[TOKEN] ✅ Token Manager fully initialized (Firestore)');
+            console.log(`[TOKEN] ✅ Token Manager initialized (company ${this.companyId}, key: ${this.storageKey})`);
         })();
 
         return this.initPromise;
@@ -90,11 +93,22 @@ class TokenManager {
         console.warn('[TOKEN] Firestore SDK not available after 5 seconds, will use localStorage only');
     }
 
+    /**
+     * Get current company ID from ShopConfig or localStorage
+     */
+    static getCompanyId() {
+        if (window.ShopConfig?.getConfig) return window.ShopConfig.getConfig().CompanyId || 1;
+        const shop = localStorage.getItem('n2store_selected_shop');
+        return shop === 'njd-shop' ? 2 : 1;
+    }
+
     initFirestore() {
         try {
             if (window.firebase && window.firebase.firestore && this.firestoreReady) {
-                this.firestoreRef = window.firebase.firestore().collection('tokens').doc('tpos_token');
-                console.log('[TOKEN] ✅ Firestore reference initialized successfully');
+                // Company 1 uses 'tpos_token' (backward compat), Company 2+ uses 'tpos_token_{id}'
+                const docId = this.companyId === 1 ? 'tpos_token' : 'tpos_token_' + this.companyId;
+                this.firestoreRef = window.firebase.firestore().collection('tokens').doc(docId);
+                console.log(`[TOKEN] ✅ Firestore reference initialized (company ${this.companyId}, doc: ${docId})`);
                 return true;
             } else {
                 console.warn('[TOKEN] Firestore not available, will use localStorage only');
@@ -120,6 +134,18 @@ class TokenManager {
 
     async init() {
         console.log('[TOKEN] Initializing Token Manager...');
+
+        // Migrate old 'bearer_token_data' → 'bearer_token_data_1' if needed
+        if (this.companyId === 1) {
+            try {
+                const oldData = localStorage.getItem('bearer_token_data');
+                if (oldData && !localStorage.getItem(this.storageKey)) {
+                    localStorage.setItem(this.storageKey, oldData);
+                    localStorage.removeItem('bearer_token_data');
+                    console.log('[TOKEN] Migrated bearer_token_data → ' + this.storageKey);
+                }
+            } catch (e) { /* ignore */ }
+        }
 
         // Try localStorage FIRST (faster than Firebase)
         this.loadFromStorage();
@@ -245,6 +271,21 @@ class TokenManager {
             }
             if (tokenData.userId !== undefined) {
                 dataToSave.userId = tokenData.userId;
+            }
+
+            // Preserve refresh_token (used by tpos-search.js for multi-company token refresh)
+            if (tokenData.refresh_token) {
+                dataToSave.refresh_token = tokenData.refresh_token;
+            } else {
+                try {
+                    const existing = localStorage.getItem(this.storageKey);
+                    if (existing) {
+                        const existingData = JSON.parse(existing);
+                        if (existingData.refresh_token) {
+                            dataToSave.refresh_token = existingData.refresh_token;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
             }
 
             // Save to localStorage

@@ -31,13 +31,17 @@ export class TokenManager {
         this.isInitialized = false;
         this.initPromise = null;
 
-        // Configuration
-        this.storageKey = options.storageKey || 'bearer_token_data';
+        // Multi-company support
+        this.companyId = options.companyId || TokenManager.getCompanyId();
+
+        // Configuration - use company-specific keys
+        this.storageKey = options.storageKey || ('bearer_token_data_' + this.companyId);
         this.API_URL = options.apiUrl || API_ENDPOINTS.WORKER.TOKEN;
 
-        // Firestore config (migrated from Realtime Database)
+        // Firestore config - Company 1 uses 'tpos_token' (backward compat)
         this.firestoreCollection = options.firestoreCollection || 'tokens';
-        this.firestoreDocId = options.firestoreDocId || 'tpos_token';
+        this.firestoreDocId = options.firestoreDocId
+            || (this.companyId === 1 ? 'tpos_token' : 'tpos_token_' + this.companyId);
 
         this.credentials = options.credentials || {
             grant_type: 'password',
@@ -77,7 +81,7 @@ export class TokenManager {
             this.initFirestore();
             await this.init();
             this.isInitialized = true;
-            console.log('[TOKEN] Token Manager fully initialized (Firestore)');
+            console.log(`[TOKEN] Token Manager initialized (company ${this.companyId}, key: ${this.storageKey})`);
         })();
 
         return this.initPromise;
@@ -126,10 +130,36 @@ export class TokenManager {
     }
 
     /**
+     * Get current company ID from ShopConfig or localStorage
+     */
+    static getCompanyId() {
+        if (typeof window !== 'undefined') {
+            if (window.ShopConfig?.getConfig) return window.ShopConfig.getConfig().CompanyId || 1;
+            try {
+                const shop = localStorage.getItem('n2store_selected_shop');
+                return shop === 'njd-shop' ? 2 : 1;
+            } catch (e) { /* ignore */ }
+        }
+        return 1;
+    }
+
+    /**
      * Initialize token - try localStorage first, then Firebase
      */
     async init() {
         console.log('[TOKEN] Initializing Token Manager...');
+
+        // Migrate old 'bearer_token_data' → 'bearer_token_data_1' if needed
+        if (this.companyId === 1) {
+            try {
+                const oldData = localStorage.getItem('bearer_token_data');
+                if (oldData && !localStorage.getItem(this.storageKey)) {
+                    localStorage.setItem(this.storageKey, oldData);
+                    localStorage.removeItem('bearer_token_data');
+                    console.log('[TOKEN] Migrated bearer_token_data → ' + this.storageKey);
+                }
+            } catch (e) { /* ignore */ }
+        }
 
         // Try localStorage first
         this.loadFromStorage();
@@ -233,6 +263,21 @@ export class TokenManager {
                 expires_at: expiresAt,
                 issued_at: tokenData.issued_at || Date.now()
             };
+
+            // Preserve refresh_token (used by tpos-search.js for multi-company token refresh)
+            if (tokenData.refresh_token) {
+                dataToSave.refresh_token = tokenData.refresh_token;
+            } else {
+                try {
+                    const existing = localStorage.getItem(this.storageKey);
+                    if (existing) {
+                        const existingData = JSON.parse(existing);
+                        if (existingData.refresh_token) {
+                            dataToSave.refresh_token = existingData.refresh_token;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            }
 
             localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
             this.token = tokenData.access_token;

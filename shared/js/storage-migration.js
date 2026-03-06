@@ -31,8 +31,11 @@
         'userType',
         'checkLogin',
         'remember_login_preference',
-        'bearer_token_data',
+        'bearer_token_data_1',
+        'bearer_token_data_2',
+        'bearer_token_data',  // Legacy (auto-migrated to bearer_token_data_1)
         'tpos_token',
+        'n2store_selected_shop',
         'auth',
         'n2shop_current_user',
         'currentUser',
@@ -256,6 +259,8 @@
             'checkLogin',
             'remember_login_preference',
             'bearer_token_data',
+            'bearer_token_data_1',
+            'bearer_token_data_2',
             'tpos_token',
             'auth'
         ];
