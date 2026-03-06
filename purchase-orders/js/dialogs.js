@@ -1379,7 +1379,7 @@ class InventoryPickerDialog {
                 }
             }
 
-            // Fetch Excel file from TPOS using authenticatedFetch (proper headers + 401 retry)
+            // Fetch Excel file from TPOS (authenticatedFetch handles 401 + HTML login page retry)
             if (!window.TPOSClient?.authenticatedFetch) {
                 throw new Error('TPOSClient không khả dụng');
             }
@@ -1397,12 +1397,6 @@ class InventoryPickerDialog {
 
             if (!response.ok) {
                 throw new Error(`TPOS API error: ${response.status}`);
-            }
-
-            // Check content-type to avoid parsing HTML as Excel
-            const contentType = response.headers.get('content-type') || '';
-            if (contentType.includes('text/html')) {
-                throw new Error('TPOS trả về HTML thay vì Excel - có thể token không hợp lệ');
             }
 
             // Response is Excel binary - parse with XLSX library

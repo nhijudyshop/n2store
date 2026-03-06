@@ -327,15 +327,18 @@ window.TPOSClient = (function() {
             }
         });
 
-        // Handle 401 - clear access_token, keep refresh_token for retry, then refresh
-        if (response.status === 401) {
+        // Handle auth failure: 401 OR 200+HTML (TPOS returns login page instead of 401)
+        const needsRetry = response.status === 401 ||
+            (response.ok && (response.headers.get('content-type') || '').includes('text/html'));
+
+        if (needsRetry) {
             const companyId = getCompanyId();
-            console.log(`[TPOS-Search] 401, clearing access_token for company ${companyId} and refreshing...`);
+            const reason = response.status === 401 ? '401' : '200+HTML';
+            console.log(`[TPOS-Search] ${reason}, clearing access_token for company ${companyId} and refreshing...`);
 
             // Preserve refresh_token, invalidate access_token in all caches
             const savedRefresh = tokenStore[companyId]?.refresh_token || getStoredRefreshToken(companyId);
             delete tokenStore[companyId];
-            // Invalidate localStorage access_token but keep refresh_token
             try {
                 if (savedRefresh) {
                     localStorage.setItem(storageKey(companyId), JSON.stringify({
