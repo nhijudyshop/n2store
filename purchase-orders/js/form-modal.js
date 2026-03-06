@@ -1921,13 +1921,6 @@ class PurchaseOrderFormModal {
         // Use ProductCodeGenerator if available
         if (window.ProductCodeGenerator) {
             try {
-                // Detect category first
-                const category = window.ProductCodeGenerator.detectProductCategory(item.productName);
-                if (!category) {
-                    console.warn('Could not detect category for:', item.productName);
-                    return;
-                }
-
                 const code = await window.ProductCodeGenerator.generateProductCodeFromMax(
                     item.productName,
                     this.formData.items

@@ -1,197 +1,115 @@
 /**
  * PRODUCT CODE GENERATOR
  * File: product-code-generator.js
- * Purpose: Auto-generate product codes like N123, P045, Q001
+ * Purpose: Auto-generate product codes using configurable prefix mapping
+ *
+ * Rules are loaded from Firestore `settings/product_code_rules`.
+ * Each rule maps a product name prefix (e.g., "MM", "By") to a code prefix (e.g., "MM", "B").
  */
 
 window.ProductCodeGenerator = (function() {
     'use strict';
 
     /**
-     * Category keywords mapping
-     * N: Quần áo (clothing)
-     * P: Phụ kiện (accessories)
-     * Q: Khác (others)
+     * Default prefix rules (used when Firestore config not available)
+     * match: product name starts with this string (case-insensitive)
+     * codePrefix: the prefix used for generated code
      */
-    const CATEGORY_N_KEYWORDS = [
-        'QUAN', 'AO', 'DAM', 'SET', 'JUM', 'JUMP', 'JUMPSUIT',
-        'AOKHOAC', 'KHOAC', 'JACKET', 'VEST', 'GILE', 'GILET',
-        'CHAN', 'VAY', 'SKIRT', 'SOMI', 'SO MI', 'SHIRT',
-        'TSHIRT', 'POLO', 'THUN', 'TANKTOP', 'CROP', 'CROPTOP',
-        'BLAZER', 'CARDIGAN', 'HOODIE', 'SWEATER', 'LEN',
-        'JEAN', 'JEANS', 'SHORT', 'SHORTS', 'LEGGING',
-        'BODY', 'BODYSUIT', 'OVERALL', 'ROMPER',
-        'BIKINI', 'DO', 'DOBO', 'NGUNGU', 'PIJAMA', 'PAJAMA',
-        'AODAI', 'KIMONO', 'HANBOK', 'SUON', 'SUONXAM'
+    const DEFAULT_PREFIX_RULES = [
+        { match: 'MM', codePrefix: 'MM' },
+        { match: 'HH', codePrefix: 'HH' },
+        { match: 'By', codePrefix: 'B' },
+        { match: 'Sy', codePrefix: 'S' },
+        { match: 'Cy', codePrefix: 'C' },
     ];
 
-    const CATEGORY_P_KEYWORDS = [
-        // Bags
-        'TUI', 'TIXACH', 'BALO', 'CLUTCH', 'VI', 'POCHETTE', 'BAG',
-        // Eyewear
-        'MATKINH', 'KINH', 'KINHMAT', 'SUNGLASSES', 'GLASSES',
-        // Footwear
-        'GIAYDEP', 'GIAY', 'DEP', 'SANDAL', 'BOOT', 'SNEAKER', 'HEEL',
-        // Hats
-        'NONBERET', 'NON', 'MU', 'HAT', 'CAP', 'BERET',
-        // Scarves & Belts
-        'KHANQUANG', 'KHAN', 'SCARF', 'DAYLUNG', 'THATLUNG', 'BELT',
-        // Jewelry
-        'DONGHO', 'TRANGSUC', 'VONGTAY', 'DAYCHUYEN', 'BONGTAI',
-        'NHAN', 'RING', 'BRACELET', 'NECKLACE', 'EARRING',
-        // Gloves & Socks
-        'GANG', 'TAT', 'VO', 'SOCK', 'GLOVE',
-        // Ties & Accessories
-        'CAVATCA', 'CAVAT', 'TIE', 'GHIM', 'PIN', 'TRAMSAI', 'BROOCH',
-        // Cosmetics
-        'MYPHAM', 'KEMMATTROI', 'NUOCHOA', 'SONMOI', 'KEMNEN',
-        'PHANKEMOT', 'MASCARA', 'KEBMAT', 'COTICA', 'KEMDUONG',
-        'SERUMDA', 'MATTNA', 'KEMCHONGNANG', 'SERUM', 'CREAM',
-        // Other accessories
-        'BANGDO', 'KHOACCHOANG', 'CAPE', 'SHAWL'
-    ];
+    const DEFAULT_PREFIX = 'N';
+
+    // Cache for loaded rules
+    let cachedConfig = null;
 
     /**
-     * Remove Vietnamese diacritics
-     * @param {string} str
-     * @returns {string}
+     * Load prefix rules from Firestore, fallback to defaults
+     * @returns {Promise<{rules: Array, defaultPrefix: string}>}
      */
-    function removeVietnameseDiacritics(str) {
-        if (!str) return '';
-        const map = {
-            'à': 'a', 'á': 'a', 'ạ': 'a', 'ả': 'a', 'ã': 'a',
-            'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẩ': 'a', 'ẫ': 'a',
-            'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ặ': 'a', 'ẳ': 'a', 'ẵ': 'a',
-            'è': 'e', 'é': 'e', 'ẹ': 'e', 'ẻ': 'e', 'ẽ': 'e',
-            'ê': 'e', 'ề': 'e', 'ế': 'e', 'ệ': 'e', 'ể': 'e', 'ễ': 'e',
-            'ì': 'i', 'í': 'i', 'ị': 'i', 'ỉ': 'i', 'ĩ': 'i',
-            'ò': 'o', 'ó': 'o', 'ọ': 'o', 'ỏ': 'o', 'õ': 'o',
-            'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ộ': 'o', 'ổ': 'o', 'ỗ': 'o',
-            'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ợ': 'o', 'ở': 'o', 'ỡ': 'o',
-            'ù': 'u', 'ú': 'u', 'ụ': 'u', 'ủ': 'u', 'ũ': 'u',
-            'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ự': 'u', 'ử': 'u', 'ữ': 'u',
-            'ỳ': 'y', 'ý': 'y', 'ỵ': 'y', 'ỷ': 'y', 'ỹ': 'y',
-            'đ': 'd',
-            'À': 'A', 'Á': 'A', 'Ạ': 'A', 'Ả': 'A', 'Ã': 'A',
-            'Â': 'A', 'Ầ': 'A', 'Ấ': 'A', 'Ậ': 'A', 'Ẩ': 'A', 'Ẫ': 'A',
-            'Ă': 'A', 'Ằ': 'A', 'Ắ': 'A', 'Ặ': 'A', 'Ẳ': 'A', 'Ẵ': 'A',
-            'È': 'E', 'É': 'E', 'Ẹ': 'E', 'Ẻ': 'E', 'Ẽ': 'E',
-            'Ê': 'E', 'Ề': 'E', 'Ế': 'E', 'Ệ': 'E', 'Ể': 'E', 'Ễ': 'E',
-            'Ì': 'I', 'Í': 'I', 'Ị': 'I', 'Ỉ': 'I', 'Ĩ': 'I',
-            'Ò': 'O', 'Ó': 'O', 'Ọ': 'O', 'Ỏ': 'O', 'Õ': 'O',
-            'Ô': 'O', 'Ồ': 'O', 'Ố': 'O', 'Ộ': 'O', 'Ổ': 'O', 'Ỗ': 'O',
-            'Ơ': 'O', 'Ờ': 'O', 'Ớ': 'O', 'Ợ': 'O', 'Ở': 'O', 'Ỡ': 'O',
-            'Ù': 'U', 'Ú': 'U', 'Ụ': 'U', 'Ủ': 'U', 'Ũ': 'U',
-            'Ư': 'U', 'Ừ': 'U', 'Ứ': 'U', 'Ự': 'U', 'Ử': 'U', 'Ữ': 'U',
-            'Ỳ': 'Y', 'Ý': 'Y', 'Ỵ': 'Y', 'Ỷ': 'Y', 'Ỹ': 'Y',
-            'Đ': 'D'
+    async function loadPrefixConfig() {
+        if (cachedConfig) return cachedConfig;
+
+        try {
+            if (window.firebase && window.firebase.firestore) {
+                const doc = await firebase.firestore()
+                    .collection('settings').doc('product_code_rules').get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    if (data.rules && Array.isArray(data.rules)) {
+                        cachedConfig = {
+                            rules: data.rules,
+                            defaultPrefix: data.defaultPrefix || DEFAULT_PREFIX
+                        };
+                        console.log('[ProductCodeGen] Loaded prefix rules from Firestore:', cachedConfig.rules.length, 'rules');
+                        return cachedConfig;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[ProductCodeGen] Failed to load rules from Firestore:', e.message);
+        }
+
+        cachedConfig = {
+            rules: DEFAULT_PREFIX_RULES,
+            defaultPrefix: DEFAULT_PREFIX
         };
-        return str.split('').map(char => map[char] || char).join('');
+        console.log('[ProductCodeGen] Using default prefix rules');
+        return cachedConfig;
     }
 
     /**
-     * Tokenize product name
-     * @param {string} name
-     * @returns {string[]}
+     * Clear cached config (call after saving new rules)
      */
-    function tokenize(name) {
-        if (!name) return [];
-        // Remove diacritics, uppercase, remove special chars, split by whitespace
-        const normalized = removeVietnameseDiacritics(name)
-            .toUpperCase()
-            .replace(/[^A-Z0-9\s]/g, ' ')
-            .trim();
-        return normalized.split(/\s+/).filter(t => t.length > 0);
+    function clearCache() {
+        cachedConfig = null;
     }
 
     /**
-     * Detect product category from name
+     * Detect code prefix from product name using prefix rules
      * @param {string} productName
-     * @returns {'N'|'P'|'Q'|'B'|'H'|'MM'|null}
+     * @param {Array} rules - Prefix rules array
+     * @param {string} defaultPrefix - Fallback prefix when no rule matches
+     * @returns {string|null}
      */
-    function detectProductCategory(productName) {
+    function detectCodePrefix(productName, rules, defaultPrefix) {
         if (!productName || typeof productName !== 'string') {
             return null;
         }
 
-        const tokens = tokenize(productName);
-        if (tokens.length === 0) {
-            return null;
-        }
+        const name = productName.trim();
+        if (!name) return null;
 
-        // Category MM: Products with MM prefix (e.g., "MM ao thun" → MM01)
-        if (tokens[0] && tokens[0] === 'MM') {
-            return 'MM';
-        }
+        // Sort rules by match length desc (longer matches first to avoid ambiguity)
+        const sorted = [...rules].sort((a, b) => b.match.length - a.match.length);
 
-        // Category HH: Products with HH prefix (e.g., "HH ao thun" → HH01)
-        if (tokens[0] && tokens[0].startsWith('HH')) {
-            return 'HH';
-        }
-
-        // Category B: Social order products — name starts with "IB"
-        if (tokens[0] && tokens[0].startsWith('IB')) {
-            return 'B';
-        }
-
-        // Sequential token scanning
-        let startIndex = 0;
-
-        // Token 1: Skip if it's a date (4 digits like ddmm)
-        if (tokens[0] && /^\d{4}$/.test(tokens[0])) {
-            startIndex = 1;
-        }
-
-        // Token 2: Skip if it's a supplier code (A43, B12, etc.)
-        if (tokens[startIndex] && /^[A-Z]\d{1,4}$/.test(tokens[startIndex])) {
-            startIndex++;
-        }
-
-        // Check remaining tokens sequentially
-        for (let i = startIndex; i < tokens.length; i++) {
-            const token = tokens[i];
-
-            // Check N keywords (clothing)
-            if (CATEGORY_N_KEYWORDS.includes(token)) {
-                return 'N';
-            }
-
-            // Check P keywords (accessories)
-            if (CATEGORY_P_KEYWORDS.includes(token)) {
-                return 'P';
+        for (const rule of sorted) {
+            if (name.toLowerCase().startsWith(rule.match.toLowerCase())) {
+                return rule.codePrefix;
             }
         }
 
-        // Fallback: scan ALL tokens if sequential didn't match
-        for (const token of tokens) {
-            if (CATEGORY_N_KEYWORDS.includes(token)) {
-                return 'N';
-            }
-            if (CATEGORY_P_KEYWORDS.includes(token)) {
-                return 'P';
-            }
-        }
-
-        // Default: If name has valid structure with keyword tokens, use 'N'
-        if (tokens.length >= 2) {
-            return 'N';
-        }
-
-        return 'Q'; // Others
+        // Fallback to configurable default prefix
+        return defaultPrefix || DEFAULT_PREFIX;
     }
 
     /**
      * Get max number from form items
      * @param {Array} items - Form items
-     * @param {string} category - Category prefix (N, P, Q)
+     * @param {string} prefix - Code prefix (N, P, MM, etc.)
      * @returns {number}
      */
-    function getMaxNumberFromItems(items, category) {
-        if (!items || !Array.isArray(items) || !category) {
+    function getMaxNumberFromItems(items, prefix) {
+        if (!items || !Array.isArray(items) || !prefix) {
             return 0;
         }
 
-        const regex = new RegExp(`^${category}(\\d+)`, 'i');
+        const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
         let maxNum = 0;
 
         for (const item of items) {
@@ -212,10 +130,10 @@ window.ProductCodeGenerator = (function() {
 
     /**
      * Get max number from Firestore (purchase_orders collection → items array)
-     * @param {string} category
+     * @param {string} prefix
      * @returns {Promise<number>}
      */
-    async function getMaxNumberFromFirestore(category) {
+    async function getMaxNumberFromFirestore(prefix) {
         try {
             if (!window.firebase || !window.firebase.firestore) {
                 console.warn('Firestore not available');
@@ -223,10 +141,9 @@ window.ProductCodeGenerator = (function() {
             }
 
             const db = firebase.firestore();
-            const prefix = category.toUpperCase();
-            const regex = new RegExp(`^${prefix}(\\d+)`, 'i');
+            const upperPrefix = prefix.toUpperCase();
+            const regex = new RegExp(`^${upperPrefix}(\\d+)`, 'i');
 
-            // Items are stored as array field inside purchase_orders documents
             const snapshot = await db.collection('purchase_orders').get();
 
             let maxNum = 0;
@@ -248,7 +165,7 @@ window.ProductCodeGenerator = (function() {
                 }
             });
 
-            console.log(`[ProductCodeGen] Firestore max for ${prefix}: ${maxNum}`);
+            console.log(`[ProductCodeGen] Firestore max for ${upperPrefix}: ${maxNum}`);
             return maxNum;
         } catch (error) {
             console.error('Error getting max number from Firestore:', error);
@@ -258,15 +175,15 @@ window.ProductCodeGenerator = (function() {
 
     /**
      * Get max number from TPOS via TPOSClient.getMaxProductCode
-     * @param {string} category - Category prefix (N, P, Q)
+     * @param {string} prefix - Code prefix
      * @returns {Promise<number>}
      */
-    async function getMaxNumberFromTPOS(category) {
+    async function getMaxNumberFromTPOS(prefix) {
         try {
             if (!window.TPOSClient || !window.TPOSClient.getMaxProductCode) {
                 return 0;
             }
-            return await window.TPOSClient.getMaxProductCode(category);
+            return await window.TPOSClient.getMaxProductCode(prefix);
         } catch (error) {
             console.error('Error getting max number from TPOS:', error);
             return 0;
@@ -302,9 +219,6 @@ window.ProductCodeGenerator = (function() {
             const db = firebase.firestore();
             const upperCode = code.toUpperCase();
 
-            // Items are inside purchase_orders documents as array field
-            // We already scanned all orders in getMaxNumberFromFirestore,
-            // so use a simple scan here too
             const snapshot = await db.collection('purchase_orders').get();
 
             for (const doc of snapshot.docs) {
@@ -343,36 +257,36 @@ window.ProductCodeGenerator = (function() {
     }
 
     /**
-     * Generate product code from max number
-     * @param {string} productName - Product name for category detection
+     * Generate product code from max number using prefix rules
+     * @param {string} productName - Product name for prefix detection
      * @param {Array} existingItems - Form items to check against
      * @param {number} maxAttempts - Max attempts before giving up
      * @returns {Promise<string|null>}
      */
     async function generateProductCodeFromMax(productName, existingItems = [], maxAttempts = 30) {
-        // Detect category
-        const category = detectProductCategory(productName);
-        if (!category) {
-            console.warn('Could not detect category for:', productName);
+        // Load prefix config
+        const config = await loadPrefixConfig();
+
+        // Detect code prefix from product name
+        const codePrefix = detectCodePrefix(productName, config.rules, config.defaultPrefix);
+        if (!codePrefix) {
+            console.warn('Could not detect code prefix for:', productName);
             return null;
         }
 
         // Get max numbers from all sources (parallel)
         const [maxFromFirestore, maxFromTPOS] = await Promise.all([
-            getMaxNumberFromFirestore(category),
-            getMaxNumberFromTPOS(category)
+            getMaxNumberFromFirestore(codePrefix),
+            getMaxNumberFromTPOS(codePrefix)
         ]);
-        const maxFromItems = getMaxNumberFromItems(existingItems, category);
+        const maxFromItems = getMaxNumberFromItems(existingItems, codePrefix);
         const maxNumber = Math.max(maxFromItems, maxFromFirestore, maxFromTPOS);
-        console.log(`[ProductCodeGen] Max for ${category}: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
-
-        // Pad digits: 2 for multi-char prefixes (MM01), 3 for single-char (N001)
-        const padLength = category.length > 1 ? 2 : 3;
+        console.log(`[ProductCodeGen] Max for ${codePrefix}: form=${maxFromItems}, firestore=${maxFromFirestore}, tpos=${maxFromTPOS} → next=${maxNumber + 1}`);
 
         // Try to find unused code
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             const number = maxNumber + attempt;
-            const candidateCode = `${category}${number.toString().padStart(padLength, '0')}`;
+            const candidateCode = `${codePrefix}${number}`;
 
             // Check form items
             if (codeExistsInItems(candidateCode, existingItems)) {
@@ -385,7 +299,7 @@ window.ProductCodeGenerator = (function() {
                 continue;
             }
 
-            // Check TPOS (optional, may be slow)
+            // Check TPOS
             const existsOnTPOS = await codeExistsOnTPOS(candidateCode);
             if (existsOnTPOS) {
                 continue;
@@ -423,7 +337,7 @@ window.ProductCodeGenerator = (function() {
         // Try to find unused code
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             const number = maxNumber + attempt;
-            const candidateCode = `${upperPrefix}${number.toString().padStart(2, '0')}`;
+            const candidateCode = `${upperPrefix}${number}`;
 
             if (codeExistsInItems(candidateCode, existingItems)) continue;
 
@@ -451,20 +365,21 @@ window.ProductCodeGenerator = (function() {
 
     /**
      * Simple synchronous code generation (without DB checks)
+     * Uses cached rules if available, otherwise defaults
      * @param {string} productName
      * @param {Array} existingItems
      * @returns {string|null}
      */
     function generateProductCodeSync(productName, existingItems = []) {
-        const category = detectProductCategory(productName);
-        if (!category) {
+        const config = cachedConfig || { rules: DEFAULT_PREFIX_RULES, defaultPrefix: DEFAULT_PREFIX };
+        const codePrefix = detectCodePrefix(productName, config.rules, config.defaultPrefix);
+        if (!codePrefix) {
             return null;
         }
 
-        const padLength = category.length > 1 ? 2 : 3;
-        const maxFromItems = getMaxNumberFromItems(existingItems, category);
+        const maxFromItems = getMaxNumberFromItems(existingItems, codePrefix);
         const number = maxFromItems + 1;
-        return `${category}${number.toString().padStart(padLength, '0')}`;
+        return `${codePrefix}${number}`;
     }
 
     /**
@@ -476,7 +391,6 @@ window.ProductCodeGenerator = (function() {
         if (!code || typeof code !== 'string') {
             return '';
         }
-        // Pattern: starts with letter + digits
         const match = code.match(/^([A-Z]+\d+)/i);
         return match ? match[1].toUpperCase() : code.toUpperCase();
     }
@@ -490,13 +404,14 @@ window.ProductCodeGenerator = (function() {
         if (!code || typeof code !== 'string') {
             return false;
         }
-        // Format: Letter(s) + digits, optionally followed by variant suffix
         return /^[A-Z]+\d{1,}[A-Z0-9]*$/i.test(code.trim());
     }
 
     // Public API
     return {
-        detectProductCategory,
+        detectCodePrefix,
+        loadPrefixConfig,
+        clearCache,
         getMaxNumberFromItems,
         getMaxNumberFromFirestore,
         getMaxNumberFromTPOS,
@@ -509,11 +424,8 @@ window.ProductCodeGenerator = (function() {
         codeExistsInItems,
         codeExistsInFirestore,
         codeExistsOnTPOS,
-        // Utilities
-        removeVietnameseDiacritics,
-        tokenize,
-        // Keywords for reference
-        CATEGORY_N_KEYWORDS,
-        CATEGORY_P_KEYWORDS
+        // Constants for reference
+        DEFAULT_PREFIX_RULES,
+        DEFAULT_PREFIX
     };
 })();

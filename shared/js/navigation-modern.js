@@ -3883,6 +3883,37 @@ class UnifiedNavigationManager {
                         </button>
                     </div>
                     ` : ''}
+
+                    <div class="setting-group">
+                        <label class="setting-label">
+                            <i data-lucide="tag"></i>
+                            Cài Đặt Mã Sản Phẩm
+                        </label>
+                        <div class="prefix-rules-section">
+                            <div class="prefix-default-row">
+                                <label>Prefix mặc định:</label>
+                                <input type="text" id="defaultPrefixInput" class="prefix-input" maxlength="5" placeholder="N" ${!this.isAdminTemplate ? 'disabled' : ''}>
+                            </div>
+                            <table class="prefix-rules-table" id="prefixRulesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tên bắt đầu</th>
+                                        <th>Mã tạo</th>
+                                        ${this.isAdminTemplate ? '<th></th>' : ''}
+                                    </tr>
+                                </thead>
+                                <tbody id="prefixRulesBody">
+                                    <tr><td colspan="3" style="text-align:center; color:#999;">Đang tải...</td></tr>
+                                </tbody>
+                            </table>
+                            ${this.isAdminTemplate ? `
+                            <button class="btn-add-prefix-rule" id="addPrefixRule">
+                                <i data-lucide="plus" style="width:14px;height:14px;"></i>
+                                Thêm quy tắc
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-footer">
@@ -3978,6 +4009,128 @@ class UnifiedNavigationManager {
             editMenuBtn.addEventListener("click", () => {
                 closeModal();
                 this.showMenuEditModal();
+            });
+        }
+
+        // --- Prefix Rules ---
+        this._initPrefixRulesUI(modal);
+    }
+
+    /**
+     * Initialize prefix rules UI in settings modal
+     */
+    async _initPrefixRulesUI(modal) {
+        const tbody = modal.querySelector('#prefixRulesBody');
+        const defaultInput = modal.querySelector('#defaultPrefixInput');
+        const addBtn = modal.querySelector('#addPrefixRule');
+        const saveBtn = modal.querySelector('#saveSettings');
+        if (!tbody) return;
+
+        // Load current rules from Firestore
+        let rules = [];
+        let defaultPrefix = 'N';
+        try {
+            if (window.firebase && window.firebase.firestore) {
+                const doc = await firebase.firestore()
+                    .collection('settings').doc('product_code_rules').get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    rules = data.rules || [];
+                    defaultPrefix = data.defaultPrefix || 'N';
+                }
+            }
+        } catch (e) {
+            console.warn('[Settings] Failed to load prefix rules:', e.message);
+        }
+
+        // Use defaults if no rules found
+        if (rules.length === 0 && window.ProductCodeGenerator) {
+            rules = [...window.ProductCodeGenerator.DEFAULT_PREFIX_RULES];
+            defaultPrefix = window.ProductCodeGenerator.DEFAULT_PREFIX || 'N';
+        }
+
+        if (defaultInput) defaultInput.value = defaultPrefix;
+
+        const isAdmin = this.isAdminTemplate;
+
+        const renderRules = () => {
+            tbody.innerHTML = '';
+            if (rules.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#999;padding:8px;">Chưa có quy tắc</td></tr>`;
+                return;
+            }
+            rules.forEach((rule, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" class="prefix-input" value="${rule.match || ''}" data-idx="${idx}" data-field="match" maxlength="10" ${!isAdmin ? 'disabled' : ''}></td>
+                    <td><input type="text" class="prefix-input" value="${rule.codePrefix || ''}" data-idx="${idx}" data-field="codePrefix" maxlength="5" ${!isAdmin ? 'disabled' : ''}></td>
+                    ${isAdmin ? `<td><button class="btn-delete-rule" data-idx="${idx}" title="Xóa"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button></td>` : ''}
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Bind input change events
+            if (isAdmin) {
+                tbody.querySelectorAll('input.prefix-input').forEach(input => {
+                    input.addEventListener('input', (e) => {
+                        const idx = parseInt(e.target.dataset.idx);
+                        const field = e.target.dataset.field;
+                        if (rules[idx]) rules[idx][field] = e.target.value.trim();
+                    });
+                });
+
+                tbody.querySelectorAll('.btn-delete-rule').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const idx = parseInt(e.currentTarget.dataset.idx);
+                        rules.splice(idx, 1);
+                        renderRules();
+                    });
+                });
+            }
+        };
+
+        renderRules();
+
+        // Add rule button
+        if (addBtn && isAdmin) {
+            addBtn.addEventListener('click', () => {
+                rules.push({ match: '', codePrefix: '' });
+                renderRules();
+                // Focus the new match input
+                const lastInput = tbody.querySelector(`input[data-idx="${rules.length - 1}"][data-field="match"]`);
+                if (lastInput) lastInput.focus();
+            });
+        }
+
+        // Override save to also save prefix rules
+        if (saveBtn && isAdmin) {
+            const originalSave = saveBtn.onclick;
+            saveBtn.addEventListener('click', async () => {
+                // Save prefix rules to Firestore
+                try {
+                    const validRules = rules.filter(r => r.match && r.codePrefix);
+                    const newDefaultPrefix = (defaultInput?.value || 'N').trim().toUpperCase();
+
+                    if (window.firebase && window.firebase.firestore) {
+                        await firebase.firestore()
+                            .collection('settings').doc('product_code_rules')
+                            .set({
+                                rules: validRules,
+                                defaultPrefix: newDefaultPrefix,
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        console.log('[Settings] Prefix rules saved:', validRules.length, 'rules');
+                    }
+
+                    // Clear ProductCodeGenerator cache
+                    if (window.ProductCodeGenerator && window.ProductCodeGenerator.clearCache) {
+                        window.ProductCodeGenerator.clearCache();
+                    }
+                } catch (e) {
+                    console.error('[Settings] Failed to save prefix rules:', e);
+                }
             });
         }
     }
@@ -4420,6 +4573,94 @@ class UnifiedNavigationManager {
             .settings-edit-menu-btn i {
                 width: 18px;
                 height: 18px;
+            }
+
+            /* Prefix Rules Settings */
+            .prefix-rules-section {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .prefix-default-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 4px;
+            }
+            .prefix-default-row label {
+                font-size: 13px;
+                color: var(--text-secondary);
+                white-space: nowrap;
+            }
+            .prefix-input {
+                padding: 5px 8px;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                font-size: 13px;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                width: 80px;
+                text-align: center;
+            }
+            .prefix-input:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            .prefix-input:focus {
+                outline: none;
+                border-color: var(--accent-color);
+                box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+            }
+            .prefix-rules-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+            }
+            .prefix-rules-table th {
+                text-align: left;
+                padding: 6px 8px;
+                font-weight: 500;
+                color: var(--text-tertiary);
+                border-bottom: 1px solid var(--border-color);
+                font-size: 12px;
+            }
+            .prefix-rules-table td {
+                padding: 4px 4px;
+            }
+            .prefix-rules-table input.prefix-input {
+                width: 100%;
+                box-sizing: border-box;
+            }
+            .btn-delete-rule {
+                border: none;
+                background: none;
+                cursor: pointer;
+                color: #ef4444;
+                padding: 4px;
+                border-radius: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .btn-delete-rule:hover {
+                background: rgba(239, 68, 68, 0.1);
+            }
+            .btn-add-prefix-rule {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                border: 1px dashed var(--border-color);
+                background: transparent;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 13px;
+                color: var(--accent-color);
+                transition: all 0.2s;
+            }
+            .btn-add-prefix-rule:hover {
+                background: rgba(99, 102, 241, 0.1);
+                border-color: var(--accent-color);
             }
 
             @media (max-width: 640px) {
