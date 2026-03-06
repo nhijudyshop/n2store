@@ -38,6 +38,11 @@ const detailModal = document.getElementById('detailModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const modalBody = document.getElementById('modalBody');
 
+// Remove Vietnamese diacritics for accent-insensitive search
+function removeAccents(str) {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+
 // Format date for display: yyyy-mm-dd -> dd/mm/yyyy
 function formatDateDisplay(dateStr) {
     if (!dateStr) return '';
@@ -2316,22 +2321,22 @@ function transactionMatchesFilters(transaction) {
         }
     }
 
-    // Search filter (matches server-side search fields)
+    // Search filter (matches server-side search fields, accent-insensitive)
     if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const content = (transaction.content || '').toLowerCase();
+        const searchNorm = removeAccents(filters.search.toLowerCase());
+        const content = removeAccents((transaction.content || '').toLowerCase());
         const refCode = (transaction.reference_code || '').toLowerCase();
         const code = (transaction.code || '').toLowerCase();
-        const customerName = (transaction.customer_name || '').toLowerCase();
+        const customerName = removeAccents((transaction.customer_name || '').toLowerCase());
         const customerPhone = (transaction.customer_phone || '').toLowerCase();
-        const displayName = (transaction.display_name || '').toLowerCase();
+        const displayName = removeAccents((transaction.display_name || '').toLowerCase());
 
-        if (!content.includes(searchLower) &&
-            !refCode.includes(searchLower) &&
-            !code.includes(searchLower) &&
-            !customerName.includes(searchLower) &&
-            !customerPhone.includes(searchLower) &&
-            !displayName.includes(searchLower)) {
+        if (!content.includes(searchNorm) &&
+            !refCode.includes(searchNorm) &&
+            !code.includes(searchNorm) &&
+            !customerName.includes(searchNorm) &&
+            !customerPhone.includes(searchNorm) &&
+            !displayName.includes(searchNorm)) {
             return false;
         }
     }

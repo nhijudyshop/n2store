@@ -419,16 +419,17 @@ router.get('/history', async (req, res) => {
         }
 
         // Search in content, reference_code, code, customer_phone, customer_name
+        // Uses unaccent() for accent-insensitive search (e.g. "trang hanh" matches "Trang Hạnh")
         if (search) {
             queryConditions.push(`(
-                bh.content ILIKE $${paramCounter} OR
+                unaccent(bh.content) ILIKE unaccent($${paramCounter}) OR
                 bh.reference_code ILIKE $${paramCounter} OR
                 bh.code ILIKE $${paramCounter} OR
                 bh.linked_customer_phone ILIKE $${paramCounter} OR
-                bh.display_name ILIKE $${paramCounter} OR
-                c.name ILIKE $${paramCounter} OR
-                c.aliases::text ILIKE $${paramCounter} OR
-                bci.customer_name ILIKE $${paramCounter}
+                unaccent(bh.display_name) ILIKE unaccent($${paramCounter}) OR
+                unaccent(c.name) ILIKE unaccent($${paramCounter}) OR
+                unaccent(c.aliases::text) ILIKE unaccent($${paramCounter}) OR
+                unaccent(bci.customer_name) ILIKE unaccent($${paramCounter})
             )`);
             queryParams.push(`%${search}%`);
             paramCounter++;
