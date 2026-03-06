@@ -4,7 +4,7 @@
  * Purpose: Auto-generate product codes using configurable prefix mapping
  *
  * Rules are loaded from Firestore `settings/product_code_rules`.
- * Each rule maps a product name prefix (e.g., "MM", "By") to a code prefix (e.g., "MM", "B").
+ * Each rule maps a product name prefix (e.g., "MM", "B") to a code prefix (e.g., "MM", "B").
  */
 
 window.ProductCodeGenerator = (function() {
@@ -18,9 +18,9 @@ window.ProductCodeGenerator = (function() {
     const DEFAULT_PREFIX_RULES = [
         { match: 'MM', codePrefix: 'MM' },
         { match: 'HH', codePrefix: 'HH' },
-        { match: 'By', codePrefix: 'B' },
-        { match: 'Sy', codePrefix: 'S' },
-        { match: 'Cy', codePrefix: 'C' },
+        { match: 'B', codePrefix: 'B' },
+        { match: 'S', codePrefix: 'S' },
+        { match: 'C', codePrefix: 'C' },
     ];
 
     const DEFAULT_PREFIX = 'N';
