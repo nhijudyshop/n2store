@@ -202,11 +202,19 @@
                     </div>
                 </header>
 
-                <!-- Filter Toggle Button & Transaction View Tabs -->
-                <div style="margin-bottom: 10px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <!-- Filter Toggle Button, Search & Transaction View Tabs -->
+                <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <button id="toggleFiltersBtn" class="btn btn-secondary" onclick="toggleFilters()">
                         <i data-lucide="filter"></i> <span id="toggleFiltersText">Hiện bộ lọc</span>
                     </button>
+
+                    <!-- Always-visible search -->
+                    <div style="position: relative; flex: 1; min-width: 200px; max-width: 350px;">
+                        <i data-lucide="search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #9ca3af; pointer-events: none;"></i>
+                        <input type="text" id="filterSearch" class="filter-input"
+                            placeholder="Tên KH, SĐT, nội dung..."
+                            style="width: 100%; padding-left: 32px; height: 36px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 14px;">
+                    </div>
 
                     <!-- Transaction View Tabs -->
                     <div class="view-tabs">
@@ -325,12 +333,6 @@
                                 <input type="date" id="filterEndDate" class="date-input-hidden">
                                 <i data-lucide="calendar" class="date-icon"></i>
                             </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <label><i data-lucide="search"></i> Tìm kiếm:</label>
-                            <input type="text" id="filterSearch" class="filter-input"
-                                placeholder="Tên KH, SĐT, nội dung...">
                         </div>
 
                         <div class="filter-group">
