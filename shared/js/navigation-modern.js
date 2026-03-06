@@ -190,6 +190,14 @@ const MENU_CONFIG = [
         shortText: "AI",
         pageIdentifier: "gemini-ai",
     },
+    {
+        href: "../lichsuchinhsua/index.html",
+        icon: "history",
+        text: "Lịch Sử Chỉnh Sửa",
+        shortText: "Lịch Sử",
+        pageIdentifier: "lichsuchinhsua",
+        publicAccess: true,
+    },
 ];
 
 /**
@@ -396,7 +404,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Quản Trị",
         icon: "settings",
-        items: ["user-management", "balance-history", "soquy", "invoice-compare", "quy-trinh"]
+        items: ["user-management", "balance-history", "soquy", "invoice-compare", "quy-trinh", "lichsuchinhsua"]
     },
     {
         name: "Khác",

@@ -577,8 +577,11 @@ window.AuditLogApp = (function () {
     // =====================================================
 
     function checkPermission() {
+        // Public access: all authenticated users can view this page
+        // Detailed permissions will be configured later
         if (window.PermissionHelper) {
-            if (!PermissionHelper.enforcePageAccess('lichsuchinhsua')) {
+            if (!PermissionHelper.isAuthenticated()) {
+                window.location.href = '../index.html';
                 return false;
             }
         }

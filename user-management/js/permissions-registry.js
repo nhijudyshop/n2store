@@ -439,6 +439,22 @@ const PAGES_REGISTRY = {
         detailedPermissions: {
             view: { name: "Xem quy trình", icon: "eye", description: "Xem các quy trình nghiệp vụ" }
         }
+    },
+
+    lichsuchinhsua: {
+        id: "lichsuchinhsua",
+        name: "Lịch Sử Chỉnh Sửa",
+        shortName: "Lịch Sử",
+        icon: "history",
+        href: "../lichsuchinhsua/index.html",
+        description: "Xem lịch sử chỉnh sửa và hoạt động trong hệ thống",
+        adminOnly: false,
+        publicAccess: true,
+        category: "admin",
+        detailedPermissions: {
+            view: { name: "Xem lịch sử", icon: "eye", description: "Xem lịch sử chỉnh sửa" },
+            export: { name: "Xuất dữ liệu", icon: "download", description: "Export lịch sử ra file" }
+        }
     }
 };
 
@@ -694,6 +710,13 @@ function generateTemplatePermissions(templateId) {
                         detailedPermissions[pageId][subKey] = subKey === "view";
                     });
                 }
+                // Lịch sử chỉnh sửa - mặc định xem cho tất cả
+                if (pageId === "lichsuchinhsua") {
+                    pagePermissions.push(pageId);
+                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    });
+                }
                 break;
 
             case "warehouse-team":
@@ -713,6 +736,13 @@ function generateTemplatePermissions(templateId) {
                 }
                 // Quy trình nghiệp vụ - mặc định xem cho tất cả
                 if (pageId === "quy-trinh") {
+                    pagePermissions.push(pageId);
+                    Object.keys(page.detailedPermissions).forEach(subKey => {
+                        detailedPermissions[pageId][subKey] = subKey === "view";
+                    });
+                }
+                // Lịch sử chỉnh sửa - mặc định xem cho tất cả
+                if (pageId === "lichsuchinhsua") {
                     pagePermissions.push(pageId);
                     Object.keys(page.detailedPermissions).forEach(subKey => {
                         detailedPermissions[pageId][subKey] = subKey === "view";
