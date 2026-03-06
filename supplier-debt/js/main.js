@@ -19,6 +19,21 @@ const CONFIG = {
 };
 
 // =====================================================
+// AUTHENTICATED FETCH HELPER (401 retry via TokenManager)
+// =====================================================
+
+async function tposFetch(url, options = {}) {
+    return window.tokenManager.authenticatedFetch(url, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            'tposappversion': '6.2.6.1',
+            ...options.headers
+        }
+    });
+}
+
+// =====================================================
 // PERMISSION HELPERS
 // =====================================================
 
@@ -568,17 +583,7 @@ async function fetchData() {
 
         const url = `${CONFIG.API_BASE}/${CONFIG.ENDPOINT}?${params.toString()}`;
 
-        // Get auth header
-        const authHeader = await window.tokenManager.getAuthHeader();
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -624,16 +629,7 @@ async function fetchAllSuppliers() {
         params.set('$top', '1000');
 
         const url = `${CONFIG.API_BASE}/${CONFIG.ENDPOINT}?${params.toString()}`;
-        const authHeader = await window.tokenManager.getAuthHeader();
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (response.ok) {
             const result = await response.json();
@@ -1477,7 +1473,6 @@ function renderDetailPageNumbers(currentPage, totalPages, partnerId, type) {
 
 async function fetchPartnerCongNo(partnerId, page) {
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
         const skip = (page - 1) * CONFIG.DETAIL_PAGE_SIZE;
 
         // Build date params from current filter state
@@ -1497,15 +1492,7 @@ async function fetchPartnerCongNo(partnerId, page) {
         params.set('$orderby', 'Date asc');
 
         const url = `${CONFIG.API_BASE}/Report/PartnerDebtReportDetail?${params.toString()}`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (response.ok) {
             const data = await response.json();
@@ -1527,17 +1514,8 @@ async function fetchPartnerCongNo(partnerId, page) {
 
 async function fetchPartnerInfo(partnerId) {
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
         const url = `${CONFIG.API_BASE_PARTNER}/partner/GetPartnerRevenueById?id=${partnerId}&supplier=true`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (response.ok) {
             const data = await response.json();
@@ -1553,18 +1531,9 @@ async function fetchPartnerInfo(partnerId) {
 
 async function fetchPartnerInvoices(partnerId, page) {
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
         const skip = (page - 1) * CONFIG.DETAIL_PAGE_SIZE;
         const url = `${CONFIG.API_BASE}/AccountInvoice/ODataService.GetInvoicePartner?partnerId=${partnerId}&$format=json&$top=${CONFIG.DETAIL_PAGE_SIZE}&$skip=${skip}&$orderby=DateInvoice+desc&$filter=PartnerId+eq+${partnerId}&$count=true`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (response.ok) {
             const data = await response.json();
@@ -1582,18 +1551,9 @@ async function fetchPartnerInvoices(partnerId, page) {
 
 async function fetchPartnerDebtDetails(partnerId, page) {
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
         const skip = (page - 1) * CONFIG.DETAIL_PAGE_SIZE;
         const url = `${CONFIG.API_BASE_PARTNER}/Partner/CreditDebitSupplierDetail?partnerId=${partnerId}&take=${CONFIG.DETAIL_PAGE_SIZE}&skip=${skip}&page=${page}&pageSize=${CONFIG.DETAIL_PAGE_SIZE}`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (response.ok) {
             const data = await response.json();
@@ -1712,17 +1672,8 @@ function closePaymentModal() {
 
 async function loadPaymentMethods() {
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
         const url = `${CONFIG.API_BASE}/AccountJournal?$filter=Type eq 'cash' or Type eq 'bank'&$format=json`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (response.ok) {
             const data = await response.json();
@@ -1853,7 +1804,6 @@ async function submitPayment() {
     }
 
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
         const paymentDate = new Date(paymentDateValue);
         const paymentDateISO = paymentDate.toISOString();
         const localDatetime = new Date(paymentDate.getTime() - paymentDate.getTimezoneOffset() * 60000).toISOString();
@@ -1946,15 +1896,10 @@ async function submitPayment() {
 
         const url = `${CONFIG.API_BASE}/AccountPayment`;
 
-        const response = await fetch(url, {
+        const tposPostHeaders = { 'Content-Type': 'application/json;charset=UTF-8', 'feature-version': '2', 'x-tpos-lang': 'vi' };
+        const response = await tposFetch(url, {
             method: 'POST',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'feature-version': '2',
-                'tposappversion': '6.2.6.1',
-                'x-tpos-lang': 'vi'
-            },
+            headers: tposPostHeaders,
             body: JSON.stringify(payload)
         });
 
@@ -1964,15 +1909,9 @@ async function submitPayment() {
 
             // Step 2: Call ActionPost to confirm the payment
             const actionPostUrl = `${CONFIG.API_BASE}/AccountPayment/ODataService.ActionPost`;
-            const actionPostResponse = await fetch(actionPostUrl, {
+            const actionPostResponse = await tposFetch(actionPostUrl, {
                 method: 'POST',
-                headers: {
-                    ...authHeader,
-                    'Content-Type': 'application/json;charset=UTF-8',
-                    'feature-version': '2',
-                    'tposappversion': '6.2.6.1',
-                    'x-tpos-lang': 'vi'
-                },
+                headers: tposPostHeaders,
                 body: JSON.stringify({ id: paymentId })
             });
 
@@ -2062,18 +2001,9 @@ async function openInvoiceDetailModal(invoiceId) {
     `;
 
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
         const url = `${CONFIG.API_BASE}/FastPurchaseOrder(${invoiceId})?$expand=Partner,PickingType,Company,Journal,Account,User,RefundOrder,PaymentJournal,Tax,OrderLines($expand=Product,ProductUOM,Account),DestConvertCurrencyUnit`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'feature-version': '2',
-                'tposappversion': '6.2.6.1',
-                'x-tpos-lang': 'vi'
-            }
+        const response = await tposFetch(url, {
+            headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' }
         });
 
         if (!response.ok) {
@@ -2218,19 +2148,9 @@ async function openInvoiceDetailByMoveName(moveName, partnerId) {
     `;
 
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
-
         // First, search for the invoice by MoveName (Number) using GetInvoicePartner
         const searchUrl = `${CONFIG.API_BASE}/AccountInvoice/ODataService.GetInvoicePartner?partnerId=${partnerId}&$format=json&$top=100&$orderby=DateInvoice+desc&$filter=PartnerId+eq+${partnerId}&$count=true`;
-
-        const searchResponse = await fetch(searchUrl, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const searchResponse = await tposFetch(searchUrl);
 
         if (!searchResponse.ok) {
             throw new Error('Không thể tìm kiếm hóa đơn');
@@ -2468,8 +2388,6 @@ function handleNoteEditClick(btn) {
 async function handleDeleteLastPayment(partnerId, supplierCode) {
     // Find the most recent payment for this supplier
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
-
         // Get partner data
         const partnerData = State.filteredData.find(item => item.PartnerId === partnerId);
         if (!partnerData) {
@@ -2481,15 +2399,7 @@ async function handleDeleteLastPayment(partnerId, supplierCode) {
 
         // Fetch recent payments for this partner
         const url = `${CONFIG.API_BASE}/AccountPayment?$filter=PartnerId eq ${partnerId} and State eq 'posted'&$orderby=PaymentDate desc&$top=1&$format=json`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1'
-            }
-        });
+        const response = await tposFetch(url);
 
         if (!response.ok) {
             throw new Error('Không thể lấy danh sách thanh toán');
@@ -2576,7 +2486,6 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
             return null;
         }
 
-        const authHeader = await window.tokenManager.getAuthHeader();
         const encodedDisplayName = encodeURIComponent(partnerDisplayName);
 
         // Call GetAccountPaymentList API with PartnerDisplayName filter
@@ -2584,14 +2493,8 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
 
         console.log('[SupplierDebt] Looking up payment ID by date:', { partnerDisplayName, paymentDate, url });
 
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json',
-                'tposappversion': '6.2.6.1',
-                'x-tpos-lang': 'vi'
-            }
+        const response = await tposFetch(url, {
+            headers: { 'x-tpos-lang': 'vi' }
         });
 
         if (!response.ok) {
@@ -2645,19 +2548,13 @@ async function lookupPaymentIdByDate(partnerId, paymentDate) {
 
 async function deletePayment(paymentId, partnerId) {
     try {
-        const authHeader = await window.tokenManager.getAuthHeader();
+        const tposPostHeaders = { 'Content-Type': 'application/json;charset=UTF-8', 'feature-version': '2', 'x-tpos-lang': 'vi' };
 
         // Step 1: Call ActionCancel to cancel the payment
         const cancelUrl = `${CONFIG.API_BASE}/AccountPayment/ODataService.ActionCancel`;
-        const cancelResponse = await fetch(cancelUrl, {
+        const cancelResponse = await tposFetch(cancelUrl, {
             method: 'POST',
-            headers: {
-                ...authHeader,
-                'Content-Type': 'application/json;charset=UTF-8',
-                'feature-version': '2',
-                'tposappversion': '6.2.6.1',
-                'x-tpos-lang': 'vi'
-            },
+            headers: tposPostHeaders,
             body: JSON.stringify({ id: paymentId })
         });
 
@@ -2668,14 +2565,9 @@ async function deletePayment(paymentId, partnerId) {
 
         // Step 2: DELETE the payment
         const deleteUrl = `${CONFIG.API_BASE}/AccountPayment(${paymentId})`;
-        const deleteResponse = await fetch(deleteUrl, {
+        const deleteResponse = await tposFetch(deleteUrl, {
             method: 'DELETE',
-            headers: {
-                ...authHeader,
-                'feature-version': '2',
-                'tposappversion': '6.2.6.1',
-                'x-tpos-lang': 'vi'
-            }
+            headers: { 'feature-version': '2', 'x-tpos-lang': 'vi' }
         });
 
         if (!deleteResponse.ok) {
