@@ -174,6 +174,11 @@ const SoquyReport = (function () {
             );
         }
 
+        // Permission-based creator filter (before statistics calculation)
+        if (typeof SoquyPermissions !== 'undefined') {
+            vouchers = SoquyPermissions.filterByCreator(vouchers);
+        }
+
         reportState.filtered = vouchers;
     }
 

@@ -4,6 +4,13 @@
 // =====================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // =====================================================
+    // PERMISSION CHECK - Must be first
+    // =====================================================
+    if (typeof SoquyPermissions !== 'undefined') {
+        if (!SoquyPermissions.init()) return;
+    }
+
     const config = window.SoquyConfig;
     const state = window.SoquyState;
     const ui = window.SoquyUI;
@@ -298,18 +305,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Action buttons (throttled to prevent double-click issues)
         if (els.btnCreateReceipt) {
             els.btnCreateReceipt.addEventListener('click', throttleClick(() => {
+                if (!SoquyPermissions.checkAction('create_receipt')) return;
                 state.editingVoucherId = null;
                 ui.openReceiptModal();
             }));
         }
         if (els.btnCreatePaymentCN) {
             els.btnCreatePaymentCN.addEventListener('click', throttleClick(() => {
+                if (!SoquyPermissions.checkAction('create_payment')) return;
                 state.editingVoucherId = null;
                 ui.openPaymentModal('cn');
             }));
         }
         if (els.btnCreatePaymentKD) {
             els.btnCreatePaymentKD.addEventListener('click', throttleClick(() => {
+                if (!SoquyPermissions.checkAction('create_payment')) return;
                 state.editingVoucherId = null;
                 ui.openPaymentModal('kd');
             }));
@@ -505,10 +515,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Category management modal events (throttled)
         if (els.btnManageReceiptCategory) {
-            els.btnManageReceiptCategory.addEventListener('click', throttleClick(() => ui.openCategoryModal('receipt')));
+            els.btnManageReceiptCategory.addEventListener('click', throttleClick(() => {
+                if (!SoquyPermissions.checkAction('manage_categories')) return;
+                ui.openCategoryModal('receipt');
+            }));
         }
         if (els.btnManagePaymentCategory) {
             els.btnManagePaymentCategory.addEventListener('click', throttleClick(() => {
+                if (!SoquyPermissions.checkAction('manage_categories')) return;
                 const catType = state.paymentSubType === 'kd' ? 'payment_kd' : 'payment_cn';
                 ui.openCategoryModal(catType);
             }));
@@ -548,7 +562,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Inline source creation in category modal (throttled)
         const btnCreateSourceInline = document.getElementById('btnCreateSourceInline');
         if (btnCreateSourceInline) {
-            btnCreateSourceInline.addEventListener('click', throttleClick(() => ui.toggleInlineSourceCreate()));
+            btnCreateSourceInline.addEventListener('click', throttleClick(() => {
+                if (!SoquyPermissions.checkAction('manage_sources')) return;
+                ui.toggleInlineSourceCreate();
+            }));
         }
         const btnSaveInlineSource = document.getElementById('btnSaveInlineSource');
         if (btnSaveInlineSource) {
@@ -735,6 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fabCreatePaymentCN) {
                 fabCreatePaymentCN.addEventListener('click', throttleClick(() => {
                     mobileFabContainer.classList.remove('open');
+                    if (!SoquyPermissions.checkAction('create_payment')) return;
                     state.editingVoucherId = null;
                     ui.openPaymentModal('cn');
                 }));
@@ -742,6 +760,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fabCreatePaymentKD) {
                 fabCreatePaymentKD.addEventListener('click', throttleClick(() => {
                     mobileFabContainer.classList.remove('open');
+                    if (!SoquyPermissions.checkAction('create_payment')) return;
                     state.editingVoucherId = null;
                     ui.openPaymentModal('kd');
                 }));
@@ -749,6 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fabCreateReceipt) {
                 fabCreateReceipt.addEventListener('click', throttleClick(() => {
                     mobileFabContainer.classList.remove('open');
+                    if (!SoquyPermissions.checkAction('create_receipt')) return;
                     state.editingVoucherId = null;
                     ui.openReceiptModal();
                 }));

@@ -441,6 +441,28 @@ const PAGES_REGISTRY = {
         }
     },
 
+    soquy: {
+        id: "soquy",
+        name: "Sổ Quỹ",
+        shortName: "Sổ Quỹ",
+        icon: "wallet",
+        href: "../soquy/index.html",
+        description: "Quản lý sổ quỹ, thu chi, và báo cáo tài chính",
+        adminOnly: false,
+        category: "admin",
+        detailedPermissions: {
+            tab_soquy: { name: "Xem tab Sổ Quỹ", icon: "wallet", description: "Truy cập tab Sổ Quỹ" },
+            tab_nhanvien: { name: "Xem tab Nhân viên", icon: "users", description: "Truy cập tab Nhân viên" },
+            tab_baocao: { name: "Xem tab Báo cáo", icon: "bar-chart-3", description: "Truy cập tab Báo cáo" },
+            tab_lichsuchinhsua: { name: "Xem tab Lịch sử chỉnh sửa", icon: "history", description: "Truy cập tab Lịch sử chỉnh sửa" },
+            create_receipt: { name: "Tạo phiếu thu", icon: "plus-circle", description: "Tạo phiếu thu mới" },
+            create_payment: { name: "Tạo phiếu chi", icon: "minus-circle", description: "Tạo phiếu chi CN/KD" },
+            manage_categories: { name: "Quản lý loại chi", icon: "tag", description: "Thêm/xóa loại chi" },
+            manage_sources: { name: "Quản lý nguồn giao dịch", icon: "git-branch", description: "Thêm/xóa nguồn giao dịch" },
+            view_all_transactions: { name: "Xem toàn bộ giao dịch", icon: "eye", description: "Xem giao dịch của tất cả nhân viên" }
+        }
+    },
+
     lichsuchinhsua: {
         id: "lichsuchinhsua",
         name: "Lịch Sử Chỉnh Sửa",

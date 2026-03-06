@@ -1351,6 +1351,11 @@ const SoquyUI = (function () {
             });
         }
 
+        // Permission-based creator filter (before statistics calculation)
+        if (typeof SoquyPermissions !== 'undefined') {
+            vouchers = SoquyPermissions.filterByCreator(vouchers);
+        }
+
         state.filteredVouchers = vouchers;
     }
 
