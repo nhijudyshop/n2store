@@ -281,6 +281,43 @@ class InboxDataManager {
     }
 
     /**
+     * Load more conversations (pagination) using last conversation ID
+     */
+    async loadMoreConversations() {
+        try {
+            const pdm = window.pancakeDataManager;
+            if (!pdm || !pdm.fetchMoreConversations) return [];
+
+            // Get the last conversation's raw ID for cursor pagination
+            const lastConv = this.conversations[this.conversations.length - 1];
+            if (!lastConv) return [];
+            const lastId = lastConv._raw?.id || lastConv.conversationId || lastConv.id;
+            if (!lastId) return [];
+
+            console.log('[InboxData] Loading more conversations after:', lastId);
+
+            const moreRaw = await pdm.fetchMoreConversations(lastId);
+            if (!moreRaw || moreRaw.length === 0) return [];
+
+            const moreMapped = moreRaw.map(conv => this.mapConversation(conv));
+
+            // Deduplicate
+            const existingIds = new Set(this.conversations.map(c => c.id));
+            const newConvs = moreMapped.filter(c => !existingIds.has(c.id));
+
+            this.conversations.push(...newConvs);
+            this.recalculateGroupCounts();
+            this.buildMaps();
+
+            console.log(`[InboxData] Loaded ${newConvs.length} more conversations (total: ${this.conversations.length})`);
+            return newConvs;
+        } catch (error) {
+            console.error('[InboxData] Error loading more conversations:', error);
+            return [];
+        }
+    }
+
+    /**
      * Try other accounts using per-page endpoint
      */
     async tryOtherAccountsPerPage() {

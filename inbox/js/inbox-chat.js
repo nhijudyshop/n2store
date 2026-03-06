@@ -70,6 +70,10 @@ class InboxChatController {
         // Reply state
         this.replyingTo = null; // { msgId, text, senderName, isOutgoing }
 
+        // Conversation list pagination
+        this.isLoadingMoreConversations = false;
+        this.hasMoreConversations = true;
+
         // Page unread counts
         this.pageUnreadCounts = {};
 
@@ -134,6 +138,15 @@ class InboxChatController {
                 this.isSearching = false;
                 this.searchResults = null;
                 this.renderConversationList();
+            }
+        });
+
+        // Conversation list scroll-to-load-more
+        this.elements.conversationList.addEventListener('scroll', () => {
+            const el = this.elements.conversationList;
+            const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
+            if (nearBottom && !this.isLoadingMoreConversations && this.hasMoreConversations && !this.searchQuery) {
+                this.loadMoreConversations();
             }
         });
 
@@ -596,6 +609,39 @@ class InboxChatController {
         }).join('');
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // ===== Load More Conversations (scroll pagination) =====
+
+    async loadMoreConversations() {
+        if (this.isLoadingMoreConversations || !this.hasMoreConversations) return;
+        this.isLoadingMoreConversations = true;
+
+        // Show loading spinner at bottom
+        const spinner = document.createElement('div');
+        spinner.className = 'conv-loading-more';
+        spinner.innerHTML = '<div class="typing-indicator" style="justify-content:center;padding:12px;"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+        this.elements.conversationList.appendChild(spinner);
+
+        try {
+            const newConvs = await this.data.loadMoreConversations();
+            spinner.remove();
+
+            if (!newConvs || newConvs.length === 0) {
+                this.hasMoreConversations = false;
+                console.log('[InboxChat] No more conversations to load');
+                return;
+            }
+
+            // Re-render the full list with new conversations appended
+            this.renderConversationList();
+            console.log(`[InboxChat] Loaded ${newConvs.length} more conversations`);
+        } catch (error) {
+            console.error('[InboxChat] Error loading more conversations:', error);
+            spinner.remove();
+        } finally {
+            this.isLoadingMoreConversations = false;
+        }
     }
 
     // ===== Select Conversation =====
