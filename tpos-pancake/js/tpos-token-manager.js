@@ -89,12 +89,10 @@ class TokenManager {
     }
 
     /**
-     * Get current company ID from ShopConfig or localStorage
+     * Get current company ID from ShopConfig (dropdown sidebar)
      */
     static getCompanyId() {
-        if (window.ShopConfig?.getConfig) return window.ShopConfig.getConfig().CompanyId || 1;
-        const shop = localStorage.getItem('n2store_selected_shop');
-        return shop === 'njd-shop' ? 2 : 1;
+        return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
     }
 
     initFirestore() {
