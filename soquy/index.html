@@ -1413,17 +1413,28 @@
             <div class="modal-body k-modal-body">
                 <div class="form-row">
                     <div class="form-group k-group">
-                        <label>Mã phiếu</label>
-                        <input type="text" id="receiptVoucherCode" class="form-control" placeholder="Tự động"
-                            disabled />
-                    </div>
-                    <div class="form-group k-group">
                         <label>Thời gian</label>
                         <div class="k-datetime-input">
                             <input type="text" id="receiptDateTime" class="form-control"
                                 placeholder="dd/MM/yyyy HH:mm" />
                             <i data-lucide="calendar"></i>
                             <i data-lucide="clock"></i>
+                        </div>
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Ảnh chứng từ</label>
+                        <div class="k-image-upload" id="receiptImageUpload">
+                            <input type="file" accept="image/*" id="receiptImageFile" style="display:none" />
+                            <div class="k-image-upload-placeholder" id="receiptImagePlaceholder">
+                                <i data-lucide="image-plus"></i>
+                                <span>Click hoặc Ctrl+V để dán ảnh</span>
+                            </div>
+                            <div class="k-image-upload-preview" id="receiptImagePreview" style="display:none">
+                                <img id="receiptImagePreviewImg" alt="Preview" />
+                                <button type="button" class="k-image-remove-btn" id="receiptImageRemoveBtn">
+                                    <i data-lucide="x"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1448,23 +1459,6 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group k-group">
-                        <label>Đối tượng nộp</label>
-                        <select id="receiptObjectType" class="form-control">
-                            <option>Khác</option>
-                            <option>Khách hàng</option>
-                            <option>Nhà cung cấp</option>
-                            <option>Nhân viên</option>
-                        </select>
-                    </div>
-                    <div class="form-group k-group">
-                        <label class="d-flex justify-content-between">
-                            Tên người nộp
-                        </label>
-                        <input type="text" id="receiptPayerName" class="form-control" placeholder="Tìm người nộp" />
-                    </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group k-group w-100">
                         <label>Số tiền</label>
                         <input type="text" id="receiptAmount" class="form-control text-right" value="0" />
@@ -1473,16 +1467,8 @@
                 <div class="form-row">
                     <div class="form-group k-group w-100">
                         <label>Ghi chú</label>
-                        <input type="text" id="receiptNote" class="form-control" placeholder="Nhập ghi chú" />
+                        <textarea id="receiptNote" class="form-control" placeholder="Nhập ghi chú" rows="3"></textarea>
                     </div>
-                </div>
-                <div class="form-row mt-2">
-                    <label class="checkbox-label align-items-center">
-                        <input type="checkbox" id="receiptBusinessAccounting" checked>
-                        <span style="margin-left: 8px;">Hạch toán kết quả kinh doanh
-                            <i data-lucide="info" class="icon-sm text-muted"></i>
-                        </span>
-                    </label>
                 </div>
             </div>
             <div class="modal-footer k-modal-footer">
@@ -1508,17 +1494,28 @@
             <div class="modal-body k-modal-body">
                 <div class="form-row">
                     <div class="form-group k-group">
-                        <label>Mã phiếu</label>
-                        <input type="text" id="paymentVoucherCode" class="form-control" placeholder="Tự động"
-                            disabled />
-                    </div>
-                    <div class="form-group k-group">
                         <label>Thời gian</label>
                         <div class="k-datetime-input">
                             <input type="text" id="paymentDateTime" class="form-control"
                                 placeholder="dd/MM/yyyy HH:mm" />
                             <i data-lucide="calendar"></i>
                             <i data-lucide="clock"></i>
+                        </div>
+                    </div>
+                    <div class="form-group k-group">
+                        <label>Ảnh chứng từ</label>
+                        <div class="k-image-upload" id="paymentImageUpload">
+                            <input type="file" accept="image/*" id="paymentImageFile" style="display:none" />
+                            <div class="k-image-upload-placeholder" id="paymentImagePlaceholder">
+                                <i data-lucide="image-plus"></i>
+                                <span>Click hoặc Ctrl+V để dán ảnh</span>
+                            </div>
+                            <div class="k-image-upload-preview" id="paymentImagePreview" style="display:none">
+                                <img id="paymentImagePreviewImg" alt="Preview" />
+                                <button type="button" class="k-image-remove-btn" id="paymentImageRemoveBtn">
+                                    <i data-lucide="x"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1543,23 +1540,6 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group k-group">
-                        <label>Đối tượng nhận</label>
-                        <select id="paymentObjectType" class="form-control">
-                            <option>Khác</option>
-                            <option>Khách hàng</option>
-                            <option>Nhà cung cấp</option>
-                            <option>Nhân viên</option>
-                        </select>
-                    </div>
-                    <div class="form-group k-group">
-                        <label class="d-flex justify-content-between">
-                            Tên người nhận
-                        </label>
-                        <input type="text" id="paymentReceiverName" class="form-control" placeholder="Tìm người nhận" />
-                    </div>
-                </div>
-                <div class="form-row">
                     <div class="form-group k-group w-100">
                         <label>Số tiền</label>
                         <input type="text" id="paymentAmount" class="form-control text-right" value="0" />
@@ -1568,16 +1548,8 @@
                 <div class="form-row">
                     <div class="form-group k-group w-100">
                         <label>Ghi chú</label>
-                        <input type="text" id="paymentNote" class="form-control" placeholder="Nhập ghi chú" />
+                        <textarea id="paymentNote" class="form-control" placeholder="Nhập ghi chú" rows="3"></textarea>
                     </div>
-                </div>
-                <div class="form-row mt-2">
-                    <label class="checkbox-label align-items-center">
-                        <input type="checkbox" id="paymentBusinessAccounting" checked>
-                        <span style="margin-left: 8px;">Hạch toán kết quả kinh doanh
-                            <i data-lucide="info" class="icon-sm text-muted"></i>
-                        </span>
-                    </label>
                 </div>
             </div>
             <div class="modal-footer k-modal-footer">

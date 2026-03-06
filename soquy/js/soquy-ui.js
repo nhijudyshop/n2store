@@ -56,6 +56,108 @@ const SoquyUI = (function () {
     }
 
     // =====================================================
+    // IMAGE UPLOAD HANDLER
+    // =====================================================
+
+    // Module-level image handler references
+    let receiptImageHandler = null;
+    let paymentImageHandler = null;
+
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
+    function initImageUpload(containerEl, fileInputEl, placeholderEl, previewEl, previewImgEl, removeBtnEl) {
+        if (!containerEl || !fileInputEl || !placeholderEl || !previewEl || !previewImgEl || !removeBtnEl) {
+            console.warn('[SoquyUI] initImageUpload: missing DOM elements');
+            return { getImageData: function () { return ''; }, clearImage: function () {} };
+        }
+
+        // Make container focusable so paste events work on it
+        containerEl.setAttribute('tabindex', '0');
+
+        function showPreview(dataURL) {
+            previewImgEl.src = dataURL;
+            placeholderEl.style.display = 'none';
+            previewEl.style.display = '';
+        }
+
+        function clearImage() {
+            previewImgEl.src = '';
+            previewEl.style.display = 'none';
+            placeholderEl.style.display = '';
+            fileInputEl.value = '';
+        }
+
+        function getImageData() {
+            return previewImgEl.src || '';
+        }
+
+        function readFileAsDataURL(file) {
+            if (!file.type.startsWith('image/')) {
+                return;
+            }
+            if (file.size > MAX_IMAGE_SIZE) {
+                if (typeof SoquyUI !== 'undefined' && SoquyUI.showNotification) {
+                    SoquyUI.showNotification('Ảnh quá lớn, vui lòng chọn ảnh nhỏ hơn 5MB', 'error');
+                }
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                showPreview(e.target.result);
+            };
+            reader.onerror = function (err) {
+                console.error('[SoquyUI] FileReader error:', err);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Click container → trigger file input
+        containerEl.addEventListener('click', function (e) {
+            // Don't trigger file dialog when clicking the remove button
+            if (e.target === removeBtnEl || removeBtnEl.contains(e.target)) {
+                return;
+            }
+            fileInputEl.click();
+        });
+
+        // File input change → read selected file
+        fileInputEl.addEventListener('change', function () {
+            var file = fileInputEl.files && fileInputEl.files[0];
+            if (file) {
+                readFileAsDataURL(file);
+            }
+        });
+
+        // Paste event (Ctrl+V) on container
+        containerEl.addEventListener('paste', function (e) {
+            var items = e.clipboardData && e.clipboardData.items;
+            if (!items) return;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image/') === 0) {
+                    var file = items[i].getAsFile();
+                    if (file) {
+                        e.preventDefault();
+                        readFileAsDataURL(file);
+                    }
+                    return;
+                }
+            }
+            // No image found in clipboard — ignore silently
+        });
+
+        // Remove button → clear image
+        removeBtnEl.addEventListener('click', function (e) {
+            e.stopPropagation();
+            clearImage();
+        });
+
+        return {
+            getImageData: getImageData,
+            clearImage: clearImage
+        };
+    }
+
+    // =====================================================
     // TABLE RENDERING (Dynamic Columns)
     // =====================================================
 
@@ -419,15 +521,12 @@ const SoquyUI = (function () {
     }
 
     function resetReceiptForm() {
-        if (els.receiptVoucherCode) els.receiptVoucherCode.value = '';
         if (els.receiptDateTime) els.receiptDateTime.value = '';
         if (els.receiptCategory) els.receiptCategory.selectedIndex = 0;
         if (els.receiptCollector) setSelectValue(els.receiptCollector, db.getCurrentUserName());
-        if (els.receiptObjectType) els.receiptObjectType.selectedIndex = 0;
-        if (els.receiptPayerName) els.receiptPayerName.value = '';
         if (els.receiptAmount) els.receiptAmount.value = '0';
         if (els.receiptNote) els.receiptNote.value = '';
-        if (els.receiptBusinessAccounting) els.receiptBusinessAccounting.checked = true;
+        if (receiptImageHandler) receiptImageHandler.clearImage();
     }
 
     function closeReceiptModal() {
@@ -453,14 +552,12 @@ const SoquyUI = (function () {
                 type: config.VOUCHER_TYPES.RECEIPT,
                 category: els.receiptCategory?.value || '',
                 collector: els.receiptCollector?.value || '',
-                objectType: els.receiptObjectType?.value || 'Khác',
-                personName: els.receiptPayerName?.value || '',
                 amount: amount,
                 note: els.receiptNote?.value || '',
                 sourceCode: sourceCode,
                 source: sourceCode, // backward compat
-                businessAccounting: els.receiptBusinessAccounting?.checked !== false,
-                dateTime: els.receiptDateTime?.value || ''
+                dateTime: els.receiptDateTime?.value || '',
+                imageData: receiptImageHandler ? receiptImageHandler.getImageData() : ''
             };
 
             await db.createVoucher(voucherData);
@@ -492,11 +589,6 @@ const SoquyUI = (function () {
         const dateStr = formatDateTimeForInput(now);
         if (els.paymentDateTime) els.paymentDateTime.value = dateStr;
 
-        // Set business accounting based on sub-type
-        if (els.paymentBusinessAccounting) {
-            els.paymentBusinessAccounting.checked = (subType === 'kd');
-        }
-
         // Update modal title with CN/KD badge (Nhóm 5)
         const titleEl = els.paymentModal.querySelector('.k-modal-header h3');
         if (titleEl) {
@@ -515,15 +607,12 @@ const SoquyUI = (function () {
     }
 
     function resetPaymentForm() {
-        if (els.paymentVoucherCode) els.paymentVoucherCode.value = '';
         if (els.paymentDateTime) els.paymentDateTime.value = '';
         if (els.paymentCategory) els.paymentCategory.selectedIndex = 0;
         if (els.paymentCollector) setSelectValue(els.paymentCollector, db.getCurrentUserName());
-        if (els.paymentObjectType) els.paymentObjectType.selectedIndex = 0;
-        if (els.paymentReceiverName) els.paymentReceiverName.value = '';
         if (els.paymentAmount) els.paymentAmount.value = '0';
         if (els.paymentNote) els.paymentNote.value = '';
-        if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = true;
+        if (paymentImageHandler) paymentImageHandler.clearImage();
     }
 
     function closePaymentModal() {
@@ -553,13 +642,12 @@ const SoquyUI = (function () {
                 type: paymentType,
                 category: els.paymentCategory?.value || '',
                 collector: els.paymentCollector?.value || '',
-                objectType: els.paymentObjectType?.value || 'Khác',
-                personName: els.paymentReceiverName?.value || '',
                 amount: amount,
                 note: els.paymentNote?.value || '',
                 sourceCode: sourceCode,
                 source: sourceCode, // backward compat
-                dateTime: els.paymentDateTime?.value || ''
+                dateTime: els.paymentDateTime?.value || '',
+                imageData: paymentImageHandler ? paymentImageHandler.getImageData() : ''
             };
 
             await db.createVoucher(voucherData);
@@ -636,13 +724,25 @@ const SoquyUI = (function () {
                         <span class="detail-label">${isReceipt ? 'Người thu:' : 'Người chi:'}</span>
                         <span class="detail-value">${escapeHtml(voucher.collector || '-')}</span>
                     </div>
-                    <div class="detail-row">
+                    ${voucher.personName ? `<div class="detail-row">
                         <span class="detail-label">${isReceipt ? 'Người nộp:' : 'Người nhận:'}</span>
-                        <span class="detail-value">${escapeHtml(voucher.personName || '-')}</span>
-                    </div>
+                        <span class="detail-value">${escapeHtml(voucher.personName)}</span>
+                    </div>` : ''}
+                    ${voucher.recipientType ? `<div class="detail-row">
+                        <span class="detail-label">Đối tượng:</span>
+                        <span class="detail-value">${escapeHtml(voucher.recipientType)}</span>
+                    </div>` : ''}
+                    ${voucher.recipientName ? `<div class="detail-row">
+                        <span class="detail-label">Tên ${isReceipt ? 'người nộp' : 'người nhận'}:</span>
+                        <span class="detail-value">${escapeHtml(voucher.recipientName)}</span>
+                    </div>` : ''}
                     ${voucher.type !== 'payment_cn' ? `<div class="detail-row">
                         <span class="detail-label">Nguồn:</span>
                         <span class="detail-value">${escapeHtml(db.getSourceLabel(voucher.sourceCode || voucher.source) || '(Chưa phân loại)')}</span>
+                    </div>` : ''}
+                    ${voucher.businessAccounting !== undefined ? `<div class="detail-row">
+                        <span class="detail-label">Hạch toán KQKD:</span>
+                        <span class="detail-value">${voucher.businessAccounting ? 'Có' : 'Không'}</span>
                     </div>` : ''}
                     <div class="detail-row detail-row-highlight">
                         <span class="detail-label">Giá trị:</span>
@@ -650,8 +750,12 @@ const SoquyUI = (function () {
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Ghi chú:</span>
-                        <span class="detail-value">${escapeHtml(voucher.note || '-')}</span>
+                        <span class="detail-value" style="white-space: pre-wrap;">${escapeHtml(voucher.note || '-')}</span>
                     </div>
+                    ${voucher.imageData ? `<div class="detail-row">
+                        <span class="detail-label">Ảnh chứng từ:</span>
+                        <span class="detail-value"><img src="${voucher.imageData}" alt="Ảnh chứng từ" style="max-width: 200px; max-height: 200px; border-radius: 4px; cursor: pointer;" onclick="window.open(this.src, '_blank')" /></span>
+                    </div>` : ''}
                     <div class="detail-row">
                         <span class="detail-label">Người tạo:</span>
                         <span class="detail-value">${escapeHtml(voucher.createdBy || '-')}</span>
@@ -722,15 +826,22 @@ const SoquyUI = (function () {
         if (isReceipt) {
             openReceiptModal();
             // Fill in existing data
-            if (els.receiptVoucherCode) els.receiptVoucherCode.value = voucher.code;
             if (els.receiptDateTime) els.receiptDateTime.value = db.formatVoucherDateTime(voucher.voucherDateTime);
             if (els.receiptCategory) setSelectValue(els.receiptCategory, voucher.category);
             if (els.receiptCollector) setSelectValue(els.receiptCollector, voucher.collector || '');
-            if (els.receiptObjectType) setSelectValue(els.receiptObjectType, voucher.objectType);
-            if (els.receiptPayerName) els.receiptPayerName.value = voucher.personName || '';
             if (els.receiptAmount) els.receiptAmount.value = db.formatCurrency(voucher.amount);
             if (els.receiptNote) els.receiptNote.value = voucher.note || '';
-            if (els.receiptBusinessAccounting) els.receiptBusinessAccounting.checked = voucher.businessAccounting;
+            if (voucher.imageData && receiptImageHandler) {
+                // Restore image preview from saved data
+                var previewImgEl = els.receiptImagePreviewImg;
+                var previewEl = els.receiptImagePreview;
+                var placeholderEl = els.receiptImagePlaceholder;
+                if (previewImgEl && previewEl && placeholderEl) {
+                    previewImgEl.src = voucher.imageData;
+                    placeholderEl.style.display = 'none';
+                    previewEl.style.display = '';
+                }
+            }
 
             // Re-check save button state after setting category
             toggleSaveButton('receipt');
@@ -740,15 +851,22 @@ const SoquyUI = (function () {
         } else {
             const subType = voucher.type === config.VOUCHER_TYPES.PAYMENT_KD ? 'kd' : 'cn';
             openPaymentModal(subType);
-            if (els.paymentVoucherCode) els.paymentVoucherCode.value = voucher.code;
             if (els.paymentDateTime) els.paymentDateTime.value = db.formatVoucherDateTime(voucher.voucherDateTime);
             if (els.paymentCategory) setSelectValue(els.paymentCategory, voucher.category);
             if (els.paymentCollector) setSelectValue(els.paymentCollector, voucher.collector || '');
-            if (els.paymentObjectType) setSelectValue(els.paymentObjectType, voucher.objectType);
-            if (els.paymentReceiverName) els.paymentReceiverName.value = voucher.personName || '';
             if (els.paymentAmount) els.paymentAmount.value = db.formatCurrency(voucher.amount);
             if (els.paymentNote) els.paymentNote.value = voucher.note || '';
-            if (els.paymentBusinessAccounting) els.paymentBusinessAccounting.checked = voucher.businessAccounting;
+            if (voucher.imageData && paymentImageHandler) {
+                // Restore image preview from saved data
+                var pPreviewImgEl = els.paymentImagePreviewImg;
+                var pPreviewEl = els.paymentImagePreview;
+                var pPlaceholderEl = els.paymentImagePlaceholder;
+                if (pPreviewImgEl && pPreviewEl && pPlaceholderEl) {
+                    pPreviewImgEl.src = voucher.imageData;
+                    pPlaceholderEl.style.display = 'none';
+                    pPreviewEl.style.display = '';
+                }
+            }
 
             // Re-check save button state after setting category
             toggleSaveButton('payment');
@@ -780,16 +898,17 @@ const SoquyUI = (function () {
             const updateData = {
                 category: isReceipt ? els.receiptCategory?.value : els.paymentCategory?.value,
                 collector: isReceipt ? els.receiptCollector?.value : els.paymentCollector?.value,
-                objectType: isReceipt ? els.receiptObjectType?.value : els.paymentObjectType?.value,
-                personName: isReceipt ? els.receiptPayerName?.value : els.paymentReceiverName?.value,
                 amount: parseAmountInput(isReceipt ? els.receiptAmount?.value : els.paymentAmount?.value),
                 note: isReceipt ? els.receiptNote?.value : els.paymentNote?.value,
                 sourceCode: selectedSrcCode,
                 source: selectedSrcCode, // backward compat
-                businessAccounting: !isReceipt ? (state.paymentSubType === 'kd') : els.receiptBusinessAccounting?.checked,
+                businessAccounting: !isReceipt ? (state.paymentSubType === 'kd') : false,
                 type: isReceipt ? config.VOUCHER_TYPES.RECEIPT
                     : (state.paymentSubType === 'kd' ? config.VOUCHER_TYPES.PAYMENT_KD : config.VOUCHER_TYPES.PAYMENT_CN),
-                dateTime: isReceipt ? els.receiptDateTime?.value : els.paymentDateTime?.value
+                dateTime: isReceipt ? els.receiptDateTime?.value : els.paymentDateTime?.value,
+                imageData: isReceipt
+                    ? (receiptImageHandler ? receiptImageHandler.getImageData() : '')
+                    : (paymentImageHandler ? paymentImageHandler.getImageData() : '')
             };
 
             await db.updateVoucher(state.editingVoucherId, updateData);
@@ -1525,15 +1644,6 @@ const SoquyUI = (function () {
 
         // Payment category - populate based on current subType
         populatePaymentCategoryDropdown(state.paymentSubType || 'cn');
-
-        // Object type dropdowns
-        [els.receiptObjectType, els.paymentObjectType].forEach(select => {
-            if (select) {
-                select.innerHTML = config.OBJECT_TYPES.map(type =>
-                    `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`
-                ).join('');
-            }
-        });
 
         // Time filter select
         if (els.timeFilterSelect) {
@@ -2481,6 +2591,29 @@ const SoquyUI = (function () {
     }
 
     // =====================================================
+    // IMAGE UPLOAD INITIALIZATION
+    // =====================================================
+
+    function initImageHandlers() {
+        receiptImageHandler = initImageUpload(
+            els.receiptImageUpload,
+            els.receiptImageFile,
+            els.receiptImagePlaceholder,
+            els.receiptImagePreview,
+            els.receiptImagePreviewImg,
+            els.receiptImageRemoveBtn
+        );
+        paymentImageHandler = initImageUpload(
+            els.paymentImageUpload,
+            els.paymentImageFile,
+            els.paymentImagePlaceholder,
+            els.paymentImagePreview,
+            els.paymentImagePreviewImg,
+            els.paymentImageRemoveBtn
+        );
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -2491,6 +2624,10 @@ const SoquyUI = (function () {
         updatePagination,
         goToPage,
         updateSidebarTitle,
+        initImageUpload,
+        initImageHandlers,
+        get receiptImageHandler() { return receiptImageHandler; },
+        get paymentImageHandler() { return paymentImageHandler; },
         openReceiptModal,
         closeReceiptModal,
         saveReceipt,

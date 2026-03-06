@@ -4506,3 +4506,95 @@
         gap: 6px;
     }
 }
+
+/* =====================================================
+   IMAGE UPLOAD COMPONENT
+   ===================================================== */
+
+.k-image-upload {
+    border: 2px dashed #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    min-height: 80px;
+    transition: border-color 0.2s ease;
+    overflow: hidden;
+}
+
+.k-image-upload:hover {
+    border-color: #1890ff;
+}
+
+.k-image-upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 16px;
+    min-height: 80px;
+    color: #94a3b8;
+}
+
+.k-image-upload-placeholder i,
+.k-image-upload-placeholder svg {
+    width: 24px;
+    height: 24px;
+}
+
+.k-image-upload-placeholder span {
+    font-size: 12px;
+}
+
+.k-image-upload-preview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.k-image-upload-preview img {
+    max-height: 120px;
+    max-width: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.k-image-remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background 0.2s ease;
+}
+
+.k-image-remove-btn:hover {
+    background: rgba(239, 68, 68, 0.8);
+}
+
+.k-image-remove-btn i,
+.k-image-remove-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* =====================================================
+   TEXTAREA IN MODAL FORMS
+   ===================================================== */
+
+.k-modal-body textarea.form-control {
+    resize: vertical;
+    min-height: 72px;
+    padding: 8px 12px;
+    line-height: 1.5;
+}

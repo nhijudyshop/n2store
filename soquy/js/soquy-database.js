@@ -79,6 +79,7 @@ const SoquyDatabase = (function () {
                 address: voucherData.address || '',
                 amount: Math.abs(Number(voucherData.amount) || 0),
                 note: voucherData.note || '',
+                imageData: voucherData.imageData || '',
                 transferContent: voucherData.transferContent || '',
                 accountName: voucherData.accountName || '',
                 accountNumber: voucherData.accountNumber || '',

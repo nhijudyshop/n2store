@@ -91,15 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Receipt modal
         els.receiptModal = document.getElementById('soquyCreateReceiptModal');
-        els.receiptVoucherCode = document.getElementById('receiptVoucherCode');
         els.receiptDateTime = document.getElementById('receiptDateTime');
+        els.receiptImageUpload = document.getElementById('receiptImageUpload');
+        els.receiptImageFile = document.getElementById('receiptImageFile');
+        els.receiptImagePlaceholder = document.getElementById('receiptImagePlaceholder');
+        els.receiptImagePreview = document.getElementById('receiptImagePreview');
+        els.receiptImagePreviewImg = document.getElementById('receiptImagePreviewImg');
+        els.receiptImageRemoveBtn = document.getElementById('receiptImageRemoveBtn');
         els.receiptCategory = document.getElementById('receiptCategory');
         els.receiptCollector = document.getElementById('receiptCollector');
-        els.receiptObjectType = document.getElementById('receiptObjectType');
-        els.receiptPayerName = document.getElementById('receiptPayerName');
         els.receiptAmount = document.getElementById('receiptAmount');
         els.receiptNote = document.getElementById('receiptNote');
-        els.receiptBusinessAccounting = document.getElementById('receiptBusinessAccounting');
         els.btnSaveReceipt = document.getElementById('btnSaveReceipt');
         els.saveReceiptWrapper = document.getElementById('saveReceiptWrapper');
         els.btnCancelReceipt = document.getElementById('btnSoquyCancelReceipt');
@@ -108,15 +110,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Payment modal
         els.paymentModal = document.getElementById('soquyCreatePaymentModal');
-        els.paymentVoucherCode = document.getElementById('paymentVoucherCode');
         els.paymentDateTime = document.getElementById('paymentDateTime');
+        els.paymentImageUpload = document.getElementById('paymentImageUpload');
+        els.paymentImageFile = document.getElementById('paymentImageFile');
+        els.paymentImagePlaceholder = document.getElementById('paymentImagePlaceholder');
+        els.paymentImagePreview = document.getElementById('paymentImagePreview');
+        els.paymentImagePreviewImg = document.getElementById('paymentImagePreviewImg');
+        els.paymentImageRemoveBtn = document.getElementById('paymentImageRemoveBtn');
         els.paymentCategory = document.getElementById('paymentCategory');
         els.paymentCollector = document.getElementById('paymentCollector');
-        els.paymentObjectType = document.getElementById('paymentObjectType');
-        els.paymentReceiverName = document.getElementById('paymentReceiverName');
         els.paymentAmount = document.getElementById('paymentAmount');
         els.paymentNote = document.getElementById('paymentNote');
-        els.paymentBusinessAccounting = document.getElementById('paymentBusinessAccounting');
         els.btnSavePayment = document.getElementById('btnSavePayment');
         els.savePaymentWrapper = document.getElementById('savePaymentWrapper');
         els.btnCancelPayment = document.getElementById('btnSoquyCancelPayment');
@@ -938,6 +942,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Initialize DOM references
         initElements();
+
+        // Initialize image upload handlers (after DOM elements are bound)
+        ui.initImageHandlers();
+
+        // Render Lucide icons for image upload placeholders (image-plus, x)
+        if (typeof lucide !== 'undefined') lucide.createIcons();
 
         // Load column visibility from localStorage
         ui.loadColumnVisibility();
