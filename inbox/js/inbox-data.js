@@ -587,6 +587,18 @@ class InboxDataManager {
         this.saveLocalState();
     }
 
+    /**
+     * Unmark a conversation as livestream (post.type is not 'livestream')
+     */
+    unmarkAsLivestream(convId) {
+        this.livestreamConvIds.delete(convId);
+        const conv = this.getConversation(convId);
+        if (conv) {
+            conv.isLivestream = false;
+        }
+        this.saveLocalState();
+    }
+
     addMessage(convId, text, sender = 'shop') {
         const conv = this.getConversation(convId);
         if (!conv) return null;

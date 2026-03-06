@@ -552,10 +552,20 @@ class InboxChatController {
             };
 
             // Detect livestream from post data
-            const postType = conv._messagesData.post?.type;
-            if (postType === 'livestream') {
+            // post.type === 'livestream' → livestream (live_video_status: 'vod' or 'live')
+            // post.type === 'video' / other → NOT livestream (reel, video post, etc.)
+            const post = conv._messagesData.post;
+            const postType = post?.type;
+            const liveVideoStatus = post?.live_video_status;
+            const wasLivestream = conv.isLivestream;
+
+            if (postType === 'livestream' || liveVideoStatus === 'vod' || liveVideoStatus === 'live') {
                 this.data.markAsLivestream(conv.id);
                 conv.isLivestream = true;
+            } else if (conv.type === 'COMMENT' && post) {
+                // COMMENT conversation but post is NOT livestream (reel, video, etc.)
+                this.data.unmarkAsLivestream(conv.id);
+                conv.isLivestream = false;
             }
 
             // Update status line
@@ -565,7 +575,7 @@ class InboxChatController {
             if (conv.isLivestream) statusParts.push('Livestream');
             if (postType && postType !== 'livestream') statusParts.push(postType);
             this.elements.chatUserStatus.textContent = statusParts.join(' · ') || '';
-            if (conv.isLivestream) this.renderConversationList();
+            if (conv.isLivestream !== wasLivestream) this.renderConversationList();
 
             // Extract phone from response for order form
             // recent_phone_numbers can be string[] or {phone_number}[]
