@@ -1984,9 +1984,6 @@ class PurchaseOrderFormModal {
         const tbody = this.modalElement?.querySelector('#itemsTableBody');
         if (!tbody) return;
 
-        // Debounce timer for auto code generation
-        let codeGenTimer = null;
-
         // Textarea changes (productName)
         tbody.querySelectorAll('textarea[data-field]').forEach(textarea => {
             textarea.addEventListener('input', (e) => {
@@ -2006,12 +2003,7 @@ class PurchaseOrderFormModal {
                             if (this.formData.items.indexOf(item) === 0) {
                                 this.autoDetectSupplier(e.target.value);
                             }
-                            clearTimeout(codeGenTimer);
-                            codeGenTimer = setTimeout(() => {
-                                this.autoGenerateProductCode(item);
-                            }, 800);
                         } else {
-                            clearTimeout(codeGenTimer);
                             if (!item._manualCodeEdit) {
                                 item.productCode = '';
                                 const codeInput = row?.querySelector('input[data-field="productCode"]');
@@ -2021,6 +2013,18 @@ class PurchaseOrderFormModal {
                     }
                 }
             });
+
+            // Auto-generate product code once on blur (leaving the field)
+            if (textarea.dataset.field === 'productName') {
+                textarea.addEventListener('blur', (e) => {
+                    const row = e.target.closest('tr');
+                    const itemId = row?.dataset.itemId;
+                    const item = this.formData.items.find(i => i.id === itemId);
+                    if (item && e.target.value.trim() && !item.productCode?.trim()) {
+                        this.autoGenerateProductCode(item);
+                    }
+                });
+            }
         });
 
         // Input changes
