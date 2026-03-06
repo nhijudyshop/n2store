@@ -333,26 +333,14 @@ window.TPOSClient = (function() {
 
         if (needsRetry) {
             const companyId = getCompanyId();
-            const is401 = response.status === 401;
-            const reason = is401 ? '401' : '200+HTML';
-            console.log(`[TPOS-Search] ${reason}, clearing token for company ${companyId} and refreshing...`);
+            const reason = response.status === 401 ? '401' : '200+HTML';
+            console.log(`[TPOS-Search] ${reason}, clearing all tokens for company ${companyId} and forcing re-login...`);
 
+            // Clear everything — refresh_token from SwitchCompany is single-use,
+            // keeping it just causes 500 on retry. Force full re-login instead.
             delete tokenStore[companyId];
             try {
-                if (is401) {
-                    // 401: keep refresh_token for retry (access_token expired but refresh may still work)
-                    const savedRefresh = getStoredRefreshToken(companyId);
-                    if (savedRefresh) {
-                        localStorage.setItem(storageKey(companyId), JSON.stringify({
-                            refresh_token: savedRefresh, expires_at: 0
-                        }));
-                    } else {
-                        localStorage.removeItem(storageKey(companyId));
-                    }
-                } else {
-                    // 200+HTML: refresh_token is also bad, clear everything → force full re-login
-                    localStorage.removeItem(storageKey(companyId));
-                }
+                localStorage.removeItem(storageKey(companyId));
             } catch (e) { /* ignore */ }
             try {
                 if (window.firebase && window.firebase.firestore) {
