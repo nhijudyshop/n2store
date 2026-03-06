@@ -71,12 +71,8 @@ const cacheManager = createCacheManager({
     dbName: 'N2StoreDB'
 });
 
-// Token manager instances
-const tokenManager = new TokenManager({
-    apiUrl: `${API_CONFIG.getCurrentServer()}/api/token`,
-    storageKey: 'bearer_token_data',
-    firebasePath: 'tokens/tpos_bearer'
-});
+// Token manager instances (company-specific key resolved automatically by TokenManager)
+const tokenManager = new TokenManager();
 
 const pancakeTokenManager = new PancakeTokenManager();
 
