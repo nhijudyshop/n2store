@@ -2416,6 +2416,29 @@ window.deleteTicket = async function (firebaseId) {
         // Use ApiService.deleteTicket for PostgreSQL (hard delete = true)
         await ApiService.deleteTicket(ticketIdentifier, true);
         console.log('[DELETE] Ticket deleted successfully:', firebaseId);
+        try {
+            if (window.AuditLogger) {
+                window.AuditLogger.logAction('delete', {
+                    module: 'issue-tracking',
+                    description: 'Xóa phiếu ' + displayCode + ' - Đơn ' + (ticket.orderId || '') + ' - KH ' + (ticket.phone || ticket.customerId || ''),
+                    oldData: {
+                        ticketCode: ticket.ticketCode || '',
+                        orderId: ticket.orderId || '',
+                        type: ticket.type || '',
+                        money: ticket.money || 0,
+                        phone: ticket.phone || ticket.customerId || '',
+                        status: ticket.status || ''
+                    },
+                    newData: null,
+                    entityId: ticket.ticketCode || firebaseId,
+                    entityType: 'ticket',
+                    metadata: ticket.type === 'RETURN_SHIPPER' ? {
+                        virtualCreditCancelled: true,
+                        virtualCreditAmount: parseFloat(ticket.money) || 0
+                    } : undefined
+                });
+            }
+        } catch (e) { console.warn('[AuditLog] delete log failed:', e); }
         notificationManager.success('Đã xóa phiếu thành công!', 3000, 'Xóa phiếu');
     } catch (error) {
         console.error('Delete ticket failed:', error);
