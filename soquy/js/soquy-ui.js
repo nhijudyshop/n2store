@@ -27,6 +27,34 @@ const SoquyUI = (function () {
         };
     }
 
+    // Modal open timestamp - overlay close handlers ignore clicks too soon after opening
+    let _modalOpenedAt = 0;
+    function markModalOpened() {
+        _modalOpenedAt = Date.now();
+    }
+    function isModalJustOpened(grace = 400) {
+        return Date.now() - _modalOpenedAt < grace;
+    }
+
+    // Protect <select> elements from double-click toggling
+    function protectSelectElements(container) {
+        if (!container) return;
+        const selects = container.querySelectorAll('select');
+        selects.forEach(sel => {
+            if (sel._dblClickProtected) return;
+            sel._dblClickProtected = true;
+            let lastMouseDown = 0;
+            sel.addEventListener('mousedown', (e) => {
+                const now = Date.now();
+                if (now - lastMouseDown < 350) {
+                    e.preventDefault();
+                    return;
+                }
+                lastMouseDown = now;
+            });
+        });
+    }
+
     // =====================================================
     // TABLE RENDERING (Dynamic Columns)
     // =====================================================
@@ -385,6 +413,8 @@ const SoquyUI = (function () {
         toggleSaveButton('receipt');
 
         // Show modal
+        markModalOpened();
+        protectSelectElements(els.receiptModal);
         els.receiptModal.style.display = 'flex';
     }
 
@@ -479,6 +509,8 @@ const SoquyUI = (function () {
         // Set initial save button state based on category selection
         toggleSaveButton('payment');
 
+        markModalOpened();
+        protectSelectElements(els.paymentModal);
         els.paymentModal.style.display = 'flex';
     }
 
@@ -664,6 +696,7 @@ const SoquyUI = (function () {
             detailTitle.textContent = `Chi tiết phiếu ${voucher.code}`;
         }
 
+        markModalOpened();
         detailModal.style.display = 'flex';
     }
 
@@ -785,6 +818,7 @@ const SoquyUI = (function () {
 
         if (els.cancelModal) {
             if (els.cancelReason) els.cancelReason.value = '';
+            markModalOpened();
             els.cancelModal.style.display = 'flex';
         }
     }
@@ -970,6 +1004,7 @@ const SoquyUI = (function () {
             if (btnConfirm) btnConfirm.disabled = true;
 
             state._importData = null;
+            markModalOpened();
             modal.style.display = 'flex';
         }
     }
@@ -1690,6 +1725,8 @@ const SoquyUI = (function () {
         // Render list
         renderCategoryList();
 
+        markModalOpened();
+        protectSelectElements(modal);
         modal.style.display = 'flex';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -2199,6 +2236,7 @@ const SoquyUI = (function () {
         // Render list
         renderSourceList();
 
+        markModalOpened();
         modal.style.display = 'flex';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -2397,6 +2435,7 @@ const SoquyUI = (function () {
             if (titleEl) titleEl.textContent = title || 'Xác nhận xóa';
             if (msgEl) msgEl.textContent = message || 'Bạn có chắc chắn muốn xóa?';
 
+            markModalOpened();
             modal.style.display = 'flex';
             if (typeof lucide !== 'undefined') lucide.createIcons();
 
@@ -2415,7 +2454,9 @@ const SoquyUI = (function () {
             btnOk.addEventListener('click', onOk);
             btnCancel.addEventListener('click', onCancel);
             btnClose.addEventListener('click', onCancel);
-            overlay.addEventListener('click', onCancel);
+            overlay.addEventListener('click', () => {
+                if (!isModalJustOpened()) onCancel();
+            });
         });
     }
 
@@ -2488,6 +2529,8 @@ const SoquyUI = (function () {
         loadFilterState,
         restoreFilterUI,
         isPaymentType,
+        isModalJustOpened,
+        protectSelectElements,
         toggleColumnDropdown,
         renderColumnToggleDropdown,
         loadColumnVisibility,
