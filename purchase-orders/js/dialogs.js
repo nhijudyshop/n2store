@@ -1379,27 +1379,30 @@ class InventoryPickerDialog {
                 }
             }
 
-            const token = await this.getAuthToken();
-            if (!token) {
-                throw new Error('Không có token xác thực');
+            // Fetch Excel file from TPOS using authenticatedFetch (proper headers + 401 retry)
+            if (!window.TPOSClient?.authenticatedFetch) {
+                throw new Error('TPOSClient không khả dụng');
             }
 
-            // Fetch Excel file from TPOS
-            const response = await fetch(`${this.proxyUrl}/api/Product/ExportFileWithStandardPriceV2`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'feature-version': '2'
-                },
-                body: JSON.stringify({
-                    model: { Active: 'true' },
-                    ids: ''
-                })
-            });
+            const response = await window.TPOSClient.authenticatedFetch(
+                `${this.proxyUrl}/api/Product/ExportFileWithStandardPriceV2`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        model: { Active: 'true' },
+                        ids: ''
+                    })
+                }
+            );
 
             if (!response.ok) {
                 throw new Error(`TPOS API error: ${response.status}`);
+            }
+
+            // Check content-type to avoid parsing HTML as Excel
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+                throw new Error('TPOS trả về HTML thay vì Excel - có thể token không hợp lệ');
             }
 
             // Response is Excel binary - parse with XLSX library
@@ -1618,22 +1621,8 @@ class InventoryPickerDialog {
      */
     async fetchProductDetails(productId) {
         try {
-            const token = await this.getAuthToken();
-            if (!token) {
-                throw new Error('Không có token xác thực');
-            }
-
-            const response = await fetch(
-                `${this.proxyUrl}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json',
-                        'feature-version': '2',
-                        'tposappversion': '6.2.6.1'
-                    }
-                }
+            const response = await window.TPOSClient.authenticatedFetch(
+                `${this.proxyUrl}/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
             );
 
             if (!response.ok) {
@@ -1646,7 +1635,7 @@ class InventoryPickerDialog {
 
             // If variant has no image, try to get parent product's image
             if (!image && data.ProductTmplId) {
-                image = await this.fetchParentImage(data.ProductTmplId, token);
+                image = await this.fetchParentImage(data.ProductTmplId);
             }
 
             // Map to our format - use original productId to preserve variant identity
@@ -1676,24 +1665,15 @@ class InventoryPickerDialog {
      * Uses ProductTemplate API to get the template's canonical image
      * Logic: variant.ImageUrl → templateData.ImageUrl → ''
      */
-    async fetchParentImage(templateId, token) {
+    async fetchParentImage(templateId) {
         try {
             if (!this._templateImageCache) this._templateImageCache = {};
             if (this._templateImageCache[templateId] !== undefined) {
                 return this._templateImageCache[templateId];
             }
 
-            const response = await fetch(
-                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})?$select=Id,ImageUrl`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json',
-                        'feature-version': '2',
-                        'tposappversion': '6.2.6.1'
-                    }
-                }
+            const response = await window.TPOSClient.authenticatedFetch(
+                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})?$select=Id,ImageUrl`
             );
 
             if (!response.ok) {
