@@ -561,14 +561,11 @@
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
-                const authHeader = await window.tokenManager?.getAuthHeader?.() || {};
-
-                const cancelResponse = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
+                const cancelResponse = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
                     method: 'POST',
                     headers: {
                         'accept': 'application/json',
-                        'content-type': 'application/json',
-                        ...authHeader
+                        'content-type': 'application/json'
                     },
                     body: JSON.stringify({ ids: [fastSaleOrderId] })
                 });
@@ -1314,14 +1311,11 @@
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
-                const authHeader = await window.tokenManager?.getAuthHeader?.() || {};
-
-                const cancelResponse = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
+                const cancelResponse = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
                     method: 'POST',
                     headers: {
                         'accept': 'application/json',
-                        'content-type': 'application/json',
-                        ...authHeader
+                        'content-type': 'application/json'
                     },
                     body: JSON.stringify({ ids: [fastSaleOrderId] })
                 });

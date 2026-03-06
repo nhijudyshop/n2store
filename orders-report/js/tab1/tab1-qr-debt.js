@@ -1543,25 +1543,16 @@ async function fetchOrderDetailsForSale(orderUuid) {
     console.log('[SALE-MODAL] Fetching order details for UUID:', orderUuid);
 
     try {
-        // Use tokenManager to get valid token for selected company
-        let token;
-        if (window.tokenManager) {
-            token = await window.tokenManager.getToken();
-        }
-
-        if (!token) {
-            console.warn('[SALE-MODAL] No auth token found');
+        if (!window.tokenManager) {
+            console.warn('[SALE-MODAL] No tokenManager found');
             return null;
         }
 
-        const response = await fetch('https://tomato.tpos.vn/odata/SaleOnline_Order/ODataService.GetDetails?$expand=orderLines($expand=Product,ProductUOM),partner,warehouse', {
+        const response = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetDetails?$expand=orderLines($expand=Product,ProductUOM),partner,warehouse', {
             method: 'POST',
             headers: {
                 'accept': 'application/json, text/plain, */*',
-                'authorization': `Bearer ${token}`,
-                'content-type': 'application/json;charset=UTF-8',
-                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
-                'x-tpos-lang': 'vi'
+                'content-type': 'application/json;charset=UTF-8'
             },
             body: JSON.stringify({ ids: [orderUuid] })
         });

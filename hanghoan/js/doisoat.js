@@ -304,8 +304,9 @@ const DoiSoatModule = (function () {
             parts.push(`DateTo=${encodeURIComponent(endDate.toISOString())}`);
         }
 
-        // CompanyId (required by TPOS API)
-        parts.push('CompanyId=1');
+        // CompanyId (required by TPOS API) - dynamic from ShopConfig
+        const companyId = window.tokenManager?.companyId || window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+        parts.push(`CompanyId=${companyId}`);
 
         // Join parts with & and add && before pagination params (như TPOS format)
         let queryString = parts.join('&');

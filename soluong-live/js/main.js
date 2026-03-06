@@ -31,8 +31,6 @@ const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 // State variables
 let productsData = [];
 let isLoadingExcel = false;
-let bearerToken = null;
-let tokenExpiry = null;
 let soluongProducts = {}; // Object-based structure: { product_123: {...}, product_456: {...} }
 let filteredProductsInList = []; // For search in product list
 let listSearchKeyword = ''; // Current search keyword for product list
@@ -725,97 +723,40 @@ function initCartHistoryState() {
     }
 }
 
-async function getAuthToken() {
-    try {
-        const response = await fetch(`${PROXY_URL}/api/token`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'grant_type=password&username=nvkt&password=Aa%40123456789&client_id=tmtWebApp'
-        });
+// Token management - use shared TokenManager from compat.js
+let _tokenManagerInstance = null;
 
-        if (!response.ok) {
-            throw new Error('Không thể xác thực');
-        }
-
-        const data = await response.json();
-        bearerToken = data.access_token;
-        tokenExpiry = Date.now() + (data.expires_in * 1000);
-
-        localStorage.setItem('soluong_bearerToken', bearerToken);
-        localStorage.setItem('soluong_tokenExpiry', tokenExpiry.toString());
-
-        console.log('✅ Đã xác thực thành công');
-        return bearerToken;
-    } catch (error) {
-        console.error('❌ Lỗi xác thực:', error);
-        throw error;
+function _getTokenManager() {
+    if (_tokenManagerInstance) return _tokenManagerInstance;
+    if (window.tokenManager) {
+        _tokenManagerInstance = window.tokenManager;
+        return _tokenManagerInstance;
     }
+    if (window.TokenManager) {
+        _tokenManagerInstance = new window.TokenManager();
+        window.tokenManager = _tokenManagerInstance;
+        console.log('[Soluong] Created TokenManager instance');
+        return _tokenManagerInstance;
+    }
+    console.error('[Soluong] TokenManager not available');
+    return null;
 }
 
 async function getValidToken() {
-    const storedToken = localStorage.getItem('soluong_bearerToken');
-    const storedExpiry = localStorage.getItem('soluong_tokenExpiry');
-
-    if (storedToken && storedExpiry) {
-        const expiry = parseInt(storedExpiry);
-        if (expiry > Date.now() + 300000) {
-            bearerToken = storedToken;
-            tokenExpiry = expiry;
-            console.log('✅ Sử dụng token đã lưu');
-            return bearerToken;
-        }
-    }
-
-    return await getAuthToken();
+    const tm = _getTokenManager();
+    if (!tm) throw new Error('TokenManager not available');
+    return await tm.getToken();
 }
 
 async function authenticatedFetch(url, options = {}) {
-    const token = await getValidToken();
-
-    const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'feature-version': '2',
-        'tposappversion': '6.2.6.1',
-        ...options.headers
-    };
-
-    const response = await fetch(url, {
-        ...options,
-        headers
-    });
-
-    // Handle auth failure: 401 OR 200+HTML (TPOS returns login page instead of 401)
-    const needsRetry = response.status === 401 ||
-        (response.ok && (response.headers.get('content-type') || '').includes('text/html'));
-
-    if (needsRetry) {
-        const reason = response.status === 401 ? '401' : '200+HTML';
-        console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
-        localStorage.removeItem('soluong_bearerToken');
-        localStorage.removeItem('soluong_tokenExpiry');
-        bearerToken = null;
-        tokenExpiry = null;
-        const newToken = await getAuthToken();
-        headers.Authorization = `Bearer ${newToken}`;
-
-        return fetch(url, {
-            ...options,
-            headers
-        });
-    }
-
-    return response;
+    const tm = _getTokenManager();
+    if (!tm) throw new Error('TokenManager not available');
+    return await tm.authenticatedFetch(url, options);
 }
 
 function logoutUser() {
     if (confirm('Bạn có chắc muốn đăng xuất?')) {
         // Clear all auth data
-        localStorage.removeItem('soluong_bearerToken');
-        localStorage.removeItem('soluong_tokenExpiry');
         sessionStorage.removeItem('loginindex_auth');
         localStorage.removeItem('loginindex_auth');
 

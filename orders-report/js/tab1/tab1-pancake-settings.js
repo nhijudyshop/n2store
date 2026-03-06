@@ -509,15 +509,12 @@ window.loadAvailableTags = async function() {
     try {
         console.log('[TAG-FILTER] Loading available tags from API...');
 
-        const authHeader = await window.tokenManager.getAuthHeader();
-
-        const response = await fetch("https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000", {
-            "headers": {
+        const response = await window.tokenManager.authenticatedFetch("https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000", {
+            headers: {
                 "accept": "application/json",
-                ...authHeader,
                 "content-type": "application/json"
             },
-            "method": "GET"
+            method: "GET"
         });
 
         if (!response.ok) {
