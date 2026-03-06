@@ -1367,21 +1367,48 @@ class PurchaseOrderController {
                     productCode = matched.product_code;
                 } else {
                     // Step 2: Check if productCode exists as exact product_code in CSV
+                    // BUT skip base codes that have variant children (TPOS only has variant-level codes)
                     const exactMatch = productsCSV.find(
                         row => row.product_code === item.productCode
                     );
+                    const hasVariantsInCSV = candidates.length > 0 || productsCSV.some(
+                        row => row.base_product_code === item.productCode
+                            && row.variant && row.variant.trim() !== ''
+                    );
 
-                    if (exactMatch) {
+                    if (exactMatch && !hasVariantsInCSV) {
                         productCode = item.productCode;
                     } else {
-                        // Step 3: Search TPOS API
+                        // Step 3: Search TPOS for variant codes using startswith
                         try {
-                            const tposResults = await window.TPOSClient?.searchProduct(item.productCode);
-                            if (tposResults && tposResults.length > 0) {
-                                productCode = item.productCode;
+                            const resp = await window.TPOSClient?.authenticatedFetch(
+                                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product?$filter=startswith(DefaultCode,'${encodeURIComponent(item.productCode)}')&$top=50&$select=Id,DefaultCode,NameGet`
+                            );
+                            if (resp?.ok) {
+                                const fetchData = await resp.json();
+                                const tposVariants = fetchData.value || [];
+                                if (tposVariants.length > 0 && item.variant) {
+                                    // Try to match by variant name
+                                    const extractAttrs = (nameGet) => {
+                                        if (!nameGet) return [];
+                                        const m = nameGet.match(/\(([^)]+)\)\s*$/);
+                                        return m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+                                    };
+                                    const variantMatch = tposVariants.find(v => {
+                                        const vAttrs = extractAttrs(v.NameGet).join(', ');
+                                        return variantsMatch(vAttrs, item.variant);
+                                    });
+                                    if (variantMatch) {
+                                        productCode = variantMatch.DefaultCode;
+                                        console.log(`[ExportMH] Matched variant "${item.variant}" → ${variantMatch.DefaultCode}`);
+                                    }
+                                } else if (tposVariants.length === 1) {
+                                    // Single product, no variants
+                                    productCode = tposVariants[0].DefaultCode;
+                                }
                             }
                         } catch (err) {
-                            console.warn('[ExportMH] TPOS search failed for', item.productCode, err);
+                            console.warn('[ExportMH] TPOS variant search failed for', item.productCode, err);
                         }
                     }
                 }

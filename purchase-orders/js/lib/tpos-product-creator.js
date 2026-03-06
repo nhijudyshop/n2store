@@ -702,38 +702,82 @@ window.TPOSProductCreator = (function () {
     }
 
     /**
+     * Remove Vietnamese diacritics for normalization
+     */
+    function removeDiacritics(str) {
+        if (window.ProductCodeGenerator?.removeVietnameseDiacritics) {
+            return window.ProductCodeGenerator.removeVietnameseDiacritics(str);
+        }
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, d => d === 'đ' ? 'd' : 'D');
+    }
+
+    /**
      * Match items to TPOS variant barcodes (in-memory only, no Firestore)
+     * Uses 2 strategies: (1) TPOS attribute value IDs, (2) normalized name comparison
      * Returns array of { itemId, barcode, tposVariantId } for batchUpdateSyncResults
      */
     function matchVariantBarcodes(groupItems, responseVariants) {
-        console.log(`[TPOSCreator] updateVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants`);
+        console.log(`[TPOSCreator] matchVariantBarcodes: ${groupItems.length} items, ${responseVariants.length} variants`);
 
         const updates = [];
+        const usedVariantIds = new Set();
+
         for (const item of groupItems) {
             if (!item.variant) continue;
 
-            const itemAttrs = item.variant.split(' / ').map(s => s.trim()).slice().sort();
-            const itemKey = itemAttrs.join('|');
-            console.log(`[TPOSCreator] Item "${item.variant}" → attrs: [${itemAttrs}]`);
+            let matched = null;
 
-            const matched = responseVariants.find(v => {
-                const vAttrs = extractVariantAttrs(v.NameGet || v.Name);
-                return vAttrs.slice().sort().join('|') === itemKey;
-            });
+            // Strategy 1: Match by TPOS attribute value IDs (most reliable)
+            if (!matched && item.selectedAttributeValueIds?.length > 0 && attrValueMap) {
+                const itemTposIds = item.selectedAttributeValueIds
+                    .map(uuid => attrValueMap.get(uuid)?.tpos_id)
+                    .filter(id => id > 0)
+                    .sort((a, b) => a - b);
+
+                if (itemTposIds.length > 0) {
+                    matched = responseVariants.find(v => {
+                        if (usedVariantIds.has(v.Id)) return false;
+                        if (!v.AttributeValues?.length) return false;
+                        const vTposIds = v.AttributeValues
+                            .map(a => a.Id)
+                            .sort((a, b) => a - b);
+                        return itemTposIds.length === vTposIds.length
+                            && itemTposIds.every((id, i) => id === vTposIds[i]);
+                    });
+                    if (matched) console.log(`[TPOSCreator] ✓ Matched "${item.variant}" by TPOS ID → ${matched.DefaultCode}`);
+                }
+            }
+
+            // Strategy 2: Match by normalized name (fallback)
+            if (!matched) {
+                const itemAttrs = item.variant.split(/[\/,|]/).map(s => removeDiacritics(s.trim()).toUpperCase()).filter(Boolean).sort();
+                const itemKey = itemAttrs.join('|');
+                console.log(`[TPOSCreator] Trying name match: "${item.variant}" → [${itemAttrs}]`);
+
+                matched = responseVariants.find(v => {
+                    if (usedVariantIds.has(v.Id)) return false;
+                    const vAttrs = extractVariantAttrs(v.NameGet || v.Name)
+                        .map(s => removeDiacritics(s.trim()).toUpperCase())
+                        .filter(Boolean)
+                        .sort();
+                    return vAttrs.join('|') === itemKey;
+                });
+                if (matched) console.log(`[TPOSCreator] ✓ Matched "${item.variant}" by name → ${matched.DefaultCode}`);
+            }
 
             if (matched) {
+                usedVariantIds.add(matched.Id);
                 updates.push({
                     itemId: item.id,
                     barcode: matched.Barcode || matched.DefaultCode,
                     tposVariantId: matched.Id
                 });
-                console.log(`[TPOSCreator] Matched "${item.variant}" → ${matched.Barcode || matched.DefaultCode}`);
             } else {
-                console.warn(`[TPOSCreator] No TPOS variant match for "${item.variant}"`);
+                console.warn(`[TPOSCreator] ✗ No TPOS variant match for "${item.variant}"`);
             }
         }
 
-        console.log(`[TPOSCreator] Total updates: ${updates.length}`);
+        console.log(`[TPOSCreator] Total updates: ${updates.length}/${groupItems.filter(i => i.variant).length}`);
         return updates.length > 0 ? updates : null;
     }
 
@@ -918,7 +962,7 @@ window.TPOSProductCreator = (function () {
                 if (result.alreadyExists && allCombinations) {
                     console.log(`[TPOSCreator] Product ${productCode} already exists, fetching from TPOS...`);
                     try {
-                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId,Barcode,NameGet`;
+                        const productUrl = `${PROXY_URL}/api/odata/Product?$filter=startswith(DefaultCode, '${productCode}')&$top=100&$select=Id,DefaultCode,ProductTmplId,Barcode,NameGet,AttributeValues`;
                         console.log(`[TPOSCreator] Fetching: ${productUrl}`);
                         const resp = await window.TPOSClient.authenticatedFetch(productUrl);
                         if (resp.ok) {
@@ -932,7 +976,8 @@ window.TPOSProductCreator = (function () {
                                         Id: v.Id,
                                         Barcode: v.DefaultCode,
                                         DefaultCode: v.DefaultCode,
-                                        NameGet: v.NameGet || null
+                                        NameGet: v.NameGet || null,
+                                        AttributeValues: v.AttributeValues || null
                                     }))
                                 };
                             }
