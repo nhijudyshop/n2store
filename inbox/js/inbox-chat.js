@@ -22,6 +22,8 @@ class InboxChatController {
         this.currentFilter = 'all';
         this.currentGroupFilter = null;
         this.searchQuery = '';
+        this.isSearching = false;
+        this.searchResults = null; // null = use local filter, [] = API returned empty
         this.selectedPageId = null; // Page filter
         this.isSending = false;
         this.isLoadingMessages = false;
@@ -96,10 +98,40 @@ class InboxChatController {
     }
 
     bindEvents() {
-        // Search
+        // Search: instant local filter + debounced API search (like tpos-pancake)
+        let searchTimeout = null;
         this.elements.searchInput.addEventListener('input', (e) => {
-            this.searchQuery = e.target.value;
+            const query = e.target.value.trim();
+            this.searchQuery = query;
+
+            if (searchTimeout) clearTimeout(searchTimeout);
+
+            if (!query) {
+                this.isSearching = false;
+                this.searchResults = null;
+                this.renderConversationList();
+                return;
+            }
+
+            // Instant: local filter
+            this.searchResults = null;
             this.renderConversationList();
+
+            // Debounced: API search for more results (300ms)
+            searchTimeout = setTimeout(async () => {
+                await this.performSearch(query);
+            }, 300);
+        });
+
+        // Clear search on Escape
+        this.elements.searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.elements.searchInput.value = '';
+                this.searchQuery = '';
+                this.isSearching = false;
+                this.searchResults = null;
+                this.renderConversationList();
+            }
         });
 
         // Filter tabs
@@ -370,21 +402,49 @@ class InboxChatController {
     // ===== Conversation List =====
 
     renderConversationList() {
-        let conversations = this.data.getConversations({
-            search: this.searchQuery,
-            filter: this.currentFilter,
-            groupFilter: this.currentGroupFilter,
-        });
+        // If API search returned results, use them merged with local results
+        let conversations;
+        if (this.searchResults !== null && this.searchQuery) {
+            // Merge: local filtered + API results (deduplicate by id)
+            const localResults = this.data.getConversations({
+                search: this.searchQuery,
+                filter: this.currentFilter,
+                groupFilter: this.currentGroupFilter,
+            });
+            const localIds = new Set(localResults.map(c => c.id));
+            const apiMapped = this.searchResults
+                .filter(c => !localIds.has(c.id))
+                .map(c => this.data.mapConversation(c));
+            conversations = [...localResults, ...apiMapped];
+        } else {
+            conversations = this.data.getConversations({
+                search: this.searchQuery,
+                filter: this.currentFilter,
+                groupFilter: this.currentGroupFilter,
+            });
+        }
 
         // Apply page filter
         if (this.selectedPageId) {
             conversations = conversations.filter(c => c.pageId === this.selectedPageId);
         }
 
+        if (conversations.length === 0 && this.isSearching) {
+            this.elements.conversationList.innerHTML = `
+                <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">
+                    <div class="typing-indicator" style="justify-content:center;margin-bottom:8px;">
+                        <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+                    </div>
+                    <p>Đang tìm kiếm "${this.escapeHtml(this.searchQuery)}"...</p>
+                </div>
+            `;
+            return;
+        }
+
         if (conversations.length === 0) {
             this.elements.conversationList.innerHTML = `
                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">
-                    <p>Không có cuộc hội thoại nào</p>
+                    <p>Không tìm thấy kết quả${this.searchQuery ? ' cho "' + this.escapeHtml(this.searchQuery) + '"' : ''}</p>
                 </div>
             `;
             return;
@@ -456,7 +516,17 @@ class InboxChatController {
 
     async selectConversation(convId) {
         this.activeConversationId = convId;
-        const conv = this.data.getConversation(convId);
+        let conv = this.data.getConversation(convId);
+
+        // If not found locally, check search results (API returned conversation not in loaded list)
+        if (!conv && this.searchResults) {
+            const apiConv = this.searchResults.find(c => c.id === convId);
+            if (apiConv) {
+                conv = this.data.mapConversation(apiConv);
+                this.data.conversations.unshift(conv);
+                this.data.buildMaps();
+            }
+        }
         if (!conv) return;
 
         this.data.markAsRead(convId);
@@ -1428,6 +1498,46 @@ class InboxChatController {
             }
         };
         input.click();
+    }
+
+    // ===== Search (2-tier: local + API, like tpos-pancake) =====
+
+    async performSearch(query) {
+        if (!query || query.length < 2) return;
+
+        this.isSearching = true;
+
+        // Show loading if no local results
+        const localResults = this.data.getConversations({ search: query });
+        if (localResults.length === 0) {
+            this.renderConversationList();
+        }
+
+        try {
+            const pdm = window.pancakeDataManager;
+            if (!pdm || !pdm.searchConversations) {
+                this.isSearching = false;
+                return;
+            }
+
+            const result = await pdm.searchConversations(query);
+            // Only update if query hasn't changed while waiting
+            if (this.searchQuery !== query) return;
+
+            if (result && result.conversations) {
+                this.searchResults = result.conversations;
+            } else {
+                this.searchResults = [];
+            }
+
+            this.renderConversationList();
+        } catch (error) {
+            console.error('[InboxChat] Search error:', error);
+            this.searchResults = [];
+            this.renderConversationList();
+        } finally {
+            this.isSearching = false;
+        }
     }
 
     // ===== WebSocket Real-Time (Phoenix Protocol v2.0.0, like tpos-pancake) =====
