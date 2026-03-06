@@ -334,22 +334,39 @@ window.TPOSClient = (function() {
         if (needsRetry) {
             const companyId = getCompanyId();
             const reason = response.status === 401 ? '401' : '200+HTML';
-            console.log(`[TPOS-Search] ${reason}, clearing all tokens for company ${companyId} and forcing re-login...`);
+            console.log(`[TPOS-Search] ${reason} for company ${companyId}, checking for newer token...`);
 
-            // Clear everything — refresh_token from SwitchCompany is single-use,
-            // keeping it just causes 500 on retry. Force full re-login instead.
-            delete tokenStore[companyId];
-            try {
-                localStorage.removeItem(storageKey(companyId));
-            } catch (e) { /* ignore */ }
-            try {
-                if (window.firebase && window.firebase.firestore) {
-                    const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
-                    await firebase.firestore().collection('tokens').doc(docId).delete();
+            // Strategy: check if localStorage has a NEWER token (another tab may have refreshed)
+            // Only do full re-login if no newer token is available
+            const failedToken = authToken;
+            delete tokenStore[companyId]; // Clear in-memory only first
+
+            // Try localStorage — another tab may have refreshed
+            let newToken = null;
+            if (loadFromStorage(companyId) && isTokenValid(companyId)) {
+                const storedToken = tokenStore[companyId].access_token;
+                if (storedToken !== failedToken) {
+                    console.log(`[TPOS-Search] Found newer token in localStorage, reusing`);
+                    newToken = storedToken;
                 }
-            } catch (e) { /* ignore */ }
+            }
 
-            const newToken = await getToken();
+            // No newer token found — clear everything and do full re-login
+            if (!newToken) {
+                console.log(`[TPOS-Search] No newer token available, forcing re-login...`);
+                delete tokenStore[companyId];
+                try {
+                    localStorage.removeItem(storageKey(companyId));
+                } catch (e) { /* ignore */ }
+                try {
+                    if (window.firebase && window.firebase.firestore) {
+                        const docId = companyId === 1 ? 'tpos_token' : `tpos_token_${companyId}`;
+                        await firebase.firestore().collection('tokens').doc(docId).delete();
+                    }
+                } catch (e) { /* ignore */ }
+                newToken = await getToken();
+            }
+
             return fetch(url, {
                 ...options,
                 headers: {
