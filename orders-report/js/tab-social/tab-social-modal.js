@@ -234,6 +234,7 @@ function saveOrder() {
                 note,
                 updatedAt: Date.now(),
             };
+            saveSocialOrdersToStorage();
             showNotification('Đã cập nhật đơn hàng', 'success');
 
             // Fire-and-forget: sync updated products to TPOS
@@ -270,6 +271,7 @@ function saveOrder() {
         };
 
         SocialOrderState.orders.unshift(newOrder);
+        saveSocialOrdersToStorage();
         showNotification('Đã tạo đơn hàng mới', 'success');
 
         // Fire-and-forget: sync products to TPOS

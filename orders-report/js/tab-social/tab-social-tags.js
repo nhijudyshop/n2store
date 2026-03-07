@@ -197,6 +197,7 @@ function saveOrderTags() {
     if (orderIndex > -1) {
         SocialOrderState.orders[orderIndex].tags = [...selectedTags];
         SocialOrderState.orders[orderIndex].updatedAt = Date.now();
+        saveSocialOrdersToStorage();
 
         showNotification('Đã cập nhật tags', 'success');
         performTableSearch(); // Re-render table

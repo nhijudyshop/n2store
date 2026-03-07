@@ -481,10 +481,10 @@ function closeConfirmDeleteModal() {
 function confirmDelete() {
     if (!pendingDeleteOrderId) return;
 
-    // Remove from mock data (will be Firebase later)
     const index = SocialOrderState.orders.findIndex((o) => o.id === pendingDeleteOrderId);
     if (index > -1) {
         SocialOrderState.orders.splice(index, 1);
+        saveSocialOrdersToStorage();
         showNotification('Đã xóa đơn hàng', 'success');
         performTableSearch();
     }
@@ -502,6 +502,7 @@ function deleteSelectedOrders() {
             (o) => !SocialOrderState.selectedOrders.has(o.id)
         );
         SocialOrderState.selectedOrders.clear();
+        saveSocialOrdersToStorage();
 
         showNotification(`Đã xóa ${count} đơn hàng`, 'success');
         performTableSearch();
