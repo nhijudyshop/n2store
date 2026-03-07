@@ -234,6 +234,31 @@
     color: #8b5cf6;
 }
 
+.btn-create-customer-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    background: #3b82f6;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.btn-create-customer-inline:hover {
+    background: #2563eb;
+}
+
+.btn-create-customer-inline i {
+    color: #fff;
+    font-size: 12px;
+}
+
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;

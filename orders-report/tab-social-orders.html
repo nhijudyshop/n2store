@@ -221,7 +221,12 @@
                 <form id="orderForm">
                     <!-- Customer Info -->
                     <div class="form-section">
-                        <h4><i class="fas fa-user"></i> Thông tin khách hàng</h4>
+                        <h4 style="display: flex; align-items: center; justify-content: space-between;">
+                            <span><i class="fas fa-user"></i> Thông tin khách hàng</span>
+                            <button type="button" class="btn-create-customer-inline" onclick="openCreateCustomerModal()">
+                                <i class="fas fa-user-plus"></i> Tạo KH
+                            </button>
+                        </h4>
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Tên khách hàng <span class="required">*</span></label>
@@ -546,6 +551,7 @@
     <script src="../shared/js/shop-config.js"></script>
     <script src="../shared/js/pancake-token-manager.js"></script>
     <script src="../shared/js/tpos-customer-lookup.js"></script>
+    <script src="../shared/js/customer-creator.js"></script>
 
     <!-- XLSX library (required by InventoryPickerDialog for Excel parsing) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

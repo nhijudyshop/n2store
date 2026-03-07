@@ -48,54 +48,7 @@ export class CustomerSearchModule {
                     </div>
                 </div>
 
-                <!-- Create Customer Modal -->
-                <div id="create-customer-modal" class="fixed inset-0 z-[60] hidden">
-                    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" id="create-customer-backdrop"></div>
-                    <div class="absolute inset-0 flex items-center justify-center p-4">
-                        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700">
-                            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-                                <h3 class="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-primary">person_add</span>
-                                    Tạo khách hàng mới
-                                </h3>
-                                <button id="close-create-modal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                                    <span class="material-symbols-outlined">close</span>
-                                </button>
-                            </div>
-                            <div class="px-6 py-5 space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Tên khách hàng <span class="text-red-500">*</span></label>
-                                    <input type="text" id="create-name"
-                                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                        placeholder="Nhập tên khách hàng">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Số điện thoại <span class="text-red-500">*</span></label>
-                                    <input type="tel" id="create-phone"
-                                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                        placeholder="Nhập số điện thoại">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Địa chỉ</label>
-                                    <input type="text" id="create-street"
-                                        class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                        placeholder="Nhập địa chỉ">
-                                </div>
-                                <div id="create-error" class="hidden text-sm text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg"></div>
-                                <div id="create-success" class="hidden text-sm text-green-600 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-lg"></div>
-                            </div>
-                            <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
-                                <button id="cancel-create" class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
-                                    Hủy
-                                </button>
-                                <button id="submit-create" class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors flex items-center gap-1.5">
-                                    <span class="material-symbols-outlined text-base">save</span>
-                                    Tạo khách hàng
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Create Customer Modal is now handled by shared CustomerCreator module -->
 
                 <!-- Hidden elements for compatibility -->
                 <span id="list-title" class="hidden">Khách hàng gần đây</span>
@@ -185,19 +138,32 @@ export class CustomerSearchModule {
         // Infinite scroll
         this.tableContainer.addEventListener('scroll', () => this.handleScroll());
 
-        // Create customer modal
-        this.createModal = this.container.querySelector('#create-customer-modal');
+        // Create customer button — uses shared CustomerCreator module
         const btnCreate = this.container.querySelector('#btn-create-customer');
-        const btnClose = this.container.querySelector('#close-create-modal');
-        const btnCancel = this.container.querySelector('#cancel-create');
-        const btnSubmit = this.container.querySelector('#submit-create');
-        const backdrop = this.container.querySelector('#create-customer-backdrop');
-
-        btnCreate.addEventListener('click', () => this.openCreateModal());
-        btnClose.addEventListener('click', () => this.closeCreateModal());
-        btnCancel.addEventListener('click', () => this.closeCreateModal());
-        backdrop.addEventListener('click', () => this.closeCreateModal());
-        btnSubmit.addEventListener('click', () => this.submitCreateCustomer());
+        btnCreate.addEventListener('click', () => {
+            if (window.CustomerCreator) {
+                window.CustomerCreator.open({
+                    onSuccess: (customer) => {
+                        // Add new customer to table immediately
+                        const newCustomer = {
+                            name: customer.name,
+                            phone: customer.phone,
+                            address: customer.address || '',
+                            status: customer.status || 'Bình thường',
+                            balance: 0,
+                            virtual_balance: 0,
+                            real_balance: 0,
+                            notes: []
+                        };
+                        this.customers.unshift(newCustomer);
+                        this.prependRow(newCustomer);
+                        this.updateFooter();
+                    }
+                });
+            } else {
+                console.error('[CustomerSearch] CustomerCreator module not loaded');
+            }
+        });
 
         // Initial load - show recent customers
         this.loadRecentCustomers();
@@ -632,89 +598,8 @@ export class CustomerSearchModule {
     }
 
 
-    openCreateModal() {
-        this.createModal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        // Clear previous state
-        this.container.querySelector('#create-name').value = '';
-        this.container.querySelector('#create-phone').value = '';
-        this.container.querySelector('#create-street').value = '';
-        this.container.querySelector('#create-error').classList.add('hidden');
-        this.container.querySelector('#create-success').classList.add('hidden');
-        this.container.querySelector('#submit-create').disabled = false;
-        this.container.querySelector('#create-name').focus();
-    }
-
-    closeCreateModal() {
-        this.createModal.classList.add('hidden');
-        document.body.style.overflow = '';
-    }
-
-    async submitCreateCustomer() {
-        const name = this.container.querySelector('#create-name').value.trim();
-        const phone = this.container.querySelector('#create-phone').value.trim();
-        const street = this.container.querySelector('#create-street').value.trim();
-        const errorEl = this.container.querySelector('#create-error');
-        const successEl = this.container.querySelector('#create-success');
-        const submitBtn = this.container.querySelector('#submit-create');
-
-        errorEl.classList.add('hidden');
-        successEl.classList.add('hidden');
-
-        // Validate
-        if (!name) {
-            errorEl.textContent = 'Vui lòng nhập tên khách hàng';
-            errorEl.classList.remove('hidden');
-            return;
-        }
-        if (!phone) {
-            errorEl.textContent = 'Vui lòng nhập số điện thoại';
-            errorEl.classList.remove('hidden');
-            return;
-        }
-        if (!/^0\d{8,9}$/.test(phone)) {
-            errorEl.textContent = 'Số điện thoại không hợp lệ (VD: 0909123456)';
-            errorEl.classList.remove('hidden');
-            return;
-        }
-
-        // Disable button
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="material-symbols-outlined text-base animate-spin">progress_activity</span> Đang tạo...';
-
-        try {
-            const result = await apiService.createPartner({ name, phone, street });
-            successEl.textContent = `Tạo thành công: ${result.Name} (ID: ${result.Id})`;
-            successEl.classList.remove('hidden');
-
-            // Add new customer to table immediately
-            const newCustomer = {
-                name: result.Name || name,
-                phone: result.Phone || phone,
-                address: result.Street || street || '',
-                status: result.StatusText || 'Bình thường',
-                balance: 0,
-                virtual_balance: 0,
-                real_balance: 0,
-                notes: []
-            };
-            this.customers.unshift(newCustomer);
-            this.prependRow(newCustomer);
-            this.updateFooter();
-
-            // Close modal after 1s
-            setTimeout(() => {
-                this.closeCreateModal();
-            }, 1000);
-        } catch (error) {
-            console.error('[CustomerSearch] Create partner failed:', error);
-            errorEl.textContent = error.message || 'Tạo khách hàng thất bại';
-            errorEl.classList.remove('hidden');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<span class="material-symbols-outlined text-base">save</span> Tạo khách hàng';
-        }
-    }
+    // openCreateModal, closeCreateModal, submitCreateCustomer
+    // => Moved to shared/js/customer-creator.js (window.CustomerCreator)
 
     render() {
         // The UI is initialized in the constructor
