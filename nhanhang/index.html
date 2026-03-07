@@ -254,135 +254,104 @@
             </div>
         </main>
 
-        <!-- Create Modal (Thêm Phiếu) -->
-        <div id="createModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>
-                        <i data-lucide="plus-circle"></i>
-                        Thêm Phiếu Nhận Hàng
-                    </h2>
+        <!-- Create Modal (Thêm Phiếu) — giống sổ quỹ -->
+        <div class="modal" id="createModal" style="display: none;">
+            <div class="modal-overlay" id="createModalOverlay"></div>
+            <div class="modal-content k-modal">
+                <div class="modal-header k-modal-header">
+                    <h3>Thêm phiếu nhận hàng</h3>
                     <button class="btn-icon" id="closeCreateModal">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
-
-                <form id="receiptForm">
-                    <div class="form-row" style="padding: 0 var(--spacing-xl);">
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="user"></i>
-                                Tên người nhận
-                            </label>
-                            <input
-                                type="text"
-                                id="tenNguoiNhan"
-                                placeholder="Tự động từ tài khoản..."
-                                readonly
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="scale"></i>
-                                Số kg
-                            </label>
-                            <input
-                                type="number"
-                                id="soKg"
-                                min="0"
-                                step="any"
-                                placeholder="0"
-                                required
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="package"></i>
-                                Số kiện
-                            </label>
-                            <input
-                                type="number"
-                                id="soKien"
-                                min="0"
-                                step="any"
-                                placeholder="0"
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Ghi chú -->
-                    <div class="form-group" style="margin-bottom: var(--spacing-lg); padding: 0 var(--spacing-xl);">
-                        <label>
-                            <i data-lucide="file-text"></i>
-                            Ghi chú
-                        </label>
-                        <textarea
-                            id="ghiChu"
-                            rows="2"
-                            placeholder="Nhập ghi chú (không bắt buộc)..."
-                            style="padding: var(--spacing-md); border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 0.875rem; resize: vertical;"
-                        ></textarea>
-                    </div>
-
-                    <!-- Camera Section -->
-                    <div class="camera-section" style="padding: 0 var(--spacing-xl);">
-                        <h3>
-                            <i data-lucide="camera"></i> Chụp ảnh nhận hàng
-                        </h3>
-
-                        <!-- Mobile: simple file input -->
-                        <div class="mobile-file-upload" id="mobileFileUpload">
-                            <label class="mobile-file-upload-label" id="mobileFileLabel">
-                                <i data-lucide="image-plus"></i>
-                                Chọn ảnh hoặc chụp ảnh
-                                <input type="file" id="mobileFileInput" accept="image/*" />
-                            </label>
-                            <div class="mobile-file-upload-preview" id="mobileFilePreview"></div>
+                <div class="modal-body k-modal-body">
+                    <form id="receiptForm">
+                        <!-- Tên người nhận -->
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Tên người nhận</label>
+                                <input type="text" id="tenNguoiNhan" class="form-control"
+                                    placeholder="Tự động từ tài khoản..." readonly />
+                            </div>
                         </div>
 
-                        <div class="camera-controls">
-                            <button type="button" id="startCamera" class="camera-button">
-                                <i data-lucide="camera"></i>
-                                Khởi động Camera
-                            </button>
-                            <button type="button" id="takePicture" class="camera-button" style="display: none">
-                                <i data-lucide="circle"></i>
-                                Chụp Ảnh
-                            </button>
-                            <button type="button" id="retakePicture" class="camera-button" style="display: none">
-                                <i data-lucide="rotate-ccw"></i>
-                                Chụp Lại
-                            </button>
-                            <button type="button" id="uploadFileButton" class="camera-button" style="background: var(--secondary)">
-                                <i data-lucide="upload"></i>
-                                Tải ảnh từ file
-                            </button>
-                            <input type="file" id="fileInput" accept="image/*" style="display: none" />
+                        <!-- Ảnh chụp — ngay dưới tên người nhận -->
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Ảnh nhận hàng</label>
+                                <div class="camera-section">
+                                    <!-- Mobile: simple file input -->
+                                    <div class="mobile-file-upload" id="mobileFileUpload">
+                                        <label class="mobile-file-upload-label" id="mobileFileLabel">
+                                            <i data-lucide="image-plus"></i>
+                                            Chọn ảnh hoặc chụp ảnh
+                                            <input type="file" id="mobileFileInput" accept="image/*" />
+                                        </label>
+                                        <div class="mobile-file-upload-preview" id="mobileFilePreview"></div>
+                                    </div>
+
+                                    <!-- Desktop: camera controls -->
+                                    <div class="camera-controls">
+                                        <button type="button" id="startCamera" class="camera-button">
+                                            <i data-lucide="camera"></i> Khởi động Camera
+                                        </button>
+                                        <button type="button" id="takePicture" class="camera-button" style="display:none">
+                                            <i data-lucide="circle"></i> Chụp Ảnh
+                                        </button>
+                                        <button type="button" id="retakePicture" class="camera-button" style="display:none">
+                                            <i data-lucide="rotate-ccw"></i> Chụp Lại
+                                        </button>
+                                        <button type="button" id="uploadFileButton" class="camera-button" style="background:var(--secondary)">
+                                            <i data-lucide="upload"></i> Tải ảnh từ file
+                                        </button>
+                                        <input type="file" id="fileInput" accept="image/*" style="display:none" />
+                                    </div>
+
+                                    <div class="camera-preview" id="cameraPreview" style="display:none">
+                                        <video id="cameraVideo" autoplay muted playsinline></video>
+                                        <canvas id="cameraCanvas" style="display:none"></canvas>
+                                    </div>
+
+                                    <div class="image-display-area" id="imageDisplayArea">
+                                        <i data-lucide="image"></i>
+                                        <p>Ảnh sẽ hiển thị ở đây sau khi chụp</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="camera-preview" id="cameraPreview" style="display: none">
-                            <video id="cameraVideo" autoplay muted playsinline></video>
-                            <canvas id="cameraCanvas" style="display: none"></canvas>
+                        <!-- Số kg + Số kiện -->
+                        <div class="form-row">
+                            <div class="form-group k-group">
+                                <label>Số kg</label>
+                                <input type="number" id="soKg" class="form-control"
+                                    min="0" step="any" placeholder="0" required />
+                            </div>
+                            <div class="form-group k-group">
+                                <label>Số kiện</label>
+                                <input type="number" id="soKien" class="form-control"
+                                    min="0" step="any" placeholder="0" required />
+                            </div>
                         </div>
 
-                        <div class="image-display-area" id="imageDisplayArea">
-                            <i data-lucide="image"></i>
-                            <p>Ảnh sẽ hiển thị ở đây sau khi chụp</p>
+                        <!-- Ghi chú -->
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Ghi chú</label>
+                                <textarea id="ghiChu" class="form-control"
+                                    placeholder="Nhập ghi chú (không bắt buộc)..." rows="2"></textarea>
+                            </div>
                         </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="clearDataButton">
-                            <i data-lucide="rotate-ccw"></i>
-                            Làm Mới
-                        </button>
-                        <button type="submit" class="btn btn-primary" id="addButton">
-                            <i data-lucide="check"></i>
-                            Thêm Phiếu
-                        </button>
-                    </div>
-                </form>
+                    </form>
+                </div>
+                <div class="modal-footer k-modal-footer">
+                    <button class="btn btn-secondary" id="clearDataButton">
+                        <i data-lucide="rotate-ccw"></i> Làm Mới
+                    </button>
+                    <button class="btn btn-primary" id="addButton">
+                        <i data-lucide="check"></i> Thêm Phiếu
+                    </button>
+                </div>
             </div>
         </div>
 

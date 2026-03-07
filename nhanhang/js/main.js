@@ -733,6 +733,19 @@ function initializeFormElements() {
     if (closeCreateModal) {
         closeCreateModal.addEventListener("click", closeCreateModalFunction);
     }
+    const createModalOverlay = document.getElementById("createModalOverlay");
+    if (createModalOverlay) {
+        createModalOverlay.addEventListener("click", closeCreateModalFunction);
+    }
+
+    // addButton is outside <form> in modal-footer, trigger form submit
+    const addButton = document.getElementById("addButton");
+    if (addButton && receiptForm) {
+        addButton.addEventListener("click", function (e) {
+            e.preventDefault();
+            receiptForm.dispatchEvent(new Event("submit", { cancelable: true }));
+        });
+    }
 
     // Edit modal events
     if (editForm) {
