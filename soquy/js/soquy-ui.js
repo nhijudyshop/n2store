@@ -202,14 +202,32 @@ const SoquyUI = (function () {
             console.log('[SoquyUI] Eager upload started. Blob size:', (blob.size / 1024).toFixed(0) + 'KB');
             showNotification('[Debug] Eager upload bắt đầu (' + (blob.size / 1024).toFixed(0) + 'KB)', 'info');
 
+            // Use firebase.storage().ref() directly — same pattern as nhanhang (proven working)
+            var sRef = (config && config.storageRef) ? config.storageRef : firebase.storage().ref();
+            if (!sRef) {
+                showNotification('[Debug] storageRef is NULL! Firebase chưa init?', 'error');
+                uploadState = 'error';
+                return Promise.reject(new Error('storageRef is null'));
+            }
+
             var imageName = generateSoquyFileName();
-            var imageRef = config.storageRef.child('soquy/photos/' + imageName);
+            var imageRef = sRef.child('soquy/photos/' + imageName);
+
+            showNotification('[Debug] Upload path: soquy/photos/' + imageName, 'info');
 
             // Show progress bar on container
             showUploadProgressOverlay(containerEl, 0);
 
             uploadPromise = new Promise(function (resolve, reject) {
-                currentUploadTask = imageRef.put(blob, { cacheControl: 'public,max-age=31536000' });
+                try {
+                    currentUploadTask = imageRef.put(blob, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
+                } catch (putError) {
+                    showNotification('[Debug] put() EXCEPTION: ' + putError.message, 'error');
+                    uploadState = 'error';
+                    showUploadErrorOverlay(containerEl);
+                    reject(putError);
+                    return;
+                }
 
                 currentUploadTask.on('state_changed',
                     function (snapshot) {
@@ -227,7 +245,7 @@ const SoquyUI = (function () {
                         uploadState = 'error';
                         uploadedUrl = '';
                         showUploadErrorOverlay(containerEl);
-                        showNotification('[Debug] Eager upload LỖI: ' + error.message, 'error');
+                        showNotification('[Debug] Upload LỖI: code=' + (error.code || 'none') + ' msg=' + error.message, 'error');
                         reject(error);
                     },
                     function () {
@@ -244,7 +262,7 @@ const SoquyUI = (function () {
                                 console.error('[SoquyUI] getDownloadURL error:', error);
                                 uploadState = 'error';
                                 showUploadErrorOverlay(containerEl);
-                                showNotification('[Debug] Eager getURL LỖI: ' + error.message, 'error');
+                                showNotification('[Debug] getURL LỖI: ' + error.message, 'error');
                                 reject(error);
                             });
                     }
@@ -316,9 +334,10 @@ const SoquyUI = (function () {
             if (lastBlob) {
                 showNotification('[Debug] Fallback direct upload, status=' + uploadState, 'info');
                 try {
+                    var sRef = (config && config.storageRef) ? config.storageRef : firebase.storage().ref();
                     var imageName = generateSoquyFileName();
-                    var imageRef = config.storageRef.child('soquy/photos/' + imageName);
-                    var snapshot = await imageRef.put(lastBlob, { cacheControl: 'public,max-age=31536000' });
+                    var imageRef = sRef.child('soquy/photos/' + imageName);
+                    var snapshot = await imageRef.put(lastBlob, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
                     var downloadURL = await snapshot.ref.getDownloadURL();
                     uploadState = 'done';
                     uploadedUrl = downloadURL;
@@ -326,7 +345,7 @@ const SoquyUI = (function () {
                     return downloadURL;
                 } catch (fallbackErr) {
                     console.error('[SoquyUI] Fallback upload also failed:', fallbackErr);
-                    showNotification('[Debug] Fallback cũng lỗi: ' + fallbackErr.message, 'error');
+                    showNotification('[Debug] Fallback lỗi: code=' + (fallbackErr.code || 'none') + ' msg=' + fallbackErr.message, 'error');
                     return '';
                 }
             }
