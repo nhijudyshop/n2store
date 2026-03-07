@@ -718,11 +718,13 @@ const SoquyUI = (function () {
                 imageData: receiptImageHandler ? await receiptImageHandler.getImageData() : ''
             };
 
-            await db.createVoucher(voucherData);
+            const savedVoucher = await db.createVoucher(voucherData);
 
             closeReceiptModal();
             showNotification('Tạo phiếu thu thành công!', 'success');
-            await refreshData();
+
+            // Optimistic update: insert locally instead of full refresh
+            insertVoucherOptimistic(savedVoucher);
         } catch (error) {
             console.error('[SoquyUI] Error saving receipt:', error);
             showNotification('Lỗi khi tạo phiếu thu: ' + error.message, 'error');
@@ -808,18 +810,21 @@ const SoquyUI = (function () {
                 imageData: paymentImageHandler ? await paymentImageHandler.getImageData() : ''
             };
 
-            await db.createVoucher(voucherData);
+            const savedVoucher = await db.createVoucher(voucherData);
 
-            // Auto-add category if new (with sourceCode for KD types)
+            // Auto-add category if new (with sourceCode for KD types) - fire and forget
             if (voucherData.category) {
-                await db.autoAddCategory(voucherData.category, paymentType, sourceCode);
-                populateCategoryDropdowns();
+                db.autoAddCategory(voucherData.category, paymentType, sourceCode)
+                    .then(() => populateCategoryDropdowns())
+                    .catch(err => console.error('[SoquyUI] autoAddCategory error:', err));
             }
 
             closePaymentModal();
             const typeLabel = state.paymentSubType === 'kd' ? 'chi KD' : 'chi CN';
             showNotification(`Tạo phiếu ${typeLabel} thành công!`, 'success');
-            await refreshData();
+
+            // Optimistic update: insert locally instead of full refresh
+            insertVoucherOptimistic(savedVoucher);
         } catch (error) {
             console.error('[SoquyUI] Error saving payment:', error);
             showNotification('Lỗi khi tạo phiếu chi: ' + error.message, 'error');
@@ -1054,13 +1059,29 @@ const SoquyUI = (function () {
             };
 
             await db.updateVoucher(state.editingVoucherId, updateData);
+            const editedId = state.editingVoucherId;
             state.editingVoucherId = null;
 
             if (isReceipt) closeReceiptModal();
             else closePaymentModal();
 
             showNotification('Cập nhật phiếu thành công!', 'success');
-            await refreshData();
+
+            // Optimistic update: modify voucher in local state instead of full refresh
+            const idx = state.vouchers.findIndex(v => v.id === editedId);
+            if (idx !== -1) {
+                Object.assign(state.vouchers[idx], updateData);
+                if (updateData.dateTime) {
+                    state.vouchers[idx].voucherDateTime = new Date(updateData.dateTime);
+                }
+                applyLocalFilters();
+                updateSummaryStats();
+                updatePagination();
+                renderTable();
+                updateSidebarTitle();
+            } else {
+                await refreshData();
+            }
         } catch (error) {
             console.error('[SoquyUI] Error updating voucher:', error);
             showNotification('Lỗi khi cập nhật: ' + error.message, 'error');
@@ -1434,6 +1455,38 @@ const SoquyUI = (function () {
             state.isLoading = false;
             showTableLoading(false);
         }
+    }
+
+    /**
+     * Optimistic insert: add new voucher to local state and re-render immediately
+     * without re-fetching from Firestore. Much faster than full refreshData().
+     */
+    function insertVoucherOptimistic(newVoucher) {
+        // Normalize legacy type
+        if (newVoucher.type === 'payment') {
+            newVoucher.type = newVoucher.businessAccounting ? 'payment_kd' : 'payment_cn';
+        }
+
+        // Check if voucher matches current filters (fundType, status, voucherType)
+        if (state.fundType !== config.FUND_TYPES.ALL && newVoucher.fundType !== state.fundType) {
+            return; // Doesn't match current fund type view
+        }
+        if (state.statusFilter.length > 0 && !state.statusFilter.includes(newVoucher.status)) {
+            return;
+        }
+        if (state.voucherTypeFilter.length > 0 && !state.voucherTypeFilter.includes(newVoucher.type)) {
+            return;
+        }
+
+        // Insert at the beginning (newest first)
+        state.vouchers.unshift(newVoucher);
+
+        // Re-apply local filters and re-render
+        applyLocalFilters();
+        updateSummaryStats();
+        updatePagination();
+        renderTable();
+        updateSidebarTitle();
     }
 
     /**
