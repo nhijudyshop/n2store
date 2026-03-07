@@ -28,6 +28,7 @@
   --bp6: #8b5cf6; --bp6-light: #f5f3ff; --bp6-dark: #7c3aed;
   --bp7: #ef4444; --bp7-light: #fef2f2; --bp7-dark: #dc2626;
   --bp8: #14b8a6; --bp8-light: #f0fdfa; --bp8-dark: #0d9488;
+  --bp9: #06b6d4; --bp9-light: #ecfeff; --bp9-dark: #0891b2;
   --sidebar-w: 260px;
   --header-h: 60px;
   --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
@@ -92,6 +93,7 @@ body { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--gray-700)
 .nav-item[data-bp="6"] { --c: var(--bp6); }
 .nav-item[data-bp="7"] { --c: var(--bp7); }
 .nav-item[data-bp="8"] { --c: var(--bp8); }
+.nav-item[data-bp="9"] { --c: var(--bp9); }
 .nav-item.active { border-left-color: var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 6%, white); }
 .nav-dot { background: var(--c); }
 
@@ -123,6 +125,7 @@ body { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--gray-700)
 .flow-box[data-bp="6"] { --c: var(--bp6); background: var(--bp6-light); }
 .flow-box[data-bp="7"] { --c: var(--bp7); background: var(--bp7-light); }
 .flow-box[data-bp="8"] { --c: var(--bp8); background: var(--bp8-light); }
+.flow-box[data-bp="9"] { --c: var(--bp9); background: var(--bp9-light); }
 .flow-arrow-row { display: flex; justify-content: center; align-items: center; padding: 6px 0; background: #fff; grid-column: 1 / -1; }
 .flow-arrow-row span { font-size: 18px; color: var(--gray-300); margin: 0 calc(12.5% - 9px); }
 
@@ -146,6 +149,7 @@ body { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--gray-700)
 .bp-section[data-bp="6"] { --c: var(--bp6); --cd: var(--bp6-dark); --cl: var(--bp6-light); }
 .bp-section[data-bp="7"] { --c: var(--bp7); --cd: var(--bp7-dark); --cl: var(--bp7-light); }
 .bp-section[data-bp="8"] { --c: var(--bp8); --cd: var(--bp8-dark); --cl: var(--bp8-light); }
+.bp-section[data-bp="9"] { --c: var(--bp9); --cd: var(--bp9-dark); --cl: var(--bp9-light); }
 
 /* ===== STEPS ===== */
 .step { display: flex; gap: 16px; margin-bottom: 20px; }
@@ -457,6 +461,9 @@ body.nav-collapsed #local-sidebar { left: 0; }
   <a class="nav-item" data-bp="1" href="#bp1" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> BP1 — Nhập hàng &amp; Làm mã
   </a>
+  <a class="nav-item" data-bp="9" href="#bp-kho" onclick="closeLocalSidebar()">
+    <span class="nav-dot"></span> Quản lý kho
+  </a>
   <a class="nav-item" data-bp="2" href="#check-hang" onclick="closeLocalSidebar()">
     <span class="nav-dot"></span> Check hàng trước live
   </a>
@@ -665,6 +672,170 @@ body.nav-collapsed #local-sidebar { left: 0; }
             <li>Phân theo từng sào của khu vực sản phẩm đó.</li>
             <li>Để mẫu live — khi xuống live sẽ lựa mẫu vào live.</li>
           </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- QUẢN LÝ KHO -->
+<section id="bp-kho" class="bp-section" data-bp="9">
+  <div class="bp-header">
+    <span class="bp-icon">🏭</span>
+    <div>
+      <div class="bp-title">Quản lý kho — Nhận hàng &amp; Sắp xếp</div>
+    </div>
+    <span class="bp-badge">6 bước</span>
+  </div>
+  <div class="bp-body">
+
+    <!-- Bước 1: Nhận hàng mẫu mới -->
+    <div class="step" data-note-id="kho-b1">
+      <div class="step-badge" style="background:var(--bp9)">1</div>
+      <div class="step-content">
+        <div class="step-title">Nhận hàng mẫu mới (đưa lên phòng live)</div>
+        <div class="step-body">
+          <ul>
+            <li>Phân loại mẫu <strong>Việt Nam</strong> – <strong>Quảng Châu</strong>.</li>
+            <li>Phân loại kiểu mẫu: <span class="tag tag-info">Áo</span> <span class="tag tag-info">Quần</span> <span class="tag tag-info">Set</span> <span class="tag tag-info">Đầm</span> …</li>
+            <li>Treo mẫu lên sào theo đúng vị trí <strong>bảng tên phân loại</strong> được dán trên sào.</li>
+            <li>Thứ tự mẫu mới treo vào sào: <strong>từ trái qua phải</strong>.</li>
+            <li>Kiểm tra mẫu đã OK chưa trước khi c Nhi live (VD: cắt khuy, cắt chỉ thừa, cột dây…).</li>
+          </ul>
+          <div class="callout warn">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body"><strong>Lưu ý</strong>Mẫu phải được kiểm tra kỹ trước khi đưa lên sào live để đảm bảo chất lượng hình ảnh khi livestream.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <!-- Bước 2: Nhận hàng số lượng Việt Nam -->
+    <div class="step" data-note-id="kho-b2">
+      <div class="step-badge" style="background:var(--bp9)">2</div>
+      <div class="step-content">
+        <div class="step-title">Nhận hàng số lượng Việt Nam (đưa lên phòng live)</div>
+        <div class="step-body">
+          <ul>
+            <li>Để hàng lên <strong>kệ hàng mới bên trái góc live (KỆ SỐ 2)</strong>.</li>
+            <li>Để đúng theo tầng đã phân loại: <span class="tag tag-info">Áo</span> <span class="tag tag-info">Quần</span> <span class="tag tag-info">Set</span> <span class="tag tag-info">Đầm</span> …</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <!-- Bước 3: Nhận hàng số lượng Quảng Châu -->
+    <div class="step" data-note-id="kho-b3">
+      <div class="step-badge" style="background:var(--bp9)">3</div>
+      <div class="step-content">
+        <div class="step-title">Nhận hàng số lượng Quảng Châu (dưới kho tầng trệt)</div>
+        <div class="step-body">
+          <ul>
+            <li>Sắp xếp các cục hàng lên kệ theo <strong>khu đã phân loại</strong>: <span class="tag tag-info">Áo</span> <span class="tag tag-info">Quần</span> <span class="tag tag-info">Set</span> <span class="tag tag-info">Đầm</span> …</li>
+            <li>Sau khi đưa mẫu lên sào phòng live, bạn làm kho sẽ <strong>mở danh sách kiểm mã</strong> và <strong>quét mã</strong> các mẫu xem có bị sót hay không.</li>
+          </ul>
+          <div class="callout tip">
+            <span class="callout-icon">✅</span>
+            <div class="callout-body"><strong>Kiểm tra</strong>Luôn quét mã đối chiếu sau khi sắp xếp để đảm bảo không sót mẫu nào.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <!-- Bước 4: Nhận hàng lẻ từ nhiều bộ phận -->
+    <div class="step" data-note-id="kho-b4">
+      <div class="step-badge" style="background:var(--bp9)">4</div>
+      <div class="step-content">
+        <div class="step-title">Nhận hàng lẻ từ nhiều bộ phận</div>
+        <div class="step-body">
+          <p><strong>Các trường hợp hàng rớt/lẻ cần xử lý:</strong></p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0">
+            <div style="background:var(--bp9-light);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--bp9)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp9-dark)">Hàng Boom / Hoàn</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">C.Còi xử lý</div>
+            </div>
+            <div style="background:var(--bp9-light);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--bp9)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp9-dark)">Khách xã sau chốt đơn</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">Từ các bạn Seller</div>
+            </div>
+            <div style="background:var(--bp9-light);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--bp9)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp9-dark)">Hàng rớt từ live</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">C Nhi live hàng SL bị rớt lại</div>
+            </div>
+            <div style="background:var(--bp9-light);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--bp9)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp9-dark)">Hàng rớt sau đi đơn</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">My hoặc Lài trả hàng</div>
+            </div>
+            <div style="background:var(--bp9-light);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--bp9)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp9-dark)">Hàng rớt Inbox</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">Khách xã hàng của My check IB</div>
+            </div>
+            <div style="background:var(--bp9-light);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--bp9)">
+              <div style="font-weight:600;font-size:12px;color:var(--bp9-dark)">Đổi trả tỉnh + TP</div>
+              <div style="font-size:11px;color:var(--gray-500);margin-top:2px">Lài xử lý</div>
+            </div>
+          </div>
+
+          <p>Hàng rớt sẽ được <strong>bàn giao qua cho bạn làm kho</strong>. Bạn làm kho vận chuyển hàng rớt lên phòng live và bắt đầu xử lý.</p>
+
+          <div class="subsection">
+            <div class="subsection-title">Cách thức xử lý hàng rớt / lẻ</div>
+            <ul>
+              <li>Kiểm tra hàng rớt đó <strong>đã có mẫu hay chưa</strong> và bung mẫu treo lên <strong>sào mẫu lẻ</strong> đúng khu phân loại.</li>
+              <li>Đối với hàng đã có mẫu: số lượng của mẫu đó sẽ <strong>cột lại</strong> và sắp xếp lên <strong>kệ hàng lẻ</strong> đúng phân loại. Đồng thời <strong>đánh dấu số lượng lên tem mạc</strong> của mẫu đang treo.</li>
+            </ul>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+            <div class="callout danger" style="margin:0">
+              <span class="callout-icon">⚠️</span>
+              <div class="callout-body"><strong>Hàng lỗi nặng</strong>Không trả lại được nhà cung cấp, không fix bán được → ghi rõ lỗi gì lên bao và để vào <strong>rổ hàng lỗi</strong>.</div>
+            </div>
+            <div class="callout tip" style="margin:0">
+              <span class="callout-icon">💡</span>
+              <div class="callout-body"><strong>Hàng lỗi nhẹ</strong>Báo c Nhi biết để <strong>fix bán sale</strong> cho khách.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <!-- Bước 5: Sắp xếp mẫu sau buổi live -->
+    <div class="step" data-note-id="kho-b5">
+      <div class="step-badge" style="background:var(--bp9)">5</div>
+      <div class="step-content">
+        <div class="step-title">Sắp xếp mẫu sau buổi live</div>
+        <div class="step-body">
+          <ul>
+            <li>C Nhi live xong thì <strong>linh động sắp xếp</strong> tất cả các mẫu, hàng về đúng vị trí theo <strong>sào + kệ</strong> được phân loại.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <!-- Bước 6: Kiểm kê định kỳ -->
+    <div class="step" data-note-id="kho-b6">
+      <div class="step-badge" style="background:var(--bp9)">6</div>
+      <div class="step-content">
+        <div class="step-title">Kiểm kê định kỳ <span class="tag tag-warn">2 đợt live kiểm kho 1 lần</span></div>
+        <div class="step-body">
+          <ul>
+            <li>Kiểm <strong>số lượng hiển thị trên web</strong> và <strong>số lượng hàng thực tế</strong> đã khớp hay chưa. Nếu thiếu hoặc dư số lượng không khớp thì phải kiểm tra lại.</li>
+            <li>Kiểm xem có bị <strong>sót mẫu hàng rớt</strong> chưa treo ra không.</li>
+            <li>Kiểm tra <strong>hàng lẻ số lượng trên kệ</strong> và <strong>mẫu lẻ treo sào</strong> đã để đúng khu vực phân loại hay chưa.</li>
+            <li>Kiểm tra <strong>số lượng ghi trên tem mạc</strong> của mẫu đã đúng hay chưa.</li>
+            <li>Kiểm tra <strong>hạn sử dụng</strong> còn bao lâu để đưa c Nhi tranh thủ live kẻo hết hạn (VD: mỹ phẩm, đồ ăn…).</li>
+          </ul>
+          <div class="callout danger">
+            <span class="callout-icon">🚫</span>
+            <div class="callout-body"><strong>Quy tắc quan trọng</strong>Bạn nào lấy hàng thì chủ động <strong>sửa lại số lượng trên tem mạc</strong> của mẫu cho đúng chính xác. <strong>Tuyệt đối không lấy mẫu nếu còn số lượng trên kệ</strong> để tránh mất mẫu.</div>
+          </div>
         </div>
       </div>
     </div>
