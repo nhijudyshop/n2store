@@ -578,6 +578,60 @@ function formatNumber(num) {
     return num.toString();
 }
 
+// ===== TPOS CUSTOMER AUTO-FILL BY PHONE =====
+let _tposPhoneLookupTimeout = null;
+
+function initPhoneAutoLookup() {
+    const phoneInput = document.getElementById('customerPhone');
+    if (!phoneInput) return;
+
+    phoneInput.addEventListener('input', function () {
+        const phone = this.value.replace(/\D/g, '');
+
+        if (_tposPhoneLookupTimeout) {
+            clearTimeout(_tposPhoneLookupTimeout);
+        }
+
+        if (phone.length !== 10) return;
+
+        _tposPhoneLookupTimeout = setTimeout(async () => {
+            if (!window.fetchTPOSCustomer) return;
+
+            try {
+                console.log('[SOCIAL-MODAL] Looking up TPOS customer for phone:', phone);
+                const result = await fetchTPOSCustomer(phone);
+
+                if (result.success && result.count > 0) {
+                    const customer = result.customers[0];
+                    const nameInput = document.getElementById('customerName');
+                    const addressInput = document.getElementById('customerAddress');
+
+                    if (nameInput && customer.name) {
+                        nameInput.value = customer.name;
+                    }
+                    if (addressInput && customer.address) {
+                        addressInput.value = customer.address;
+                    }
+
+                    console.log('[SOCIAL-MODAL] Auto-filled customer:', customer.name);
+                    if (typeof showNotification === 'function') {
+                        showNotification(`Tìm thấy KH: ${customer.name}`, 'success');
+                    }
+                }
+            } catch (error) {
+                console.error('[SOCIAL-MODAL] TPOS lookup error:', error);
+            }
+        }, 500);
+    });
+}
+
+// Init when DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPhoneAutoLookup);
+} else {
+    initPhoneAutoLookup();
+}
+
 // ===== EXPORTS =====
 window.openCreateOrderModal = openCreateOrderModal;
 window.openEditOrderModal = openEditOrderModal;
