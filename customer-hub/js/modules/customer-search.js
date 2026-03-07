@@ -424,6 +424,20 @@ export class CustomerSearchModule {
         this.tableBody.innerHTML = this.generateRowsHtml(customers);
     }
 
+    prependRow(customer) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = `<table><tbody>${this.generateRowsHtml([customer])}</tbody></table>`;
+        const newRow = tempDiv.querySelector('tbody').firstElementChild;
+        if (newRow) {
+            newRow.classList.add('bg-green-50', 'dark:bg-green-900/10');
+            this.tableBody.insertBefore(newRow, this.tableBody.firstChild);
+            // Remove highlight after 3s
+            setTimeout(() => {
+                newRow.classList.remove('bg-green-50', 'dark:bg-green-900/10');
+            }, 3000);
+        }
+    }
+
     appendResults(customers) {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = `<table><tbody>${this.generateRowsHtml(customers, this.customers.length - customers.length)}</tbody></table>`;
@@ -673,11 +687,25 @@ export class CustomerSearchModule {
             successEl.textContent = `Tạo thành công: ${result.Name} (ID: ${result.Id})`;
             successEl.classList.remove('hidden');
 
-            // Close modal after 1.5s and refresh list
+            // Add new customer to table immediately
+            const newCustomer = {
+                name: result.Name || name,
+                phone: result.Phone || phone,
+                address: result.Street || street || '',
+                status: result.StatusText || 'Bình thường',
+                balance: 0,
+                virtual_balance: 0,
+                real_balance: 0,
+                notes: []
+            };
+            this.customers.unshift(newCustomer);
+            this.prependRow(newCustomer);
+            this.updateFooter();
+
+            // Close modal after 1s
             setTimeout(() => {
                 this.closeCreateModal();
-                this.resetToRecent();
-            }, 1500);
+            }, 1000);
         } catch (error) {
             console.error('[CustomerSearch] Create partner failed:', error);
             errorEl.textContent = error.message || 'Tạo khách hàng thất bại';
