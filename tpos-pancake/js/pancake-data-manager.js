@@ -606,6 +606,7 @@ class PancakeDataManager {
 
             this.conversations = data.conversations || [];
             this.lastFetchTime = Date.now();
+            this.pagesWithCurrentCount = data.pages_with_current_count || {};
 
             // Build conversation map
             this.buildConversationMap();
@@ -628,13 +629,8 @@ class PancakeDataManager {
      * @param {string} lastConversationId - ID of last conversation for pagination
      * @returns {Promise<Array>} Array of additional conversations
      */
-    async fetchMoreConversations(lastConversationId) {
+    async fetchMoreConversations() {
         try {
-            if (!lastConversationId) {
-                console.warn('[PANCAKE] fetchMoreConversations: No lastConversationId provided');
-                return [];
-            }
-
             if (this.pageIds.length === 0) {
                 await this.fetchPages();
             }
@@ -643,17 +639,19 @@ class PancakeDataManager {
                 return [];
             }
 
-            console.log('[PANCAKE] Fetching more conversations after:', lastConversationId);
+            // Use pages_with_current_count from last response for cursor pagination
+            const pageCounts = this.pagesWithCurrentCount || {};
+            const totalCount = Object.values(pageCounts).reduce((sum, c) => sum + c, 0);
+
+            console.log('[PANCAKE] Fetching more conversations, current_count:', totalCount, 'per-page:', pageCounts);
 
             const token = await this.getToken();
 
-            // Build query params with last_conversation_id for pagination
-            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
-            const queryString = `${pagesParams}&unread_first=false&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web&last_conversation_id=${lastConversationId}`;
+            // Build query: pages[pageId]=count_already_loaded (from pages_with_current_count)
+            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=${pageCounts[pageId] || 0}`).join('&');
+            const queryString = `unread_first=true&tags="ALL"&except_tags=[]&access_token=${token}&current_count=${totalCount}&cursor_mode=true&${pagesParams}&mode=OR&from_platform=web`;
 
             const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
-
-            console.log('[PANCAKE] More conversations URL:', url);
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
@@ -669,12 +667,17 @@ class PancakeDataManager {
             const data = await response.json();
             const moreConversations = data.conversations || [];
 
+            // Update pages_with_current_count for next pagination
+            if (data.pages_with_current_count) {
+                this.pagesWithCurrentCount = data.pages_with_current_count;
+            }
+
             console.log(`[PANCAKE] ✅ Fetched ${moreConversations.length} more conversations`);
 
             // Append to existing conversations
             if (moreConversations.length > 0) {
                 this.conversations = [...this.conversations, ...moreConversations];
-                this.buildConversationMap(); // Rebuild map
+                this.buildConversationMap();
             }
 
             return moreConversations;
