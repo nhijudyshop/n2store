@@ -215,6 +215,19 @@ window.VariantUtils = (function() {
             'XXXXXL': 10, '5XL': 10
         };
 
+        // Priority color names (common colors first)
+        var priorityColors = ['TRẮNG', 'ĐEN', 'XÁM', 'XANH', 'VÀNG', 'HỒNG', 'CAM', 'TÍM', 'NÂU', 'NU', 'RÊU'];
+
+        function getColorPriority(name) {
+            var upper = name.toUpperCase().trim();
+            for (var i = 0; i < priorityColors.length; i++) {
+                if (upper === priorityColors[i] || upper.indexOf(priorityColors[i] + ' ') === 0) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         return [...values].sort((a, b) => {
             const nameA = (a.name || a).toString().toUpperCase().trim();
             const nameB = (b.name || b).toString().toUpperCase().trim();
@@ -235,11 +248,22 @@ window.VariantUtils = (function() {
                 return numA - numB;
             }
 
-            // Sizes first, then numbers, then alphabetical
+            // Sizes first, then numbers, then colors, then alphabetical
             if (orderA !== undefined) return -1;
             if (orderB !== undefined) return 1;
             if (!isNaN(numA)) return -1;
             if (!isNaN(numB)) return 1;
+
+            // Priority color sorting
+            var colorA = getColorPriority(nameA);
+            var colorB = getColorPriority(nameB);
+            if (colorA !== -1 && colorB !== -1) {
+                if (colorA !== colorB) return colorA - colorB;
+                // Same base color group, sort alphabetically within group
+                return nameA.localeCompare(nameB, 'vi');
+            }
+            if (colorA !== -1) return -1;
+            if (colorB !== -1) return 1;
 
             // Alphabetical fallback
             return nameA.localeCompare(nameB, 'vi');
