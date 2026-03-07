@@ -1770,8 +1770,9 @@ class PurchaseOrderFormModal {
                             const item = formModal.addItem();
                             item.productName = product.name || '';
                             item.productCode = product.code || '';
-                            item.purchasePrice = product.purchasePrice || 0;
-                            item.sellingPrice = product.sellingPrice || 0;
+                            // Format prices with dot separator so parsePrice treats as full price (not ×1000)
+                            item.purchasePrice = (product.purchasePrice || 0).toLocaleString('vi-VN');
+                            item.sellingPrice = (product.sellingPrice || 0).toLocaleString('vi-VN');
                             // Save TPOS IDs (variant ID + parent template ID)
                             // Mark as already synced so TPOS sync skips these items
                             if (product.tposProductId) {
