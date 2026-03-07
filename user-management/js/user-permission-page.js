@@ -57,10 +57,10 @@ const AVAILABLE_PAGES = [
         description: "Quản lý users và phân quyền (Admin only)",
     },
     {
-        id: "history",
-        icon: "bar-chart-2",
+        id: "lichsuchinhsua",
+        icon: "history",
         name: "LỊCH SỬ CHỈNH SỬA",
-        description: "Xem lịch sử thay đổi dữ liệu (Admin only)",
+        description: "Xem lịch sử chỉnh sửa và hoạt động trong hệ thống",
     },
 ];
 
