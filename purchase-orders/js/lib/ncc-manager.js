@@ -236,10 +236,18 @@ window.NCCManager = (function() {
 
             console.log(`[NCCManager] Saved NCC "${trimmedName}" to Firebase`);
 
-            // Try to create Partner on TPOS (fire-and-forget)
-            createTPOSPartner(trimmedName).catch(err => {
-                console.warn('[NCCManager] TPOS Partner creation failed (non-blocking):', err);
-            });
+            // Create Partner on TPOS and save tposId
+            try {
+                const tposId = await createTPOSPartner(trimmedName);
+                if (tposId) {
+                    // Update local cache with tposId
+                    const cached = nccNames.find(n => n.docId === docId);
+                    if (cached) cached.tposId = tposId;
+                    showToast(`Đã tạo NCC trên TPOS (ID: ${tposId})`, 'success');
+                }
+            } catch (err) {
+                console.warn('[NCCManager] TPOS Partner creation failed:', err);
+            }
 
             // Auto-fill input
             if (inputEl) {
@@ -259,7 +267,7 @@ window.NCCManager = (function() {
     async function createTPOSPartner(name) {
         if (!window.TPOSClient?.authenticatedFetch) {
             console.warn('[NCCManager] TPOSClient not available, skipping TPOS Partner creation');
-            return;
+            return null;
         }
 
         // Ref = text before first space (e.g., "Q1 LONG BÌNH 2" → Ref="Q1")
@@ -298,30 +306,51 @@ window.NCCManager = (function() {
             body: JSON.stringify(payload)
         });
 
+        let tposId = null;
+
         if (response.ok) {
             const data = await response.json().catch(() => null);
-            const tposId = data?.Id || null;
+            tposId = data?.Id || null;
             console.log(`[NCCManager] TPOS Partner created: "${name}" (Ref=${ref}, Id=${tposId})`);
-
-            // Update Firebase with tposId and tposCode
-            if (tposId) {
-                try {
-                    const db = firebase.firestore();
-                    const docId = ref.replace(/[\/\\\.#$\[\]]/g, '_').trim() || name.replace(/[\/\\\\.#$\[\]\s]/g, '_').substring(0, 30);
-                    await db.collection(COLLECTION).doc(docId).update({
-                        tposId,
-                        tposCode: ref
-                    });
-                } catch (e) {
-                    console.warn('[NCCManager] Failed to update Firebase with tposId:', e);
-                }
-            }
         } else if (response.status === 400) {
-            console.log(`[NCCManager] TPOS Partner may already exist: "${name}" (Ref=${ref})`);
+            // Partner already exists on TPOS — search for it
+            console.log(`[NCCManager] TPOS Partner already exists: "${name}", searching...`);
+            try {
+                const searchUrl = `${PROXY_URL}/api/odata/Partner?$filter=Supplier eq true and contains(Name,'${encodeURIComponent(ref)}')&$top=5&$select=Id,Name,Ref`;
+                const searchResp = await window.TPOSClient.authenticatedFetch(searchUrl);
+                if (searchResp.ok) {
+                    const searchData = await searchResp.json();
+                    const match = (searchData.value || []).find(p => p.Ref === ref || p.Name === name);
+                    if (match) {
+                        tposId = match.Id;
+                        console.log(`[NCCManager] Found existing TPOS Partner: ${match.Name} (Id=${tposId})`);
+                    }
+                }
+            } catch (e) {
+                console.warn('[NCCManager] TPOS Partner search failed:', e);
+            }
         } else {
             const text = await response.text().catch(() => '');
             console.warn(`[NCCManager] TPOS Partner creation returned ${response.status}:`, text);
         }
+
+        // Update Firebase with tposId
+        if (tposId) {
+            try {
+                const db = firebase.firestore();
+                const docId = ref.replace(/[\/\\\.#$\[\]]/g, '_').trim() || name.replace(/[\/\\\\.#$\[\]\s]/g, '_').substring(0, 30);
+                await db.collection(COLLECTION).doc(docId).update({
+                    tposId,
+                    tposCode: ref
+                });
+                // Reload NCC data so findByName returns updated tposId
+                await loadNCCNames();
+            } catch (e) {
+                console.warn('[NCCManager] Failed to update Firebase with tposId:', e);
+            }
+        }
+
+        return tposId;
     }
 
     // =====================================================
@@ -476,6 +505,7 @@ window.NCCManager = (function() {
         parseAxCode,
         findByName,
         getFullPartnerData,
+        createPartnerOnTPOS: createTPOSPartner,
         getNccNames: () => nccNames,
         isLoaded: () => loaded
     };

@@ -544,7 +544,7 @@ class PurchaseOrderController {
         const orders = Array.isArray(order) ? order : [order];
         const singleOrder = orders[0];
         const items = singleOrder.items || [];
-        const ncc = window.NCCManager?.findByName(singleOrder.supplier?.name);
+        let ncc = window.NCCManager?.findByName(singleOrder.supplier?.name);
         const supplierDisplay = ncc
             ? `[${ncc.code}] ${ncc.name}`
             : (singleOrder.supplier?.name || 'Không rõ');
@@ -719,11 +719,9 @@ class PurchaseOrderController {
                     ">Xuất Excel</button>
                     <button type="button" id="btnSubmitTPOS" style="
                         padding: 8px 20px; border: none; border-radius: 4px;
-                        background: ${ncc?.tposId ? '#28a745' : '#9ca3af'}; color: white;
-                        cursor: ${ncc?.tposId ? 'pointer' : 'not-allowed'};
+                        background: #28a745; color: white; cursor: pointer;
                         font-size: 14px; font-weight: 600;
-                        ${!ncc?.tposId ? 'opacity: 0.7;' : ''}
-                    " ${!ncc?.tposId ? 'disabled data-ncc-disabled title="NCC chưa có TPOS ID — Hãy đồng bộ NCC từ TPOS trước"' : ''}>Tạo đơn TPOS</button>
+                    ">Tạo đơn TPOS</button>
                 </div>
             </div>
         `;
@@ -773,20 +771,16 @@ class PurchaseOrderController {
                 btnExcel.disabled = true;
                 btnExcel.style.opacity = '0.5';
                 btnExcel.style.cursor = 'not-allowed';
-                if (!btnTPOS.hasAttribute('data-ncc-disabled')) {
-                    btnTPOS.disabled = true;
-                    btnTPOS.style.opacity = '0.5';
-                    btnTPOS.style.cursor = 'not-allowed';
-                }
+                btnTPOS.disabled = true;
+                btnTPOS.style.opacity = '0.5';
+                btnTPOS.style.cursor = 'not-allowed';
             } else {
                 btnExcel.disabled = false;
                 btnExcel.style.opacity = '';
                 btnExcel.style.cursor = 'pointer';
-                if (!btnTPOS.hasAttribute('data-ncc-disabled')) {
-                    btnTPOS.disabled = false;
-                    btnTPOS.style.opacity = '';
-                    btnTPOS.style.cursor = 'pointer';
-                }
+                btnTPOS.disabled = false;
+                btnTPOS.style.opacity = '';
+                btnTPOS.style.cursor = 'pointer';
             }
         };
 
@@ -1041,10 +1035,32 @@ class PurchaseOrderController {
                     return;
                 }
 
+                // Auto-create NCC on TPOS if no tposId
                 if (!ncc?.tposId) {
-                    this.ui.showToast('NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.', 'error');
-                    resetBtn();
-                    return;
+                    const supplierName = singleOrder.supplier?.name;
+                    if (!supplierName) {
+                        this.ui.showToast('Không tìm thấy tên NCC', 'error');
+                        resetBtn();
+                        return;
+                    }
+                    this.ui.showToast('NCC chưa có TPOS ID, đang tạo NCC trên TPOS...', 'info');
+                    console.log('[PO Preview] Auto-creating NCC on TPOS:', supplierName);
+                    try {
+                        const tposId = await window.NCCManager.createPartnerOnTPOS(supplierName);
+                        if (tposId) {
+                            ncc = window.NCCManager.findByName(supplierName);
+                            console.log('[PO Preview] NCC created on TPOS, tposId:', tposId);
+                        } else {
+                            this.ui.showToast('Không thể tạo NCC trên TPOS', 'error');
+                            resetBtn();
+                            return;
+                        }
+                    } catch (err) {
+                        console.error('[PO Preview] Auto-create NCC failed:', err);
+                        this.ui.showToast('Lỗi tạo NCC trên TPOS: ' + err.message, 'error');
+                        resetBtn();
+                        return;
+                    }
                 }
 
                 if (!window.TPOSPurchase?.createFromExcel) {
