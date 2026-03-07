@@ -316,6 +316,35 @@ async function copyPhoneToClipboard(phone, button) {
 }
 
 /**
+ * Push phone to recent_transfer_phones (7-day TTL)
+ */
+async function pushRecentTransfer(phone, amount, button) {
+    try {
+        button.disabled = true;
+        button.textContent = '...';
+        const response = await fetch(`${API_BASE_URL}/api/sepay/recent-transfers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, amount })
+        });
+        const result = await response.json();
+        if (result.success) {
+            button.textContent = '✓';
+            button.style.background = '#6b7280';
+            showNotification(`Đã đẩy ${phone} vào CK gần đây (7 ngày)`, 'success');
+        } else {
+            throw new Error(result.error);
+        }
+    } catch (error) {
+        console.error('[RECENT-CK] Error:', error);
+        button.textContent = 'CK';
+        button.disabled = false;
+        button.style.background = '#10b981';
+        showNotification('Lỗi đẩy SĐT: ' + error.message, 'error');
+    }
+}
+
+/**
  * Show notification (uses NotificationManager or fallback)
  */
 function showNotification(message, type = 'info') {
@@ -1426,6 +1455,9 @@ function renderTransactionRow(row) {
                     ${customerDisplay.phone}
                     <i data-lucide="users" style="width: 12px; height: 12px; vertical-align: middle; margin-left: 4px;"></i>
                 </a>
+                <button class="btn-push-recent-ck" onclick="pushRecentTransfer('${customerDisplay.phone}', ${row.transfer_amount || 0}, this)" title="Đẩy SĐT vào danh sách CK gần đây (7 ngày)" style="padding: 2px 5px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600; line-height: 1;">
+                    CK
+                </button>
             </div>
         `;
     } else {

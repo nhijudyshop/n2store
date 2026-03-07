@@ -84,6 +84,30 @@ router.get('/recent-transfers', async (req, res) => {
     }
 });
 
+// POST /api/sepay/recent-transfers
+// Manually push a phone into recent_transfer_phones (7-day TTL)
+router.post('/recent-transfers', async (req, res) => {
+    const { phone, amount } = req.body;
+    if (!phone) {
+        return res.status(400).json({ success: false, error: 'Phone is required' });
+    }
+    try {
+        await db.query(`
+            INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
+            VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
+            ON CONFLICT (phone) DO UPDATE SET
+                last_transfer_at = CURRENT_TIMESTAMP,
+                transfer_amount = COALESCE(EXCLUDED.transfer_amount, recent_transfer_phones.transfer_amount),
+                expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
+        `, [phone, amount || null]);
+        console.log('[RECENT-TRANSFERS] Manually added phone:', phone);
+        res.json({ success: true, phone });
+    } catch (error) {
+        console.error('[RECENT-TRANSFERS] Error adding phone:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 /**
  * POST /api/sepay/webhook
  * Nhận webhook từ Sepay khi có giao dịch mới
