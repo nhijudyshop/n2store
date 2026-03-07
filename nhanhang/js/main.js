@@ -760,16 +760,19 @@ function initializeFormElements() {
         cancelEditButton.addEventListener("click", closeEditModalFunction);
     }
 
-    // Close modals when clicking outside
-    window.addEventListener("click", function (event) {
-        const createModal = document.getElementById("createModal");
-        if (event.target === createModal) {
-            closeCreateModalFunction();
-        }
-        if (event.target === editModal) {
-            closeEditModalFunction();
-        }
-    });
+    // Edit modal overlay click to close
+    const editModalOverlay = document.getElementById("editModalOverlay");
+    if (editModalOverlay) {
+        editModalOverlay.addEventListener("click", closeEditModalFunction);
+    }
+
+    // updateButton is outside <form> in modal-footer, trigger form submit
+    if (updateButton && editForm) {
+        updateButton.addEventListener("click", function (e) {
+            e.preventDefault();
+            editForm.dispatchEvent(new Event("submit", { cancelable: true }));
+        });
+    }
 
     const clearDataButton = document.getElementById("clearDataButton");
     if (clearDataButton) {

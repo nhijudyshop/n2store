@@ -355,207 +355,114 @@
             </div>
         </div>
 
-        <!-- Edit Modal -->
-        <div id="editModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>
-                        <i data-lucide="edit"></i>
-                        Chỉnh sửa phiếu nhận hàng
-                    </h2>
+        <!-- Edit Modal — k-modal pattern giống createModal & soquy -->
+        <div id="editModal" class="modal" style="display: none;">
+            <div class="modal-overlay" id="editModalOverlay"></div>
+            <div class="modal-content k-modal">
+                <div class="modal-header k-modal-header">
+                    <h3>Chỉnh sửa phiếu nhận hàng</h3>
                     <button class="btn-icon" id="closeEditModal">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
+                <div class="modal-body k-modal-body">
+                    <form id="editForm">
+                        <input type="hidden" id="editReceiptId" />
 
-                <form id="editForm">
-                    <input type="hidden" id="editReceiptId" />
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="user"></i>
-                                Tên người nhận
-                            </label>
-                            <input type="text" id="editTenNguoiNhan" required />
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="scale"></i>
-                                Số kg
-                            </label>
-                            <input
-                                type="number"
-                                id="editSoKg"
-                                min="0"
-                                step="any"
-                                required
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="package"></i>
-                                Số kiện
-                            </label>
-                            <input
-                                type="number"
-                                id="editSoKien"
-                                min="0"
-                                step="any"
-                                required
-                            />
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="clock"></i>
-                                Thời gian nhận
-                            </label>
-                            <input
-                                type="datetime-local"
-                                id="editThoiGianNhan"
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Ghi chú (edit) -->
-                    <div class="form-group" style="margin-bottom: var(--spacing-lg); padding: 0 var(--spacing-xl);">
-                        <label>
-                            <i data-lucide="file-text"></i>
-                            Ghi chú
-                        </label>
-                        <textarea
-                            id="editGhiChu"
-                            rows="2"
-                            placeholder="Nhập ghi chú (không bắt buộc)..."
-                            style="padding: var(--spacing-md); border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 0.875rem; resize: vertical;"
-                        ></textarea>
-                    </div>
-
-                    <div class="camera-section">
-                        <h3><i data-lucide="camera"></i> Ảnh nhận hàng</h3>
-
-                        <div class="current-image" id="currentImageDisplay">
-                            <label>Ảnh hiện tại:</label>
-                            <div
-                                id="currentImageContainer"
-                                class="image-display-area"
-                            >
-                                <p>Không có ảnh</p>
+                        <!-- Tên người nhận -->
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Tên người nhận</label>
+                                <input type="text" id="editTenNguoiNhan" class="form-control" required />
                             </div>
                         </div>
 
-                        <div class="camera-controls">
-                            <button
-                                type="button"
-                                id="editStartCamera"
-                                class="camera-button"
-                            >
-                                <i data-lucide="camera"></i>
-                                Chụp ảnh mới
-                            </button>
-                            <button
-                                type="button"
-                                id="editTakePicture"
-                                class="camera-button"
-                                style="display: none"
-                            >
-                                <i data-lucide="circle"></i>
-                                Chụp Ảnh
-                            </button>
-                            <button
-                                type="button"
-                                id="editRetakePicture"
-                                class="camera-button"
-                                style="display: none"
-                            >
-                                <i data-lucide="rotate-ccw"></i>
-                                Chụp Lại
-                            </button>
-                            <button
-                                type="button"
-                                id="editKeepCurrentImage"
-                                class="camera-button success"
-                                style="display: none"
-                            >
-                                <i data-lucide="check"></i>
-                                Giữ ảnh cũ
-                            </button>
-                            <button
-                                type="button"
-                                id="editUploadFileButton"
-                                class="camera-button"
-                                style="background: var(--secondary)"
-                            >
-                                <i data-lucide="upload"></i>
-                                Tải ảnh từ file
-                            </button>
-                            <input
-                                type="file"
-                                id="editFileInput"
-                                accept="image/*"
-                                style="display: none"
-                            />
+                        <!-- Ảnh nhận hàng -->
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Ảnh nhận hàng</label>
+                                <div class="camera-section">
+                                    <div class="current-image" id="currentImageDisplay">
+                                        <label>Ảnh hiện tại:</label>
+                                        <div id="currentImageContainer" class="image-display-area">
+                                            <p>Không có ảnh</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="camera-controls">
+                                        <button type="button" id="editStartCamera" class="camera-button">
+                                            <i data-lucide="camera"></i> Chụp ảnh mới
+                                        </button>
+                                        <button type="button" id="editTakePicture" class="camera-button" style="display:none">
+                                            <i data-lucide="circle"></i> Chụp Ảnh
+                                        </button>
+                                        <button type="button" id="editRetakePicture" class="camera-button" style="display:none">
+                                            <i data-lucide="rotate-ccw"></i> Chụp Lại
+                                        </button>
+                                        <button type="button" id="editKeepCurrentImage" class="camera-button success" style="display:none">
+                                            <i data-lucide="check"></i> Giữ ảnh cũ
+                                        </button>
+                                        <button type="button" id="editUploadFileButton" class="camera-button" style="background:var(--secondary)">
+                                            <i data-lucide="upload"></i> Tải ảnh từ file
+                                        </button>
+                                        <input type="file" id="editFileInput" accept="image/*" style="display:none" />
+                                    </div>
+
+                                    <div class="camera-preview" id="editCameraPreview" style="display:none">
+                                        <video id="editCameraVideo" autoplay muted playsinline></video>
+                                        <canvas id="editCameraCanvas" style="display:none"></canvas>
+                                    </div>
+
+                                    <div class="image-display-area" id="editImageDisplayArea" style="display:none">
+                                        <i data-lucide="image"></i>
+                                        <p>Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div
-                            class="camera-preview"
-                            id="editCameraPreview"
-                            style="display: none"
-                        >
-                            <video
-                                id="editCameraVideo"
-                                autoplay
-                                muted
-                                playsinline
-                            ></video>
-                            <canvas
-                                id="editCameraCanvas"
-                                style="display: none"
-                            ></canvas>
+                        <!-- Số kg + Số kiện -->
+                        <div class="form-row">
+                            <div class="form-group k-group">
+                                <label>Số kg</label>
+                                <input type="number" id="editSoKg" class="form-control" min="0" step="any" required />
+                            </div>
+                            <div class="form-group k-group">
+                                <label>Số kiện</label>
+                                <input type="number" id="editSoKien" class="form-control" min="0" step="any" required />
+                            </div>
                         </div>
 
-                        <div
-                            class="image-display-area"
-                            id="editImageDisplayArea"
-                            style="display: none"
-                        >
-                            <i data-lucide="image"></i>
-                            <p>Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>
+                        <!-- Thời gian nhận -->
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Thời gian nhận</label>
+                                <input type="datetime-local" id="editThoiGianNhan" class="form-control" />
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="form-actions">
-                        <button
-                            type="button"
-                            class="btn btn-danger"
-                            id="deleteFromEditButton"
-                            style="display: none;"
-                        >
-                            <i data-lucide="trash-2"></i>
-                            Xóa phiếu
-                        </button>
-                        <div style="flex: 1;"></div>
-                        <button
-                            type="button"
-                            class="btn btn-secondary"
-                            id="cancelEditButton"
-                        >
-                            <i data-lucide="x"></i>
-                            Hủy
-                        </button>
-                        <button
-                            type="submit"
-                            class="btn btn-primary"
-                            id="updateButton"
-                        >
-                            <i data-lucide="check"></i>
-                            Cập nhật
-                        </button>
-                    </div>
-                </form>
+                        <!-- Ghi chú -->
+                        <div class="form-row">
+                            <div class="form-group k-group w-100">
+                                <label>Ghi chú</label>
+                                <textarea id="editGhiChu" class="form-control"
+                                    placeholder="Nhập ghi chú (không bắt buộc)..." rows="2"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer k-modal-footer">
+                    <button type="button" class="btn btn-danger" id="deleteFromEditButton" style="display:none;">
+                        <i data-lucide="trash-2"></i> Xóa phiếu
+                    </button>
+                    <div style="flex: 1;"></div>
+                    <button type="button" class="btn btn-secondary" id="cancelEditButton">
+                        <i data-lucide="x"></i> Hủy
+                    </button>
+                    <button type="button" class="btn btn-primary" id="updateButton">
+                        <i data-lucide="check"></i> Cập nhật
+                    </button>
+                </div>
             </div>
         </div>
 
