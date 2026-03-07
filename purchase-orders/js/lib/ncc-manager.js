@@ -301,37 +301,38 @@ window.NCCManager = (function() {
             DateCreated: new Date().toISOString()
         };
 
-        const response = await window.TPOSClient.authenticatedFetch(url, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-
+        // Step 1: Search if partner already exists on TPOS
         let tposId = null;
-
-        if (response.ok) {
-            const data = await response.json().catch(() => null);
-            tposId = data?.Id || null;
-            console.log(`[NCCManager] TPOS Partner created: "${name}" (Ref=${ref}, Id=${tposId})`);
-        } else if (response.status === 400) {
-            // Partner already exists on TPOS — search for it
-            console.log(`[NCCManager] TPOS Partner already exists: "${name}", searching...`);
-            try {
-                const searchUrl = `${PROXY_URL}/api/odata/Partner?$filter=Supplier eq true and contains(Name,'${encodeURIComponent(ref)}')&$top=5&$select=Id,Name,Ref`;
-                const searchResp = await window.TPOSClient.authenticatedFetch(searchUrl);
-                if (searchResp.ok) {
-                    const searchData = await searchResp.json();
-                    const match = (searchData.value || []).find(p => p.Ref === ref || p.Name === name);
-                    if (match) {
-                        tposId = match.Id;
-                        console.log(`[NCCManager] Found existing TPOS Partner: ${match.Name} (Id=${tposId})`);
-                    }
+        try {
+            const searchUrl = `${PROXY_URL}/api/odata/Partner?$filter=Supplier eq true and contains(Name,'${encodeURIComponent(ref)}')&$top=5&$select=Id,Name,Ref`;
+            const searchResp = await window.TPOSClient.authenticatedFetch(searchUrl);
+            if (searchResp.ok) {
+                const searchData = await searchResp.json();
+                const match = (searchData.value || []).find(p => p.Ref === ref || p.Name === name);
+                if (match) {
+                    tposId = match.Id;
+                    console.log(`[NCCManager] Found existing TPOS Partner: ${match.Name} (Id=${tposId})`);
                 }
-            } catch (e) {
-                console.warn('[NCCManager] TPOS Partner search failed:', e);
             }
-        } else {
-            const text = await response.text().catch(() => '');
-            console.warn(`[NCCManager] TPOS Partner creation returned ${response.status}:`, text);
+        } catch (e) {
+            console.warn('[NCCManager] TPOS Partner search failed:', e);
+        }
+
+        // Step 2: Create if not found
+        if (!tposId) {
+            const response = await window.TPOSClient.authenticatedFetch(url, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                const data = await response.json().catch(() => null);
+                tposId = data?.Id || null;
+                console.log(`[NCCManager] TPOS Partner created: "${name}" (Ref=${ref}, Id=${tposId})`);
+            } else {
+                const text = await response.text().catch(() => '');
+                console.warn(`[NCCManager] TPOS Partner creation failed ${response.status}:`, text);
+            }
         }
 
         // Update Firebase with tposId
