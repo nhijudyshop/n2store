@@ -479,41 +479,31 @@ function openEditModal(event) {
         }
     }
 
-    // Handle current image
+    // Handle current image — chỉ hiển thị ảnh đã lưu
     editCurrentImageUrl = receiptData.anhNhanHang || null;
-    console.log("Setting current image URL:", editCurrentImageUrl);
 
     if (editCurrentImageUrl && currentImageContainer) {
         currentImageContainer.innerHTML = "";
 
         const img = document.createElement("img");
         img.src = editCurrentImageUrl;
-        img.alt = "Ảnh hiện tại";
+        img.alt = "Ảnh nhận hàng";
         img.className = "captured-image";
-        img.style.maxWidth = "200px";
-        img.style.maxHeight = "200px";
+        img.style.maxWidth = "100%";
+        img.style.maxHeight = "300px";
         img.style.borderRadius = "8px";
-        img.style.border = "2px solid #28a745";
+        img.style.objectFit = "contain";
 
         currentImageContainer.appendChild(img);
         currentImageContainer.classList.add("has-content");
-
-        // Show current image section
-        const currentImageDisplay = document.getElementById(
-            "currentImageDisplay",
-        );
-        if (currentImageDisplay) {
-            currentImageDisplay.style.display = "block";
-        }
-    } else {
+    } else if (currentImageContainer) {
         currentImageContainer.innerHTML =
             '<p style="color: #6c757d; font-style: italic;">Không có ảnh</p>';
         currentImageContainer.classList.remove("has-content");
     }
 
-    // Reset edit camera state
-    resetEditCameraUI();
-    editKeepCurrentImage = true; // Mặc định giữ ảnh cũ
+    // Keep current image for update (no camera editing)
+    editKeepCurrentImage = true;
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
 
@@ -552,10 +542,6 @@ function closeEditModalFunction() {
     if (editModal) {
         editModal.style.display = "none";
     }
-
-    // Stop camera if running
-    stopEditCamera();
-    resetEditCameraUI();
 
     // Clear form
     if (editForm) {

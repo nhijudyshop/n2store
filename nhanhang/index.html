@@ -377,46 +377,12 @@
                             </div>
                         </div>
 
-                        <!-- Ảnh nhận hàng -->
+                        <!-- Ảnh nhận hàng (chỉ hiển thị ảnh đã lưu) -->
                         <div class="form-row">
                             <div class="form-group k-group w-100">
                                 <label>Ảnh nhận hàng</label>
-                                <div class="camera-section">
-                                    <div class="current-image" id="currentImageDisplay">
-                                        <label>Ảnh hiện tại:</label>
-                                        <div id="currentImageContainer" class="image-display-area">
-                                            <p>Không có ảnh</p>
-                                        </div>
-                                    </div>
-
-                                    <div class="camera-controls">
-                                        <button type="button" id="editStartCamera" class="camera-button">
-                                            <i data-lucide="camera"></i> Chụp ảnh mới
-                                        </button>
-                                        <button type="button" id="editTakePicture" class="camera-button" style="display:none">
-                                            <i data-lucide="circle"></i> Chụp Ảnh
-                                        </button>
-                                        <button type="button" id="editRetakePicture" class="camera-button" style="display:none">
-                                            <i data-lucide="rotate-ccw"></i> Chụp Lại
-                                        </button>
-                                        <button type="button" id="editKeepCurrentImage" class="camera-button success" style="display:none">
-                                            <i data-lucide="check"></i> Giữ ảnh cũ
-                                        </button>
-                                        <button type="button" id="editUploadFileButton" class="camera-button" style="background:var(--secondary)">
-                                            <i data-lucide="upload"></i> Tải ảnh từ file
-                                        </button>
-                                        <input type="file" id="editFileInput" accept="image/*" style="display:none" />
-                                    </div>
-
-                                    <div class="camera-preview" id="editCameraPreview" style="display:none">
-                                        <video id="editCameraVideo" autoplay muted playsinline></video>
-                                        <canvas id="editCameraCanvas" style="display:none"></canvas>
-                                    </div>
-
-                                    <div class="image-display-area" id="editImageDisplayArea" style="display:none">
-                                        <i data-lucide="image"></i>
-                                        <p>Ảnh mới sẽ hiển thị ở đây sau khi chụp</p>
-                                    </div>
+                                <div id="currentImageContainer" class="image-display-area">
+                                    <p style="color: #6c757d; font-style: italic;">Không có ảnh</p>
                                 </div>
                             </div>
                         </div>
