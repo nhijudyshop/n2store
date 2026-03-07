@@ -1048,8 +1048,12 @@ class PurchaseOrderController {
                     try {
                         const tposId = await window.NCCManager.createPartnerOnTPOS(supplierName);
                         if (tposId) {
-                            ncc = window.NCCManager.findByName(supplierName);
-                            console.log('[PO Preview] NCC created on TPOS, tposId:', tposId);
+                            if (ncc) {
+                                ncc.tposId = tposId;
+                            } else {
+                                ncc = { tposId, name: supplierName, docId: supplierName.split(' ')[0] };
+                            }
+                            console.log('[PO Preview] NCC tposId set:', tposId);
                         } else {
                             this.ui.showToast('Không thể tạo NCC trên TPOS', 'error');
                             resetBtn();
