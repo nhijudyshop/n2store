@@ -628,6 +628,9 @@ class InboxChatController {
         this.elements.conversationList.appendChild(spinner);
 
         try {
+            // Save scroll position before re-render
+            const scrollTop = this.elements.conversationList.scrollTop;
+
             const newConvs = await this.data.loadMoreConversations();
             spinner.remove();
 
@@ -639,6 +642,10 @@ class InboxChatController {
 
             // Re-render the full list with new conversations appended
             this.renderConversationList();
+
+            // Restore scroll position so user can continue scrolling down
+            this.elements.conversationList.scrollTop = scrollTop;
+
             console.log(`[InboxChat] Loaded ${newConvs.length} more conversations`);
         } catch (error) {
             console.error('[InboxChat] Error loading more conversations:', error);

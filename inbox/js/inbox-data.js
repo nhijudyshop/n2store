@@ -291,16 +291,26 @@ class InboxDataManager {
             const pdm = window.pancakeDataManager;
             if (!pdm || !pdm.fetchMoreConversations) return [];
 
-            // Get the last conversation's raw ID for cursor pagination
-            const lastConv = this.conversations[this.conversations.length - 1];
-            if (!lastConv) return [];
-            const lastId = lastConv._raw?.id || lastConv.conversationId || lastConv.id;
+            // Use tracked cursor ID, or fall back to last conversation in list
+            let lastId = this._lastCursorId;
+            if (!lastId) {
+                const lastConv = this.conversations[this.conversations.length - 1];
+                if (!lastConv) return [];
+                lastId = lastConv._raw?.id || lastConv.conversationId || lastConv.id;
+            }
             if (!lastId) return [];
 
             console.log('[InboxData] Loading more conversations after:', lastId);
 
             const moreRaw = await pdm.fetchMoreConversations(lastId);
-            if (!moreRaw || moreRaw.length === 0) return [];
+            if (!moreRaw || moreRaw.length === 0) {
+                this._lastCursorId = null;
+                return [];
+            }
+
+            // Track cursor: use the LAST item from API response for next page
+            const lastRaw = moreRaw[moreRaw.length - 1];
+            this._lastCursorId = lastRaw?.id || null;
 
             const moreMapped = moreRaw.map(conv => this.mapConversation(conv));
 
