@@ -277,7 +277,7 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-name {
-        font-size: 5pt;
+        font-size: 6pt;
         font-weight: bold;
         text-align: center;
         line-height: 1.1;
@@ -312,11 +312,13 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-code {
-        font-size: 5.5pt;
+        font-size: 6pt;
+        font-weight: bold;
     }
 
     .label-price {
-        font-size: 5.5pt;
+        font-size: 6pt;
+        font-weight: bold;
     }
 
     /* Screen preview styles */
