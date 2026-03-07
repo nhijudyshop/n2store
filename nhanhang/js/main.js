@@ -657,14 +657,11 @@ function toggleForm() {
     if (!PermissionHelper.checkBeforeAction('nhanhang', 'create', { alertMessage: 'Không có quyền truy cập biểu mẫu' })) {
         return;
     }
-    const dataForm = document.getElementById("dataForm");
-    const toggleFormButton = document.getElementById("toggleFormButton");
-    if (dataForm.style.display === "none" || dataForm.style.display === "") {
-        dataForm.style.display = "block";
-        toggleFormButton.textContent = "Ẩn biểu mẫu";
-    } else {
-        dataForm.style.display = "none";
-        toggleFormButton.textContent = "Hiện biểu mẫu";
+    const uploadSection = document.getElementById("uploadSection");
+    if (!uploadSection) return;
+    uploadSection.classList.toggle("show");
+    if (uploadSection.classList.contains("show")) {
+        uploadSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 }
 
