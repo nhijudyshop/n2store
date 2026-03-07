@@ -3872,6 +3872,8 @@ router.get('/tpos/customer/:phone', async (req, res) => {
                         phone: custPhone,
                         name: customer.Name || customer.FullName,
                         email: customer.Email,
+                        address: customer.FullAddress || customer.Street,
+                        statusText: customer.StatusText,
                         status: customer.Status,
                         credit: customer.Credit
                     });
