@@ -4520,8 +4520,10 @@
     overflow: hidden;
 }
 
-.k-image-upload:hover {
+.k-image-upload:hover,
+.k-image-upload:focus {
     border-color: #1890ff;
+    outline: none;
 }
 
 .k-image-upload-placeholder {

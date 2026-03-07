@@ -74,6 +74,16 @@ const SoquyUI = (function () {
         // Make container focusable so paste events work on it
         containerEl.setAttribute('tabindex', '0');
 
+        // Auto-focus container on hover so Ctrl+V works without clicking first
+        containerEl.addEventListener('mouseenter', function () {
+            // Only focus if no text input/textarea inside the modal is currently focused
+            var active = document.activeElement;
+            var isTyping = active && (active.tagName === 'INPUT' && active.type === 'text' || active.tagName === 'TEXTAREA');
+            if (!isTyping) {
+                containerEl.focus();
+            }
+        });
+
         function showPreview(dataURL) {
             previewImgEl.src = dataURL;
             placeholderEl.style.display = 'none';
