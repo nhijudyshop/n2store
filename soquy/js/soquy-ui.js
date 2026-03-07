@@ -63,7 +63,56 @@ const SoquyUI = (function () {
     let receiptImageHandler = null;
     let paymentImageHandler = null;
 
-    const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_IMAGE_SIZE = 15 * 1024 * 1024; // 15MB (before compression)
+    const COMPRESS_MAX_WIDTH = 1920;
+    const COMPRESS_QUALITY = 0.7;
+
+    /**
+     * Compress image using Canvas API
+     * @param {File|Blob} file - Original image file
+     * @param {number} maxWidth - Max width in px
+     * @param {number} quality - JPEG quality 0-1
+     * @returns {Promise<string>} - Compressed image as base64 data URL
+     */
+    function compressImage(file, maxWidth, quality) {
+        return new Promise(function (resolve, reject) {
+            var img = new Image();
+            var url = URL.createObjectURL(file);
+
+            img.onload = function () {
+                URL.revokeObjectURL(url);
+
+                var width = img.width;
+                var height = img.height;
+
+                // Only resize if larger than maxWidth
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                var canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+
+                var ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                var dataURL = canvas.toDataURL('image/jpeg', quality);
+                console.log('[SoquyUI] Compressed image: ' +
+                    (file.size / 1024 / 1024).toFixed(2) + 'MB → ' +
+                    (dataURL.length * 0.75 / 1024 / 1024).toFixed(2) + 'MB');
+                resolve(dataURL);
+            };
+
+            img.onerror = function () {
+                URL.revokeObjectURL(url);
+                reject(new Error('Cannot read image file'));
+            };
+
+            img.src = url;
+        });
+    }
 
     function initImageUpload(containerEl, fileInputEl, placeholderEl, previewEl, previewImgEl, removeBtnEl) {
         if (!containerEl || !fileInputEl || !placeholderEl || !previewEl || !previewImgEl || !removeBtnEl) {
@@ -107,18 +156,26 @@ const SoquyUI = (function () {
             }
             if (file.size > MAX_IMAGE_SIZE) {
                 if (typeof SoquyUI !== 'undefined' && SoquyUI.showNotification) {
-                    SoquyUI.showNotification('Ảnh quá lớn, vui lòng chọn ảnh nhỏ hơn 5MB', 'error');
+                    SoquyUI.showNotification('Ảnh quá lớn, vui lòng chọn ảnh nhỏ hơn 15MB', 'error');
                 }
                 return;
             }
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                showPreview(e.target.result);
-            };
-            reader.onerror = function (err) {
-                console.error('[SoquyUI] FileReader error:', err);
-            };
-            reader.readAsDataURL(file);
+            compressImage(file, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY)
+                .then(function (compressedDataURL) {
+                    showPreview(compressedDataURL);
+                })
+                .catch(function (err) {
+                    console.error('[SoquyUI] Image compression error:', err);
+                    // Fallback: read original file
+                    var reader = new FileReader();
+                    reader.onload = function (e) {
+                        showPreview(e.target.result);
+                    };
+                    reader.onerror = function (readErr) {
+                        console.error('[SoquyUI] FileReader error:', readErr);
+                    };
+                    reader.readAsDataURL(file);
+                });
         }
 
         // Click container → trigger file input
