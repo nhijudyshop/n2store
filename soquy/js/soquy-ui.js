@@ -72,7 +72,7 @@ const SoquyUI = (function () {
      * @param {File|Blob} file - Original image file
      * @param {number} maxWidth - Max width in px
      * @param {number} quality - JPEG quality 0-1
-     * @returns {Promise<string>} - Compressed image as base64 data URL
+     * @returns {Promise<Blob>} - Compressed image as Blob
      */
     function compressImage(file, maxWidth, quality) {
         return new Promise(function (resolve, reject) {
@@ -85,7 +85,6 @@ const SoquyUI = (function () {
                 var width = img.width;
                 var height = img.height;
 
-                // Only resize if larger than maxWidth
                 if (width > maxWidth) {
                     height = Math.round((height * maxWidth) / width);
                     width = maxWidth;
@@ -98,11 +97,20 @@ const SoquyUI = (function () {
                 var ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                var dataURL = canvas.toDataURL('image/jpeg', quality);
-                console.log('[SoquyUI] Compressed image: ' +
-                    (file.size / 1024 / 1024).toFixed(2) + 'MB → ' +
-                    (dataURL.length * 0.75 / 1024 / 1024).toFixed(2) + 'MB');
-                resolve(dataURL);
+                canvas.toBlob(
+                    function (blob) {
+                        if (blob) {
+                            console.log('[SoquyUI] Compressed image: ' +
+                                (file.size / 1024 / 1024).toFixed(2) + 'MB → ' +
+                                (blob.size / 1024 / 1024).toFixed(2) + 'MB');
+                            resolve(blob);
+                        } else {
+                            reject(new Error('Cannot compress image'));
+                        }
+                    },
+                    'image/jpeg',
+                    quality
+                );
             };
 
             img.onerror = function () {
@@ -117,7 +125,77 @@ const SoquyUI = (function () {
     function initImageUpload(containerEl, fileInputEl, placeholderEl, previewEl, previewImgEl, removeBtnEl) {
         if (!containerEl || !fileInputEl || !placeholderEl || !previewEl || !previewImgEl || !removeBtnEl) {
             console.warn('[SoquyUI] initImageUpload: missing DOM elements');
-            return { getImageData: function () { return ''; }, clearImage: function () {} };
+            return {
+                getImageData: function () { return Promise.resolve(''); },
+                getUploadState: function () { return 'idle'; },
+                setExistingImageUrl: function () {},
+                clearImage: function () {}
+            };
+        }
+
+        // Background upload state
+        var uploadState = 'idle'; // 'idle' | 'uploading' | 'done' | 'error'
+        var uploadedUrl = '';
+        var uploadPromise = null;
+        var currentUploadTask = null;
+
+        function generateSoquyFileName() {
+            return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.jpg';
+        }
+
+        function startBackgroundUpload(blob) {
+            cancelUpload();
+            uploadState = 'uploading';
+
+            var imageName = generateSoquyFileName();
+            var imageRef = config.storageRef.child('soquy/photos/' + imageName);
+
+            uploadPromise = new Promise(function (resolve, reject) {
+                currentUploadTask = imageRef.put(blob, { cacheControl: 'public,max-age=31536000' });
+
+                currentUploadTask.on('state_changed',
+                    function (snapshot) {
+                        var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        console.log('[SoquyUI] Upload progress: ' + progress.toFixed(0) + '%');
+                    },
+                    function (error) {
+                        if (error.code === 'storage/canceled') {
+                            console.log('[SoquyUI] Upload cancelled');
+                            return;
+                        }
+                        console.error('[SoquyUI] Upload error:', error);
+                        uploadState = 'error';
+                        uploadedUrl = '';
+                        reject(error);
+                    },
+                    function () {
+                        currentUploadTask.snapshot.ref.getDownloadURL()
+                            .then(function (downloadURL) {
+                                console.log('[SoquyUI] Upload complete:', downloadURL);
+                                uploadState = 'done';
+                                uploadedUrl = downloadURL;
+                                resolve(downloadURL);
+                            })
+                            .catch(function (error) {
+                                console.error('[SoquyUI] getDownloadURL error:', error);
+                                uploadState = 'error';
+                                reject(error);
+                            });
+                    }
+                );
+            });
+
+            return uploadPromise;
+        }
+
+        function cancelUpload() {
+            if (currentUploadTask) {
+                currentUploadTask.cancel();
+                currentUploadTask = null;
+            }
+            uploadState = 'idle';
+            uploadedUrl = '';
+            uploadPromise = null;
         }
 
         // Make container focusable so paste events work on it
@@ -125,7 +203,6 @@ const SoquyUI = (function () {
 
         // Auto-focus container on hover so Ctrl+V works without clicking first
         containerEl.addEventListener('mouseenter', function () {
-            // Only focus if no text input/textarea inside the modal is currently focused
             var active = document.activeElement;
             var isTyping = active && (active.tagName === 'INPUT' && active.type === 'text' || active.tagName === 'TEXTAREA');
             if (!isTyping) {
@@ -133,24 +210,47 @@ const SoquyUI = (function () {
             }
         });
 
-        function showPreview(dataURL) {
-            previewImgEl.src = dataURL;
+        function showPreview(src) {
+            previewImgEl.src = src;
             placeholderEl.style.display = 'none';
             previewEl.style.display = '';
         }
 
         function clearImage() {
+            cancelUpload();
             previewImgEl.src = '';
             previewEl.style.display = 'none';
             placeholderEl.style.display = '';
             fileInputEl.value = '';
         }
 
-        function getImageData() {
-            return previewImgEl.src || '';
+        async function getImageData() {
+            if (uploadState === 'idle') return '';
+            if (uploadState === 'done') return uploadedUrl;
+            if (uploadState === 'uploading' && uploadPromise) {
+                try {
+                    return await uploadPromise;
+                } catch (err) {
+                    console.error('[SoquyUI] Upload failed while waiting:', err);
+                    return '';
+                }
+            }
+            return '';
         }
 
-        function readFileAsDataURL(file) {
+        function getUploadState() {
+            return uploadState;
+        }
+
+        function setExistingImageUrl(url) {
+            if (!url) return;
+            cancelUpload();
+            uploadState = 'done';
+            uploadedUrl = url;
+            showPreview(url);
+        }
+
+        function handleImageFile(file) {
             if (!file.type.startsWith('image/')) {
                 return;
             }
@@ -161,37 +261,30 @@ const SoquyUI = (function () {
                 return;
             }
             compressImage(file, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY)
-                .then(function (compressedDataURL) {
-                    showPreview(compressedDataURL);
+                .then(function (blob) {
+                    showPreview(URL.createObjectURL(blob));
+                    startBackgroundUpload(blob);
                 })
                 .catch(function (err) {
                     console.error('[SoquyUI] Image compression error:', err);
-                    // Fallback: read original file
-                    var reader = new FileReader();
-                    reader.onload = function (e) {
-                        showPreview(e.target.result);
-                    };
-                    reader.onerror = function (readErr) {
-                        console.error('[SoquyUI] FileReader error:', readErr);
-                    };
-                    reader.readAsDataURL(file);
+                    showPreview(URL.createObjectURL(file));
+                    startBackgroundUpload(file);
                 });
         }
 
         // Click container → trigger file input
         containerEl.addEventListener('click', function (e) {
-            // Don't trigger file dialog when clicking the remove button
             if (e.target === removeBtnEl || removeBtnEl.contains(e.target)) {
                 return;
             }
             fileInputEl.click();
         });
 
-        // File input change → read selected file
+        // File input change → handle selected file
         fileInputEl.addEventListener('change', function () {
             var file = fileInputEl.files && fileInputEl.files[0];
             if (file) {
-                readFileAsDataURL(file);
+                handleImageFile(file);
             }
         });
 
@@ -204,12 +297,11 @@ const SoquyUI = (function () {
                     var file = items[i].getAsFile();
                     if (file) {
                         e.preventDefault();
-                        readFileAsDataURL(file);
+                        handleImageFile(file);
                     }
                     return;
                 }
             }
-            // No image found in clipboard — ignore silently
         });
 
         // Remove button → clear image
@@ -220,6 +312,8 @@ const SoquyUI = (function () {
 
         return {
             getImageData: getImageData,
+            getUploadState: getUploadState,
+            setExistingImageUrl: setExistingImageUrl,
             clearImage: clearImage
         };
     }
@@ -621,7 +715,7 @@ const SoquyUI = (function () {
                 sourceCode: sourceCode,
                 source: sourceCode, // backward compat
                 dateTime: els.receiptDateTime?.value || '',
-                imageData: receiptImageHandler ? receiptImageHandler.getImageData() : ''
+                imageData: receiptImageHandler ? await receiptImageHandler.getImageData() : ''
             };
 
             await db.createVoucher(voucherData);
@@ -711,7 +805,7 @@ const SoquyUI = (function () {
                 sourceCode: sourceCode,
                 source: sourceCode, // backward compat
                 dateTime: els.paymentDateTime?.value || '',
-                imageData: paymentImageHandler ? paymentImageHandler.getImageData() : ''
+                imageData: paymentImageHandler ? await paymentImageHandler.getImageData() : ''
             };
 
             await db.createVoucher(voucherData);
@@ -896,15 +990,7 @@ const SoquyUI = (function () {
             if (els.receiptAmount) els.receiptAmount.value = db.formatCurrency(voucher.amount);
             if (els.receiptNote) els.receiptNote.value = voucher.note || '';
             if (voucher.imageData && receiptImageHandler) {
-                // Restore image preview from saved data
-                var previewImgEl = els.receiptImagePreviewImg;
-                var previewEl = els.receiptImagePreview;
-                var placeholderEl = els.receiptImagePlaceholder;
-                if (previewImgEl && previewEl && placeholderEl) {
-                    previewImgEl.src = voucher.imageData;
-                    placeholderEl.style.display = 'none';
-                    previewEl.style.display = '';
-                }
+                receiptImageHandler.setExistingImageUrl(voucher.imageData);
             }
 
             // Re-check save button state after setting category
@@ -921,15 +1007,7 @@ const SoquyUI = (function () {
             if (els.paymentAmount) els.paymentAmount.value = db.formatCurrency(voucher.amount);
             if (els.paymentNote) els.paymentNote.value = voucher.note || '';
             if (voucher.imageData && paymentImageHandler) {
-                // Restore image preview from saved data
-                var pPreviewImgEl = els.paymentImagePreviewImg;
-                var pPreviewEl = els.paymentImagePreview;
-                var pPlaceholderEl = els.paymentImagePlaceholder;
-                if (pPreviewImgEl && pPreviewEl && pPlaceholderEl) {
-                    pPreviewImgEl.src = voucher.imageData;
-                    pPlaceholderEl.style.display = 'none';
-                    pPreviewEl.style.display = '';
-                }
+                paymentImageHandler.setExistingImageUrl(voucher.imageData);
             }
 
             // Re-check save button state after setting category
@@ -971,8 +1049,8 @@ const SoquyUI = (function () {
                     : (state.paymentSubType === 'kd' ? config.VOUCHER_TYPES.PAYMENT_KD : config.VOUCHER_TYPES.PAYMENT_CN),
                 dateTime: isReceipt ? els.receiptDateTime?.value : els.paymentDateTime?.value,
                 imageData: isReceipt
-                    ? (receiptImageHandler ? receiptImageHandler.getImageData() : '')
-                    : (paymentImageHandler ? paymentImageHandler.getImageData() : '')
+                    ? (receiptImageHandler ? await receiptImageHandler.getImageData() : '')
+                    : (paymentImageHandler ? await paymentImageHandler.getImageData() : '')
             };
 
             await db.updateVoucher(state.editingVoucherId, updateData);
