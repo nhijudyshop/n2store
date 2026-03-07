@@ -155,6 +155,12 @@ export class WalletPanelModule {
     }
 
     _showActionModal(action) {
+        // Defense-in-depth: chặn modal nếu user không có quyền manageWallet
+        if (!this.permissionHelper.hasPermission('customer-hub', 'manageWallet')) {
+            alert('Bạn không có quyền thực hiện thao tác này');
+            return;
+        }
+
         const configs = {
             deposit: { title: 'Nạp tiền vào ví', icon: 'add', color: 'green', buttonText: 'Nạp tiền' },
             withdraw: { title: 'Rút tiền từ ví', icon: 'remove', color: 'red', buttonText: 'Rút tiền' },

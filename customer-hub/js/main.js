@@ -13,23 +13,19 @@ import '../config.js';
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Customer 360 Hub loaded!");
 
-    // Initialize PermissionHelper (replace with actual user permissions fetching)
-    // For now, providing full permissions for demonstration
-    const currentUserPermissions = {
-        'customer-hub': {
-            view: true,
-            viewWallet: true,
-            manageWallet: true,
-            viewTickets: true,
-            createTicket: true,
-            viewActivities: true,
-            addNote: true,
-            editCustomer: true,
-            linkTransactions: true,
+    // Read actual user permissions from loginindex_auth storage
+    let detailedPermissions = {};
+    try {
+        const authRaw = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
+        if (authRaw) {
+            const auth = JSON.parse(authRaw);
+            detailedPermissions = auth.detailedPermissions || {};
         }
-    };
-    const permissionHelper = new PermissionHelper(currentUserPermissions);
-    console.log("PermissionHelper initialized:", permissionHelper);
+    } catch (e) {
+        console.error('[Customer Hub] Error reading auth permissions:', e);
+    }
+    const permissionHelper = new PermissionHelper(detailedPermissions);
+    console.log("[Customer Hub] PermissionHelper initialized from auth storage");
 
     // Theme Toggle
     const themeToggleBtn = document.getElementById('theme-toggle');
