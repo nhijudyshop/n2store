@@ -243,7 +243,7 @@ window.BarcodeLabelDialog = (function () {
     }
 
     body {
-        font-family: Arial, Helvetica, sans-serif;
+        font-family: 'Times New Roman', Times, serif;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -261,27 +261,22 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label {
-        width: 25mm;
+        width: 33mm;
         height: 21mm;
-        padding: 0.5mm;
+        padding: 0.3mm 0.5mm;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
         overflow: hidden;
-        margin: 0 0.5mm;
-    }
-
-    .label:first-child {
-        margin-left: 0.5mm;
     }
 
     .label-name {
-        font-size: 6pt;
+        font-size: 7pt;
         font-weight: bold;
         text-align: center;
-        line-height: 1.1;
-        max-height: 5.5mm;
+        line-height: 1.15;
+        max-height: 6mm;
         overflow: hidden;
         width: 100%;
         word-break: break-word;
@@ -294,27 +289,28 @@ window.BarcodeLabelDialog = (function () {
         justify-content: center;
         width: 100%;
         min-height: 0;
+        padding: 0.3mm 0;
     }
 
     .label-barcode svg {
         width: 100%;
-        max-height: 11mm;
+        max-height: 10mm;
     }
 
     .label-footer {
         text-align: center;
         width: 100%;
         font-weight: bold;
-        line-height: 1.2;
+        line-height: 1.15;
     }
 
     .label-code {
-        font-size: 7pt;
+        font-size: 8pt;
         font-weight: bold;
     }
 
     .label-price {
-        font-size: 7pt;
+        font-size: 8pt;
         font-weight: bold;
     }
 
@@ -397,7 +393,7 @@ ${labelsHTML}
 
     function formatPrice(price) {
         const num = parseInt(price) || 0;
-        return num.toLocaleString('vi-VN');
+        return num.toLocaleString('de-DE');
     }
 
     function escapeHtml(str) {
