@@ -657,6 +657,49 @@ if (document.readyState === 'loading') {
     initPhoneAutoLookup();
 }
 
+// ===== RETAIL SALE FROM SOCIAL ORDER =====
+/**
+ * Mở phiếu bán hàng lẻ từ đơn Social
+ * Gửi dữ liệu đơn hàng qua postMessage đến Tab1 (Quản Lý Đơn Hàng)
+ * để dùng lại chính hàm openSaleButtonModal của Tab1
+ */
+function openRetailSaleFromSocial(orderId) {
+    const order = SocialOrderState.orders.find(o => o.id === orderId);
+    if (!order) {
+        showNotification('Không tìm thấy đơn hàng', 'error');
+        return;
+    }
+
+    // Map social order data to Tab1-compatible format
+    const orderData = {
+        id: order.id,
+        customerName: order.customerName || '',
+        phone: order.phone || '',
+        address: order.address || '',
+        totalAmount: order.totalAmount || 0,
+        note: order.note || '',
+        products: (order.products || []).map(p => ({
+            productName: p.productName || p.name || '',
+            variant: p.variant || '',
+            productCode: p.productCode || p.code || '',
+            quantity: p.quantity || 1,
+            sellingPrice: p.sellingPrice || p.price || 0,
+            purchasePrice: p.purchasePrice || 0
+        })),
+        tags: order.tags || [],
+        source: order.source || 'manual',
+        postUrl: order.postUrl || ''
+    };
+
+    // Gửi postMessage lên parent (main.html) để forward đến Tab1
+    window.parent.postMessage({
+        type: 'OPEN_RETAIL_SALE_FROM_SOCIAL',
+        orderData: orderData
+    }, '*');
+
+    showNotification('Đang mở phiếu bán hàng lẻ...', 'success');
+}
+
 // ===== EXPORTS =====
 window.openCreateOrderModal = openCreateOrderModal;
 window.openEditOrderModal = openEditOrderModal;
@@ -668,3 +711,4 @@ window.filterPosts = filterPosts;
 window.selectPost = selectPost;
 window.clearSelectedPost = clearSelectedPost;
 window.copyPostId = copyPostId;
+window.openRetailSaleFromSocial = openRetailSaleFromSocial;

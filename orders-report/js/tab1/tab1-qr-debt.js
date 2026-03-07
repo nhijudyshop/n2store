@@ -1436,6 +1436,139 @@ async function openSaleButtonModal() {
 }
 
 /**
+ * Open Sale Modal from Social Order data (called via postMessage from Đơn Social tab)
+ * Reuses all existing sale modal sub-functions: populateSaleModalWithOrder,
+ * fetchDebtForSaleModal, populateDeliveryCarrierDropdown, etc.
+ * @param {Object} socialOrder - Social order data mapped from tab-social
+ */
+async function openSaleModalFromSocialOrder(socialOrder) {
+    console.log('[SALE-MODAL] Opening from social order:', socialOrder);
+
+    // Map social order data to Tab1 order format
+    const mappedOrder = {
+        Id: socialOrder.id,
+        PartnerName: socialOrder.customerName,
+        Name: socialOrder.customerName,
+        Telephone: socialOrder.phone,
+        PartnerPhone: socialOrder.phone,
+        PartnerAddress: socialOrder.address,
+        Address: socialOrder.address,
+        TotalAmount: socialOrder.totalAmount || 0,
+        Comment: socialOrder.note || '',
+        Details: (socialOrder.products || []).map(p => ({
+            ProductNameGet: p.productName || '',
+            ProductName: p.productName || '',
+            Quantity: p.quantity || 1,
+            PriceUnit: p.sellingPrice || 0,
+            Price: p.sellingPrice || 0,
+            Note: p.variant || ''
+        })),
+        Tags: socialOrder.tags ? JSON.stringify(socialOrder.tags) : '[]',
+        _isSocialOrder: true
+    };
+
+    currentSaleOrderData = mappedOrder;
+
+    // Reset form fields (same logic as openSaleButtonModal)
+    const discountEl = document.getElementById('saleDiscount');
+    if (discountEl) discountEl.value = 0;
+    const receiverNoteEl = document.getElementById('saleReceiverNote');
+    if (receiverNoteEl) receiverNoteEl.value = '';
+    const prepaidEl = document.getElementById('salePrepaidAmount');
+    if (prepaidEl) prepaidEl.value = 0;
+    const prepaidDateEl = document.getElementById('salePrepaidDate');
+    if (prepaidDateEl) prepaidDateEl.value = '';
+
+    // Show modal
+    const modal = document.getElementById('saleButtonModal');
+    modal.style.display = 'flex';
+
+    // Reset confirm button
+    const confirmBtn = document.querySelector('.sale-btn-teal');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Xác nhận và in (F9)';
+    }
+
+    // Restore bill type preference
+    const savedBillType = localStorage.getItem('saleBillTypePreference') || 'web';
+    const billTypeWeb = document.getElementById('saleBillTypeWeb');
+    const billTypeTpos = document.getElementById('saleBillTypeTpos');
+    if (billTypeWeb && billTypeTpos) {
+        billTypeWeb.checked = savedBillType === 'web';
+        billTypeTpos.checked = savedBillType === 'tpos';
+    }
+
+    // Admin check for Công nợ field
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    const confirmDebtBtn = document.getElementById('confirmDebtBtn');
+    let isAdmin = window.authManager?.isAdminTemplate?.() || false;
+
+    if (prepaidAmountField) {
+        if (isAdmin) {
+            prepaidAmountField.disabled = false;
+            prepaidAmountField.style.background = '#ffffff';
+            if (confirmDebtBtn) confirmDebtBtn.style.display = 'inline-flex';
+        } else {
+            prepaidAmountField.disabled = true;
+            prepaidAmountField.style.background = '#f3f4f6';
+            if (confirmDebtBtn) confirmDebtBtn.style.display = 'none';
+        }
+        prepaidAmountField.oninput = function () {
+            updateSaleRemainingBalance();
+        };
+    }
+
+    // Event listeners for COD, shipping fee, discount (same as openSaleButtonModal)
+    const codInput = document.getElementById('saleCOD');
+    if (codInput) {
+        codInput.oninput = function () { updateSaleRemainingBalance(); };
+    }
+    const shippingFeeInput = document.getElementById('saleShippingFee');
+    if (shippingFeeInput) {
+        shippingFeeInput.oninput = function () {
+            const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const shippingFee = parseFloat(this.value) || 0;
+            const codInput = document.getElementById('saleCOD');
+            if (codInput) {
+                codInput.value = finalTotal + shippingFee;
+                updateSaleRemainingBalance();
+            }
+        };
+    }
+    const discountInput = document.getElementById('saleDiscount');
+    if (discountInput) {
+        discountInput.oninput = function () {
+            const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+            const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
+            updateSaleTotals(totalQuantity, totalAmount);
+        };
+    }
+
+    // Reuse existing sub-functions to populate the modal
+    populateSaleModalWithOrder(mappedOrder);
+
+    // Fetch wallet/debt if phone available
+    if (mappedOrder.Telephone) {
+        await fetchDebtForSaleModal(mappedOrder.Telephone);
+    }
+
+    // Populate delivery carrier dropdown
+    await populateDeliveryCarrierDropdown();
+
+    // Smart select delivery partner based on address
+    if (mappedOrder.Address) {
+        smartSelectDeliveryPartner(mappedOrder.Address, null);
+    }
+
+    // Init product search
+    initSaleProductSearch();
+
+    // Auto-fill notes
+    autoFillSaleNote();
+}
+
+/**
  * Close Sale Button Modal
  * @param {boolean} clearSelection - If true, clear checkbox selection and selectedOrderIds
  */
