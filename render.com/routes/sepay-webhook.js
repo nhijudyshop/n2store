@@ -99,6 +99,7 @@ router.get('/ping', (req, res) => {
 // Returns phone numbers that have transferred within the last 7 days
 router.get('/recent-transfers', async (req, res) => {
     try {
+        const db = req.app.locals.chatDb;
         const result = await db.query(
             'SELECT phone, last_transfer_at, transfer_amount FROM recent_transfer_phones WHERE expires_at > NOW()'
         );
