@@ -220,8 +220,8 @@ window.BarcodeLabelDialog = (function () {
                             <svg class="barcode" data-code="${escapeHtml(label.code)}"></svg>
                         </div>
                         <div class="label-footer">
-                            <span class="label-code">${escapeHtml(label.code)}</span>
-                            <span class="label-price">${displayPrice}</span>
+                            <div class="label-code">${escapeHtml(label.code)}</div>
+                            <div class="label-price">${displayPrice}</div>
                         </div>
                     </div>
                 `;
@@ -302,22 +302,19 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        text-align: center;
         width: 100%;
-        font-size: 6pt;
         font-weight: bold;
-        padding: 0 0.5mm;
+        line-height: 1.2;
     }
 
     .label-code {
-        font-size: 6pt;
+        font-size: 7pt;
         font-weight: bold;
     }
 
     .label-price {
-        font-size: 6pt;
+        font-size: 7pt;
         font-weight: bold;
     }
 
