@@ -311,6 +311,7 @@ function renderDataToTable(dataArray) {
         emptyTd.style.color = "#6c757d";
         emptyRow.appendChild(emptyTd);
         tbody.appendChild(emptyRow);
+        renderMobileCards(sortedData);
         return;
     }
 
@@ -373,6 +374,9 @@ function renderDataToTable(dataArray) {
         tbody.appendChild(warningRow);
     }
 
+    // Render mobile cards
+    renderMobileCards(sortedData);
+
     // Initialize Lucide icons
     if (typeof lucide !== "undefined") {
         lucide.createIcons();
@@ -386,6 +390,119 @@ function renderDataToTable(dataArray) {
     // Update dropdown options
     updateDropdownOptions(dataArray);
 }
+
+// =====================================================
+// MOBILE CARD RENDERING
+// =====================================================
+
+function renderMobileCards(sortedData) {
+    const container = document.getElementById('mobileCardList');
+    if (!container) return;
+
+    if (sortedData.length === 0) {
+        container.innerHTML = `
+            <div class="m-receipt-empty">
+                <i data-lucide="inbox"></i>
+                <div>Chưa có phiếu nhận nào</div>
+            </div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = sortedData.map(receipt => {
+        const name = sanitizeInput(receipt.tenNguoiNhan || '');
+        const kg = parseFloat(receipt.soKg) || 0;
+        const kien = parseFloat(receipt.soKien) || 0;
+        const date = sanitizeInput(receipt.thoiGianNhan || 'Chưa nhập');
+        const hasImage = !!receipt.anhNhanHang;
+        const thumbHtml = hasImage
+            ? `<img class="m-receipt-thumb" src="${receipt.anhNhanHang}" alt="Ảnh" loading="lazy">`
+            : '';
+
+        return `
+            <div class="m-receipt-card" data-receipt-id="${receipt.id || ''}">
+                <div class="m-receipt-header">
+                    <div class="m-receipt-header-left">
+                        <span class="m-receipt-name">${name}</span>
+                    </div>
+                    <div class="m-receipt-values">
+                        <span class="m-receipt-kg">${kg} kg</span>
+                        <span class="m-receipt-kien">${kien} kiện</span>
+                    </div>
+                </div>
+                <div class="m-receipt-body">
+                    <div class="m-receipt-row">
+                        ${thumbHtml}
+                        <span class="m-receipt-label">Thời gian:</span>
+                        <span class="m-receipt-value-text">${date}</span>
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+
+    // Bind card click → open edit modal
+    container.querySelectorAll('.m-receipt-card[data-receipt-id]').forEach(card => {
+        card.addEventListener('click', () => {
+            const receiptId = card.dataset.receiptId;
+            if (receiptId && typeof openEditModal === 'function') {
+                const fakeEvent = { currentTarget: { getAttribute: (attr) => receiptId } };
+                openEditModal(fakeEvent);
+            }
+        });
+    });
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// =====================================================
+// MOBILE FAB EVENTS
+// =====================================================
+
+function bindMobileFabEvents() {
+    const mobileFabBtn = document.getElementById('mobileFabBtn');
+    const mobileFabContainer = document.getElementById('mobileFabContainer');
+    if (!mobileFabBtn || !mobileFabContainer) return;
+
+    mobileFabBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mobileFabContainer.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!mobileFabContainer.contains(e.target)) {
+            mobileFabContainer.classList.remove('open');
+        }
+    });
+
+    // Thêm Phiếu
+    const fabAdd = document.getElementById('fabAddReceipt');
+    if (fabAdd) {
+        fabAdd.addEventListener('click', () => {
+            mobileFabContainer.classList.remove('open');
+            toggleForm();
+        });
+    }
+
+    // Xuất Excel
+    const fabExport = document.getElementById('fabExportExcel');
+    if (fabExport) {
+        fabExport.addEventListener('click', () => {
+            mobileFabContainer.classList.remove('open');
+            document.getElementById('btnExport')?.click();
+        });
+    }
+
+    // Trợ lý AI
+    const fabAI = document.getElementById('fabOpenAI');
+    if (fabAI) {
+        fabAI.addEventListener('click', () => {
+            mobileFabContainer.classList.remove('open');
+            if (window.AIChatWidget?.toggle) window.AIChatWidget.toggle();
+        });
+    }
+}
+
+
 
 function applyRowPermissions(row, inputs, button, userRole) {
     // Legacy function kept for compatibility - now uses PermissionHelper
@@ -795,6 +912,9 @@ async function initializeApplication() {
         "Enhanced Goods Receipt Management System initialized successfully",
     );
     notificationManager.success("Hệ thống đã sẵn sàng!", 2000);
+
+    // Initialize mobile FAB events
+    bindMobileFabEvents();
 }
 
 // =====================================================

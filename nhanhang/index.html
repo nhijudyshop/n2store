@@ -9,7 +9,7 @@
         <meta charset="UTF-8" />
         <title>Cân nặng hàng</title>
         <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <link rel="shortcut icon" href="../index/logo.jpg" />
 
         <!-- Modern CSS -->
@@ -366,6 +366,9 @@
                         </table>
                     </div>
 
+                    <!-- Mobile card list (ẩn trên desktop) -->
+                    <div class="mobile-card-list" id="mobileCardList"></div>
+
                     <!-- Empty State -->
                     <div
                         class="empty-state"
@@ -378,6 +381,27 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Mobile FAB -->
+            <div class="mobile-fab-container" id="mobileFabContainer">
+                <div class="mobile-fab-menu" id="mobileFabMenu">
+                    <button class="mobile-fab-item" id="fabOpenAI">
+                        <span class="mobile-fab-item-label">Trợ lý AI</span>
+                        <span class="mobile-fab-item-icon fab-icon-ai">AI</span>
+                    </button>
+                    <button class="mobile-fab-item" id="fabExportExcel">
+                        <span class="mobile-fab-item-label">Xuất Excel</span>
+                        <span class="mobile-fab-item-icon fab-icon-export">XL</span>
+                    </button>
+                    <button class="mobile-fab-item" id="fabAddReceipt">
+                        <span class="mobile-fab-item-label">Thêm Phiếu</span>
+                        <span class="mobile-fab-item-icon fab-icon-add">+</span>
+                    </button>
+                </div>
+                <button class="mobile-fab-btn" id="mobileFabBtn" aria-label="Thêm mới">
+                    <i data-lucide="plus"></i>
+                </button>
+            </div>
         </main>
 
         <!-- Edit Modal -->
