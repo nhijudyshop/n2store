@@ -1650,22 +1650,9 @@ class InboxChatController {
     // ===== Quick Replies (like tpos-pancake) =====
 
     renderQuickReplies() {
+        // Quick reply bar disabled
         const bar = document.getElementById('quickReplyBar');
-        if (!bar || !this.activeConversationId) { if (bar) bar.style.display = 'none'; return; }
-
-        const row1 = this.quickReplies.slice(0, 7);
-        const row2 = this.quickReplies.slice(7);
-
-        const row1El = document.getElementById('quickReplyRow1');
-        const row2El = document.getElementById('quickReplyRow2');
-        if (row1El) row1El.innerHTML = row1.map(qr =>
-            `<button class="qr-btn qr-${qr.color}" data-template="${this.escapeHtml(qr.template)}">${this.escapeHtml(qr.label)}</button>`
-        ).join('');
-        if (row2El) row2El.innerHTML = row2.map(qr =>
-            `<button class="qr-btn qr-${qr.color}" data-template="${this.escapeHtml(qr.template)}">${this.escapeHtml(qr.label)}</button>`
-        ).join('');
-
-        bar.style.display = 'flex';
+        if (bar) bar.style.display = 'none';
     }
 
     // ===== File Attachment =====
