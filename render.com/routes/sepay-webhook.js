@@ -3092,6 +3092,21 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
         //     ]
         // );
 
+        // Track recent transfer phone (7-day TTL)
+        try {
+            await db.query(`
+                INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
+                VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
+                ON CONFLICT (phone) DO UPDATE SET
+                    last_transfer_at = CURRENT_TIMESTAMP,
+                    transfer_amount = EXCLUDED.transfer_amount,
+                    expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
+            `, [selectedCustomer.phone, match.transfer_amount]);
+            console.log('[RESOLVE-MATCH] Tracked recent transfer phone:', selectedCustomer.phone);
+        } catch (rtpErr) {
+            console.error('[RESOLVE-MATCH] Error tracking recent transfer phone:', rtpErr.message);
+        }
+
         console.log('[RESOLVE-MATCH] ✅ Match resolved:', {
             match_id: id,
             transaction_id: match.transaction_id,
@@ -3689,6 +3704,21 @@ router.put('/transaction/:id/phone', async (req, res) => {
                 console.error(`[TRANSACTION-PHONE-UPDATE] Wallet credit failed:`, walletErr.message);
                 // Don't fail the request - approval is more important, wallet can be retried
             }
+        }
+
+        // Track recent transfer phone (7-day TTL)
+        try {
+            await db.query(`
+                INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
+                VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
+                ON CONFLICT (phone) DO UPDATE SET
+                    last_transfer_at = CURRENT_TIMESTAMP,
+                    transfer_amount = EXCLUDED.transfer_amount,
+                    expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
+            `, [newPhone, tx.transfer_amount]);
+            console.log('[TRANSACTION-PHONE-UPDATE] Tracked recent transfer phone:', newPhone);
+        } catch (rtpErr) {
+            console.error('[TRANSACTION-PHONE-UPDATE] Error tracking recent transfer phone:', rtpErr.message);
         }
 
         res.json({
