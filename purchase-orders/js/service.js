@@ -849,11 +849,15 @@ class PurchaseOrderService {
             }
 
             // Clone items with new IDs and cleared TPOS sync status
+            // Restore productCode to parentProductCode if it was changed by TPOS sync
             const newItems = sourceOrder.items.map(item => ({
                 ...item,
                 id: config.generateUUID(),
+                productCode: item.parentProductCode || item.productCode,
+                parentProductCode: null,
                 tposSyncStatus: null,
                 tposProductId: null,
+                tposProductTmplId: null,
                 tposSynced: false,
                 tposSyncError: null,
                 tposImageUrl: null
