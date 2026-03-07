@@ -122,6 +122,7 @@ router.post('/recent-transfers', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Phone is required' });
     }
     try {
+        const db = req.app.locals.chatDb;
         await upsertRecentTransfer(db, phone);
         res.json({ success: true, phone });
     } catch (error) {
