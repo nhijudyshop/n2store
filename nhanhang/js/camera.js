@@ -39,6 +39,62 @@ function initializeCameraSystem() {
     initializeMainFileUpload();
     initializeEditFileUpload();
 }
+/**
+ * Nén ảnh client-side bằng Canvas API
+ * @param {File|Blob} file - File ảnh gốc
+ * @param {number} maxWidth - Chiều rộng tối đa (px), default 1920
+ * @param {number} quality - Chất lượng JPEG 0-1, default 0.7
+ * @returns {Promise<Blob>} - Blob ảnh đã nén
+ */
+function compressImage(file, maxWidth = 1920, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+
+        img.onload = function () {
+            URL.revokeObjectURL(url);
+
+            let width = img.width;
+            let height = img.height;
+
+            // Only resize if larger than maxWidth
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) {
+                        console.log(
+                            `Nén ảnh: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(blob.size / 1024 / 1024).toFixed(2)}MB`,
+                        );
+                        resolve(blob);
+                    } else {
+                        reject(new Error("Không thể nén ảnh"));
+                    }
+                },
+                "image/jpeg",
+                quality,
+            );
+        };
+
+        img.onerror = function () {
+            URL.revokeObjectURL(url);
+            reject(new Error("Không thể đọc file ảnh"));
+        };
+
+        img.src = url;
+    });
+}
+
 
 // =====================================================
 // MAIN FORM FILE UPLOAD
@@ -69,26 +125,23 @@ function handleMainFileSelect(event) {
         return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file size (max 15MB before compression)
+    const maxSize = 15 * 1024 * 1024;
     if (file.size > maxSize) {
         notificationManager.error(
-            "Kích thước file không được vượt quá 5MB",
+            "Kích thước file không được vượt quá 15MB",
             3000,
         );
         event.target.value = "";
         return;
     }
 
-    const notifId = notificationManager.loading("Đang xử lý ảnh...");
+    const notifId = notificationManager.loading("Đang nén ảnh...");
 
-    const reader = new FileReader();
-
-    reader.onload = function (e) {
-        try {
-            // Store as blob for upload
-            capturedImageBlob = file;
-            capturedImageUrl = e.target.result;
+    compressImage(file, 1920, 0.7)
+        .then((compressedBlob) => {
+            capturedImageBlob = compressedBlob;
+            capturedImageUrl = URL.createObjectURL(compressedBlob);
 
             // Display the uploaded image
             displayCapturedImage();
@@ -97,24 +150,29 @@ function handleMainFileSelect(event) {
             event.target.value = "";
 
             notificationManager.remove(notifId);
-            notificationManager.success("Đã tải ảnh từ file thành công!", 2000);
-        } catch (error) {
-            console.error("Error processing file:", error);
-            notificationManager.remove(notifId);
-            notificationManager.error(
-                "Lỗi khi xử lý file: " + error.message,
-                3000,
+            const sizeMB = (compressedBlob.size / 1024 / 1024).toFixed(1);
+            notificationManager.success(
+                `Đã tải ảnh thành công! (${sizeMB}MB)`,
+                2000,
             );
-        }
-    };
-
-    reader.onerror = function () {
-        notificationManager.remove(notifId);
-        notificationManager.error("Lỗi khi đọc file", 3000);
-        event.target.value = "";
-    };
-
-    reader.readAsDataURL(file);
+        })
+        .catch((error) => {
+            console.error("Error compressing file:", error);
+            notificationManager.remove(notifId);
+            // Fallback: use original file
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                capturedImageBlob = file;
+                capturedImageUrl = e.target.result;
+                displayCapturedImage();
+                event.target.value = "";
+                notificationManager.success(
+                    "Đã tải ảnh (không nén được)",
+                    2000,
+                );
+            };
+            reader.readAsDataURL(file);
+        });
 }
 
 // =====================================================
@@ -146,26 +204,23 @@ function handleEditFileSelect(event) {
         return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validate file size (max 15MB before compression)
+    const maxSize = 15 * 1024 * 1024;
     if (file.size > maxSize) {
         notificationManager.error(
-            "Kích thước file không được vượt quá 5MB",
+            "Kích thước file không được vượt quá 15MB",
             3000,
         );
         event.target.value = "";
         return;
     }
 
-    const notifId = notificationManager.loading("Đang xử lý ảnh...");
+    const notifId = notificationManager.loading("Đang nén ảnh...");
 
-    const reader = new FileReader();
-
-    reader.onload = function (e) {
-        try {
-            // Store as blob for upload
-            editCapturedImageBlob = file;
-            editCapturedImageUrl = e.target.result;
+    compressImage(file, 1920, 0.7)
+        .then((compressedBlob) => {
+            editCapturedImageBlob = compressedBlob;
+            editCapturedImageUrl = URL.createObjectURL(compressedBlob);
             editKeepCurrentImage = false;
 
             // Display the uploaded image
@@ -178,24 +233,31 @@ function handleEditFileSelect(event) {
             event.target.value = "";
 
             notificationManager.remove(notifId);
-            notificationManager.success("Đã tải ảnh từ file thành công!", 2000);
-        } catch (error) {
-            console.error("Error processing file:", error);
-            notificationManager.remove(notifId);
-            notificationManager.error(
-                "Lỗi khi xử lý file: " + error.message,
-                3000,
+            const sizeMB = (compressedBlob.size / 1024 / 1024).toFixed(1);
+            notificationManager.success(
+                `Đã tải ảnh thành công! (${sizeMB}MB)`,
+                2000,
             );
-        }
-    };
-
-    reader.onerror = function () {
-        notificationManager.remove(notifId);
-        notificationManager.error("Lỗi khi đọc file", 3000);
-        event.target.value = "";
-    };
-
-    reader.readAsDataURL(file);
+        })
+        .catch((error) => {
+            console.error("Error compressing edit file:", error);
+            notificationManager.remove(notifId);
+            // Fallback: use original file
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                editCapturedImageBlob = file;
+                editCapturedImageUrl = e.target.result;
+                editKeepCurrentImage = false;
+                displayEditCapturedImage();
+                stopEditCamera();
+                event.target.value = "";
+                notificationManager.success(
+                    "Đã tải ảnh (không nén được)",
+                    2000,
+                );
+            };
+            reader.readAsDataURL(file);
+        });
 }
 
 // =====================================================
@@ -306,27 +368,36 @@ function takePicture() {
     }
 
     try {
+        // Resize if video is larger than 1920px wide
+        const videoW = cameraVideo.videoWidth;
+        const videoH = cameraVideo.videoHeight;
+        const maxW = 1920;
+        let outW = videoW;
+        let outH = videoH;
+        if (videoW > maxW) {
+            outH = Math.round((videoH * maxW) / videoW);
+            outW = maxW;
+        }
+
         const canvas = cameraCanvas;
+        canvas.width = outW;
+        canvas.height = outH;
         const context = canvas.getContext("2d");
+        context.drawImage(cameraVideo, 0, 0, outW, outH);
 
-        // Draw current video frame to canvas
-        context.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-
-        // Convert to blob
+        // Convert to blob with quality 0.7
         canvas.toBlob(
             (blob) => {
                 if (blob) {
                     capturedImageBlob = blob;
                     capturedImageUrl = URL.createObjectURL(blob);
 
-                    // Display captured image
                     displayCapturedImage();
-
-                    // Stop camera
                     stopCamera();
 
+                    const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
                     notificationManager.success(
-                        "Đã chụp ảnh thành công!",
+                        `Đã chụp ảnh thành công! (${sizeMB}MB)`,
                         2000,
                     );
                 } else {
@@ -334,7 +405,7 @@ function takePicture() {
                 }
             },
             "image/jpeg",
-            0.8,
+            0.7,
         );
     } catch (error) {
         console.error("Error taking picture:", error);
@@ -527,10 +598,21 @@ function takeEditPicture() {
     }
 
     try {
-        const canvas = editCameraCanvas;
-        const context = canvas.getContext("2d");
+        const videoW = editCameraVideo.videoWidth;
+        const videoH = editCameraVideo.videoHeight;
+        const maxW = 1920;
+        let outW = videoW;
+        let outH = videoH;
+        if (videoW > maxW) {
+            outH = Math.round((videoH * maxW) / videoW);
+            outW = maxW;
+        }
 
-        context.drawImage(editCameraVideo, 0, 0, canvas.width, canvas.height);
+        const canvas = editCameraCanvas;
+        canvas.width = outW;
+        canvas.height = outH;
+        const context = canvas.getContext("2d");
+        context.drawImage(editCameraVideo, 0, 0, outW, outH);
 
         canvas.toBlob(
             (blob) => {
@@ -542,8 +624,9 @@ function takeEditPicture() {
                     displayEditCapturedImage();
                     stopEditCamera();
 
+                    const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
                     notificationManager.success(
-                        "Đã chụp ảnh mới thành công!",
+                        `Đã chụp ảnh mới thành công! (${sizeMB}MB)`,
                         2000,
                     );
                 } else {
@@ -551,7 +634,7 @@ function takeEditPicture() {
                 }
             },
             "image/jpeg",
-            0.8,
+            0.7,
         );
     } catch (error) {
         console.error("Error taking edit picture:", error);
