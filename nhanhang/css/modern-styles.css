@@ -2192,3 +2192,50 @@ button:focus-visible {
     }
     .date-input-wrapper { min-width: 0; }
 }
+
+
+/* =====================================================
+   EAGER UPLOAD PROGRESS BAR OVERLAY
+   ===================================================== */
+
+.upload-progress-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 0 8px 8px;
+    z-index: 5;
+    overflow: hidden;
+}
+
+.upload-progress-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--primary, #6366f1);
+    opacity: 0.5;
+    width: 0%;
+    transition: width 0.2s ease;
+}
+
+.upload-progress-text {
+    position: relative;
+    z-index: 1;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.upload-progress-text.upload-done {
+    color: #6ee7b7;
+}
+
+.upload-progress-text.upload-error {
+    color: #fca5a5;
+}

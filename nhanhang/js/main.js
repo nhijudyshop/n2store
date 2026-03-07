@@ -528,7 +528,7 @@ function bindMobileFileUpload() {
             reader.readAsDataURL(file);
         }
 
-        // Delegate to existing handler
+        // Delegate to existing handler (which now triggers eager upload)
         if (typeof handleMainFileSelect === 'function') {
             handleMainFileSelect(event);
         }
@@ -704,6 +704,8 @@ function closeCreateModalFunction() {
     const createModal = document.getElementById("createModal");
     if (!createModal) return;
     createModal.style.display = "none";
+    // Cancel pending eager upload khi đóng modal
+    if (typeof cancelPendingUpload === 'function') cancelPendingUpload();
     clearReceiptForm();
     const mobilePreview = document.getElementById("mobileFilePreview");
     if (mobilePreview) mobilePreview.innerHTML = "";

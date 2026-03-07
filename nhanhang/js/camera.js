@@ -2,6 +2,153 @@
 // Camera handling and file upload for main form and edit modal
 
 // =====================================================
+// EAGER UPLOAD STATE
+// =====================================================
+
+/**
+ * Eager upload: upload ảnh lên Firebase ngay khi chọn/chụp,
+ * không đợi user nhấn Lưu.
+ */
+var pendingImageUpload = {
+    promise: null,       // Promise<string> — resolves with downloadURL
+    status: 'idle',      // 'idle' | 'uploading' | 'done' | 'error'
+    url: null,           // downloadURL khi upload xong
+    uploadTask: null,    // Firebase uploadTask (để cancel)
+    error: null,         // Error object nếu fail
+};
+
+/** Detect mobile */
+function isMobileDevice() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 768;
+}
+
+/**
+ * Upload blob lên Firebase Storage ngay lập tức (eager).
+ * Cập nhật progress bar trên preview area.
+ * @param {Blob} blob
+ * @param {string} previewContainerId - ID của container hiển thị progress
+ * @returns {Promise<string>} downloadURL
+ */
+function eagerUploadImage(blob, previewContainerId) {
+    // Cancel previous upload nếu có
+    cancelPendingUpload();
+
+    const imageName = generateUniqueFileName();
+    const imageRef = storageRef.child('nhanhang/photos/' + imageName);
+    const uploadTask = imageRef.put(blob, newMetadata);
+
+    pendingImageUpload.uploadTask = uploadTask;
+    pendingImageUpload.status = 'uploading';
+    pendingImageUpload.url = null;
+    pendingImageUpload.error = null;
+
+    // Show progress bar
+    showUploadProgress(previewContainerId, 0);
+
+    pendingImageUpload.promise = new Promise((resolve, reject) => {
+        uploadTask.on('state_changed',
+            function(snapshot) {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                showUploadProgress(previewContainerId, progress);
+            },
+            function(error) {
+                // Upload failed
+                pendingImageUpload.status = 'error';
+                pendingImageUpload.error = error;
+                showUploadError(previewContainerId);
+                console.error('Eager upload error:', error);
+                reject(error);
+            },
+            function() {
+                // Upload complete
+                uploadTask.snapshot.ref.getDownloadURL().then(function(downloadURL) {
+                    pendingImageUpload.status = 'done';
+                    pendingImageUpload.url = downloadURL;
+                    showUploadDone(previewContainerId);
+                    console.log('Eager upload done:', downloadURL);
+                    resolve(downloadURL);
+                }).catch(function(error) {
+                    pendingImageUpload.status = 'error';
+                    pendingImageUpload.error = error;
+                    showUploadError(previewContainerId);
+                    reject(error);
+                });
+            }
+        );
+    });
+
+    return pendingImageUpload.promise;
+}
+
+/** Cancel pending upload nếu đang chạy */
+function cancelPendingUpload() {
+    if (pendingImageUpload.uploadTask && pendingImageUpload.status === 'uploading') {
+        try {
+            pendingImageUpload.uploadTask.cancel();
+            console.log('Cancelled pending upload');
+        } catch (e) {
+            console.warn('Error cancelling upload:', e);
+        }
+    }
+    pendingImageUpload.promise = null;
+    pendingImageUpload.status = 'idle';
+    pendingImageUpload.url = null;
+    pendingImageUpload.uploadTask = null;
+    pendingImageUpload.error = null;
+}
+
+// =====================================================
+// UPLOAD PROGRESS UI
+// =====================================================
+
+function showUploadProgress(containerId, percent) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let bar = container.querySelector('.upload-progress-overlay');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'upload-progress-overlay';
+        bar.innerHTML = '<div class="upload-progress-bar"></div><span class="upload-progress-text">0%</span>';
+        container.style.position = 'relative';
+        container.appendChild(bar);
+    }
+
+    const fill = bar.querySelector('.upload-progress-bar');
+    const text = bar.querySelector('.upload-progress-text');
+    if (fill) fill.style.width = percent + '%';
+    if (text) text.textContent = Math.round(percent) + '%';
+}
+
+function showUploadDone(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const bar = container.querySelector('.upload-progress-overlay');
+    if (bar) {
+        bar.innerHTML = '<span class="upload-progress-text upload-done">✓ Đã tải lên</span>';
+        setTimeout(() => { if (bar.parentNode) bar.remove(); }, 2000);
+    }
+}
+
+function showUploadError(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const bar = container.querySelector('.upload-progress-overlay');
+    if (bar) {
+        bar.innerHTML = '<span class="upload-progress-text upload-error">✗ Lỗi tải lên</span>';
+    }
+}
+
+function removeUploadProgress(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const bar = container.querySelector('.upload-progress-overlay');
+    if (bar) bar.remove();
+}
+
+// =====================================================
 // CAMERA INITIALIZATION
 // =====================================================
 
@@ -46,7 +193,14 @@ function initializeCameraSystem() {
  * @param {number} quality - Chất lượng JPEG 0-1, default 0.7
  * @returns {Promise<Blob>} - Blob ảnh đã nén
  */
-function compressImage(file, maxWidth = 1920, quality = 0.7) {
+function compressImage(file, maxWidth, quality) {
+    // Mobile: nén mạnh hơn (1024px, quality 0.5) để upload nhanh
+    if (typeof maxWidth === 'undefined') {
+        maxWidth = isMobileDevice() ? 1024 : 1920;
+    }
+    if (typeof quality === 'undefined') {
+        quality = isMobileDevice() ? 0.5 : 0.7;
+    }
     return new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
@@ -138,7 +292,7 @@ function handleMainFileSelect(event) {
 
     const notifId = notificationManager.loading("Đang nén ảnh...");
 
-    compressImage(file, 1920, 0.7)
+    compressImage(file)
         .then((compressedBlob) => {
             capturedImageBlob = compressedBlob;
             capturedImageUrl = URL.createObjectURL(compressedBlob);
@@ -155,6 +309,9 @@ function handleMainFileSelect(event) {
                 `Đã tải ảnh thành công! (${sizeMB}MB)`,
                 2000,
             );
+
+            // Eager upload ngay sau khi nén
+            eagerUploadImage(compressedBlob, 'imageDisplayArea');
         })
         .catch((error) => {
             console.error("Error compressing file:", error);
@@ -170,6 +327,8 @@ function handleMainFileSelect(event) {
                     "Đã tải ảnh (không nén được)",
                     2000,
                 );
+                // Eager upload fallback
+                eagerUploadImage(file, 'imageDisplayArea');
             };
             reader.readAsDataURL(file);
         });
@@ -385,7 +544,8 @@ function takePicture() {
         const context = canvas.getContext("2d");
         context.drawImage(cameraVideo, 0, 0, outW, outH);
 
-        // Convert to blob with quality 0.7
+        // Convert to blob with quality based on device
+        const jpegQuality = isMobileDevice() ? 0.5 : 0.7;
         canvas.toBlob(
             (blob) => {
                 if (blob) {
@@ -400,12 +560,15 @@ function takePicture() {
                         `Đã chụp ảnh thành công! (${sizeMB}MB)`,
                         2000,
                     );
+
+                    // Eager upload ngay sau khi chụp
+                    eagerUploadImage(blob, 'imageDisplayArea');
                 } else {
                     notificationManager.error("Không thể chụp ảnh!", 3000);
                 }
             },
             "image/jpeg",
-            0.7,
+            jpegQuality,
         );
     } catch (error) {
         console.error("Error taking picture:", error);
@@ -435,6 +598,10 @@ function displayCapturedImage() {
 
 // Retake picture
 function retakePicture() {
+    // Cancel pending eager upload
+    cancelPendingUpload();
+    removeUploadProgress('imageDisplayArea');
+
     // Clear captured image
     capturedImageUrl = null;
     capturedImageBlob = null;
@@ -756,18 +923,41 @@ function resetEditCameraUI() {
 // IMAGE UPLOAD FUNCTIONS
 // =====================================================
 
-// Upload captured image to Firebase Storage
+// Upload captured image — sử dụng kết quả eager upload nếu có
 async function uploadCapturedImage() {
     if (!capturedImageBlob) {
         return null; // No image captured
     }
 
+    // Nếu eager upload đã xong → trả URL ngay
+    if (pendingImageUpload.status === 'done' && pendingImageUpload.url) {
+        console.log('Using eager upload result:', pendingImageUpload.url);
+        const url = pendingImageUpload.url;
+        return url;
+    }
+
+    // Nếu đang upload → đợi xong
+    if (pendingImageUpload.status === 'uploading' && pendingImageUpload.promise) {
+        console.log('Waiting for eager upload to finish...');
+        const notifId = notificationManager.loading('Đang chờ tải ảnh lên...');
+        try {
+            const url = await pendingImageUpload.promise;
+            notificationManager.remove(notifId);
+            return url;
+        } catch (error) {
+            notificationManager.remove(notifId);
+            console.warn('Eager upload failed, falling back to direct upload');
+            // Fall through to direct upload below
+        }
+    }
+
+    // Fallback: upload trực tiếp (nếu eager upload chưa chạy hoặc lỗi)
     let notifId = null;
     try {
         notifId = notificationManager.uploading(1, 1);
 
         const imageName = generateUniqueFileName();
-        const imageRef = storageRef.child(`nhanhang/photos/` + imageName);
+        const imageRef = storageRef.child('nhanhang/photos/' + imageName);
 
         return new Promise((resolve, reject) => {
             const uploadTask = imageRef.put(capturedImageBlob, newMetadata);
@@ -775,7 +965,6 @@ async function uploadCapturedImage() {
             uploadTask.on(
                 "state_changed",
                 function (snapshot) {
-                    // Calculate upload progress
                     const progress =
                         (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                     console.log("Upload is " + progress + "% done");

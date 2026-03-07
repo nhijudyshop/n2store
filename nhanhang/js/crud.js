@@ -136,6 +136,9 @@ async function uploadToFirestore(receiptData) {
 
 // Clear receipt form
 function clearReceiptForm() {
+    // Cancel pending eager upload
+    if (typeof cancelPendingUpload === 'function') cancelPendingUpload();
+
     capturedImageUrl = null;
     capturedImageBlob = null;
 
