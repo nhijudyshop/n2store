@@ -502,6 +502,35 @@ function bindMobileFabEvents() {
     }
 }
 
+// =====================================================
+// MOBILE FILE UPLOAD (thay thế camera section trên mobile)
+// =====================================================
+
+function bindMobileFileUpload() {
+    const mobileFileInput = document.getElementById('mobileFileInput');
+    const mobileFilePreview = document.getElementById('mobileFilePreview');
+    if (!mobileFileInput) return;
+
+    mobileFileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Show preview on mobile
+        if (mobileFilePreview && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                mobileFilePreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Delegate to existing handler
+        if (typeof handleMainFileSelect === 'function') {
+            handleMainFileSelect(event);
+        }
+    });
+}
+
 
 
 function applyRowPermissions(row, inputs, button, userRole) {
@@ -912,6 +941,7 @@ async function initializeApplication() {
 
     // Initialize mobile FAB events
     bindMobileFabEvents();
+    bindMobileFileUpload();
 }
 
 // =====================================================
