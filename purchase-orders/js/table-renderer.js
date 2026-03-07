@@ -125,7 +125,7 @@ class PurchaseOrderTableRenderer {
 
         const tableHTML = `
             <!-- Bulk Action Toolbar -->
-            ${this.renderBulkActionToolbar(selectedIds, orders.length)}
+            ${this.renderBulkActionToolbar(selectedIds, orders.length, orders)}
 
             <div class="table-wrapper">
                 <table class="po-table">
@@ -156,12 +156,14 @@ class PurchaseOrderTableRenderer {
      * @param {number} totalOrders
      * @returns {string} HTML string
      */
-    renderBulkActionToolbar(selectedIds, totalOrders) {
+    renderBulkActionToolbar(selectedIds, totalOrders, orders = []) {
         const selectedCount = selectedIds.size;
 
         if (selectedCount === 0) {
             return '';
         }
+
+        const allDrafts = orders.length > 0 && orders.every(o => o.status === 'DRAFT');
 
         return `
             <div class="bulk-action-toolbar">
@@ -170,10 +172,12 @@ class PurchaseOrderTableRenderer {
                     <span>đơn hàng đã chọn</span>
                 </div>
                 <div class="bulk-action-toolbar__actions">
+                    ${!allDrafts ? `
                     <button class="btn btn-outline btn-sm" data-bulk-action="export">
                         <i data-lucide="download"></i>
                         <span>Xuất Excel</span>
                     </button>
+                    ` : ''}
                     <button class="btn btn-outline btn-sm btn-danger" data-bulk-action="delete">
                         <i data-lucide="trash-2"></i>
                         <span>Xóa ${selectedCount} đơn</span>
@@ -488,7 +492,8 @@ class PurchaseOrderTableRenderer {
                         <i data-lucide="pencil" class="${isDraft ? 'text-amber' : 'text-blue'}"></i>
                     </button>
 
-                    <!-- Export Excel -->
+                    <!-- Export Excel (not available for drafts) -->
+                    ${!isDraft ? `
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
                             title="Xuất Excel mua hàng"
                             data-action="export"
@@ -496,6 +501,7 @@ class PurchaseOrderTableRenderer {
                             ${isProcessing ? 'disabled' : ''}>
                         <i data-lucide="file-down" class="text-green"></i>
                     </button>
+                    ` : ''}
 
                     <!-- Print barcode (only if TPOS PO exists) -->
                     ${order.tposPoId ? `
