@@ -8,8 +8,10 @@
 
 class BillTokenManager {
     constructor() {
-        this.storageKey = 'bill_tpos_credentials';
-        this.tokenStorageKey = 'bill_tpos_token';
+        // Multi-company: use per-company storage keys
+        this.companyId = BillTokenManager.getCompanyId();
+        this.storageKey = 'bill_tpos_credentials_' + this.companyId;
+        this.tokenStorageKey = 'bill_tpos_token_' + this.companyId;
         this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
 
         this.credentials = null; // { username, password } or { bearerToken }
@@ -17,8 +19,56 @@ class BillTokenManager {
         this.tokenExpiry = null;
         this.isRefreshing = false;
 
+        // Migrate old single-key data to company 1 keys
+        this._migrateOldStorage();
+
         // Load from localStorage immediately
         this.loadFromStorage();
+
+        // Listen for company changes
+        window.addEventListener('shopChanged', (e) => {
+            const newCompanyId = e.detail?.config?.CompanyId || 1;
+            if (newCompanyId !== this.companyId) {
+                console.log(`[BILL-TOKEN] Company changed: ${this.companyId} → ${newCompanyId}`);
+                this.companyId = newCompanyId;
+                this.storageKey = 'bill_tpos_credentials_' + this.companyId;
+                this.tokenStorageKey = 'bill_tpos_token_' + this.companyId;
+                // Reset state and reload for new company
+                this.token = null;
+                this.tokenExpiry = null;
+                this.credentials = null;
+                this.loadFromStorage();
+                // Re-init from Firestore for new company
+                this.init();
+            }
+        });
+    }
+
+    /**
+     * Get current company ID from ShopConfig
+     */
+    static getCompanyId() {
+        return window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+    }
+
+    /**
+     * Migrate old single-key storage to company 1 keys
+     */
+    _migrateOldStorage() {
+        try {
+            const oldCreds = localStorage.getItem('bill_tpos_credentials');
+            if (oldCreds && !localStorage.getItem('bill_tpos_credentials_1')) {
+                localStorage.setItem('bill_tpos_credentials_1', oldCreds);
+                localStorage.removeItem('bill_tpos_credentials');
+                console.log('[BILL-TOKEN] Migrated bill_tpos_credentials → bill_tpos_credentials_1');
+            }
+            const oldToken = localStorage.getItem('bill_tpos_token');
+            if (oldToken && !localStorage.getItem('bill_tpos_token_1')) {
+                localStorage.setItem('bill_tpos_token_1', oldToken);
+                localStorage.removeItem('bill_tpos_token');
+                console.log('[BILL-TOKEN] Migrated bill_tpos_token → bill_tpos_token_1');
+            }
+        } catch (e) { /* ignore */ }
     }
 
     // =====================================================
@@ -125,6 +175,14 @@ class BillTokenManager {
     }
 
     /**
+     * Get Firestore field name for billCredentials (per-company)
+     * Company 1: 'billCredentials' (backward compat), Company 2+: 'billCredentials_2'
+     */
+    getBillCredentialsField() {
+        return this.companyId === 1 ? 'billCredentials' : 'billCredentials_' + this.companyId;
+    }
+
+    /**
      * Save credentials to Firestore
      * @param {boolean} retry - Whether to retry if auth not ready
      * @param {string} refreshToken - Optional refresh_token to save
@@ -166,11 +224,12 @@ class BillTokenManager {
                 dataToSave.refresh_token = tokenToSave;
             }
 
+            const field = this.getBillCredentialsField();
             await ref.set({
-                billCredentials: dataToSave
+                [field]: dataToSave
             }, { merge: true });
 
-            console.log('[BILL-TOKEN] ✅ Credentials saved to Firestore:',
+            console.log(`[BILL-TOKEN] ✅ Credentials saved to Firestore (company ${this.companyId}):`,
                 this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
                 tokenToSave ? '(with refresh_token)' : '(no refresh_token)');
             return true;
@@ -190,14 +249,15 @@ class BillTokenManager {
         if (!ref) return false;
 
         try {
+            const field = this.getBillCredentialsField();
             await ref.set({
-                billCredentials: {
+                [field]: {
                     refresh_token: refreshToken,
                     updatedAt: Date.now()
                 }
             }, { merge: true });
 
-            console.log('[BILL-TOKEN] ✅ Refresh token saved to Firestore');
+            console.log(`[BILL-TOKEN] ✅ Refresh token saved to Firestore (company ${this.companyId})`);
             return true;
         } catch (error) {
             console.error('[BILL-TOKEN] Error saving refresh token to Firestore:', error);
@@ -223,13 +283,16 @@ class BillTokenManager {
             }
 
             const data = doc.data();
-            if (data.billCredentials) {
+            const field = this.getBillCredentialsField();
+            const billCreds = data[field];
+
+            if (billCreds) {
                 // Extract refresh_token before setting credentials
-                const refreshToken = data.billCredentials.refresh_token;
+                const refreshToken = billCreds.refresh_token;
 
                 // Set credentials (without refresh_token in credentials object)
                 this.credentials = {
-                    ...data.billCredentials,
+                    ...billCreds,
                     refresh_token: undefined // Don't store in credentials
                 };
                 delete this.credentials.refresh_token;
@@ -243,10 +306,10 @@ class BillTokenManager {
                         expires_at: 0 // Mark as expired so it will try to refresh
                     };
                     this.saveTokenToStorage(tokenData);
-                    console.log('[BILL-TOKEN] ✅ Refresh token loaded from Firestore');
+                    console.log(`[BILL-TOKEN] ✅ Refresh token loaded from Firestore (company ${this.companyId})`);
                 }
 
-                console.log('[BILL-TOKEN] ✅ Credentials loaded from Firestore:',
+                console.log(`[BILL-TOKEN] ✅ Credentials loaded from Firestore (company ${this.companyId}):`,
                     this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
                     refreshToken ? '(with refresh_token)' : '');
                 return true;
@@ -355,7 +418,7 @@ class BillTokenManager {
         formData.append('password', password);
         formData.append('client_id', 'tmtWebApp');
 
-        console.log(`[BILL-TOKEN] Fetching token for user: ${username}`);
+        console.log(`[BILL-TOKEN] Fetching token for user: ${username} (company ${this.companyId})`);
 
         const response = await fetch(this.API_URL, {
             method: 'POST',
@@ -558,7 +621,7 @@ class BillTokenManager {
     async init() {
         // Already have credentials from localStorage
         if (this.hasCredentials()) {
-            console.log('[BILL-TOKEN] ✅ Initialized with local credentials:', this.credentials.username || 'bearer');
+            console.log(`[BILL-TOKEN] ✅ Initialized with local credentials (company ${this.companyId}):`, this.credentials.username || 'bearer');
             return;
         }
 
