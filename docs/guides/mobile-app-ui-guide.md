@@ -495,3 +495,126 @@ Sắp xếp theo mức độ quan trọng từ trên xuống:
 - **`-webkit-overflow-scrolling: touch`** cho vùng scroll dọc để cuộn mượt trên iOS.
 - **Không dùng `position: fixed` cho các phần tử trong scroll container** — sẽ bị lỗi trên iOS.
 - **Test trên Safari iOS** — Chrome Android ít lỗi hơn nhiều so với Safari.
+
+---
+
+## 9. Upload ảnh trên Mobile
+
+Ảnh chụp từ camera điện thoại thường rất nặng (3–10MB). Cần nén client-side trước khi upload để tránh chờ lâu trên mạng 4G/Wi-Fi yếu.
+
+### 9.1. Nén ảnh bằng Canvas API
+
+Luôn nén ảnh trước khi upload. Dùng hàm `compressImage()` chuẩn:
+
+```javascript
+/**
+ * Nén ảnh client-side bằng Canvas API
+ * @param {File|Blob} file - File ảnh gốc
+ * @param {number} maxWidth - Chiều rộng tối đa (px), default 1920
+ * @param {number} quality - Chất lượng JPEG 0-1, default 0.7
+ * @returns {Promise<Blob>} - Blob ảnh đã nén
+ */
+function compressImage(file, maxWidth = 1920, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+
+        img.onload = function () {
+            URL.revokeObjectURL(url);
+
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) resolve(blob);
+                    else reject(new Error("Không thể nén ảnh"));
+                },
+                "image/jpeg",
+                quality,
+            );
+        };
+
+        img.onerror = function () {
+            URL.revokeObjectURL(url);
+            reject(new Error("Không thể đọc file ảnh"));
+        };
+
+        img.src = url;
+    });
+}
+```
+
+### 9.2. Thông số nén khuyến nghị
+
+| Thông số | Giá trị | Lý do |
+|---|---|---|
+| `maxWidth` | 1920px | Đủ rõ cho xem trên web, giảm đáng kể kích thước |
+| `quality` | 0.7 | Cân bằng chất lượng/dung lượng, ảnh 5MB → ~300KB |
+| Max file size (trước nén) | 15MB | Cho phép ảnh gốc lớn vì sẽ nén lại |
+
+### 9.3. File input trên Mobile
+
+Trên mobile, dùng `<input type="file" accept="image/*">` thay vì camera API (WebRTC). Lý do:
+- Camera API (`getUserMedia`) không ổn định trên nhiều trình duyệt mobile
+- File input tự mở camera hoặc gallery tùy user chọn
+- Tương thích tốt hơn trên cả Android và iOS
+
+```html
+<!-- Pattern chuẩn: input nằm trong label, ẩn bằng clip -->
+<label class="mobile-upload-label" for="mobileFileInput">
+    <i data-lucide="camera"></i>
+    <span>Chụp / Chọn ảnh</span>
+</label>
+<input type="file" id="mobileFileInput" accept="image/*"
+    style="position:absolute;width:1px;height:1px;clip:rect(0,0,0,0);overflow:hidden;">
+```
+
+**Lưu ý Android:** Dùng `clip: rect(0,0,0,0)` thay vì `display: none` — một số trình duyệt Android không trigger file picker khi input bị `display: none`.
+
+### 9.4. Flow xử lý ảnh chuẩn
+
+```
+User chọn ảnh → Validate type (image/*) → Validate size (< 15MB)
+    → Hiện notification "Đang nén ảnh..."
+    → compressImage(file, 1920, 0.7)
+    → Lưu blob đã nén → Hiển thị preview
+    → Upload blob nén lên Storage
+```
+
+Luôn có fallback dùng ảnh gốc nếu nén lỗi:
+
+```javascript
+compressImage(file, 1920, 0.7)
+    .then((compressedBlob) => {
+        // Dùng blob đã nén
+        capturedImageBlob = compressedBlob;
+    })
+    .catch((error) => {
+        // Fallback: dùng file gốc
+        capturedImageBlob = file;
+    });
+```
+
+### 9.5. Checklist upload ảnh mobile
+
+- [ ] Nén ảnh client-side trước khi upload (Canvas API, JPEG 0.7)
+- [ ] Resize xuống max 1920px width
+- [ ] Giới hạn file gốc 15MB (trước nén)
+- [ ] Dùng `<input type="file">` thay vì camera API trên mobile
+- [ ] Ẩn input bằng `clip: rect(0,0,0,0)`, không dùng `display: none`
+- [ ] Hiển thị kích thước sau nén trong notification
+- [ ] Có fallback dùng ảnh gốc nếu nén lỗi
+- [ ] Camera capture (desktop): dùng `canvas.toBlob('image/jpeg', 0.7)` với resize
