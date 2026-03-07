@@ -170,7 +170,7 @@ class InboxDataManager {
         const pdm = window.pancakeDataManager;
         if (!ptm || !pdm) return [];
 
-        const token = ptm.getToken();
+        const token = await ptm.getToken();
         if (!token) {
             console.warn('[InboxData] No token available for per-page fetch');
             return [];
@@ -248,12 +248,25 @@ class InboxDataManager {
             // Try multi-page endpoint first
             let { conversations: rawConversations, error, message } = await this.fetchConversationsWithErrorCheck(forceRefresh);
 
-            // If multi-page fails with subscription/auth error, try other accounts (multi-page first)
-            if (error === 122 || error === 105) {
-                console.log(`[InboxData] Multi-page endpoint failed (${error}), trying other accounts...`);
+            // If multi-page fails with permission error, try per-page with current account first
+            // (account may have access to SOME pages, just not all)
+            if (error === 105) {
+                console.log(`[InboxData] Error 105 (no permission on some pages), trying per-page with current account...`);
+                rawConversations = await this.fetchConversationsPerPage();
+
+                // If current account per-page also fails, try other accounts
+                if (rawConversations.length === 0) {
+                    console.log('[InboxData] Current account per-page failed, trying other accounts...');
+                    rawConversations = await this.tryOtherAccounts();
+                    if (rawConversations.length === 0) {
+                        rawConversations = await this.tryOtherAccountsPerPage();
+                    }
+                }
+            } else if (error === 122) {
+                // Subscription expired - try other accounts (multi-page first, then per-page)
+                console.log(`[InboxData] Error 122 (subscription expired), trying other accounts...`);
                 rawConversations = await this.tryOtherAccounts();
 
-                // If all accounts fail multi-page, try per-page as last resort
                 if (rawConversations.length === 0) {
                     console.log('[InboxData] All accounts failed multi-page, trying per-page...');
                     rawConversations = await this.tryOtherAccountsPerPage();
