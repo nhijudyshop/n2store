@@ -9,6 +9,7 @@ const db = getFirestore();
 // Firestore collection reference
 const soquyCollectionRef = db.collection('soquy_vouchers');
 const soquyCountersRef = db.collection('soquy_counters');
+const storageRef = firebase.storage().ref();
 
 // =====================================================
 // CONSTANTS
@@ -352,6 +353,7 @@ window.SoquyElements = {
 // Export config
 window.SoquyConfig = {
     db,
+    storageRef,
     soquyCollectionRef,
     soquyCountersRef,
     soquyMetaRef,
