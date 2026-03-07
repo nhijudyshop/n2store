@@ -66,6 +66,24 @@ router.get('/ping', (req, res) => {
     });
 });
 
+// GET /api/sepay/recent-transfers
+// Returns phone numbers that have transferred within the last 7 days
+router.get('/recent-transfers', async (req, res) => {
+    try {
+        const result = await db.query(
+            'SELECT phone, last_transfer_at, transfer_amount FROM recent_transfer_phones WHERE expires_at > NOW()'
+        );
+        res.json({
+            success: true,
+            phones: result.rows.map(r => r.phone),
+            details: result.rows
+        });
+    } catch (error) {
+        console.error('[RECENT-TRANSFERS] Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 /**
  * POST /api/sepay/webhook
  * Nhận webhook từ Sepay khi có giao dịch mới
@@ -267,6 +285,23 @@ router.post('/webhook', async (req, res) => {
                             match_method: debtResult.method // 'qr_code', 'exact_phone', 'single_match'
                         });
                         console.log('[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:', insertedId);
+
+                        // Track recent transfer phone (7-day TTL)
+                        if (customerPhone) {
+                            try {
+                                await db.query(`
+                                    INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
+                                    VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
+                                    ON CONFLICT (phone) DO UPDATE SET
+                                        last_transfer_at = CURRENT_TIMESTAMP,
+                                        transfer_amount = EXCLUDED.transfer_amount,
+                                        expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
+                                `, [customerPhone, webhookData.transferAmount]);
+                                console.log('[SEPAY-WEBHOOK] Tracked recent transfer phone:', customerPhone);
+                            } catch (rtpErr) {
+                                console.error('[SEPAY-WEBHOOK] Error tracking recent transfer phone:', rtpErr.message);
+                            }
+                        }
                     } else if (debtResult.method === 'pending_match_created') {
                         // Case 2: Multiple phones found - broadcast pending match
                         broadcastBalanceUpdate(req.app, 'pending-match-created', {

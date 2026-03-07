@@ -214,6 +214,19 @@ cron.schedule('0 9 * * *', async () => {
     }
 });
 
+// Chạy mỗi ngày lúc 3AM để xóa recent_transfer_phones đã hết hạn (>7 ngày)
+cron.schedule('0 3 * * *', async () => {
+    console.log('[CRON] Running cleanup recent_transfer_phones...');
+    try {
+        const result = await db.query(
+            'DELETE FROM recent_transfer_phones WHERE expires_at < NOW() RETURNING phone'
+        );
+        console.log(`[CRON] ✅ Cleaned up ${result.rowCount} expired recent transfer phones`);
+    } catch (error) {
+        console.error('[CRON] ❌ Error cleaning up recent_transfer_phones:', error.message);
+    }
+});
+
 console.log('[CRON] Scheduler started');
 
 // =====================================================

@@ -1277,12 +1277,12 @@ async function loadChatDebt(phone) {
 
             // Update cache for consistency with debt column
             saveDebtToCache(normalizedPhone, totalBalance);
-            updateChatDebtDisplay(totalBalance);
+            updateChatDebtDisplay(totalBalance, normalizedPhone);
 
             // Also update debt column in orders table to keep them in sync
             updateDebtCellsInTable(normalizedPhone, totalBalance);
         } else {
-            updateChatDebtDisplay(0);
+            updateChatDebtDisplay(0, normalizedPhone);
         }
     } catch (error) {
         console.error('[CHAT-DEBT] Error loading wallet balance:', error);
@@ -1295,17 +1295,23 @@ async function loadChatDebt(phone) {
  * Update chat modal debt display
  * @param {number} debt - Debt amount
  */
-function updateChatDebtDisplay(debt) {
+function updateChatDebtDisplay(debt, phone) {
     const debtValueEl = document.getElementById('chatDebtValue');
     if (!debtValueEl) return;
 
+    let html = '';
     if (debt > 0) {
-        debtValueEl.textContent = formatDebtCurrency(debt);
-        debtValueEl.style.color = '#4ade80'; // Green for positive debt
+        html = `<span style="color: #4ade80;">${formatDebtCurrency(debt)}</span>`;
     } else {
-        debtValueEl.textContent = '0đ';
-        debtValueEl.style.color = 'rgba(255, 255, 255, 0.6)';
+        html = `<span style="color: rgba(255, 255, 255, 0.6);">0đ</span>`;
     }
+
+    // Add recent transfer badge if applicable
+    if (phone && typeof isRecentTransfer === 'function' && isRecentTransfer(phone)) {
+        html += ' <span style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600;">CK</span>';
+    }
+
+    debtValueEl.innerHTML = html;
 }
 
 // Export chat debt function

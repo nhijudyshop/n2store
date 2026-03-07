@@ -290,6 +290,44 @@ async function batchFetchDebts(phones) {
     }
 }
 
+// =====================================================
+// RECENT TRANSFER TRACKING
+// Fetch phones that transferred within last 7 days
+// =====================================================
+
+window.recentTransferPhones = new Set();
+
+async function fetchRecentTransfers() {
+    try {
+        const response = await fetch(`${QR_API_URL}/api/sepay/recent-transfers`);
+        const result = await response.json();
+        if (result.success && result.phones) {
+            window.recentTransferPhones = new Set(result.phones);
+            console.log(`[RECENT-CK] ✅ Loaded ${result.phones.length} recent transfer phones`);
+        }
+    } catch (error) {
+        console.error('[RECENT-CK] Error fetching recent transfers:', error);
+    }
+}
+
+function isRecentTransfer(phone) {
+    if (!phone) return false;
+    const normalized = normalizePhoneForQR(phone);
+    return normalized && window.recentTransferPhones.has(normalized);
+}
+
+function renderRecentTransferBadge(phone) {
+    if (!isRecentTransfer(phone)) return '';
+    return ' <span style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle;" title="Đã chuyển khoản trong 7 ngày gần đây">CK</span>';
+}
+
+// Fetch on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(fetchRecentTransfers, 500));
+} else {
+    setTimeout(fetchRecentTransfers, 500);
+}
+
 // Make QR and Debt functions globally accessible
 window.copyQRCode = copyQRCode;
 window.getOrCreateQRForPhone = getOrCreateQRForPhone;
@@ -302,6 +340,9 @@ window.copyQRImageUrl = copyQRImageUrl;
 window.renderDebtColumn = renderDebtColumn;
 window.fetchDebtForPhone = fetchDebtForPhone;
 window.batchFetchDebts = batchFetchDebts;
+window.fetchRecentTransfers = fetchRecentTransfers;
+window.isRecentTransfer = isRecentTransfer;
+window.renderRecentTransferBadge = renderRecentTransferBadge;
 
 // =====================================================
 // REALTIME DEBT UPDATES (SSE)
