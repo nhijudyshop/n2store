@@ -533,6 +533,16 @@ class PurchaseOrderFormModal {
         const area = container.querySelector('#invoiceImageArea');
         const fileInput = container.querySelector('#invoiceFileInput');
 
+        // Track hover on entire container so paste works even when hovering over existing images
+        container.addEventListener('mouseenter', () => {
+            this.hoveredImageArea = { type: 'invoice', itemId: null };
+        });
+        container.addEventListener('mouseleave', () => {
+            if (this.hoveredImageArea?.type === 'invoice') {
+                this.hoveredImageArea = null;
+            }
+        });
+
         if (area && fileInput) {
             // Click to upload
             area.addEventListener('click', () => fileInput.click());
@@ -542,6 +552,12 @@ class PurchaseOrderFormModal {
                 area.style.borderColor = '#3b82f6';
                 area.style.color = '#3b82f6';
                 this.hoveredImageArea = { type: 'invoice', itemId: null };
+                // Auto-focus so paste events fire directly on this element
+                const active = document.activeElement;
+                const isTyping = active && ((active.tagName === 'INPUT' && active.type === 'text') || active.tagName === 'TEXTAREA');
+                if (!isTyping) {
+                    area.focus();
+                }
             });
             area.addEventListener('mouseleave', () => {
                 area.style.borderColor = '#d1d5db';
@@ -584,6 +600,15 @@ class PurchaseOrderFormModal {
         // Track hover on entire cell for paste (works even when images exist)
         cell.addEventListener('mouseenter', () => {
             this.hoveredImageArea = { type, itemId };
+            // Auto-focus the dashed area if available so paste fires directly
+            const pasteTarget = cell.querySelector(`[data-type="${type}"]`);
+            if (pasteTarget) {
+                const active = document.activeElement;
+                const isTyping = active && ((active.tagName === 'INPUT' && active.type === 'text') || active.tagName === 'TEXTAREA');
+                if (!isTyping) {
+                    pasteTarget.focus();
+                }
+            }
         });
         cell.addEventListener('mouseleave', () => {
             if (this.hoveredImageArea?.type === type && this.hoveredImageArea?.itemId === itemId) {
@@ -1838,14 +1863,26 @@ class PurchaseOrderFormModal {
 
         // Global paste handler - paste to hovered image area — stored for cleanup
         this._globalPasteHandler = (e) => {
-            // Only handle if modal is open and no input/textarea is focused
+            // Only handle if modal is open
             if (!this.modalElement) return;
-            const activeEl = document.activeElement;
-            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
 
             // Route paste to the hovered image area
             if (this.hoveredImageArea) {
-                this.handlePaste(e, this.hoveredImageArea.type, this.hoveredImageArea.itemId);
+                // Check if clipboard actually contains image data
+                const items = e.clipboardData?.items;
+                if (items) {
+                    let hasImage = false;
+                    for (const item of items) {
+                        if (item.type.indexOf('image') !== -1) {
+                            hasImage = true;
+                            break;
+                        }
+                    }
+                    if (hasImage) {
+                        this.handlePaste(e, this.hoveredImageArea.type, this.hoveredImageArea.itemId);
+                        return;
+                    }
+                }
             }
         };
         document.addEventListener('paste', this._globalPasteHandler);
