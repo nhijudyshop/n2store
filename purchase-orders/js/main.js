@@ -1071,7 +1071,7 @@ class PurchaseOrderController {
 
                 // Step 2: Create on TPOS
                 console.log('[PO Preview] Step 2: createFromExcel...');
-                const tposResult = await window.TPOSPurchase.createFromExcel(result.workbook, singleOrder);
+                const tposResult = await window.TPOSPurchase.createFromExcel(result.workbook, singleOrder, { ncc });
                 console.log('[PO Preview] createFromExcel result:', tposResult);
 
                 if (!tposResult.success) {

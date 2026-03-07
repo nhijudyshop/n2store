@@ -268,7 +268,7 @@ window.TPOSPurchase = (function() {
 
     let _createInProgress = false;
 
-    async function createFromExcel(workbook, order) {
+    async function createFromExcel(workbook, order, options = {}) {
         const showToast = window.notificationManager?.show?.bind(window.notificationManager)
             || ((msg, type) => console.log(`[TPOSPurchase] ${type}: ${msg}`));
 
@@ -281,9 +281,9 @@ window.TPOSPurchase = (function() {
         _createInProgress = true;
 
         try {
-            // 1. Find NCC
+            // 1. Find NCC (accept from caller or lookup)
             const supplierName = order.supplier?.name;
-            const ncc = window.NCCManager?.findByName(supplierName);
+            const ncc = options.ncc || window.NCCManager?.findByName(supplierName);
             if (!ncc || !ncc.tposId) {
                 throw new Error(`Không tìm thấy NCC "${supplierName}" hoặc NCC chưa có TPOS ID. Hãy đồng bộ NCC từ TPOS trước.`);
             }
