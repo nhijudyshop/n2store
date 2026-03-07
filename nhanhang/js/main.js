@@ -496,15 +496,6 @@ function bindMobileFabEvents() {
         });
     }
 
-    // Xuất Excel
-    const fabExport = document.getElementById('fabExportExcel');
-    if (fabExport) {
-        fabExport.addEventListener('click', () => {
-            mobileFabContainer.classList.remove('open');
-            document.getElementById('btnExport')?.click();
-        });
-    }
-
     // Trợ lý AI
     const fabAI = document.getElementById('fabOpenAI');
     if (fabAI) {
