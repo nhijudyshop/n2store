@@ -1111,7 +1111,7 @@ class PurchaseOrderFormModal {
                 <div style="flex: 1; overflow-y: auto; padding: 24px;">
                     <!-- Row 1: Supplier, Date, Invoice Amount, Invoice Image -->
                     <div style="display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 200px;">
+                        <div style="flex: 2; min-width: 300px;">
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
                                 Nhà cung cấp <span style="color: #ef4444;">*</span>
                                 <button type="button" id="btnSyncNCC" title="Tải danh sách NCC từ TPOS" style="
@@ -1225,7 +1225,10 @@ class PurchaseOrderFormModal {
                                 ">
                             </div>
                         </div>
-                        <div style="flex: 1; min-width: 200px;">
+                        <div style="flex: 1; min-width: 300px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px;">
+                                Ghi chú
+                            </label>
                             <input type="text" id="inputNotes" value="${this.formData.notes}" placeholder="Ghi chú thêm cho đơn hàng..." style="
                                 width: 100%;
                                 height: 40px;
@@ -2197,6 +2200,91 @@ class PurchaseOrderFormModal {
                 if (preview) preview.textContent = '';
                 this.updateTotals();
             });
+        });
+
+        // Arrow key navigation between fields + Enter to add new row
+        const navigableFields = ['productName', 'quantity', 'purchasePrice', 'sellingPrice'];
+        tbody.addEventListener('keydown', (e) => {
+            const target = e.target;
+            const field = target.dataset?.field;
+            if (!field || !navigableFields.includes(field)) return;
+
+            const row = target.closest('tr');
+            if (!row) return;
+
+            // Enter key: create new product row (like "Thêm SP")
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // For textarea (productName), allow Shift+Enter for newline but Enter navigates/adds
+                if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT') {
+                    e.preventDefault();
+                    const itemId = row.dataset.itemId;
+
+                    // Move to next row's productName if exists
+                    const nextRow = row.nextElementSibling;
+                    if (nextRow) {
+                        const nextInput = nextRow.querySelector('[data-field="productName"]');
+                        if (nextInput) { nextInput.focus(); return; }
+                    }
+
+                    // Otherwise add new row
+                    this.addItem();
+                    this.refreshItemsTable();
+
+                    // Focus the new row's productName
+                    setTimeout(() => {
+                        const newTbody = this.modalElement?.querySelector('#itemsTableBody');
+                        const lastRow = newTbody?.querySelector('tr:last-child');
+                        const newInput = lastRow?.querySelector('[data-field="productName"]');
+                        if (newInput) newInput.focus();
+                    }, 50);
+                    return;
+                }
+            }
+
+            // Arrow Left / Arrow Right navigation between fields in the same row
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                // For text inputs, only navigate if cursor is at the edge
+                if (target.tagName === 'INPUT' && target.type === 'text') {
+                    if (e.key === 'ArrowRight' && target.selectionStart < target.value.length) return;
+                    if (e.key === 'ArrowLeft' && target.selectionStart > 0) return;
+                }
+                if (target.tagName === 'TEXTAREA') {
+                    if (e.key === 'ArrowRight' && target.selectionStart < target.value.length) return;
+                    if (e.key === 'ArrowLeft' && target.selectionStart > 0) return;
+                }
+
+                const currentIndex = navigableFields.indexOf(field);
+                const nextIndex = e.key === 'ArrowRight' ? currentIndex + 1 : currentIndex - 1;
+
+                if (nextIndex >= 0 && nextIndex < navigableFields.length) {
+                    e.preventDefault();
+                    const nextField = navigableFields[nextIndex];
+                    const nextInput = row.querySelector(`[data-field="${nextField}"]`);
+                    if (nextInput) {
+                        nextInput.focus();
+                        if (nextInput.select) nextInput.select();
+                    }
+                }
+            }
+
+            // Arrow Up / Arrow Down navigation between rows (same field)
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                // For textarea, only navigate if at first/last line
+                if (target.tagName === 'TEXTAREA') {
+                    const lines = target.value.split('\n');
+                    if (lines.length > 1) return; // Multi-line, let default behavior
+                }
+
+                const targetRow = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling;
+                if (targetRow) {
+                    e.preventDefault();
+                    const targetInput = targetRow.querySelector(`[data-field="${field}"]`);
+                    if (targetInput) {
+                        targetInput.focus();
+                        if (targetInput.select) targetInput.select();
+                    }
+                }
+            }
         });
 
         // Action buttons
