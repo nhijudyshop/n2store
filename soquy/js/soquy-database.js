@@ -127,10 +127,22 @@ const SoquyDatabase = (function () {
      */
     async function fetchVouchers() {
         try {
-            // Use simple orderBy query and filter client-side to avoid composite index issues
-            const snapshot = await config.soquyCollectionRef
-                .orderBy('voucherDateTime', 'desc')
-                .get();
+            // Build query with server-side filters to minimize data transfer
+            let query = config.soquyCollectionRef;
+
+            // Server-side date range filter (same field as orderBy → no composite index needed)
+            const { startDate, endDate } = getDateRange();
+            if (startDate && endDate) {
+                const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
+                const endTimestamp = firebase.firestore.Timestamp.fromDate(endDate);
+                query = query
+                    .where('voucherDateTime', '>=', startTimestamp)
+                    .where('voucherDateTime', '<=', endTimestamp);
+            }
+
+            query = query.orderBy('voucherDateTime', 'desc');
+
+            const snapshot = await query.get();
 
             let vouchers = [];
             snapshot.forEach(doc => {
@@ -147,23 +159,13 @@ const SoquyDatabase = (function () {
                 return v;
             });
 
-            // Fund type filter
+            // Fund type filter (client-side to avoid composite index)
             if (state.fundType !== config.FUND_TYPES.ALL) {
                 vouchers = vouchers.filter(v => v.fundType === state.fundType);
                 console.log('[SoquyDB] After fundType filter (' + state.fundType + '):', vouchers.length);
             }
 
-            // Time filter
-            const { startDate, endDate } = getDateRange();
-            if (startDate && endDate) {
-                vouchers = vouchers.filter(v => {
-                    const vDate = toDate(v.voucherDateTime);
-                    return vDate >= startDate && vDate <= endDate;
-                });
-                console.log('[SoquyDB] After time filter:', vouchers.length);
-            }
-
-            // Status filter
+            // Status filter (client-side to avoid composite index)
             if (state.statusFilter.length > 0) {
                 vouchers = vouchers.filter(v => state.statusFilter.includes(v.status));
                 console.log('[SoquyDB] After status filter (' + state.statusFilter.join(',') + '):', vouchers.length);
@@ -250,29 +252,28 @@ const SoquyDatabase = (function () {
             const { startDate } = getDateRange();
             if (!startDate) return 0;
 
+            // Server-side filter: only fetch vouchers BEFORE startDate
+            const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
             let query = config.soquyCollectionRef
-                .where('status', '==', config.VOUCHER_STATUS.PAID);
-
-            if (fundType !== config.FUND_TYPES.ALL) {
-                query = query.where('fundType', '==', fundType);
-            }
+                .where('voucherDateTime', '<', startTimestamp);
 
             const snapshot = await query.get();
             let balance = 0;
 
             snapshot.forEach(doc => {
                 const data = doc.data();
+                // Skip cancelled vouchers
+                if (data.status !== config.VOUCHER_STATUS.PAID) return;
+                // Fund type filter
+                if (fundType !== config.FUND_TYPES.ALL && data.fundType !== fundType) return;
                 // Normalize legacy type
                 const type = data.type === 'payment'
                     ? (data.businessAccounting ? 'payment_kd' : 'payment_cn')
                     : data.type;
-                const vDate = toDate(data.voucherDateTime);
-                if (vDate < startDate) {
-                    if (type === config.VOUCHER_TYPES.RECEIPT) {
-                        balance += Math.abs(data.amount || 0);
-                    } else {
-                        balance -= Math.abs(data.amount || 0);
-                    }
+                if (type === config.VOUCHER_TYPES.RECEIPT) {
+                    balance += Math.abs(data.amount || 0);
+                } else {
+                    balance -= Math.abs(data.amount || 0);
                 }
             });
 
