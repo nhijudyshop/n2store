@@ -16,6 +16,35 @@ const { getOrCreateCustomerFromTPOS, getOrCreateCustomerWithAliases, collectAllN
 const { processDeposit } = require('../services/wallet-event-processor');
 const adminSettingsService = require('../services/admin-settings-service');
 
+/**
+ * Upsert phone into recent_transfer_phones with TOTAL amount from balance_history
+ * @param {object} dbConn - Database connection
+ * @param {string} phone - Customer phone
+ */
+async function upsertRecentTransfer(dbConn, phone) {
+    if (!phone) return;
+    try {
+        const totalResult = await dbConn.query(
+            `SELECT COALESCE(SUM(transfer_amount), 0) as total
+             FROM balance_history
+             WHERE linked_customer_phone = $1 AND transfer_type = 'in'`,
+            [phone]
+        );
+        const totalAmount = parseFloat(totalResult.rows[0].total) || 0;
+        await dbConn.query(`
+            INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
+            VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
+            ON CONFLICT (phone) DO UPDATE SET
+                last_transfer_at = CURRENT_TIMESTAMP,
+                transfer_amount = $2,
+                expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
+        `, [phone, totalAmount]);
+        console.log('[RECENT-TRANSFER] Tracked phone:', phone, 'total:', totalAmount);
+    } catch (err) {
+        console.error('[RECENT-TRANSFER] Error tracking phone:', phone, err.message);
+    }
+}
+
 // =====================================================
 // BLACKLIST: Các số cần bỏ qua khi extract phone
 // Bao gồm: số tài khoản ngân hàng của shop, mã giao dịch, etc.
@@ -86,21 +115,14 @@ router.get('/recent-transfers', async (req, res) => {
 
 // POST /api/sepay/recent-transfers
 // Manually push a phone into recent_transfer_phones (7-day TTL)
+// transfer_amount = total of ALL balance_history for this phone
 router.post('/recent-transfers', async (req, res) => {
-    const { phone, amount } = req.body;
+    const { phone } = req.body;
     if (!phone) {
         return res.status(400).json({ success: false, error: 'Phone is required' });
     }
     try {
-        await db.query(`
-            INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
-            VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
-            ON CONFLICT (phone) DO UPDATE SET
-                last_transfer_at = CURRENT_TIMESTAMP,
-                transfer_amount = COALESCE(EXCLUDED.transfer_amount, recent_transfer_phones.transfer_amount),
-                expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
-        `, [phone, amount || null]);
-        console.log('[RECENT-TRANSFERS] Manually added phone:', phone);
+        await upsertRecentTransfer(db, phone);
         res.json({ success: true, phone });
     } catch (error) {
         console.error('[RECENT-TRANSFERS] Error adding phone:', error.message);
@@ -310,21 +332,9 @@ router.post('/webhook', async (req, res) => {
                         });
                         console.log('[SEPAY-WEBHOOK] Broadcasted customer-info-updated for transaction:', insertedId);
 
-                        // Track recent transfer phone (7-day TTL)
+                        // Track recent transfer phone (7-day TTL, total amount)
                         if (customerPhone) {
-                            try {
-                                await db.query(`
-                                    INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
-                                    VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
-                                    ON CONFLICT (phone) DO UPDATE SET
-                                        last_transfer_at = CURRENT_TIMESTAMP,
-                                        transfer_amount = EXCLUDED.transfer_amount,
-                                        expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
-                                `, [customerPhone, webhookData.transferAmount]);
-                                console.log('[SEPAY-WEBHOOK] Tracked recent transfer phone:', customerPhone);
-                            } catch (rtpErr) {
-                                console.error('[SEPAY-WEBHOOK] Error tracking recent transfer phone:', rtpErr.message);
-                            }
+                            await upsertRecentTransfer(db, customerPhone);
                         }
                     } else if (debtResult.method === 'pending_match_created') {
                         // Case 2: Multiple phones found - broadcast pending match
@@ -3116,20 +3126,8 @@ router.post('/pending-matches/:id/resolve', async (req, res) => {
         //     ]
         // );
 
-        // Track recent transfer phone (7-day TTL)
-        try {
-            await db.query(`
-                INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
-                VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
-                ON CONFLICT (phone) DO UPDATE SET
-                    last_transfer_at = CURRENT_TIMESTAMP,
-                    transfer_amount = EXCLUDED.transfer_amount,
-                    expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
-            `, [selectedCustomer.phone, match.transfer_amount]);
-            console.log('[RESOLVE-MATCH] Tracked recent transfer phone:', selectedCustomer.phone);
-        } catch (rtpErr) {
-            console.error('[RESOLVE-MATCH] Error tracking recent transfer phone:', rtpErr.message);
-        }
+        // Track recent transfer phone (7-day TTL, total amount)
+        await upsertRecentTransfer(db, selectedCustomer.phone);
 
         console.log('[RESOLVE-MATCH] ✅ Match resolved:', {
             match_id: id,
@@ -3730,20 +3728,8 @@ router.put('/transaction/:id/phone', async (req, res) => {
             }
         }
 
-        // Track recent transfer phone (7-day TTL)
-        try {
-            await db.query(`
-                INSERT INTO recent_transfer_phones (phone, last_transfer_at, transfer_amount, expires_at)
-                VALUES ($1, CURRENT_TIMESTAMP, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
-                ON CONFLICT (phone) DO UPDATE SET
-                    last_transfer_at = CURRENT_TIMESTAMP,
-                    transfer_amount = EXCLUDED.transfer_amount,
-                    expires_at = CURRENT_TIMESTAMP + INTERVAL '7 days'
-            `, [newPhone, tx.transfer_amount]);
-            console.log('[TRANSACTION-PHONE-UPDATE] Tracked recent transfer phone:', newPhone);
-        } catch (rtpErr) {
-            console.error('[TRANSACTION-PHONE-UPDATE] Error tracking recent transfer phone:', rtpErr.message);
-        }
+        // Track recent transfer phone (7-day TTL, total amount)
+        await upsertRecentTransfer(db, newPhone);
 
         res.json({
             success: true,
