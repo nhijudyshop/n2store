@@ -1988,7 +1988,7 @@ class InboxChatController {
             const ptm = window.pancakeTokenManager;
             if (!ptm) return false;
 
-            const token = ptm.getToken();
+            const token = await ptm.getToken();
             if (!token) {
                 console.warn('[InboxChat] No Pancake token for WebSocket');
                 return false;
