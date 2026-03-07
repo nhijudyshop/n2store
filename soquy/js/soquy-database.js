@@ -1250,7 +1250,7 @@ const SoquyDatabase = (function () {
 
     /**
      * Fetch all users from Firestore 'users' collection
-     * Returns array of { username, displayName }
+     * Returns array of { username, displayName, isAdmin, roleTemplate, detailedPermissions }
      */
     async function fetchAllUsers() {
         try {
@@ -1260,7 +1260,10 @@ const SoquyDatabase = (function () {
                 const data = doc.data();
                 users.push({
                     username: doc.id,
-                    displayName: data.displayName || doc.id
+                    displayName: data.displayName || doc.id,
+                    isAdmin: data.isAdmin || false,
+                    roleTemplate: data.roleTemplate || '',
+                    detailedPermissions: data.detailedPermissions || {}
                 });
             });
             state.allUsers = users;

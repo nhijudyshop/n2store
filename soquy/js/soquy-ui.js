@@ -1666,25 +1666,42 @@ const SoquyUI = (function () {
     }
 
     /**
-     * Populate collector (Người thu/Người chi) dropdowns with users from Firestore
+     * Populate collector (Người thu/Người chi) dropdowns with users.
+     * Non-admin: only show current user's name (locked).
+     * Admin: show all users.
      */
     function populateCollectorDropdowns() {
         const users = state.allUsers || [];
         const currentUserName = db.getCurrentUserName();
+        const isAdmin = typeof PermissionHelper !== 'undefined' && PermissionHelper.isAdmin();
 
         [els.receiptCollector, els.paymentCollector].forEach(select => {
             if (!select) return;
             const isReceipt = select.id === 'receiptCollector';
             const placeholder = isReceipt ? 'Chọn người thu' : 'Chọn người chi';
 
-            let optionsHtml = `<option value="">${placeholder}</option>`;
-            users.forEach(u => {
-                const displayName = u.displayName || u.username;
-                const selected = displayName === currentUserName ? ' selected' : '';
-                optionsHtml += `<option value="${escapeHtml(displayName)}"${selected}>${escapeHtml(displayName)}</option>`;
-            });
-
-            select.innerHTML = optionsHtml;
+            if (isAdmin) {
+                // Admin: show only users with create_receipt or create_payment permission (+ admins)
+                const permKey = isReceipt ? 'create_receipt' : 'create_payment';
+                const allowedUsers = users.filter(u => {
+                    if (u.isAdmin || u.roleTemplate === 'admin') return true;
+                    const soquyPerms = u.detailedPermissions?.soquy;
+                    return soquyPerms && soquyPerms[permKey] === true;
+                });
+                let optionsHtml = `<option value="">${placeholder}</option>`;
+                allowedUsers.forEach(u => {
+                    const displayName = u.displayName || u.username;
+                    const selected = displayName === currentUserName ? ' selected' : '';
+                    optionsHtml += `<option value="${escapeHtml(displayName)}"${selected}>${escapeHtml(displayName)}</option>`;
+                });
+                select.innerHTML = optionsHtml;
+                select.disabled = false;
+            } else {
+                // Non-admin: only current user, locked
+                select.innerHTML = `<option value="${escapeHtml(currentUserName)}" selected>${escapeHtml(currentUserName)}</option>`;
+                select.disabled = true;
+                select.style.opacity = '0.7';
+            }
         });
     }
 

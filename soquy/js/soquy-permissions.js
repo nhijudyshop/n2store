@@ -15,12 +15,8 @@ const SoquyPermissions = {
 
     PAGE_ID: 'soquy',
 
-    // Admin-only tabs: hash key → permission key
-    ADMIN_ONLY_TABS: {
-        'employee': 'tab_nhanvien',
-        'report': 'tab_baocao',
-        'editHistory': 'tab_lichsuchinhsua'
-    },
+    // Admin-only tab hashes (no permission keys needed - purely admin check)
+    ADMIN_ONLY_TABS: ['employee', 'report', 'editHistory'],
 
     /**
      * Initialize permission system for Sổ Quỹ page.
@@ -226,7 +222,7 @@ const SoquyPermissions = {
             if (PermissionHelper.isAdmin()) return;
 
             const hash = location.hash.replace('#', '');
-            if (self.ADMIN_ONLY_TABS[hash]) {
+            if (self.ADMIN_ONLY_TABS.includes(hash)) {
                 // Non-admin trying to access admin-only tab → redirect to cashbook
                 location.hash = 'cashbook';
 
