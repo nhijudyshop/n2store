@@ -34,6 +34,7 @@ function eagerUploadImage(blob, previewContainerId) {
     cancelPendingUpload();
 
     console.log('eagerUploadImage started. Blob size:', (blob.size / 1024).toFixed(0) + 'KB');
+    notificationManager.info('[Debug] Eager upload bắt đầu (' + (blob.size / 1024).toFixed(0) + 'KB)', 3000);
 
     const imageName = generateUniqueFileName();
     const imageRef = storageRef.child('nhanhang/photos/' + imageName);
@@ -59,6 +60,7 @@ function eagerUploadImage(blob, previewContainerId) {
                 pendingImageUpload.error = error;
                 showUploadError(previewContainerId);
                 console.error('Eager upload error:', error);
+                notificationManager.error('[Debug] Eager upload LỖI: ' + error.message, 5000);
                 reject(error);
             },
             function() {
@@ -68,11 +70,13 @@ function eagerUploadImage(blob, previewContainerId) {
                     pendingImageUpload.url = downloadURL;
                     showUploadDone(previewContainerId);
                     console.log('Eager upload done:', downloadURL);
+                    notificationManager.success('[Debug] Eager upload XONG! Status=' + pendingImageUpload.status, 4000);
                     resolve(downloadURL);
                 }).catch(function(error) {
                     pendingImageUpload.status = 'error';
                     pendingImageUpload.error = error;
                     showUploadError(previewContainerId);
+                    notificationManager.error('[Debug] Eager getURL LỖI: ' + error.message, 5000);
                     reject(error);
                 });
             }
@@ -938,25 +942,30 @@ async function uploadCapturedImage() {
     }
 
     console.log('uploadCapturedImage called. pendingImageUpload.status:', pendingImageUpload.status);
+    notificationManager.info('[Debug] uploadCapturedImage: status=' + pendingImageUpload.status, 3000);
 
     // Nếu eager upload đã xong → trả URL ngay (KHÔNG upload lại)
     if (pendingImageUpload.status === 'done' && pendingImageUpload.url) {
         console.log('Using eager upload result:', pendingImageUpload.url);
+        notificationManager.success('[Debug] Dùng eager result ✓', 3000);
         return pendingImageUpload.url;
     }
 
     // Nếu đang upload → đợi xong
     if (pendingImageUpload.status === 'uploading' && pendingImageUpload.promise) {
         console.log('Waiting for eager upload to finish...');
+        notificationManager.info('[Debug] Đang chờ eager upload...', 3000);
         const notifId = notificationManager.loading('Đang chờ tải ảnh lên...');
         try {
             const url = await pendingImageUpload.promise;
             notificationManager.remove(notifId);
             console.log('Eager upload finished while waiting:', url);
+            notificationManager.success('[Debug] Eager xong sau khi chờ ✓', 3000);
             return url;
         } catch (error) {
             notificationManager.remove(notifId);
             console.warn('Eager upload failed while waiting, falling back to direct upload:', error.message);
+            notificationManager.error('[Debug] Eager lỗi khi chờ: ' + error.message, 4000);
             // Fall through to direct upload below
         }
     }
@@ -964,11 +973,13 @@ async function uploadCapturedImage() {
     // Nếu eager upload lỗi nhưng promise vẫn còn → thử await lần nữa
     if (pendingImageUpload.status === 'error' && pendingImageUpload.promise) {
         console.log('Eager upload had error, checking promise...');
+        notificationManager.error('[Debug] Eager lỗi, status=error', 4000);
         // Promise đã reject rồi, skip và fallback
     }
 
     // Fallback: upload trực tiếp (nếu eager upload chưa chạy hoặc lỗi)
     console.log('Falling back to direct upload...');
+    notificationManager.warning('[Debug] Fallback direct upload, status=' + pendingImageUpload.status, 4000);
     let notifId = null;
     try {
         notifId = notificationManager.loading('Đang tải ảnh lên...');
