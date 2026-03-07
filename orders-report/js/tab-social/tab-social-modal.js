@@ -235,6 +235,8 @@ function saveOrder() {
                 updatedAt: Date.now(),
             };
             saveSocialOrdersToStorage();
+            // Fire-and-forget: sync to Firestore
+            updateSocialOrder(orderId, SocialOrderState.orders[orderIndex]);
             showNotification('Đã cập nhật đơn hàng', 'success');
 
             // Fire-and-forget: sync updated products to TPOS
@@ -272,6 +274,8 @@ function saveOrder() {
 
         SocialOrderState.orders.unshift(newOrder);
         saveSocialOrdersToStorage();
+        // Fire-and-forget: sync to Firestore
+        createSocialOrder(newOrder);
         showNotification('Đã tạo đơn hàng mới', 'success');
 
         // Fire-and-forget: sync products to TPOS

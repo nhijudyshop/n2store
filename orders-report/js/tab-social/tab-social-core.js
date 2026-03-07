@@ -164,9 +164,15 @@ async function initSocialTab() {
             console.warn('[Tab Social] Pancake Token Manager not available');
         }
 
-        // Load data from localStorage
-        SocialOrderState.orders = loadSocialOrdersFromStorage();
-        SocialOrderState.tags = loadSocialTagsFromStorage();
+        // Load data from Firestore (source of truth), fallback to localStorage
+        if (typeof loadSocialOrdersFromFirebase === 'function') {
+            SocialOrderState.orders = await loadSocialOrdersFromFirebase();
+            SocialOrderState.tags = await loadSocialTagsFromFirebase();
+        } else {
+            // Fallback if firebase module not loaded
+            SocialOrderState.orders = loadSocialOrdersFromStorage();
+            SocialOrderState.tags = loadSocialTagsFromStorage();
+        }
         SocialOrderState.filteredOrders = [...SocialOrderState.orders];
 
         // Render table
@@ -183,6 +189,11 @@ async function initSocialTab() {
         // Update search result count
         updateSearchResultCount();
 
+        // Setup real-time listener for cross-device sync
+        if (typeof setupSocialOrdersListener === 'function') {
+            setupSocialOrdersListener();
+        }
+
         console.log('[Tab Social] Initialized with', SocialOrderState.orders.length, 'orders');
     } catch (error) {
         console.error('[Tab Social] Init error:', error);
@@ -192,11 +203,15 @@ async function initSocialTab() {
     }
 }
 
-function loadOrders() {
-    // Reload from localStorage
+async function loadOrders() {
     console.log('[Tab Social] Reloading orders...');
-    SocialOrderState.orders = loadSocialOrdersFromStorage();
-    SocialOrderState.tags = loadSocialTagsFromStorage();
+    if (typeof loadSocialOrdersFromFirebase === 'function') {
+        SocialOrderState.orders = await loadSocialOrdersFromFirebase();
+        SocialOrderState.tags = await loadSocialTagsFromFirebase();
+    } else {
+        SocialOrderState.orders = loadSocialOrdersFromStorage();
+        SocialOrderState.tags = loadSocialTagsFromStorage();
+    }
     performTableSearch();
     populateTagFilter();
     showNotification('Đã tải lại dữ liệu', 'success');
