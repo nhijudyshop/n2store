@@ -33,6 +33,8 @@ function eagerUploadImage(blob, previewContainerId) {
     // Cancel previous upload nếu có
     cancelPendingUpload();
 
+    console.log('eagerUploadImage started. Blob size:', (blob.size / 1024).toFixed(0) + 'KB');
+
     const imageName = generateUniqueFileName();
     const imageRef = storageRef.child('nhanhang/photos/' + imageName);
     const uploadTask = imageRef.put(blob, newMetadata);
@@ -311,7 +313,9 @@ function handleMainFileSelect(event) {
             );
 
             // Eager upload ngay sau khi nén
-            eagerUploadImage(compressedBlob, 'imageDisplayArea');
+            eagerUploadImage(compressedBlob, 'imageDisplayArea').catch(function(err) {
+                console.warn('Eager upload failed (will retry on save):', err.message);
+            });
         })
         .catch((error) => {
             console.error("Error compressing file:", error);
@@ -328,7 +332,9 @@ function handleMainFileSelect(event) {
                     2000,
                 );
                 // Eager upload fallback
-                eagerUploadImage(file, 'imageDisplayArea');
+                eagerUploadImage(file, 'imageDisplayArea').catch(function(err) {
+                    console.warn('Eager upload fallback failed:', err.message);
+                });
             };
             reader.readAsDataURL(file);
         });
@@ -562,7 +568,9 @@ function takePicture() {
                     );
 
                     // Eager upload ngay sau khi chụp
-                    eagerUploadImage(blob, 'imageDisplayArea');
+                    eagerUploadImage(blob, 'imageDisplayArea').catch(function(err) {
+                        console.warn('Eager upload after capture failed:', err.message);
+                    });
                 } else {
                     notificationManager.error("Không thể chụp ảnh!", 3000);
                 }
@@ -929,11 +937,12 @@ async function uploadCapturedImage() {
         return null; // No image captured
     }
 
-    // Nếu eager upload đã xong → trả URL ngay
+    console.log('uploadCapturedImage called. pendingImageUpload.status:', pendingImageUpload.status);
+
+    // Nếu eager upload đã xong → trả URL ngay (KHÔNG upload lại)
     if (pendingImageUpload.status === 'done' && pendingImageUpload.url) {
         console.log('Using eager upload result:', pendingImageUpload.url);
-        const url = pendingImageUpload.url;
-        return url;
+        return pendingImageUpload.url;
     }
 
     // Nếu đang upload → đợi xong
@@ -943,18 +952,26 @@ async function uploadCapturedImage() {
         try {
             const url = await pendingImageUpload.promise;
             notificationManager.remove(notifId);
+            console.log('Eager upload finished while waiting:', url);
             return url;
         } catch (error) {
             notificationManager.remove(notifId);
-            console.warn('Eager upload failed, falling back to direct upload');
+            console.warn('Eager upload failed while waiting, falling back to direct upload:', error.message);
             // Fall through to direct upload below
         }
     }
 
+    // Nếu eager upload lỗi nhưng promise vẫn còn → thử await lần nữa
+    if (pendingImageUpload.status === 'error' && pendingImageUpload.promise) {
+        console.log('Eager upload had error, checking promise...');
+        // Promise đã reject rồi, skip và fallback
+    }
+
     // Fallback: upload trực tiếp (nếu eager upload chưa chạy hoặc lỗi)
+    console.log('Falling back to direct upload...');
     let notifId = null;
     try {
-        notifId = notificationManager.uploading(1, 1);
+        notifId = notificationManager.loading('Đang tải ảnh lên...');
 
         const imageName = generateUniqueFileName();
         const imageRef = storageRef.child('nhanhang/photos/' + imageName);
@@ -967,7 +984,7 @@ async function uploadCapturedImage() {
                 function (snapshot) {
                     const progress =
                         (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    console.log("Upload is " + progress + "% done");
+                    console.log("Direct upload is " + progress + "% done");
                 },
                 function (error) {
                     console.error("Error uploading image:", error);
@@ -982,12 +999,8 @@ async function uploadCapturedImage() {
                     uploadTask.snapshot.ref
                         .getDownloadURL()
                         .then(function (downloadURL) {
-                            console.log("Image uploaded successfully");
+                            console.log("Direct upload successful:", downloadURL);
                             if (notifId) notificationManager.remove(notifId);
-                            notificationManager.success(
-                                "Tải ảnh lên thành công!",
-                                2000,
-                            );
                             resolve(downloadURL);
                         })
                         .catch((error) => {
