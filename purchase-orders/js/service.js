@@ -212,7 +212,8 @@ class PurchaseOrderService {
                 notes: item.notes || '',
                 tposSyncStatus: item.tposSyncStatus || null,
                 tposProductId: item.tposProductId || null,
-                tposProductTmplId: item.tposProductTmplId || null
+                tposProductTmplId: item.tposProductTmplId || null,
+                tposSynced: item.tposSynced || false
             };
             console.log(`[PrepareItems] Item ${index + 1}: variant="${prepared.variant}", attrIds=${prepared.selectedAttributeValueIds.length}`);
             return prepared;

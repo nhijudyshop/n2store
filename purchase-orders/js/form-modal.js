@@ -1773,7 +1773,11 @@ class PurchaseOrderFormModal {
                             item.purchasePrice = product.purchasePrice || 0;
                             item.sellingPrice = product.sellingPrice || 0;
                             // Save TPOS IDs (variant ID + parent template ID)
-                            if (product.tposProductId) item.tposProductId = product.tposProductId;
+                            // Mark as already synced so TPOS sync skips these items
+                            if (product.tposProductId) {
+                                item.tposProductId = product.tposProductId;
+                                item.tposSynced = true;
+                            }
                             if (product.tposProductTmplId) item.tposProductTmplId = product.tposProductTmplId;
                             // Handle image - convert single image to array format
                             if (product.image) {
