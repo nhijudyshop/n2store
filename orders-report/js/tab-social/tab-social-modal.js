@@ -592,7 +592,11 @@ function initPhoneAutoLookup() {
             clearTimeout(_tposPhoneLookupTimeout);
         }
 
-        if (phone.length !== 10) return;
+        if (phone.length !== 10) {
+            const statusEl = document.getElementById('tposCustomerStatus');
+            if (statusEl) statusEl.style.display = 'none';
+            return;
+        }
 
         _tposPhoneLookupTimeout = setTimeout(async () => {
             if (!window.fetchTPOSCustomer) return;
@@ -605,6 +609,7 @@ function initPhoneAutoLookup() {
                     const customer = result.customers[0];
                     const nameInput = document.getElementById('customerName');
                     const addressInput = document.getElementById('customerAddress');
+                    const statusEl = document.getElementById('tposCustomerStatus');
 
                     if (nameInput && customer.name) {
                         nameInput.value = customer.name;
@@ -613,10 +618,30 @@ function initPhoneAutoLookup() {
                         addressInput.value = customer.address;
                     }
 
-                    console.log('[SOCIAL-MODAL] Auto-filled customer:', customer.name);
+                    // Show customer status badge
+                    if (statusEl && customer.statusText) {
+                        const statusColors = {
+                            'Bình thường': '#22c55e',
+                            'Bom hàng': '#ef4444',
+                            'Cảnh báo': '#f59e0b',
+                            'Nguy hiểm': '#dc2626',
+                            'VIP': '#6366f1'
+                        };
+                        const color = statusColors[customer.statusText] || '#6b7280';
+                        statusEl.innerHTML = `<span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:13px;font-weight:600;color:#fff;background:${color}">Trạng thái TPOS: ${customer.statusText}</span>`;
+                        statusEl.style.display = 'block';
+                    } else if (statusEl) {
+                        statusEl.style.display = 'none';
+                    }
+
+                    console.log('[SOCIAL-MODAL] Auto-filled customer:', customer.name, '| Status:', customer.statusText);
                     if (typeof showNotification === 'function') {
                         showNotification(`Tìm thấy KH: ${customer.name}`, 'success');
                     }
+                } else {
+                    // Hide status badge when no customer found
+                    const statusEl = document.getElementById('tposCustomerStatus');
+                    if (statusEl) statusEl.style.display = 'none';
                 }
             } catch (error) {
                 console.error('[SOCIAL-MODAL] TPOS lookup error:', error);
