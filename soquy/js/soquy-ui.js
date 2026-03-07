@@ -203,24 +203,31 @@ const SoquyUI = (function () {
             showNotification('[Debug] Eager upload bắt đầu (' + (blob.size / 1024).toFixed(0) + 'KB)', 'info');
 
             // Use firebase.storage().ref() directly — same pattern as nhanhang (proven working)
-            var sRef = (config && config.storageRef) ? config.storageRef : firebase.storage().ref();
-            if (!sRef) {
-                showNotification('[Debug] storageRef is NULL! Firebase chưa init?', 'error');
+            var sRef;
+            try {
+                sRef = firebase.storage().ref();
+            } catch (e) {
+                showNotification('[Debug] firebase.storage().ref() EXCEPTION: ' + e.message, 'error');
                 uploadState = 'error';
-                return Promise.reject(new Error('storageRef is null'));
+                return Promise.reject(e);
             }
 
             var imageName = generateSoquyFileName();
-            var imageRef = sRef.child('soquy/photos/' + imageName);
+            // Use nhanhang/photos/ path — proven working with Firebase Storage rules
+            var imageRef = sRef.child('nhanhang/photos/' + imageName);
 
-            showNotification('[Debug] Upload path: soquy/photos/' + imageName, 'info');
+            showNotification('[Debug] Upload path: nhanhang/photos/' + imageName, 'info');
 
             // Show progress bar on container
             showUploadProgressOverlay(containerEl, 0);
 
+            var newMetadata = {
+                cacheControl: 'public,max-age=31536000'
+            };
+
             uploadPromise = new Promise(function (resolve, reject) {
                 try {
-                    currentUploadTask = imageRef.put(blob, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
+                    currentUploadTask = imageRef.put(blob, newMetadata);
                 } catch (putError) {
                     showNotification('[Debug] put() EXCEPTION: ' + putError.message, 'error');
                     uploadState = 'error';
@@ -232,16 +239,13 @@ const SoquyUI = (function () {
                 currentUploadTask.on('state_changed',
                     function (snapshot) {
                         var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        console.log('[SoquyUI] Upload progress: ' + progress.toFixed(0) + '%');
                         showUploadProgressOverlay(containerEl, progress);
                     },
                     function (error) {
                         if (error.code === 'storage/canceled') {
-                            console.log('[SoquyUI] Upload cancelled');
                             removeUploadProgressOverlay(containerEl);
                             return;
                         }
-                        console.error('[SoquyUI] Upload error:', error);
                         uploadState = 'error';
                         uploadedUrl = '';
                         showUploadErrorOverlay(containerEl);
@@ -251,15 +255,13 @@ const SoquyUI = (function () {
                     function () {
                         currentUploadTask.snapshot.ref.getDownloadURL()
                             .then(function (downloadURL) {
-                                console.log('[SoquyUI] Upload complete:', downloadURL);
                                 uploadState = 'done';
                                 uploadedUrl = downloadURL;
                                 showUploadDoneOverlay(containerEl);
-                                showNotification('[Debug] Eager upload XONG! Status=' + uploadState, 'success');
+                                showNotification('[Debug] Eager upload XONG!', 'success');
                                 resolve(downloadURL);
                             })
                             .catch(function (error) {
-                                console.error('[SoquyUI] getDownloadURL error:', error);
                                 uploadState = 'error';
                                 showUploadErrorOverlay(containerEl);
                                 showNotification('[Debug] getURL LỖI: ' + error.message, 'error');
@@ -332,19 +334,18 @@ const SoquyUI = (function () {
 
             // Fallback: direct upload if eager failed but we still have the blob
             if (lastBlob) {
-                showNotification('[Debug] Fallback direct upload, status=' + uploadState, 'info');
+                showNotification('[Debug] Fallback direct upload...', 'info');
                 try {
-                    var sRef = (config && config.storageRef) ? config.storageRef : firebase.storage().ref();
+                    var sRef = firebase.storage().ref();
                     var imageName = generateSoquyFileName();
-                    var imageRef = sRef.child('soquy/photos/' + imageName);
-                    var snapshot = await imageRef.put(lastBlob, { contentType: 'image/jpeg', cacheControl: 'public,max-age=31536000' });
+                    var imageRef = sRef.child('nhanhang/photos/' + imageName);
+                    var snapshot = await imageRef.put(lastBlob, { cacheControl: 'public,max-age=31536000' });
                     var downloadURL = await snapshot.ref.getDownloadURL();
                     uploadState = 'done';
                     uploadedUrl = downloadURL;
                     showNotification('[Debug] Fallback upload XONG ✓', 'success');
                     return downloadURL;
                 } catch (fallbackErr) {
-                    console.error('[SoquyUI] Fallback upload also failed:', fallbackErr);
                     showNotification('[Debug] Fallback lỗi: code=' + (fallbackErr.code || 'none') + ' msg=' + fallbackErr.message, 'error');
                     return '';
                 }
