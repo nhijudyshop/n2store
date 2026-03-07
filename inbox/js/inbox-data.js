@@ -597,6 +597,80 @@ class InboxDataManager {
                     console.warn('[InboxData] Error marking as read on Pancake:', err);
                 });
             }
+            // Also mark as replied on Render DB (removes from pending_customers)
+            if (conv.psid && conv.pageId) {
+                this.markRepliedOnServer(conv.psid, conv.pageId);
+            }
+        }
+    }
+
+    markAsUnread(convId) {
+        const conv = this.getConversation(convId);
+        if (conv) {
+            conv.unread = Math.max(conv.unread || 0, 1);
+            // Mark as unread on Pancake API
+            if (conv.pageId && window.pancakeDataManager) {
+                const pdm = window.pancakeDataManager;
+                pdm.getOrGeneratePageAccessToken
+                    ? window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId).then(token => {
+                        if (!token) return;
+                        const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                            `pages/${conv.pageId}/conversations/${convId}/unread`, token
+                        );
+                        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                            .then(r => { if (r.ok) console.log('[InboxData] Marked as unread:', convId); })
+                            .catch(err => console.warn('[InboxData] Error marking as unread:', err));
+                    })
+                    : null;
+            }
+        }
+    }
+
+    /**
+     * Mark customer as replied on Render DB (remove from pending_customers)
+     */
+    markRepliedOnServer(psid, pageId) {
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/mark-replied`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ psid, pageId })
+        }).catch(err => console.warn('[InboxData] Error marking replied:', err.message));
+    }
+
+    /**
+     * Fetch pending customers from Render DB and merge unread data
+     */
+    async fetchPendingFromServer() {
+        try {
+            const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const response = await fetch(`${workerUrl}/api/realtime/pending-customers?limit=500`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (!data.success || !data.customers) return;
+
+            console.log(`[InboxData] Render DB has ${data.customers.length} pending customers`);
+
+            let changed = false;
+            for (const pending of data.customers) {
+                // Try to find matching conversation by psid
+                const conv = this.conversationByPsidMap.get(pending.psid);
+                if (conv && conv.pageId === pending.page_id) {
+                    // Update unread count if server has newer data
+                    if (pending.message_count > 0 && conv.unread === 0) {
+                        conv.unread = pending.message_count;
+                        changed = true;
+                    }
+                }
+            }
+
+            if (changed) {
+                this.recalculateGroupCounts();
+                if (window.inboxChat) window.inboxChat.renderConversationList();
+                console.log('[InboxData] Updated unread counts from Render pending_customers');
+            }
+        } catch (error) {
+            console.warn('[InboxData] Error fetching pending customers:', error.message);
         }
     }
 
