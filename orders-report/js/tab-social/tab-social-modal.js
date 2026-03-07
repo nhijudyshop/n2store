@@ -595,11 +595,11 @@ function initPhoneAutoLookup() {
         if (phone.length !== 10) return;
 
         _tposPhoneLookupTimeout = setTimeout(async () => {
-            if (!window.tposCustomerLookup) return;
+            if (!window.fetchTPOSCustomer) return;
 
             try {
                 console.log('[SOCIAL-MODAL] Looking up TPOS customer for phone:', phone);
-                const result = await window.tposCustomerLookup.search(phone);
+                const result = await fetchTPOSCustomer(phone);
 
                 if (result.success && result.count > 0) {
                     const customer = result.customers[0];

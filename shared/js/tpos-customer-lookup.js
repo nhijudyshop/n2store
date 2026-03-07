@@ -1,23 +1,23 @@
 /**
- * Shared TPOS Customer Lookup Service
- * Reusable across pages (balance-history, orders-report, etc.)
+ * Shared TPOS Customer Lookup
+ * Single source of truth — used by balance-history, orders-report, etc.
  *
- * Usage: Include this script, then call window.tposCustomerLookup.search(phone)
+ * Exports: window.fetchTPOSCustomer(phone)
  */
 (function () {
-    const _cache = {};
+    const tposLookupCache = {};
 
     /**
      * Fetch customer(s) from TPOS by phone number
      * @param {string} phone - 10-digit phone number
      * @returns {Promise<{success: boolean, customers: Array, count: number}>}
      */
-    async function search(phone) {
+    async function fetchTPOSCustomer(phone) {
         const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
         // Check cache first
-        if (_cache[phone]) {
-            return _cache[phone];
+        if (tposLookupCache[phone]) {
+            return tposLookupCache[phone];
         }
 
         try {
@@ -31,8 +31,8 @@
                     count: result.count || 0
                 };
                 // Cache for 5 minutes
-                _cache[phone] = cacheResult;
-                setTimeout(() => delete _cache[phone], 5 * 60 * 1000);
+                tposLookupCache[phone] = cacheResult;
+                setTimeout(() => delete tposLookupCache[phone], 5 * 60 * 1000);
                 return cacheResult;
             } else {
                 return { success: false, customers: [], count: 0, error: result.error };
@@ -43,5 +43,5 @@
         }
     }
 
-    window.tposCustomerLookup = { search };
+    window.fetchTPOSCustomer = fetchTPOSCustomer;
 })();
