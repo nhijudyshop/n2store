@@ -36,120 +36,55 @@ const STATUS_CONFIG = {
     cancelled: { label: 'Đã hủy', color: '#ef4444', bgColor: '#fee2e2', textColor: '#991b1b' },
 };
 
-// ===== MOCK DATA FOR UI TESTING =====
-const MOCK_ORDERS = [
-    {
-        id: 'SO-20260124-0001',
-        stt: 1,
-        customerName: 'Nguyễn Văn An',
-        phone: '0901234567',
-        address: '123 Lê Lợi, Phường Bến Nghé, Quận 1, TP.HCM',
-        postUrl: 'https://facebook.com/n2store/posts/123456',
-        postLabel: 'FB Post 24/01',
-        source: 'facebook_post',
-        products: [
-            { productId: 'p1', name: 'Áo thun trắng', code: 'AT001', quantity: 2, price: 150000 },
-            { productId: 'p2', name: 'Quần jean xanh', code: 'QJ002', quantity: 1, price: 350000 },
-        ],
-        totalQuantity: 3,
-        totalAmount: 650000,
-        tags: [{ id: 'tag_vip', name: 'VIP', color: '#ef4444' }],
-        status: 'draft',
-        note: 'Khách yêu cầu giao trước 5h',
-        createdAt: Date.now() - 3600000,
-        updatedAt: Date.now(),
-    },
-    {
-        id: 'SO-20260124-0002',
-        stt: 2,
-        customerName: 'Trần Thị Bình',
-        phone: '0912345678',
-        address: '456 Nguyễn Huệ, Quận 1, TP.HCM',
-        postUrl: 'https://instagram.com/p/ABC123',
-        postLabel: 'IG Post 23/01',
-        source: 'instagram',
-        products: [{ productId: 'p3', name: 'Váy hoa', code: 'VH003', quantity: 1, price: 450000 }],
-        totalQuantity: 1,
-        totalAmount: 450000,
-        tags: [{ id: 'tag_new', name: 'Khách mới', color: '#10b981' }],
-        status: 'processing',
-        note: '',
-        createdAt: Date.now() - 7200000,
-        updatedAt: Date.now(),
-    },
-    {
-        id: 'SO-20260124-0003',
-        stt: 3,
-        customerName: 'Lê Văn Cường',
-        phone: '0923456789',
-        address: '789 Trần Hưng Đạo, Quận 5, TP.HCM',
-        postUrl: '',
-        postLabel: '',
-        source: 'manual',
-        products: [
-            { productId: 'p4', name: 'Giày sneaker', code: 'GS004', quantity: 1, price: 890000 },
-        ],
-        totalQuantity: 1,
-        totalAmount: 890000,
-        tags: [],
-        status: 'completed',
-        note: 'Đã thanh toán COD',
-        createdAt: Date.now() - 86400000,
-        updatedAt: Date.now(),
-    },
-    {
-        id: 'SO-20260124-0004',
-        stt: 4,
-        customerName: 'Phạm Thị Dung',
-        phone: '0934567890',
-        address: '321 Điện Biên Phủ, Quận 3, TP.HCM',
-        postUrl: 'https://tiktok.com/@n2store/video/123',
-        postLabel: 'TikTok 22/01',
-        source: 'tiktok',
-        products: [
-            { productId: 'p5', name: 'Túi xách', code: 'TX005', quantity: 1, price: 550000 },
-            { productId: 'p6', name: 'Ví da', code: 'VD006', quantity: 2, price: 250000 },
-        ],
-        totalQuantity: 3,
-        totalAmount: 1050000,
-        tags: [
-            { id: 'tag_vip', name: 'VIP', color: '#ef4444' },
-            { id: 'tag_call', name: 'Đã gọi', color: '#3b82f6' },
-        ],
-        status: 'draft',
-        note: '',
-        createdAt: Date.now() - 172800000,
-        updatedAt: Date.now(),
-    },
-    {
-        id: 'SO-20260124-0005',
-        stt: 5,
-        customerName: 'Hoàng Văn Em',
-        phone: '0945678901',
-        address: '654 Cách Mạng Tháng 8, Quận 10, TP.HCM',
-        postUrl: 'https://facebook.com/n2store/posts/789',
-        postLabel: 'FB Post 21/01',
-        source: 'facebook_post',
-        products: [
-            { productId: 'p7', name: 'Áo khoác', code: 'AK007', quantity: 1, price: 750000 },
-        ],
-        totalQuantity: 1,
-        totalAmount: 750000,
-        tags: [],
-        status: 'cancelled',
-        note: 'Khách hủy đơn',
-        createdAt: Date.now() - 259200000,
-        updatedAt: Date.now(),
-    },
-];
-
-const MOCK_TAGS = [
+// ===== DEFAULT TAGS =====
+const DEFAULT_TAGS = [
     { id: 'tag_vip', name: 'VIP', color: '#ef4444' },
     { id: 'tag_new', name: 'Khách mới', color: '#10b981' },
     { id: 'tag_call', name: 'Đã gọi', color: '#3b82f6' },
     { id: 'tag_wait', name: 'Chờ ship', color: '#f59e0b' },
     { id: 'tag_return', name: 'Khách cũ', color: '#8b5cf6' },
 ];
+
+// ===== LOCAL STORAGE KEYS =====
+const SOCIAL_ORDERS_STORAGE_KEY = 'socialOrders';
+const SOCIAL_TAGS_STORAGE_KEY = 'socialOrderTags';
+
+// ===== LOCAL STORAGE PERSISTENCE =====
+function saveSocialOrdersToStorage() {
+    try {
+        localStorage.setItem(SOCIAL_ORDERS_STORAGE_KEY, JSON.stringify(SocialOrderState.orders));
+    } catch (e) {
+        console.error('[Tab Social] Failed to save orders to localStorage:', e);
+    }
+}
+
+function loadSocialOrdersFromStorage() {
+    try {
+        const data = localStorage.getItem(SOCIAL_ORDERS_STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        console.error('[Tab Social] Failed to load orders from localStorage:', e);
+        return [];
+    }
+}
+
+function saveSocialTagsToStorage() {
+    try {
+        localStorage.setItem(SOCIAL_TAGS_STORAGE_KEY, JSON.stringify(SocialOrderState.tags));
+    } catch (e) {
+        console.error('[Tab Social] Failed to save tags to localStorage:', e);
+    }
+}
+
+function loadSocialTagsFromStorage() {
+    try {
+        const data = localStorage.getItem(SOCIAL_TAGS_STORAGE_KEY);
+        return data ? JSON.parse(data) : DEFAULT_TAGS;
+    } catch (e) {
+        console.error('[Tab Social] Failed to load tags from localStorage:', e);
+        return DEFAULT_TAGS;
+    }
+}
 
 // ===== UTILITY FUNCTIONS =====
 function formatCurrency(amount) {
@@ -229,10 +164,16 @@ async function initSocialTab() {
             console.warn('[Tab Social] Pancake Token Manager not available');
         }
 
-        // Load mock data for now (Phase 1 - UI only)
-        SocialOrderState.orders = [...MOCK_ORDERS];
-        SocialOrderState.tags = [...MOCK_TAGS];
-        SocialOrderState.filteredOrders = [...MOCK_ORDERS];
+        // Load data from Firestore (source of truth), fallback to localStorage
+        if (typeof loadSocialOrdersFromFirebase === 'function') {
+            SocialOrderState.orders = await loadSocialOrdersFromFirebase();
+            SocialOrderState.tags = await loadSocialTagsFromFirebase();
+        } else {
+            // Fallback if firebase module not loaded
+            SocialOrderState.orders = loadSocialOrdersFromStorage();
+            SocialOrderState.tags = loadSocialTagsFromStorage();
+        }
+        SocialOrderState.filteredOrders = [...SocialOrderState.orders];
 
         // Render table
         renderTable();
@@ -248,6 +189,11 @@ async function initSocialTab() {
         // Update search result count
         updateSearchResultCount();
 
+        // Setup real-time listener for cross-device sync
+        if (typeof setupSocialOrdersListener === 'function') {
+            setupSocialOrdersListener();
+        }
+
         console.log('[Tab Social] Initialized with', SocialOrderState.orders.length, 'orders');
     } catch (error) {
         console.error('[Tab Social] Init error:', error);
@@ -257,11 +203,17 @@ async function initSocialTab() {
     }
 }
 
-function loadOrders() {
-    // Reload from mock data (will be Firebase later)
+async function loadOrders() {
     console.log('[Tab Social] Reloading orders...');
-    SocialOrderState.orders = [...MOCK_ORDERS];
+    if (typeof loadSocialOrdersFromFirebase === 'function') {
+        SocialOrderState.orders = await loadSocialOrdersFromFirebase();
+        SocialOrderState.tags = await loadSocialTagsFromFirebase();
+    } else {
+        SocialOrderState.orders = loadSocialOrdersFromStorage();
+        SocialOrderState.tags = loadSocialTagsFromStorage();
+    }
     performTableSearch();
+    populateTagFilter();
     showNotification('Đã tải lại dữ liệu', 'success');
 }
 
@@ -276,3 +228,5 @@ window.showLoading = showLoading;
 window.showNotification = showNotification;
 window.debounce = debounce;
 window.loadOrders = loadOrders;
+window.saveSocialOrdersToStorage = saveSocialOrdersToStorage;
+window.saveSocialTagsToStorage = saveSocialTagsToStorage;

@@ -45,6 +45,7 @@ function closeTagModal() {
     currentTagOrderId = null;
     selectedTags = [];
     highlightedTagIndex = -1;
+    isBulkTagMode = false;
 
     // Clear search
     const searchInput = document.getElementById('tagSearchInput');
@@ -193,10 +194,19 @@ function handleTagInputKeydown(event) {
 function saveOrderTags() {
     if (!currentTagOrderId) return;
 
+    // Handle bulk mode
+    if (isBulkTagMode) {
+        saveBulkTags();
+        return;
+    }
+
     const orderIndex = SocialOrderState.orders.findIndex((o) => o.id === currentTagOrderId);
     if (orderIndex > -1) {
         SocialOrderState.orders[orderIndex].tags = [...selectedTags];
         SocialOrderState.orders[orderIndex].updatedAt = Date.now();
+        saveSocialOrdersToStorage();
+        // Fire-and-forget: sync to Firestore
+        updateSocialOrderTags(currentTagOrderId, [...selectedTags]);
 
         showNotification('Đã cập nhật tags', 'success');
         performTableSearch(); // Re-render table
@@ -206,6 +216,8 @@ function saveOrderTags() {
 }
 
 // ===== BULK TAG MODAL =====
+let isBulkTagMode = false;
+
 function showBulkTagModal() {
     const count = SocialOrderState.selectedOrders.size;
 
@@ -214,9 +226,60 @@ function showBulkTagModal() {
         return;
     }
 
-    // For now, just show a simple alert
-    // TODO: Implement proper bulk tag modal
-    alert(`Gán tag cho ${count} đơn đã chọn\n\n(Tính năng đang phát triển)`);
+    isBulkTagMode = true;
+    currentTagOrderId = '__bulk__';
+
+    // Start with empty tags for bulk mode
+    selectedTags = [];
+
+    // Render
+    renderSelectedTagsPills();
+    renderTagList();
+
+    // Update modal title hint
+    const modal = document.getElementById('tagModal');
+    if (modal) {
+        modal.classList.add('show');
+        // Focus search input
+        setTimeout(() => {
+            document.getElementById('tagSearchInput')?.focus();
+        }, 100);
+    }
+}
+
+function saveBulkTags() {
+    if (!isBulkTagMode || selectedTags.length === 0) {
+        closeTagModal();
+        return;
+    }
+
+    let updatedCount = 0;
+    SocialOrderState.selectedOrders.forEach(orderId => {
+        const orderIndex = SocialOrderState.orders.findIndex(o => o.id === orderId);
+        if (orderIndex > -1) {
+            // Merge tags (add new, keep existing)
+            const existingTags = SocialOrderState.orders[orderIndex].tags || [];
+            const existingIds = new Set(existingTags.map(t => t.id));
+            const newTags = [...existingTags];
+            selectedTags.forEach(tag => {
+                if (!existingIds.has(tag.id)) {
+                    newTags.push({ ...tag });
+                }
+            });
+            SocialOrderState.orders[orderIndex].tags = newTags;
+            SocialOrderState.orders[orderIndex].updatedAt = Date.now();
+            // Fire-and-forget: sync to Firestore
+            updateSocialOrderTags(orderId, newTags);
+            updatedCount++;
+        }
+    });
+
+    saveSocialOrdersToStorage();
+    showNotification(`Đã gán tags cho ${updatedCount} đơn hàng`, 'success');
+    performTableSearch();
+
+    isBulkTagMode = false;
+    closeTagModal();
 }
 
 // ===== KEYBOARD SHORTCUT FOR SAVE =====
@@ -239,3 +302,4 @@ window.filterTags = filterTags;
 window.handleTagInputKeydown = handleTagInputKeydown;
 window.saveOrderTags = saveOrderTags;
 window.showBulkTagModal = showBulkTagModal;
+window.saveBulkTags = saveBulkTags;
