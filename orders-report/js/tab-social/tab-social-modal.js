@@ -700,6 +700,25 @@ function openRetailSaleFromSocial(orderId) {
     showNotification('Đang mở phiếu bán hàng lẻ...', 'success');
 }
 
+// ===== CREATE CUSTOMER (shared) =====
+function openCreateCustomerModal() {
+    if (!window.CustomerCreator) {
+        showNotification('Chưa tải module tạo khách hàng', 'error');
+        return;
+    }
+    window.CustomerCreator.open({
+        onSuccess: (customer) => {
+            // Auto-fill customer info into the order form
+            const nameInput = document.getElementById('customerName');
+            const phoneInput = document.getElementById('customerPhone');
+            const addressInput = document.getElementById('customerAddress');
+            if (nameInput) nameInput.value = customer.name || '';
+            if (phoneInput) phoneInput.value = customer.phone || '';
+            if (addressInput) addressInput.value = customer.address || '';
+        }
+    });
+}
+
 // ===== EXPORTS =====
 window.openCreateOrderModal = openCreateOrderModal;
 window.openEditOrderModal = openEditOrderModal;
@@ -712,3 +731,4 @@ window.selectPost = selectPost;
 window.clearSelectedPost = clearSelectedPost;
 window.copyPostId = copyPostId;
 window.openRetailSaleFromSocial = openRetailSaleFromSocial;
+window.openCreateCustomerModal = openCreateCustomerModal;
