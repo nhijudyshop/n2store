@@ -487,6 +487,7 @@ function exportToExcel() {
             "Tên người nhận": receipt.tenNguoiNhan || "",
             "Số kg": receipt.soKg || 0,
             "Số kiện": receipt.soKien || 0,
+            "Ghi chú": receipt.ghiChu || "",
             "Thời gian nhận": receipt.thoiGianNhan || "",
             "Người tạo": receipt.user || "",
             ID: receipt.id || "",

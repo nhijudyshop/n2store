@@ -220,7 +220,14 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
     const cellKien = document.createElement("td");
     cellKien.textContent = parseFloat(receipt.soKien) || 0;
 
-    // Cell 3: Hình ảnh
+    // Cell 3: Ghi chú
+    const cellGhiChu = document.createElement("td");
+    cellGhiChu.textContent = sanitizeInput(receipt.ghiChu || "");
+    cellGhiChu.style.maxWidth = "200px";
+    cellGhiChu.style.whiteSpace = "pre-wrap";
+    cellGhiChu.style.wordBreak = "break-word";
+
+    // Cell 4: Hình ảnh
     const cellImage = document.createElement("td");
     if (receipt.anhNhanHang) {
         const img = document.createElement("img");
@@ -272,6 +279,7 @@ function createReceiptRow(receipt, imageObserver, imageCounter) {
     tr.appendChild(cellName);
     tr.appendChild(cellKg);
     tr.appendChild(cellKien);
+    tr.appendChild(cellGhiChu);
     tr.appendChild(cellImage);
     tr.appendChild(cellDate);
     tr.appendChild(cellActions);
@@ -304,7 +312,7 @@ function renderDataToTable(dataArray) {
     if (sortedData.length === 0) {
         const emptyRow = document.createElement("tr");
         const emptyTd = document.createElement("td");
-        emptyTd.colSpan = 6;
+        emptyTd.colSpan = 7;
         emptyTd.textContent = "Không có dữ liệu";
         emptyTd.style.textAlign = "center";
         emptyTd.style.padding = "20px";
@@ -320,7 +328,7 @@ function renderDataToTable(dataArray) {
     summaryRow.style.backgroundColor = "#f8f9fa";
     summaryRow.style.fontWeight = "bold";
     const summaryTd = document.createElement("td");
-    summaryTd.colSpan = 6;
+    summaryTd.colSpan = 7;
     summaryTd.textContent = `Tổng: ${sortedData.length} phiếu nhận`;
     summaryTd.style.textAlign = "center";
     summaryTd.style.color = "#007bff";
@@ -366,7 +374,7 @@ function renderDataToTable(dataArray) {
         warningRow.style.backgroundColor = "#fff3cd";
         warningRow.style.color = "#856404";
         const warningTd = document.createElement("td");
-        warningTd.colSpan = 6;
+        warningTd.colSpan = 7;
         warningTd.textContent = `Hiển thị ${MAX_VISIBLE_ROWS} / ${sortedData.length} phiếu nhận. Sử dụng bộ lọc để xem dữ liệu cụ thể hơn.`;
         warningTd.style.textAlign = "center";
         warningTd.style.padding = "8px";
@@ -414,9 +422,13 @@ function renderMobileCards(sortedData) {
         const kg = parseFloat(receipt.soKg) || 0;
         const kien = parseFloat(receipt.soKien) || 0;
         const date = sanitizeInput(receipt.thoiGianNhan || 'Chưa nhập');
+        const ghiChu = sanitizeInput(receipt.ghiChu || '');
         const hasImage = !!receipt.anhNhanHang;
         const thumbHtml = hasImage
             ? `<img class="m-receipt-thumb" src="${receipt.anhNhanHang}" alt="Ảnh" loading="lazy">`
+            : '';
+        const ghiChuHtml = ghiChu
+            ? `<div class="m-receipt-row"><span class="m-receipt-label">Ghi chú:</span><span class="m-receipt-value-text">${ghiChu}</span></div>`
             : '';
 
         return `
@@ -436,6 +448,7 @@ function renderMobileCards(sortedData) {
                         <span class="m-receipt-label">Thời gian:</span>
                         <span class="m-receipt-value-text">${date}</span>
                     </div>
+                    ${ghiChuHtml}
                 </div>
             </div>`;
     }).join('');

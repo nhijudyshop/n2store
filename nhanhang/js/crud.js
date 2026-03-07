@@ -41,6 +41,7 @@ async function addReceipt(event) {
 
     const thoiGianNhan = getFormattedDateTime();
     const receiptId = generateUniqueID();
+    const ghiChu = ghiChuInput ? ghiChuInput.value.trim() : "";
 
     console.log("=== NEW RECEIPT DEBUG ===");
     console.log("thoiGianNhan being saved:", thoiGianNhan);
@@ -55,6 +56,10 @@ async function addReceipt(event) {
         thoiGianNhan: thoiGianNhan,
         user: getUserName(),
     };
+
+    if (ghiChu) {
+        newReceiptData.ghiChu = ghiChu;
+    }
 
     let notifId = null;
 
@@ -216,6 +221,14 @@ async function updateReceipt(event) {
         data.data[index].tenNguoiNhan = tenNguoiNhan;
         data.data[index].soKg = soKg;
         data.data[index].soKien = soKien;
+
+        // Update ghiChu
+        const editGhiChuVal = editGhiChuInput ? editGhiChuInput.value.trim() : "";
+        if (editGhiChuVal) {
+            data.data[index].ghiChu = editGhiChuVal;
+        } else {
+            delete data.data[index].ghiChu;
+        }
 
         // Update datetime if provided – convert "YYYY-MM-DDTHH:MM" → "DD/MM/YYYY, HH:MM"
         const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");
@@ -406,6 +419,7 @@ function openEditModal(event) {
     editTenNguoiNhanInput.value = receiptData.tenNguoiNhan || "";
     editSoKgInput.value = receiptData.soKg || 0;
     editSoKienInput.value = receiptData.soKien || 0;
+    if (editGhiChuInput) editGhiChuInput.value = receiptData.ghiChu || "";
 
     // Populate datetime field – convert "DD/MM/YYYY, HH:MM" → "YYYY-MM-DDTHH:MM"
     const editThoiGianNhanInput = document.getElementById("editThoiGianNhan");

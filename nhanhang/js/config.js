@@ -206,6 +206,7 @@ const receiptForm = document.getElementById("receiptForm");
 const tenNguoiNhanInput = document.getElementById("tenNguoiNhan");
 const soKgInput = document.getElementById("soKg");
 const soKienInput = document.getElementById("soKien");
+const ghiChuInput = document.getElementById("ghiChu");
 
 // Camera elements
 const cameraPreview = document.getElementById("cameraPreview");
@@ -223,6 +224,7 @@ const editReceiptId = document.getElementById("editReceiptId");
 const editTenNguoiNhanInput = document.getElementById("editTenNguoiNhan");
 const editSoKgInput = document.getElementById("editSoKg");
 const editSoKienInput = document.getElementById("editSoKien");
+const editGhiChuInput = document.getElementById("editGhiChu");
 const closeEditModal = document.getElementById("closeEditModal");
 const cancelEditButton = document.getElementById("cancelEditButton");
 const updateButton = document.getElementById("updateButton");

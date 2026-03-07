@@ -194,6 +194,20 @@
                             </div>
                         </div>
 
+                        <!-- Ghi chú -->
+                        <div class="form-group" style="margin-bottom: var(--spacing-lg);">
+                            <label>
+                                <i data-lucide="file-text"></i>
+                                Ghi chú
+                            </label>
+                            <textarea
+                                id="ghiChu"
+                                rows="2"
+                                placeholder="Nhập ghi chú (không bắt buộc)..."
+                                style="padding: var(--spacing-md); border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 0.875rem; resize: vertical;"
+                            ></textarea>
+                        </div>
+
                         <!-- Camera Section -->
                         <div class="camera-section">
                             <h3>
@@ -365,6 +379,7 @@
                                     <th>Tên người nhận</th>
                                     <th>Số kg</th>
                                     <th>Số kiện</th>
+                                    <th>Ghi chú</th>
                                     <th>Hình ảnh</th>
                                     <th>Ngày giờ nhận</th>
                                     <th>Thao tác</th>
@@ -477,6 +492,20 @@
                                 id="editThoiGianNhan"
                             />
                         </div>
+                    </div>
+
+                    <!-- Ghi chú (edit) -->
+                    <div class="form-group" style="margin-bottom: var(--spacing-lg); padding: 0 var(--spacing-xl);">
+                        <label>
+                            <i data-lucide="file-text"></i>
+                            Ghi chú
+                        </label>
+                        <textarea
+                            id="editGhiChu"
+                            rows="2"
+                            placeholder="Nhập ghi chú (không bắt buộc)..."
+                            style="padding: var(--spacing-md); border: 1px solid var(--border); border-radius: var(--radius); font-family: inherit; font-size: 0.875rem; resize: vertical;"
+                        ></textarea>
                     </div>
 
                     <div class="camera-section">
