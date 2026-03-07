@@ -302,6 +302,12 @@ window.addEventListener("DOMContentLoaded", async function () {
                 }, '*');
             }
         }
+
+        // Handle retail sale from Social tab
+        if (event.data.type === 'OPEN_RETAIL_SALE_FROM_SOCIAL') {
+            console.log('[TAB1] 🧾 Received social order data for retail sale:', event.data.orderData);
+            openSaleModalFromSocialOrder(event.data.orderData);
+        }
     });
 
     // Keyboard shortcuts for tag modal

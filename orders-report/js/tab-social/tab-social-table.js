@@ -117,6 +117,9 @@ function renderTableRow(order, index) {
                     <button class="tag-icon-btn-red" onclick="confirmDeleteOrder('${order.id}')" title="Xóa đơn">
                         <i class="fas fa-trash"></i>
                     </button>
+                    <button class="btn-edit-icon" onclick="openRetailSaleFromSocial('${order.id}')" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
+                        <i class="fas fa-receipt"></i>
+                    </button>
                 </div>
             </td>
             <td data-column="stt" style="text-align: center;">${order.stt || index + 1}</td>

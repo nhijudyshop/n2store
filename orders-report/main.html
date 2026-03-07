@@ -868,6 +868,18 @@
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, '*');
                 }
+            } else if (e.data.type === 'OPEN_RETAIL_SALE_FROM_SOCIAL') {
+                // Social tab requested to open retail sale modal in Tab1
+                console.log('[MAIN] 🧾 Forwarding OPEN_RETAIL_SALE_FROM_SOCIAL to Tab1');
+                // Switch to orders tab first so user can see the modal
+                switchTab('orders');
+                // Forward to Tab1 after a small delay to ensure tab is visible
+                setTimeout(() => {
+                    const ordersFrame = document.getElementById('ordersFrame');
+                    if (ordersFrame && ordersFrame.contentWindow) {
+                        ordersFrame.contentWindow.postMessage(e.data, '*');
+                    }
+                }, 300);
             } else if (e.data.type === 'TABLE_NAME_CHANGED') {
                 // Forward table name change from Tab1 to Overview
                 const overviewFrame = document.getElementById('overviewFrame');
