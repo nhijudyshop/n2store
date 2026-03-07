@@ -719,9 +719,11 @@ class PurchaseOrderController {
                     ">Xuất Excel</button>
                     <button type="button" id="btnSubmitTPOS" style="
                         padding: 8px 20px; border: none; border-radius: 4px;
-                        background: #28a745; color: white; cursor: pointer;
+                        background: ${ncc?.tposId ? '#28a745' : '#9ca3af'}; color: white;
+                        cursor: ${ncc?.tposId ? 'pointer' : 'not-allowed'};
                         font-size: 14px; font-weight: 600;
-                    " ${!ncc?.tposId ? 'disabled data-ncc-disabled title="NCC chưa có TPOS ID"' : ''}>Tạo đơn TPOS</button>
+                        ${!ncc?.tposId ? 'opacity: 0.7;' : ''}
+                    " ${!ncc?.tposId ? 'disabled data-ncc-disabled title="NCC chưa có TPOS ID — Hãy đồng bộ NCC từ TPOS trước"' : ''}>Tạo đơn TPOS</button>
                 </div>
             </div>
         `;
@@ -1007,6 +1009,7 @@ class PurchaseOrderController {
 
         // Submit to TPOS
         overlay.querySelector('#btnSubmitTPOS').addEventListener('click', async () => {
+            console.log('[PO Preview] btnSubmitTPOS clicked');
             const btn = overlay.querySelector('#btnSubmitTPOS');
             btn.disabled = true;
             btn.textContent = 'Đang tạo...';
