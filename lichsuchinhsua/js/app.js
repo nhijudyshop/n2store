@@ -549,6 +549,17 @@ window.AuditLogApp = (function () {
                         records.push(normalizeRecord(data));
                     });
 
+                    // Sort mới nhất lên đầu (client-side) để đảm bảo đúng thứ tự
+                    // khi timestamp có nhiều format khác nhau
+                    records.sort(function(a, b) {
+                        var da = getTimestampDate(a);
+                        var db = getTimestampDate(b);
+                        if (!da && !db) return 0;
+                        if (!da) return 1;
+                        if (!db) return -1;
+                        return db.getTime() - da.getTime();
+                    });
+
                     state.allRecords = records;
                     state.filteredRecords = records;
 
