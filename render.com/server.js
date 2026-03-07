@@ -194,7 +194,7 @@ const deepseekRoutes = require('./routes/deepseek');
 const telegramBotRoutes = require('./routes/telegram-bot');
 const uploadImageRoutes = require('./routes/upload');
 const quyTrinhRoutes = require('./routes/quy-trinh');
-const googlePlacesRoutes = require('./routes/google-places');
+const goongPlacesRoutes = require('./routes/goong-places');
 
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
 const realtimeSseRoutes = require('./routes/realtime-sse');
@@ -228,7 +228,7 @@ app.use('/api/deepseek', deepseekRoutes);
 app.use('/api/telegram', telegramBotRoutes);
 app.use('/api/upload', uploadImageRoutes);
 app.use('/api/quy-trinh', quyTrinhRoutes);
-app.use('/api/google-places', googlePlacesRoutes);
+app.use('/api/goong-places', goongPlacesRoutes);
 
 // === FIREBASE REPLACEMENT ROUTES ===
 // SSE for realtime updates (replaces Firebase listeners)
