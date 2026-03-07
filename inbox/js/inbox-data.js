@@ -66,6 +66,9 @@ class InboxDataManager {
             this.buildMaps();
             this.isInitialized = true;
             console.log('[InboxData] Initialization complete');
+
+            // Detect livestream conversations in background (fetch posts per page)
+            this.detectLivestreamConversations();
         } catch (error) {
             console.error('[InboxData] Pancake initialization error:', error);
             showToast('Lỗi kết nối Pancake: ' + error.message, 'error');
@@ -610,6 +613,90 @@ class InboxDataManager {
             return conv.starred;
         }
         return false;
+    }
+
+    /**
+     * Detect livestream conversations by fetching posts per page (runs in background)
+     * Matches post_id from COMMENT conversations against fetched posts with type 'livestream'
+     */
+    async detectLivestreamConversations() {
+        try {
+            const pdm = window.pancakeDataManager;
+            if (!pdm || !pdm.fetchPosts) return;
+
+            // Collect unique page IDs that have COMMENT conversations
+            const commentConvs = this.conversations.filter(c => c.type === 'COMMENT');
+            if (commentConvs.length === 0) return;
+
+            const pageIds = [...new Set(commentConvs.map(c => c.pageId).filter(Boolean))];
+            console.log(`[InboxData] Detecting livestream for ${commentConvs.length} COMMENT convs across ${pageIds.length} pages`);
+
+            let changed = false;
+
+            for (const pageId of pageIds) {
+                try {
+                    const posts = await pdm.fetchPosts(pageId, 50);
+                    if (!posts || posts.length === 0) continue;
+
+                    // Build a set of livestream post IDs
+                    const livestreamPostIds = new Set();
+                    const nonLivestreamPostIds = new Set();
+                    for (const post of posts) {
+                        const fullPostId = post.id || `${pageId}_${post.fb_post_id || post.post_id || ''}`;
+                        if (post.type === 'livestream' || post.live_video_status === 'vod' || post.live_video_status === 'live') {
+                            livestreamPostIds.add(fullPostId);
+                            // Also add without page prefix
+                            if (fullPostId.includes('_')) {
+                                livestreamPostIds.add(fullPostId.split('_').pop());
+                            }
+                        } else {
+                            nonLivestreamPostIds.add(fullPostId);
+                            if (fullPostId.includes('_')) {
+                                nonLivestreamPostIds.add(fullPostId.split('_').pop());
+                            }
+                        }
+                    }
+
+                    // Match COMMENT conversations for this page
+                    const pageConvs = commentConvs.filter(c => c.pageId === pageId);
+                    for (const conv of pageConvs) {
+                        const rawPostId = conv._raw?.post_id || '';
+                        if (!rawPostId) continue;
+
+                        // Check against livestream post IDs (try full id and video part)
+                        const videoId = rawPostId.includes('_') ? rawPostId.split('_').pop() : rawPostId;
+                        const isLive = livestreamPostIds.has(rawPostId) || livestreamPostIds.has(videoId);
+                        const isNotLive = nonLivestreamPostIds.has(rawPostId) || nonLivestreamPostIds.has(videoId);
+
+                        if (isLive && !conv.isLivestream) {
+                            this.livestreamConvIds.add(conv.id);
+                            conv.isLivestream = true;
+                            changed = true;
+                        } else if (isNotLive && conv.isLivestream) {
+                            this.livestreamConvIds.delete(conv.id);
+                            conv.isLivestream = false;
+                            changed = true;
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`[InboxData] Error fetching posts for page ${pageId}:`, err);
+                }
+            }
+
+            if (changed) {
+                this.saveLocalState();
+                this.recalculateGroupCounts();
+                // Notify chat controller to re-render
+                if (window.inboxChat) {
+                    window.inboxChat.renderConversationList();
+                }
+                console.log(`[InboxData] Livestream detection complete: ${this.livestreamConvIds.size} livestream conversations`);
+            } else {
+                console.log('[InboxData] Livestream detection: no changes');
+            }
+        } catch (error) {
+            console.error('[InboxData] Error detecting livestream:', error);
+        }
     }
 
     /**
