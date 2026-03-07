@@ -295,15 +295,19 @@ async function batchFetchDebts(phones) {
 // Fetch phones that transferred within last 7 days
 // =====================================================
 
-window.recentTransferPhones = new Set();
+// Map: phone → { amount, last_transfer_at }
+window.recentTransferPhones = new Map();
 
 async function fetchRecentTransfers() {
     try {
         const response = await fetch(`${QR_API_URL}/api/sepay/recent-transfers`);
         const result = await response.json();
-        if (result.success && result.phones) {
-            window.recentTransferPhones = new Set(result.phones);
-            console.log(`[RECENT-CK] ✅ Loaded ${result.phones.length} recent transfer phones`);
+        if (result.success && result.details) {
+            window.recentTransferPhones = new Map();
+            for (const r of result.details) {
+                window.recentTransferPhones.set(r.phone, parseFloat(r.transfer_amount) || 0);
+            }
+            console.log(`[RECENT-CK] ✅ Loaded ${window.recentTransferPhones.size} recent transfer phones`);
         }
     } catch (error) {
         console.error('[RECENT-CK] Error fetching recent transfers:', error);
@@ -317,8 +321,12 @@ function isRecentTransfer(phone) {
 }
 
 function renderRecentTransferBadge(phone) {
-    if (!isRecentTransfer(phone)) return '';
-    return ' <span style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle;" title="Đã chuyển khoản trong 7 ngày gần đây">CK</span>';
+    if (!phone) return '';
+    const normalized = normalizePhoneForQR(phone);
+    if (!normalized || !window.recentTransferPhones.has(normalized)) return '';
+    const amount = window.recentTransferPhones.get(normalized);
+    const formattedAmount = amount ? new Intl.NumberFormat('vi-VN').format(amount) + 'đ' : '';
+    return ` <span style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle;" title="Tổng CK 7 ngày: ${formattedAmount}">CK ${formattedAmount}</span>`;
 }
 
 // Fetch on load
