@@ -188,6 +188,7 @@ const SoquyUI = (function () {
         var uploadedUrl = '';
         var uploadPromise = null;
         var currentUploadTask = null;
+        var lastBlob = null; // Store blob for fallback direct upload
 
         function generateSoquyFileName() {
             return Date.now() + '_' + Math.random().toString(36).substr(2, 9) + '.jpg';
@@ -196,6 +197,7 @@ const SoquyUI = (function () {
         function startBackgroundUpload(blob) {
             cancelUpload();
             uploadState = 'uploading';
+            lastBlob = blob; // Store for fallback
 
             console.log('[SoquyUI] Eager upload started. Blob size:', (blob.size / 1024).toFixed(0) + 'KB');
             showNotification('[Debug] Eager upload bắt đầu (' + (blob.size / 1024).toFixed(0) + 'KB)', 'info');
@@ -260,6 +262,7 @@ const SoquyUI = (function () {
             uploadState = 'idle';
             uploadedUrl = '';
             uploadPromise = null;
+            lastBlob = null;
             removeUploadProgressOverlay(containerEl);
         }
 
@@ -304,11 +307,31 @@ const SoquyUI = (function () {
                     return url;
                 } catch (err) {
                     console.error('[SoquyUI] Upload failed while waiting:', err);
-                    showNotification('[Debug] Eager lỗi khi chờ: ' + err.message, 'error');
+                    showNotification('[Debug] Eager lỗi khi chờ, thử fallback...', 'error');
+                    // Fall through to fallback
+                }
+            }
+
+            // Fallback: direct upload if eager failed but we still have the blob
+            if (lastBlob) {
+                showNotification('[Debug] Fallback direct upload, status=' + uploadState, 'info');
+                try {
+                    var imageName = generateSoquyFileName();
+                    var imageRef = config.storageRef.child('soquy/photos/' + imageName);
+                    var snapshot = await imageRef.put(lastBlob, { cacheControl: 'public,max-age=31536000' });
+                    var downloadURL = await snapshot.ref.getDownloadURL();
+                    uploadState = 'done';
+                    uploadedUrl = downloadURL;
+                    showNotification('[Debug] Fallback upload XONG ✓', 'success');
+                    return downloadURL;
+                } catch (fallbackErr) {
+                    console.error('[SoquyUI] Fallback upload also failed:', fallbackErr);
+                    showNotification('[Debug] Fallback cũng lỗi: ' + fallbackErr.message, 'error');
                     return '';
                 }
             }
-            showNotification('[Debug] Fallback trả rỗng, status=' + uploadState, 'error');
+
+            showNotification('[Debug] Không có blob để fallback, status=' + uploadState, 'error');
             return '';
         }
 
@@ -337,12 +360,16 @@ const SoquyUI = (function () {
             compressImage(file, COMPRESS_MAX_WIDTH, COMPRESS_QUALITY)
                 .then(function (blob) {
                     showPreview(URL.createObjectURL(blob));
-                    startBackgroundUpload(blob);
+                    startBackgroundUpload(blob).catch(function (err) {
+                        console.warn('[SoquyUI] Background upload failed (will retry on save):', err.message);
+                    });
                 })
                 .catch(function (err) {
                     console.error('[SoquyUI] Image compression error:', err);
                     showPreview(URL.createObjectURL(file));
-                    startBackgroundUpload(file);
+                    startBackgroundUpload(file).catch(function (err2) {
+                        console.warn('[SoquyUI] Background upload fallback failed:', err2.message);
+                    });
                 });
         }
 
