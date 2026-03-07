@@ -215,17 +215,13 @@ window.VariantUtils = (function() {
             'XXXXXL': 10, '5XL': 10
         };
 
-        // Priority color names (common colors first)
+        // Priority color names - exact match only (common colors first)
         var priorityColors = ['TRẮNG', 'ĐEN', 'XÁM', 'XANH', 'VÀNG', 'HỒNG', 'CAM', 'TÍM', 'NÂU', 'NU', 'RÊU'];
 
         function getColorPriority(name) {
             var upper = name.toUpperCase().trim();
-            for (var i = 0; i < priorityColors.length; i++) {
-                if (upper === priorityColors[i] || upper.indexOf(priorityColors[i] + ' ') === 0) {
-                    return i;
-                }
-            }
-            return -1;
+            var idx = priorityColors.indexOf(upper);
+            return idx !== -1 ? idx : -1;
         }
 
         return [...values].sort((a, b) => {

@@ -95,6 +95,22 @@ async function ensureTablesExist() {
             CREATE INDEX IF NOT EXISTS idx_pending_customers_time ON pending_customers(last_message_time DESC);
         `);
 
+        // Create conversation_post_types table (livestream detection)
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS conversation_post_types (
+                conversation_id VARCHAR(500) PRIMARY KEY,
+                page_id VARCHAR(255),
+                post_id VARCHAR(500),
+                post_type VARCHAR(50),
+                live_video_status VARCHAR(50),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await dbPool.query(`
+            CREATE INDEX IF NOT EXISTS idx_conv_post_types_page ON conversation_post_types(page_id);
+            CREATE INDEX IF NOT EXISTS idx_conv_post_types_type ON conversation_post_types(post_type);
+        `);
+
         console.log('[DATABASE] ✅ Tables initialized');
     } catch (error) {
         console.error('[DATABASE] Error creating tables:', error.message);
@@ -772,6 +788,10 @@ app.get('/', (req, res) => {
                 'GET /api/realtime/pending-customers - Get pending customers',
                 'POST /api/realtime/mark-replied - Mark customer as replied'
             ],
+            postTypes: [
+                'PUT /api/realtime/post-type - Save post_type for conversation',
+                'GET /api/realtime/post-types - Get conversation post types'
+            ],
             health: [
                 'GET /health - Server health check'
             ]
@@ -921,6 +941,83 @@ app.post('/api/realtime/clear-pending', async (req, res) => {
     } catch (error) {
         console.error('[API] Error clearing pending:', error);
         res.status(500).json({ error: 'Failed to clear pending customers' });
+    }
+});
+
+// =====================================================
+// POST TYPE ROUTES (livestream detection)
+// =====================================================
+
+app.put('/api/realtime/post-type', async (req, res) => {
+    if (!dbPool) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const { conversationId, pageId, postId, postType, liveVideoStatus } = req.body;
+        if (!conversationId || !postType) {
+            return res.status(400).json({ error: 'Missing conversationId or postType' });
+        }
+
+        await dbPool.query(`
+            INSERT INTO conversation_post_types
+            (conversation_id, page_id, post_id, post_type, live_video_status)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (conversation_id) DO UPDATE SET
+                page_id = COALESCE(EXCLUDED.page_id, conversation_post_types.page_id),
+                post_id = COALESCE(EXCLUDED.post_id, conversation_post_types.post_id),
+                post_type = EXCLUDED.post_type,
+                live_video_status = COALESCE(EXCLUDED.live_video_status, conversation_post_types.live_video_status),
+                updated_at = CURRENT_TIMESTAMP
+        `, [conversationId, pageId || null, postId || null, postType, liveVideoStatus || null]);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[API] Error saving post_type:', error);
+        res.status(500).json({ error: 'Failed to save post_type' });
+    }
+});
+
+app.get('/api/realtime/post-types', async (req, res) => {
+    if (!dbPool) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const postType = req.query.post_type;
+        const pageId = req.query.page_id;
+        const limit = parseInt(req.query.limit) || 1000;
+
+        let query = 'SELECT conversation_id, page_id, post_id, post_type, live_video_status, updated_at FROM conversation_post_types';
+        const conditions = [];
+        const params = [];
+
+        if (postType) {
+            params.push(postType);
+            conditions.push(`post_type = $${params.length}`);
+        }
+        if (pageId) {
+            params.push(pageId);
+            conditions.push(`page_id = $${params.length}`);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        params.push(limit);
+        query += ` ORDER BY updated_at DESC LIMIT $${params.length}`;
+
+        const result = await dbPool.query(query, params);
+
+        res.json({
+            success: true,
+            count: result.rows.length,
+            postTypes: result.rows
+        });
+    } catch (error) {
+        console.error('[API] Error getting post_types:', error);
+        res.status(500).json({ error: 'Failed to get post_types' });
     }
 });
 
