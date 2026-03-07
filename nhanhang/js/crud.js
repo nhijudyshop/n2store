@@ -377,6 +377,42 @@ async function deleteReceiptByID(event) {
 // MIGRATION FUNCTION
 // =====================================================
 
+// Delete receipt directly by ID (used from edit modal)
+async function deleteReceiptDirectById(receiptId, receiptInfo) {
+    if (!PermissionHelper.checkBeforeAction('nhanhang', 'cancel', { alertMessage: 'Không đủ quyền thực hiện chức năng này.' })) {
+        return;
+    }
+
+    let notifId = notificationManager.deleting("Đang xóa phiếu nhận...");
+
+    try {
+        const doc = await collectionRef.doc("nhanhang").get();
+        if (!doc.exists) throw new Error("Không tìm thấy tài liệu 'nhanhang'");
+
+        const data = doc.data();
+        if (!Array.isArray(data.data)) throw new Error("Dữ liệu không hợp lệ");
+
+        const index = data.data.findIndex((item) => item.id === receiptId);
+        if (index === -1) throw new Error(`Không tìm thấy phiếu nhận với ID: ${receiptId}`);
+
+        const oldData = { ...data.data[index] };
+        data.data.splice(index, 1);
+
+        await collectionRef.doc("nhanhang").update({ data: data.data });
+
+        logAction("delete", `Xóa phiếu nhận "${receiptInfo}" - ID: ${receiptId}`, oldData, null);
+        invalidateCache();
+
+        notificationManager.remove(notifId);
+        notificationManager.success("Đã xóa thành công!", 2500);
+        await displayReceiptData();
+    } catch (error) {
+        notificationManager.remove(notifId);
+        console.error("Lỗi khi xoá:", error);
+        notificationManager.error("Lỗi khi xoá: " + error.message, 4000);
+    }
+}
+
 // Migration function (Run once only)
 async function migrateDataWithIDs() {
     // Commented out - migration already completed
@@ -471,6 +507,28 @@ function openEditModal(event) {
     editKeepCurrentImage = true; // Mặc định giữ ảnh cũ
     editCapturedImageUrl = null;
     editCapturedImageBlob = null;
+
+    // Show/hide delete button based on permission
+    const deleteFromEditBtn = document.getElementById('deleteFromEditButton');
+    if (deleteFromEditBtn) {
+        if (PermissionHelper.hasPermission('nhanhang', 'cancel')) {
+            deleteFromEditBtn.style.display = 'inline-flex';
+            // Remove old listener by cloning node
+            const newBtn = deleteFromEditBtn.cloneNode(true);
+            deleteFromEditBtn.parentNode.replaceChild(newBtn, deleteFromEditBtn);
+            newBtn.addEventListener('click', async () => {
+                const id = editReceiptId.value;
+                const name = editTenNguoiNhanInput.value;
+                if (!id) return;
+                const confirmDel = confirm(`Bạn có chắc chắn muốn xóa phiếu nhận "${name}"?\nID: ${id}`);
+                if (!confirmDel) return;
+                closeEditModalFunction();
+                await deleteReceiptDirectById(id, name);
+            });
+        } else {
+            deleteFromEditBtn.style.display = 'none';
+        }
+    }
 
     // Show modal
     if (editModal) {

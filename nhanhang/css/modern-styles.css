@@ -436,6 +436,15 @@ button {
     background: var(--gray-200);
 }
 
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
 /* =====================================================
    STATS SECTION
    ===================================================== */
