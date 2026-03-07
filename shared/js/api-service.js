@@ -1474,6 +1474,109 @@ const ApiService = {
         }
     },
 
+    // =====================================================
+    // TPOS PARTNER (CUSTOMER) METHODS
+    // =====================================================
+
+    /**
+     * Create a new customer (Partner) on TPOS
+     * @param {Object} data - { name, phone, street }
+     * @returns {Promise<Object>} Created partner data from TPOS
+     */
+    async createPartner({ name, phone, street }) {
+        const companyId = window.ShopConfig ? window.ShopConfig.getConfig().CompanyId : 1;
+        const now = new Date().toISOString();
+
+        const payload = {
+            Id: 0,
+            Name: name,
+            DisplayName: null,
+            Street: street || null,
+            Phone: phone,
+            Customer: true,
+            Supplier: false,
+            IsCompany: false,
+            Active: true,
+            Employee: false,
+            CompanyId: companyId,
+            Type: "contact",
+            CompanyType: "person",
+            Credit: 0,
+            Debit: 0,
+            CreditLimit: 0,
+            OverCredit: false,
+            Discount: 0,
+            AmountDiscount: 0,
+            CategoryId: 0,
+            DateCreated: now,
+            Status: "Normal",
+            StatusText: "Bình thường",
+            Source: "Default",
+            IsNewAddress: false,
+            Ward_District_City: "",
+            ExtraAddress: {
+                Street: street || "",
+                City: {},
+                District: {},
+                Ward: {}
+            },
+            City: {},
+            District: {},
+            Ward: {},
+            AccountPayable: {
+                Id: 4, Name: "Phải trả người bán", Code: "331",
+                UserTypeId: 2, UserTypeName: "Payable", Active: true,
+                CompanyId: companyId, InternalType: "payable",
+                NameGet: "331 Phải trả người bán", Reconcile: true
+            },
+            AccountReceivable: {
+                Id: 1, Name: "Phải thu của khách hàng", Code: "131",
+                UserTypeId: 1, UserTypeName: "Receivable", Active: true,
+                CompanyId: companyId, InternalType: "receivable",
+                NameGet: "131 Phải thu của khách hàng", Reconcile: true
+            },
+            StockCustomer: {
+                Id: 9, Usage: "customer", ScrapLocation: false,
+                Name: "Khách hàng", CompleteName: "Địa điểm đối tác / Khách hàng",
+                ParentLocationId: 2, Active: true, ParentLeft: 13,
+                ShowUsage: "Địa điểm khách hàng",
+                NameGet: "Địa điểm đối tác/Khách hàng"
+            },
+            StockSupplier: {
+                Id: 8, Usage: "supplier", ScrapLocation: false,
+                Name: "Nhà cung cấp", CompleteName: "Địa điểm đối tác / Nhà cung cấp",
+                ParentLocationId: 2, Active: true, ParentLeft: 15,
+                ShowUsage: "Địa điểm nhà cung cấp",
+                NameGet: "Địa điểm đối tác/Nhà cung cấp"
+            }
+        };
+
+        console.log('[API] Creating TPOS Partner:', { name, phone, street, companyId });
+
+        const response = await window.tokenManager.authenticatedFetch(
+            `${API_CONFIG.TPOS_ODATA}/Partner`,
+            {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'Content-Type': 'application/json;charset=UTF-8',
+                    'feature-version': '2'
+                },
+                body: JSON.stringify(payload)
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[API] Create Partner failed:', errorText);
+            throw new Error(`Tạo khách hàng thất bại: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[API] Partner created:', result.Id, result.Name);
+        return result;
+    },
+
     /**
      * Link a bank transaction to a customer
      * @param {number} transaction_id
