@@ -168,6 +168,9 @@ async function initInboxApp() {
     // Update page unread counts
     chatController.updatePageUnreadCounts();
 
+    // Fetch pending customers from Render DB (merge unread data)
+    dataManager.fetchPendingFromServer();
+
     // Listen for account changes from Pancake Settings modal
     window.addEventListener('pancakeAccountChanged', async () => {
         showToast('Đang chuyển tài khoản...', 'info');

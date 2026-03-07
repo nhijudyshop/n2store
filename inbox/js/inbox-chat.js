@@ -599,6 +599,10 @@ class InboxChatController {
                                 ${tagsHtml}
                                 ${livestreamBadge}
                             </div>
+                            <button class="conv-read-toggle" title="${isUnread ? 'Đánh dấu đã đọc' : 'Đánh dấu chưa đọc'}"
+                                onclick="event.stopPropagation(); window.inboxChat.toggleReadUnread('${conv.id}')">
+                                <i data-lucide="${isUnread ? 'mail-open' : 'mail'}"></i>
+                            </button>
                             <span class="conv-type-icon" title="${conv.type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn'}">
                                 <i data-lucide="${typeIcon}"></i>
                             </span>
@@ -642,6 +646,23 @@ class InboxChatController {
         } finally {
             this.isLoadingMoreConversations = false;
         }
+    }
+
+    // ===== Toggle Read/Unread =====
+
+    toggleReadUnread(convId) {
+        const conv = this.data.getConversation(convId);
+        if (!conv) return;
+
+        if (conv.unread > 0) {
+            this.data.markAsRead(convId);
+        } else {
+            this.data.markAsUnread(convId);
+        }
+        this.renderConversationList();
+        this.data.recalculateGroupCounts();
+        this.renderGroupStats();
+        this.updatePageUnreadCounts();
     }
 
     // ===== Select Conversation =====
@@ -1140,6 +1161,10 @@ class InboxChatController {
 
             const successMsg = replyData ? 'Đã trả lời thành công' : 'Đã gửi tin nhắn';
             console.log('[InboxChat]', successMsg);
+
+            // Auto mark as read after sending message
+            this.data.markAsRead(this.activeConversationId);
+            this.renderConversationList();
 
             setTimeout(async () => {
                 if (this.activeConversationId === conv.id) {

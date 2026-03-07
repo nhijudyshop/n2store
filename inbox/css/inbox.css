@@ -2146,6 +2146,35 @@ body.col-resizing .resize-handle {
     height: 14px;
 }
 
+/* Read/Unread toggle button */
+.conv-read-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.conv-read-toggle:hover {
+    color: var(--primary);
+    background: var(--bg-hover);
+}
+
+.conv-read-toggle i,
+.conv-read-toggle svg {
+    width: 14px;
+    height: 14px;
+}
+
+.conversation-item:hover .conv-read-toggle {
+    display: flex;
+}
+
 /* =====================================================
    MESSAGE MEDIA, FILE, LIKE, REACTIONS
    ===================================================== */
