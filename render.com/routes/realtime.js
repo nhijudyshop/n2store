@@ -404,6 +404,108 @@ async function upsertPendingCustomer(db, data) {
     }
 }
 
+// =====================================================
+// CONVERSATION POST TYPES APIs
+// Lưu post_type per conversation để filter livestream nhanh
+// =====================================================
+
+/**
+ * PUT /api/realtime/post-type
+ * Upsert post_type for a conversation
+ */
+router.put('/post-type', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const { conversationId, pageId, postId, postType, liveVideoStatus } = req.body;
+
+        if (!conversationId) {
+            return res.status(400).json({ error: 'Missing conversationId' });
+        }
+
+        const query = `
+            INSERT INTO conversation_post_types
+            (conversation_id, page_id, post_id, post_type, live_video_status)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (conversation_id) DO UPDATE SET
+                page_id = COALESCE(EXCLUDED.page_id, conversation_post_types.page_id),
+                post_id = COALESCE(EXCLUDED.post_id, conversation_post_types.post_id),
+                post_type = EXCLUDED.post_type,
+                live_video_status = EXCLUDED.live_video_status,
+                updated_at = CURRENT_TIMESTAMP
+        `;
+
+        await db.query(query, [
+            conversationId,
+            pageId || null,
+            postId || null,
+            postType || null,
+            liveVideoStatus || null
+        ]);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[REALTIME-API] Error saving post type:', error);
+        res.status(500).json({ error: 'Failed to save post type' });
+    }
+});
+
+/**
+ * GET /api/realtime/post-types
+ * Get conversation post types, optionally filtered
+ * Query params:
+ * - post_type: filter by post_type (e.g. 'livestream')
+ * - page_id: filter by page_id
+ * - limit: max results (default 1000)
+ */
+router.get('/post-types', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const postType = req.query.post_type;
+        const pageId = req.query.page_id;
+        const limit = Math.min(parseInt(req.query.limit) || 1000, 5000);
+
+        let query = 'SELECT conversation_id, page_id, post_id, post_type, live_video_status, updated_at FROM conversation_post_types';
+        const conditions = [];
+        const params = [];
+
+        if (postType) {
+            params.push(postType);
+            conditions.push(`post_type = $${params.length}`);
+        }
+        if (pageId) {
+            params.push(pageId);
+            conditions.push(`page_id = $${params.length}`);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        query += ' ORDER BY updated_at DESC';
+        params.push(limit);
+        query += ` LIMIT $${params.length}`;
+
+        const result = await db.query(query, params);
+
+        res.json({
+            success: true,
+            count: result.rows.length,
+            postTypes: result.rows
+        });
+    } catch (error) {
+        console.error('[REALTIME-API] Error fetching post types:', error);
+        res.status(500).json({ error: 'Failed to fetch post types' });
+    }
+});
+
 // Export both router and helper functions
 module.exports = router;
 module.exports.saveRealtimeUpdate = saveRealtimeUpdate;

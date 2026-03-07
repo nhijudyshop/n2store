@@ -777,6 +777,11 @@ class InboxChatController {
                 conv.isLivestream = false;
             }
 
+            // Save post_type to Render DB for persistent livestream detection
+            if (conv.type === 'COMMENT' && post && postType) {
+                this.savePostTypeToServer(conv.id, conv.pageId, conv._raw?.post_id, postType, liveVideoStatus);
+            }
+
             // Update status line
             const statusParts = [];
             if (conv.pageName) statusParts.push(conv.pageName);
@@ -1775,6 +1780,21 @@ class InboxChatController {
             showToast('Lỗi: ' + error.message, 'error');
             btn.disabled = false;
         }
+    }
+
+    // ===== Save Post Type to Render DB =====
+
+    savePostTypeToServer(conversationId, pageId, postId, postType, liveVideoStatus) {
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/post-type`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversationId, pageId, postId, postType, liveVideoStatus })
+        }).then(r => {
+            if (r.ok) console.log(`[InboxChat] Saved post_type=${postType} for ${conversationId}`);
+        }).catch(err => {
+            console.warn('[InboxChat] Failed to save post_type:', err.message);
+        });
     }
 
     // ===== Reply to Message =====

@@ -616,86 +616,50 @@ class InboxDataManager {
     }
 
     /**
-     * Detect livestream conversations by fetching posts per page (runs in background)
-     * Matches post_id from COMMENT conversations against fetched posts with type 'livestream'
+     * Detect livestream conversations from Render DB (fast, cached post_types)
+     * Falls back to fetchPosts if Render fails
      */
     async detectLivestreamConversations() {
         try {
-            const pdm = window.pancakeDataManager;
-            if (!pdm || !pdm.fetchPosts) return;
-
-            // Collect unique page IDs that have COMMENT conversations
             const commentConvs = this.conversations.filter(c => c.type === 'COMMENT');
             if (commentConvs.length === 0) return;
 
-            const pageIds = [...new Set(commentConvs.map(c => c.pageId).filter(Boolean))];
-            console.log(`[InboxData] Detecting livestream for ${commentConvs.length} COMMENT convs across ${pageIds.length} pages`);
+            console.log(`[InboxData] Detecting livestream for ${commentConvs.length} COMMENT convs from Render DB`);
+
+            // Fetch livestream post_types from Render DB via Cloudflare proxy
+            const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const response = await fetch(`${workerUrl}/api/realtime/post-types?post_type=livestream&limit=2000`);
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+
+            if (!data.success || !data.postTypes) throw new Error('Invalid response');
+
+            // Build set of livestream conversation IDs from DB
+            const livestreamConvIds = new Set(data.postTypes.map(pt => pt.conversation_id));
+            console.log(`[InboxData] Render DB has ${livestreamConvIds.size} livestream conversations`);
 
             let changed = false;
-
-            for (const pageId of pageIds) {
-                try {
-                    const posts = await pdm.fetchPosts(pageId, 50);
-                    if (!posts || posts.length === 0) continue;
-
-                    // Build a set of livestream post IDs
-                    const livestreamPostIds = new Set();
-                    const nonLivestreamPostIds = new Set();
-                    for (const post of posts) {
-                        const fullPostId = post.id || `${pageId}_${post.fb_post_id || post.post_id || ''}`;
-                        if (post.type === 'livestream' || post.live_video_status === 'vod' || post.live_video_status === 'live') {
-                            livestreamPostIds.add(fullPostId);
-                            // Also add without page prefix
-                            if (fullPostId.includes('_')) {
-                                livestreamPostIds.add(fullPostId.split('_').pop());
-                            }
-                        } else {
-                            nonLivestreamPostIds.add(fullPostId);
-                            if (fullPostId.includes('_')) {
-                                nonLivestreamPostIds.add(fullPostId.split('_').pop());
-                            }
-                        }
-                    }
-
-                    // Match COMMENT conversations for this page
-                    const pageConvs = commentConvs.filter(c => c.pageId === pageId);
-                    for (const conv of pageConvs) {
-                        const rawPostId = conv._raw?.post_id || '';
-                        if (!rawPostId) continue;
-
-                        // Check against livestream post IDs (try full id and video part)
-                        const videoId = rawPostId.includes('_') ? rawPostId.split('_').pop() : rawPostId;
-                        const isLive = livestreamPostIds.has(rawPostId) || livestreamPostIds.has(videoId);
-                        const isNotLive = nonLivestreamPostIds.has(rawPostId) || nonLivestreamPostIds.has(videoId);
-
-                        if (isLive && !conv.isLivestream) {
-                            this.livestreamConvIds.add(conv.id);
-                            conv.isLivestream = true;
-                            changed = true;
-                        } else if (isNotLive && conv.isLivestream) {
-                            this.livestreamConvIds.delete(conv.id);
-                            conv.isLivestream = false;
-                            changed = true;
-                        }
-                    }
-                } catch (err) {
-                    console.warn(`[InboxData] Error fetching posts for page ${pageId}:`, err);
+            for (const conv of commentConvs) {
+                const isLive = livestreamConvIds.has(conv.id);
+                if (isLive && !conv.isLivestream) {
+                    this.livestreamConvIds.add(conv.id);
+                    conv.isLivestream = true;
+                    changed = true;
                 }
             }
 
             if (changed) {
                 this.saveLocalState();
                 this.recalculateGroupCounts();
-                // Notify chat controller to re-render
-                if (window.inboxChat) {
-                    window.inboxChat.renderConversationList();
-                }
+                if (window.inboxChat) window.inboxChat.renderConversationList();
                 console.log(`[InboxData] Livestream detection complete: ${this.livestreamConvIds.size} livestream conversations`);
             } else {
-                console.log('[InboxData] Livestream detection: no changes');
+                console.log('[InboxData] Livestream detection: no changes from Render DB');
             }
         } catch (error) {
-            console.error('[InboxData] Error detecting livestream:', error);
+            console.warn('[InboxData] Render DB livestream detection failed, using localStorage:', error.message);
+            // localStorage already loaded in loadLocalState(), so livestream IDs from previous sessions still work
         }
     }
 
