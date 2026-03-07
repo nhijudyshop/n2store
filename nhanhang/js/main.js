@@ -699,13 +699,25 @@ function toggleForm() {
     if (!PermissionHelper.checkBeforeAction('nhanhang', 'create', { alertMessage: 'Không có quyền truy cập biểu mẫu' })) {
         return;
     }
-    const uploadSection = document.getElementById("uploadSection");
-    if (!uploadSection) return;
-    uploadSection.classList.toggle("show");
-    if (uploadSection.classList.contains("show")) {
-        uploadSection.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    openCreateModal();
 }
+
+function openCreateModal() {
+    const createModal = document.getElementById("createModal");
+    if (!createModal) return;
+    createModal.style.display = "flex";
+    if (typeof lucide !== "undefined") lucide.createIcons();
+}
+
+function closeCreateModalFunction() {
+    const createModal = document.getElementById("createModal");
+    if (!createModal) return;
+    createModal.style.display = "none";
+    clearReceiptForm();
+    const mobilePreview = document.getElementById("mobileFilePreview");
+    if (mobilePreview) mobilePreview.innerHTML = "";
+}
+
 
 function initializeFormElements() {
     setCurrentUserName();
@@ -714,6 +726,12 @@ function initializeFormElements() {
 
     if (receiptForm) {
         receiptForm.addEventListener("submit", addReceipt);
+    }
+
+    // Create modal events
+    const closeCreateModal = document.getElementById("closeCreateModal");
+    if (closeCreateModal) {
+        closeCreateModal.addEventListener("click", closeCreateModalFunction);
     }
 
     // Edit modal events
@@ -729,8 +747,12 @@ function initializeFormElements() {
         cancelEditButton.addEventListener("click", closeEditModalFunction);
     }
 
-    // Close modal when clicking outside
+    // Close modals when clicking outside
     window.addEventListener("click", function (event) {
+        const createModal = document.getElementById("createModal");
+        if (event.target === createModal) {
+            closeCreateModalFunction();
+        }
         if (event.target === editModal) {
             closeEditModalFunction();
         }
@@ -996,27 +1018,11 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     initializeApplication();
 
-    // Toggle upload section
+    // Open create modal from top bar button
     const btnShowUpload = document.getElementById("btnShowUpload");
-    const uploadSection = document.getElementById("uploadSection");
-    const closeUpload = document.getElementById("closeUpload");
-
-    if (btnShowUpload && uploadSection) {
+    if (btnShowUpload) {
         btnShowUpload.addEventListener("click", () => {
-            uploadSection.classList.toggle("show");
-            if (uploadSection.classList.contains("show")) {
-                uploadSection.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                });
-                notificationManager.info("Đã mở form thêm phiếu", 1500);
-            }
-        });
-    }
-
-    if (closeUpload && uploadSection) {
-        closeUpload.addEventListener("click", () => {
-            uploadSection.classList.remove("show");
+            toggleForm();
         });
     }
 

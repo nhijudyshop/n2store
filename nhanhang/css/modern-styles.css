@@ -1891,20 +1891,9 @@ button:focus-visible {
         opacity: 0.5;
     }
 
-    /* --- UPLOAD SECTION: full-screen modal on mobile --- */
-    .upload-section.show {
-        position: fixed;
-        inset: 0;
-        z-index: 1100;
-        margin: 0;
-        border-radius: 0;
-        overflow-y: auto;
-        max-height: 100dvh;
-        max-height: 100vh;
-        padding-bottom: 80px;
-    }
-    .upload-section .card-body {
-        padding-bottom: 20px;
+    /* --- UPLOAD SECTION: now uses modal, hide old section --- */
+    .upload-section {
+        display: none !important;
     }
     .form-row {
         display: flex;
@@ -1974,13 +1963,12 @@ button:focus-visible {
         border: 1px solid #e2e8f0;
     }
 
-    /* --- Form actions: sticky bottom trên mobile --- */
-    .upload-section .form-actions {
+    /* --- Form actions: sticky bottom trên mobile (cho modal) --- */
+    .modal .form-actions {
         position: sticky;
         bottom: 0;
         background: #fff;
         padding: 12px 16px;
-        margin: 0 -14px -20px;
         border-top: 1px solid #e5e7eb;
         z-index: 10;
     }

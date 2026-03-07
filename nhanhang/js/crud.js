@@ -122,6 +122,11 @@ async function uploadToFirestore(receiptData) {
 
         document.getElementById("addButton").disabled = false;
         clearReceiptForm();
+
+        // Close create modal after success
+        if (typeof closeCreateModalFunction === 'function') {
+            closeCreateModalFunction();
+        }
     } catch (error) {
         notificationManager.error("Lỗi khi tải lên: " + error.message, 4000);
         console.error("Lỗi khi tải document lên: ", error);
@@ -146,6 +151,10 @@ function clearReceiptForm() {
             "<p>Ảnh sẽ hiển thị ở đây sau khi chụp</p>";
         imageDisplayArea.classList.remove("has-content");
     }
+
+    // Clear mobile file preview
+    const mobilePreview = document.getElementById("mobileFilePreview");
+    if (mobilePreview) mobilePreview.innerHTML = "";
 
     // Reset camera UI
     retakePicture();
