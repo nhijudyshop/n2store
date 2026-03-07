@@ -503,8 +503,7 @@ class PurchaseOrderTableRenderer {
                     </button>
                     ` : ''}
 
-                    <!-- Print barcode (only if TPOS PO exists) -->
-                    ${order.tposPoId ? `
+                    <!-- Print barcode -->
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
                             title="In tem barcode"
                             data-action="print-barcode"
@@ -512,7 +511,6 @@ class PurchaseOrderTableRenderer {
                             ${isProcessing ? 'disabled' : ''}>
                         <i data-lucide="printer" class="text-teal"></i>
                     </button>
-                    ` : ''}
 
                     <!-- Copy order -->
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"

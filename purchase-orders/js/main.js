@@ -1671,17 +1671,11 @@ class PurchaseOrderController {
      */
     async handlePrintBarcode(orderId) {
         const order = await this.dataManager.getOrder(orderId);
-        if (!order?.tposPoId) {
-            this.ui.showToast('Đơn hàng chưa có dữ liệu TPOS', 'warning');
+        if (!order?.items?.length) {
+            this.ui.showToast('Đơn hàng không có sản phẩm', 'warning');
             return;
         }
-        try {
-            this.ui.showToast('Đang tạo tem barcode...', 'info');
-            await window.TPOSPurchase.printBarcodeFromOrder(order);
-        } catch (err) {
-            console.error('[Print] Barcode print failed:', err);
-            this.ui.showToast('Không thể in tem: ' + err.message, 'warning');
-        }
+        window.BarcodeLabelDialog.open(order);
     }
 
     async handleCopyOrder(orderId) {
