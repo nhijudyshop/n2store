@@ -64,8 +64,15 @@ const SoquyUI = (function () {
     let paymentImageHandler = null;
 
     const MAX_IMAGE_SIZE = 15 * 1024 * 1024; // 15MB (before compression)
-    const COMPRESS_MAX_WIDTH = 1920;
-    const COMPRESS_QUALITY = 0.7;
+
+    /** Detect mobile device */
+    function isMobileDevice() {
+        return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    }
+
+    // Mobile: nén mạnh hơn (1024px, quality 0.5) để upload nhanh
+    const COMPRESS_MAX_WIDTH = isMobileDevice() ? 1024 : 1920;
+    const COMPRESS_QUALITY = isMobileDevice() ? 0.5 : 0.7;
 
     /**
      * Compress image using Canvas API
@@ -122,6 +129,49 @@ const SoquyUI = (function () {
         });
     }
 
+    // =====================================================
+    // UPLOAD PROGRESS OVERLAY UI
+    // =====================================================
+
+    function showUploadProgressOverlay(container, percent) {
+        if (!container) return;
+        var bar = container.querySelector('.upload-progress-overlay');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'upload-progress-overlay';
+            bar.innerHTML = '<div class="upload-progress-bar"></div><span class="upload-progress-text">0%</span>';
+            container.style.position = 'relative';
+            container.appendChild(bar);
+        }
+        var fill = bar.querySelector('.upload-progress-bar');
+        var text = bar.querySelector('.upload-progress-text');
+        if (fill) fill.style.width = percent + '%';
+        if (text) text.textContent = Math.round(percent) + '%';
+    }
+
+    function showUploadDoneOverlay(container) {
+        if (!container) return;
+        var bar = container.querySelector('.upload-progress-overlay');
+        if (bar) {
+            bar.innerHTML = '<span class="upload-progress-text upload-done">✓ Đã tải lên</span>';
+            setTimeout(function () { if (bar.parentNode) bar.remove(); }, 2000);
+        }
+    }
+
+    function showUploadErrorOverlay(container) {
+        if (!container) return;
+        var bar = container.querySelector('.upload-progress-overlay');
+        if (bar) {
+            bar.innerHTML = '<span class="upload-progress-text upload-error">✗ Lỗi tải lên</span>';
+        }
+    }
+
+    function removeUploadProgressOverlay(container) {
+        if (!container) return;
+        var bar = container.querySelector('.upload-progress-overlay');
+        if (bar) bar.remove();
+    }
+
     function initImageUpload(containerEl, fileInputEl, placeholderEl, previewEl, previewImgEl, removeBtnEl) {
         if (!containerEl || !fileInputEl || !placeholderEl || !previewEl || !previewImgEl || !removeBtnEl) {
             console.warn('[SoquyUI] initImageUpload: missing DOM elements');
@@ -147,8 +197,14 @@ const SoquyUI = (function () {
             cancelUpload();
             uploadState = 'uploading';
 
+            console.log('[SoquyUI] Eager upload started. Blob size:', (blob.size / 1024).toFixed(0) + 'KB');
+            showNotification('[Debug] Eager upload bắt đầu (' + (blob.size / 1024).toFixed(0) + 'KB)', 'info');
+
             var imageName = generateSoquyFileName();
             var imageRef = config.storageRef.child('soquy/photos/' + imageName);
+
+            // Show progress bar on container
+            showUploadProgressOverlay(containerEl, 0);
 
             uploadPromise = new Promise(function (resolve, reject) {
                 currentUploadTask = imageRef.put(blob, { cacheControl: 'public,max-age=31536000' });
@@ -157,15 +213,19 @@ const SoquyUI = (function () {
                     function (snapshot) {
                         var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                         console.log('[SoquyUI] Upload progress: ' + progress.toFixed(0) + '%');
+                        showUploadProgressOverlay(containerEl, progress);
                     },
                     function (error) {
                         if (error.code === 'storage/canceled') {
                             console.log('[SoquyUI] Upload cancelled');
+                            removeUploadProgressOverlay(containerEl);
                             return;
                         }
                         console.error('[SoquyUI] Upload error:', error);
                         uploadState = 'error';
                         uploadedUrl = '';
+                        showUploadErrorOverlay(containerEl);
+                        showNotification('[Debug] Eager upload LỖI: ' + error.message, 'error');
                         reject(error);
                     },
                     function () {
@@ -174,11 +234,15 @@ const SoquyUI = (function () {
                                 console.log('[SoquyUI] Upload complete:', downloadURL);
                                 uploadState = 'done';
                                 uploadedUrl = downloadURL;
+                                showUploadDoneOverlay(containerEl);
+                                showNotification('[Debug] Eager upload XONG! Status=' + uploadState, 'success');
                                 resolve(downloadURL);
                             })
                             .catch(function (error) {
                                 console.error('[SoquyUI] getDownloadURL error:', error);
                                 uploadState = 'error';
+                                showUploadErrorOverlay(containerEl);
+                                showNotification('[Debug] Eager getURL LỖI: ' + error.message, 'error');
                                 reject(error);
                             });
                     }
@@ -196,6 +260,7 @@ const SoquyUI = (function () {
             uploadState = 'idle';
             uploadedUrl = '';
             uploadPromise = null;
+            removeUploadProgressOverlay(containerEl);
         }
 
         // Make container focusable so paste events work on it
@@ -225,16 +290,25 @@ const SoquyUI = (function () {
         }
 
         async function getImageData() {
+            showNotification('[Debug] getImageData: status=' + uploadState, 'info');
             if (uploadState === 'idle') return '';
-            if (uploadState === 'done') return uploadedUrl;
+            if (uploadState === 'done') {
+                showNotification('[Debug] Dùng eager result ✓', 'success');
+                return uploadedUrl;
+            }
             if (uploadState === 'uploading' && uploadPromise) {
+                showNotification('[Debug] Đang chờ eager upload...', 'info');
                 try {
-                    return await uploadPromise;
+                    var url = await uploadPromise;
+                    showNotification('[Debug] Eager xong sau khi chờ ✓', 'success');
+                    return url;
                 } catch (err) {
                     console.error('[SoquyUI] Upload failed while waiting:', err);
+                    showNotification('[Debug] Eager lỗi khi chờ: ' + err.message, 'error');
                     return '';
                 }
             }
+            showNotification('[Debug] Fallback trả rỗng, status=' + uploadState, 'error');
             return '';
         }
 

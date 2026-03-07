@@ -4600,3 +4600,47 @@
     padding: 8px 12px;
     line-height: 1.5;
 }
+
+
+/* =====================================================
+   UPLOAD PROGRESS OVERLAY
+   ===================================================== */
+.upload-progress-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 0 0 8px 8px;
+    z-index: 10;
+}
+
+.upload-progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 100%;
+    background: rgba(40, 167, 69, 0.4);
+    border-radius: 0 0 8px 8px;
+    transition: width 0.3s ease;
+}
+
+.upload-progress-text {
+    position: relative;
+    z-index: 1;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.upload-progress-text.upload-done {
+    color: #28a745;
+}
+
+.upload-progress-text.upload-error {
+    color: #dc3545;
+}
