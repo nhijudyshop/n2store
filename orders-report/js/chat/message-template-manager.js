@@ -1310,23 +1310,41 @@ class MessageTemplateManager {
         const chatInfo = window.pancakeDataManager.getChatInfoForOrder(fullOrderData.raw);
         const channelId = chatInfo.channelId;
         const psid = chatInfo.psid;
-        // Get Pancake customer UUID from conversation cache (NOT TPOS PartnerId)
-        const conversation = window.pancakeDataManager?.getConversationByUserId(psid);
-        const customerId = conversation?.customers?.[0]?.id || null;
 
         if (!channelId || !psid) {
             throw new Error(`Thiếu thông tin channelId hoặc PSID. Order: ${order.code}`);
         }
 
-        // Get conversationId from cached conversation or construct fallback
+        // Get conversation from Pancake API (fetch if not in cache)
+        let conversation = window.pancakeDataManager?.getConversationByUserId(psid);
         let conversationId;
+        let customerId = null;
+
         if (conversation && conversation.id) {
             conversationId = conversation.id;
+            customerId = conversation.customers?.[0]?.id || null;
             this.log(`📌 Found conversation in cache: ${conversationId}`);
         } else {
-            // Fallback: construct conversationId from channelId_psid (standard format)
-            conversationId = `${channelId}_${psid}`;
-            this.log(`⚠️ Conversation not in cache, using fallback: ${conversationId}`);
+            // Fetch from Pancake API to get correct conversation ID
+            this.log(`🔍 Fetching conversation from Pancake API for psid: ${psid}`);
+            try {
+                const convResult = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, psid);
+                if (convResult.success && convResult.conversations?.length > 0) {
+                    // Find INBOX conversation
+                    const inboxConv = convResult.conversations.find(c => c.type === 'INBOX') || convResult.conversations[0];
+                    conversationId = inboxConv.id;
+                    customerId = convResult.customerUuid || inboxConv.customers?.[0]?.id || null;
+                    this.log(`✅ Got conversation from API: ${conversationId}, customerId: ${customerId}`);
+                } else {
+                    // Fallback: construct conversationId from channelId_psid
+                    conversationId = `${channelId}_${psid}`;
+                    this.log(`⚠️ No conversation found via API, using fallback: ${conversationId}`);
+                }
+            } catch (fetchErr) {
+                // Fallback on error
+                conversationId = `${channelId}_${psid}`;
+                this.log(`⚠️ Error fetching conversation: ${fetchErr.message}, using fallback: ${conversationId}`);
+            }
         }
 
         // Get page_access_token for Official API (pages.fm)
