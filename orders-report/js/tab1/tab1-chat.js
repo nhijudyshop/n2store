@@ -4667,64 +4667,55 @@ async function sendCommentInternal(commentData) {
             console.warn('[COMMENT] ⚠️ Missing customerId or pancakeDataManager, using null thread IDs');
         }
 
-        // For private_replies, use inbox conversation ID (private reply creates inbox message)
-        // Fallback to comment conversation ID if inbox not available
-        const privateReplyConvId = inboxConvId || finalConversationId;
-
         console.log('[COMMENT] Using data:', {
             pageId,
-            conversationId: privateReplyConvId,
             commentConversationId: finalConversationId,
+            inboxConvId: inboxConvId || 'null',
             fromId,
             threadId: threadId || 'null',
             threadKey: threadKey || 'null'
         });
 
         // Step 4: Send private_replies via Official API (pages.fm)
-        // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
-        // private_replies: gửi tin nhắn riêng từ comment (chỉ Facebook/Instagram)
-        // IMPORTANT: Use inbox conversation ID for private_replies (not comment conv ID)
+        // Uses comment conversation ID in URL + private_replies action
+        // If that fails, fallback to reply_inbox on inbox conversation
         showChatSendingIndicator('Đang gửi tin nhắn riêng...');
 
-        const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${pageId}/conversations/${privateReplyConvId}/messages`,
-            pageAccessToken
-        ) + (customerId ? `&customer_id=${customerId}` : '');
-
-        // Prepare private_replies payload (JSON) - theo API chính thức
-        // Required fields: action, post_id, message_id, from_id, message
-        const privateRepliesPayload = {
-            action: 'private_replies',
-            post_id: facebookPostId,
-            message_id: messageId,
-            from_id: fromId,
-            message: message
-        };
-
-        // Add image nếu có - dùng content_ids (array) theo API chính thức
+        // Prepare image payload
+        let imagePayload = {};
         if (imageData) {
             const contentId = imageData.content_id || imageData.id;
             if (contentId) {
-                privateRepliesPayload.content_ids = [contentId];
-                privateRepliesPayload.attachment_type = 'PHOTO';
+                imagePayload = { content_ids: [contentId], attachment_type: 'PHOTO' };
             }
         }
 
-        console.log('[COMMENT] Sending private_replies...');
-        console.log('[COMMENT] Payload:', JSON.stringify(privateRepliesPayload));
+        let sendSuccess = false;
 
-        // Send single request (không cần gửi 2 API song song như trước)
-        let privateRepliesSuccess = false;
-
+        // Attempt 1: private_replies with comment conversation ID
         try {
+            const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${finalConversationId}/messages`,
+                pageAccessToken
+            ) + (customerId ? `&customer_id=${customerId}` : '');
+
+            const privateRepliesPayload = {
+                action: 'private_replies',
+                post_id: facebookPostId,
+                message_id: messageId,
+                from_id: fromId,
+                message: message,
+                ...imagePayload
+            };
+
+            console.log('[COMMENT] Attempt 1: private_replies with comment conv ID');
+            console.log('[COMMENT] Payload:', JSON.stringify(privateRepliesPayload));
+
             const response = await API_CONFIG.smartFetch(apiUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify(privateRepliesPayload)
-            }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
+            }, 1, true);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -4737,17 +4728,58 @@ async function sendCommentInternal(commentData) {
             }
 
             console.log('[COMMENT] ✅ private_replies succeeded:', data);
-            privateRepliesSuccess = true;
+            sendSuccess = true;
         } catch (err) {
             console.warn('[COMMENT] ❌ private_replies failed:', err.message);
         }
 
-        // Check result
-        if (!privateRepliesSuccess) {
-            throw new Error('Gửi tin nhắn riêng thất bại (private_replies)');
+        // Attempt 2: Fallback to reply_inbox on inbox conversation (if private_replies failed)
+        if (!sendSuccess && inboxConvId) {
+            try {
+                console.log('[COMMENT] Attempt 2: reply_inbox fallback with inbox conv ID:', inboxConvId);
+                showChatSendingIndicator('Đang gửi tin nhắn qua inbox...');
+
+                const inboxApiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${pageId}/conversations/${inboxConvId}/messages`,
+                    pageAccessToken
+                ) + (customerId ? `&customer_id=${customerId}` : '');
+
+                const inboxPayload = {
+                    action: 'reply_inbox',
+                    message: message,
+                    ...imagePayload
+                };
+
+                console.log('[COMMENT] Inbox payload:', JSON.stringify(inboxPayload));
+
+                const response = await API_CONFIG.smartFetch(inboxApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(inboxPayload)
+                }, 1, true);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`reply_inbox failed: ${response.status} - ${errorText}`);
+                }
+
+                const data = await response.json();
+                if (data.success === false) {
+                    throw new Error(`reply_inbox API error: ${data.error || data.message || 'Unknown'}`);
+                }
+
+                console.log('[COMMENT] ✅ reply_inbox fallback succeeded:', data);
+                sendSuccess = true;
+            } catch (err2) {
+                console.warn('[COMMENT] ❌ reply_inbox fallback also failed:', err2.message);
+            }
         }
 
-        console.log('[COMMENT] ✅ private_replies succeeded!');
+        if (!sendSuccess) {
+            throw new Error('Gửi tin nhắn riêng thất bại (private_replies + reply_inbox fallback)');
+        }
+
+        console.log('[COMMENT] ✅ Message sent successfully!');
 
         // Step 6: Optimistic UI update
         const now = new Date().toISOString();
