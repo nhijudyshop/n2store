@@ -52,6 +52,56 @@
 
 ---
 
+## Quản lý kho — Nhận hàng & Sắp xếp (6 bước)
+
+### Bước 1: Nhận hàng mẫu mới (đưa lên phòng live)
+- Phân loại mẫu **Việt Nam** – **Quảng Châu**.
+- Phân loại kiểu mẫu: Áo – Quần – Set – Đầm…
+- Treo mẫu lên sào theo đúng vị trí **bảng tên phân loại** được dán trên sào.
+- Thứ tự mẫu mới treo vào sào: **từ trái qua phải**.
+- Kiểm tra mẫu đã OK chưa trước khi c Nhi live (VD: cắt khuy, cắt chỉ thừa, cột dây…).
+- 💡 **Lưu ý:** Mẫu phải được kiểm tra kỹ trước khi đưa lên sào live để đảm bảo chất lượng hình ảnh khi livestream.
+
+### Bước 2: Nhận hàng số lượng Việt Nam (đưa lên phòng live)
+- Để hàng lên **kệ hàng mới bên trái góc live (KỆ SỐ 2)**.
+- Để đúng theo tầng đã phân loại: Áo, Quần, Set, Đầm…
+
+### Bước 3: Nhận hàng số lượng Quảng Châu (dưới kho tầng trệt)
+- Sắp xếp các cục hàng lên kệ theo **khu đã phân loại**: Áo, Quần, Set, Đầm…
+- Sau khi đưa mẫu lên sào phòng live, bạn làm kho sẽ **mở danh sách kiểm mã** và **quét mã** các mẫu xem có bị sót hay không.
+- ✅ **Kiểm tra:** Luôn quét mã đối chiếu sau khi sắp xếp để đảm bảo không sót mẫu nào.
+
+### Bước 4: Nhận hàng lẻ từ nhiều bộ phận
+
+**Các trường hợp hàng rớt/lẻ cần xử lý:**
+- Hàng Boom / Hoàn (C.Còi xử lý)
+- Khách xã sau khi chốt đơn (từ các bạn Seller)
+- Hàng rớt từ trên live (C Nhi live hàng SL bị rớt lại)
+- Hàng rớt sau khi đi đơn trả hàng (My hoặc Lài)
+- Hàng rớt Inbox (khách xã hàng của My check IB)
+- Hàng khách gửi đổi trả lên ở tỉnh + TP (Lài)
+
+Hàng rớt sẽ được **bàn giao qua cho bạn làm kho**. Bạn làm kho vận chuyển hàng rớt lên phòng live và bắt đầu xử lý.
+
+**Cách thức xử lý:**
+- Kiểm tra hàng rớt đó **đã có mẫu hay chưa** và bung mẫu treo lên **sào mẫu lẻ** đúng khu phân loại.
+- Đối với hàng đã có mẫu: số lượng của mẫu đó sẽ **cột lại** và sắp xếp lên **kệ hàng lẻ** đúng phân loại. Đồng thời **đánh dấu số lượng lên tem mạc** của mẫu đang treo.
+- ⚠️ **Hàng lỗi nặng:** Không trả lại được nhà cung cấp, không fix bán được → ghi rõ lỗi gì lên bao và để vào **rổ hàng lỗi**.
+- 💡 **Hàng lỗi nhẹ:** Báo c Nhi biết để **fix bán sale** cho khách.
+
+### Bước 5: Sắp xếp mẫu sau buổi live
+- C Nhi live xong thì **linh động sắp xếp** tất cả các mẫu, hàng về đúng vị trí theo **sào + kệ** được phân loại.
+
+### Bước 6: Kiểm kê định kỳ (2 đợt live kiểm kho 1 lần)
+- Kiểm **số lượng hiển thị trên web** và **số lượng hàng thực tế** đã khớp hay chưa. Nếu thiếu hoặc dư số lượng không khớp thì phải kiểm tra lại.
+- Kiểm xem có bị **sót mẫu hàng rớt** chưa treo ra không.
+- Kiểm tra **hàng lẻ số lượng trên kệ** và **mẫu lẻ treo sào** đã để đúng khu vực phân loại hay chưa.
+- Kiểm tra **số lượng ghi trên tem mạc** của mẫu đã đúng hay chưa.
+- 🚫 **Quy tắc quan trọng:** Bạn nào lấy hàng thì chủ động **sửa lại số lượng trên tem mạc** của mẫu cho đúng chính xác. **Tuyệt đối không lấy mẫu nếu còn số lượng trên kệ** để tránh mất mẫu.
+- Kiểm tra **hạn sử dụng** còn bao lâu để đưa c Nhi tranh thủ live kẻo hết hạn (VD: mỹ phẩm, đồ ăn…).
+
+---
+
 ## Chuẩn bị trước live — Check hàng (Duyên phụ trách)
 
 > Quy trình check hàng trước khi live để nắm số lượng tồn kho NCC.
