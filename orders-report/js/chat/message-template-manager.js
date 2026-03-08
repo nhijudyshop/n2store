@@ -3612,7 +3612,7 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Fetch live videos and feed in parallel using REAL page ID
             const [liveRes, feedRes] = await Promise.all([
                 fetch(window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/live_videos`, pageToken, { fields: 'id,title,created_time', limit: '10' })).then(r => r.json()).catch(() => ({})),
-                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/feed`, pageToken, { fields: 'id,message,created_time,type', limit: '10' })).then(r => r.json()).catch(() => ({})),
+                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/feed`, pageToken, { fields: 'id,message,created_time', limit: '10' })).then(r => r.json()).catch(() => ({})),
             ]);
 
             const posts = [];
@@ -3630,7 +3630,7 @@ Chúc chị một ngày vui vẻ! 😊`,
                 for (const p of feedRes.data) {
                     const date = p.created_time ? new Date(p.created_time).toLocaleDateString('vi-VN') : '';
                     const msg = (p.message || '').substring(0, 40);
-                    posts.push({ id: p.id, label: `${msg || 'Bài viết'} - ${date}`, time: p.created_time, type: p.type || 'post' });
+                    posts.push({ id: p.id, label: `${msg || 'Bài viết'} - ${date}`, time: p.created_time, type: 'post' });
                 }
             }
 
