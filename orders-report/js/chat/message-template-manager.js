@@ -1597,42 +1597,6 @@ class MessageTemplateManager {
                 };
             }
 
-            // Try to get the real Facebook comment ID for Private Reply fallback
-            // Facebook_CommentId from TPOS is Pancake conversation ID, not Facebook comment ID
-            let fbCommentId = null;
-            if (orderRaw.Facebook_PostId && psid) {
-                try {
-                    const postId = orderRaw.Facebook_PostId.split('_').slice(1).join('_');
-                    this.log('[FB-FALLBACK] Fetching real Facebook comment ID from Pancake...');
-                    const commentsResult = await window.pancakeDataManager?.fetchComments(
-                        pageId, psid, null, postId
-                    );
-                    // Log raw messages for debugging
-                    if (commentsResult?.messages?.length) {
-                        const rawMsg = commentsResult.messages[0];
-                        this.log('[FB-FALLBACK] 📋 Raw Pancake message structure:', JSON.stringify({
-                            id: rawMsg.id,
-                            fb_id: rawMsg.fb_id,
-                            facebook_id: rawMsg.facebook_id,
-                            parent_id: rawMsg.parent_id,
-                            from: rawMsg.from,
-                            keys: Object.keys(rawMsg)
-                        }));
-                    }
-                    if (commentsResult?.comments?.length) {
-                        // Get latest customer comment (not page owner)
-                        const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
-                        if (customerComments.length > 0) {
-                            const latestComment = customerComments[customerComments.length - 1];
-                            fbCommentId = latestComment.Id || latestComment.FacebookId;
-                            this.log('[FB-FALLBACK] ✅ Got comment ID:', fbCommentId);
-                        }
-                    }
-                } catch (err) {
-                    this.log('[FB-FALLBACK] ⚠️ Could not fetch comment ID:', err.message);
-                }
-            }
-
             // Call Facebook Send API via worker proxy
             const facebookSendUrl = window.API_CONFIG.buildUrl.facebookSend();
             this.log('[FB-FALLBACK] Calling:', facebookSendUrl);
@@ -1642,8 +1606,7 @@ class MessageTemplateManager {
                 psid: psid,
                 message: message,
                 pageToken: facebookPageToken,
-                useTag: true,
-                commentId: fbCommentId // Real Facebook comment ID for Private Reply fallback
+                useTag: true
             };
 
             const response = await fetch(facebookSendUrl, {
@@ -3603,11 +3566,69 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Replace placeholders in template
             const messageContent = this.replacePlaceholders(selectedTemplate.Content || '', this._quickCommentOrderData.converted);
 
-            // Send via Facebook Graph API
+            // Step 1: Try Facebook Send API (HUMAN_AGENT → CUSTOMER_FEEDBACK tags)
             const result = await this._sendViaFacebookAPI(channelId, psid, messageContent, raw);
 
-            if (!result.success) {
-                throw new Error(result.error || 'Facebook API error');
+            if (result.success) {
+                this.log('[QUICK-FB-SEND] ✅ Sent via Facebook Send API (tag: ' + (result.used_tag || 'unknown') + ')');
+            } else {
+                // Step 2: Fallback to Pancake private_replies (works for comment-only users)
+                this.log('[QUICK-FB-SEND] ⚠️ Facebook Send API failed, trying Pancake private_replies...');
+
+                const postId = raw.Facebook_PostId.split('_').slice(1).join('_');
+                const commentsResult = await window.pancakeDataManager?.fetchComments(
+                    channelId, psid, null, postId
+                );
+
+                if (!commentsResult?.comments?.length) {
+                    throw new Error('Không tìm thấy bình luận từ khách hàng');
+                }
+
+                const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+                if (!customerComments.length) {
+                    throw new Error('Không tìm thấy bình luận từ khách hàng');
+                }
+
+                const latestComment = customerComments[customerComments.length - 1];
+                const commentConvId = latestComment.Id;
+                this.log('[QUICK-FB-SEND] Using Pancake comment ID:', commentConvId);
+
+                // Get page_access_token for Pancake Official API
+                let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+                if (!pageAccessToken) {
+                    pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+                }
+                if (!pageAccessToken) {
+                    throw new Error('Không có page_access_token');
+                }
+
+                // Send via Pancake private_replies action
+                const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${channelId}/conversations/${commentConvId}/messages`,
+                    pageAccessToken
+                );
+
+                const prPayload = {
+                    action: 'private_replies',
+                    message: messageContent
+                };
+
+                this.log('[QUICK-FB-SEND] Sending private_replies via Pancake:', { channelId, commentConvId });
+
+                const prResponse = await API_CONFIG.smartFetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(prPayload)
+                }, 1, true);
+
+                const prResult = await prResponse.json();
+                this.log('[QUICK-FB-SEND] Pancake private_replies response:', prResult);
+
+                if (!prResponse.ok || prResult.success === false || prResult.error) {
+                    throw new Error(prResult.message || prResult.error?.message || prResult.error || 'Private reply failed');
+                }
+
+                this.log('[QUICK-FB-SEND] ✅ Sent via Pancake private_replies!');
             }
 
             // Close modal
@@ -3618,7 +3639,7 @@ Chúc chị một ngày vui vẻ! 😊`,
 
             if (window.notificationManager) {
                 window.notificationManager.success(
-                    'Đã gửi tin nhắn qua Facebook thành công!',
+                    'Đã gửi tin nhắn thành công!',
                     3000,
                     `Đơn: ${raw.Code || orderId}`
                 );
@@ -3628,7 +3649,7 @@ Chúc chị một ngày vui vẻ! 😊`,
             console.error('[QUICK-FB-SEND] Error:', error);
             if (window.notificationManager) {
                 window.notificationManager.error(
-                    'Lỗi gửi qua Facebook: ' + error.message,
+                    'Lỗi gửi tin nhắn: ' + error.message,
                     5000
                 );
             }
