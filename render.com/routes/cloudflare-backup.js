@@ -474,83 +474,64 @@ router.post('/facebook-send', async (req, res) => {
         return { success: false, result: { error: lastError }, status: 400 };
     }
 
-    // Helper: Query comments from a Facebook post/video
-    async function queryComments(objectId, useStreamFilter) {
-        const graphUrl = `https://graph.facebook.com/v21.0/${objectId}/comments`;
-        const params = new URLSearchParams({
-            access_token: pageToken,
-            fields: 'from{id,name},id,message,created_time',
-            limit: '200',
-            order: 'reverse_chronological'
-        });
-        if (useStreamFilter) params.set('filter', 'stream');
-
-        console.log(`[PRIVATE-REPLY] Querying: ${objectId}/comments (filter=${useStreamFilter ? 'stream' : 'none'})`);
-
-        const resp = await fetchWithTimeout(`${graphUrl}?${params.toString()}`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-        return await resp.json();
-    }
-
-    // Helper: Find real Facebook comment ID (tries multiple approaches)
+    // Helper: Find real Facebook comment ID (returns { commentId, diagnostics })
     async function findRealCommentId(fbPostId, customerAsid, custName) {
-        console.log('[PRIVATE-REPLY] ========================================');
-        console.log('[PRIVATE-REPLY] Looking up real comment ID...');
-        console.log('[PRIVATE-REPLY] Post ID:', fbPostId, '| ASID:', customerAsid);
-        if (custName) console.log('[PRIVATE-REPLY] Customer Name:', custName);
+        const diagnostics = {
+            postId: fbPostId, psid: customerAsid, customerName: custName || null,
+            queries: [], commentersFound: [],
+        };
+
+        console.log('[PRIVATE-REPLY] Post ID:', fbPostId, '| PSID:', customerAsid, '| Name:', custName);
 
         const postIdVariants = [fbPostId];
-        if (fbPostId.includes('_')) {
-            postIdVariants.push(fbPostId.split('_').slice(1).join('_'));
-        }
+        if (fbPostId.includes('_')) postIdVariants.push(fbPostId.split('_').slice(1).join('_'));
 
-        for (const postIdVariant of postIdVariants) {
-            for (const useStream of [true, false]) {
+        for (const pid of postIdVariants) {
+            for (const filter of ['stream', 'toplevel', null]) {
+                const graphUrl = `https://graph.facebook.com/v21.0/${pid}/comments`;
+                const params = new URLSearchParams({
+                    access_token: pageToken,
+                    fields: 'from{id,name},id,message,created_time',
+                    limit: '200', order: 'reverse_chronological'
+                });
+                if (filter) params.set('filter', filter);
+
+                const queryKey = `${pid}/comments?filter=${filter || 'default'}`;
                 try {
-                    const data = await queryComments(postIdVariant, useStream);
+                    const resp = await fetchWithTimeout(`${graphUrl}?${params.toString()}`, {
+                        method: 'GET', headers: { 'Accept': 'application/json' }
+                    });
+                    const data = await resp.json();
 
                     if (data.error) {
-                        console.warn(`[PRIVATE-REPLY] Error for ${postIdVariant} (stream=${useStream}):`, data.error.message);
+                        diagnostics.queries.push({ query: queryKey, error: data.error.message });
                         continue;
                     }
 
                     const comments = data.data || [];
-                    console.log(`[PRIVATE-REPLY] Found ${comments.length} comments on ${postIdVariant} (stream=${useStream})`);
+                    diagnostics.queries.push({ query: queryKey, count: comments.length });
                     if (comments.length === 0) continue;
 
-                    const commenters = comments.filter(c => c.from).map(c => ({ id: c.from.id, name: c.from.name }));
-                    const uniqueCommenters = [...new Map(commenters.map(c => [c.id, c])).values()];
-                    console.log('[PRIVATE-REPLY] Commenters:', JSON.stringify(uniqueCommenters.slice(0, 15)));
+                    const uniqueCommenters = [...new Map(
+                        comments.filter(c => c.from).map(c => [c.from.id, { id: c.from.id, name: c.from.name }])
+                    ).values()];
+                    diagnostics.commentersFound = uniqueCommenters.slice(0, 20);
 
-                    // Match by ID
-                    let customerComment = comments.find(c => c.from && String(c.from.id) === String(customerAsid));
-                    if (customerComment) {
-                        console.log(`[PRIVATE-REPLY] ✅ Matched by ID! Comment: ${customerComment.id}`);
-                        return customerComment.id;
-                    }
+                    let match = comments.find(c => c.from && String(c.from.id) === String(customerAsid));
+                    if (match) return { commentId: match.id, diagnostics, matchedBy: 'id' };
 
-                    // Match by name (PSID may differ from from.id)
                     if (custName) {
-                        const normalizedName = custName.trim().toLowerCase();
-                        customerComment = comments.find(c =>
-                            c.from && c.from.name && c.from.name.trim().toLowerCase() === normalizedName
-                        );
-                        if (customerComment) {
-                            console.log(`[PRIVATE-REPLY] ✅ Matched by NAME! Comment: ${customerComment.id}`);
-                            console.log(`[PRIVATE-REPLY]   PSID=${customerAsid}, from.id=${customerComment.from.id}`);
-                            return customerComment.id;
-                        }
+                        const norm = custName.trim().toLowerCase();
+                        match = comments.find(c => c.from?.name?.trim().toLowerCase() === norm);
+                        if (match) return { commentId: match.id, diagnostics, matchedBy: 'name' };
                     }
                 } catch (err) {
-                    console.error(`[PRIVATE-REPLY] Error querying ${postIdVariant}:`, err.message);
+                    diagnostics.queries.push({ query: queryKey, error: err.message });
                 }
             }
         }
 
-        console.error('[PRIVATE-REPLY] ❌ Could not find customer comment');
-        return null;
+        return { commentId: null, diagnostics };
     }
 
     // Helper: Send Private Reply
@@ -621,10 +602,10 @@ router.post('/facebook-send', async (req, res) => {
         if (sendFailed551 && postId && hasTextMessage) {
             console.log('[FACEBOOK-SEND] Send API failed 551 → trying Private Reply fallback');
 
-            const realCommentId = await findRealCommentId(postId, psid, customerName);
+            const lookup = await findRealCommentId(postId, psid, customerName);
 
-            if (realCommentId) {
-                const prResult = await sendPrivateReply(realCommentId, message);
+            if (lookup.commentId) {
+                const prResult = await sendPrivateReply(lookup.commentId, message);
 
                 if (prResult.success) {
                     return res.json({
@@ -634,7 +615,8 @@ router.post('/facebook-send', async (req, res) => {
                         message_ids: [prResult.result.id],
                         used_tag: 'PRIVATE_REPLY',
                         method: 'private_reply',
-                        real_comment_id: realCommentId,
+                        real_comment_id: lookup.commentId,
+                        matched_by: lookup.matchedBy,
                     });
                 }
 
@@ -643,17 +625,17 @@ router.post('/facebook-send', async (req, res) => {
                     error: prResult.result.error?.message || 'Private Reply failed',
                     error_code: prResult.result.error?.code,
                     method: 'private_reply',
-                    real_comment_id: realCommentId,
-                    send_api_error: lastError?.message,
+                    real_comment_id: lookup.commentId,
+                    _debug: lookup.diagnostics,
                 });
             }
 
             return res.status(400).json({
                 success: false,
-                error: lastError?.message || 'Send API failed and Private Reply comment not found',
+                error: lastError?.message || 'Không tìm thấy comment của khách trên bài viết',
                 error_code: lastError?.code || 551,
-                private_reply_error: 'Customer comment not found on post',
-                post_id: postId,
+                private_reply_error: 'comment_not_found',
+                _debug: lookup.diagnostics,
             });
         }
 

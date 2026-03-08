@@ -1645,6 +1645,7 @@ class MessageTemplateManager {
                     success: false,
                     error: result.error || 'Facebook API error',
                     error_code: result.error_code,
+                    _debug: result._debug,
                 };
             }
 
@@ -3591,6 +3592,19 @@ Chúc chị một ngày vui vẻ! 😊`,
             if (result.success) {
                 this.log('[QUICK-FB-SEND] ✅ Message sent! Method:', result.method || 'send_api');
             } else {
+                // Log diagnostics for debugging
+                if (result._debug) {
+                    console.group('[QUICK-FB-SEND] 🔍 Private Reply Debug');
+                    console.log('PostId:', result._debug.postId);
+                    console.log('PSID:', result._debug.psid);
+                    console.log('Customer:', result._debug.customerName);
+                    console.table(result._debug.queries);
+                    if (result._debug.commentersFound?.length > 0) {
+                        console.log('Commenters found on post:');
+                        console.table(result._debug.commentersFound);
+                    }
+                    console.groupEnd();
+                }
                 throw new Error(result.error || 'Gửi tin nhắn thất bại');
             }
 
