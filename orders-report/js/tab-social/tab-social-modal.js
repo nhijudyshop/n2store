@@ -112,9 +112,7 @@ function _mapLegacyProduct(p) {
         sellingPrice: p.sellingPrice || p.price || 0,
         productImages: p.productImages || [],
         priceImages: p.priceImages || [],
-        selectedAttributeValueIds: p.selectedAttributeValueIds || [],
-        tposProductId: p.tposProductId || null,
-        tposSynced: p.tposSynced || false
+        selectedAttributeValueIds: p.selectedAttributeValueIds || []
     };
 }
 
@@ -145,8 +143,6 @@ function _initSocialProductSection(existingProducts = []) {
             productImages: p.productImages || [],
             priceImages: p.priceImages || [],
             selectedAttributeValueIds: p.selectedAttributeValueIds || [],
-            tposProductId: p.tposProductId || null,
-            tposSynced: p.tposSynced || false,
             _isExistingItem: true
         }));
         window.purchaseOrderFormModal.itemCounter = existingProducts.length;
@@ -171,9 +167,7 @@ function _collectSocialProducts() {
         sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
         productImages: item.productImages || [],
         priceImages: item.priceImages || [],
-        selectedAttributeValueIds: item.selectedAttributeValueIds || [],
-        tposProductId: item.tposProductId || null,
-        tposSynced: item.tposSynced || false
+        selectedAttributeValueIds: item.selectedAttributeValueIds || []
     }));
 }
 
@@ -251,10 +245,7 @@ function saveOrder() {
 
             // Fire-and-forget: sync updated products to TPOS
             if (window.TPOSProductCreator && products.length > 0) {
-                window.TPOSProductCreator.syncOrderToTPOS(orderId, products, '', {
-                    collection: 'social_orders',
-                    itemsField: 'products'
-                });
+                window.TPOSProductCreator.syncOrderToTPOS(orderId, products, '');
             }
         }
     } else {
@@ -294,10 +285,7 @@ function saveOrder() {
 
         // Fire-and-forget: sync products to TPOS
         if (window.TPOSProductCreator && products.length > 0) {
-            window.TPOSProductCreator.syncOrderToTPOS(newOrder.id, products, '', {
-                collection: 'social_orders',
-                itemsField: 'products'
-            });
+            window.TPOSProductCreator.syncOrderToTPOS(newOrder.id, products, '');
         }
     }
 
