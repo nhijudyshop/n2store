@@ -559,7 +559,7 @@ body.nav-collapsed #local-sidebar { left: 0; }
     <div>
       <div class="bp-title">Bộ phận 1 — Nhập hàng &amp; Làm mã</div>
     </div>
-    <span class="bp-badge">7 bước</span>
+    <span class="bp-badge">9 bước</span>
   </div>
   <div class="bp-body">
 
@@ -568,10 +568,62 @@ body.nav-collapsed #local-sidebar { left: 0; }
       <div class="step-content">
         <div class="step-title">Nhận hàng &amp; Cân hàng</div>
         <div class="step-body">
+          <p style="font-weight:600;margin-bottom:8px">Quy trình nhận hàng được phân biệt theo nguồn:</p>
+
+          <!-- Hàng HN -->
+          <div style="background:#eff6ff;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #3b82f6;margin-bottom:10px">
+            <div style="font-weight:700;color:#1d4ed8;margin-bottom:6px">📦 Hàng Hà Nội (HN)</div>
+            <ol style="padding-left:18px;font-size:13px">
+              <li>Chụp hình kiện hàng khi nhận.</li>
+              <li>Cân nặng kiện hàng xem bao nhiêu ký.</li>
+              <li>Ghi lại <strong>số lượng kiện hàng</strong>.</li>
+              <li>Gửi hình lên <strong>nhóm cân nặng</strong>.</li>
+              <li>Đưa số liệu <strong>CÂN NẶNG + HÌNH ẢNH CÂN NẶNG</strong> lên web của shop.</li>
+              <li>Sau khi cân xong mới đưa cục hàng vào trong khu làm hàng (khu làm mã).</li>
+            </ol>
+          </div>
+
+          <!-- Hàng QC -->
+          <div style="background:#faf5ff;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #8b5cf6;margin-bottom:10px">
+            <div style="font-weight:700;color:#6d28d9;margin-bottom:6px">📦 Hàng Quảng Châu (QC)</div>
+            <ol style="padding-left:18px;font-size:13px">
+              <li>Kiểm tra hàng <strong>theo từng ngày</strong> (ngày gửi, ngày nhận).</li>
+              <li>Cân nặng lại số kg thực tế.</li>
+              <li>Kiểm tra <strong>số kg ghi trên bao có sẵn</strong> → đối chiếu với số kg cân thực tế.</li>
+              <li>Khớp số kg → Đưa số liệu lên web của shop.</li>
+              <li>Mang hàng vào khu vực đã phân chia.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">1B</div>
+      <div class="step-content">
+        <div class="step-title">NCC gửi hàng cho shop</div>
+        <div class="step-body">
           <ul>
-            <li>Khi hàng hóa được gửi về shop, bạn phụ trách nhận hàng sẽ <strong>cân cục hàng</strong> xem bao nhiêu ký.</li>
-            <li>Đưa số liệu <strong>CÂN NẶNG + HÌNH ẢNH CÂN NẶNG</strong> lên web của shop.</li>
-            <li>Sau khi cân xong mới đưa cục hàng vào trong khu làm hàng (khu làm mã).</li>
+            <li>Nhận hàng → <strong>hỏi ship bên nhà nào gửi qua</strong>.</li>
+            <li>Xác nhận trả tiền ship NCC hoặc không trả tiền ship NCC.</li>
+            <li><strong>Note số tiền</strong> vào kiện hàng.</li>
+            <li>Mang kiện hàng vào khu vực đã phân chia.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge">1C</div>
+      <div class="step-content">
+        <div class="step-title">Ship bưu điện / Khách gửi hàng lên</div>
+        <div class="step-body">
+          <ul>
+            <li>Nhận hàng từ ship bưu điện hoặc khách gửi lên shop.</li>
+            <li>Xác nhận <strong>trả tiền ship / không trả tiền ship</strong>.</li>
+            <li>Mang đơn hàng vào khu vực đã phân chia.</li>
           </ul>
         </div>
       </div>
@@ -1613,10 +1665,62 @@ body.nav-collapsed #local-sidebar { left: 0; }
           <div class="step-body">
             <ul>
               <li>Nhận bill từ bạn sale.</li>
-              <li>Đi chợ theo đúng STT.</li>
+              <li>Hàng từ live đưa xuống sẽ được <strong>sắp xếp theo số và thứ tự tương ứng tên khách</strong>, vào những số đã có sẵn trong bill.</li>
+              <li>Đi chợ theo đúng STT — đi lại tên + số thứ tự + tên sản phẩm + số lượng món <strong>giống với bill và tên khách hàng</strong>.</li>
               <li>Check lại số lượng của kệ đó xem có khớp với STT không.</li>
               <li>Bỏ bao đem vào trong tới khu đối soát sản phẩm trên <code>Tpos</code>.</li>
             </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-badge" style="background:var(--bp5)">2</div>
+        <div class="step-content">
+          <div class="step-title">Xử lý các trường hợp đặc biệt khi đi chợ</div>
+          <div class="step-body">
+
+            <!-- Thiếu hàng -->
+            <div style="background:#fef9c3;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #f59e0b;margin-bottom:10px">
+              <div style="font-weight:700;color:#92400e;margin-bottom:6px">⚠️ Bill thiếu hàng</div>
+              <ul style="padding-left:18px;font-size:13px">
+                <li>Giữ lại bill, kiểm tra sau hoặc tìm sản phẩm.</li>
+                <li>Nếu không tìm được sản phẩm → <strong>đưa lại phiếu đặt hàng cho bạn sale</strong>.</li>
+              </ul>
+            </div>
+
+            <!-- Hàng oder chưa về -->
+            <div style="background:#eff6ff;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #3b82f6;margin-bottom:10px">
+              <div style="font-weight:700;color:#1d4ed8;margin-bottom:6px">📦 Hàng oder chưa về</div>
+              <ul style="padding-left:18px;font-size:13px">
+                <li>Giữ lại bill, khi hàng về đi đủ sản phẩm sẽ <strong>tiếp tục đi lại</strong>.</li>
+              </ul>
+            </div>
+
+            <!-- Bill khách qua lấy -->
+            <div style="background:#f0fdf4;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #22c55e;margin-bottom:10px">
+              <div style="font-weight:700;color:#166534;margin-bottom:6px">🏠 Bill khách qua lấy</div>
+              <ul style="padding-left:18px;font-size:13px">
+                <li>Giữ lại bill, <strong>để vào chỗ/nơi có sẵn tên bill</strong> khi khách qua lấy.</li>
+              </ul>
+            </div>
+
+            <!-- Phiếu đặt hàng live gộp -->
+            <div style="background:#faf5ff;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #8b5cf6;margin-bottom:10px">
+              <div style="font-weight:700;color:#6d28d9;margin-bottom:6px">📝 Phiếu đặt hàng live gộp</div>
+              <ul style="padding-left:18px;font-size:13px">
+                <li>Giữ lại phiếu, khi mấy bạn làm đơn sẽ <strong>gộp vào live sau</strong>.</li>
+              </ul>
+            </div>
+
+            <!-- Hàng chưa về kịp -->
+            <div style="background:#fff7ed;border-radius:var(--radius-sm);padding:12px;border-left:4px solid #f97316;margin-bottom:10px">
+              <div style="font-weight:700;color:#9a3412;margin-bottom:6px">⏳ Hàng chưa về kịp</div>
+              <ul style="padding-left:18px;font-size:13px">
+                <li>Đi chợ vào bao và kiểm tra: <strong>sản phẩm + số lượng + tên sản phẩm + tên khách hàng</strong>.</li>
+              </ul>
+            </div>
+
           </div>
         </div>
       </div>
@@ -1680,7 +1784,7 @@ body.nav-collapsed #local-sidebar { left: 0; }
     <div>
       <div class="bp-title">Bộ phận 6 — Đóng đơn &amp; Giao shipper</div>
     </div>
-    <span class="bp-badge">3 bước</span>
+    <span class="bp-badge">5 bước</span>
   </div>
   <div class="bp-body">
 
@@ -1718,6 +1822,7 @@ body.nav-collapsed #local-sidebar { left: 0; }
         <div class="step-title">Xuất excel &amp; Quét mã vận đơn</div>
         <div class="step-body">
           <ul>
+            <li><strong>Đổ file theo từng ngày từng kênh</strong> → Tích đơn phân chia theo TP &amp; Tỉnh.</li>
             <li>Vào <code>Tpos</code> xuất excel theo từng khu vực.</li>
             <li>Highlight lên để quét mã vận đơn.</li>
           </ul>
@@ -1739,6 +1844,42 @@ body.nav-collapsed #local-sidebar { left: 0; }
             <span class="callout-icon">🚚</span>
             <div class="callout-body"><strong>Khi đã đủ đơn</strong>Gọi ship qua lấy hàng.</div>
           </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge" style="background:var(--bp6)">4</div>
+      <div class="step-content">
+        <div class="step-title">Giao hàng cho shipper</div>
+        <div class="step-body">
+          <ol>
+            <li>Hỏi ship bên <span class="tag tag-info">🏙️ TP</span> &amp; <span class="tag tag-info">🗺️ Tỉnh</span>.</li>
+            <li><strong>Cho ship đếm lại số lượng đơn</strong>.</li>
+            <li>Khớp số lượng đơn trên bill đã ghi sẵn.</li>
+            <li><strong>Cho ship ký nhận</strong>.</li>
+            <li><strong>Chụp hình lên nhóm</strong>.</li>
+          </ol>
+          <div class="callout warn">
+            <span class="callout-icon">📢</span>
+            <div class="callout-body"><strong>Lưu ý</strong>Phải đảm bảo ship đếm và ký nhận đầy đủ trước khi giao hàng. Chụp hình làm bằng chứng giao nhận.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <hr class="step-divider">
+
+    <div class="step">
+      <div class="step-badge" style="background:var(--bp6)">5</div>
+      <div class="step-content">
+        <div class="step-title">Ship Đổi trả TP</div>
+        <div class="step-body">
+          <ol>
+            <li>Mang đơn đổi trả <strong>để riêng 1 chỗ cố định đã chia</strong>.</li>
+            <li>Đưa cho ship <strong>ký nhận</strong> + ghi <strong>số lượng món</strong> đơn đó.</li>
+            <li>Ký nhận thu về cho shop.</li>
+          </ol>
         </div>
       </div>
     </div>
@@ -1807,11 +1948,16 @@ body.nav-collapsed #local-sidebar { left: 0; }
         <div class="step-content">
           <div class="step-title">Kiểm tra &amp; nhận hàng hoàn</div>
           <div class="step-body">
-            <ul>
+            <ol>
               <li>Khi bên ship mang hàng hoàn về shop: bạn nhận đủ số đơn, kiểm tra khớp với tờ giấy hàng hoàn ship đưa không.</li>
+              <li><strong>Kiểm tra lại số đơn + số tiền</strong>.</li>
+              <li>Đối soát lại số tiền trên <strong>tờ giấy đỏ có sẵn</strong>.</li>
+              <li><strong>Khớp tiền + khớp số lượng đơn</strong>.</li>
+              <li><strong>Ký nhận</strong> + chụp hình đưa lên nhóm.</li>
+              <li>Mang đơn vào <strong>khu vực đã phân chia</strong>.</li>
               <li>Sau đó đưa vào trong cho bạn bên bộ phận CSKH trả hàng hoàn.</li>
-              <li>Khi đã trả hàng hoàn xong: check lại số tiền và <strong>báo lên group là nhận đủ hàng trong giấy hoàn đơn</strong>.</li>
-            </ul>
+              <li>Khi đã trả hàng hoàn xong: <strong>báo lên group là nhận đủ hàng trong giấy hoàn đơn</strong>.</li>
+            </ol>
           </div>
         </div>
       </div>
