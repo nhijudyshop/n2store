@@ -23,7 +23,7 @@ export async function handleFacebookSend(request, url) {
 
     try {
         const body = await request.json();
-        let { pageId, psid, message, pageToken, useTag, imageUrls, recipient } = body;
+        let { pageId, psid, message, pageToken, useTag, imageUrls, recipient, postId } = body;
 
         // Fallback: Get token from header if not in body
         if (!pageToken) {
@@ -41,6 +41,7 @@ export async function handleFacebookSend(request, url) {
 
         const graphApiUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${pageId}/messages`;
         console.log('[FACEBOOK-SEND] Graph API URL:', graphApiUrl);
+        if (postId) console.log('[FACEBOOK-SEND] Post ID for Private Reply fallback:', postId);
 
         // Tag priority: HUMAN_AGENT → CUSTOMER_FEEDBACK
         const TAG_SEQUENCE = ['HUMAN_AGENT', 'CUSTOMER_FEEDBACK'];
@@ -48,6 +49,8 @@ export async function handleFacebookSend(request, url) {
         const messageIds = [];
         let lastResult = null;
         let usedTag = null;
+        let sendFailed551 = false;
+        let lastError = null;
 
         // Helper: send a single request to Facebook Graph API
         async function sendToGraph(fbBody) {
@@ -86,14 +89,96 @@ export async function handleFacebookSend(request, url) {
                     return { success: true, result, tag };
                 }
 
+                // Track 551 error (no inbox conversation)
+                if (result.error.code === 551) {
+                    sendFailed551 = true;
+                }
+                lastError = result.error;
+
                 console.warn(`[FACEBOOK-SEND] ⚠️ ${tag} failed (${result.error.code}): ${result.error.message}`);
-                // Continue to next tag
             }
 
-            // All tags failed, return last error
-            const lastBody = { ...baseFbBody, messaging_type: 'MESSAGE_TAG', tag: TAG_SEQUENCE[TAG_SEQUENCE.length - 1] };
-            const { response, result } = await sendToGraph(lastBody);
-            return { success: false, result, status: response.status };
+            // All tags failed
+            return { success: false, result: { error: lastError }, status: 400 };
+        }
+
+        // Helper: Find real Facebook comment ID by querying the post's comments
+        async function findRealCommentId(fbPostId, customerAsid) {
+            console.log('[PRIVATE-REPLY] Looking up real comment ID from Facebook Graph API...');
+            console.log('[PRIVATE-REPLY] Post ID:', fbPostId, '| Customer ASID:', customerAsid);
+
+            const graphUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${fbPostId}/comments`;
+            const params = new URLSearchParams({
+                access_token: pageToken,
+                fields: 'from{id,name},id,message,created_time',
+                filter: 'stream',
+                limit: '200',
+                order: 'reverse_chronological'
+            });
+
+            try {
+                const resp = await fetchWithRetry(
+                    `${graphUrl}?${params.toString()}`,
+                    { method: 'GET', headers: { 'Accept': 'application/json' } },
+                    2, 1000, 15000
+                );
+                const data = await resp.json();
+
+                if (data.error) {
+                    console.error('[PRIVATE-REPLY] Error fetching comments:', data.error.message);
+                    return null;
+                }
+
+                const comments = data.data || [];
+                console.log(`[PRIVATE-REPLY] Found ${comments.length} comments on post`);
+
+                // Find comment from this customer
+                const customerComment = comments.find(c => c.from && String(c.from.id) === String(customerAsid));
+
+                if (customerComment) {
+                    console.log(`[PRIVATE-REPLY] ✅ Found customer comment!`);
+                    console.log(`[PRIVATE-REPLY]   Real Comment ID: ${customerComment.id}`);
+                    console.log(`[PRIVATE-REPLY]   From: ${customerComment.from.name} (${customerComment.from.id})`);
+                    console.log(`[PRIVATE-REPLY]   Message: ${customerComment.message?.substring(0, 50)}...`);
+                    return customerComment.id;
+                }
+
+                console.warn('[PRIVATE-REPLY] ⚠️ Customer comment not found in top 200 comments');
+
+                // Log available commenters for debugging
+                const uniqueFromIds = [...new Set(comments.map(c => c.from?.id).filter(Boolean))];
+                console.log('[PRIVATE-REPLY] Available commenter IDs:', uniqueFromIds.slice(0, 10).join(', '));
+
+                return null;
+            } catch (err) {
+                console.error('[PRIVATE-REPLY] Error querying comments:', err.message);
+                return null;
+            }
+        }
+
+        // Helper: Send Private Reply via Facebook Graph API
+        async function sendPrivateReply(realCommentId, messageText) {
+            const prUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${realCommentId}/private_replies`;
+            console.log('[PRIVATE-REPLY] Sending Private Reply to comment:', realCommentId);
+
+            const resp = await fetchWithRetry(
+                `${prUrl}?access_token=${pageToken}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ message: messageText }),
+                },
+                2, 1000, 15000
+            );
+            const result = await resp.json();
+
+            if (result.error) {
+                console.error('[PRIVATE-REPLY] ❌ Failed:', result.error.message);
+                return { success: false, result, status: resp.status };
+            }
+
+            console.log('[PRIVATE-REPLY] ✅ Private Reply sent successfully!', JSON.stringify(result));
+            return { success: true, result };
         }
 
         // Send images first (if any)
@@ -116,12 +201,8 @@ export async function handleFacebookSend(request, url) {
 
                 if (!imgResult.success) {
                     console.error('[FACEBOOK-SEND] Image send error:', imgResult.result.error);
-                    return jsonResponse({
-                        success: false,
-                        error: imgResult.result.error.message || 'Failed to send image',
-                        error_code: imgResult.result.error.code,
-                        error_subcode: imgResult.result.error.error_subcode,
-                    }, imgResult.status || 400);
+                    // Don't return yet - try Private Reply fallback below
+                    break;
                 }
 
                 messageIds.push(imgResult.result.message_id);
@@ -132,7 +213,7 @@ export async function handleFacebookSend(request, url) {
 
         // Send text message (if provided)
         const hasTextMessage = message && (typeof message === 'string' ? message.trim() : message.text);
-        if (hasTextMessage) {
+        if (hasTextMessage && !sendFailed551) {
             const textFbBody = {
                 recipient: recipient || { id: psid },
                 message: typeof message === 'object' ? message : { text: message },
@@ -143,17 +224,74 @@ export async function handleFacebookSend(request, url) {
 
             if (!txtResult.success) {
                 console.error('[FACEBOOK-SEND] Text send error:', txtResult.result.error);
+                // Don't return yet - try Private Reply fallback below
+            } else {
+                messageIds.push(txtResult.result.message_id);
+                lastResult = txtResult.result;
+                usedTag = txtResult.tag;
+            }
+        }
+
+        // ===== PRIVATE REPLY FALLBACK =====
+        // If Send API failed with 551 (no inbox conversation) and we have a postId,
+        // query Facebook Graph API for the real comment ID and use Private Reply
+        if (sendFailed551 && postId && hasTextMessage) {
+            console.log('[FACEBOOK-SEND] ========================================');
+            console.log('[FACEBOOK-SEND] Send API failed with 551 → trying Private Reply fallback');
+
+            const messageText = typeof message === 'string' ? message : message.text;
+            const realCommentId = await findRealCommentId(postId, psid);
+
+            if (realCommentId) {
+                const prResult = await sendPrivateReply(realCommentId, messageText);
+
+                if (prResult.success) {
+                    console.log('[FACEBOOK-SEND] ✅ Private Reply fallback succeeded!');
+                    return jsonResponse({
+                        success: true,
+                        recipient_id: prResult.result.recipient_id,
+                        message_id: prResult.result.id,
+                        message_ids: [prResult.result.id],
+                        used_tag: 'PRIVATE_REPLY',
+                        method: 'private_reply',
+                        real_comment_id: realCommentId,
+                    });
+                }
+
+                // Private Reply also failed
+                console.error('[FACEBOOK-SEND] ❌ Private Reply also failed');
                 return jsonResponse({
                     success: false,
-                    error: txtResult.result.error.message || 'Failed to send text',
-                    error_code: txtResult.result.error.code,
-                    error_subcode: txtResult.result.error.error_subcode,
-                }, txtResult.status || 400);
+                    error: prResult.result.error?.message || 'Private Reply failed',
+                    error_code: prResult.result.error?.code,
+                    error_subcode: prResult.result.error?.error_subcode,
+                    method: 'private_reply',
+                    real_comment_id: realCommentId,
+                    send_api_error: lastError?.message,
+                }, prResult.status || 400);
             }
 
-            messageIds.push(txtResult.result.message_id);
-            lastResult = txtResult.result;
-            usedTag = txtResult.tag;
+            // Could not find real comment ID
+            console.error('[FACEBOOK-SEND] ❌ Could not find real comment ID for Private Reply');
+            return jsonResponse({
+                success: false,
+                error: lastError?.message || 'Send API failed and Private Reply comment not found',
+                error_code: lastError?.code || 551,
+                error_subcode: lastError?.error_subcode,
+                private_reply_error: 'Customer comment not found on post',
+                post_id: postId,
+                customer_asid: psid,
+            }, 400);
+        }
+
+        // If Send API failed (non-551) without Private Reply fallback
+        if (messageIds.length === 0 && lastError) {
+            return jsonResponse({
+                success: false,
+                error: lastError.message || 'Failed to send message',
+                error_code: lastError.code,
+                error_subcode: lastError.error_subcode,
+            }, 400);
         }
 
         console.log('[FACEBOOK-SEND] All messages sent successfully!');

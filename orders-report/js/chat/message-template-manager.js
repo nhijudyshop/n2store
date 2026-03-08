@@ -1504,8 +1504,8 @@ class MessageTemplateManager {
             if (is24HourError) {
                 this.log(`⚠️ 24-hour policy error - attempting Facebook API fallback for order ${order.code}`);
 
-                // Try Facebook API fallback
-                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw);
+                // Try Facebook API fallback (with postId for Private Reply fallback)
+                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, fullOrderData.raw.Facebook_PostId);
 
                 if (fbFallbackResult.success) {
                     this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
@@ -1526,8 +1526,8 @@ class MessageTemplateManager {
             if (isUserUnavailable) {
                 this.log(`⚠️ User unavailable (551) error - attempting Facebook API fallback for order ${order.code}`);
 
-                // Try Facebook API fallback
-                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw);
+                // Try Facebook API fallback (with postId for Private Reply fallback)
+                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, fullOrderData.raw.Facebook_PostId);
 
                 if (fbFallbackResult.success) {
                     this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
@@ -1558,7 +1558,7 @@ class MessageTemplateManager {
      * Send message via Facebook Graph API with HUMAN_AGENT/CUSTOMER_FEEDBACK tag
      * Falls back to Private Reply if Send API fails with 551 (no inbox conversation)
      */
-    async _sendViaFacebookAPI(pageId, psid, message, orderRaw) {
+    async _sendViaFacebookAPI(pageId, psid, message, orderRaw, postId) {
         this.log('[FB-FALLBACK] Attempting Facebook API fallback...');
 
         try {
@@ -1609,6 +1609,12 @@ class MessageTemplateManager {
                 useTag: true
             };
 
+            // Pass postId for Private Reply fallback (when Send API fails with 551)
+            if (postId) {
+                requestBody.postId = postId;
+                this.log('[FB-FALLBACK] Including postId for Private Reply fallback:', postId);
+            }
+
             const response = await fetch(facebookSendUrl, {
                 method: 'POST',
                 headers: {
@@ -1622,15 +1628,19 @@ class MessageTemplateManager {
             this.log('[FB-FALLBACK] Response:', result);
 
             if (result.success) {
-                this.log('[FB-FALLBACK] ✅ Message sent successfully via Facebook Graph API!');
+                const method = result.method || 'send_api';
+                this.log(`[FB-FALLBACK] ✅ Message sent successfully! Method: ${method}, Tag: ${result.used_tag || 'none'}`);
                 return {
                     success: true,
-                    messageId: result.message_id
+                    messageId: result.message_id,
+                    method: method,
+                    used_tag: result.used_tag,
                 };
             } else {
                 return {
                     success: false,
-                    error: result.error || 'Facebook API error'
+                    error: result.error || 'Facebook API error',
+                    error_code: result.error_code,
                 };
             }
 
@@ -3566,95 +3576,18 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Replace placeholders in template
             const messageContent = this.replacePlaceholders(selectedTemplate.Content || '', this._quickCommentOrderData.converted);
 
-            // Step 1: Try Facebook Send API (HUMAN_AGENT → CUSTOMER_FEEDBACK tags)
-            const result = await this._sendViaFacebookAPI(channelId, psid, messageContent, raw);
+            // Extract Facebook Post ID for Private Reply fallback
+            // Facebook_PostId format: "pageId_postId" e.g. "112678138086607_2901171643422289"
+            const facebookPostId = raw.Facebook_PostId || '';
+            this.log('[QUICK-FB-SEND] Facebook_PostId:', facebookPostId);
+
+            // Send via Facebook API (worker handles Send API → Private Reply fallback automatically)
+            const result = await this._sendViaFacebookAPI(channelId, psid, messageContent, raw, facebookPostId);
 
             if (result.success) {
-                this.log('[QUICK-FB-SEND] ✅ Sent via Facebook Send API (tag: ' + (result.used_tag || 'unknown') + ')');
+                this.log('[QUICK-FB-SEND] ✅ Message sent! Method:', result.method || 'send_api');
             } else {
-                // Step 2: Fallback to Pancake private_replies (works for comment-only users)
-                this.log('[QUICK-FB-SEND] ⚠️ Facebook Send API failed, trying Pancake private_replies...');
-
-                const postId = raw.Facebook_PostId.split('_').slice(1).join('_');
-                const commentsResult = await window.pancakeDataManager?.fetchComments(
-                    channelId, psid, null, postId
-                );
-
-                if (!commentsResult?.comments?.length) {
-                    throw new Error('Không tìm thấy bình luận từ khách hàng');
-                }
-
-                const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
-                if (!customerComments.length) {
-                    throw new Error('Không tìm thấy bình luận từ khách hàng');
-                }
-
-                const latestComment = customerComments[customerComments.length - 1];
-                const commentConvId = latestComment.Id;
-                this.log('[QUICK-FB-SEND] Using Pancake comment ID:', commentConvId);
-
-                // Get page_access_token for Pancake Official API
-                let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
-                if (!pageAccessToken) {
-                    pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
-                }
-                if (!pageAccessToken) {
-                    throw new Error('Không có page_access_token');
-                }
-
-                // Send via Pancake private_replies action
-                const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${channelId}/conversations/${commentConvId}/messages`,
-                    pageAccessToken
-                );
-
-                const facebookPostId = raw.Facebook_PostId; // e.g. "112678138086607_2901171643422289"
-                const prPayload = {
-                    action: 'private_replies',
-                    post_id: facebookPostId,
-                    message_id: commentConvId,
-                    from_id: psid,
-                    message: messageContent
-                };
-
-                this.log('[QUICK-FB-SEND] Sending private_replies via Pancake:', { channelId, commentConvId, facebookPostId, psid });
-
-                const prResponse = await API_CONFIG.smartFetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify(prPayload)
-                }, 1, true);
-
-                const prResult = await prResponse.json();
-                this.log('[QUICK-FB-SEND] Pancake private_replies response:', prResult);
-
-                if (!prResponse.ok || prResult.success === false || prResult.error) {
-                    // Step 3: Fallback to reply_comment (public comment reply)
-                    this.log('[QUICK-FB-SEND] ⚠️ private_replies failed, trying reply_comment...');
-
-                    const rcPayload = {
-                        action: 'reply_comment',
-                        message_id: commentConvId,
-                        message: messageContent
-                    };
-
-                    const rcResponse = await API_CONFIG.smartFetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify(rcPayload)
-                    }, 1, true);
-
-                    const rcResult = await rcResponse.json();
-                    this.log('[QUICK-FB-SEND] reply_comment response:', rcResult);
-
-                    if (!rcResponse.ok || rcResult.success === false || rcResult.error) {
-                        throw new Error(rcResult.message || rcResult.error?.message || rcResult.error || 'Reply comment failed');
-                    }
-
-                    this.log('[QUICK-FB-SEND] ✅ Sent via reply_comment (public)');
-                } else {
-                    this.log('[QUICK-FB-SEND] ✅ Sent via Pancake private_replies!');
-                }
+                throw new Error(result.error || 'Gửi tin nhắn thất bại');
             }
 
             // Close modal
