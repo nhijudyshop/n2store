@@ -991,6 +991,7 @@ async function openSaleModalInSocialTab(orderId) {
     // Map social order data to Tab1-compatible format
     const mappedOrder = {
         Id: order.id,
+        PartnerId: order.tposPartnerId || 0,  // TPOS Partner Id saved from phone lookup/customer creation
         PartnerName: order.customerName || '',
         Name: order.customerName || '',
         Telephone: order.phone || '',
