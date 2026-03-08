@@ -896,6 +896,23 @@
     <script src="js/tab-social/tab-social-sale.js"></script>
     <!-- Sale Modal: shared creation logic from Tab1 (must load AFTER tab-social-sale.js for globals) -->
     <script src="js/tab1/tab1-sale.js"></script>
+    <script>
+        // Override buildSaleOrderModelForInsertList to clear SaleOnlineIds for social orders
+        // Social order IDs (SO-*) are NOT GUIDs and cause Edm.Guid conversion error in TPOS API
+        (function() {
+            const _originalBuild = buildSaleOrderModelForInsertList;
+            buildSaleOrderModelForInsertList = function() {
+                const model = _originalBuild();
+                if (currentSaleOrderData?._isSocialOrder) {
+                    model.SaleOnlineIds = [];
+                    model.SaleOnlineNames = [];
+                    model.SaleOnlineName = '';
+                    model.Reference = '';
+                }
+                return model;
+            };
+        })();
+    </script>
 </body>
 
 </html>
