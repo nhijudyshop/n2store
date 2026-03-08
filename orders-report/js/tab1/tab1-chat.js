@@ -513,6 +513,18 @@ window.switchConversationType = async function (type) {
 
     console.log('[CONV-TYPE] Switching from', currentConversationType, 'to', type);
 
+    // Show loading FIRST (before resetting state) to avoid brief "empty" flash
+    const modalBody = document.getElementById('chatModalBody');
+    const loadingText = type === 'COMMENT' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';
+    modalBody.innerHTML = `
+        <div class="chat-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>${loadingText}</p>
+        </div>`;
+
+    // Cleanup realtime listeners to prevent them from rendering empty state during switch
+    cleanupRealtimeMessages();
+
     // Update toggle button states
     window.updateConversationTypeToggle(type);
 
@@ -534,15 +546,6 @@ window.switchConversationType = async function (type) {
 
     // Hide conversation selector
     window.hideConversationSelector();
-
-    // Show loading
-    const modalBody = document.getElementById('chatModalBody');
-    const loadingText = type === 'COMMENT' ? 'Đang tải bình luận...' : 'Đang tải tin nhắn...';
-    modalBody.innerHTML = `
-        <div class="chat-loading">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>${loadingText}</p>
-        </div>`;
 
     // Update input state based on conversation type
     const chatInput = document.getElementById('chatReplyInput');
@@ -4923,6 +4926,10 @@ function renderChatMessages(messages, scrollToBottom = false) {
     const modalBody = document.getElementById('chatModalBody');
 
     if (!messages || messages.length === 0) {
+        // Don't overwrite loading state with empty state
+        if (modalBody.querySelector('.chat-loading')) {
+            return;
+        }
         modalBody.innerHTML = `
             <div class="chat-empty">
                 <i class="fas fa-comments"></i>
@@ -5528,6 +5535,10 @@ function renderComments(comments, scrollToBottom = false) {
     const modalBody = document.getElementById('chatModalBody');
 
     if (!comments || comments.length === 0) {
+        // Don't overwrite loading state with empty state
+        if (modalBody.querySelector('.chat-loading')) {
+            return;
+        }
         modalBody.innerHTML = `
             <div class="chat-empty">
                 <i class="fas fa-comments"></i>
