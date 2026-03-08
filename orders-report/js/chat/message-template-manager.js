@@ -1310,21 +1310,16 @@ class MessageTemplateManager {
         const chatInfo = window.pancakeDataManager.getChatInfoForOrder(fullOrderData.raw);
         const channelId = chatInfo.channelId;
         const psid = chatInfo.psid;
-        const customerId = fullOrderData.raw.PartnerId;
+        // Get Pancake customer UUID from conversation cache (NOT TPOS PartnerId)
+        const conversation = window.pancakeDataManager?.getConversationByUserId(psid);
+        const customerId = conversation?.customers?.[0]?.id || null;
 
         if (!channelId || !psid) {
             throw new Error(`Thiếu thông tin channelId hoặc PSID. Order: ${order.code}`);
         }
 
-        if (!customerId) {
-            throw new Error(`Thiếu thông tin PartnerId (customer_id). Order: ${order.code}`);
-        }
-
-        // Get conversation from Pancake to get correct conversationId
-        // First try to get from cache, if not found, construct from channelId_psid
+        // Get conversationId from cached conversation or construct fallback
         let conversationId;
-        const conversation = window.pancakeDataManager?.getConversationByUserId(psid);
-
         if (conversation && conversation.id) {
             conversationId = conversation.id;
             this.log(`📌 Found conversation in cache: ${conversationId}`);
