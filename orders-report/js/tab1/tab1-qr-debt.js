@@ -1458,6 +1458,7 @@ async function openSaleModalFromSocialOrder(socialOrder) {
         Details: (socialOrder.products || []).map(p => ({
             ProductNameGet: p.productName || '',
             ProductName: p.productName || '',
+            ProductCode: p.productCode || '',
             Quantity: p.quantity || 1,
             PriceUnit: p.sellingPrice || 0,
             Price: p.sellingPrice || 0,
@@ -1468,6 +1469,70 @@ async function openSaleModalFromSocialOrder(socialOrder) {
     };
 
     currentSaleOrderData = mappedOrder;
+
+    // 🔥 FIX: Tra cứu TPOS Customer theo SĐT cho đơn Social
+    currentSalePartnerData = null;
+    if (mappedOrder.Telephone) {
+        try {
+            console.log('[SALE-MODAL-SOCIAL] Looking up TPOS customer for phone:', mappedOrder.Telephone);
+            if (window.fetchTPOSCustomer) {
+                const result = await window.fetchTPOSCustomer(mappedOrder.Telephone);
+                if (result.success && result.count > 0) {
+                    const customer = result.customers[0];
+                    currentSalePartnerData = {
+                        Id: customer.id || customer.Id,
+                        Name: customer.name || customer.Name || mappedOrder.PartnerName,
+                        DisplayName: customer.displayName || customer.DisplayName || customer.name || customer.Name || mappedOrder.PartnerName,
+                        Phone: customer.phone || customer.Phone || mappedOrder.Telephone,
+                        Street: customer.address || customer.Street || mappedOrder.Address,
+                        StatusText: customer.statusText || customer.StatusText || '',
+                    };
+                    // Also set PartnerId on the order for buildSaleOrderModelForInsertList()
+                    mappedOrder.PartnerId = currentSalePartnerData.Id;
+                    console.log('[SALE-MODAL-SOCIAL] ✅ Found TPOS customer:', currentSalePartnerData.Name, 'Id:', currentSalePartnerData.Id);
+                } else {
+                    console.warn('[SALE-MODAL-SOCIAL] ⚠️ No TPOS customer found for phone:', mappedOrder.Telephone);
+                }
+            }
+        } catch (err) {
+            console.error('[SALE-MODAL-SOCIAL] Error looking up TPOS customer:', err);
+        }
+    }
+
+    // 🔥 FIX: Tra cứu ProductId cho sản phẩm Social từ productSearchManager
+    if (mappedOrder.Details && mappedOrder.Details.length > 0) {
+        try {
+            if (window.productSearchManager) {
+                if (!window.productSearchManager.isLoaded) {
+                    await window.productSearchManager.fetchExcelProducts();
+                }
+                for (const detail of mappedOrder.Details) {
+                    const searchName = detail.ProductName || detail.ProductNameGet || '';
+                    if (!searchName) continue;
+
+                    // Search by product code first (if available), then by name
+                    const productCode = detail.ProductCode || '';
+                    let results = [];
+                    if (productCode) {
+                        results = window.productSearchManager.search(productCode, 1);
+                    }
+                    if (results.length === 0) {
+                        results = window.productSearchManager.search(searchName, 1);
+                    }
+
+                    if (results.length > 0) {
+                        detail.ProductId = results[0].Id;
+                        detail.ProductCode = results[0].Code || results[0].DefaultCode || productCode;
+                        console.log(`[SALE-MODAL-SOCIAL] ✅ Matched product "${searchName}" → Id: ${results[0].Id}`);
+                    } else {
+                        console.warn(`[SALE-MODAL-SOCIAL] ⚠️ No TPOS product match for "${searchName}"`);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[SALE-MODAL-SOCIAL] Error looking up TPOS products:', err);
+        }
+    }
 
     // Reset form fields (same logic as openSaleButtonModal)
     const discountEl = document.getElementById('saleDiscount');
