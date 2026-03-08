@@ -1001,6 +1001,7 @@ async function openSaleModalInSocialTab(orderId) {
         TotalAmount: order.totalAmount || 0,
         Comment: order.note || '',
         Details: (order.products || []).map(p => ({
+            ProductId: p.tposProductId || 0,
             ProductNameGet: p.productName || p.name || '',
             ProductName: p.productName || p.name || '',
             Quantity: p.quantity || 1,
