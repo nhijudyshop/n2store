@@ -3608,12 +3608,16 @@ Chúc chị một ngày vui vẻ! 😊`,
                     pageAccessToken
                 );
 
+                const facebookPostId = raw.Facebook_PostId; // e.g. "112678138086607_2901171643422289"
                 const prPayload = {
                     action: 'private_replies',
+                    post_id: facebookPostId,
+                    message_id: commentConvId,
+                    from_id: psid,
                     message: messageContent
                 };
 
-                this.log('[QUICK-FB-SEND] Sending private_replies via Pancake:', { channelId, commentConvId });
+                this.log('[QUICK-FB-SEND] Sending private_replies via Pancake:', { channelId, commentConvId, facebookPostId, psid });
 
                 const prResponse = await API_CONFIG.smartFetch(url, {
                     method: 'POST',
