@@ -25,6 +25,44 @@ let deliveryCarrierCacheLoaded = false;
 const QR_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 // =====================================================
+// FETCH FULL PARTNER FROM TPOS (for InsertListOrderModel)
+// Returns complete Partner object needed by TPOS API
+// =====================================================
+async function fetchFullPartnerByPhone(phone) {
+    if (!phone) return null;
+
+    try {
+        // Use billTokenManager (same auth as InsertListOrderModel)
+        let headers;
+        if (window.billTokenManager) {
+            await window.billTokenManager.ensureCredentialsLoaded();
+            if (!window.billTokenManager.hasCredentials()) return null;
+            headers = await window.billTokenManager.getAuthHeader();
+        } else if (window.tokenManager) {
+            headers = await window.tokenManager.getAuthHeader();
+        } else {
+            return null;
+        }
+
+        const cleanPhone = phone.replace(/\D/g, '');
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${encodeURIComponent(cleanPhone)}&$top=1&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { ...headers, 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        return data.value?.[0] || null;
+    } catch (error) {
+        console.error('[SOCIAL-SALE] Error fetching partner:', error);
+        return null;
+    }
+}
+
+// =====================================================
 // PHONE NORMALIZATION (from tab1-address-stats.js)
 // =====================================================
 function normalizePhoneForQR(phone) {
@@ -1091,17 +1129,27 @@ async function openSaleModalInSocialTab(orderId) {
     // Populate the modal with order data
     populateSaleModalWithOrder(mappedOrder);
 
-    // Fetch wallet/debt if phone available
-    if (mappedOrder.Telephone) {
-        await fetchDebtForSaleModal(mappedOrder.Telephone);
+    // Fetch full partner data from TPOS and wallet/debt in parallel
+    // TPOS InsertListOrderModel requires full Partner object, not just Id
+    const phone = mappedOrder.Telephone || mappedOrder.PartnerPhone;
+    const partnerPromise = phone ? fetchFullPartnerByPhone(phone) : Promise.resolve(null);
+    const debtPromise = phone ? fetchDebtForSaleModal(phone) : Promise.resolve();
+
+    const [partnerResult] = await Promise.all([partnerPromise, debtPromise]);
+
+    if (partnerResult) {
+        currentSalePartnerData = partnerResult;
+        console.log('[SOCIAL-SALE] Loaded TPOS partner:', partnerResult.Id, partnerResult.Name);
     }
 
     // Populate delivery carrier dropdown
     await populateDeliveryCarrierDropdown();
 
     // Smart select delivery partner based on address
-    if (mappedOrder.Address) {
-        smartSelectDeliveryPartner(mappedOrder.Address, null);
+    const address = mappedOrder.Address || '';
+    const extraAddress = partnerResult?.ExtraAddress || null;
+    if (address) {
+        smartSelectDeliveryPartner(address, extraAddress);
     }
 
     // Init product search (from tab1-sale.js - shared)
