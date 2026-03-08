@@ -1003,6 +1003,7 @@ async function openSaleModalInSocialTab(orderId) {
         Details: (order.products || []).map(p => ({
             ProductNameGet: p.productName || p.name || '',
             ProductName: p.productName || p.name || '',
+            ProductCode: p.productCode || p.code || '',
             Quantity: p.quantity || 1,
             PriceUnit: p.sellingPrice || p.price || 0,
             Price: p.sellingPrice || p.price || 0,
@@ -1013,6 +1014,68 @@ async function openSaleModalInSocialTab(orderId) {
     };
 
     currentSaleOrderData = mappedOrder;
+
+    // 🔥 FIX: Tra cứu TPOS Customer theo SĐT cho đơn Social
+    currentSalePartnerData = null;
+    if (mappedOrder.Telephone) {
+        try {
+            console.log('[SOCIAL-SALE] Looking up TPOS customer for phone:', mappedOrder.Telephone);
+            if (window.fetchTPOSCustomer) {
+                const result = await window.fetchTPOSCustomer(mappedOrder.Telephone);
+                if (result.success && result.count > 0) {
+                    const customer = result.customers[0];
+                    currentSalePartnerData = {
+                        Id: customer.id || customer.Id,
+                        Name: customer.name || customer.Name || mappedOrder.PartnerName,
+                        DisplayName: customer.displayName || customer.DisplayName || customer.name || customer.Name || mappedOrder.PartnerName,
+                        Phone: customer.phone || customer.Phone || mappedOrder.Telephone,
+                        Street: customer.address || customer.Street || mappedOrder.Address,
+                        StatusText: customer.statusText || customer.StatusText || '',
+                    };
+                    mappedOrder.PartnerId = currentSalePartnerData.Id;
+                    console.log('[SOCIAL-SALE] ✅ Found TPOS customer:', currentSalePartnerData.Name, 'Id:', currentSalePartnerData.Id);
+                } else {
+                    console.warn('[SOCIAL-SALE] ⚠️ No TPOS customer found for phone:', mappedOrder.Telephone);
+                }
+            }
+        } catch (err) {
+            console.error('[SOCIAL-SALE] Error looking up TPOS customer:', err);
+        }
+    }
+
+    // 🔥 FIX: Tra cứu ProductId cho sản phẩm Social từ productSearchManager
+    if (mappedOrder.Details && mappedOrder.Details.length > 0) {
+        try {
+            if (window.productSearchManager) {
+                if (!window.productSearchManager.isLoaded) {
+                    await window.productSearchManager.fetchExcelProducts();
+                }
+                for (const detail of mappedOrder.Details) {
+                    const searchName = detail.ProductName || detail.ProductNameGet || '';
+                    if (!searchName) continue;
+
+                    const productCode = detail.ProductCode || '';
+                    let results = [];
+                    if (productCode) {
+                        results = window.productSearchManager.search(productCode, 1);
+                    }
+                    if (results.length === 0) {
+                        results = window.productSearchManager.search(searchName, 1);
+                    }
+
+                    if (results.length > 0) {
+                        detail.ProductId = results[0].Id;
+                        detail.ProductCode = results[0].Code || results[0].DefaultCode || productCode;
+                        console.log(`[SOCIAL-SALE] ✅ Matched product "${searchName}" → Id: ${results[0].Id}`);
+                    } else {
+                        console.warn(`[SOCIAL-SALE] ⚠️ No TPOS product match for "${searchName}"`);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[SOCIAL-SALE] Error looking up TPOS products:', err);
+        }
+    }
 
     // Reset form fields
     const discountEl = document.getElementById('saleDiscount');
