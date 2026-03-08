@@ -638,19 +638,23 @@ window.TPOSProductCreator = (function () {
      * Update tposSyncStatus for specific items in a Firestore order document.
      * Uses transaction to prevent race conditions when multiple groups update concurrently.
      */
+    // Configurable Firestore collection (set by syncOrderToTPOS options)
+    let _firestoreCollection = 'purchase_orders';
+    let _firestoreItemsField = 'items';
+
     async function updateSyncStatus(orderId, itemIds, status, tposProductId, error) {
         try {
             if (!window.firebase || !window.firebase.firestore) return;
 
             const db = firebase.firestore();
-            const docRef = db.collection('purchase_orders').doc(orderId);
+            const docRef = db.collection(_firestoreCollection).doc(orderId);
 
             await db.runTransaction(async (transaction) => {
                 const doc = await transaction.get(docRef);
                 if (!doc.exists) return;
 
                 const data = doc.data();
-                const items = data.items || [];
+                const items = data[_firestoreItemsField] || [];
                 let changed = false;
 
                 for (const item of items) {
@@ -666,13 +670,13 @@ window.TPOSProductCreator = (function () {
 
                 if (changed) {
                     transaction.update(docRef, {
-                        items,
+                        [_firestoreItemsField]: items,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
             });
 
-            console.log(`[TPOSCreator] Updated sync status for ${itemIds.length} items: ${status}`);
+            console.log(`[TPOSCreator] Updated sync status for ${itemIds.length} items in ${_firestoreCollection}: ${status}`);
         } catch (err) {
             console.error('[TPOSCreator] Failed to update sync status:', err);
         }
@@ -803,14 +807,14 @@ window.TPOSProductCreator = (function () {
             if (!window.firebase || !window.firebase.firestore) return;
 
             const db = firebase.firestore();
-            const docRef = db.collection('purchase_orders').doc(orderId);
+            const docRef = db.collection(_firestoreCollection).doc(orderId);
 
             await db.runTransaction(async (transaction) => {
                 const doc = await transaction.get(docRef);
                 if (!doc.exists) return;
 
                 const data = doc.data();
-                const items = data.items || [];
+                const items = data[_firestoreItemsField] || [];
                 let changed = false;
 
                 for (const { itemIds, syncData } of groupResults) {
@@ -857,12 +861,12 @@ window.TPOSProductCreator = (function () {
                 }
 
                 if (changed) {
-                    transaction.update(docRef, { items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                    transaction.update(docRef, { [_firestoreItemsField]: items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
                 }
             });
 
             const totalItems = groupResults.reduce((sum, g) => sum + (g.itemIds?.length || 0), 0);
-            console.log(`[TPOSCreator] Batch updated ${groupResults.length} groups (${totalItems} items)`);
+            console.log(`[TPOSCreator] Batch updated ${groupResults.length} groups (${totalItems} items) in ${_firestoreCollection}`);
         } catch (err) {
             console.error('[TPOSCreator] Failed to batch update sync results:', err);
         }
@@ -1024,9 +1028,15 @@ window.TPOSProductCreator = (function () {
      * @param {string} orderId - Firestore document ID
      * @param {Array} items - order items with productCode, selectedAttributeValueIds, etc.
      * @param {Object} supplier - supplier info (not used in TPOS payload currently)
+     * @param {Object} [options] - optional config
+     * @param {string} [options.collection] - Firestore collection name (default: 'purchase_orders')
+     * @param {string} [options.itemsField] - Firestore field name for items array (default: 'items')
      */
-    async function syncOrderToTPOS(orderId, items, supplier) {
-        console.log(`[TPOSCreator] Starting TPOS sync for order ${orderId}, ${items.length} items`);
+    async function syncOrderToTPOS(orderId, items, supplier, options) {
+        // Configure Firestore collection for this sync run
+        _firestoreCollection = options?.collection || 'purchase_orders';
+        _firestoreItemsField = options?.itemsField || 'items';
+        console.log(`[TPOSCreator] Starting TPOS sync for order ${orderId}, ${items.length} items (collection: ${_firestoreCollection})`);
 
         try {
             // Step 1: Load attribute CSV data
