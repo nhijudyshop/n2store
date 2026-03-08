@@ -1555,8 +1555,8 @@ class MessageTemplateManager {
     }
 
     /**
-     * Send message via Facebook Graph API with POST_PURCHASE_UPDATE tag
-     * Used as fallback when Pancake API fails with 551 error
+     * Send message via Facebook Graph API with HUMAN_AGENT/CUSTOMER_FEEDBACK tag
+     * Falls back to Private Reply if Send API fails with 551 (no inbox conversation)
      */
     async _sendViaFacebookAPI(pageId, psid, message, orderRaw) {
         this.log('[FB-FALLBACK] Attempting Facebook API fallback...');
@@ -1606,7 +1606,8 @@ class MessageTemplateManager {
                 psid: psid,
                 message: message,
                 pageToken: facebookPageToken,
-                useTag: true // Use POST_PURCHASE_UPDATE tag
+                useTag: true,
+                commentId: orderRaw.Facebook_CommentId || null // For Private Reply fallback
             };
 
             const response = await fetch(facebookSendUrl, {

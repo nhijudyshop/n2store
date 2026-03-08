@@ -410,7 +410,7 @@ router.post('/facebook-send', async (req, res) => {
     console.log('[FACEBOOK-SEND] ========================================');
     console.log('[FACEBOOK-SEND] Received request to send message via Facebook Graph API');
 
-    const { pageId, psid, message, pageToken, useTag, imageUrls = [] } = req.body;
+    const { pageId, psid, message, pageToken, useTag, imageUrls = [], commentId } = req.body;
 
     // Validate required fields
     if (!pageId || !psid || !pageToken) {
@@ -516,17 +516,48 @@ router.post('/facebook-send', async (req, res) => {
             const txtResult = await sendWithTagFallback(textFbBody);
 
             if (!txtResult.success) {
-                return res.status(txtResult.status || 400).json({
-                    success: false,
-                    error: txtResult.result.error.message || 'Failed to send text',
-                    error_code: txtResult.result.error.code,
-                    error_subcode: txtResult.result.error.error_subcode
-                });
-            }
+                // Fallback: Private Reply if Send API fails with 551 and commentId is available
+                const errorCode = txtResult.result?.error?.code;
+                if (errorCode === 551 && commentId) {
+                    console.log('[FACEBOOK-SEND] 🔄 Send API failed with 551, trying Private Reply to comment:', commentId);
+                    const privateReplyUrl = `https://graph.facebook.com/v21.0/${commentId}/private_replies?access_token=${pageToken}`;
 
-            messageIds.push(txtResult.result.message_id);
-            lastResult = txtResult.result;
-            usedTag = txtResult.tag;
+                    const prResp = await fetchWithTimeout(privateReplyUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ message })
+                    });
+                    const prResult = await prResp.json();
+                    console.log('[FACEBOOK-SEND] Private Reply response:', JSON.stringify(prResult));
+
+                    if (!prResult.error) {
+                        console.log('[FACEBOOK-SEND] ✅ Private Reply succeeded!');
+                        messageIds.push(prResult.message_id || prResult.id);
+                        lastResult = prResult;
+                        usedTag = 'PRIVATE_REPLY';
+                    } else {
+                        console.error('[FACEBOOK-SEND] ❌ Private Reply also failed:', prResult.error);
+                        return res.status(prResp.status).json({
+                            success: false,
+                            error: prResult.error.message || 'Private Reply failed',
+                            error_code: prResult.error.code,
+                            error_subcode: prResult.error.error_subcode,
+                            tried: ['HUMAN_AGENT', 'CUSTOMER_FEEDBACK', 'PRIVATE_REPLY']
+                        });
+                    }
+                } else {
+                    return res.status(txtResult.status || 400).json({
+                        success: false,
+                        error: txtResult.result.error.message || 'Failed to send text',
+                        error_code: txtResult.result.error.code,
+                        error_subcode: txtResult.result.error.error_subcode
+                    });
+                }
+            } else {
+                messageIds.push(txtResult.result.message_id);
+                lastResult = txtResult.result;
+                usedTag = txtResult.tag;
+            }
         }
 
         console.log('[FACEBOOK-SEND] All messages sent successfully!');
