@@ -25,58 +25,6 @@ let deliveryCarrierCacheLoaded = false;
 const QR_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 // =====================================================
-// PARTNER LOOKUP (search TPOS partner by phone)
-// =====================================================
-async function fetchPartnerByPhone(phone) {
-    if (!phone) return null;
-
-    try {
-        const tokenMgr = window.billTokenManager || window.tokenManager;
-        if (!tokenMgr) {
-            console.warn('[SOCIAL-SALE] No token manager for partner lookup');
-            return null;
-        }
-
-        let headers;
-        if (window.billTokenManager) {
-            await window.billTokenManager.ensureCredentialsLoaded();
-            headers = await window.billTokenManager.getAuthHeader();
-        } else {
-            headers = await window.tokenManager.getAuthHeader();
-        }
-
-        const cleanPhone = phone.replace(/\D/g, '');
-        const searchUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${encodeURIComponent(cleanPhone)}&$top=1&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'`;
-
-        const response = await fetch(searchUrl, {
-            method: 'GET',
-            headers: {
-                ...headers,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            console.warn('[SOCIAL-SALE] Partner search failed:', response.status);
-            return null;
-        }
-
-        const data = await response.json();
-        const partners = data.value || [];
-
-        if (partners.length > 0) {
-            return partners[0];
-        }
-
-        return null;
-    } catch (error) {
-        console.error('[SOCIAL-SALE] Error fetching partner by phone:', error);
-        return null;
-    }
-}
-
-// =====================================================
 // PHONE NORMALIZATION (from tab1-address-stats.js)
 // =====================================================
 function normalizePhoneForQR(phone) {
@@ -1043,6 +991,7 @@ async function openSaleModalInSocialTab(orderId) {
     // Map social order data to Tab1-compatible format
     const mappedOrder = {
         Id: order.id,
+        PartnerId: order.tposPartnerId || 0,  // TPOS Partner Id saved from phone lookup/customer creation
         PartnerName: order.customerName || '',
         Name: order.customerName || '',
         Telephone: order.phone || '',
@@ -1142,33 +1091,17 @@ async function openSaleModalInSocialTab(orderId) {
     // Populate the modal with order data
     populateSaleModalWithOrder(mappedOrder);
 
-    // Fetch partner from TPOS by phone (required for InsertListOrderModel)
-    // and wallet/debt in parallel
-    const phone = mappedOrder.Telephone || mappedOrder.PartnerPhone;
-    const partnerPromise = phone ? fetchPartnerByPhone(phone) : Promise.resolve(null);
-    const debtPromise = phone ? fetchDebtForSaleModal(phone) : Promise.resolve();
-
-    const [partnerResult] = await Promise.all([partnerPromise, debtPromise]);
-
-    if (partnerResult) {
-        currentSalePartnerData = partnerResult;
-        console.log('[SOCIAL-SALE] Found TPOS partner:', partnerResult.Id, partnerResult.DisplayName || partnerResult.Name);
-
-        // Update header with partner info
-        const nameHeader = document.getElementById('saleCustomerNameHeader');
-        if (nameHeader) nameHeader.textContent = partnerResult.DisplayName || partnerResult.Name || '';
-    } else {
-        console.warn('[SOCIAL-SALE] No TPOS partner found for phone:', phone, '- will be created by API');
+    // Fetch wallet/debt if phone available
+    if (mappedOrder.Telephone) {
+        await fetchDebtForSaleModal(mappedOrder.Telephone);
     }
 
     // Populate delivery carrier dropdown
     await populateDeliveryCarrierDropdown();
 
     // Smart select delivery partner based on address
-    const address = mappedOrder.Address || '';
-    const extraAddress = partnerResult?.ExtraAddress || null;
-    if (address) {
-        smartSelectDeliveryPartner(address, extraAddress);
+    if (mappedOrder.Address) {
+        smartSelectDeliveryPartner(mappedOrder.Address, null);
     }
 
     // Init product search (from tab1-sale.js - shared)

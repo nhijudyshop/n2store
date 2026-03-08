@@ -5,10 +5,12 @@
 
 // ===== MODAL STATE =====
 let isEditMode = false;
+let _currentTposPartnerId = null; // TPOS Partner Id from phone lookup or customer creation
 
 // ===== OPEN MODAL =====
 function openCreateOrderModal() {
     isEditMode = false;
+    _currentTposPartnerId = null;
 
     // Reset form
     document.getElementById('orderForm')?.reset();
@@ -54,6 +56,7 @@ function openEditOrderModal(orderId) {
         return;
     }
 
+    _currentTposPartnerId = order.tposPartnerId || null;
     SocialOrderState.currentEditingOrder = order;
     const mappedProducts = (order.products || []).map(_mapLegacyProduct);
 
@@ -232,6 +235,7 @@ function saveOrder() {
                 totalQuantity,
                 totalAmount,
                 note,
+                tposPartnerId: _currentTposPartnerId || existingOrder.tposPartnerId || null,
                 updatedAt: Date.now(),
             };
             saveSocialOrdersToStorage();
@@ -261,6 +265,7 @@ function saveOrder() {
             tags: [],
             status: 'draft',
             note,
+            tposPartnerId: _currentTposPartnerId || null,
             pageId: '',
             psid: '',
             conversationId: '',
@@ -617,6 +622,10 @@ function initPhoneAutoLookup() {
                     const addressInput = document.getElementById('customerAddress');
                     const statusEl = document.getElementById('tposCustomerStatus');
 
+                    // Save TPOS Partner Id for later use in sale order creation
+                    _currentTposPartnerId = customer.id || null;
+                    console.log('[SOCIAL-MODAL] Saved TPOS Partner Id:', _currentTposPartnerId);
+
                     if (nameInput && customer.name) {
                         nameInput.value = customer.name;
                     }
@@ -645,7 +654,8 @@ function initPhoneAutoLookup() {
                         showNotification(`Tìm thấy KH: ${customer.name}`, 'success');
                     }
                 } else {
-                    // Hide status badge when no customer found
+                    // No customer found - clear partner Id
+                    _currentTposPartnerId = null;
                     const statusEl = document.getElementById('tposCustomerStatus');
                     if (statusEl) statusEl.style.display = 'none';
                 }
@@ -699,6 +709,10 @@ function openCreateCustomerModal() {
             if (nameInput) nameInput.value = customer.name || '';
             if (phoneInput) phoneInput.value = customer.phone || '';
             if (addressInput) addressInput.value = customer.address || '';
+
+            // Save TPOS Partner Id from newly created customer
+            _currentTposPartnerId = customer.id || null;
+            console.log('[SOCIAL-MODAL] Created customer, TPOS Partner Id:', _currentTposPartnerId);
         }
     });
 }
