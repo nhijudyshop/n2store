@@ -1597,6 +1597,42 @@ class MessageTemplateManager {
                 };
             }
 
+            // Try to get the real Facebook comment ID for Private Reply fallback
+            // Facebook_CommentId from TPOS is Pancake conversation ID, not Facebook comment ID
+            let fbCommentId = null;
+            if (orderRaw.Facebook_PostId && psid) {
+                try {
+                    const postId = orderRaw.Facebook_PostId.split('_').slice(1).join('_');
+                    this.log('[FB-FALLBACK] Fetching real Facebook comment ID from Pancake...');
+                    const commentsResult = await window.pancakeDataManager?.fetchComments(
+                        pageId, psid, null, postId
+                    );
+                    // Log raw messages for debugging
+                    if (commentsResult?.messages?.length) {
+                        const rawMsg = commentsResult.messages[0];
+                        this.log('[FB-FALLBACK] 📋 Raw Pancake message structure:', JSON.stringify({
+                            id: rawMsg.id,
+                            fb_id: rawMsg.fb_id,
+                            facebook_id: rawMsg.facebook_id,
+                            parent_id: rawMsg.parent_id,
+                            from: rawMsg.from,
+                            keys: Object.keys(rawMsg)
+                        }));
+                    }
+                    if (commentsResult?.comments?.length) {
+                        // Get latest customer comment (not page owner)
+                        const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+                        if (customerComments.length > 0) {
+                            const latestComment = customerComments[customerComments.length - 1];
+                            fbCommentId = latestComment.Id || latestComment.FacebookId;
+                            this.log('[FB-FALLBACK] ✅ Got comment ID:', fbCommentId);
+                        }
+                    }
+                } catch (err) {
+                    this.log('[FB-FALLBACK] ⚠️ Could not fetch comment ID:', err.message);
+                }
+            }
+
             // Call Facebook Send API via worker proxy
             const facebookSendUrl = window.API_CONFIG.buildUrl.facebookSend();
             this.log('[FB-FALLBACK] Calling:', facebookSendUrl);
@@ -1607,7 +1643,7 @@ class MessageTemplateManager {
                 message: message,
                 pageToken: facebookPageToken,
                 useTag: true,
-                commentId: orderRaw.Facebook_CommentId || null // For Private Reply fallback
+                commentId: fbCommentId // Real Facebook comment ID for Private Reply fallback
             };
 
             const response = await fetch(facebookSendUrl, {
