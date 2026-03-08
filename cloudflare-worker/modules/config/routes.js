@@ -80,6 +80,7 @@ export function matchRoute(pathname) {
     if (pathname === '/api/imgbb-upload') return 'IMGBB_UPLOAD';
     if (pathname === '/api/facebook-send') return 'FACEBOOK_SEND';
     if (pathname === '/api/facebook-graph/livevideo') return 'FACEBOOK_LIVE';
+    if (pathname === '/api/facebook-graph') return 'FACEBOOK_GRAPH';
     if (pathname === '/api/deepseek') return 'DEEPSEEK';
     if (pathname === '/api/deepseek-ocr') return 'DEEPSEEK_OCR';
     if (pathname === '/api/Product/ExportProductV2') return 'TPOS_EXPORT_V2';

@@ -23,11 +23,53 @@ export async function handleFacebookSend(request, url) {
 
     try {
         const body = await request.json();
-        let { pageId, psid, message, pageToken, useTag, imageUrls, recipient, postId, customerName } = body;
+        let { pageId, psid, message, pageToken, useTag, imageUrls, recipient, postId, customerName, commentId } = body;
 
         // Fallback: Get token from header if not in body
         if (!pageToken) {
             pageToken = request.headers.get('X-Page-Access-Token');
+        }
+
+        // === DIRECT PRIVATE REPLY MODE ===
+        // If commentId is provided, skip Send API and go straight to Private Reply
+        if (commentId && message && pageToken) {
+            console.log('[FACEBOOK-SEND] Direct Private Reply mode → commentId:', commentId);
+            const messageText = typeof message === 'string' ? message : message.text;
+            const prUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${commentId}/private_replies`;
+            try {
+                const resp = await fetchWithRetry(
+                    `${prUrl}?access_token=${pageToken}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ message: messageText }),
+                    },
+                    2, 1000, 15000
+                );
+                const result = await resp.json();
+
+                if (result.error) {
+                    console.error('[FACEBOOK-SEND] Private Reply error:', result.error.message);
+                    return jsonResponse({
+                        success: false,
+                        error: result.error.message,
+                        error_code: result.error.code,
+                        error_subcode: result.error.error_subcode,
+                        method: 'private_reply',
+                    }, resp.status || 400);
+                }
+
+                console.log('[FACEBOOK-SEND] ✅ Direct Private Reply succeeded!');
+                return jsonResponse({
+                    success: true,
+                    recipient_id: result.recipient_id,
+                    message_id: result.id,
+                    method: 'private_reply',
+                    comment_id: commentId,
+                });
+            } catch (err) {
+                return errorResponse('Private Reply error: ' + err.message, 500);
+            }
         }
 
         // Validate required fields
@@ -431,6 +473,53 @@ export async function handleFacebookSend(request, url) {
  * @param {URL} url
  * @returns {Promise<Response>}
  */
+/**
+ * Handle GET /api/facebook-graph
+ * Generic Facebook Graph API proxy for client-side queries
+ * Usage: GET /api/facebook-graph?path={graphPath}&access_token={token}&fields=...&limit=...
+ */
+export async function handleFacebookGraph(request, url) {
+    const path = url.searchParams.get('path');
+    const accessToken = url.searchParams.get('access_token') || request.headers.get('X-Page-Access-Token');
+
+    if (!path || !accessToken) {
+        return errorResponse('Missing path or access_token', 400);
+    }
+
+    // Forward all params except 'path' to Facebook
+    const fbParams = new URLSearchParams();
+    for (const [key, value] of url.searchParams) {
+        if (key !== 'path') fbParams.set(key, value);
+    }
+    if (!fbParams.has('access_token')) {
+        fbParams.set('access_token', accessToken);
+    }
+
+    const fbUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${path}?${fbParams.toString()}`;
+    console.log(`[FB-GRAPH] Proxying: ${path}`);
+
+    try {
+        const resp = await fetchWithRetry(fbUrl, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' },
+        }, 2, 1000, 15000);
+
+        const body = await resp.text();
+        return new Response(body, {
+            status: resp.status,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+            },
+        });
+    } catch (error) {
+        console.error('[FB-GRAPH] Error:', error.message);
+        return errorResponse('Facebook Graph API error: ' + error.message, 500);
+    }
+}
+
 export async function handleFacebookLiveVideos(request, url) {
     const targetUrl = `https://tomato.tpos.vn/api/facebook-graph/livevideo${url.search}`;
 

@@ -69,6 +69,11 @@ export const API_CONFIG = {
 
         facebookSend: () => {
             return `${WORKER_URL}/api/facebook-send`;
+        },
+
+        facebookGraph: (path, accessToken, params = {}) => {
+            const qs = new URLSearchParams({ path, access_token: accessToken, ...params });
+            return `${WORKER_URL}/api/facebook-graph?${qs.toString()}`;
         }
     },
 

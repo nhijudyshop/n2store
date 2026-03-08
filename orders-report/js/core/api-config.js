@@ -84,6 +84,18 @@ const API_CONFIG = {
          */
         facebookSend: () => {
             return `${WORKER_URL}/api/facebook-send`;
+        },
+
+        /**
+         * Facebook Graph API proxy for querying posts, comments, etc.
+         * @param {string} path - Graph path (e.g. "{pageId}/live_videos")
+         * @param {string} accessToken - Page Access Token
+         * @param {object} params - Additional query params (fields, limit, filter)
+         * @returns {string} - Full URL via worker proxy
+         */
+        facebookGraph: (path, accessToken, params = {}) => {
+            const qs = new URLSearchParams({ path, access_token: accessToken, ...params });
+            return `${WORKER_URL}/api/facebook-graph?${qs.toString()}`;
         }
     },
 

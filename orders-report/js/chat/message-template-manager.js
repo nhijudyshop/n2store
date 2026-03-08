@@ -3469,10 +3469,11 @@ Chúc chị một ngày vui vẻ! 😊`,
         );
 
         const templateOptions = messengerTemplates.length > 0 ? messengerTemplates : templates.slice(0, 10);
+        const selectStyle = 'width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; background:white;';
 
         const modalHTML = `
             <div id="quickCommentModal" class="message-modal-overlay active" style="z-index: 10002;">
-                <div class="message-modal" style="max-width: 500px; width: 90%;">
+                <div class="message-modal" style="max-width: 540px; width: 92%;">
                     <div class="message-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 16px 20px;">
                         <h3 style="font-size: 16px;">
                             <i class="fas fa-comment-dots"></i>
@@ -3483,33 +3484,46 @@ Chúc chị một ngày vui vẻ! 😊`,
                         </button>
                     </div>
                     <div class="message-modal-body" style="padding: 20px;">
-                        <div style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
+                        <div style="margin-bottom: 14px; padding: 10px 12px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
                             <div style="font-weight: 600; color: #0369a1;">Đơn hàng: ${orderCode}</div>
-                            <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">
+                            <div style="font-size: 13px; color: #6b7280; margin-top: 2px;">
                                 ${fullOrderData.converted?.customerName || 'N/A'} - ${fullOrderData.converted?.phone || 'N/A'}
                             </div>
                         </div>
 
-                        <label style="display: block; font-weight: 500; margin-bottom: 8px; color: #374151;">
-                            <i class="fas fa-file-alt"></i> Chọn mẫu tin nhắn:
+                        <!-- Facebook Target Section -->
+                        <div style="margin-bottom: 14px; padding: 12px; background: #f0f4ff; border-radius: 8px; border: 1px solid #dbeafe;">
+                            <label style="display:block; font-weight:600; margin-bottom:8px; color:#1e40af; font-size:13px;">
+                                <i class="fab fa-facebook" style="margin-right:4px;"></i> Chọn bài viết & comment
+                            </label>
+                            <select id="fbPostSelect" style="${selectStyle} margin-bottom:8px;" disabled>
+                                <option value="">Đang tải bài viết...</option>
+                            </select>
+                            <select id="fbCommentSelect" style="${selectStyle}" disabled>
+                                <option value="">Chọn bài viết trước...</option>
+                            </select>
+                            <div id="fbTargetStatus" style="font-size:11px; color:#6b7280; margin-top:6px;"></div>
+                        </div>
+
+                        <label style="display: block; font-weight: 500; margin-bottom: 6px; color: #374151; font-size: 13px;">
+                            <i class="fas fa-file-alt"></i> Mẫu tin nhắn:
                         </label>
-                        <select id="quickTemplateSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: white;">
+                        <select id="quickTemplateSelect" style="${selectStyle}">
                             ${templateOptions.map(t => `<option value="${t.Id}">${t.Name}</option>`).join('')}
                         </select>
 
-                        <div id="quickTemplatePreview" style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; font-size: 13px; max-height: 150px; overflow-y: auto; white-space: pre-wrap; color: #4b5563;">
+                        <div id="quickTemplatePreview" style="margin-top: 12px; padding: 10px; background: #f9fafb; border-radius: 8px; font-size: 12px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; color: #4b5563;">
                             ${templateOptions[0]?.Content || 'Chọn mẫu tin nhắn...'}
                         </div>
                     </div>
-                    <div class="message-modal-footer" style="padding: 16px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
+                    <div class="message-modal-footer" style="padding: 14px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
                         <button onclick="document.getElementById('quickCommentModal').remove()"
                             style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
                             Hủy
                         </button>
                         <button onclick="window.messageTemplateManager?._executeQuickFacebookSend('${orderId}')"
                             id="quickFbSendBtn"
-                            style="padding: 10px 20px; background: linear-gradient(135deg, #1877f2 0%, #0d65d9 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;"
-                            title="Gửi tin nhắn inbox qua Facebook Graph API (POST_PURCHASE_UPDATE)">
+                            style="padding: 10px 20px; background: linear-gradient(135deg, #1877f2 0%, #0d65d9 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                             <i class="fab fa-facebook-messenger"></i> Gửi qua Facebook
                         </button>
                     </div>
@@ -3519,19 +3533,15 @@ Chúc chị một ngày vui vẻ! 😊`,
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-        // Add change event for template preview
+        // Template preview logic
         const select = document.getElementById('quickTemplateSelect');
         const preview = document.getElementById('quickTemplatePreview');
         select?.addEventListener('change', () => {
             const selectedTemplate = templateOptions.find(t => t.Id === select.value);
             if (selectedTemplate && preview) {
-                // Replace placeholders with actual data for preview
-                let previewContent = this.replacePlaceholders(selectedTemplate.Content || '', fullOrderData.converted);
-                preview.textContent = previewContent;
+                preview.textContent = this.replacePlaceholders(selectedTemplate.Content || '', fullOrderData.converted);
             }
         });
-
-        // Trigger initial preview
         if (select && templateOptions[0]) {
             const initialPreview = this.replacePlaceholders(templateOptions[0].Content || '', fullOrderData.converted);
             if (preview) preview.textContent = initialPreview;
@@ -3539,6 +3549,169 @@ Chúc chị một ngày vui vẻ! 😊`,
 
         // Store fullOrderData for send
         this._quickCommentOrderData = fullOrderData;
+
+        // Auto-populate Facebook selectors
+        this._loadFacebookTargets(fullOrderData);
+    }
+
+    /**
+     * Load Facebook posts/live videos and comments into the modal selectors
+     */
+    async _loadFacebookTargets(fullOrderData) {
+        const raw = fullOrderData.raw;
+        const customerName = raw.PartnerName || raw.Partner?.Name || '';
+        const channelId = raw.Facebook_PostId ? raw.Facebook_PostId.split('_')[0] : '';
+        const postSelect = document.getElementById('fbPostSelect');
+        const commentSelect = document.getElementById('fbCommentSelect');
+        const status = document.getElementById('fbTargetStatus');
+
+        if (!channelId) {
+            if (status) status.textContent = 'Không có thông tin Facebook Page';
+            return;
+        }
+
+        // Get Page Token
+        let pageToken = null;
+        if (window.cachedChannelsData) {
+            const ch = window.cachedChannelsData.find(c =>
+                String(c.ChannelId) === String(channelId) || String(c.Facebook_AccountId) === String(channelId)
+            );
+            if (ch?.Facebook_PageToken) pageToken = ch.Facebook_PageToken;
+        }
+        if (!pageToken && raw.CRMTeamId) {
+            try {
+                const crmTeam = await this.fetchCRMTeam(raw.CRMTeamId);
+                if (crmTeam?.Facebook_PageToken) pageToken = crmTeam.Facebook_PageToken;
+            } catch (e) { /* ignore */ }
+        }
+
+        if (!pageToken) {
+            if (status) status.textContent = 'Không tìm thấy Page Token';
+            return;
+        }
+
+        // Store for later use
+        this._fbPageToken = pageToken;
+        this._fbPageId = channelId;
+
+        if (status) status.textContent = 'Đang tải bài viết...';
+
+        try {
+            // Fetch live videos and feed in parallel
+            const [liveRes, feedRes] = await Promise.all([
+                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${channelId}/live_videos`, pageToken, { fields: 'id,title,created_time', limit: '10' })).then(r => r.json()).catch(() => ({})),
+                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${channelId}/feed`, pageToken, { fields: 'id,message,created_time,type', limit: '10' })).then(r => r.json()).catch(() => ({})),
+            ]);
+
+            const posts = [];
+
+            // Add live videos
+            if (liveRes.data) {
+                for (const v of liveRes.data) {
+                    const date = v.created_time ? new Date(v.created_time).toLocaleDateString('vi-VN') : '';
+                    posts.push({ id: v.id, label: `[LIVE] ${v.title || 'Live'} - ${date}`, time: v.created_time, type: 'live' });
+                }
+            }
+
+            // Add feed posts
+            if (feedRes.data) {
+                for (const p of feedRes.data) {
+                    const date = p.created_time ? new Date(p.created_time).toLocaleDateString('vi-VN') : '';
+                    const msg = (p.message || '').substring(0, 40);
+                    posts.push({ id: p.id, label: `${msg || 'Bài viết'} - ${date}`, time: p.created_time, type: p.type || 'post' });
+                }
+            }
+
+            // Sort by date (newest first) and deduplicate
+            posts.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0));
+            const seen = new Set();
+            const uniquePosts = posts.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+
+            if (postSelect) {
+                postSelect.innerHTML = uniquePosts.length > 0
+                    ? uniquePosts.map(p => `<option value="${p.id}">${p.label}</option>`).join('')
+                    : '<option value="">Không tìm thấy bài viết</option>';
+                postSelect.disabled = false;
+
+                // Auto-load comments for the first post
+                postSelect.addEventListener('change', () => {
+                    this._loadFacebookComments(postSelect.value, pageToken, customerName);
+                });
+
+                // Trigger initial load
+                if (uniquePosts.length > 0) {
+                    this._loadFacebookComments(uniquePosts[0].id, pageToken, customerName);
+                }
+            }
+
+            if (status) status.textContent = `${uniquePosts.length} bài viết`;
+        } catch (err) {
+            this.log('[FB-TARGET] Error:', err);
+            if (status) status.textContent = 'Lỗi tải bài viết: ' + err.message;
+        }
+    }
+
+    /**
+     * Load comments for a selected post/live video
+     */
+    async _loadFacebookComments(postId, pageToken, customerName) {
+        const commentSelect = document.getElementById('fbCommentSelect');
+        const status = document.getElementById('fbTargetStatus');
+
+        if (!commentSelect || !postId) return;
+
+        commentSelect.innerHTML = '<option value="">Đang tải comment...</option>';
+        commentSelect.disabled = true;
+
+        try {
+            // Try with stream filter first (for live), then without
+            let comments = [];
+            for (const filter of ['stream', null]) {
+                const params = { fields: 'from{id,name},id,message,created_time', limit: '200', order: 'reverse_chronological' };
+                if (filter) params.filter = filter;
+
+                const url = window.API_CONFIG.buildUrl.facebookGraph(`${postId}/comments`, pageToken, params);
+                const res = await fetch(url).then(r => r.json()).catch(() => ({}));
+
+                if (res.data?.length > 0) {
+                    comments = res.data;
+                    break;
+                }
+            }
+
+            if (comments.length === 0) {
+                commentSelect.innerHTML = '<option value="">Không có comment</option>';
+                if (status) status.textContent = 'Bài viết không có comment';
+                return;
+            }
+
+            // Build options - show commenter name + message preview
+            let autoSelectedValue = '';
+            const norm = customerName.trim().toLowerCase();
+
+            commentSelect.innerHTML = comments
+                .filter(c => c.from)
+                .map(c => {
+                    const name = c.from.name || 'Unknown';
+                    const msg = (c.message || '').substring(0, 30);
+                    const isMatch = name.trim().toLowerCase() === norm;
+                    if (isMatch && !autoSelectedValue) autoSelectedValue = c.id;
+                    return `<option value="${c.id}" ${isMatch ? 'selected' : ''}>${name}: ${msg}${isMatch ? ' ✓' : ''}</option>`;
+                })
+                .join('');
+
+            commentSelect.disabled = false;
+
+            const matchCount = comments.filter(c => c.from?.name?.trim().toLowerCase() === norm).length;
+            if (status) {
+                status.innerHTML = matchCount > 0
+                    ? `<span style="color:#059669;">✓ Tìm thấy comment của ${customerName}</span>`
+                    : `<span style="color:#d97706;">⚠ ${comments.length} comment, chưa tìm thấy "${customerName}"</span>`;
+            }
+        } catch (err) {
+            commentSelect.innerHTML = '<option value="">Lỗi tải comment</option>';
+            if (status) status.textContent = 'Lỗi: ' + err.message;
+        }
     }
 
     /**
@@ -3581,13 +3754,34 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Replace placeholders in template
             const messageContent = this.replacePlaceholders(selectedTemplate.Content || '', this._quickCommentOrderData.converted);
 
-            // Extract Facebook Post ID for Private Reply fallback
-            // Facebook_PostId format: "pageId_postId" e.g. "112678138086607_2901171643422289"
-            const facebookPostId = raw.Facebook_PostId || '';
-            this.log('[QUICK-FB-SEND] Facebook_PostId:', facebookPostId);
+            // Check if user selected a comment from dropdown
+            const selectedCommentId = document.getElementById('fbCommentSelect')?.value;
+            const pageToken = this._fbPageToken;
 
-            // Send via Facebook API (worker handles Send API → Private Reply fallback automatically)
-            const result = await this._sendViaFacebookAPI(channelId, psid, messageContent, raw, facebookPostId);
+            let result;
+
+            if (selectedCommentId && selectedCommentId !== '' && pageToken) {
+                // DIRECT PRIVATE REPLY: Use selected comment ID
+                this.log('[QUICK-FB-SEND] Direct Private Reply with commentId:', selectedCommentId);
+
+                const sendUrl = window.API_CONFIG.buildUrl.facebookSend();
+                const resp = await fetch(sendUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        commentId: selectedCommentId,
+                        message: messageContent,
+                        pageToken: pageToken,
+                        pageId: this._fbPageId || channelId,
+                    }),
+                });
+                result = await resp.json();
+            } else {
+                // FALLBACK: Send API → auto Private Reply lookup
+                const facebookPostId = raw.Facebook_PostId || '';
+                this.log('[QUICK-FB-SEND] Fallback mode, Facebook_PostId:', facebookPostId);
+                result = await this._sendViaFacebookAPI(channelId, psid, messageContent, raw, facebookPostId);
+            }
 
             if (result.success) {
                 this.log('[QUICK-FB-SEND] ✅ Message sent! Method:', result.method || 'send_api');

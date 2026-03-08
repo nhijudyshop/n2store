@@ -410,7 +410,44 @@ router.post('/facebook-send', async (req, res) => {
     console.log('[FACEBOOK-SEND] ========================================');
     console.log('[FACEBOOK-SEND] Received request to send message via Facebook Graph API');
 
-    const { pageId, psid, message, pageToken, useTag, imageUrls = [], postId, customerName } = req.body;
+    const { pageId, psid, message, pageToken, useTag, imageUrls = [], postId, customerName, commentId } = req.body;
+
+    // === DIRECT PRIVATE REPLY MODE ===
+    if (commentId && message && pageToken) {
+        console.log('[FACEBOOK-SEND] Direct Private Reply mode → commentId:', commentId);
+        const messageText = typeof message === 'string' ? message : message.text;
+        const prUrl = `https://graph.facebook.com/v21.0/${commentId}/private_replies?access_token=${pageToken}`;
+        try {
+            const resp = await fetchWithTimeout(prUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ message: messageText }),
+            });
+            const result = await resp.json();
+
+            if (result.error) {
+                console.error('[FACEBOOK-SEND] Private Reply error:', result.error.message);
+                return res.status(resp.status || 400).json({
+                    success: false,
+                    error: result.error.message,
+                    error_code: result.error.code,
+                    error_subcode: result.error.error_subcode,
+                    method: 'private_reply',
+                });
+            }
+
+            console.log('[FACEBOOK-SEND] ✅ Direct Private Reply succeeded!');
+            return res.json({
+                success: true,
+                recipient_id: result.recipient_id,
+                message_id: result.id,
+                method: 'private_reply',
+                comment_id: commentId,
+            });
+        } catch (err) {
+            return res.status(500).json({ success: false, error: 'Private Reply error: ' + err.message });
+        }
+    }
 
     // Validate required fields
     if (!pageId || !psid || !pageToken) {
@@ -736,6 +773,30 @@ router.all('/rest/*', async (req, res) => {
             error: error.name || 'TposRestApiError',
             message: error.message
         });
+    }
+});
+
+// =====================================================
+// FACEBOOK GRAPH API PROXY
+// GET /api/facebook-graph?path=<graph_path>&access_token=<token>&fields=...
+// =====================================================
+router.get('/facebook-graph', async (req, res) => {
+    const { path: graphPath, ...params } = req.query;
+
+    if (!graphPath || !params.access_token) {
+        return res.status(400).json({ error: 'Missing path or access_token' });
+    }
+
+    try {
+        const qs = new URLSearchParams(params).toString();
+        const fbUrl = `https://graph.facebook.com/v21.0/${graphPath}?${qs}`;
+        console.log('[FB-GRAPH] Proxying:', fbUrl.replace(/access_token=[^&]+/, 'access_token=***'));
+
+        const resp = await fetchWithTimeout(fbUrl, { method: 'GET' });
+        const data = await resp.json();
+        return res.json(data);
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
     }
 });
 
