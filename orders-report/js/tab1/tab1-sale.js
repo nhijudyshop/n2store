@@ -1744,9 +1744,7 @@ function toggleChatRightPanel() {
 
 // Export functions
 window.confirmAndPrintSale = confirmAndPrintSale;
-if (typeof confirmDebtUpdate !== 'undefined') {
-    window.confirmDebtUpdate = confirmDebtUpdate;
-}
+window.confirmDebtUpdate = confirmDebtUpdate;
 // Note: openPrintPopup is now exported from bill-service.js
 window.toggleChatRightPanel = toggleChatRightPanel;
 // Note: removeChatProduct and updateChatProductQuantity are defined in tab1-chat-products.js
@@ -1759,7 +1757,7 @@ if (typeof updateChatProductQuantity !== 'undefined') {
 
 // Chat Product Manager - For Orders tab in right panel
 window.chatProductManager = {
-    addProductFromSearch: typeof addChatProductFromSearch !== 'undefined' ? addChatProductFromSearch : function() { console.warn('[SALE] addChatProductFromSearch not available in this context'); },
+    addProductFromSearch: addChatProductFromSearch,
     renderInvoiceHistory: function () {
         // TODO: Implement invoice history rendering
         const container = document.getElementById('chatInvoiceHistoryContainer');
