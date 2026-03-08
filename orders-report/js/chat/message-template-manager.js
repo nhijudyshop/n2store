@@ -3392,6 +3392,21 @@ Chúc chị một ngày vui vẻ! 😊`,
                 window.notificationManager.info('Đang tải thông tin đơn hàng...', 2000);
             }
 
+            // Ensure templates are loaded
+            if (!this.templates || this.templates.length === 0) {
+                this.log('📋 Templates not loaded yet, fetching from Firestore...');
+                const db = window.firebase?.firestore();
+                if (db) {
+                    const snapshot = await db.collection(this.TEMPLATES_COLLECTION)
+                        .where('active', '==', true)
+                        .orderBy('order', 'asc')
+                        .get();
+                    this.templates = snapshot.docs.map(doc => ({ Id: doc.id, ...doc.data() }));
+                    this.filteredTemplates = [...this.templates];
+                    this.log(`✅ Loaded ${this.templates.length} templates`);
+                }
+            }
+
             // Fetch full order data
             const fullOrderData = await this.fetchFullOrderData(orderId);
             const raw = fullOrderData.raw;
