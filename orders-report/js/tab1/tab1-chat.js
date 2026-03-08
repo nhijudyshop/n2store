@@ -4641,9 +4641,10 @@ async function sendCommentInternal(commentData) {
         console.log('[COMMENT] ConversationId (same as messageId):', finalConversationId);
         console.log('[COMMENT] Param conversationId:', conversationId);
 
-        // Step 3: Fetch inbox_preview to get thread_id_preview and thread_key_preview
+        // Step 3: Fetch inbox_preview to get thread_id_preview, thread_key_preview, and inbox_conv_id
         let threadId = null;
         let threadKey = null;
+        let inboxConvId = null;
         const fromId = facebookASUserId;
 
         if (customerId && window.pancakeDataManager) {
@@ -4654,7 +4655,8 @@ async function sendCommentInternal(commentData) {
                 if (inboxPreview.success) {
                     threadId = inboxPreview.threadId || null;
                     threadKey = inboxPreview.threadKey || null;
-                    console.log('[COMMENT] ✅ Got thread IDs from inbox_preview:', { threadId, threadKey });
+                    inboxConvId = inboxPreview.inboxConversationId || null;
+                    console.log('[COMMENT] ✅ Got thread IDs from inbox_preview:', { threadId, threadKey, inboxConvId });
                 } else {
                     console.warn('[COMMENT] ⚠️ inbox_preview returned unsuccessfully, using null thread IDs');
                 }
@@ -4665,9 +4667,14 @@ async function sendCommentInternal(commentData) {
             console.warn('[COMMENT] ⚠️ Missing customerId or pancakeDataManager, using null thread IDs');
         }
 
+        // For private_replies, use inbox conversation ID (private reply creates inbox message)
+        // Fallback to comment conversation ID if inbox not available
+        const privateReplyConvId = inboxConvId || finalConversationId;
+
         console.log('[COMMENT] Using data:', {
             pageId,
-            conversationId: finalConversationId,
+            conversationId: privateReplyConvId,
+            commentConversationId: finalConversationId,
             fromId,
             threadId: threadId || 'null',
             threadKey: threadKey || 'null'
@@ -4676,10 +4683,11 @@ async function sendCommentInternal(commentData) {
         // Step 4: Send private_replies via Official API (pages.fm)
         // Ref: https://developer.pancake.biz/#/paths/pages-page_id--conversations--conversation_id--messages/post
         // private_replies: gửi tin nhắn riêng từ comment (chỉ Facebook/Instagram)
+        // IMPORTANT: Use inbox conversation ID for private_replies (not comment conv ID)
         showChatSendingIndicator('Đang gửi tin nhắn riêng...');
 
         const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${pageId}/conversations/${finalConversationId}/messages`,
+            `pages/${pageId}/conversations/${privateReplyConvId}/messages`,
             pageAccessToken
         ) + (customerId ? `&customer_id=${customerId}` : '');
 
