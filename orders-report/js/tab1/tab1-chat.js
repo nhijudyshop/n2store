@@ -612,6 +612,11 @@ window.switchConversationType = async function (type) {
             window.currentConversationId = commentConvId;
             console.log('[CONV-TYPE] ✅ Using cached COMMENT conversationId:', window.currentConversationId);
 
+            // Populate conversation selector if we have cached comment conversations
+            if (window.cachedCommentConversations && window.cachedCommentConversations.length > 0) {
+                window.populateConversationSelector(window.cachedCommentConversations, commentConvId);
+            }
+
             // Fetch messages for COMMENT conversation
             console.log('[CONV-TYPE] 📥 Fetching messages for COMMENT conversation...');
 
@@ -1997,16 +2002,26 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
                         // Save COMMENT conversation ID for quick switching
                         if (commentConversations.length > 0) {
-                            // Filter by post_id if available
-                            let targetCommentConv;
+                            // Use same matching logic as direct comment flow:
+                            // Extract POST_ID from order.Facebook_PostId (format: "PAGE_ID_POST_ID")
+                            // Then match conversation where conversation.id starts with POST_ID
+                            let matchedCommentConvs = commentConversations;
                             if (facebookPostId) {
-                                targetCommentConv = commentConversations.find(conv => conv.post_id === facebookPostId);
+                                const postIdParts = facebookPostId.split('_');
+                                const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
+                                const filtered = commentConversations.filter(conv => {
+                                    const convIdFirstPart = conv.id.split('_')[0];
+                                    return convIdFirstPart === postId;
+                                });
+                                if (filtered.length > 0) {
+                                    matchedCommentConvs = filtered;
+                                }
                             }
-                            if (!targetCommentConv) {
-                                targetCommentConv = commentConversations[0];
-                            }
+                            const targetCommentConv = matchedCommentConvs[0];
 
                             window.currentCommentConversationId = targetCommentConv.id;
+                            // Also save all matched conversations for selector when switching
+                            window.cachedCommentConversations = matchedCommentConvs;
                             console.log('[CHAT-MODAL] ✅ Found COMMENT conversationId:', window.currentCommentConversationId);
                         }
 
