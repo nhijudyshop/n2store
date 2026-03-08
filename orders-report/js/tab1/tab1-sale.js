@@ -692,26 +692,6 @@ async function confirmAndPrintSale() {
             throw new Error('Vui lòng nhập địa chỉ người nhận');
         }
 
-        // 🔥 FIX: Validation cho đơn Social gửi TPOS - kiểm tra ProductId và Partner.Id
-        const order = currentSaleOrderData;
-        const useTposBill = document.getElementById('saleBillTypeTpos')?.checked;
-        if (order?._isSocialOrder && useTposBill) {
-            // Kiểm tra Partner.Id > 0
-            if (!model.Partner?.Id || model.Partner.Id === 0) {
-                throw new Error('Không tìm thấy khách hàng trên TPOS. Vui lòng kiểm tra số điện thoại hoặc tạo khách hàng mới trên TPOS.');
-            }
-            // Kiểm tra ProductId > 0 cho mọi OrderLine
-            if (model.OrderLines && model.OrderLines.length > 0) {
-                const missingProducts = model.OrderLines
-                    .filter(line => !line.ProductId || line.ProductId === 0)
-                    .map(line => line.ProductName || 'Không rõ tên');
-                if (missingProducts.length > 0) {
-                    throw new Error(`Không tìm thấy sản phẩm trên TPOS: ${missingProducts.join(', ')}. Vui lòng thêm sản phẩm từ danh sách tìm kiếm.`);
-                }
-            }
-            console.log('[SALE-CONFIRM] ✅ Social order TPOS validation passed');
-        }
-
         // Build request body (same as fastSaleModal's "Lưu xác nhận")
         const requestBody = {
             is_approve: true,
