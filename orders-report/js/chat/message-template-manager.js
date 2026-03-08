@@ -1609,10 +1609,14 @@ class MessageTemplateManager {
                 useTag: true
             };
 
-            // Pass postId for Private Reply fallback (when Send API fails with 551)
+            // Pass postId and customerName for Private Reply fallback (when Send API fails with 551)
             if (postId) {
                 requestBody.postId = postId;
                 this.log('[FB-FALLBACK] Including postId for Private Reply fallback:', postId);
+            }
+            if (orderRaw.PartnerName || orderRaw.Partner?.Name) {
+                requestBody.customerName = orderRaw.PartnerName || orderRaw.Partner?.Name;
+                this.log('[FB-FALLBACK] Including customerName for matching:', requestBody.customerName);
             }
 
             const response = await fetch(facebookSendUrl, {
