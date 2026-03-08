@@ -3592,15 +3592,27 @@ Chúc chị một ngày vui vẻ! 😊`,
 
         // Store for later use
         this._fbPageToken = pageToken;
-        this._fbPageId = channelId;
 
         if (status) status.textContent = 'Đang tải bài viết...';
 
         try {
-            // Fetch live videos and feed in parallel
+            // Get REAL Facebook Page ID from token (Pancake channelId may be internal)
+            let realPageId = channelId;
+            try {
+                const meUrl = window.API_CONFIG.buildUrl.facebookGraph('me', pageToken, { fields: 'id,name' });
+                const meRes = await fetch(meUrl).then(r => r.json());
+                if (meRes.id) {
+                    realPageId = meRes.id;
+                    this.log('[FB-TARGET] Real Page ID:', realPageId, '| Name:', meRes.name);
+                }
+            } catch (e) { /* keep channelId as fallback */ }
+
+            this._fbPageId = realPageId;
+
+            // Fetch live videos and feed in parallel using REAL page ID
             const [liveRes, feedRes] = await Promise.all([
-                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${channelId}/live_videos`, pageToken, { fields: 'id,title,created_time', limit: '10' })).then(r => r.json()).catch(() => ({})),
-                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${channelId}/feed`, pageToken, { fields: 'id,message,created_time,type', limit: '10' })).then(r => r.json()).catch(() => ({})),
+                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/live_videos`, pageToken, { fields: 'id,title,created_time', limit: '10' })).then(r => r.json()).catch(() => ({})),
+                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/feed`, pageToken, { fields: 'id,message,created_time,type', limit: '10' })).then(r => r.json()).catch(() => ({})),
             ]);
 
             const posts = [];
