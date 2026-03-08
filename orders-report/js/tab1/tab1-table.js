@@ -1249,14 +1249,18 @@ function renderCommentsColumn(order) {
     const clickHandler = `openCommentModal('${order.Id}', '${channelId}', '${psid}')`;
 
     if (isFailed) {
-        // Show warning badge for failed orders
-        return `<td data-column="comments" data-order-id="${order.Id}" onclick="${clickHandler}"
-            style="cursor: pointer; text-align: center; position: relative;"
-            title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận">
-            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 4px; color: #dc2626; font-size: 11px; font-weight: 500;">
+        // Show clickable retry button for failed orders
+        return `<td data-column="comments" data-order-id="${order.Id}"
+            style="text-align: center; position: relative;">
+            <button onclick="event.stopPropagation(); window.messageTemplateManager?.openQuickCommentReply('${order.Id}')"
+                style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 1px solid #fecaca; border-radius: 6px; color: #dc2626; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.background='linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)'; this.style.transform='scale(1.02)'"
+                onmouseout="this.style.background='linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'; this.style.transform='scale(1)'"
+                title="Click để gửi lại tin nhắn">
                 <i class="fas fa-exclamation-triangle" style="font-size: 10px;"></i>
-                Cần gửi lại
-            </span>
+                <span>Gửi lại</span>
+                <i class="fas fa-redo" style="font-size: 9px; margin-left: 2px;"></i>
+            </button>
         </td>`;
     }
 

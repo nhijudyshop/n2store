@@ -3476,6 +3476,12 @@ Chúc chị một ngày vui vẻ! 😊`,
                             style="padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; font-weight: 500; cursor: pointer;">
                             Hủy
                         </button>
+                        <button onclick="window.messageTemplateManager?._executeQuickFacebookSend('${orderId}')"
+                            id="quickFbSendBtn"
+                            style="padding: 10px 20px; background: linear-gradient(135deg, #1877f2 0%, #0d65d9 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;"
+                            title="Gửi tin nhắn inbox qua Facebook Graph API (POST_PURCHASE_UPDATE)">
+                            <i class="fab fa-facebook-messenger"></i> Gửi qua Facebook
+                        </button>
                         <button onclick="window.messageTemplateManager?._executeQuickCommentSend('${orderId}')"
                             id="quickSendBtn"
                             style="padding: 10px 20px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
@@ -3508,6 +3514,84 @@ Chúc chị một ngày vui vẻ! 😊`,
 
         // Store fullOrderData for send
         this._quickCommentOrderData = fullOrderData;
+    }
+
+    /**
+     * Execute quick send via Facebook Graph API (POST_PURCHASE_UPDATE tag)
+     */
+    async _executeQuickFacebookSend(orderId) {
+        const select = document.getElementById('quickTemplateSelect');
+        const sendBtn = document.getElementById('quickFbSendBtn');
+
+        if (!select || !this._quickCommentOrderData) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Lỗi: Thiếu dữ liệu', 3000);
+            }
+            return;
+        }
+
+        const selectedTemplate = (this.templates || []).find(t => t.Id === select.value);
+        if (!selectedTemplate) {
+            if (window.notificationManager) {
+                window.notificationManager.error('Vui lòng chọn mẫu tin nhắn', 3000);
+            }
+            return;
+        }
+
+        // Disable button and show loading
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        }
+
+        try {
+            const raw = this._quickCommentOrderData.raw;
+            const channelId = raw.Facebook_PostId ? raw.Facebook_PostId.split('_')[0] : '';
+            const psid = raw.Facebook_ASUserId || '';
+
+            if (!channelId || !psid) {
+                throw new Error('Thiếu thông tin Facebook (PageId hoặc PSID)');
+            }
+
+            // Replace placeholders in template
+            const messageContent = this.replacePlaceholders(selectedTemplate.Content || '', this._quickCommentOrderData.converted);
+
+            // Send via Facebook Graph API
+            const result = await this._sendViaFacebookAPI(channelId, psid, messageContent, raw);
+
+            if (!result.success) {
+                throw new Error(result.error || 'Facebook API error');
+            }
+
+            // Close modal
+            document.getElementById('quickCommentModal')?.remove();
+
+            // Remove from failed orders
+            this.removeFailedOrder(orderId);
+
+            if (window.notificationManager) {
+                window.notificationManager.success(
+                    'Đã gửi tin nhắn qua Facebook thành công!',
+                    3000,
+                    `Đơn: ${raw.Code || orderId}`
+                );
+            }
+
+        } catch (error) {
+            console.error('[QUICK-FB-SEND] Error:', error);
+            if (window.notificationManager) {
+                window.notificationManager.error(
+                    'Lỗi gửi qua Facebook: ' + error.message,
+                    5000
+                );
+            }
+
+            // Re-enable button
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi qua Facebook';
+            }
+        }
     }
 
     /**
