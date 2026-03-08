@@ -3461,7 +3461,7 @@ Chúc chị một ngày vui vẻ! 😊`,
                     <div class="message-modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 16px 20px;">
                         <h3 style="font-size: 16px;">
                             <i class="fas fa-comment-dots"></i>
-                            Gửi tin nhắn qua Comment
+                            Gửi lại tin nhắn
                         </h3>
                         <button onclick="document.getElementById('quickCommentModal').remove()" class="message-modal-close">
                             <i class="fas fa-times"></i>
@@ -3496,11 +3496,6 @@ Chúc chị một ngày vui vẻ! 😊`,
                             style="padding: 10px 20px; background: linear-gradient(135deg, #1877f2 0%, #0d65d9 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;"
                             title="Gửi tin nhắn inbox qua Facebook Graph API (POST_PURCHASE_UPDATE)">
                             <i class="fab fa-facebook-messenger"></i> Gửi qua Facebook
-                        </button>
-                        <button onclick="window.messageTemplateManager?._executeQuickCommentSend('${orderId}')"
-                            id="quickSendBtn"
-                            style="padding: 10px 20px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-paper-plane"></i> Gửi qua Comment
                         </button>
                     </div>
                 </div>
