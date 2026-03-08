@@ -666,8 +666,8 @@ if (document.readyState === 'loading') {
 // ===== RETAIL SALE FROM SOCIAL ORDER =====
 /**
  * Mở phiếu bán hàng lẻ từ đơn Social
- * Gửi dữ liệu đơn hàng qua postMessage đến Tab1 (Quản Lý Đơn Hàng)
- * để dùng lại chính hàm openSaleButtonModal của Tab1
+ * Mở modal sale ngay trong Social tab (không jump sang Tab1)
+ * Dùng chung hàm confirmAndPrintSale từ tab1-sale.js
  */
 function openRetailSaleFromSocial(orderId) {
     const order = SocialOrderState.orders.find(o => o.id === orderId);
@@ -676,34 +676,12 @@ function openRetailSaleFromSocial(orderId) {
         return;
     }
 
-    // Map social order data to Tab1-compatible format
-    const orderData = {
-        id: order.id,
-        customerName: order.customerName || '',
-        phone: order.phone || '',
-        address: order.address || '',
-        totalAmount: order.totalAmount || 0,
-        note: order.note || '',
-        products: (order.products || []).map(p => ({
-            productName: p.productName || p.name || '',
-            variant: p.variant || '',
-            productCode: p.productCode || p.code || '',
-            quantity: p.quantity || 1,
-            sellingPrice: p.sellingPrice || p.price || 0,
-            purchasePrice: p.purchasePrice || 0
-        })),
-        tags: order.tags || [],
-        source: order.source || 'manual',
-        postUrl: order.postUrl || ''
-    };
-
-    // Gửi postMessage lên parent (main.html) để forward đến Tab1
-    window.parent.postMessage({
-        type: 'OPEN_RETAIL_SALE_FROM_SOCIAL',
-        orderData: orderData
-    }, '*');
-
-    showNotification('Đang mở phiếu bán hàng lẻ...', 'success');
+    // Open sale modal directly within Social tab
+    if (typeof openSaleModalInSocialTab === 'function') {
+        openSaleModalInSocialTab(orderId);
+    } else {
+        showNotification('Chức năng tạo phiếu bán hàng chưa sẵn sàng', 'error');
+    }
 }
 
 // ===== CREATE CUSTOMER (shared) =====
