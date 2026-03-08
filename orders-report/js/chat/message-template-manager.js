@@ -1938,6 +1938,11 @@ class MessageTemplateManager {
         const districtInfo = window.extractDistrictFromAddress(address, extraAddress);
         this.log('📍 District info for shipping:', districtInfo);
 
+        if (!districtInfo) {
+            this.log('⚠️ No district info found, using default 35k (TỈNH)');
+            return { fee: 35000, isProvince: true };
+        }
+
         // Define carrier groups (same as tab1-qr-debt.js)
         const CARRIER_20K = ['1', '3', '4', '5', '6', '7', '8', '10', '11'];
         const CARRIER_20K_NAMED = ['phu nhuan', 'binh thanh', 'tan phu', 'tan binh', 'go vap'];
