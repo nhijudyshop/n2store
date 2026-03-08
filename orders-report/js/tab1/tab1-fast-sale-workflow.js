@@ -561,34 +561,14 @@
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
-
-                // Use billTokenManager if available, fallback to tokenManager
-                let cancelResponse;
-                const cancelUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel';
-                const cancelBody = JSON.stringify({ ids: [fastSaleOrderId] });
-
-                if (window.billTokenManager?.hasCredentials()) {
-                    const headers = await window.billTokenManager.getAuthHeader();
-                    cancelResponse = await fetch(cancelUrl, {
-                        method: 'POST',
-                        headers: {
-                            ...headers,
-                            'accept': 'application/json',
-                            'content-type': 'application/json'
-                        },
-                        body: cancelBody
-                    });
-                    console.log('[WORKFLOW] Using billTokenManager for cancel');
-                } else {
-                    cancelResponse = await window.tokenManager.authenticatedFetch(cancelUrl, {
-                        method: 'POST',
-                        headers: {
-                            'accept': 'application/json',
-                            'content-type': 'application/json'
-                        },
-                        body: cancelBody
-                    });
-                }
+                const cancelResponse = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json',
+                        'content-type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: [fastSaleOrderId] })
+                });
 
                 if (!cancelResponse.ok) {
                     const errorText = await cancelResponse.text();
@@ -1331,34 +1311,14 @@
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
-
-                // Use billTokenManager if available, fallback to tokenManager
-                let cancelResponse;
-                const cancelUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel';
-                const cancelBody = JSON.stringify({ ids: [fastSaleOrderId] });
-
-                if (window.billTokenManager?.hasCredentials()) {
-                    const headers = await window.billTokenManager.getAuthHeader();
-                    cancelResponse = await fetch(cancelUrl, {
-                        method: 'POST',
-                        headers: {
-                            ...headers,
-                            'accept': 'application/json',
-                            'content-type': 'application/json'
-                        },
-                        body: cancelBody
-                    });
-                    console.log('[WORKFLOW] Using billTokenManager for cancel (from main)');
-                } else {
-                    cancelResponse = await window.tokenManager.authenticatedFetch(cancelUrl, {
-                        method: 'POST',
-                        headers: {
-                            'accept': 'application/json',
-                            'content-type': 'application/json'
-                        },
-                        body: cancelBody
-                    });
-                }
+                const cancelResponse = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json',
+                        'content-type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids: [fastSaleOrderId] })
+                });
 
                 if (!cancelResponse.ok) {
                     const errorText = await cancelResponse.text();
