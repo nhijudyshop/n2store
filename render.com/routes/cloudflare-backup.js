@@ -426,6 +426,54 @@ router.post('/facebook-send', async (req, res) => {
     const graphApiUrl = `https://graph.facebook.com/v21.0/${pageId}/messages?access_token=${pageToken}`;
     const messageIds = [];
     let lastResult = null;
+    let usedTag = null;
+
+    // Tag priority: HUMAN_AGENT → CUSTOMER_FEEDBACK
+    const TAG_SEQUENCE = ['HUMAN_AGENT', 'CUSTOMER_FEEDBACK'];
+
+    // Helper: send with tag fallback
+    async function sendWithTagFallback(baseFbBody) {
+        if (!useTag) {
+            baseFbBody.messaging_type = 'RESPONSE';
+            const resp = await fetchWithTimeout(graphApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(baseFbBody)
+            });
+            const result = await resp.json();
+            if (result.error) return { success: false, result, status: resp.status };
+            return { success: true, result, tag: null };
+        }
+
+        for (const tag of TAG_SEQUENCE) {
+            const body = { ...baseFbBody, messaging_type: 'MESSAGE_TAG', tag };
+            console.log(`[FACEBOOK-SEND] Trying tag: ${tag}`);
+
+            const resp = await fetchWithTimeout(graphApiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const result = await resp.json();
+            console.log(`[FACEBOOK-SEND] ${tag} response:`, JSON.stringify(result));
+
+            if (!result.error) {
+                console.log(`[FACEBOOK-SEND] ✅ Success with tag: ${tag}`);
+                return { success: true, result, tag };
+            }
+            console.warn(`[FACEBOOK-SEND] ⚠️ ${tag} failed (${result.error.code}): ${result.error.message}`);
+        }
+
+        // All tags failed - return last error
+        const lastBody = { ...baseFbBody, messaging_type: 'MESSAGE_TAG', tag: TAG_SEQUENCE[TAG_SEQUENCE.length - 1] };
+        const resp = await fetchWithTimeout(graphApiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(lastBody)
+        });
+        const result = await resp.json();
+        return { success: false, result, status: resp.status };
+    }
 
     try {
         // Send images first
@@ -435,46 +483,26 @@ router.post('/facebook-send', async (req, res) => {
                 message: {
                     attachment: {
                         type: 'image',
-                        payload: {
-                            url: imageUrl,
-                            is_reusable: true
-                        }
+                        payload: { url: imageUrl, is_reusable: true }
                     }
                 }
             };
 
-            if (useTag) {
-                imageFbBody.messaging_type = 'MESSAGE_TAG';
-                imageFbBody.tag = 'POST_PURCHASE_UPDATE';
-            } else {
-                imageFbBody.messaging_type = 'RESPONSE';
-            }
-
             console.log('[FACEBOOK-SEND] Sending image:', imageUrl);
+            const imgResult = await sendWithTagFallback(imageFbBody);
 
-            const imageResponse = await fetchWithTimeout(graphApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(imageFbBody)
-            });
-
-            const imageResult = await imageResponse.json();
-            console.log('[FACEBOOK-SEND] Image response:', JSON.stringify(imageResult));
-
-            if (imageResult.error) {
-                return res.status(imageResponse.status).json({
+            if (!imgResult.success) {
+                return res.status(imgResult.status || 400).json({
                     success: false,
-                    error: imageResult.error.message || 'Failed to send image',
-                    error_code: imageResult.error.code,
-                    error_subcode: imageResult.error.error_subcode
+                    error: imgResult.result.error.message || 'Failed to send image',
+                    error_code: imgResult.result.error.code,
+                    error_subcode: imgResult.result.error.error_subcode
                 });
             }
 
-            messageIds.push(imageResult.message_id);
-            lastResult = imageResult;
+            messageIds.push(imgResult.result.message_id);
+            lastResult = imgResult.result;
+            usedTag = imgResult.tag;
         }
 
         // Send text message
@@ -484,37 +512,21 @@ router.post('/facebook-send', async (req, res) => {
                 message: { text: message }
             };
 
-            if (useTag) {
-                textFbBody.messaging_type = 'MESSAGE_TAG';
-                textFbBody.tag = 'POST_PURCHASE_UPDATE';
-                console.log('[FACEBOOK-SEND] Using MESSAGE_TAG with POST_PURCHASE_UPDATE');
-            } else {
-                textFbBody.messaging_type = 'RESPONSE';
-            }
+            console.log('[FACEBOOK-SEND] Sending text message');
+            const txtResult = await sendWithTagFallback(textFbBody);
 
-            const textResponse = await fetchWithTimeout(graphApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(textFbBody)
-            });
-
-            const textResult = await textResponse.json();
-            console.log('[FACEBOOK-SEND] Text response:', JSON.stringify(textResult));
-
-            if (textResult.error) {
-                return res.status(textResponse.status).json({
+            if (!txtResult.success) {
+                return res.status(txtResult.status || 400).json({
                     success: false,
-                    error: textResult.error.message || 'Failed to send text',
-                    error_code: textResult.error.code,
-                    error_subcode: textResult.error.error_subcode
+                    error: txtResult.result.error.message || 'Failed to send text',
+                    error_code: txtResult.result.error.code,
+                    error_subcode: txtResult.result.error.error_subcode
                 });
             }
 
-            messageIds.push(textResult.message_id);
-            lastResult = textResult;
+            messageIds.push(txtResult.result.message_id);
+            lastResult = txtResult.result;
+            usedTag = txtResult.tag;
         }
 
         console.log('[FACEBOOK-SEND] All messages sent successfully!');
@@ -525,7 +537,7 @@ router.post('/facebook-send', async (req, res) => {
             recipient_id: lastResult?.recipient_id,
             message_id: lastResult?.message_id,
             message_ids: messageIds,
-            used_tag: useTag ? 'POST_PURCHASE_UPDATE' : null
+            used_tag: usedTag
         });
 
     } catch (error) {

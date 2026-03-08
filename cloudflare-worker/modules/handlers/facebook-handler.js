@@ -42,8 +42,59 @@ export async function handleFacebookSend(request, url) {
         const graphApiUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${pageId}/messages`;
         console.log('[FACEBOOK-SEND] Graph API URL:', graphApiUrl);
 
+        // Tag priority: HUMAN_AGENT → CUSTOMER_FEEDBACK
+        const TAG_SEQUENCE = ['HUMAN_AGENT', 'CUSTOMER_FEEDBACK'];
+
         const messageIds = [];
         let lastResult = null;
+        let usedTag = null;
+
+        // Helper: send a single request to Facebook Graph API
+        async function sendToGraph(fbBody) {
+            const resp = await fetchWithRetry(
+                `${graphApiUrl}?access_token=${pageToken}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(fbBody),
+                },
+                3, 1000, 15000
+            );
+            return { response: resp, result: await resp.json() };
+        }
+
+        // Helper: send with tag fallback (HUMAN_AGENT → CUSTOMER_FEEDBACK)
+        async function sendWithTagFallback(baseFbBody) {
+            if (!useTag) {
+                if (!baseFbBody.recipient?.comment_id) {
+                    baseFbBody.messaging_type = 'RESPONSE';
+                }
+                const { response, result } = await sendToGraph(baseFbBody);
+                if (result.error) return { success: false, result, status: response.status };
+                return { success: true, result, tag: null };
+            }
+
+            for (const tag of TAG_SEQUENCE) {
+                const body = { ...baseFbBody, messaging_type: 'MESSAGE_TAG', tag };
+                console.log(`[FACEBOOK-SEND] Trying tag: ${tag}`);
+
+                const { response, result } = await sendToGraph(body);
+                console.log(`[FACEBOOK-SEND] ${tag} response:`, JSON.stringify(result));
+
+                if (!result.error) {
+                    console.log(`[FACEBOOK-SEND] ✅ Success with tag: ${tag}`);
+                    return { success: true, result, tag };
+                }
+
+                console.warn(`[FACEBOOK-SEND] ⚠️ ${tag} failed (${result.error.code}): ${result.error.message}`);
+                // Continue to next tag
+            }
+
+            // All tags failed, return last error
+            const lastBody = { ...baseFbBody, messaging_type: 'MESSAGE_TAG', tag: TAG_SEQUENCE[TAG_SEQUENCE.length - 1] };
+            const { response, result } = await sendToGraph(lastBody);
+            return { success: false, result, status: response.status };
+        }
 
         // Send images first (if any)
         if (imageUrls && Array.isArray(imageUrls) && imageUrls.length > 0) {
@@ -60,40 +111,22 @@ export async function handleFacebookSend(request, url) {
                     }
                 };
 
-                if (useTag) {
-                    imageFbBody.messaging_type = 'MESSAGE_TAG';
-                    imageFbBody.tag = 'POST_PURCHASE_UPDATE';
-                } else if (!recipient?.comment_id) {
-                    imageFbBody.messaging_type = 'RESPONSE';
-                }
-
                 console.log('[FACEBOOK-SEND] Sending image:', imageUrl);
+                const imgResult = await sendWithTagFallback(imageFbBody);
 
-                const imageResponse = await fetchWithRetry(
-                    `${graphApiUrl}?access_token=${pageToken}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify(imageFbBody),
-                    },
-                    3, 1000, 15000
-                );
-
-                const imageResult = await imageResponse.json();
-                console.log('[FACEBOOK-SEND] Image response:', JSON.stringify(imageResult));
-
-                if (imageResult.error) {
-                    console.error('[FACEBOOK-SEND] Image send error:', imageResult.error);
+                if (!imgResult.success) {
+                    console.error('[FACEBOOK-SEND] Image send error:', imgResult.result.error);
                     return jsonResponse({
                         success: false,
-                        error: imageResult.error.message || 'Failed to send image',
-                        error_code: imageResult.error.code,
-                        error_subcode: imageResult.error.error_subcode,
-                    }, imageResponse.status);
+                        error: imgResult.result.error.message || 'Failed to send image',
+                        error_code: imgResult.result.error.code,
+                        error_subcode: imgResult.result.error.error_subcode,
+                    }, imgResult.status || 400);
                 }
 
-                messageIds.push(imageResult.message_id);
-                lastResult = imageResult;
+                messageIds.push(imgResult.result.message_id);
+                lastResult = imgResult.result;
+                usedTag = imgResult.tag;
             }
         }
 
@@ -105,44 +138,22 @@ export async function handleFacebookSend(request, url) {
                 message: typeof message === 'object' ? message : { text: message },
             };
 
-            if (useTag) {
-                textFbBody.messaging_type = 'MESSAGE_TAG';
-                textFbBody.tag = 'POST_PURCHASE_UPDATE';
-                console.log('[FACEBOOK-SEND] Using MESSAGE_TAG with POST_PURCHASE_UPDATE');
-            } else if (!recipient?.comment_id) {
-                textFbBody.messaging_type = 'RESPONSE';
-                console.log('[FACEBOOK-SEND] Using standard RESPONSE messaging_type');
-            } else {
-                console.log('[FACEBOOK-SEND] Using Private Reply (comment_id)');
-            }
-
             console.log('[FACEBOOK-SEND] Sending text message');
+            const txtResult = await sendWithTagFallback(textFbBody);
 
-            const textResponse = await fetchWithRetry(
-                `${graphApiUrl}?access_token=${pageToken}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify(textFbBody),
-                },
-                3, 1000, 15000
-            );
-
-            const textResult = await textResponse.json();
-            console.log('[FACEBOOK-SEND] Text response:', JSON.stringify(textResult));
-
-            if (textResult.error) {
-                console.error('[FACEBOOK-SEND] Text send error:', textResult.error);
+            if (!txtResult.success) {
+                console.error('[FACEBOOK-SEND] Text send error:', txtResult.result.error);
                 return jsonResponse({
                     success: false,
-                    error: textResult.error.message || 'Failed to send text',
-                    error_code: textResult.error.code,
-                    error_subcode: textResult.error.error_subcode,
-                }, textResponse.status);
+                    error: txtResult.result.error.message || 'Failed to send text',
+                    error_code: txtResult.result.error.code,
+                    error_subcode: txtResult.result.error.error_subcode,
+                }, txtResult.status || 400);
             }
 
-            messageIds.push(textResult.message_id);
-            lastResult = textResult;
+            messageIds.push(txtResult.result.message_id);
+            lastResult = txtResult.result;
+            usedTag = txtResult.tag;
         }
 
         console.log('[FACEBOOK-SEND] All messages sent successfully!');
@@ -153,7 +164,7 @@ export async function handleFacebookSend(request, url) {
             recipient_id: lastResult?.recipient_id,
             message_id: lastResult?.message_id,
             message_ids: messageIds,
-            used_tag: useTag ? 'POST_PURCHASE_UPDATE' : null,
+            used_tag: usedTag,
         });
 
     } catch (error) {
