@@ -102,91 +102,172 @@ export async function handleFacebookSend(request, url) {
             return { success: false, result: { error: lastError }, status: 400 };
         }
 
-        // Helper: Find real Facebook comment ID by querying the post's comments
-        // Returns { commentId, diagnostics } - diagnostics always included for debugging
+        // Helper: Search comments on a single post/video for the customer
+        async function searchCommentsOnObject(objectId, customerAsid, customerName, filter, diagnostics) {
+            const graphUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${objectId}/comments`;
+            const params = new URLSearchParams({
+                access_token: pageToken,
+                fields: 'from{id,name},id,message,created_time',
+                limit: '200',
+                order: 'reverse_chronological'
+            });
+            if (filter) params.set('filter', filter);
+
+            const queryKey = `${objectId}/comments?filter=${filter || 'default'}`;
+
+            try {
+                const resp = await fetchWithRetry(
+                    `${graphUrl}?${params.toString()}`,
+                    { method: 'GET', headers: { 'Accept': 'application/json' } },
+                    2, 1000, 15000
+                );
+                const data = await resp.json();
+
+                if (data.error) {
+                    diagnostics.queries.push({ query: queryKey, error: data.error.message });
+                    return null;
+                }
+
+                const comments = data.data || [];
+                diagnostics.queries.push({ query: queryKey, count: comments.length });
+                console.log(`[PRIVATE-REPLY] ${queryKey} → ${comments.length} comments`);
+
+                if (comments.length === 0) return null;
+
+                // Collect commenters for diagnostics
+                const uniqueCommenters = [...new Map(
+                    comments.filter(c => c.from).map(c => [c.from.id, { id: c.from.id, name: c.from.name }])
+                ).values()];
+                diagnostics.commentersFound = uniqueCommenters.slice(0, 20);
+
+                // Match by ID
+                let match = comments.find(c => c.from && String(c.from.id) === String(customerAsid));
+                if (match) {
+                    console.log(`[PRIVATE-REPLY] ✅ ID match: ${match.id} (${match.from.name})`);
+                    return { commentId: match.id, matchedBy: 'id', on: objectId };
+                }
+
+                // Match by name
+                if (customerName) {
+                    const norm = customerName.trim().toLowerCase();
+                    match = comments.find(c => c.from?.name?.trim().toLowerCase() === norm);
+                    if (match) {
+                        console.log(`[PRIVATE-REPLY] ✅ Name match: ${match.id} (${match.from.name}, from.id=${match.from.id})`);
+                        return { commentId: match.id, matchedBy: 'name', on: objectId };
+                    }
+                }
+
+                return null;
+            } catch (err) {
+                diagnostics.queries.push({ query: queryKey, error: err.message });
+                return null;
+            }
+        }
+
+        // Helper: Find real Facebook comment ID
+        // Step 1: Try stored postId directly
+        // Step 2: If postId is invalid, search page's live_videos and feed
         async function findRealCommentId(fbPostId, customerAsid, customerName) {
             const diagnostics = {
-                postId: fbPostId,
-                psid: customerAsid,
+                postId: fbPostId, psid: customerAsid,
                 customerName: customerName || null,
-                queries: [],
-                commentersFound: [],
+                queries: [], commentersFound: [],
             };
 
             console.log('[PRIVATE-REPLY] ========================================');
-            console.log('[PRIVATE-REPLY] Post ID:', fbPostId, '| PSID:', customerAsid, '| Name:', customerName);
+            console.log('[PRIVATE-REPLY] PostId:', fbPostId, '| PSID:', customerAsid, '| Name:', customerName);
 
-            // Try: full "pageId_postId", then just "postId"
+            // === STEP 1: Try stored postId directly ===
             const postIdVariants = [fbPostId];
             if (fbPostId.includes('_')) {
                 postIdVariants.push(fbPostId.split('_').slice(1).join('_'));
             }
 
+            let allFailed = true;
             for (const pid of postIdVariants) {
-                for (const filter of ['stream', 'toplevel', null]) {
-                    const graphUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${pid}/comments`;
-                    const params = new URLSearchParams({
-                        access_token: pageToken,
-                        fields: 'from{id,name},id,message,created_time',
-                        limit: '200',
-                        order: 'reverse_chronological'
-                    });
-                    if (filter) params.set('filter', filter);
-
-                    const queryKey = `${pid}/comments?filter=${filter || 'default'}`;
-                    console.log(`[PRIVATE-REPLY] Query: ${queryKey}`);
-
-                    try {
-                        const resp = await fetchWithRetry(
-                            `${graphUrl}?${params.toString()}`,
-                            { method: 'GET', headers: { 'Accept': 'application/json' } },
-                            2, 1000, 15000
-                        );
-                        const data = await resp.json();
-
-                        if (data.error) {
-                            diagnostics.queries.push({ query: queryKey, error: data.error.message });
-                            console.warn(`[PRIVATE-REPLY] ${queryKey} → error: ${data.error.message}`);
-                            continue;
-                        }
-
-                        const comments = data.data || [];
-                        diagnostics.queries.push({ query: queryKey, count: comments.length });
-                        console.log(`[PRIVATE-REPLY] ${queryKey} → ${comments.length} comments`);
-
-                        if (comments.length === 0) continue;
-
-                        // Collect unique commenters for diagnostics
-                        const uniqueCommenters = [...new Map(
-                            comments.filter(c => c.from).map(c => [c.from.id, { id: c.from.id, name: c.from.name }])
-                        ).values()];
-                        diagnostics.commentersFound = uniqueCommenters.slice(0, 20);
-                        console.log('[PRIVATE-REPLY] Commenters:', JSON.stringify(diagnostics.commentersFound));
-
-                        // Match by ID
-                        let match = comments.find(c => c.from && String(c.from.id) === String(customerAsid));
-                        if (match) {
-                            console.log(`[PRIVATE-REPLY] ✅ ID match: ${match.id} (${match.from.name})`);
-                            return { commentId: match.id, diagnostics, matchedBy: 'id' };
-                        }
-
-                        // Match by name (PSID often differs from from.id)
-                        if (customerName) {
-                            const norm = customerName.trim().toLowerCase();
-                            match = comments.find(c => c.from?.name?.trim().toLowerCase() === norm);
-                            if (match) {
-                                console.log(`[PRIVATE-REPLY] ✅ Name match: ${match.id} (${match.from.name}, id=${match.from.id})`);
-                                return { commentId: match.id, diagnostics, matchedBy: 'name' };
-                            }
-                        }
-                    } catch (err) {
-                        diagnostics.queries.push({ query: queryKey, error: err.message });
-                        console.error(`[PRIVATE-REPLY] ${queryKey} → exception: ${err.message}`);
+                for (const filter of ['stream', null]) {
+                    const result = await searchCommentsOnObject(pid, customerAsid, customerName, filter, diagnostics);
+                    if (result) {
+                        return { ...result, diagnostics };
                     }
+                    // Check if query succeeded (even with 0 comments) vs errored
+                    const lastQuery = diagnostics.queries[diagnostics.queries.length - 1];
+                    if (lastQuery && !lastQuery.error) allFailed = false;
                 }
             }
 
-            console.error('[PRIVATE-REPLY] ❌ No match found');
+            // === STEP 2: PostId invalid → search page's live videos and feed ===
+            if (allFailed) {
+                console.log('[PRIVATE-REPLY] Stored postId invalid → searching page content...');
+
+                // 2a: Search live_videos
+                try {
+                    const lvUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${pageId}/live_videos`;
+                    const lvParams = new URLSearchParams({
+                        access_token: pageToken,
+                        fields: 'id,title,created_time',
+                        limit: '10'
+                    });
+                    const lvResp = await fetchWithRetry(
+                        `${lvUrl}?${lvParams.toString()}`,
+                        { method: 'GET', headers: { 'Accept': 'application/json' } },
+                        2, 1000, 15000
+                    );
+                    const lvData = await lvResp.json();
+
+                    if (!lvData.error && lvData.data?.length > 0) {
+                        console.log(`[PRIVATE-REPLY] Found ${lvData.data.length} live videos on page`);
+                        diagnostics.liveVideos = lvData.data.map(v => ({ id: v.id, title: v.title, created: v.created_time }));
+
+                        for (const video of lvData.data) {
+                            console.log(`[PRIVATE-REPLY] Searching live video: ${video.id} (${video.title || 'untitled'})`);
+                            const result = await searchCommentsOnObject(video.id, customerAsid, customerName, 'stream', diagnostics);
+                            if (result) {
+                                return { ...result, diagnostics };
+                            }
+                        }
+                    } else {
+                        diagnostics.queries.push({ query: `${pageId}/live_videos`, error: lvData.error?.message || 'no data' });
+                    }
+                } catch (err) {
+                    diagnostics.queries.push({ query: `${pageId}/live_videos`, error: err.message });
+                }
+
+                // 2b: Search page feed (regular posts)
+                try {
+                    const feedUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${pageId}/feed`;
+                    const feedParams = new URLSearchParams({
+                        access_token: pageToken,
+                        fields: 'id,message,created_time,type',
+                        limit: '15'
+                    });
+                    const feedResp = await fetchWithRetry(
+                        `${feedUrl}?${feedParams.toString()}`,
+                        { method: 'GET', headers: { 'Accept': 'application/json' } },
+                        2, 1000, 15000
+                    );
+                    const feedData = await feedResp.json();
+
+                    if (!feedData.error && feedData.data?.length > 0) {
+                        console.log(`[PRIVATE-REPLY] Found ${feedData.data.length} posts in page feed`);
+                        diagnostics.feedPosts = feedData.data.map(p => ({ id: p.id, type: p.type, created: p.created_time }));
+
+                        for (const post of feedData.data) {
+                            console.log(`[PRIVATE-REPLY] Searching post: ${post.id} (${post.type || 'unknown'})`);
+                            const result = await searchCommentsOnObject(post.id, customerAsid, customerName, null, diagnostics);
+                            if (result) {
+                                return { ...result, diagnostics };
+                            }
+                        }
+                    } else {
+                        diagnostics.queries.push({ query: `${pageId}/feed`, error: feedData.error?.message || 'no data' });
+                    }
+                } catch (err) {
+                    diagnostics.queries.push({ query: `${pageId}/feed`, error: err.message });
+                }
+            }
+
+            console.error('[PRIVATE-REPLY] ❌ No match found after full search');
             return { commentId: null, diagnostics };
         }
 
