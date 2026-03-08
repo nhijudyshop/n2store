@@ -3629,10 +3629,32 @@ Chúc chị một ngày vui vẻ! 😊`,
                 this.log('[QUICK-FB-SEND] Pancake private_replies response:', prResult);
 
                 if (!prResponse.ok || prResult.success === false || prResult.error) {
-                    throw new Error(prResult.message || prResult.error?.message || prResult.error || 'Private reply failed');
-                }
+                    // Step 3: Fallback to reply_comment (public comment reply)
+                    this.log('[QUICK-FB-SEND] ⚠️ private_replies failed, trying reply_comment...');
 
-                this.log('[QUICK-FB-SEND] ✅ Sent via Pancake private_replies!');
+                    const rcPayload = {
+                        action: 'reply_comment',
+                        message_id: commentConvId,
+                        message: messageContent
+                    };
+
+                    const rcResponse = await API_CONFIG.smartFetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(rcPayload)
+                    }, 1, true);
+
+                    const rcResult = await rcResponse.json();
+                    this.log('[QUICK-FB-SEND] reply_comment response:', rcResult);
+
+                    if (!rcResponse.ok || rcResult.success === false || rcResult.error) {
+                        throw new Error(rcResult.message || rcResult.error?.message || rcResult.error || 'Reply comment failed');
+                    }
+
+                    this.log('[QUICK-FB-SEND] ✅ Sent via reply_comment (public)');
+                } else {
+                    this.log('[QUICK-FB-SEND] ✅ Sent via Pancake private_replies!');
+                }
             }
 
             // Close modal
