@@ -7,21 +7,26 @@ Hướng dẫn tích hợp Goong.io Autocomplete vào n2store.
 - **Chức năng**: Nhập địa chỉ không đầy đủ → trả về địa chỉ đầy đủ (autocomplete)
 - **Free tier**: $100 credit khi đăng ký (~30,000 requests/tháng)
 - **Docs**: https://docs.goong.io/rest/place
+- **Status**: Đã test thành công (2026-03-08)
 
-## Setup
+## Setup (Đã hoàn thành)
 
-### 1. Tạo API Key
+### 1. API Key
 
-1. Đăng ký tại https://account.goong.io
-2. Tạo API Key trong dashboard
+- Đăng ký tại https://account.goong.io
+- Env variable trên Render.com: `GOONG_API_KEY`
 
-### 2. Thêm API Key vào Render.com
+### 2. Server Route
 
-1. Vào [Render Dashboard](https://dashboard.render.com/)
-2. Chọn service `n2store-fallback`
-3. **Environment** → Add Environment Variable:
-   - Key: `GOONG_API_KEY`
-   - Value: `<API key từ bước 1>`
+- File: `render.com/routes/goong-places.js`
+- Đăng ký: `app.use('/api/goong-places', goongPlacesRoutes)` trong `server.js`
+
+### 3. Endpoints
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/api/goong-places/` | Health check |
+| GET | `/api/goong-places/autocomplete?input=...` | Autocomplete |
 
 ## Kiến trúc
 
@@ -35,12 +40,7 @@ Goong.io API
 Render.com → Browser
 ```
 
-## Server Route
-
-File: `render.com/routes/goong-places.js`
-Endpoint: `GET /api/goong-places/autocomplete?input=<địa chỉ>`
-
-### Query Parameters
+## Query Parameters
 
 | Param | Bắt buộc | Mặc định | Mô tả |
 |-------|---------|----------|-------|
@@ -48,38 +48,119 @@ Endpoint: `GET /api/goong-places/autocomplete?input=<địa chỉ>`
 | `limit` | Không | 5 | Số kết quả trả về |
 | `more_compound` | Không | true | Trả thêm thông tin phường/quận/tỉnh |
 
-## Client-side Usage
+## Test thực tế
+
+### Request
+```
+GET https://n2store-fallback.onrender.com/api/goong-places/autocomplete?input=123+nguyễn+huệ
+```
+
+### Response (rút gọn)
+```json
+{
+    "predictions": [
+        {
+            "description": "123 Nguyễn Huệ, Lào Cai, Lào Cai, Lào Cai",
+            "place_id": "v1yjbbt-PXX...",
+            "structured_formatting": {
+                "main_text": "123 Nguyễn Huệ",
+                "secondary_text": "Lào Cai, Lào Cai, Lào Cai"
+            },
+            "compound": {
+                "district": "Lào Cai",
+                "commune": "Lào Cai",
+                "province": "Lào Cai"
+            },
+            "types": ["house_number"]
+        },
+        {
+            "description": "123 Nguyễn Huệ, An Hội, Bến Tre, Bến Tre",
+            "compound": { "district": "Bến Tre", "commune": "An Hội", "province": "Bến Tre" }
+        },
+        {
+            "description": "123 Nguyễn Huệ, Hòa Bình, Hòa Bình",
+            "compound": { "district": "Hòa Bình", "commune": "Phương Lâm", "province": "Hòa Bình" }
+        },
+        {
+            "description": "123 Nguyễn Huệ, Phường 2, Sóc Trăng, Sóc Trăng",
+            "compound": { "district": "Sóc Trăng", "commune": "Phường 2", "province": "Sóc Trăng" }
+        },
+        {
+            "description": "123 Nguyễn Huệ, Nam Bình, Ninh Bình, Ninh Bình",
+            "compound": { "district": "Ninh Bình", "commune": "Nam Bình", "province": "Ninh Bình" }
+        }
+    ],
+    "status": "OK"
+}
+```
+
+### Cấu trúc mỗi prediction
+
+| Field | Mô tả | Ví dụ |
+|-------|--------|-------|
+| `description` | Địa chỉ đầy đủ | `"123 Nguyễn Huệ, An Hội, Bến Tre, Bến Tre"` |
+| `place_id` | ID duy nhất của địa điểm | `"aJeH0Vpzl..."` |
+| `structured_formatting.main_text` | Phần chính | `"123 Nguyễn Huệ"` |
+| `structured_formatting.secondary_text` | Phần phụ (khu vực) | `"An Hội, Bến Tre, Bến Tre"` |
+| `compound.commune` | Phường/Xã | `"An Hội"` |
+| `compound.district` | Quận/Huyện | `"Bến Tre"` |
+| `compound.province` | Tỉnh/TP | `"Bến Tre"` |
+| `types` | Loại địa điểm | `["house_number"]` |
+
+---
+
+## Hướng dẫn tích hợp vào n2store
+
+### Bước 1: Tạo file shared module
+
+Tạo file `shared/browser/goong-places.js` (hoặc `shared/js/goong-places.js` cho legacy):
 
 ```javascript
+// =====================================================
+// GOONG PLACES AUTOCOMPLETE CLIENT
+// Sử dụng Goong.io API qua Render.com proxy
+// =====================================================
+
 const RENDER_URL = 'https://n2store-fallback.onrender.com';
 
 /**
  * Tìm địa chỉ autocomplete từ Goong.io
  * @param {string} input - Địa chỉ không đầy đủ (vd: "123 nguyễn huệ")
- * @returns {Promise<Array>} - Danh sách gợi ý địa chỉ
+ * @param {Object} options - { limit: 5 }
+ * @returns {Promise<Array>} Danh sách gợi ý
  */
-async function searchAddress(input) {
+async function searchAddress(input, options = {}) {
     if (!input || input.trim().length < 2) return [];
 
-    const params = new URLSearchParams({ input: input.trim() });
-    const response = await fetch(`${RENDER_URL}/api/goong-places/autocomplete?${params}`);
-    const data = await response.json();
+    const params = new URLSearchParams({
+        input: input.trim(),
+        ...(options.limit && { limit: String(options.limit) })
+    });
 
-    if (data.status !== 'OK') return [];
+    try {
+        const response = await fetch(`${RENDER_URL}/api/goong-places/autocomplete?${params}`);
+        const data = await response.json();
 
-    return (data.predictions || []).map(p => ({
-        description: p.description || '',
-        placeId: p.place_id || '',
-        mainText: p.structured_formatting?.main_text || '',
-        secondaryText: p.structured_formatting?.secondary_text || '',
-        compound: p.compound || null  // { commune, district, province }
-    }));
+        if (data.status !== 'OK') return [];
+
+        return (data.predictions || []).map(p => ({
+            description: p.description || '',
+            placeId: p.place_id || '',
+            mainText: p.structured_formatting?.main_text || '',
+            secondaryText: p.structured_formatting?.secondary_text || '',
+            commune: p.compound?.commune || '',
+            district: p.compound?.district || '',
+            province: p.compound?.province || ''
+        }));
+    } catch (error) {
+        console.error('[GoongPlaces] Error:', error.message);
+        return [];
+    }
 }
-```
 
-### Ví dụ tích hợp với input field
-
-```javascript
+/**
+ * Debounce helper
+ */
 function debounce(fn, delay = 300) {
     let timer;
     return (...args) => {
@@ -87,68 +168,171 @@ function debounce(fn, delay = 300) {
         timer = setTimeout(() => fn(...args), delay);
     };
 }
+```
 
-function setupAddressAutocomplete(inputElement, dropdownElement) {
+### Bước 2: Tích hợp vào form (HTML + JS)
+
+#### HTML - Thêm dropdown container sau input address
+
+```html
+<div class="address-wrapper" style="position: relative;">
+    <input type="text" id="addressInput" placeholder="Nhập địa chỉ..."
+           autocomplete="off" />
+    <div id="addressDropdown" class="address-dropdown" style="display: none;"></div>
+</div>
+```
+
+#### CSS
+
+```css
+.address-wrapper {
+    position: relative;
+}
+
+.address-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.address-suggestion {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.15s;
+}
+
+.address-suggestion:hover {
+    background: #f5f5f5;
+}
+
+.address-suggestion:last-child {
+    border-bottom: none;
+}
+
+.address-suggestion strong {
+    display: block;
+    font-size: 14px;
+    color: #333;
+}
+
+.address-suggestion small {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-top: 2px;
+}
+```
+
+#### JavaScript - Setup autocomplete
+
+```javascript
+function setupAddressAutocomplete(inputEl, dropdownEl, onSelect) {
     const handleInput = debounce(async (e) => {
         const query = e.target.value;
         if (query.length < 2) {
-            dropdownElement.style.display = 'none';
+            dropdownEl.style.display = 'none';
             return;
         }
 
         const suggestions = await searchAddress(query);
         if (suggestions.length === 0) {
-            dropdownElement.style.display = 'none';
+            dropdownEl.style.display = 'none';
             return;
         }
 
-        dropdownElement.innerHTML = suggestions.map(s => `
-            <div class="address-suggestion" data-text="${s.description}">
+        dropdownEl.innerHTML = suggestions.map((s, i) => `
+            <div class="address-suggestion" data-index="${i}">
                 <strong>${s.mainText}</strong>
                 <small>${s.secondaryText}</small>
             </div>
         `).join('');
-        dropdownElement.style.display = 'block';
+        dropdownEl.style.display = 'block';
 
-        dropdownElement.querySelectorAll('.address-suggestion').forEach(el => {
+        // Click handler
+        dropdownEl.querySelectorAll('.address-suggestion').forEach(el => {
             el.addEventListener('click', () => {
-                inputElement.value = el.dataset.text;
-                dropdownElement.style.display = 'none';
+                const idx = parseInt(el.dataset.index);
+                const selected = suggestions[idx];
+
+                // Điền địa chỉ vào input
+                inputEl.value = selected.description;
+                dropdownEl.style.display = 'none';
+
+                // Callback để điền các field khác (phường, quận, tỉnh)
+                if (onSelect) onSelect(selected);
             });
         });
     }, 300);
 
-    inputElement.addEventListener('input', handleInput);
-}
-```
+    inputEl.addEventListener('input', handleInput);
 
-## Response Format
-
-```json
-{
-    "predictions": [
-        {
-            "description": "123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, Thành phố Hồ Chí Minh",
-            "place_id": "...",
-            "structured_formatting": {
-                "main_text": "123 Nguyễn Huệ",
-                "secondary_text": "Phường Bến Nghé, Quận 1, Thành phố Hồ Chí Minh"
-            },
-            "compound": {
-                "commune": "Phường Bến Nghé",
-                "district": "Quận 1",
-                "province": "Thành phố Hồ Chí Minh"
-            }
+    // Đóng dropdown khi click ngoài
+    document.addEventListener('click', (e) => {
+        if (!inputEl.contains(e.target) && !dropdownEl.contains(e.target)) {
+            dropdownEl.style.display = 'none';
         }
-    ],
-    "status": "OK"
+    });
 }
 ```
 
-## Lưu ý
+### Bước 3: Sử dụng trong trang cụ thể
 
-- **Debounce**: Luôn debounce input (300ms+) để tiết kiệm requests
-- **Min length**: Chỉ gọi API khi input >= 2 ký tự
-- **more_compound**: Bật để lấy thêm commune/district/province (hữu ích cho đơn hàng)
-- **Free tier**: $100 credit ~ 30,000 requests/tháng
-- **Rate limit**: Max 5 requests/giây
+#### Ví dụ: Form tạo khách hàng (customer-hub)
+
+```javascript
+// Khởi tạo autocomplete
+const addressInput = document.getElementById('addressInput');
+const addressDropdown = document.getElementById('addressDropdown');
+
+setupAddressAutocomplete(addressInput, addressDropdown, (selected) => {
+    // Auto-fill các field liên quan
+    const communeInput = document.getElementById('communeInput');     // Phường/Xã
+    const districtInput = document.getElementById('districtInput');   // Quận/Huyện
+    const provinceInput = document.getElementById('provinceInput');   // Tỉnh/TP
+
+    if (communeInput)  communeInput.value = selected.commune;
+    if (districtInput) districtInput.value = selected.district;
+    if (provinceInput) provinceInput.value = selected.province;
+});
+```
+
+#### Ví dụ: Form đơn hàng (orders-report)
+
+```javascript
+setupAddressAutocomplete(
+    document.getElementById('deliveryAddress'),
+    document.getElementById('deliveryDropdown'),
+    (selected) => {
+        // Điền địa chỉ giao hàng đầy đủ
+        document.getElementById('deliveryAddress').value = selected.description;
+        // Có thể map compound vào các field TPOS tương ứng
+        console.log('Phường:', selected.commune);
+        console.log('Quận:', selected.district);
+        console.log('Tỉnh:', selected.province);
+    }
+);
+```
+
+---
+
+## Lưu ý quan trọng
+
+| Lưu ý | Chi tiết |
+|--------|---------|
+| **Debounce** | Luôn debounce input 300ms+ để tiết kiệm requests |
+| **Min length** | Chỉ gọi API khi input >= 2 ký tự |
+| **XSS** | Dùng `textContent` thay `innerHTML` nếu dữ liệu từ user |
+| **more_compound** | Mặc định `true`, trả thêm commune/district/province |
+| **Free tier** | $100 credit ~ 30,000 requests/tháng |
+| **Rate limit** | Max 5 requests/giây |
+| **Offline** | Không có offline fallback, cần kết nối internet |
