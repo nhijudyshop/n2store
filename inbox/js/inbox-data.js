@@ -25,7 +25,8 @@ class InboxDataManager {
         this.livestreamConvIds = new Set(); // Track livestream conversation IDs
         this.livestreamCustomerPsids = new Set(); // Track customers who commented on livestream
         this.labelMap = {};       // convId -> labelId (saved to localStorage)
-        this.starredSet = new Set(); // convId set (saved to localStorage)
+        this.unpinnedLivestream = new Set(); // convIds unpinned from Livestream tab
+        this.unpinnedInboxMy = new Set();    // convIds unpinned from Inbox My tab
         this.isInitialized = false;
 
         // Conversation maps for O(1) lookup (like tpos-pancake)
@@ -84,14 +85,17 @@ class InboxDataManager {
             const labels = localStorage.getItem('inbox_conv_labels');
             if (labels) this.labelMap = JSON.parse(labels);
 
-            const starred = localStorage.getItem('inbox_conv_starred');
-            if (starred) this.starredSet = new Set(JSON.parse(starred));
-
             const liveIds = localStorage.getItem('inbox_livestream_convs');
             if (liveIds) this.livestreamConvIds = new Set(JSON.parse(liveIds));
 
             const liveCusts = localStorage.getItem('inbox_livestream_customers');
             if (liveCusts) this.livestreamCustomerPsids = new Set(JSON.parse(liveCusts));
+
+            const unpinLive = localStorage.getItem('inbox_unpinned_livestream');
+            if (unpinLive) this.unpinnedLivestream = new Set(JSON.parse(unpinLive));
+
+            const unpinMy = localStorage.getItem('inbox_unpinned_inbox_my');
+            if (unpinMy) this.unpinnedInboxMy = new Set(JSON.parse(unpinMy));
         } catch (e) {
             console.warn('[InboxData] Error loading local state:', e);
         }
@@ -103,9 +107,10 @@ class InboxDataManager {
     saveLocalState() {
         try {
             localStorage.setItem('inbox_conv_labels', JSON.stringify(this.labelMap));
-            localStorage.setItem('inbox_conv_starred', JSON.stringify([...this.starredSet]));
             localStorage.setItem('inbox_livestream_convs', JSON.stringify([...this.livestreamConvIds]));
             localStorage.setItem('inbox_livestream_customers', JSON.stringify([...this.livestreamCustomerPsids]));
+            localStorage.setItem('inbox_unpinned_livestream', JSON.stringify([...this.unpinnedLivestream]));
+            localStorage.setItem('inbox_unpinned_inbox_my', JSON.stringify([...this.unpinnedInboxMy]));
         } catch (e) {
             console.warn('[InboxData] Error saving local state:', e);
         }
@@ -512,9 +517,9 @@ class InboxDataManager {
         if (filter === 'unread') {
             result = result.filter(c => c.unread > 0);
         } else if (filter === 'livestream') {
-            result = result.filter(c => c.isLivestream);
+            result = result.filter(c => c.isLivestream && !this.unpinnedLivestream.has(c.id));
         } else if (filter === 'inbox_my') {
-            result = result.filter(c => !c.isLivestream && c.unread > 0);
+            result = result.filter(c => !c.isLivestream && !this.unpinnedInboxMy.has(c.id));
         }
 
         if (groupFilter) {
@@ -820,6 +825,39 @@ class InboxDataManager {
             conv.isLivestream = false;
         }
         this.saveLocalState();
+    }
+
+    /**
+     * Unpin a conversation from its current tab (Livestream or Inbox My)
+     */
+    unpinFromTab(convId, tab) {
+        if (tab === 'livestream') {
+            this.unpinnedLivestream.add(convId);
+        } else if (tab === 'inbox_my') {
+            this.unpinnedInboxMy.add(convId);
+        }
+        this.saveLocalState();
+    }
+
+    /**
+     * Re-pin a conversation to its tab (undo unpin)
+     */
+    repinToTab(convId, tab) {
+        if (tab === 'livestream') {
+            this.unpinnedLivestream.delete(convId);
+        } else if (tab === 'inbox_my') {
+            this.unpinnedInboxMy.delete(convId);
+        }
+        this.saveLocalState();
+    }
+
+    /**
+     * Check if a conversation is pinned in the given tab
+     */
+    isPinnedInTab(convId, tab) {
+        if (tab === 'livestream') return !this.unpinnedLivestream.has(convId);
+        if (tab === 'inbox_my') return !this.unpinnedInboxMy.has(convId);
+        return false;
     }
 
     addMessage(convId, text, sender = 'shop') {

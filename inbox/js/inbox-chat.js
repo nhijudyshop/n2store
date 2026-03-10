@@ -82,7 +82,7 @@ class InboxChatController {
             chatHeader: document.getElementById('chatHeader'),
             searchInput: document.getElementById('searchConversation'),
             btnSend: document.getElementById('btnSend'),
-            btnStarConversation: document.getElementById('btnStarConversation'),
+            btnUnpinConversation: document.getElementById('btnUnpinConversation'),
             btnMarkUnread: document.getElementById('btnMarkUnread'),
             btnRefreshInbox: document.getElementById('btnRefreshInbox'),
             chatLabelBar: document.getElementById('chatLabelBar'),
@@ -153,6 +153,7 @@ class InboxChatController {
                 document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 this.currentFilter = tab.dataset.filter;
+                this.updateUnpinButton();
                 this.renderConversationList();
             });
         });
@@ -305,11 +306,10 @@ class InboxChatController {
             });
         }
 
-        // Star conversation
-        this.elements.btnStarConversation.addEventListener('click', () => {
-            if (this.activeConversationId) {
-                const starred = this.data.toggleStar(this.activeConversationId);
-                this.updateStarButton(starred);
+        // Unpin conversation from current tab
+        this.elements.btnUnpinConversation.addEventListener('click', () => {
+            if (this.activeConversationId && (this.currentFilter === 'livestream' || this.currentFilter === 'inbox_my')) {
+                this.data.unpinFromTab(this.activeConversationId, this.currentFilter);
                 this.renderConversationList();
             }
         });
@@ -735,7 +735,7 @@ class InboxChatController {
         }
         chatAvatar.className = 'chat-avatar';
 
-        this.updateStarButton(conv.starred);
+        this.updateUnpinButton();
         this.elements.btnMarkUnread.style.display = '';
         this.renderChatLabelBar(conv);
         this.renderConversationList();
@@ -1356,10 +1356,14 @@ class InboxChatController {
         this.renderGroupStats();
     }
 
-    updateStarButton(starred) {
-        const btn = this.elements.btnStarConversation;
-        if (starred) { btn.style.color = '#f59e0b'; btn.title = 'Bỏ đánh dấu'; }
-        else { btn.style.color = ''; btn.title = 'Đánh dấu'; }
+    updateUnpinButton() {
+        const btn = this.elements.btnUnpinConversation;
+        // Only show unpin button when viewing Livestream or Inbox My tab
+        if (this.currentFilter === 'livestream' || this.currentFilter === 'inbox_my') {
+            btn.style.display = '';
+        } else {
+            btn.style.display = 'none';
+        }
     }
 
     // ===== Manage Groups Modal =====
