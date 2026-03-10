@@ -2378,6 +2378,17 @@ class PurchaseOrderFormModal {
                                         if (baseProduct.productImages?.length > 0) {
                                             newItem.productImages = [...baseProduct.productImages];
                                         }
+                                        // Copy parent's price images to variant
+                                        if (baseProduct.priceImages?.length > 0) {
+                                            newItem.priceImages = [...baseProduct.priceImages];
+                                        }
+                                        // Copy pending images so all variants get uploaded
+                                        if (this.pendingImages.products[item.id]?.length > 0) {
+                                            this.pendingImages.products[newItem.id] = [...this.pendingImages.products[item.id]];
+                                        }
+                                        if (this.pendingImages.prices[item.id]?.length > 0) {
+                                            this.pendingImages.prices[newItem.id] = [...this.pendingImages.prices[item.id]];
+                                        }
                                     }
 
                                     this.refreshItemsTable();
