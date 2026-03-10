@@ -12,12 +12,29 @@ const GOONG_RENDER_URL = 'https://n2store-fallback.onrender.com';
  * @param {Object} options - { limit: 5 }
  * @returns {Promise<Array>} Danh sách gợi ý
  */
+// Types được xem là địa chỉ (không phải tên công ty/cửa hàng/landmark)
+const GOONG_ADDRESS_TYPES = new Set([
+    'house_number', 'street_address', 'route', 'street_number',
+    'geocode', 'postal_code', 'intersection',
+    'neighborhood', 'sublocality', 'sublocality_level_1',
+    'locality', 'ward', 'commune',
+    'administrative_area_level_1', 'administrative_area_level_2', 'administrative_area_level_3'
+]);
+
+function isAddressResult(prediction) {
+    const types = prediction.types || [];
+    // Nếu không có types → giữ lại (fallback)
+    if (types.length === 0) return true;
+    return types.some(t => GOONG_ADDRESS_TYPES.has(t));
+}
+
 async function goongSearchAddress(input, options = {}) {
     if (!input || input.trim().length < 2) return [];
 
     const params = new URLSearchParams({
         input: input.trim(),
-        ...(options.limit && { limit: String(options.limit) })
+        // Request nhiều hơn vì sẽ filter bớt kết quả business/landmark
+        limit: String(options.limit || 10)
     });
 
     try {
@@ -26,15 +43,18 @@ async function goongSearchAddress(input, options = {}) {
 
         if (data.status !== 'OK') return [];
 
-        return (data.predictions || []).map(p => ({
-            description: p.description || '',
-            placeId: p.place_id || '',
-            mainText: p.structured_formatting?.main_text || '',
-            secondaryText: p.structured_formatting?.secondary_text || '',
-            commune: p.compound?.commune || '',
-            district: p.compound?.district || '',
-            province: p.compound?.province || ''
-        }));
+        return (data.predictions || [])
+            .filter(isAddressResult)
+            .slice(0, 5)
+            .map(p => ({
+                description: p.description || '',
+                placeId: p.place_id || '',
+                mainText: p.structured_formatting?.main_text || '',
+                secondaryText: p.structured_formatting?.secondary_text || '',
+                commune: p.compound?.commune || '',
+                district: p.compound?.district || '',
+                province: p.compound?.province || ''
+            }));
     } catch (error) {
         console.error('[GoongPlaces] Error:', error.message);
         return [];
