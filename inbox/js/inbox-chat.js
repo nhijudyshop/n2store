@@ -2145,6 +2145,8 @@ class InboxChatController {
                 this.handleConversationUpdate(data.payload);
             } else if (data.type === 'pages:new_message' || data.type === 'new_message') {
                 this.handleNewMessage(data.payload);
+            } else if (data.type === 'post_type_detected') {
+                this.handlePostTypeDetected(data);
             }
         } catch (e) {
             console.warn('[InboxChat] WS parse error:', e, 'raw:', event.data?.substring?.(0, 200));
@@ -2202,6 +2204,22 @@ class InboxChatController {
             if (this.activeConversationId === convId) {
                 this.loadMessages(conv);
             }
+        }
+    }
+
+    handlePostTypeDetected(data) {
+        const { conversationId, postType, liveVideoStatus } = data;
+        if (!conversationId) return;
+
+        const conv = this.data.getConversation(conversationId);
+        if (postType === 'livestream' || liveVideoStatus === 'vod' || liveVideoStatus === 'live') {
+            this.data.markAsLivestream(conversationId);
+            if (conv) conv.isLivestream = true;
+            console.log(`[InboxChat] 🔴 Livestream detected: ${conversationId}`);
+            this.renderConversationList();
+        } else if (conv && conv.type === 'COMMENT') {
+            this.data.unmarkAsLivestream(conversationId);
+            if (conv) conv.isLivestream = false;
         }
     }
 

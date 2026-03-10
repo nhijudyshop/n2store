@@ -452,6 +452,23 @@ class RealtimeClient {
                         type: conversation.type || 'INBOX'
                     });
                 }
+
+                // 3. Async livestream detection for COMMENT conversations
+                if (conversation.type === 'COMMENT' && conversation.post_id) {
+                    lookupPostType(conversation.id, conversation.page_id, conversation.post_id)
+                        .then(result => {
+                            if (result) {
+                                broadcastToClients({
+                                    type: 'post_type_detected',
+                                    conversationId: conversation.id,
+                                    postId: conversation.post_id,
+                                    postType: result.postType,
+                                    liveVideoStatus: result.liveVideoStatus
+                                });
+                            }
+                        })
+                        .catch(err => console.error('[LIVESTREAM] Detection error:', err.message));
+                }
             }
         } else if (event === 'order:tags_updated') {
             console.log('[PANCAKE-WS] 🏷️ Tags Updated:', payload);
@@ -709,6 +726,186 @@ class TposRealtimeClient {
 
 const realtimeClient = new RealtimeClient();
 const tposRealtimeClient = new TposRealtimeClient();
+
+// =====================================================
+// LIVESTREAM DETECTION (server-side, per post_id)
+// =====================================================
+
+const postTypeCache = new Map();          // post_id → { postType, liveVideoStatus }
+const pageAccessTokenCache = new Map();   // page_id → { token, cachedAt }
+const postTypeLookupInFlight = new Set(); // dedupe concurrent lookups for same post_id
+const PAGE_TOKEN_TTL = 3600000;           // 1 hour
+
+/**
+ * Load post types from DB into in-memory cache on startup
+ */
+async function loadPostTypeCacheFromDB() {
+    if (!dbPool) return;
+    try {
+        const result = await dbPool.query(
+            'SELECT DISTINCT ON (post_id) post_id, post_type, live_video_status FROM conversation_post_types WHERE post_id IS NOT NULL ORDER BY post_id, updated_at DESC'
+        );
+        for (const row of result.rows) {
+            postTypeCache.set(row.post_id, {
+                postType: row.post_type,
+                liveVideoStatus: row.live_video_status
+            });
+        }
+        console.log(`[LIVESTREAM] ✅ Loaded ${postTypeCache.size} post types from DB into cache`);
+    } catch (error) {
+        console.error('[LIVESTREAM] Error loading post type cache:', error.message);
+    }
+}
+
+/**
+ * Save post type to DB (reuses same SQL as PUT /api/realtime/post-type)
+ */
+async function savePostTypeToDB(conversationId, pageId, postId, postType, liveVideoStatus) {
+    if (!dbPool || !conversationId || !postType) return;
+    try {
+        await dbPool.query(`
+            INSERT INTO conversation_post_types
+            (conversation_id, page_id, post_id, post_type, live_video_status)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (conversation_id) DO UPDATE SET
+                page_id = COALESCE(EXCLUDED.page_id, conversation_post_types.page_id),
+                post_id = COALESCE(EXCLUDED.post_id, conversation_post_types.post_id),
+                post_type = EXCLUDED.post_type,
+                live_video_status = COALESCE(EXCLUDED.live_video_status, conversation_post_types.live_video_status),
+                updated_at = CURRENT_TIMESTAMP
+        `, [conversationId, pageId || null, postId || null, postType, liveVideoStatus || null]);
+    } catch (error) {
+        console.error('[LIVESTREAM] Error saving post_type to DB:', error.message);
+    }
+}
+
+/**
+ * Get or fetch page_access_token for a page (cached 1 hour)
+ */
+async function getOrFetchPageAccessToken(pageId) {
+    const cached = pageAccessTokenCache.get(pageId);
+    if (cached && (Date.now() - cached.cachedAt) < PAGE_TOKEN_TTL) {
+        return cached.token;
+    }
+
+    if (!realtimeClient.token) {
+        console.warn('[LIVESTREAM] No JWT token available for page_access_token generation');
+        return null;
+    }
+
+    try {
+        const url = `https://pancake.vn/api/v1/pages/${pageId}/generate_page_access_token?access_token=${realtimeClient.token}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.error(`[LIVESTREAM] Failed to get page_access_token for ${pageId}: HTTP ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        if (data.success && data.page_access_token) {
+            pageAccessTokenCache.set(pageId, { token: data.page_access_token, cachedAt: Date.now() });
+            console.log(`[LIVESTREAM] ✅ Cached page_access_token for page ${pageId}`);
+            return data.page_access_token;
+        }
+
+        console.warn(`[LIVESTREAM] No page_access_token in response for ${pageId}:`, data.message || '');
+        return null;
+    } catch (error) {
+        console.error(`[LIVESTREAM] Error fetching page_access_token for ${pageId}:`, error.message);
+        return null;
+    }
+}
+
+/**
+ * Lookup post type for a COMMENT conversation
+ * 3-step: in-memory cache → DB → Pancake API (once per post_id)
+ */
+async function lookupPostType(conversationId, pageId, postId) {
+    if (!postId || !pageId) return null;
+
+    // 1. Check in-memory cache (keyed by post_id)
+    const cached = postTypeCache.get(postId);
+    if (cached) {
+        savePostTypeToDB(conversationId, pageId, postId, cached.postType, cached.liveVideoStatus);
+        return cached;
+    }
+
+    // 2. Check DB for any conversation with this post_id
+    if (dbPool) {
+        try {
+            const result = await dbPool.query(
+                'SELECT post_type, live_video_status FROM conversation_post_types WHERE post_id = $1 LIMIT 1',
+                [postId]
+            );
+            if (result.rows.length > 0) {
+                const row = result.rows[0];
+                const entry = { postType: row.post_type, liveVideoStatus: row.live_video_status };
+                postTypeCache.set(postId, entry);
+                savePostTypeToDB(conversationId, pageId, postId, entry.postType, entry.liveVideoStatus);
+                console.log(`[LIVESTREAM] DB hit for post ${postId}: ${entry.postType}`);
+                return entry;
+            }
+        } catch (error) {
+            console.error('[LIVESTREAM] DB lookup error:', error.message);
+        }
+    }
+
+    // 3. Dedupe: skip if another lookup for same post_id is in-flight
+    if (postTypeLookupInFlight.has(postId)) return null;
+    postTypeLookupInFlight.add(postId);
+
+    try {
+        const pageAccessToken = await getOrFetchPageAccessToken(pageId);
+        if (!pageAccessToken) return null;
+
+        const url = `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${conversationId}/messages?page_access_token=${pageAccessToken}&limit=1`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.error(`[LIVESTREAM] Messages API failed for conv ${conversationId}: HTTP ${response.status}`);
+            return null;
+        }
+
+        const data = await response.json();
+        const post = data.post || data.conversation?.post;
+
+        if (post && post.type) {
+            const entry = { postType: post.type, liveVideoStatus: post.live_video_status || null };
+            postTypeCache.set(postId, entry);
+            savePostTypeToDB(conversationId, pageId, postId, entry.postType, entry.liveVideoStatus);
+            console.log(`[LIVESTREAM] ✅ API detected post ${postId}: ${entry.postType} (${entry.liveVideoStatus || 'n/a'})`);
+            return entry;
+        }
+
+        console.log(`[LIVESTREAM] No post data in response for conv ${conversationId}`);
+        return null;
+    } catch (error) {
+        console.error(`[LIVESTREAM] Error looking up post_type for ${postId}:`, error.message);
+        return null;
+    } finally {
+        postTypeLookupInFlight.delete(postId);
+    }
+}
 
 // =====================================================
 // AUTO-CONNECT ON SERVER START
@@ -1101,6 +1298,11 @@ async function startServer() {
         setTimeout(() => {
             autoConnectClients();
         }, 3000);
+
+        // Load post type cache from DB after auto-connect
+        setTimeout(() => {
+            loadPostTypeCacheFromDB();
+        }, 4000);
 
         // Cleanup expired pending_customers on start and every hour
         setTimeout(() => {
