@@ -541,9 +541,12 @@ class InboxChatController {
 
         container.style.display = 'flex';
 
-        // Auto-select conversation's page (like orders-report)
+        // Always match conversation's page when switching conversations
         const conv = this.activeConversationId ? this.data.getConversation(this.activeConversationId) : null;
-        const activePageId = this.currentSendPageId || conv?.pageId || '';
+        if (conv?.pageId) {
+            this.currentSendPageId = conv.pageId;
+        }
+        const activePageId = this.currentSendPageId || '';
 
         let html = '';
         for (const page of pages) {
@@ -552,10 +555,7 @@ class InboxChatController {
         }
         select.innerHTML = html;
 
-        // Set currentSendPageId to match
-        if (!this.currentSendPageId && conv?.pageId) {
-            this.currentSendPageId = conv.pageId;
-        }
+        // currentSendPageId already set above
     }
 
     onSendPageChanged(pageId) {
