@@ -1300,6 +1300,12 @@ class InboxChatController {
         const conv = this.data.getConversation(this.activeConversationId);
         if (!conv) return;
 
+        // COMMENT conversations: must reply to a specific comment, no free chat
+        if (conv.type === 'COMMENT' && !this.replyingTo) {
+            showToast('Bình luận chỉ cho reply. Chọn bình luận để trả lời.', 'warning');
+            return;
+        }
+
         this.isSending = true;
         this.elements.btnSend.disabled = true;
 
