@@ -2393,6 +2393,12 @@ async function logOrderCreationActivities() {
             }
 
             // Log activity with response checking
+            // Skip if debt was used - backend pending-withdrawals.js already logs ORDER_CREATED
+            if (debtUsed > 0) {
+                console.log(`[FAST-SALE] Skipping activity log for ${orderNumber} (debt used, backend already logged)`);
+                loggedCount++;
+                continue;
+            }
             console.log(`[FAST-SALE] Posting activity for ${normalizedPhone}, order ${orderNumber}...`);
             const response = await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
                 method: 'POST',
