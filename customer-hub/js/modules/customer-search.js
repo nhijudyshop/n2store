@@ -144,8 +144,9 @@ export class CustomerSearchModule {
             if (window.CustomerCreator) {
                 window.CustomerCreator.open({
                     onSuccess: (customer) => {
-                        // Add new customer to table immediately
+                        // Add new/selected customer to table immediately
                         const newCustomer = {
+                            id: customer.id || null,
                             name: customer.name,
                             phone: customer.phone,
                             address: customer.address || '',
