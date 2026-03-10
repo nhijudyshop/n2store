@@ -494,7 +494,26 @@ function populateSaleModalWithOrder(order) {
     document.getElementById('saleDeliveryDate').value = formatDateTimeLocal(now);
     document.getElementById('saleInvoiceDate').textContent = formatDateTimeDisplay(now);
 
-    populateSaleOrderItems(order);
+    // Convert Details to orderLines format (shared with tab1)
+    // This ensures currentSaleOrderData.orderLines is set for bill generation
+    const orderLines = (order.Details || []).map(detail => ({
+        ProductId: detail.ProductId || 0,
+        Product: null,
+        ProductUOMId: 1,
+        ProductUOM: { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 },
+        ProductUOMQty: detail.Quantity || 1,
+        Quantity: detail.Quantity || 1,
+        PriceUnit: detail.PriceUnit || detail.Price || 0,
+        Price: detail.Price || detail.PriceUnit || 0,
+        ProductName: detail.ProductName || detail.ProductNameGet || '',
+        ProductNameGet: detail.ProductNameGet || detail.ProductName || '',
+        ProductUOMName: 'Cái',
+        Note: detail.Note || '',
+        SaleOnlineDetailId: null,
+        Discount: 0,
+        Weight: 0
+    }));
+    populateSaleOrderLinesFromAPI(orderLines);
 }
 
 // =====================================================
