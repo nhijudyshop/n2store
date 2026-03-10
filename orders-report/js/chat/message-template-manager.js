@@ -1572,9 +1572,57 @@ class MessageTemplateManager {
                 this.log(`❌ Pancake private_replies error: ${prErr.message}`);
             }
 
-            // Private Reply failed - throw descriptive error
+            // Fallback: reply_comment (public comment reply)
+            this.log(`🔄 private_replies failed → trying reply_comment for order ${order.code}`);
+            try {
+                const facebookPostId = order.Facebook_PostId || order.raw?.Facebook_PostId;
+                const postIdPart = facebookPostId ? facebookPostId.split('_').slice(1).join('_') : null;
+
+                if (postIdPart && window.pancakeDataManager) {
+                    const commentsResult = await window.pancakeDataManager.fetchComments(
+                        channelId, psid, null, postIdPart
+                    );
+
+                    if (commentsResult?.comments?.length) {
+                        const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+                        if (customerComments.length > 0) {
+                            const latestComment = customerComments[customerComments.length - 1];
+                            const rcConversationId = latestComment.Id;
+
+                            const rcUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                                `pages/${channelId}/conversations/${rcConversationId}/messages`,
+                                prPageAccessToken
+                            );
+
+                            const rcPayload = {
+                                action: 'reply_comment',
+                                message_id: latestComment.Id,
+                                message: messageContent
+                            };
+
+                            this.log(`📤 Sending reply_comment: commentId=${latestComment.Id}`);
+                            const rcResponse = await API_CONFIG.smartFetch(rcUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                                body: JSON.stringify(rcPayload)
+                            }, 1, true);
+
+                            const rcData = await rcResponse.json();
+                            if (rcResponse.ok && rcData.success !== false && !rcData.error) {
+                                this.log(`✅ reply_comment succeeded for order ${order.code}`);
+                                return true;
+                            }
+                            this.log(`❌ reply_comment failed: ${rcData.error || rcData.message || JSON.stringify(rcData)}`);
+                        }
+                    }
+                }
+            } catch (rcErr) {
+                this.log(`❌ reply_comment error: ${rcErr.message}`);
+            }
+
+            // Both private_replies and reply_comment failed
             const err = new Error('COMMENT_ONLY_NO_INBOX');
-            err.originalMessage = 'Khách chỉ comment, không có inbox. Pancake private_replies failed.';
+            err.originalMessage = 'Khách chỉ comment, không có inbox. private_replies và reply_comment đều thất bại.';
             err.isCommentOnly = true;
             throw err;
         }
