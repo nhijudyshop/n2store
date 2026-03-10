@@ -699,8 +699,8 @@ class InboxChatController {
             this.data.unpinnedLivestream.add(convId);
             this.data.unpinnedInboxMy.delete(convId);
         } else {
-            // Move from Inbox My → Livestream
-            this.data.markAsLivestream(convId);
+            // Move from Inbox My → Livestream (save customer to server for persistence)
+            this.data.markCustomerAsLivestream(conv.psid, conv.pageId, conv.name);
             this.data.unpinnedInboxMy.add(convId);
             this.data.unpinnedLivestream.delete(convId);
         }

@@ -58,7 +58,8 @@ class InboxDataManager {
             if (pdm.conversations && pdm.conversations.length > 0) {
                 this.pages = pdm.pages || [];
                 this.conversations = pdm.conversations.map(conv => this.mapConversation(conv));
-                console.log(`[InboxData] Got ${this.conversations.length} conversations from initialize()`);
+                const liveCount = this.conversations.filter(c => c.isLivestream).length;
+                console.log(`[InboxData] Got ${this.conversations.length} conversations from initialize() (${liveCount} livestream from localStorage)`);
             } else {
                 // Try other accounts if current one returned 0
                 await this.loadConversations(true);
@@ -90,6 +91,8 @@ class InboxDataManager {
 
             const liveCusts = localStorage.getItem('inbox_livestream_customers');
             if (liveCusts) this.livestreamCustomerPsids = new Set(JSON.parse(liveCusts));
+
+            console.log(`[InboxData] Loaded local state: ${this.livestreamConvIds.size} livestream convs, ${this.livestreamCustomerPsids.size} livestream customers`);
 
             const unpinLive = localStorage.getItem('inbox_unpinned_livestream');
             if (unpinLive) this.unpinnedLivestream = new Set(JSON.parse(unpinLive));
@@ -449,7 +452,7 @@ class InboxDataManager {
             online: false,
             phone: '',
             label: this.labelMap[conv.id] || 'new',
-            isLivestream: this.livestreamConvIds.has(conv.id),
+            isLivestream: this.livestreamConvIds.has(conv.id) || this.isLivestreamCustomer(conv.from_psid || conv.from?.id || ''),
             type: conv.type, // 'INBOX' or 'COMMENT'
             pageId: conv.page_id,
             pageName: pageName,
