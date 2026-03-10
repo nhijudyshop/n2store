@@ -103,6 +103,7 @@ async function ensureTablesExist() {
             CREATE TABLE IF NOT EXISTS livestream_conversations (
                 conv_id VARCHAR(500) PRIMARY KEY,
                 post_id VARCHAR(500) NOT NULL,
+                post_name TEXT,
                 name VARCHAR(200),
                 avatar TEXT,
                 last_message TEXT,
@@ -116,6 +117,8 @@ async function ensureTablesExist() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        // Add post_name column if missing (for existing tables)
+        await dbPool.query(`ALTER TABLE livestream_conversations ADD COLUMN IF NOT EXISTS post_name TEXT`).catch(() => {});
         await dbPool.query(`
             CREATE INDEX IF NOT EXISTS idx_livestream_conv_post ON livestream_conversations(post_id);
         `);
@@ -476,6 +479,7 @@ class RealtimeClient {
                 if (conversation.type === 'COMMENT' && isLivestream && customerPsid) {
                     // Save to livestream_conversations table (single source of truth)
                     saveLivestreamConversation(conversation.id, conversation.post_id, {
+                        postName: conversation.post?.message || null,
                         name: conversation.from?.name || conversation.customers?.[0]?.name,
                         avatar: conversation.from?.avatar,
                         lastMessage: conversation.snippet || conversation.last_message?.message,
@@ -506,6 +510,7 @@ class RealtimeClient {
                                     });
                                     if (result.postType === 'livestream' && customerPsid) {
                                         saveLivestreamConversation(conversation.id, conversation.post_id, {
+                                            postName: result.postMessage || null,
                                             name: conversation.from?.name || conversation.customers?.[0]?.name,
                                             avatar: conversation.from?.avatar,
                                             lastMessage: conversation.snippet || conversation.last_message?.message,
@@ -796,10 +801,11 @@ async function saveLivestreamConversation(convId, postId, data) {
     if (!dbPool || !convId || !postId) return;
     try {
         await dbPool.query(`
-            INSERT INTO livestream_conversations (conv_id, post_id, name, avatar, last_message, conv_time, type, page_id, page_name, psid, customer_id, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+            INSERT INTO livestream_conversations (conv_id, post_id, post_name, name, avatar, last_message, conv_time, type, page_id, page_name, psid, customer_id, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
             ON CONFLICT (conv_id) DO UPDATE SET
                 post_id = EXCLUDED.post_id,
+                post_name = COALESCE(EXCLUDED.post_name, livestream_conversations.post_name),
                 name = COALESCE(EXCLUDED.name, livestream_conversations.name),
                 avatar = COALESCE(EXCLUDED.avatar, livestream_conversations.avatar),
                 last_message = COALESCE(EXCLUDED.last_message, livestream_conversations.last_message),
@@ -812,6 +818,7 @@ async function saveLivestreamConversation(convId, postId, data) {
                 updated_at = CURRENT_TIMESTAMP
         `, [
             convId, postId,
+            data.postName || null,
             data.name || null,
             data.avatar || null,
             data.lastMessage || null,
@@ -914,7 +921,7 @@ async function lookupPostType(conversationId, pageId, postId) {
         const post = data.post || data.conversation?.post;
 
         if (post && post.type) {
-            const entry = { postType: post.type, liveVideoStatus: post.live_video_status || null };
+            const entry = { postType: post.type, liveVideoStatus: post.live_video_status || null, postMessage: post.message || null };
             postTypeCache.set(postId, entry);
             console.log(`[LIVESTREAM] ✅ API detected post ${postId}: ${entry.postType} (${entry.liveVideoStatus || 'n/a'})`);
             return entry;
@@ -1175,8 +1182,9 @@ app.get('/api/realtime/livestream-conversations', async (req, res) => {
             'SELECT * FROM livestream_conversations ORDER BY updated_at DESC'
         );
 
-        // Group by post_id
+        // Group by post_id + collect post names
         const posts = {};
+        const postNames = {};
         for (const row of result.rows) {
             if (!posts[row.post_id]) posts[row.post_id] = [];
             posts[row.post_id].push({
@@ -1193,11 +1201,16 @@ app.get('/api/realtime/livestream-conversations', async (req, res) => {
                 label: row.label,
                 updated_at: row.updated_at
             });
+            // First non-null post_name wins per post_id
+            if (row.post_name && !postNames[row.post_id]) {
+                postNames[row.post_id] = row.post_name;
+            }
         }
 
         res.json({
             success: true,
             posts,
+            postNames,
             totalConversations: result.rows.length
         });
     } catch (error) {
@@ -1212,13 +1225,13 @@ app.put('/api/realtime/livestream-conversation', async (req, res) => {
         return res.status(503).json({ error: 'Database not available' });
     }
     try {
-        const { convId, postId, name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId, label } = req.body;
+        const { convId, postId, postName, name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId, label } = req.body;
         if (!convId || !postId) {
             return res.status(400).json({ error: 'convId and postId required' });
         }
 
         await saveLivestreamConversation(convId, postId, {
-            name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId
+            postName, name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId
         });
 
         // Update label if provided

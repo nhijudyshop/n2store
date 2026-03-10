@@ -801,59 +801,17 @@ class InboxChatController {
         if (!select) return;
 
         const postMap = this.data.livestreamPostMap || {};
+        const postNames = this.data.livestreamPostNames || {};
         const postIds = Object.keys(postMap);
 
         let html = `<option value="">Tất cả bài post (${postIds.length})</option>`;
         for (const postId of postIds) {
             const convs = postMap[postId] || [];
             const selected = postId === this.selectedLivestreamPostId ? 'selected' : '';
-            // Try to get post name from cached messages data or show post_id
-            const sampleConv = this.data.conversations.find(c => c._raw?.post_id === postId);
-            const postName = sampleConv?._messagesData?.post?.message
-                || sampleConv?._raw?.post?.message
-                || `Post ${postId.substring(0, 20)}...`;
+            const postName = postNames[postId] || `Post ${postId.substring(0, 20)}...`;
             html += `<option value="${postId}" ${selected}>${postName} (${convs.length})</option>`;
         }
         select.innerHTML = html;
-
-        // Fetch post names for entries without real names
-        this._fetchPostNamesFromServer(postIds);
-    }
-
-    async _fetchPostNamesFromServer(postIds) {
-        if (!this._postNameCache) this._postNameCache = new Map();
-        const pdm = window.pancakeDataManager;
-        if (!pdm) return;
-
-        let updated = false;
-        for (const postId of postIds) {
-            if (this._postNameCache.has(postId)) continue;
-            // Find a conversation to use for fetching
-            const conv = this.data.conversations.find(c => c._raw?.post_id === postId);
-            if (!conv) continue;
-            // Skip if already has post name
-            if (conv._messagesData?.post?.message || conv._raw?.post?.message) {
-                this._postNameCache.set(postId, conv._messagesData?.post?.message || conv._raw?.post?.message);
-                continue;
-            }
-            try {
-                const result = await pdm.fetchMessagesForConversation(
-                    conv.pageId, conv.conversationId, null, conv.customerId
-                );
-                const post = result?.post || result?.conversation?.post;
-                const message = post?.message || `Post ${postId}`;
-                this._postNameCache.set(postId, message);
-                if (!conv._messagesData) conv._messagesData = {};
-                conv._messagesData.post = post;
-                updated = true;
-            } catch (e) {
-                this._postNameCache.set(postId, `Post ${postId}`);
-            }
-        }
-
-        if (updated && this.currentFilter === 'livestream') {
-            this.populateLivestreamPostSelector();
-        }
     }
 
     async clearLivestreamForPost() {

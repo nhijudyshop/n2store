@@ -23,6 +23,7 @@ class InboxDataManager {
         this.groups = [];
         this.pages = [];          // Pancake pages
         this.livestreamPostMap = {};    // { post_id: [{ conv_id, name, ... }] } from server
+        this.livestreamPostNames = {};  // { post_id: "post name text" } from server
         this.livestreamConvIdSet = new Set(); // derived from livestreamPostMap for O(1) lookup
         this.labelMap = {};       // convId -> labelId (saved to localStorage)
         this.isInitialized = false;
@@ -783,6 +784,7 @@ class InboxDataManager {
             const data = await response.json();
 
             this.livestreamPostMap = data.posts || {};
+            this.livestreamPostNames = data.postNames || {};
 
             // Build conv_id Set for fast lookup
             this.livestreamConvIdSet = new Set();
@@ -846,6 +848,7 @@ class InboxDataManager {
             body: JSON.stringify({
                 convId,
                 postId,
+                postName: conv._raw?.post?.message || this.livestreamPostNames[postId] || null,
                 name: conv.name,
                 avatar: conv.avatar,
                 lastMessage: conv.lastMessage,
