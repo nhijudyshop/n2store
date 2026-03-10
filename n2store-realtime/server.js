@@ -95,21 +95,8 @@ async function ensureTablesExist() {
             CREATE INDEX IF NOT EXISTS idx_pending_customers_time ON pending_customers(last_message_time DESC);
         `);
 
-        // Create conversation_post_types table (livestream detection)
-        await dbPool.query(`
-            CREATE TABLE IF NOT EXISTS conversation_post_types (
-                conversation_id VARCHAR(500) PRIMARY KEY,
-                page_id VARCHAR(255),
-                post_id VARCHAR(500),
-                post_type VARCHAR(50),
-                live_video_status VARCHAR(50),
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        await dbPool.query(`
-            CREATE INDEX IF NOT EXISTS idx_conv_post_types_page ON conversation_post_types(page_id);
-            CREATE INDEX IF NOT EXISTS idx_conv_post_types_type ON conversation_post_types(post_type);
-        `);
+        // Drop old conversation_post_types table (replaced by livestream_conversations)
+        await dbPool.query(`DROP TABLE IF EXISTS conversation_post_types`);
 
         // Create livestream_conversations table (single source of truth for livestream tab + labels)
         await dbPool.query(`
@@ -502,12 +489,11 @@ class RealtimeClient {
                 }
 
                 if (conversation.type === 'COMMENT' && conversation.post_id) {
-                    // Save post_type if available in payload
                     if (postType) {
-                        savePostTypeToDB(conversation.id, conversation.page_id, conversation.post_id, postType, conversation.post?.live_video_status || null);
+                        // Cache known post type in memory
                         postTypeCache.set(conversation.post_id, { postType, liveVideoStatus: conversation.post?.live_video_status || null });
                     } else {
-                        // No post data in payload — fallback to API detection
+                        // No post data in payload — fallback to cache + Pancake API
                         lookupPostType(conversation.id, conversation.page_id, conversation.post_id)
                             .then(result => {
                                 if (result) {
@@ -518,7 +504,6 @@ class RealtimeClient {
                                         postType: result.postType,
                                         liveVideoStatus: result.liveVideoStatus
                                     });
-                                    // If detected as livestream, save conversation
                                     if (result.postType === 'livestream' && customerPsid) {
                                         saveLivestreamConversation(conversation.id, conversation.post_id, {
                                             name: conversation.from?.name || conversation.customers?.[0]?.name,
@@ -799,53 +784,10 @@ const tposRealtimeClient = new TposRealtimeClient();
 // LIVESTREAM DETECTION (server-side, per post_id)
 // =====================================================
 
-const postTypeCache = new Map();          // post_id → { postType, liveVideoStatus }
+const postTypeCache = new Map();          // post_id → { postType, liveVideoStatus } (in-memory only)
 const pageAccessTokenCache = new Map();   // page_id → { token, cachedAt }
 const postTypeLookupInFlight = new Set(); // dedupe concurrent lookups for same post_id
 const PAGE_TOKEN_TTL = 3600000;           // 1 hour
-
-/**
- * Load post types from DB into in-memory cache on startup
- */
-async function loadPostTypeCacheFromDB() {
-    if (!dbPool) return;
-    try {
-        const result = await dbPool.query(
-            'SELECT DISTINCT ON (post_id) post_id, post_type, live_video_status FROM conversation_post_types WHERE post_id IS NOT NULL ORDER BY post_id, updated_at DESC'
-        );
-        for (const row of result.rows) {
-            postTypeCache.set(row.post_id, {
-                postType: row.post_type,
-                liveVideoStatus: row.live_video_status
-            });
-        }
-        console.log(`[LIVESTREAM] ✅ Loaded ${postTypeCache.size} post types from DB into cache`);
-    } catch (error) {
-        console.error('[LIVESTREAM] Error loading post type cache:', error.message);
-    }
-}
-
-/**
- * Save post type to DB (reuses same SQL as PUT /api/realtime/post-type)
- */
-async function savePostTypeToDB(conversationId, pageId, postId, postType, liveVideoStatus) {
-    if (!dbPool || !conversationId || !postType) return;
-    try {
-        await dbPool.query(`
-            INSERT INTO conversation_post_types
-            (conversation_id, page_id, post_id, post_type, live_video_status)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (conversation_id) DO UPDATE SET
-                page_id = COALESCE(EXCLUDED.page_id, conversation_post_types.page_id),
-                post_id = COALESCE(EXCLUDED.post_id, conversation_post_types.post_id),
-                post_type = EXCLUDED.post_type,
-                live_video_status = COALESCE(EXCLUDED.live_video_status, conversation_post_types.live_video_status),
-                updated_at = CURRENT_TIMESTAMP
-        `, [conversationId, pageId || null, postId || null, postType, liveVideoStatus || null]);
-    } catch (error) {
-        console.error('[LIVESTREAM] Error saving post_type to DB:', error.message);
-    }
-}
 
 /**
  * Save a conversation to livestream_conversations table (single source of truth)
@@ -939,39 +881,16 @@ async function getOrFetchPageAccessToken(pageId) {
 
 /**
  * Lookup post type for a COMMENT conversation
- * 3-step: in-memory cache → DB → Pancake API (once per post_id)
+ * 2-step: in-memory cache → Pancake API (once per post_id)
  */
 async function lookupPostType(conversationId, pageId, postId) {
     if (!postId || !pageId) return null;
 
-    // 1. Check in-memory cache (keyed by post_id)
+    // 1. Check in-memory cache
     const cached = postTypeCache.get(postId);
-    if (cached) {
-        savePostTypeToDB(conversationId, pageId, postId, cached.postType, cached.liveVideoStatus);
-        return cached;
-    }
+    if (cached) return cached;
 
-    // 2. Check DB for any conversation with this post_id
-    if (dbPool) {
-        try {
-            const result = await dbPool.query(
-                'SELECT post_type, live_video_status FROM conversation_post_types WHERE post_id = $1 LIMIT 1',
-                [postId]
-            );
-            if (result.rows.length > 0) {
-                const row = result.rows[0];
-                const entry = { postType: row.post_type, liveVideoStatus: row.live_video_status };
-                postTypeCache.set(postId, entry);
-                savePostTypeToDB(conversationId, pageId, postId, entry.postType, entry.liveVideoStatus);
-                console.log(`[LIVESTREAM] DB hit for post ${postId}: ${entry.postType}`);
-                return entry;
-            }
-        } catch (error) {
-            console.error('[LIVESTREAM] DB lookup error:', error.message);
-        }
-    }
-
-    // 3. Dedupe: skip if another lookup for same post_id is in-flight
+    // 2. Dedupe: skip if another lookup for same post_id is in-flight
     if (postTypeLookupInFlight.has(postId)) return null;
     postTypeLookupInFlight.add(postId);
 
@@ -989,10 +908,7 @@ async function lookupPostType(conversationId, pageId, postId) {
         });
         clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            console.error(`[LIVESTREAM] Messages API failed for conv ${conversationId}: HTTP ${response.status}`);
-            return null;
-        }
+        if (!response.ok) return null;
 
         const data = await response.json();
         const post = data.post || data.conversation?.post;
@@ -1000,12 +916,10 @@ async function lookupPostType(conversationId, pageId, postId) {
         if (post && post.type) {
             const entry = { postType: post.type, liveVideoStatus: post.live_video_status || null };
             postTypeCache.set(postId, entry);
-            savePostTypeToDB(conversationId, pageId, postId, entry.postType, entry.liveVideoStatus);
             console.log(`[LIVESTREAM] ✅ API detected post ${postId}: ${entry.postType} (${entry.liveVideoStatus || 'n/a'})`);
             return entry;
         }
 
-        console.log(`[LIVESTREAM] No post data in response for conv ${conversationId}`);
         return null;
     } catch (error) {
         console.error(`[LIVESTREAM] Error looking up post_type for ${postId}:`, error.message);
@@ -1092,10 +1006,6 @@ app.get('/', (req, res) => {
             pendingCustomers: [
                 'GET /api/realtime/pending-customers - Get pending customers',
                 'POST /api/realtime/mark-replied - Mark customer as replied'
-            ],
-            postTypes: [
-                'PUT /api/realtime/post-type - Save post_type for conversation',
-                'GET /api/realtime/post-types - Get conversation post types'
             ],
             health: [
                 'GET /health - Server health check'
@@ -1249,82 +1159,6 @@ app.post('/api/realtime/clear-pending', async (req, res) => {
     }
 });
 
-// =====================================================
-// POST TYPE ROUTES (livestream detection)
-// =====================================================
-
-app.put('/api/realtime/post-type', async (req, res) => {
-    if (!dbPool) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
-    try {
-        const { conversationId, pageId, postId, postType, liveVideoStatus } = req.body;
-        if (!conversationId || !postType) {
-            return res.status(400).json({ error: 'Missing conversationId or postType' });
-        }
-
-        await dbPool.query(`
-            INSERT INTO conversation_post_types
-            (conversation_id, page_id, post_id, post_type, live_video_status)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (conversation_id) DO UPDATE SET
-                page_id = COALESCE(EXCLUDED.page_id, conversation_post_types.page_id),
-                post_id = COALESCE(EXCLUDED.post_id, conversation_post_types.post_id),
-                post_type = EXCLUDED.post_type,
-                live_video_status = COALESCE(EXCLUDED.live_video_status, conversation_post_types.live_video_status),
-                updated_at = CURRENT_TIMESTAMP
-        `, [conversationId, pageId || null, postId || null, postType, liveVideoStatus || null]);
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('[API] Error saving post_type:', error);
-        res.status(500).json({ error: 'Failed to save post_type' });
-    }
-});
-
-app.get('/api/realtime/post-types', async (req, res) => {
-    if (!dbPool) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
-    try {
-        const postType = req.query.post_type;
-        const pageId = req.query.page_id;
-        const limit = parseInt(req.query.limit) || 1000;
-
-        let query = 'SELECT conversation_id, page_id, post_id, post_type, live_video_status, updated_at FROM conversation_post_types';
-        const conditions = [];
-        const params = [];
-
-        if (postType) {
-            params.push(postType);
-            conditions.push(`post_type = $${params.length}`);
-        }
-        if (pageId) {
-            params.push(pageId);
-            conditions.push(`page_id = $${params.length}`);
-        }
-
-        if (conditions.length > 0) {
-            query += ' WHERE ' + conditions.join(' AND ');
-        }
-
-        params.push(limit);
-        query += ` ORDER BY updated_at DESC LIMIT $${params.length}`;
-
-        const result = await dbPool.query(query, params);
-
-        res.json({
-            success: true,
-            count: result.rows.length,
-            postTypes: result.rows
-        });
-    } catch (error) {
-        console.error('[API] Error getting post_types:', error);
-        res.status(500).json({ error: 'Failed to get post_types' });
-    }
-});
 
 
 // =====================================================
@@ -1534,11 +1368,6 @@ async function startServer() {
         setTimeout(() => {
             autoConnectClients();
         }, 3000);
-
-        // Load post type cache from DB after auto-connect
-        setTimeout(() => {
-            loadPostTypeCacheFromDB();
-        }, 4000);
 
         // Cleanup expired pending_customers on start and every hour
         setTimeout(() => {
