@@ -219,6 +219,9 @@ window.refreshAccountsList = async function() {
                             <div style="font-size: 11px; color: #6b7280; font-family: monospace;">
                                 UID: ${account.uid || 'N/A'}
                             </div>
+                            <div id="accountPages_${accountId}" style="font-size: 11px; color: #9ca3af; margin-top: 4px;">
+                                <i class="fas fa-spinner fa-spin" style="font-size: 10px;"></i> Đang kiểm tra pages...
+                            </div>
                         </div>
                         <div style="text-align: right;">
                             <div style="font-size: 11px; color: ${statusColor}; font-weight: 500;">
@@ -254,6 +257,17 @@ window.refreshAccountsList = async function() {
 
         listDiv.innerHTML = html;
 
+        // Async: fetch pages for each valid account to show which pages they have access to
+        for (const [accountId, account] of Object.entries(accounts)) {
+            const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
+            if (!isExpired && account.token) {
+                fetchPagesForAccount(accountId, account.token);
+            } else {
+                const div = document.getElementById(`accountPages_${accountId}`);
+                if (div) div.innerHTML = '<span style="color: #ef4444; font-size: 11px;">Token hết hạn</span>';
+            }
+        }
+
     } catch (error) {
         console.error('[PANCAKE-SETTINGS] Error refreshing accounts list:', error);
         document.getElementById('pancakeAccountsList').innerHTML = `
@@ -264,6 +278,34 @@ window.refreshAccountsList = async function() {
         `;
     }
 };
+
+// Fetch pages for a specific account to show access info
+async function fetchPagesForAccount(accountId, token) {
+    const div = document.getElementById(`accountPages_${accountId}`);
+    if (!div) return;
+
+    try {
+        const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success && data.categorized?.activated) {
+            const pages = data.categorized.activated.filter(p => !p.id.startsWith('igo_'));
+            if (pages.length > 0) {
+                const pageNames = pages.map(p => `<span style="display: inline-block; padding: 1px 6px; background: #ede9fe; color: #6d28d9; border-radius: 3px; margin: 1px 2px; font-size: 10px;">${p.name}</span>`).join('');
+                div.innerHTML = `<i class="fas fa-file-alt" style="color: #8b5cf6; font-size: 10px;"></i> <strong>${pages.length} pages</strong>: ${pageNames}`;
+                div.style.color = '#374151';
+            } else {
+                div.innerHTML = '<span style="color: #f59e0b;">⚠️ 0 pages</span>';
+            }
+        } else {
+            div.innerHTML = '<span style="color: #f59e0b;">⚠️ Không thể kiểm tra</span>';
+        }
+    } catch (err) {
+        console.error(`[PANCAKE-SETTINGS] Error fetching pages for ${accountId}:`, err);
+        div.innerHTML = '<span style="color: #ef4444;">❌ Lỗi</span>';
+    }
+}
 
 // Helper function to check if user is admin
 function isUserAdmin() {
