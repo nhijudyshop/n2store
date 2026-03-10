@@ -69,6 +69,9 @@ class InboxDataManager {
             // Merge back pinned conversations missing from API response (fetches from server)
             await this.mergePinnedConversations();
 
+            // Sync labels from server (cross-device)
+            this.syncLabelsFromServer();
+
             this.recalculateGroupCounts();
             this.buildMaps();
             this.isInitialized = true;
@@ -521,7 +524,7 @@ class InboxDataManager {
         });
     }
 
-    getConversations({ search = '', filter = 'all', groupFilter = null } = {}) {
+    getConversations({ search = '', filter = 'all', groupFilters = null } = {}) {
         let result = [...this.conversations];
 
         if (filter === 'unread') {
@@ -532,8 +535,8 @@ class InboxDataManager {
             result = result.filter(c => !c.isLivestream && !this.unpinnedInboxMy.has(c.id));
         }
 
-        if (groupFilter) {
-            result = result.filter(c => c.label === groupFilter);
+        if (groupFilters && groupFilters.size > 0) {
+            result = result.filter(c => groupFilters.has(c.label));
         }
 
         if (search) {
@@ -617,6 +620,46 @@ class InboxDataManager {
             this.labelMap[convId] = labelId;
             this.recalculateGroupCounts();
             this.save();
+
+            // Save to server for cross-device sync
+            const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(`${workerUrl}/api/realtime/conversation-label`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ convId, label: labelId })
+            }).catch(err => console.warn('[InboxData] Failed to save label to server:', err.message));
+        }
+    }
+
+    async syncLabelsFromServer() {
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        try {
+            const response = await fetch(`${workerUrl}/api/realtime/conversation-labels`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.labelMap) {
+                    let updated = 0;
+                    for (const [convId, label] of Object.entries(data.labelMap)) {
+                        if (this.labelMap[convId] !== label) {
+                            this.labelMap[convId] = label;
+                            const conv = this.getConversation(convId);
+                            if (conv) conv.label = label;
+                            updated++;
+                        }
+                    }
+                    if (updated > 0) {
+                        this.saveLocalState();
+                        this.recalculateGroupCounts();
+                        if (window.inboxChat) {
+                            window.inboxChat.renderConversationList();
+                            window.inboxChat.renderGroupStats();
+                        }
+                        console.log(`[InboxData] Synced ${updated} labels from server`);
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('[InboxData] Failed to sync labels from server:', err.message);
         }
     }
 

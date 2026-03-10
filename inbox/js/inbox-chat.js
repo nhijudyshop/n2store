@@ -20,7 +20,7 @@ class InboxChatController {
         this.data = dataManager;
         this.activeConversationId = null;
         this.currentFilter = 'unread';
-        this.currentGroupFilter = null;
+        this.currentGroupFilters = new Set(); // Multi-select group filter
         this.searchQuery = '';
         this.isSearching = false;
         this.searchResults = null; // null = use local filter, [] = API returned empty
@@ -479,7 +479,7 @@ class InboxChatController {
             });
         });
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
     }
 
     updatePageSelectorLabel() {
@@ -552,7 +552,7 @@ class InboxChatController {
             const localResults = this.data.getConversations({
                 search: this.searchQuery,
                 filter: effectiveFilter,
-                groupFilter: this.currentGroupFilter,
+                groupFilters: this.currentGroupFilters,
             });
             const localIds = new Set(localResults.map(c => c.id));
             const apiMapped = this.searchResults
@@ -563,7 +563,7 @@ class InboxChatController {
             conversations = this.data.getConversations({
                 search: this.searchQuery,
                 filter: effectiveFilter,
-                groupFilter: this.currentGroupFilter,
+                groupFilters: this.currentGroupFilters,
             });
         }
 
@@ -669,7 +669,14 @@ class InboxChatController {
             `;
         }).join('');
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
+    }
+
+    _debouncedCreateIcons() {
+        if (this._iconTimer) cancelAnimationFrame(this._iconTimer);
+        this._iconTimer = requestAnimationFrame(() => {
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
     }
 
     // ===== Load More Conversations (scroll pagination) =====
@@ -975,7 +982,7 @@ class InboxChatController {
                     <p>Chưa có tin nhắn</p>
                 </div>
             `;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            this._debouncedCreateIcons();
             return;
         }
 
@@ -1400,7 +1407,7 @@ class InboxChatController {
 
         this.elements.groupStatsList.innerHTML = this.data.groups.map(group => {
             const icon = iconMap[group.id] || 'tag';
-            const isActive = this.currentGroupFilter === group.id;
+            const isActive = this.currentGroupFilters.has(group.id);
             const note = group.note || 'Chưa có mô tả cho nhóm này.';
 
             return `
@@ -1421,11 +1428,15 @@ class InboxChatController {
             `;
         }).join('');
 
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
     }
 
     filterByGroup(groupId) {
-        this.currentGroupFilter = this.currentGroupFilter === groupId ? null : groupId;
+        if (this.currentGroupFilters.has(groupId)) {
+            this.currentGroupFilters.delete(groupId);
+        } else {
+            this.currentGroupFilters.add(groupId);
+        }
         this.renderConversationList();
         this.renderGroupStats();
     }
@@ -1492,7 +1503,7 @@ class InboxChatController {
         `;
 
         document.body.appendChild(overlay);
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
 
         overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
         document.getElementById('btnModalCancel').addEventListener('click', () => overlay.remove());
@@ -1644,7 +1655,7 @@ class InboxChatController {
             </div>
         `;
         bar.style.display = 'flex';
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
     }
 
     // ===== Post Info Banner (livestream post thumbnail + title) =====
@@ -1681,7 +1692,7 @@ class InboxChatController {
             </div>
         `;
         banner.style.display = 'flex';
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
     }
 
     // ===== Activities Panel (col3 tab) =====
@@ -1699,7 +1710,7 @@ class InboxChatController {
                     <p style="margin-top:0.5rem;">Chưa có hoạt động</p>
                 </div>
             `;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            this._debouncedCreateIcons();
             return;
         }
 
@@ -1726,7 +1737,7 @@ class InboxChatController {
                 }).join('')}
             </div>
         `;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
     }
 
     // ===== Strip HTML helper =====
@@ -2394,7 +2405,7 @@ class InboxChatController {
             el.title = 'Realtime: Mất kết nối';
             el.className = 'ws-status disconnected';
         }
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        this._debouncedCreateIcons();
     }
 
     // ===== Page Unread Counts =====

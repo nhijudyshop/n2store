@@ -145,6 +145,15 @@ async function ensureTablesExist() {
             )
         `);
 
+        // Create conversation_labels table
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS conversation_labels (
+                conv_id VARCHAR(500) PRIMARY KEY,
+                label VARCHAR(50) NOT NULL DEFAULT 'new',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         console.log('[DATABASE] ✅ Tables initialized');
     } catch (error) {
         console.error('[DATABASE] Error creating tables:', error.message);
@@ -1414,6 +1423,37 @@ app.delete('/api/realtime/pinned-conversation', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('[API] Error deleting pinned conversation:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/realtime/conversation-labels - Get all labels
+app.get('/api/realtime/conversation-labels', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'Database not available' });
+    try {
+        const result = await dbPool.query('SELECT conv_id, label FROM conversation_labels ORDER BY updated_at DESC LIMIT 5000');
+        const labelMap = {};
+        for (const row of result.rows) {
+            labelMap[row.conv_id] = row.label;
+        }
+        res.json({ success: true, labelMap });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/realtime/conversation-label - Save a label
+app.put('/api/realtime/conversation-label', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'Database not available' });
+    try {
+        const { convId, label } = req.body;
+        if (!convId || !label) return res.status(400).json({ error: 'convId and label required' });
+        await dbPool.query(`
+            INSERT INTO conversation_labels (conv_id, label, updated_at) VALUES ($1, $2, NOW())
+            ON CONFLICT (conv_id) DO UPDATE SET label = EXCLUDED.label, updated_at = NOW()
+        `, [convId, label]);
+        res.json({ success: true });
+    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
