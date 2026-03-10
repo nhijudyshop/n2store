@@ -172,8 +172,8 @@ function _collectSocialProducts() {
             variant: item.variant || '',
             productCode: item.productCode || '',
             quantity: parseInt(item.quantity) || 1,
-            purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
-            sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
+            purchasePrice: window.purchaseOrderFormModal?.parsePrice(item.purchasePrice) || parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
+            sellingPrice: window.purchaseOrderFormModal?.parsePrice(item.sellingPrice) || parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
             productImages: item.productImages || [],
             priceImages: item.priceImages || [],
             selectedAttributeValueIds: item.selectedAttributeValueIds || []

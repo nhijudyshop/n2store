@@ -587,8 +587,9 @@
                             const item = fm.addItem();
                             item.productName = product.name || '';
                             item.productCode = product.code || '';
-                            item.purchasePrice = product.purchasePrice || 0;
-                            item.sellingPrice = product.sellingPrice || 0;
+                            // Format with dots so parsePrice treats as full price (not ×1000)
+                            item.purchasePrice = (product.purchasePrice || 0).toLocaleString('vi-VN');
+                            item.sellingPrice = (product.sellingPrice || 0).toLocaleString('vi-VN');
                             if (product.tposProductId) item.tposProductId = product.tposProductId;
                             if (product.tposProductTmplId) item.tposProductTmplId = product.tposProductTmplId;
                             if (product.image) item.productImages = [product.image];
