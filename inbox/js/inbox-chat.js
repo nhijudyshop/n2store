@@ -1084,6 +1084,42 @@ class InboxChatController {
     }
 
     /**
+     * Get page access token with multi-account fallback
+     * Step 1: Check cache
+     * Step 2: Try active account generate
+     * Step 3: Fallback to other accounts with page access
+     */
+    async _getPageAccessTokenWithFallback(pageId) {
+        const ptm = window.pancakeTokenManager;
+        if (!ptm) return null;
+
+        // Step 1: Check cache
+        let token = ptm.getPageAccessToken(pageId);
+        if (token) return token;
+
+        // Step 2: Try generating with active account
+        const activeToken = ptm.currentToken;
+        if (activeToken) {
+            token = await ptm.generatePageAccessTokenWithToken(pageId, activeToken);
+            if (token) return token;
+        }
+
+        // Step 3: Fallback to other accounts with page access
+        console.log('[InboxChat] Active account cannot access page', pageId, '- trying other accounts...');
+        if (Object.keys(ptm.accountPageAccessMap || {}).length === 0) {
+            await ptm.prefetchAllAccountPages();
+        }
+        const fallbackAccount = ptm.findAccountWithPageAccess(pageId, ptm.activeAccountId);
+        if (fallbackAccount) {
+            console.log('[InboxChat] Fallback account:', fallbackAccount.name);
+            token = await ptm.generatePageAccessTokenWithToken(pageId, fallbackAccount.token);
+            if (token) return token;
+        }
+
+        return null;
+    }
+
+    /**
      * Send a real message via Pancake API
      */
     async sendMessage() {
@@ -1122,9 +1158,9 @@ class InboxChatController {
         this.renderConversationList();
 
         try {
-            const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
+            const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
             if (!pageAccessToken) {
-                throw new Error('Không lấy được page access token');
+                throw new Error('Không tìm thấy page_access_token. Không có account nào có quyền truy cập page này.');
             }
 
             let url, payload;
@@ -1215,7 +1251,8 @@ class InboxChatController {
 
                 const result = await pdm.uploadImage(conv.pageId, file);
                 if (result && result.url) {
-                    const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
+                    const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
+                    if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
                     const url = window.API_CONFIG.buildUrl.pancakeOfficial(
                         `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
                         pageAccessToken
@@ -1720,7 +1757,8 @@ class InboxChatController {
 
                 const result = await pdm.uploadImage(conv.pageId, file);
                 if (result && result.url) {
-                    const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
+                    const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
+                    if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
                     const url = window.API_CONFIG.buildUrl.pancakeOfficial(
                         `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
                         pageAccessToken
@@ -1911,8 +1949,8 @@ class InboxChatController {
             } else {
                 // For other reactions, use the reaction API if available
                 // Pancake uses likeComment with reaction_type parameter
-                const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(conv.pageId);
-                if (!pageAccessToken) throw new Error('Không lấy được page access token');
+                const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
+                if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
 
                 const url = window.API_CONFIG.buildUrl.pancakeOfficial(
                     `pages/${conv.pageId}/comments/${msgId}/reactions`,
@@ -1989,15 +2027,15 @@ class InboxChatController {
             const ptm = window.pancakeTokenManager;
             if (!ptm) return false;
 
-            const token = await ptm.getToken();
-            if (!token) {
+            this.wsToken = await ptm.getToken();
+            if (!this.wsToken) {
                 console.warn('[InboxChat] No Pancake token for WebSocket');
                 return false;
             }
 
             // Decode token to get userId
             try {
-                const parts = token.split('.');
+                const parts = this.wsToken.split('.');
                 if (parts.length >= 2) {
                     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
                     this.userId = payload.uid || payload.user_id || payload.sub;
@@ -2012,8 +2050,13 @@ class InboxChatController {
                 return false;
             }
 
+            // Get pageIds for channel join
+            const pdm = window.pancakeDataManager;
+            this.wsPageIds = (pdm && pdm.pageIds) ? pdm.pageIds.map(id => String(id)) : [];
+
             this.isSocketConnecting = true;
-            const wsUrl = `wss://pancake.vn/socket/websocket?token=${token}&vsn=2.0.0`;
+            // Match orders-report: NO token in URL, token sent via channel join payload
+            const wsUrl = `wss://pancake.vn/socket/websocket?vsn=2.0.0`;
             console.log('[InboxChat] Connecting WebSocket...');
 
             this.socket = new WebSocket(wsUrl);
@@ -2054,7 +2097,7 @@ class InboxChatController {
         this.stopHeartbeat();
         this.updateSocketStatusUI(false);
 
-        // Reconnect with exponential backoff
+        // Reconnect with backoff (match orders-report: simple 5s reconnect)
         if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
             this.socketReconnectAttempts++;
             const delay = this.socketReconnectDelay;
@@ -2087,11 +2130,37 @@ class InboxChatController {
     joinChannels() {
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.userId) return;
 
-        // Join user channel
-        this.sendPhxMessage(`users:${this.userId}`, 'phx_join', {});
-        // Join multi-page channel
-        this.sendPhxMessage(`multiple_pages:${this.userId}`, 'phx_join', {});
-        console.log('[InboxChat] Joined channels for userId:', this.userId);
+        // 1. Join user channel (match orders-report realtime-manager.js)
+        this.sendPhxMessage(`users:${this.userId}`, 'phx_join', {
+            accessToken: this.wsToken,
+            userId: this.userId,
+            platform: 'web'
+        });
+
+        // 2. Join multi-page channel with pageIds and clientSession
+        this.sendPhxMessage(`multiple_pages:${this.userId}`, 'phx_join', {
+            accessToken: this.wsToken,
+            userId: this.userId,
+            clientSession: this._generateClientSession(),
+            pageIds: this.wsPageIds || [],
+            platform: 'web'
+        });
+
+        // 3. Get online status after join
+        setTimeout(() => {
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                this.sendPhxMessage(`multiple_pages:${this.userId}`, 'get_online_status', {});
+            }
+        }, 1000);
+
+        console.log('[InboxChat] Joined channels for userId:', this.userId, 'pages:', this.wsPageIds?.length || 0);
+    }
+
+    _generateClientSession() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
     }
 
     sendPhxMessage(topic, event, payload) {
