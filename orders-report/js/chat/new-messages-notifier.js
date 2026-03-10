@@ -418,21 +418,27 @@
                     const pageId = row.dataset.pageId;
                     const type = row.dataset.type;
 
+                    // Show loading on clicked row
+                    const nameEl = row.querySelector('span[style*="font-weight:600"]');
+                    if (nameEl) nameEl.insertAdjacentHTML('afterend', ' <i class="fas fa-spinner fa-spin" style="font-size:11px;color:#6b7280;"></i>');
+                    row.style.pointerEvents = 'none';
+                    row.style.opacity = '0.6';
+
                     // Try to find matching order in table
                     let tableRow = document.querySelector(`tr[data-psid="${psid}"][data-page-id="${pageId}"]`);
                     if (!tableRow) tableRow = document.querySelector(`tr[data-psid="${psid}"]`);
 
-                    if (tableRow) {
-                        const orderId = tableRow.dataset.orderId;
-                        if (window.openChatModal) {
-                            document.getElementById('pendingCustomersModal').remove();
-                            window.openChatModal(orderId, pageId, psid, type === 'COMMENT' ? 'comment' : 'message');
-                        }
+                    const orderId = tableRow?.dataset?.orderId;
+                    if (orderId && window.openChatModal) {
+                        document.getElementById('pendingCustomersModal')?.remove();
+                        window.openChatModal(orderId, pageId, psid, type === 'COMMENT' ? 'comment' : 'message');
                     } else {
-                        // No matching order in table — try opening chat directly
-                        if (window.openChatModal) {
-                            document.getElementById('pendingCustomersModal').remove();
-                            window.openChatModal(null, pageId, psid, type === 'COMMENT' ? 'comment' : 'message');
+                        // No matching order in current table
+                        row.style.pointerEvents = '';
+                        row.style.opacity = '';
+                        row.querySelector('.fa-spinner')?.remove();
+                        if (window.notificationManager) {
+                            window.notificationManager.warning('Đơn hàng không có trong bảng hiện tại. Thử tải lại trang hoặc đổi bộ lọc.', 4000);
                         }
                     }
                 });
