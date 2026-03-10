@@ -1731,6 +1731,105 @@ class InboxChatController {
         this.renderGroupStats();
     }
 
+    // ===== Render Data Modal =====
+
+    async showRenderDataModal() {
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        // Show loading modal immediately
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal" style="width:90vw;max-width:900px;max-height:85vh;display:flex;flex-direction:column;">
+                <div class="modal-header">
+                    <h3>Dữ liệu Render DB</h3>
+                    <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                </div>
+                <div class="modal-body" style="flex:1;overflow-y:auto;padding:0;">
+                    <div style="text-align:center;padding:2rem;color:var(--text-tertiary);">
+                        <div class="typing-indicator" style="justify-content:center;margin-bottom:8px;">
+                            <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+                        </div>
+                        Đang tải dữ liệu...
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+        // Fetch all endpoints in parallel
+        const endpoints = [
+            { name: 'Conversation Labels', url: '/api/realtime/conversation-labels', key: 'labelMap' },
+            { name: 'Pending Customers', url: '/api/realtime/pending-customers?limit=500', key: 'customers' },
+            { name: 'Post Types', url: '/api/realtime/post-types?limit=500', key: 'postTypes' },
+            { name: 'Livestream Customers', url: '/api/realtime/livestream-customers?limit=500', key: 'customers' },
+            { name: 'Realtime Status', url: '/api/realtime/status', key: null },
+        ];
+
+        const results = await Promise.all(endpoints.map(async (ep) => {
+            try {
+                const res = await fetch(workerUrl + ep.url);
+                const data = await res.json();
+                return { name: ep.name, url: ep.url, data, ok: true };
+            } catch (err) {
+                return { name: ep.name, url: ep.url, data: { error: err.message }, ok: false };
+            }
+        }));
+
+        // Build tabs HTML
+        const body = modal.querySelector('.modal-body');
+        let tabsHtml = '<div style="display:flex;border-bottom:1px solid var(--border);flex-shrink:0;">';
+        results.forEach((r, i) => {
+            const count = r.ok ? this._renderDataCount(r) : '!';
+            tabsHtml += `<button class="render-data-tab ${i === 0 ? 'active' : ''}" data-idx="${i}"
+                style="flex:1;padding:8px 4px;border:none;background:${i === 0 ? 'var(--gray-100)' : 'transparent'};
+                font-size:0.7rem;cursor:pointer;border-bottom:2px solid ${i === 0 ? 'var(--primary)' : 'transparent'};">
+                ${r.name} <span style="opacity:0.6;">(${count})</span>
+            </button>`;
+        });
+        tabsHtml += '</div>';
+
+        let panelsHtml = '';
+        results.forEach((r, i) => {
+            const json = JSON.stringify(r.data, null, 2);
+            panelsHtml += `<div class="render-data-panel" data-idx="${i}" style="display:${i === 0 ? 'block' : 'none'};padding:12px;overflow:auto;flex:1;">
+                <div style="margin-bottom:8px;font-size:0.7rem;color:var(--text-tertiary);">
+                    GET ${workerUrl}${r.url}
+                </div>
+                <pre style="font-size:0.7rem;white-space:pre-wrap;word-break:break-all;margin:0;background:var(--gray-50);padding:8px;border-radius:4px;max-height:60vh;overflow:auto;">${this.escapeHtml(json)}</pre>
+            </div>`;
+        });
+
+        body.innerHTML = tabsHtml + '<div style="flex:1;overflow:auto;">' + panelsHtml + '</div>';
+
+        // Tab switching
+        body.querySelectorAll('.render-data-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                body.querySelectorAll('.render-data-tab').forEach(t => {
+                    t.classList.remove('active');
+                    t.style.background = 'transparent';
+                    t.style.borderBottomColor = 'transparent';
+                });
+                tab.classList.add('active');
+                tab.style.background = 'var(--gray-100)';
+                tab.style.borderBottomColor = 'var(--primary)';
+                body.querySelectorAll('.render-data-panel').forEach(p => p.style.display = 'none');
+                body.querySelector(`.render-data-panel[data-idx="${tab.dataset.idx}"]`).style.display = 'block';
+            });
+        });
+    }
+
+    _renderDataCount(result) {
+        const d = result.data;
+        if (!d) return '0';
+        if (d.customers) return d.customers.length;
+        if (d.postTypes) return d.postTypes.length;
+        if (d.labelMap) return Object.keys(d.labelMap).length;
+        if (d.connected !== undefined) return d.connected ? 'ON' : 'OFF';
+        return '?';
+    }
+
     // ===== Manage Groups Modal =====
 
     showManageGroupsModal() {
