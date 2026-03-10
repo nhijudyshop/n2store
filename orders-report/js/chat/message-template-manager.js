@@ -28,6 +28,7 @@ class MessageTemplateManager {
         this._loadFailedOrderIds();
         // Track sent orders to prevent duplicate bulk sending
         this.sentOrderIds = new Set();
+        this.sentViaCommentIds = new Set(); // Orders sent via reply_comment (not inbox)
         this._loadSentOrderIds();
         this.init();
     }
@@ -111,10 +112,11 @@ class MessageTemplateManager {
                 const now = Date.now();
                 const validEntries = data.filter(entry => (now - entry.timestamp) < 24 * 60 * 60 * 1000);
                 this.sentOrderIds = new Set(validEntries.map(e => e.orderId));
+                this.sentViaCommentIds = new Set(validEntries.filter(e => e.viaComment).map(e => e.orderId));
                 if (validEntries.length !== data.length) {
                     this._saveSentOrderIds();
                 }
-                this.log(`📋 Loaded ${this.sentOrderIds.size} sent order IDs from storage`);
+                this.log(`📋 Loaded ${this.sentOrderIds.size} sent order IDs from storage (${this.sentViaCommentIds.size} via comment)`);
             }
         } catch (e) {
             console.warn('[MESSAGE] Error loading sent order IDs:', e);
@@ -126,7 +128,8 @@ class MessageTemplateManager {
             const now = Date.now();
             const data = Array.from(this.sentOrderIds).map(orderId => ({
                 orderId,
-                timestamp: now
+                timestamp: now,
+                viaComment: this.sentViaCommentIds.has(orderId)
             }));
             localStorage.setItem('sent_message_orders', JSON.stringify(data));
         } catch (e) {
@@ -134,17 +137,25 @@ class MessageTemplateManager {
         }
     }
 
-    addSentOrders(orderIds) {
+    addSentOrders(orderIds, commentOrderIds = []) {
         orderIds.forEach(id => this.sentOrderIds.add(id));
+        commentOrderIds.forEach(id => this.sentViaCommentIds.add(id));
         this._saveSentOrderIds();
-        this.log(`✅ Added ${orderIds.length} sent orders, total: ${this.sentOrderIds.size}`);
+        this.log(`✅ Added ${orderIds.length} sent orders (${commentOrderIds.length} via comment), total: ${this.sentOrderIds.size}`);
         window.dispatchEvent(new CustomEvent('sentOrdersUpdated', {
-            detail: { sentOrderIds: Array.from(this.sentOrderIds) }
+            detail: {
+                sentOrderIds: Array.from(this.sentOrderIds),
+                sentViaCommentIds: Array.from(this.sentViaCommentIds)
+            }
         }));
     }
 
     isOrderSent(orderId) {
         return this.sentOrderIds.has(orderId);
+    }
+
+    isOrderSentViaComment(orderId) {
+        return this.sentViaCommentIds.has(orderId);
     }
 
     log(...args) {
@@ -978,7 +989,8 @@ class MessageTemplateManager {
                                 customerName: order.customerName || '',
                                 account: account.name,
                                 Details: order.Details || order.OrderDetails || [],
-                                products: order.products || order.mainProducts || []
+                                products: order.products || order.mainProducts || [],
+                                viaComment: order._sentViaComment || false
                             });
 
                             this.log(`✅ [${account.name}] Sent successfully to order ${order.code || order.Id}`);
@@ -1138,7 +1150,11 @@ class MessageTemplateManager {
                 const sentIds = this.sendingState.successOrders
                     .map(o => o.Id)
                     .filter(id => id);
-                this.addSentOrders(sentIds);
+                const commentSentIds = this.sendingState.successOrders
+                    .filter(o => o.viaComment)
+                    .map(o => o.Id)
+                    .filter(id => id);
+                this.addSentOrders(sentIds, commentSentIds);
             }
 
             this.closeModal();
@@ -1612,6 +1628,9 @@ class MessageTemplateManager {
                             const rcData = await rcResponse.json();
                             if (rcResponse.ok && rcData.success !== false && !rcData.error) {
                                 this.log(`✅ reply_comment succeeded for order ${order.code}`);
+                                order._sentViaComment = true;
+                                // Clear from failed orders if was there
+                                this.removeFailedOrder(order.Id);
                                 return true;
                             }
                             this.log(`❌ reply_comment failed: ${rcData.error || rcData.message || JSON.stringify(rcData)}`);

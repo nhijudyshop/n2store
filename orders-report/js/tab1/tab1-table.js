@@ -714,20 +714,29 @@ window.addEventListener('failedOrdersUpdated', (event) => {
 // Listen for sent orders updates to show green "Đã gửi" badge in messages column
 window.addEventListener('sentOrdersUpdated', (event) => {
     const sentIds = new Set(event.detail?.sentOrderIds || []);
-    console.log('[TABLE] Sent orders updated, updating message badges:', sentIds.size);
+    const commentIds = new Set(event.detail?.sentViaCommentIds || []);
+    console.log('[TABLE] Sent orders updated, updating message badges:', sentIds.size, '(via comment:', commentIds.size, ')');
 
     // Update messages column cells
     document.querySelectorAll('td[data-column="messages"][data-order-id]').forEach(td => {
         const orderId = td.getAttribute('data-order-id');
         const isSent = sentIds.has(orderId);
-        const currentlyShowingSent = td.querySelector('.fa-check-circle') !== null;
+        const currentlyShowingSent = td.querySelector('.fa-check-circle, .fa-comment-dots') !== null;
 
         if (isSent && !currentlyShowingSent) {
+            const isViaComment = commentIds.has(orderId);
+            const icon = isViaComment ? 'fa-comment-dots' : 'fa-check-circle';
+            const label = isViaComment ? 'Đã gửi (BL)' : 'Đã gửi';
             td.innerHTML = `
                 <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 6px; color: #16a34a; font-size: 11px; font-weight: 500;">
-                    <i class="fas fa-check-circle" style="font-size: 10px;"></i> Đã gửi
+                    <i class="fas ${icon}" style="font-size: 10px;"></i> ${label}
                 </span>`;
             td.title = '✅ Đã gửi tin nhắn';
+            // Update click handler for via-comment orders
+            if (isViaComment) {
+                const existingOnclick = td.getAttribute('onclick') || '';
+                td.setAttribute('onclick', existingOnclick.replace('openChatModal', 'openCommentModal'));
+            }
         }
     });
 
@@ -741,12 +750,19 @@ window.addEventListener('sentOrdersUpdated', (event) => {
         const badgeSpan = row.querySelector('.merged-badge-placeholder');
         if (!badgeSpan || !isSent) return;
 
-        const currentlyShowingSent = row.querySelector('.fa-check-circle') !== null;
+        const currentlyShowingSent = row.querySelector('.fa-check-circle, .fa-comment-dots') !== null;
         if (!currentlyShowingSent) {
+            const isViaComment = commentIds.has(orderId);
+            const icon = isViaComment ? 'fa-comment-dots' : 'fa-check-circle';
+            const label = isViaComment ? 'Đã gửi (BL)' : 'Đã gửi';
             badgeSpan.outerHTML = `
                 <span class="merged-sent-badge" style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; color: #16a34a; font-size: 10px; font-weight: 500;">
-                    <i class="fas fa-check-circle" style="font-size: 9px;"></i> Đã gửi
+                    <i class="fas ${icon}" style="font-size: 9px;"></i> ${label}
                 </span>`;
+            if (isViaComment) {
+                const existingOnclick = row.getAttribute('onclick') || '';
+                row.setAttribute('onclick', existingOnclick.replace('openChatModal', 'openCommentModal'));
+            }
         }
     });
 });
@@ -1269,9 +1285,16 @@ function renderMessagesColumn(order) {
     // Check if this order was already sent via bulk message
     const isSent = window.messageTemplateManager?.isOrderSent(order.Id);
     if (isSent) {
-        return `<td data-column="messages" data-order-id="${order.Id}" onclick="${clickHandler}" style="cursor: pointer; text-align: center;">
+        // If sent via comment, click should open comment modal instead of chat
+        const isSentViaComment = window.messageTemplateManager?.isOrderSentViaComment(order.Id);
+        const sentClickHandler = isSentViaComment
+            ? `openCommentModal('${order.Id}', '${channelId}', '${psid}')`
+            : clickHandler;
+        const sentIcon = isSentViaComment ? 'fa-comment-dots' : 'fa-check-circle';
+        const sentLabel = isSentViaComment ? 'Đã gửi (BL)' : 'Đã gửi';
+        return `<td data-column="messages" data-order-id="${order.Id}" onclick="${sentClickHandler}" style="cursor: pointer; text-align: center;">
             <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 6px; color: #16a34a; font-size: 11px; font-weight: 500;">
-                <i class="fas fa-check-circle" style="font-size: 10px;"></i> Đã gửi
+                <i class="fas ${sentIcon}" style="font-size: 10px;"></i> ${sentLabel}
             </span>
         </td>`;
     }
@@ -1339,7 +1362,7 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const psid = originalOrder.Facebook_ASUserId || '';
 
         // Create click handler
-        const clickHandler = channelId && psid
+        let clickHandler = channelId && psid
             ? (columnType === 'messages'
                 ? `openChatModal('${originalOrder.Id}', '${channelId}', '${psid}')`
                 : `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`)
@@ -1352,6 +1375,12 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         const isFailed = columnType === 'comments' && window.messageTemplateManager?.isOrderFailed(originalOrder.Id);
         // Check if this order was already sent (only for messages column)
         const isSent = columnType === 'messages' && window.messageTemplateManager?.isOrderSent(originalOrder.Id);
+        const isSentViaComment = isSent && window.messageTemplateManager?.isOrderSentViaComment(originalOrder.Id);
+
+        // Override click handler for sent-via-comment orders to open comment modal
+        if (isSentViaComment && channelId && psid) {
+            clickHandler = `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`;
+        }
 
         // Badge content - show warning for failed orders, green badge for sent orders
         let badgeContent;
@@ -1360,8 +1389,10 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
                 <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i> Cần gửi
                </span>`;
         } else if (isSent) {
+            const sentIcon = isSentViaComment ? 'fa-comment-dots' : 'fa-check-circle';
+            const sentLabel = isSentViaComment ? 'Đã gửi (BL)' : 'Đã gửi';
             badgeContent = `<span class="merged-sent-badge" style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; color: #16a34a; font-size: 10px; font-weight: 500;">
-                <i class="fas fa-check-circle" style="font-size: 9px;"></i> Đã gửi
+                <i class="fas ${sentIcon}" style="font-size: 9px;"></i> ${sentLabel}
                </span>`;
         } else {
             badgeContent = '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
