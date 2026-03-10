@@ -2,13 +2,59 @@
  * Shared Customer Creator Modal
  * Tạo khách hàng mới - dùng chung cho nhiều page (customer-hub, orders-report, ...)
  *
+ * ═══════════════════════════════════════════════════════════════════════
+ * TÍNH NĂNG: TẠO KHÁCH HÀNG MỚI (Create New Customer)
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * MÔ TẢ:
+ *   Modal popup cho phép tạo nhanh khách hàng (Partner) trên hệ thống TPOS.
+ *   Được thiết kế dùng chung (shared module) cho nhiều trang: customer-hub,
+ *   orders-report, và các module khác cần tạo khách hàng.
+ *
+ * TÍNH NĂNG GỢI Ý KHÁCH HÀNG:
+ *   - Khi nhập SĐT đủ 10 số, tự động tìm khách hàng trên TPOS
+ *   - Nếu tìm thấy 1 KH → auto-fill tên, địa chỉ, hiện badge trạng thái
+ *   - Nếu tìm thấy nhiều KH → hiện dropdown để chọn đúng KH
+ *   - Chọn KH có sẵn → nút đổi thành "Chọn khách hàng" (không tạo mới)
+ *   - Không tìm thấy → tiếp tục tạo KH mới như bình thường
+ *
+ * FORM FIELDS:
+ *   ┌──────────────────┬──────────┬───────────────────────────────────────┐
+ *   │ Field            │ Bắt buộc │ Validation                            │
+ *   ├──────────────────┼──────────┼───────────────────────────────────────┤
+ *   │ Tên khách hàng   │ Có (*)   │ Không được để trống                   │
+ *   │ Số điện thoại    │ Có (*)   │ Regex /^0\d{8,9}$/ (VN format,       │
+ *   │                  │          │ bắt đầu bằng 0, tổng 10-11 số)       │
+ *   │ Địa chỉ          │ Không    │ Không validation                      │
+ *   └──────────────────┴──────────┴───────────────────────────────────────┘
+ *
+ * LUỒNG HOẠT ĐỘNG (Flow):
+ *   1. User click nút "Tạo KH" → gọi CustomerCreator.open({ onSuccess })
+ *   2. Modal hiện lên, reset form, focus vào ô SĐT
+ *   3. User nhập SĐT → debounce 500ms → tìm KH trên TPOS
+ *   4. Nếu có KH → hiện dropdown gợi ý / auto-fill
+ *   5. Nếu không có → user điền tên, địa chỉ → click "Tạo khách hàng"
+ *   6. Validate: tên (required), SĐT (required + regex VN)
+ *   7. Gọi API tạo Partner trên TPOS hoặc chọn KH có sẵn
+ *   8. Thành công → gọi callback onSuccess với { id, name, phone, address, status }
+ *   9. Tự đóng modal sau 1 giây
+ *
  * Requires: window.tokenManager (from pancake-token-manager.js)
  * Optional: window.ShopConfig (for CompanyId)
+ *           window.apiService (preferred API layer)
+ *           window.fetchTPOSCustomer (from tpos-customer-lookup.js)
  *
  * Usage:
  *   window.CustomerCreator.open({
- *       onSuccess: (customer) => { ... }  // callback khi tạo thành công
+ *       onSuccess: (customer) => {
+ *           // customer = { id, name, phone, address, status }
+ *           console.log('Created:', customer.name, customer.phone);
+ *       }
  *   });
+ *
+ * Exposed API:
+ *   window.CustomerCreator.open(options)  — Mở modal tạo KH
+ *   window.CustomerCreator.close()        — Đóng modal
  */
 (function () {
     'use strict';
@@ -17,6 +63,8 @@
     const TPOS_ODATA = `${WORKER_URL}/api/odata`;
 
     let modalEl = null;
+    let _phoneLookupTimeout = null;
+    let _selectedExistingCustomer = null; // KH có sẵn được chọn từ dropdown
 
     function getModalHTML() {
         return `
@@ -31,13 +79,18 @@
                         <button class="cc-close-btn" data-cc-close>×</button>
                     </div>
                     <div class="cc-body">
+                        <div class="cc-field cc-field-phone">
+                            <label>Số điện thoại <span class="cc-required">*</span></label>
+                            <input type="tel" id="cc-phone" placeholder="Nhập số điện thoại" autocomplete="off" />
+                            <div id="cc-phone-loading" class="cc-phone-loading" style="display:none;">
+                                <i class="fas fa-spinner fa-spin"></i> Đang tìm khách hàng...
+                            </div>
+                            <div id="cc-customer-dropdown" class="cc-customer-dropdown" style="display:none;"></div>
+                        </div>
+                        <div id="cc-existing-badge" class="cc-existing-badge" style="display:none;"></div>
                         <div class="cc-field">
                             <label>Tên khách hàng <span class="cc-required">*</span></label>
                             <input type="text" id="cc-name" placeholder="Nhập tên khách hàng" />
-                        </div>
-                        <div class="cc-field">
-                            <label>Số điện thoại <span class="cc-required">*</span></label>
-                            <input type="tel" id="cc-phone" placeholder="Nhập số điện thoại" />
                         </div>
                         <div class="cc-field">
                             <label>Địa chỉ</label>
@@ -75,6 +128,7 @@
             .cc-required { color: #ef4444; }
             .cc-field input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s; }
             .cc-field input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+            .cc-field input.cc-input-matched { border-color: #22c55e; background: #f0fdf4; }
             .cc-msg { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin-top: 8px; }
             .cc-msg-error { color: #dc2626; background: #fef2f2; }
             .cc-msg-success { color: #16a34a; background: #f0fdf4; }
@@ -84,8 +138,43 @@
             .cc-btn-submit { padding: 8px 16px; font-size: 13px; font-weight: 500; color: #fff; background: #3b82f6; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
             .cc-btn-submit:hover { background: #2563eb; }
             .cc-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+            .cc-btn-submit.cc-btn-select { background: #22c55e; }
+            .cc-btn-submit.cc-btn-select:hover { background: #16a34a; }
+
+            /* Phone lookup loading */
+            .cc-phone-loading { font-size: 12px; color: #6b7280; padding: 4px 0; }
+            .cc-phone-loading i { color: #3b82f6; }
+
+            /* Customer suggestion dropdown */
+            .cc-field-phone { position: relative; }
+            .cc-customer-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 2px solid #3b82f6; border-radius: 0 0 8px 8px; max-height: 240px; overflow-y: auto; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+            .cc-dropdown-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s; }
+            .cc-dropdown-item:last-child { border-bottom: none; }
+            .cc-dropdown-item:hover { background: #f0f9ff; }
+            .cc-dropdown-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+            .cc-dropdown-phone { font-size: 12px; color: #6b7280; }
+            .cc-dropdown-address { font-size: 11px; color: #9ca3af; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .cc-dropdown-status { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; color: #fff; margin-left: 6px; }
+            .cc-dropdown-footer { padding: 8px 12px; text-align: center; font-size: 12px; color: #3b82f6; cursor: pointer; border-top: 1px solid #e5e7eb; font-weight: 500; }
+            .cc-dropdown-footer:hover { background: #f0f9ff; }
+
+            /* Existing customer badge */
+            .cc-existing-badge { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: #f0fdf4; border: 1px solid #bbf7d0; margin-bottom: 14px; font-size: 13px; }
+            .cc-existing-badge .cc-badge-icon { color: #22c55e; font-size: 16px; }
+            .cc-existing-badge .cc-badge-text { flex: 1; color: #166534; font-weight: 500; }
+            .cc-existing-badge .cc-badge-status { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: #fff; }
+            .cc-existing-badge .cc-badge-clear { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 16px; padding: 0 2px; }
+            .cc-existing-badge .cc-badge-clear:hover { color: #ef4444; }
         `;
     }
+
+    const STATUS_COLORS = {
+        'Bình thường': '#22c55e',
+        'Bom hàng': '#ef4444',
+        'Cảnh báo': '#f59e0b',
+        'Nguy hiểm': '#dc2626',
+        'VIP': '#6366f1'
+    };
 
     function ensureModal() {
         if (modalEl) return;
@@ -106,6 +195,205 @@
             btn.addEventListener('click', close);
         });
         modalEl.querySelector('.cc-backdrop').addEventListener('click', close);
+
+        // Phone input lookup handler
+        initPhoneLookup();
+    }
+
+    function initPhoneLookup() {
+        const phoneInput = modalEl.querySelector('#cc-phone');
+        phoneInput.addEventListener('input', function () {
+            const phone = this.value.replace(/\D/g, '');
+
+            // Clear previous timeout
+            if (_phoneLookupTimeout) {
+                clearTimeout(_phoneLookupTimeout);
+            }
+
+            // Hide dropdown & loading when typing
+            hideDropdown();
+            modalEl.querySelector('#cc-phone-loading').style.display = 'none';
+
+            // If user edits phone after selecting existing customer, clear selection
+            if (_selectedExistingCustomer) {
+                clearExistingSelection();
+            }
+
+            // Only lookup when phone is 10 digits (VN format)
+            if (phone.length < 10) return;
+
+            // Show loading
+            modalEl.querySelector('#cc-phone-loading').style.display = 'block';
+
+            _phoneLookupTimeout = setTimeout(async () => {
+                await lookupCustomerByPhone(phone);
+            }, 500);
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (modalEl && !modalEl.querySelector('.cc-field-phone')?.contains(e.target)) {
+                hideDropdown();
+            }
+        });
+    }
+
+    async function lookupCustomerByPhone(phone) {
+        const loadingEl = modalEl.querySelector('#cc-phone-loading');
+
+        if (!window.fetchTPOSCustomer) {
+            loadingEl.style.display = 'none';
+            console.warn('[CustomerCreator] fetchTPOSCustomer not available');
+            return;
+        }
+
+        try {
+            console.log('[CustomerCreator] Looking up phone:', phone);
+            const result = await window.fetchTPOSCustomer(phone);
+            loadingEl.style.display = 'none';
+
+            if (result.success && result.count > 0) {
+                if (result.count === 1) {
+                    // Single match → auto-fill and show badge
+                    selectExistingCustomer(result.customers[0]);
+                } else {
+                    // Multiple matches → show dropdown
+                    showDropdown(result.customers);
+                }
+            } else {
+                console.log('[CustomerCreator] No existing customer found for', phone);
+            }
+        } catch (error) {
+            loadingEl.style.display = 'none';
+            console.error('[CustomerCreator] Phone lookup error:', error);
+        }
+    }
+
+    function showDropdown(customers) {
+        const dropdown = modalEl.querySelector('#cc-customer-dropdown');
+        let html = '';
+
+        customers.forEach((c, idx) => {
+            const color = STATUS_COLORS[c.statusText] || '#6b7280';
+            html += `
+                <div class="cc-dropdown-item" data-cc-idx="${idx}">
+                    <div>
+                        <span class="cc-dropdown-name">${escapeHtml(c.name)}</span>
+                        <span class="cc-dropdown-status" style="background:${color}">${escapeHtml(c.statusText || 'N/A')}</span>
+                    </div>
+                    <div class="cc-dropdown-phone">${escapeHtml(c.phone || '')}</div>
+                    ${c.address ? `<div class="cc-dropdown-address"><i class="fas fa-map-marker-alt"></i> ${escapeHtml(c.address)}</div>` : ''}
+                </div>
+            `;
+        });
+
+        html += `<div class="cc-dropdown-footer" data-cc-new>
+            <i class="fas fa-plus"></i> Tạo khách hàng mới với SĐT này
+        </div>`;
+
+        dropdown.innerHTML = html;
+        dropdown.style.display = 'block';
+
+        // Click handlers for items
+        dropdown.querySelectorAll('.cc-dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const idx = parseInt(item.dataset.ccIdx);
+                selectExistingCustomer(customers[idx]);
+                hideDropdown();
+            });
+        });
+
+        // "Create new" option
+        dropdown.querySelector('[data-cc-new]').addEventListener('click', () => {
+            hideDropdown();
+            modalEl.querySelector('#cc-name').focus();
+        });
+    }
+
+    function hideDropdown() {
+        if (!modalEl) return;
+        const dropdown = modalEl.querySelector('#cc-customer-dropdown');
+        if (dropdown) dropdown.style.display = 'none';
+    }
+
+    function selectExistingCustomer(customer) {
+        _selectedExistingCustomer = customer;
+
+        // Auto-fill fields
+        const nameInput = modalEl.querySelector('#cc-name');
+        const streetInput = modalEl.querySelector('#cc-street');
+        const phoneInput = modalEl.querySelector('#cc-phone');
+
+        nameInput.value = customer.name || '';
+        streetInput.value = customer.address || '';
+        phoneInput.classList.add('cc-input-matched');
+
+        // Make name & address read-only to indicate auto-filled
+        nameInput.readOnly = true;
+        streetInput.readOnly = true;
+        nameInput.style.background = '#f0fdf4';
+        streetInput.style.background = '#f0fdf4';
+
+        // Show existing customer badge
+        const badgeEl = modalEl.querySelector('#cc-existing-badge');
+        const color = STATUS_COLORS[customer.statusText] || '#6b7280';
+        badgeEl.innerHTML = `
+            <i class="fas fa-user-check cc-badge-icon"></i>
+            <span class="cc-badge-text">KH có sẵn: ${escapeHtml(customer.name)} (ID: ${customer.id})</span>
+            <span class="cc-badge-status" style="background:${color}">${escapeHtml(customer.statusText || 'N/A')}</span>
+            <button class="cc-badge-clear" title="Bỏ chọn, tạo KH mới">×</button>
+        `;
+        badgeEl.style.display = 'flex';
+
+        // Clear badge handler
+        badgeEl.querySelector('.cc-badge-clear').addEventListener('click', () => {
+            clearExistingSelection();
+            modalEl.querySelector('#cc-name').focus();
+        });
+
+        // Change submit button to "Chọn khách hàng"
+        const submitBtn = modalEl.querySelector('#cc-submit');
+        submitBtn.innerHTML = '<i class="fas fa-user-check"></i> Chọn khách hàng';
+        submitBtn.classList.add('cc-btn-select');
+
+        // Update modal title
+        modalEl.querySelector('.cc-title').innerHTML = '<i class="fas fa-user-check"></i> Chọn khách hàng có sẵn';
+
+        console.log('[CustomerCreator] Selected existing customer:', customer.name, 'ID:', customer.id);
+    }
+
+    function clearExistingSelection() {
+        _selectedExistingCustomer = null;
+
+        const nameInput = modalEl.querySelector('#cc-name');
+        const streetInput = modalEl.querySelector('#cc-street');
+        const phoneInput = modalEl.querySelector('#cc-phone');
+
+        nameInput.readOnly = false;
+        streetInput.readOnly = false;
+        nameInput.style.background = '';
+        streetInput.style.background = '';
+        nameInput.value = '';
+        streetInput.value = '';
+        phoneInput.classList.remove('cc-input-matched');
+
+        // Hide badge
+        modalEl.querySelector('#cc-existing-badge').style.display = 'none';
+
+        // Restore submit button
+        const submitBtn = modalEl.querySelector('#cc-submit');
+        submitBtn.innerHTML = '<i class="fas fa-save"></i> Tạo khách hàng';
+        submitBtn.classList.remove('cc-btn-select');
+
+        // Restore modal title
+        modalEl.querySelector('.cc-title').innerHTML = '<i class="fas fa-user-plus"></i> Tạo khách hàng mới';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     function open(options = {}) {
@@ -113,18 +401,33 @@
 
         const onSuccess = options.onSuccess || function () { };
 
+        // Reset state
+        _selectedExistingCustomer = null;
+
         // Reset form
-        modalEl.querySelector('#cc-name').value = '';
         modalEl.querySelector('#cc-phone').value = '';
+        modalEl.querySelector('#cc-phone').classList.remove('cc-input-matched');
+        modalEl.querySelector('#cc-name').value = '';
+        modalEl.querySelector('#cc-name').readOnly = false;
+        modalEl.querySelector('#cc-name').style.background = '';
         modalEl.querySelector('#cc-street').value = '';
+        modalEl.querySelector('#cc-street').readOnly = false;
+        modalEl.querySelector('#cc-street').style.background = '';
+        modalEl.querySelector('#cc-phone-loading').style.display = 'none';
+        modalEl.querySelector('#cc-existing-badge').style.display = 'none';
+        hideDropdown();
+
         const errorEl = modalEl.querySelector('#cc-error');
         const successEl = modalEl.querySelector('#cc-success');
         errorEl.style.display = 'none';
         successEl.style.display = 'none';
 
+        // Restore title & button
+        modalEl.querySelector('.cc-title').innerHTML = '<i class="fas fa-user-plus"></i> Tạo khách hàng mới';
         const submitBtn = modalEl.querySelector('#cc-submit');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-save"></i> Tạo khách hàng';
+        submitBtn.classList.remove('cc-btn-select');
 
         // Remove old listener, add new one
         const newSubmitBtn = submitBtn.cloneNode(true);
@@ -135,7 +438,8 @@
         modalEl.classList.add('cc-show');
         document.body.style.overflow = 'hidden';
 
-        setTimeout(() => modalEl.querySelector('#cc-name').focus(), 100);
+        // Focus on phone input first (since lookup starts from phone)
+        setTimeout(() => modalEl.querySelector('#cc-phone').focus(), 100);
     }
 
     function close() {
@@ -155,7 +459,26 @@
         errorEl.style.display = 'none';
         successEl.style.display = 'none';
 
-        // Validate
+        // If existing customer is selected, return it directly
+        if (_selectedExistingCustomer) {
+            successEl.textContent = `Đã chọn: ${_selectedExistingCustomer.name} (ID: ${_selectedExistingCustomer.id})`;
+            successEl.style.display = 'block';
+
+            if (typeof onSuccess === 'function') {
+                onSuccess({
+                    id: _selectedExistingCustomer.id,
+                    name: _selectedExistingCustomer.name,
+                    phone: _selectedExistingCustomer.phone || phone,
+                    address: _selectedExistingCustomer.address || '',
+                    status: _selectedExistingCustomer.statusText || 'Bình thường'
+                });
+            }
+
+            setTimeout(() => close(), 1000);
+            return;
+        }
+
+        // Validate for new customer creation
         if (!name) {
             errorEl.textContent = 'Vui lòng nhập tên khách hàng';
             errorEl.style.display = 'block';
