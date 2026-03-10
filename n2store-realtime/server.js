@@ -1399,15 +1399,18 @@ app.put('/api/realtime/livestream-conversation', async (req, res) => {
     }
 });
 
-// DELETE /api/realtime/livestream-conversations - Delete by post_id or all
+// DELETE /api/realtime/livestream-conversations - Delete by post_id, conv_id, or all
 app.delete('/api/realtime/livestream-conversations', async (req, res) => {
     if (!dbPool) {
         return res.status(503).json({ error: 'Database not available' });
     }
     try {
         const postId = req.query.post_id;
+        const convId = req.query.conv_id;
         let result;
-        if (postId) {
+        if (convId) {
+            result = await dbPool.query('DELETE FROM livestream_conversations WHERE conv_id = $1', [convId]);
+        } else if (postId) {
             result = await dbPool.query('DELETE FROM livestream_conversations WHERE post_id = $1', [postId]);
         } else {
             result = await dbPool.query('DELETE FROM livestream_conversations');

@@ -86,6 +86,7 @@ class InboxChatController {
             searchInput: document.getElementById('searchConversation'),
             btnSend: document.getElementById('btnSend'),
             btnMarkUnread: document.getElementById('btnMarkUnread'),
+            btnToggleLivestream: document.getElementById('btnToggleLivestream'),
             btnRefreshInbox: document.getElementById('btnRefreshInbox'),
             chatLabelBar: document.getElementById('chatLabelBar'),
             chatLabelBarList: document.getElementById('chatLabelBarList'),
@@ -342,6 +343,11 @@ class InboxChatController {
                 this.renderGroupStats();
                 this.updatePageUnreadCounts();
             }
+        });
+
+        // Toggle livestream
+        this.elements.btnToggleLivestream.addEventListener('click', () => {
+            this.toggleLivestreamStatus();
         });
 
         // Refresh - reload from Pancake API
@@ -738,6 +744,47 @@ class InboxChatController {
 
     // ===== Livestream Post Selector =====
 
+    updateLivestreamButton(conv) {
+        const btn = this.elements.btnToggleLivestream;
+        if (!btn) return;
+        btn.style.display = '';
+        if (conv.isLivestream) {
+            btn.title = 'Bỏ khỏi Livestream';
+            btn.classList.add('active');
+            btn.innerHTML = '<i data-lucide="radio"></i>';
+        } else {
+            btn.title = 'Đưa vào Livestream';
+            btn.classList.remove('active');
+            btn.innerHTML = '<i data-lucide="radio"></i>';
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    toggleLivestreamStatus() {
+        if (!this.activeConversationId) return;
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        if (conv.isLivestream) {
+            // Remove from livestream
+            this.data.unmarkAsLivestream(conv.id);
+            // Also delete from server
+            const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(`${workerUrl}/api/realtime/livestream-conversations?conv_id=${encodeURIComponent(conv.id)}`, {
+                method: 'DELETE'
+            }).catch(err => console.warn('[InboxChat] Error removing livestream:', err.message));
+            showToast('Đã bỏ khỏi Livestream', 'success');
+        } else {
+            // Add to livestream — need a post_id
+            const postId = conv._raw?.post_id || 'manual';
+            this.data.markAsLivestream(conv.id, postId);
+            showToast('Đã đưa vào Livestream', 'success');
+        }
+
+        this.updateLivestreamButton(conv);
+        this.renderConversationList();
+    }
+
     toggleLivestreamPostSelector() {
         const selector = document.getElementById('livestreamPostSelector');
         if (!selector) return;
@@ -960,6 +1007,7 @@ class InboxChatController {
         chatAvatar.className = 'chat-avatar';
 
         this.elements.btnMarkUnread.style.display = '';
+        this.updateLivestreamButton(conv);
         this.renderChatLabelBar(conv);
         this.renderConversationList();
         this.renderGroupStats();

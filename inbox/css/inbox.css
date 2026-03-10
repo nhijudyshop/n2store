@@ -403,6 +403,11 @@ body.col-resizing .resize-handle {
     height: 18px;
 }
 
+.btn-icon-sm.active {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
 /* =====================================================
    COLUMN 1: Conversation List
    ===================================================== */
