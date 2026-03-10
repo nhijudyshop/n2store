@@ -171,9 +171,21 @@
             text += ` từ ${uniqueCustomers} khách hàng`;
         }
 
-        // Show toast notification
+        // Show toast notification (clickable → opens pending customers modal)
         if (window.notificationManager && window.notificationManager.success) {
-            window.notificationManager.success(text, 8000);
+            const notifId = window.notificationManager.success(text, 8000);
+            // Make it clickable
+            setTimeout(() => {
+                const el = document.querySelector(`.toast[data-id="${notifId}"]`);
+                if (el) {
+                    el.style.cursor = 'pointer';
+                    el.title = 'Bấm để xem chi tiết';
+                    el.addEventListener('click', (e) => {
+                        if (e.target.closest('.toast-close')) return; // skip close button
+                        showPendingCustomersModal();
+                    });
+                }
+            }, 50);
         } else {
             // Fallback: Show custom toast if notificationManager not ready
             showFallbackToast(text, summary);
@@ -229,6 +241,11 @@
             </style>
         `;
 
+        toast.querySelector('div[style*="position: fixed"]').addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            showPendingCustomersModal();
+        });
+
         document.body.appendChild(toast);
 
         // Auto remove after 8 seconds
@@ -246,6 +263,184 @@
                 setTimeout(() => toast.remove(), 300);
             }
         }, 8000);
+    }
+
+    /**
+     * Show modal with all pending customers (messages & comments)
+     */
+    function showPendingCustomersModal() {
+        // Remove existing modal
+        document.getElementById('pendingCustomersModal')?.remove();
+
+        const customers = cachedPendingCustomers || [];
+        const msgCount = customers.filter(c => c.type === 'INBOX').length;
+        const cmtCount = customers.filter(c => c.type === 'COMMENT').length;
+
+        // Sort by time DESC
+        const sorted = [...customers].sort((a, b) =>
+            new Date(b.last_message_time || 0) - new Date(a.last_message_time || 0)
+        );
+
+        function timeAgo(dateStr) {
+            if (!dateStr) return '';
+            const diff = Date.now() - new Date(dateStr).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'vừa xong';
+            if (mins < 60) return `${mins} phút`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs} giờ`;
+            const days = Math.floor(hrs / 24);
+            return `${days} ngày`;
+        }
+
+        function buildRows(filter) {
+            const list = filter === 'all' ? sorted : sorted.filter(c => c.type === filter);
+            if (list.length === 0) {
+                return '<div style="text-align:center;padding:32px;color:#9ca3af;">Không có dữ liệu</div>';
+            }
+            return list.map(c => {
+                const isMsg = c.type === 'INBOX';
+                const badge = isMsg
+                    ? '<span style="background:#3b82f6;color:#fff;font-size:10px;padding:2px 8px;border-radius:9999px;font-weight:600;">TIN NHẮN</span>'
+                    : '<span style="background:#f59e0b;color:#fff;font-size:10px;padding:2px 8px;border-radius:9999px;font-weight:600;">BÌNH LUẬN</span>';
+                const snippet = (c.last_message_snippet || '').substring(0, 60);
+                const countBadge = (c.message_count || 1) > 1
+                    ? `<span style="background:#ef4444;color:#fff;font-size:10px;padding:1px 6px;border-radius:9999px;margin-left:4px;">${c.message_count}</span>`
+                    : '';
+                return `
+                    <div class="pending-row" data-psid="${c.psid || ''}" data-page-id="${c.page_id || ''}" data-type="${c.type || ''}" style="
+                        display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #f3f4f6;
+                        cursor:pointer;transition:background .15s;
+                    " onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='transparent'">
+                        <div style="width:36px;height:36px;border-radius:50%;background:${isMsg ? '#dbeafe' : '#fef3c7'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="${isMsg ? 'fas fa-comment-dots' : 'fas fa-comments'}" style="color:${isMsg ? '#3b82f6' : '#f59e0b'};font-size:14px;"></i>
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+                                <span style="font-weight:600;font-size:13px;color:#111827;">${c.customer_name || 'Khách hàng'}</span>
+                                ${countBadge}
+                                ${badge}
+                            </div>
+                            <div style="font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                ${snippet || '...'}
+                            </div>
+                        </div>
+                        <div style="font-size:11px;color:#9ca3af;white-space:nowrap;flex-shrink:0;">
+                            ${timeAgo(c.last_message_time)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        const modalHTML = `
+            <div id="pendingCustomersModal" style="
+                position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;
+                display:flex;align-items:center;justify-content:center;
+                background:rgba(0,0,0,0.5);animation:fadeIn .2s ease;
+            ">
+                <div style="
+                    background:#fff;border-radius:16px;width:90%;max-width:560px;max-height:80vh;
+                    display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);
+                    animation:scaleIn .2s ease;overflow:hidden;
+                ">
+                    <!-- Header -->
+                    <div style="padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:700;font-size:16px;color:#111827;">Chưa trả lời</div>
+                            <div style="font-size:12px;color:#6b7280;margin-top:2px;">${customers.length} khách hàng</div>
+                        </div>
+                        <button onclick="document.getElementById('pendingCustomersModal').remove()" style="
+                            background:none;border:none;cursor:pointer;padding:4px;border-radius:6px;color:#6b7280;font-size:20px;
+                        " onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Tab filters -->
+                    <div style="display:flex;gap:4px;padding:8px 20px;border-bottom:1px solid #f3f4f6;background:#fafafa;" id="pendingTabs">
+                        <button class="pending-tab active" data-filter="all" style="
+                            padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;
+                            background:#111827;color:#fff;transition:all .15s;
+                        ">Tất cả (${customers.length})</button>
+                        <button class="pending-tab" data-filter="INBOX" style="
+                            padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+                            background:transparent;color:#6b7280;transition:all .15s;
+                        ">Tin nhắn (${msgCount})</button>
+                        <button class="pending-tab" data-filter="COMMENT" style="
+                            padding:6px 14px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:500;
+                            background:transparent;color:#6b7280;transition:all .15s;
+                        ">Bình luận (${cmtCount})</button>
+                    </div>
+
+                    <!-- Customer list -->
+                    <div id="pendingList" style="overflow-y:auto;flex:1;">
+                        ${buildRows('all')}
+                    </div>
+                </div>
+            </div>
+            <style>
+                @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+                @keyframes scaleIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+            </style>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+        // Tab switching
+        document.getElementById('pendingTabs').addEventListener('click', (e) => {
+            const btn = e.target.closest('.pending-tab');
+            if (!btn) return;
+            document.querySelectorAll('.pending-tab').forEach(t => {
+                t.style.background = 'transparent';
+                t.style.color = '#6b7280';
+                t.style.fontWeight = '500';
+                t.classList.remove('active');
+            });
+            btn.style.background = '#111827';
+            btn.style.color = '#fff';
+            btn.style.fontWeight = '600';
+            btn.classList.add('active');
+            document.getElementById('pendingList').innerHTML = buildRows(btn.dataset.filter);
+            attachRowClicks();
+        });
+
+        // Row clicks → open chat modal
+        function attachRowClicks() {
+            document.querySelectorAll('#pendingList .pending-row').forEach(row => {
+                row.addEventListener('click', () => {
+                    const psid = row.dataset.psid;
+                    const pageId = row.dataset.pageId;
+                    const type = row.dataset.type;
+
+                    // Try to find matching order in table
+                    let tableRow = document.querySelector(`tr[data-psid="${psid}"][data-page-id="${pageId}"]`);
+                    if (!tableRow) tableRow = document.querySelector(`tr[data-psid="${psid}"]`);
+
+                    if (tableRow) {
+                        const orderId = tableRow.dataset.orderId;
+                        if (window.openChatModal) {
+                            document.getElementById('pendingCustomersModal').remove();
+                            window.openChatModal(orderId, pageId, psid, type === 'COMMENT' ? 'comment' : 'message');
+                        }
+                    } else {
+                        // No matching order in table — try opening chat directly
+                        if (window.openChatModal) {
+                            document.getElementById('pendingCustomersModal').remove();
+                            window.openChatModal(null, pageId, psid, type === 'COMMENT' ? 'comment' : 'message');
+                        }
+                    }
+                });
+            });
+        }
+        attachRowClicks();
+
+        // Close on backdrop click
+        document.getElementById('pendingCustomersModal').addEventListener('click', (e) => {
+            if (e.target.id === 'pendingCustomersModal') {
+                e.target.remove();
+            }
+        });
     }
 
     /**
@@ -504,7 +699,8 @@
         markReplied: markRepliedOnServer,
         highlight: highlightNewMessagesInTable,
         reapply: reapplyHighlights,
-        getCached: () => cachedPendingCustomers
+        getCached: () => cachedPendingCustomers,
+        showModal: showPendingCustomersModal
     };
 
     // Auto-initialize
