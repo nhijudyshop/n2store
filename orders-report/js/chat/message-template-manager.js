@@ -1573,6 +1573,7 @@ class MessageTemplateManager {
             }
 
             // Fallback: reply_comment (public comment reply)
+            // Use commentConvId as conversation in URL, latestComment.Id as message_id
             this.log(`🔄 private_replies failed → trying reply_comment for order ${order.code}`);
             try {
                 const facebookPostId = order.Facebook_PostId || order.raw?.Facebook_PostId;
@@ -1587,12 +1588,13 @@ class MessageTemplateManager {
                         const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
                         if (customerComments.length > 0) {
                             const latestComment = customerComments[customerComments.length - 1];
-                            const rcConversationId = latestComment.Id;
 
+                            // Use commentConvId (COMMENT conversation ID) for URL,
+                            // latestComment.Id (individual comment) for message_id
                             const rcUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                                `pages/${channelId}/conversations/${rcConversationId}/messages`,
+                                `pages/${channelId}/conversations/${commentConvId}/messages`,
                                 prPageAccessToken
-                            );
+                            ) + (customerId ? `&customer_id=${customerId}` : '');
 
                             const rcPayload = {
                                 action: 'reply_comment',
@@ -1600,7 +1602,7 @@ class MessageTemplateManager {
                                 message: messageContent
                             };
 
-                            this.log(`📤 Sending reply_comment: commentId=${latestComment.Id}`);
+                            this.log(`📤 Sending reply_comment: convId=${commentConvId}, commentId=${latestComment.Id}`);
                             const rcResponse = await API_CONFIG.smartFetch(rcUrl, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
