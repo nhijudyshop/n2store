@@ -1340,7 +1340,24 @@ class MessageTemplateManager {
                 if (convResult.success && convResult.conversations?.length > 0) {
                     // Find INBOX conversation first, track COMMENT for fallback
                     const inboxConv = convResult.conversations.find(c => c.type === 'INBOX');
-                    const commentConv = convResult.conversations.find(c => c.type === 'COMMENT');
+
+                    // Find COMMENT conversation matching this order's post (if possible)
+                    // Facebook_PostId format: pageId_postId → extract postId to match conv ID (postId_commentId)
+                    let commentConv = null;
+                    const orderFbPostId = fullOrderData?.raw?.Facebook_PostId;
+                    if (orderFbPostId) {
+                        const postIdPart = orderFbPostId.split('_')[1] || orderFbPostId;
+                        commentConv = convResult.conversations.find(c =>
+                            c.type === 'COMMENT' && c.id.startsWith(postIdPart + '_')
+                        );
+                        if (commentConv) {
+                            this.log(`📌 Found COMMENT matching order's post (${postIdPart}): ${commentConv.id}`);
+                        }
+                    }
+                    // Fallback: first COMMENT conversation
+                    if (!commentConv) {
+                        commentConv = convResult.conversations.find(c => c.type === 'COMMENT');
+                    }
 
                     if (inboxConv) {
                         conversationId = inboxConv.id;
@@ -1392,9 +1409,14 @@ class MessageTemplateManager {
                 prPageAccessToken
             ) + (customerId ? `&customer_id=${customerId}` : '');
 
+            // Derive post_id from commentConvId to ensure consistency
+            // commentConvId format: postId_commentId → post_id: pageId_postId
+            const prCommentPostPart = commentConvId.split('_')[0];
+            const prDerivedPostId = `${channelId}_${prCommentPostPart}`;
+
             const prPayload = {
                 action: 'private_replies',
-                post_id: fullOrderData.raw.Facebook_PostId || '',
+                post_id: prDerivedPostId,
                 message_id: commentConvId,
                 from_id: psid,
                 message: messageContent
@@ -1598,7 +1620,7 @@ class MessageTemplateManager {
                 // Send API also failed → try Pancake private_replies with known comment conv ID
                 if (commentConvId) {
                     this.log(`🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`);
-                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, fullOrderData.raw, commentConvId, customerId, token);
+                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, commentConvId, customerId, token);
                     if (prResult) {
                         this.log(`✅ Pancake private_replies succeeded for order ${order.code}`);
                         return true;
@@ -1630,7 +1652,7 @@ class MessageTemplateManager {
                 // Send API also failed → try Pancake private_replies with known comment conv ID
                 if (commentConvId) {
                     this.log(`🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`);
-                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, fullOrderData.raw, commentConvId, customerId, token);
+                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, commentConvId, customerId, token);
                     if (prResult) {
                         this.log(`✅ Pancake private_replies succeeded for order ${order.code}`);
                         return true;
@@ -1662,7 +1684,7 @@ class MessageTemplateManager {
      * Uses Pancake API endpoint with action: "private_replies"
      * @returns {boolean} true if succeeded, false if failed
      */
-    async _sendViaPancakePrivateReply(channelId, psid, messageContent, orderRaw, commentConvId, customerId, token) {
+    async _sendViaPancakePrivateReply(channelId, psid, messageContent, commentConvId, customerId, token) {
         this.log(`[PANCAKE-PR] Attempting Pancake private_replies...`);
 
         try {
@@ -1685,9 +1707,14 @@ class MessageTemplateManager {
                 pageAccessToken
             ) + (customerId ? `&customer_id=${customerId}` : '');
 
+            // Derive post_id from commentConvId to ensure consistency
+            // commentConvId format: postId_commentId → post_id: pageId_postId
+            const commentPostPart = commentConvId.split('_')[0];
+            const derivedPostId = `${channelId}_${commentPostPart}`;
+
             const payload = {
                 action: 'private_replies',
-                post_id: orderRaw.Facebook_PostId || '',
+                post_id: derivedPostId,
                 message_id: commentConvId,
                 from_id: psid,
                 message: messageContent
