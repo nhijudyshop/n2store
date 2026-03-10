@@ -511,10 +511,10 @@ class InboxDataManager {
 
         if (filter === 'unread') {
             result = result.filter(c => c.unread > 0);
-        } else if (filter === 'starred') {
-            result = result.filter(c => c.starred);
         } else if (filter === 'livestream') {
-            result = result.filter(c => c.isLivestream && c.unread > 0);
+            result = result.filter(c => c.isLivestream);
+        } else if (filter === 'inbox_my') {
+            result = result.filter(c => !c.isLivestream && c.unread > 0);
         }
 
         if (groupFilter) {
