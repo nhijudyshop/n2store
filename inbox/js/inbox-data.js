@@ -792,14 +792,49 @@ class InboxDataManager {
                 for (const c of convs) this.livestreamConvIdSet.add(c.conv_id);
             }
 
-            // Mark conversations
+            // Mark existing conversations + add virtual entries for server-only ones
+            const existingIds = new Set(this.conversations.map(c => c.id));
             for (const conv of this.conversations) {
                 conv.isLivestream = this.livestreamConvIdSet.has(conv.id);
             }
 
+            // Create virtual conversation entries for conv_ids in server but not in Pancake response
+            let virtualCount = 0;
+            for (const [postId, convs] of Object.entries(this.livestreamPostMap)) {
+                for (const sc of convs) {
+                    if (!existingIds.has(sc.conv_id)) {
+                        const virtual = {
+                            id: sc.conv_id,
+                            name: sc.name || 'Khách hàng',
+                            avatar: sc.avatar || null,
+                            lastMessage: sc.last_message || '',
+                            time: sc.conv_time ? new Date(sc.conv_time) : new Date(sc.updated_at || 0),
+                            unread: 0,
+                            online: false,
+                            phone: '',
+                            labels: sc.label ? (sc.label.startsWith('[') ? JSON.parse(sc.label) : [sc.label]) : ['new'],
+                            isLivestream: true,
+                            type: sc.type || 'COMMENT',
+                            pageId: sc.page_id || '',
+                            pageName: sc.page_name || '',
+                            psid: sc.psid || '',
+                            customerId: sc.customer_id || null,
+                            conversationId: sc.conv_id,
+                            messages: [],
+                            _raw: { post_id: postId },
+                            _virtual: true, // flag for server-only entries
+                        };
+                        this.conversations.push(virtual);
+                        existingIds.add(sc.conv_id);
+                        virtualCount++;
+                    }
+                }
+            }
+
+            if (virtualCount > 0) this.buildMaps();
             this.recalculateGroupCounts();
             if (window.inboxChat) window.inboxChat.renderConversationList();
-            console.log(`[InboxData] Livestream from server: ${this.livestreamConvIdSet.size} convs across ${Object.keys(this.livestreamPostMap).length} posts`);
+            console.log(`[InboxData] Livestream from server: ${this.livestreamConvIdSet.size} convs (${virtualCount} virtual) across ${Object.keys(this.livestreamPostMap).length} posts`);
         } catch (error) {
             console.warn('[InboxData] Failed to fetch livestream from server:', error.message);
         }
