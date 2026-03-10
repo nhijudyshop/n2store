@@ -764,7 +764,7 @@ class InboxChatController {
                 existing.count++;
             } else {
                 const postMessage = conv._raw?.post?.message || '';
-                const snippet = postMessage.substring(0, 40) || `Post ${postId.substring(0, 8)}...`;
+                const snippet = postMessage || `Post ${postId}`;
                 postMap.set(postId, { count: 1, snippet });
             }
         }
