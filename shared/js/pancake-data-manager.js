@@ -949,6 +949,12 @@ class PancakeDataManager {
                         conversation: cached.conversation,
                         customers: cached.customers,
                         customerId: cached.customerId,
+                        post: cached.post || null,
+                        activities: cached.activities || [],
+                        reports_by_phone: cached.reports_by_phone || {},
+                        comment_count: cached.comment_count || 0,
+                        recent_phone_numbers: cached.recent_phone_numbers || [],
+                        conv_phone_numbers: cached.conv_phone_numbers || [],
                         fromCache: true
                     };
                 }
@@ -1001,6 +1007,12 @@ class PancakeDataManager {
                 conversation: data.conversation || null,
                 customers: customers,
                 customerId: extractedCustomerId,
+                post: data.post || null,
+                activities: data.activities || [],
+                reports_by_phone: data.reports_by_phone || {},
+                comment_count: data.comment_count || 0,
+                recent_phone_numbers: data.recent_phone_numbers || data.conv_recent_phone_numbers || [],
+                conv_phone_numbers: data.conv_phone_numbers || [],
                 fromCache: false
             };
 
@@ -1011,6 +1023,12 @@ class PancakeDataManager {
                     conversation: result.conversation,
                     customers: result.customers,
                     customerId: result.customerId,
+                    post: result.post,
+                    activities: result.activities,
+                    reports_by_phone: result.reports_by_phone,
+                    comment_count: result.comment_count,
+                    recent_phone_numbers: result.recent_phone_numbers,
+                    conv_phone_numbers: result.conv_phone_numbers,
                     timestamp: Date.now()
                 });
                 console.log(`[PANCAKE] Messages cached for ${cacheKey}`);
@@ -1030,6 +1048,12 @@ class PancakeDataManager {
                     conversation: cached.conversation,
                     customers: cached.customers,
                     customerId: cached.customerId,
+                    post: cached.post || null,
+                    activities: cached.activities || [],
+                    reports_by_phone: cached.reports_by_phone || {},
+                    comment_count: cached.comment_count || 0,
+                    recent_phone_numbers: cached.recent_phone_numbers || [],
+                    conv_phone_numbers: cached.conv_phone_numbers || [],
                     fromCache: true,
                     error: error.message
                 };
