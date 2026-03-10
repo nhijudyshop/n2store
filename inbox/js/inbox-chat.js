@@ -189,15 +189,15 @@ class InboxChatController {
         const btnFetchPostNames = document.getElementById('btnFetchPostNames');
         if (btnFetchPostNames) {
             btnFetchPostNames.addEventListener('click', () => {
-                this._fetchingPostNames = false; // reset flag to allow re-fetch
+                this._fetchingPostNames = false;
+                // Always re-fetch all posts (force refresh)
                 const postIds = Object.keys(this.data.livestreamPostMap || {});
-                const missing = postIds.filter(pid => !this.data.livestreamPostNames[pid]);
-                if (missing.length === 0) {
-                    showToast('Đã có tên tất cả bài post', 'info');
+                if (postIds.length === 0) {
+                    showToast('Không có bài post livestream', 'info');
                     return;
                 }
-                showToast(`Đang lấy tên ${missing.length} bài post...`, 'info');
-                this._fetchMissingPostNames(missing);
+                showToast(`Đang lấy tên ${postIds.length} bài post...`, 'info');
+                this._fetchMissingPostNames(postIds);
             });
         }
 
@@ -845,16 +845,14 @@ class InboxChatController {
 
         let updated = false;
         for (const postId of postIds) {
-            // Find a conversation for this post to use for API call
             const convs = this.data.livestreamPostMap[postId] || [];
             const sc = convs[0];
             if (!sc) continue;
 
-            // Find matching local conversation (real or virtual)
             const conv = this.data.getConversation(sc.conv_id);
             const pageId = conv?.pageId || sc.page_id;
             const convId = sc.conv_id;
-            if (!pageId || !convId) continue;
+            if (!pageId || !convId) { console.log(`[PostName] Skip ${postId}: no pageId/convId`); continue; }
 
             // Check if messages already loaded (has post data)
             if (conv?._messagesData?.post?.message) {
@@ -864,10 +862,17 @@ class InboxChatController {
             }
 
             try {
+                // Clear message cache to force fresh API call
+                const cacheKey = `${pageId}_${convId}`;
+                if (pdm.clearMessagesCache) pdm.clearMessagesCache(cacheKey);
+
+                console.log(`[PostName] Fetching for post ${postId}, page=${pageId}, conv=${convId}`);
                 const result = await pdm.fetchMessagesForConversation(
                     pageId, convId, null, conv?.customerId || sc.customer_id
                 );
                 const post = result?.post || result?.conversation?.post;
+                console.log(`[PostName] Result post:`, post ? { type: post.type, message: post.message?.substring(0, 50), live_video_status: post.live_video_status } : null);
+
                 if (post?.message) {
                     this.data.livestreamPostNames[postId] = post.message;
                     // Save to server for persistence
@@ -880,7 +885,7 @@ class InboxChatController {
                     updated = true;
                 }
             } catch (e) {
-                console.warn(`[InboxChat] Failed to fetch post name for ${postId}:`, e.message);
+                console.warn(`[PostName] Failed for ${postId}:`, e.message);
             }
         }
 
