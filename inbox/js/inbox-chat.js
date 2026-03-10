@@ -1247,6 +1247,45 @@ class InboxChatController {
     /**
      * Send a real message via Pancake API
      */
+    /**
+     * Parse Facebook API error from response
+     */
+    _parseFbError(responseText) {
+        try {
+            const data = JSON.parse(responseText);
+            const eCode = data.e_code || data.error_code || data.error?.code || 0;
+            const eSubcode = data.e_subcode || data.error_subcode || data.error?.error_subcode || 0;
+            const message = data.message || data.error?.message || responseText;
+            const is24HourError = (eCode === 10 && eSubcode === 2018278) ||
+                (message && message.includes('khoảng thời gian cho phép'));
+            const isUserUnavailable = (eCode === 551) ||
+                (message && message.includes('không có mặt'));
+            return { eCode, eSubcode, message, is24HourError, isUserUnavailable, raw: data };
+        } catch {
+            return { eCode: 0, eSubcode: 0, message: responseText, is24HourError: false, isUserUnavailable: false, raw: null };
+        }
+    }
+
+    /**
+     * Send API request helper
+     */
+    async _sendApi(url, payload) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const errText = await response.text();
+            const parsed = this._parseFbError(errText);
+            const err = new Error(parsed.message);
+            err.status = response.status;
+            err.fbError = parsed;
+            throw err;
+        }
+        return response;
+    }
+
     async sendMessage() {
         if (!this.activeConversationId || this.isSending) return;
 
@@ -1262,17 +1301,11 @@ class InboxChatController {
         // Determine send page (from selector or conversation's page)
         const sendPageId = this.currentSendPageId || conv.pageId;
 
-        // 24h window check (Facebook messaging policy) - only for INBOX
+        // 24h window warning (don't block - let API try, handle errors with fallback)
         if (conv.type !== 'COMMENT') {
             const windowCheck = this.data.check24hWindow(this.activeConversationId);
-            if (!windowCheck.isOpen) {
-                showToast('Cửa sổ 24h đã hết hạn. Không thể gửi tin nhắn.', 'warning');
-                this.isSending = false;
-                this.elements.btnSend.disabled = false;
-                return;
-            }
             if (windowCheck.hoursRemaining !== null && windowCheck.hoursRemaining <= 2) {
-                showToast(`Cửa sổ 24h còn ${windowCheck.hoursRemaining}h. Gửi nhanh!`, 'warning');
+                showToast(`Cửa sổ 24h còn ${windowCheck.hoursRemaining}h`, 'warning');
             }
         }
 
@@ -1294,84 +1327,16 @@ class InboxChatController {
                 throw new Error(`Không tìm thấy page_access_token cho page ${sendPageId}. Không có account nào có quyền truy cập page này.`);
             }
 
-            let url, payload;
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
+                pageAccessToken
+            );
 
             if (conv.type === 'COMMENT') {
-                // COMMENT conversation: send private reply to customer
-                const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
-                const fromId = conv.psid || conv._raw?.from?.id || '';
-                // For COMMENT, conversationId is the comment thread ID
-                const messageId = replyData?.msgId || conv.conversationId;
-
-                url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
-                    pageAccessToken
-                );
-
-                // Use private_replies to send private message to commenter
-                payload = {
-                    action: 'private_replies',
-                    post_id: postId,
-                    message_id: messageId,
-                    from_id: fromId,
-                    message: text
-                };
-
-                console.log('[InboxChat] Sending private_replies:', { sendPageId, postId, messageId, fromId, text: text.substring(0, 50) });
+                await this._sendComment(url, text, conv, replyData);
             } else {
-                // INBOX conversation: reply via Messenger
-                url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
-                    pageAccessToken
-                );
-                payload = {
-                    action: 'reply_inbox',
-                    message: text
-                };
-
-                // Include replied_message_id if replying to a specific message
-                if (replyData && replyData.msgId) {
-                    payload.replied_message_id = replyData.msgId;
-                }
-
-                console.log('[InboxChat] Sending reply_inbox:', { sendPageId, convId: conv.conversationId, text: text.substring(0, 50) });
+                await this._sendInbox(url, text, conv, replyData);
             }
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errText = await response.text();
-                let errData;
-                try { errData = JSON.parse(errText); } catch { errData = { message: errText }; }
-
-                // Handle private_replies failure: fallback to reply_inbox for COMMENT
-                if (conv.type === 'COMMENT' && payload.action === 'private_replies') {
-                    console.warn('[InboxChat] private_replies failed, trying reply_inbox fallback...');
-
-                    // Try to find the inbox conversation for this customer
-                    const inboxPayload = { action: 'reply_inbox', message: text };
-                    const fallbackResponse = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(inboxPayload)
-                    });
-
-                    if (!fallbackResponse.ok) {
-                        const fallbackErr = await fallbackResponse.text();
-                        throw new Error(`private_replies + reply_inbox đều thất bại: ${fallbackErr}`);
-                    }
-                    console.log('[InboxChat] reply_inbox fallback succeeded');
-                } else {
-                    throw new Error(`HTTP ${response.status}: ${errData.message || errText}`);
-                }
-            }
-
-            const successMsg = conv.type === 'COMMENT' ? 'Đã gửi tin nhắn riêng' : 'Đã gửi tin nhắn';
-            console.log('[InboxChat]', successMsg);
 
             // Auto mark as read after sending message
             this.data.markAsRead(this.activeConversationId);
@@ -1379,7 +1344,6 @@ class InboxChatController {
 
             setTimeout(async () => {
                 if (this.activeConversationId === conv.id) {
-                    // Clear cache so we get fresh messages from API
                     const pdm = window.pancakeDataManager;
                     if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
                     await this.loadMessages(conv);
@@ -1388,10 +1352,119 @@ class InboxChatController {
 
         } catch (error) {
             console.error('[InboxChat] Error sending message:', error);
-            showToast('Lỗi gửi tin nhắn: ' + error.message, 'error');
+            const fb = error.fbError;
+            if (fb?.is24HourError) {
+                showToast('Đã quá 24h. Khách cần nhắn tin trước mới gửi lại được.', 'error');
+            } else if (fb?.isUserUnavailable) {
+                showToast('Không thể gửi: Khách chưa từng inbox hoặc đã block page.', 'error');
+            } else {
+                showToast('Lỗi gửi tin nhắn: ' + error.message, 'error');
+            }
         } finally {
             this.isSending = false;
             this.elements.btnSend.disabled = false;
+        }
+    }
+
+    /**
+     * Send to INBOX conversation with fallback chain:
+     * reply_inbox → private_replies (if 24h/551 and comment data available)
+     */
+    async _sendInbox(url, text, conv, replyData) {
+        const payload = { action: 'reply_inbox', message: text };
+        if (replyData?.msgId) payload.replied_message_id = replyData.msgId;
+
+        console.log('[InboxChat] Sending reply_inbox:', { sendPageId, convId: conv.conversationId });
+
+        try {
+            await this._sendApi(url, payload);
+            console.log('[InboxChat] reply_inbox succeeded');
+            return;
+        } catch (err) {
+            const fb = err.fbError;
+            if (!fb?.is24HourError && !fb?.isUserUnavailable) throw err;
+
+            // 24h or 551 error → try private_replies if we have comment/post data
+            const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
+            const fromId = conv.psid || conv._raw?.from?.id || '';
+
+            if (!postId || !fromId) {
+                console.warn('[InboxChat] No post/comment data for private_replies fallback');
+                throw err; // Re-throw original error
+            }
+
+            console.log('[InboxChat] reply_inbox failed (24h/551), trying private_replies fallback...');
+            showToast('Inbox thất bại, đang thử gửi qua comment...', 'warning');
+
+            try {
+                await this._sendApi(url, {
+                    action: 'private_replies',
+                    post_id: postId,
+                    message_id: conv.conversationId,
+                    from_id: fromId,
+                    message: text
+                });
+                console.log('[InboxChat] private_replies fallback succeeded');
+                showToast('Đã gửi qua private reply', 'success');
+                return;
+            } catch (err2) {
+                console.warn('[InboxChat] private_replies fallback also failed');
+                throw err; // Throw original 24h/551 error for user-friendly message
+            }
+        }
+    }
+
+    /**
+     * Send to COMMENT conversation with fallback chain:
+     * private_replies → reply_inbox → reply_comment (public)
+     */
+    async _sendComment(url, text, conv, replyData) {
+        const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
+        const fromId = conv.psid || conv._raw?.from?.id || '';
+        const messageId = replyData?.msgId || conv.conversationId;
+
+        // Step 1: Try private_replies (send private message to commenter)
+        console.log('[InboxChat] Sending private_replies:', { postId, messageId, fromId });
+        try {
+            await this._sendApi(url, {
+                action: 'private_replies',
+                post_id: postId,
+                message_id: messageId,
+                from_id: fromId,
+                message: text
+            });
+            console.log('[InboxChat] private_replies succeeded');
+            showToast('Đã gửi tin nhắn riêng', 'success');
+            return;
+        } catch (err1) {
+            console.warn('[InboxChat] private_replies failed:', err1.message);
+        }
+
+        // Step 2: Fallback to reply_inbox (messenger reply)
+        console.log('[InboxChat] Trying reply_inbox fallback...');
+        try {
+            await this._sendApi(url, { action: 'reply_inbox', message: text });
+            console.log('[InboxChat] reply_inbox fallback succeeded');
+            showToast('Đã gửi qua Messenger', 'success');
+            return;
+        } catch (err2) {
+            console.warn('[InboxChat] reply_inbox fallback failed:', err2.message);
+        }
+
+        // Step 3: Last resort - reply_comment (public comment reply)
+        console.log('[InboxChat] Trying reply_comment (public) as last resort...');
+        try {
+            await this._sendApi(url, {
+                action: 'reply_comment',
+                message_id: messageId,
+                message: text
+            });
+            console.log('[InboxChat] reply_comment succeeded');
+            showToast('Đã trả lời bình luận công khai', 'success');
+            return;
+        } catch (err3) {
+            console.error('[InboxChat] All 3 methods failed');
+            throw err3; // Throw last error
         }
     }
 
