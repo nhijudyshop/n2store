@@ -983,8 +983,6 @@ class InboxChatController {
         }
         if (!conv) return;
 
-        this.data.markAsRead(convId);
-
         // Update header
         this.elements.chatUserName.textContent = conv.name;
         const statusParts = [];
@@ -1687,6 +1685,8 @@ class InboxChatController {
                     });
 
                     showToast('Đã gửi ảnh', 'success');
+                    this.data.markAsRead(this.activeConversationId);
+                    this.renderConversationList();
                     setTimeout(() => {
                         const pdm = window.pancakeDataManager;
                         if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
@@ -2293,6 +2293,8 @@ class InboxChatController {
                         })
                     });
                     showToast('Đã gửi file: ' + file.name, 'success');
+                    this.data.markAsRead(this.activeConversationId);
+                    this.renderConversationList();
                     setTimeout(() => {
                         const pdm = window.pancakeDataManager;
                         if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
