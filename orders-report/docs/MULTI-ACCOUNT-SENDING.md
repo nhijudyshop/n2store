@@ -17,23 +17,31 @@ Hệ thống gửi tin nhắn Facebook sử dụng **tất cả Pancake accounts
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Round-Robin Order Distribution                   │
+│         1. Pre-fetch Page Access (prefetchAllAccountPages)    │
 │                                                               │
-│   Orders: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12...]        │
-│                              │                                │
-│              ┌───────────────┼───────────────┐               │
-│              ▼               ▼               ▼               │
-│         Account A       Account B       Account C            │
-│         [1,4,7,10]      [2,5,8,11]      [3,6,9,12]          │
+│   Account A → [Page X, Page Y]                               │
+│   Account B → [Page Y, Page Z]                               │
+│   Account C → [Page X, Page Z]                               │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Parallel Execution (Workers)                     │
+│         2. Page-Access-Aware Order Distribution               │
 │                                                               │
-│   Worker A ──▶ [1] ─delay─ [4] ─delay─ [7] ─delay─ [10]     │
-│   Worker B ──▶ [2] ─delay─ [5] ─delay─ [8] ─delay─ [11]     │
-│   Worker C ──▶ [3] ─delay─ [6] ─delay─ [9] ─delay─ [12]     │
+│   Order 1 (Page X) → eligible: [A, C] → Account A           │
+│   Order 2 (Page Y) → eligible: [A, B] → Account B           │
+│   Order 3 (Page X) → eligible: [A, C] → Account C           │
+│   Order 4 (Page Z) → eligible: [B, C] → Account B           │
+│   ...round-robin WITHIN eligible accounts per page           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│         3. Parallel Execution (Workers)                       │
+│                                                               │
+│   Worker A ──▶ [1] ─delay─ [5] ─delay─ [9] ─delay─          │
+│   Worker B ──▶ [2] ─delay─ [4] ─delay─ [8] ─delay─          │
+│   Worker C ──▶ [3] ─delay─ [6] ─delay─ [7] ─delay─          │
 │                                                               │
 │   ↑ Tất cả workers chạy SONG SONG                            │
 └─────────────────────────────────────────────────────────────┘
@@ -72,30 +80,51 @@ getValidAccountsForSending() {
 }
 ```
 
-### 2. Phân phối đơn hàng (Round-Robin)
+### 2. Phân phối đơn hàng (Page-Access-Aware)
+
+Hệ thống **KHÔNG dùng round-robin mù**. Thay vào đó, mỗi đơn được assign cho account có quyền trên page đích.
+
+#### Step 1: Pre-fetch page access
+
+```javascript
+// Trước khi phân phối, fetch pages cho tất cả accounts song song
+await window.pancakeTokenManager.prefetchAllAccountPages();
+// → accountPageAccessMap = { accA: Set(['pageX','pageY']), accB: Set(['pageY','pageZ']), ... }
+```
+
+#### Step 2: Smart distribution
 
 ```javascript
 // message-template-manager.js
-const accountQueues = validAccounts.map(() => []);
+this.selectedOrders.forEach((order) => {
+    const channelId = order.Facebook_PostId?.split('_')[0]; // Extract pageId
 
-// Round-robin distribution
-this.selectedOrders.forEach((order, index) => {
-    const accountIndex = index % validAccounts.length;
-    accountQueues[accountIndex].push(order);
+    // Tìm accounts có quyền trên page này
+    const eligible = validAccounts.filter(acc =>
+        window.pancakeTokenManager.accountHasPageAccess(acc.accountId, channelId)
+    );
+
+    if (eligible.length > 0) {
+        // Round-robin TRONG nhóm accounts có quyền
+        const chosen = eligible[counter % eligible.length];
+        accountQueues[chosen.idx].push(order);
+    } else {
+        // Fallback: round-robin toàn bộ (giữ behavior cũ)
+        unassignedOrders.push(order);
+    }
 });
 ```
 
-**Ví dụ phân phối:**
+**Ví dụ phân phối (3 accounts, 2 pages):**
 
-| Order Index | `index % 3` | Assigned Account |
-|-------------|-------------|------------------|
-| 0 | 0 | Account A |
-| 1 | 1 | Account B |
-| 2 | 2 | Account C |
-| 3 | 0 | Account A |
-| 4 | 1 | Account B |
-| 5 | 2 | Account C |
-| ... | ... | ... |
+| Order | Page | Eligible Accounts | Assigned |
+|-------|------|-------------------|----------|
+| 1 | Page X | A, C | Account A |
+| 2 | Page Y | A, B | Account A |
+| 3 | Page X | A, C | Account C |
+| 4 | Page Y | A, B | Account B |
+| 5 | Page X | A, C | Account A |
+| 6 | Page Z | B, C | Account B |
 
 ### 3. Tạo Worker cho mỗi account
 
@@ -683,11 +712,66 @@ async generatePageAccessTokenWithToken(pageId, accountToken) {
 }
 ```
 
+## Page Access Validation & Account Fallback
+
+### Vấn đề
+Mỗi account Pancake chỉ có quyền trên một số pages nhất định. Nếu account không có quyền trên page đích → lỗi gửi tin nhắn.
+
+### Giải pháp: `accountPageAccessMap` cache
+
+```javascript
+// pancake-token-manager.js
+this.accountPageAccessMap = {}; // { accountId: Set<pageId> }
+```
+
+#### Các methods chính
+
+| Method | Mô tả |
+|--------|-------|
+| `fetchAndCacheAccountPages(accountId, token)` | Fetch pages cho 1 account, cache vào `accountPageAccessMap` |
+| `prefetchAllAccountPages()` | Fetch pages cho tất cả accounts song song (`Promise.all`) |
+| `accountHasPageAccess(accountId, pageId)` | Check nhanh từ cache |
+| `getAccountsWithPageAccess(pageId)` | Lấy tất cả accounts có quyền trên page |
+| `findAccountWithPageAccess(pageId, excludeId)` | Tìm 1 account fallback (bỏ qua account đã fail) |
+
+### Áp dụng
+
+#### 1. Gửi hàng loạt (Bulk Sending)
+- Pre-fetch page access **TRƯỚC** khi phân phối đơn
+- Đơn chỉ được assign cho account có quyền trên page đích
+- Round-robin **TRONG** nhóm accounts có quyền (cân bằng tải)
+
+#### 2. Gửi tin nhắn đơn lẻ (Single Message/Comment)
+```javascript
+// tab1-chat.js - sendMessageInternal() & sendCommentInternal()
+let pageAccessToken = pancakeTokenManager.getPageAccessToken(channelId);
+if (!pageAccessToken) {
+    // Thử active account
+    pageAccessToken = await generatePageAccessTokenWithToken(channelId, activeToken);
+    if (!pageAccessToken) {
+        // Fallback: tìm account khác có quyền
+        const fallback = pancakeTokenManager.findAccountWithPageAccess(channelId, activeAccountId);
+        if (fallback) {
+            pageAccessToken = await generatePageAccessTokenWithToken(channelId, fallback.token);
+        }
+    }
+}
+```
+
+### Hiển thị trong UI (Quản lý Pancake Accounts modal)
+Mỗi account card hiển thị số pages và tên pages dạng badge tím:
+```
+✅ Con Nhoc
+UID: 99d3d4e1-...
+📄 3 pages: [NhiJudy Store] [Nhi Judy Ơi] [Nhi Judy House]
+```
+
 ## Tóm tắt
 
 | Feature | Mô tả |
 |---------|-------|
-| **Phân phối** | Round-robin, chia đều đơn cho các accounts |
+| **Phân phối** | Page-access-aware, chỉ assign đơn cho account có quyền page |
+| **Fallback** | Tự động dùng account khác nếu account chính không có quyền |
 | **Song song** | Tất cả accounts chạy cùng lúc |
 | **Delay** | Mỗi account có delay riêng giữa các đơn |
 | **Trùng lặp** | 0% - Mỗi đơn chỉ 1 account xử lý |
@@ -698,3 +782,4 @@ async generatePageAccessTokenWithToken(pageId, accountToken) {
 | **Gửi lại Comment** | Đơn thất bại có thể gửi qua reply_comment |
 | **Watermark Badge** | Đánh dấu đơn thất bại trên bảng, tự động clear |
 | **Token Pre-load** | Pre-load page tokens, thread-safe generation |
+| **Page Access Cache** | Cache pages/account, prefetch song song, check nhanh in-memory |
