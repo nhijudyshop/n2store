@@ -2155,11 +2155,22 @@ class InboxChatController {
         const conversation = payload?.conversation || payload;
         if (!conversation || !conversation.id) return;
 
+        // Filter by page_id — only process pages the inbox manages
+        const pageId = conversation.page_id || payload?.page_id;
+        if (pageId) {
+            const knownPage = this.data.pages.find(p => p.id === pageId || p.page_id === pageId);
+            if (!knownPage) return;
+        }
+
+        // Filter by type — only process INBOX and COMMENT (skip unknown types)
+        if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') return;
+
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
             existing.lastMessage = conversation.snippet || existing.lastMessage;
             existing.time = this.parseTimestamp(conversation.updated_at) || new Date();
             existing.unread = conversation.unread_count ?? existing.unread;
+            if (conversation.type) existing.type = conversation.type;
             if (conversation.tags) existing._raw.tags = conversation.tags;
         } else {
             // New conversation
