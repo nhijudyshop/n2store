@@ -2170,8 +2170,33 @@ body.col-resizing .resize-handle {
     height: 14px;
 }
 
-.conversation-item:hover .conv-read-toggle {
+.conversation-item:hover .conv-read-toggle,
+.conversation-item:hover .conv-move-btn {
     display: flex;
+}
+
+.conv-move-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.conv-move-btn:hover {
+    color: var(--primary);
+    background: var(--bg-hover);
+}
+
+.conv-move-btn i,
+.conv-move-btn svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* =====================================================

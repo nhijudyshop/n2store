@@ -588,6 +588,13 @@ class InboxChatController {
             // Tags
             const tagsHtml = this.getTagsHtml(conv);
 
+            // Move button: only in "all" tab — move to Livestream or Inbox My
+            const moveBtn = this.currentFilter === 'all' ? `
+                <button class="conv-move-btn" title="${conv.isLivestream ? 'Chuyển qua Inbox My' : 'Chuyển qua Livestream'}"
+                    onclick="event.stopPropagation(); window.inboxChat.moveConversationTab('${conv.id}')">
+                    <i data-lucide="${conv.isLivestream ? 'inbox' : 'radio'}"></i>
+                </button>` : '';
+
             return `
                 <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
                      data-id="${conv.id}" onclick="window.inboxChat.selectConversation('${conv.id}')">
@@ -608,6 +615,7 @@ class InboxChatController {
                                 ${tagsHtml}
                                 ${livestreamBadge}
                             </div>
+                            ${moveBtn}
                             <button class="conv-read-toggle" title="${isUnread ? 'Đánh dấu đã đọc' : 'Đánh dấu chưa đọc'}"
                                 onclick="event.stopPropagation(); window.inboxChat.toggleReadUnread('${conv.id}')">
                                 <i data-lucide="${isUnread ? 'mail-open' : 'mail'}"></i>
@@ -679,6 +687,25 @@ class InboxChatController {
         this.data.recalculateGroupCounts();
         this.renderGroupStats();
         this.updatePageUnreadCounts();
+    }
+
+    moveConversationTab(convId) {
+        const conv = this.data.getConversation(convId);
+        if (!conv) return;
+
+        if (conv.isLivestream) {
+            // Move from Livestream → Inbox My
+            this.data.unmarkAsLivestream(convId);
+            this.data.unpinnedLivestream.add(convId);
+            this.data.unpinnedInboxMy.delete(convId);
+        } else {
+            // Move from Inbox My → Livestream
+            this.data.markAsLivestream(convId);
+            this.data.unpinnedInboxMy.add(convId);
+            this.data.unpinnedLivestream.delete(convId);
+        }
+        this.data.saveLocalState();
+        this.renderConversationList();
     }
 
     // ===== Select Conversation =====
