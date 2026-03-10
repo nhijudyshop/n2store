@@ -2069,9 +2069,24 @@ class InboxChatController {
                 this.isSocketConnecting = false;
                 return false;
             }
-            console.log('[InboxChat] Server-mode started, connecting proxy WebSocket...');
+            console.log('[InboxChat] Server-mode started, checking Pancake connection status...');
+
+            // Step 1.5: Wait briefly then check if server's Pancake WS is actually connected
+            await new Promise(r => setTimeout(r, 2000));
+            try {
+                const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
+                const statusRes = await fetch(statusUrl);
+                const status = await statusRes.json();
+                console.log('[InboxChat] Pancake WS status:', JSON.stringify(status));
+                if (!status.connected) {
+                    console.warn('[InboxChat] ⚠️ Server started but Pancake WS not connected yet. Proceeding anyway...');
+                }
+            } catch (e) {
+                console.warn('[InboxChat] Could not check status:', e.message);
+            }
 
             // Step 2: Connect WebSocket to Render server (receives broadcasted events)
+            console.log('[InboxChat] Connecting proxy WebSocket...');
             this.socket = new WebSocket('wss://n2store-realtime.onrender.com');
 
             this.socket.onopen = () => this.onSocketOpen();
@@ -2123,6 +2138,7 @@ class InboxChatController {
     onSocketMessage(event) {
         try {
             const data = JSON.parse(event.data);
+            console.log('[InboxChat] 📩 WS message:', data.type || 'unknown', data);
 
             // Proxy format: {type: "pages:update_conversation", payload: {...}}
             if (data.type === 'pages:update_conversation' || data.type === 'update_conversation') {
@@ -2131,7 +2147,7 @@ class InboxChatController {
                 this.handleNewMessage(data.payload);
             }
         } catch (e) {
-            // Ignore parse errors
+            console.warn('[InboxChat] WS parse error:', e, 'raw:', event.data?.substring?.(0, 200));
         }
     }
 
