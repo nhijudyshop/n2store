@@ -124,8 +124,8 @@ window.SoOrderSupplierLoader = {
             return crud.parseNCCCode(text);
         }
 
-        // Fallback: simple regex to extract Ax code
-        const match = text.match(/\b(A\d+)\b/i);
+        // Fallback: simple regex to extract NCC code (A1, B9, etc.)
+        const match = text.match(/\b([A-Z]\d+)\b/i);
         return match ? match[1].toUpperCase() : null;
     },
 
@@ -382,18 +382,21 @@ window.SoOrderSupplierLoader = {
                 });
             });
 
-            // Sort by Ax code number (nếu là Ax code), sau đó theo tên
+            // Sort by NCC code: letter first, then number (A1, A2, ..., B1, B9, ...)
             state.nccNames.sort((a, b) => {
-                const aIsAx = /^A\d+$/i.test(a.code);
-                const bIsAx = /^A\d+$/i.test(b.code);
+                const aIsCode = /^[A-Z]\d+$/i.test(a.code);
+                const bIsCode = /^[A-Z]\d+$/i.test(b.code);
 
-                if (aIsAx && bIsAx) {
-                    const numA = parseInt(a.code.replace(/^A/i, '')) || 0;
-                    const numB = parseInt(b.code.replace(/^A/i, '')) || 0;
+                if (aIsCode && bIsCode) {
+                    const letterA = a.code.charAt(0).toUpperCase();
+                    const letterB = b.code.charAt(0).toUpperCase();
+                    if (letterA !== letterB) return letterA.localeCompare(letterB);
+                    const numA = parseInt(a.code.replace(/^[A-Z]/i, '')) || 0;
+                    const numB = parseInt(b.code.replace(/^[A-Z]/i, '')) || 0;
                     return numA - numB;
                 }
-                if (aIsAx) return -1; // Ax codes first
-                if (bIsAx) return 1;
+                if (aIsCode) return -1; // NCC codes first
+                if (bIsCode) return 1;
                 return a.name.localeCompare(b.name);
             });
 
