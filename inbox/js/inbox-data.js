@@ -449,7 +449,6 @@ class InboxDataManager {
             online: false,
             phone: '',
             label: this.labelMap[conv.id] || 'new',
-            starred: this.starredSet.has(conv.id),
             isLivestream: this.livestreamConvIds.has(conv.id),
             type: conv.type, // 'INBOX' or 'COMMENT'
             pageId: conv.page_id,
@@ -697,20 +696,6 @@ class InboxDataManager {
         }
     }
 
-    toggleStar(convId) {
-        const conv = this.getConversation(convId);
-        if (conv) {
-            conv.starred = !conv.starred;
-            if (conv.starred) {
-                this.starredSet.add(convId);
-            } else {
-                this.starredSet.delete(convId);
-            }
-            this.save();
-            return conv.starred;
-        }
-        return false;
-    }
 
     /**
      * Detect livestream conversations from Render DB (fast, cached post_types)
