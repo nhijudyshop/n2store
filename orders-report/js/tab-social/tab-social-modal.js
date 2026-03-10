@@ -102,7 +102,7 @@ function closeOrderModal() {
 
 // ===== PRODUCT SECTION HELPERS (Borrowed State Pattern) =====
 function _mapLegacyProduct(p) {
-    return {
+    const mapped = {
         id: p.id || p.productId || `item_${Date.now()}_${Math.random()}`,
         productName: p.productName || p.name || '',
         variant: p.variant || '',
@@ -114,6 +114,9 @@ function _mapLegacyProduct(p) {
         priceImages: p.priceImages || [],
         selectedAttributeValueIds: p.selectedAttributeValueIds || []
     };
+    if (p.tposProductId) mapped.tposProductId = p.tposProductId;
+    if (p.tposProductTmplId) mapped.tposProductTmplId = p.tposProductTmplId;
+    return mapped;
 }
 
 function _initSocialProductSection(existingProducts = []) {
@@ -132,19 +135,24 @@ function _initSocialProductSection(existingProducts = []) {
 
     // 3. Load items
     if (existingProducts.length > 0) {
-        window.purchaseOrderFormModal.formData.items = existingProducts.map((p, i) => ({
-            id: p.id || `item_${Date.now()}_${i}`,
-            productName: p.productName || '',
-            variant: p.variant || '',
-            productCode: p.productCode || '',
-            quantity: p.quantity || 1,
-            purchasePrice: p.purchasePrice || 0,
-            sellingPrice: p.sellingPrice || 0,
-            productImages: p.productImages || [],
-            priceImages: p.priceImages || [],
-            selectedAttributeValueIds: p.selectedAttributeValueIds || [],
-            _isExistingItem: true
-        }));
+        window.purchaseOrderFormModal.formData.items = existingProducts.map((p, i) => {
+            const item = {
+                id: p.id || `item_${Date.now()}_${i}`,
+                productName: p.productName || '',
+                variant: p.variant || '',
+                productCode: p.productCode || '',
+                quantity: p.quantity || 1,
+                purchasePrice: p.purchasePrice || 0,
+                sellingPrice: p.sellingPrice || 0,
+                productImages: p.productImages || [],
+                priceImages: p.priceImages || [],
+                selectedAttributeValueIds: p.selectedAttributeValueIds || [],
+                _isExistingItem: true
+            };
+            if (p.tposProductId) item.tposProductId = p.tposProductId;
+            if (p.tposProductTmplId) item.tposProductTmplId = p.tposProductTmplId;
+            return item;
+        });
         window.purchaseOrderFormModal.itemCounter = existingProducts.length;
     } else {
         window.purchaseOrderFormModal.addItem();
@@ -157,18 +165,23 @@ function _initSocialProductSection(existingProducts = []) {
 function _collectSocialProducts() {
     if (!window.purchaseOrderFormModal) return [];
     window.purchaseOrderFormModal.collectFormData();
-    return window.purchaseOrderFormModal.formData.items.map(item => ({
-        id: item.id,
-        productName: item.productName || '',
-        variant: item.variant || '',
-        productCode: item.productCode || '',
-        quantity: parseInt(item.quantity) || 1,
-        purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
-        sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
-        productImages: item.productImages || [],
-        priceImages: item.priceImages || [],
-        selectedAttributeValueIds: item.selectedAttributeValueIds || []
-    }));
+    return window.purchaseOrderFormModal.formData.items.map(item => {
+        const mapped = {
+            id: item.id,
+            productName: item.productName || '',
+            variant: item.variant || '',
+            productCode: item.productCode || '',
+            quantity: parseInt(item.quantity) || 1,
+            purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
+            sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
+            productImages: item.productImages || [],
+            priceImages: item.priceImages || [],
+            selectedAttributeValueIds: item.selectedAttributeValueIds || []
+        };
+        if (item.tposProductId) mapped.tposProductId = item.tposProductId;
+        if (item.tposProductTmplId) mapped.tposProductTmplId = item.tposProductTmplId;
+        return mapped;
+    });
 }
 
 // ===== SAVE ORDER =====

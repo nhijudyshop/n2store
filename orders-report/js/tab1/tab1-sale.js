@@ -691,6 +691,12 @@ async function confirmAndPrintSale() {
         if (!model.Partner?.Street) {
             throw new Error('Vui lòng nhập địa chỉ người nhận');
         }
+        // Validate all order lines have ProductId (TPOS API requires non-zero ProductId)
+        const missingProductIds = (model.OrderLines || []).filter(line => !line.ProductId || line.ProductId === 0);
+        if (missingProductIds.length > 0) {
+            const names = missingProductIds.map(l => l.ProductName).filter(Boolean).join(', ');
+            throw new Error(`Sản phẩm chưa có mã trên TPOS: ${names || 'Không xác định'}. Vui lòng chọn sản phẩm từ Kho SP hoặc tìm kiếm trong ô tìm kiếm.`);
+        }
 
         // Build request body (same as fastSaleModal's "Lưu xác nhận")
         const requestBody = {
