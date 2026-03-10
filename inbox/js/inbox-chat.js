@@ -140,8 +140,9 @@ class InboxChatController {
             }
         });
 
-        // Conversation list scroll-to-load-more
+        // Conversation list scroll-to-load-more (skip during programmatic re-renders)
         this.elements.conversationList.addEventListener('scroll', () => {
+            if (this._isRerendering) return;
             const el = this.elements.conversationList;
             const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
             if (nearBottom && !this.isLoadingMoreConversations && this.hasMoreConversations && !this.searchQuery) {
@@ -587,6 +588,9 @@ class InboxChatController {
     // ===== Conversation List =====
 
     renderConversationList() {
+        // Guard: prevent scroll-to-load-more during re-render
+        this._isRerendering = true;
+
         // If API search returned results, use them merged with local results
         // When searching, bypass filter (show all results regardless of unread/starred/etc.)
         let conversations;
@@ -715,6 +719,9 @@ class InboxChatController {
         }).join('');
 
         this._debouncedCreateIcons();
+
+        // Restore scroll guard after render settles
+        requestAnimationFrame(() => { this._isRerendering = false; });
     }
 
     _debouncedCreateIcons() {
