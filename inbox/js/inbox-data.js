@@ -23,6 +23,7 @@ class InboxDataManager {
         this.groups = [];
         this.pages = [];          // Pancake pages
         this.livestreamConvIds = new Set(); // Track livestream conversation IDs
+        this.livestreamCustomerPsids = new Set(); // Track customers who commented on livestream
         this.labelMap = {};       // convId -> labelId (saved to localStorage)
         this.starredSet = new Set(); // convId set (saved to localStorage)
         this.isInitialized = false;
@@ -88,6 +89,9 @@ class InboxDataManager {
 
             const liveIds = localStorage.getItem('inbox_livestream_convs');
             if (liveIds) this.livestreamConvIds = new Set(JSON.parse(liveIds));
+
+            const liveCusts = localStorage.getItem('inbox_livestream_customers');
+            if (liveCusts) this.livestreamCustomerPsids = new Set(JSON.parse(liveCusts));
         } catch (e) {
             console.warn('[InboxData] Error loading local state:', e);
         }
@@ -101,6 +105,7 @@ class InboxDataManager {
             localStorage.setItem('inbox_conv_labels', JSON.stringify(this.labelMap));
             localStorage.setItem('inbox_conv_starred', JSON.stringify([...this.starredSet]));
             localStorage.setItem('inbox_livestream_convs', JSON.stringify([...this.livestreamConvIds]));
+            localStorage.setItem('inbox_livestream_customers', JSON.stringify([...this.livestreamCustomerPsids]));
         } catch (e) {
             console.warn('[InboxData] Error saving local state:', e);
         }
@@ -756,6 +761,30 @@ class InboxDataManager {
             conv.isLivestream = true;
         }
         this.saveLocalState();
+    }
+
+    /**
+     * Mark customer as livestream participant → mark ALL their conversations as livestream
+     * @param {string} customerPsid - Customer's fb_id/psid
+     */
+    markCustomerAsLivestream(customerPsid) {
+        if (!customerPsid) return;
+        this.livestreamCustomerPsids.add(customerPsid);
+        // Find all conversations for this customer and mark as livestream
+        for (const conv of this.conversations) {
+            if (conv.psid === customerPsid && !conv.isLivestream) {
+                conv.isLivestream = true;
+                this.livestreamConvIds.add(conv.id);
+            }
+        }
+        this.saveLocalState();
+    }
+
+    /**
+     * Check if a customer is a known livestream participant
+     */
+    isLivestreamCustomer(psid) {
+        return psid && this.livestreamCustomerPsids.has(psid);
     }
 
     /**

@@ -2185,6 +2185,12 @@ class InboxChatController {
         const post = conversation.post;
         const isLivestream = post?.type === 'livestream' || post?.live_video_status === 'vod' || post?.live_video_status === 'live';
 
+        // Extract customer psid for cross-conversation livestream linking
+        const customerPsid = conversation.from_psid
+            || conversation.from?.id
+            || conversation.customers?.[0]?.fb_id
+            || '';
+
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
             existing.lastMessage = conversation.snippet || existing.lastMessage;
@@ -2193,16 +2199,26 @@ class InboxChatController {
             if (conversation.type) existing.type = conversation.type;
             if (conversation.tags) existing._raw.tags = conversation.tags;
             // Update livestream status from post data
-            if (post) {
-                existing.isLivestream = isLivestream;
-                if (isLivestream) this.data.markAsLivestream(conversation.id);
+            if (isLivestream) {
+                existing.isLivestream = true;
+                this.data.markAsLivestream(conversation.id);
+                // Mark customer → all their conversations become livestream
+                this.data.markCustomerAsLivestream(customerPsid);
+            } else if (this.data.isLivestreamCustomer(customerPsid)) {
+                // Customer is known livestream participant → mark this conv too
+                existing.isLivestream = true;
+                this.data.markAsLivestream(conversation.id);
             }
         } else {
             // New conversation
             const mapped = this.data.mapConversation(conversation);
-            if (post) {
-                mapped.isLivestream = isLivestream;
-                if (isLivestream) this.data.markAsLivestream(conversation.id);
+            if (isLivestream) {
+                mapped.isLivestream = true;
+                this.data.markAsLivestream(conversation.id);
+                this.data.markCustomerAsLivestream(customerPsid);
+            } else if (this.data.isLivestreamCustomer(customerPsid)) {
+                mapped.isLivestream = true;
+                this.data.markAsLivestream(conversation.id);
             }
             this.data.conversations.unshift(mapped);
             this.data.buildMaps();
