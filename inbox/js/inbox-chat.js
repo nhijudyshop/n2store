@@ -19,7 +19,7 @@ class InboxChatController {
     constructor(dataManager) {
         this.data = dataManager;
         this.activeConversationId = null;
-        this.currentFilter = 'all';
+        this.currentFilter = 'unread';
         this.currentGroupFilter = null;
         this.searchQuery = '';
         this.isSearching = false;
@@ -83,6 +83,7 @@ class InboxChatController {
             searchInput: document.getElementById('searchConversation'),
             btnSend: document.getElementById('btnSend'),
             btnStarConversation: document.getElementById('btnStarConversation'),
+            btnMarkUnread: document.getElementById('btnMarkUnread'),
             btnRefreshInbox: document.getElementById('btnRefreshInbox'),
             chatLabelBar: document.getElementById('chatLabelBar'),
             chatLabelBarList: document.getElementById('chatLabelBarList'),
@@ -313,6 +314,16 @@ class InboxChatController {
             }
         });
 
+        // Mark as unread
+        this.elements.btnMarkUnread.addEventListener('click', () => {
+            if (this.activeConversationId) {
+                this.data.markAsUnread(this.activeConversationId);
+                this.renderConversationList();
+                this.renderGroupStats();
+                this.updatePageUnreadCounts();
+            }
+        });
+
         // Refresh - reload from Pancake API
         this.elements.btnRefreshInbox.addEventListener('click', async () => {
             const btn = this.elements.btnRefreshInbox;
@@ -498,12 +509,14 @@ class InboxChatController {
 
     renderConversationList() {
         // If API search returned results, use them merged with local results
+        // When searching, bypass filter (show all results regardless of unread/starred/etc.)
         let conversations;
+        const effectiveFilter = this.searchQuery ? 'all' : this.currentFilter;
         if (this.searchResults !== null && this.searchQuery) {
             // Merge: local filtered + API results (deduplicate by id)
             const localResults = this.data.getConversations({
                 search: this.searchQuery,
-                filter: this.currentFilter,
+                filter: effectiveFilter,
                 groupFilter: this.currentGroupFilter,
             });
             const localIds = new Set(localResults.map(c => c.id));
@@ -514,7 +527,7 @@ class InboxChatController {
         } else {
             conversations = this.data.getConversations({
                 search: this.searchQuery,
-                filter: this.currentFilter,
+                filter: effectiveFilter,
                 groupFilter: this.currentGroupFilter,
             });
         }
@@ -723,6 +736,7 @@ class InboxChatController {
         chatAvatar.className = 'chat-avatar';
 
         this.updateStarButton(conv.starred);
+        this.elements.btnMarkUnread.style.display = '';
         this.renderChatLabelBar(conv);
         this.renderConversationList();
         this.renderGroupStats();
