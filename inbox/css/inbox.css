@@ -2082,7 +2082,6 @@ body.col-resizing .resize-handle {
     border-radius: 50%;
     flex-shrink: 0;
     position: relative;
-    overflow: hidden;
 }
 
 .conv-avatar-wrap img {

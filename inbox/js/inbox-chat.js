@@ -715,7 +715,8 @@ class InboxChatController {
         }
 
         if (avatarUrl && !avatarUrl.startsWith('data:image/svg')) {
-            chatAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;border-radius:50%;background:${gradient};align-items:center;justify-content:center;color:white;font-size:0.875rem;font-weight:700">${initial}</div>`;
+            chatAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';this.parentElement.style.background='${gradient}'"><div style="display:none;width:100%;height:100%;border-radius:50%;background:${gradient};align-items:center;justify-content:center;color:white;font-size:0.875rem;font-weight:700">${initial}</div>`;
+            chatAvatar.style.background = 'transparent';
         } else {
             chatAvatar.innerHTML = `<span>${initial}</span>`;
             chatAvatar.style.background = gradient;
