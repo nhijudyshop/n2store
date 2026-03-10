@@ -599,8 +599,9 @@ class InboxChatController {
         }
 
         this.elements.conversationList.innerHTML = conversations.map(conv => {
-            const labelClass = this.getLabelClass(conv.label);
-            const labelText = this.getLabelText(conv.label);
+            const labelsHtml = (conv.labels || ['new']).map(l =>
+                `<span class="conv-label ${this.getLabelClass(l)}">${this.getLabelText(l)}</span>`
+            ).join('');
             const isActive = conv.id === this.activeConversationId;
             const isUnread = conv.unread > 0;
 
@@ -651,7 +652,7 @@ class InboxChatController {
                         <div class="conv-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(conv.lastMessage)}</div>
                         <div class="conv-footer">
                             <div class="conv-footer-left">
-                                <span class="conv-label ${labelClass}">${labelText}</span>
+                                ${labelsHtml}
                                 ${tagsHtml}
                                 ${livestreamBadge}
                             </div>
@@ -1373,8 +1374,9 @@ class InboxChatController {
 
     renderChatLabelBar(conv) {
         this.elements.chatLabelBar.style.display = 'block';
+        const labels = conv.labels || ['new'];
         this.elements.chatLabelBarList.innerHTML = this.data.groups.map(group => {
-            const isActive = conv.label === group.id;
+            const isActive = labels.includes(group.id);
             const activeStyle = isActive ? `background: ${group.color}; border-color: ${group.color};` : '';
             return `
                 <button class="chat-label-btn ${isActive ? 'active' : ''}"
@@ -1388,12 +1390,11 @@ class InboxChatController {
     }
 
     assignLabel(convId, labelId) {
-        this.data.setConversationLabel(convId, labelId);
+        this.data.toggleConversationLabel(convId, labelId);
         this.renderConversationList();
         this.renderGroupStats();
         const conv = this.data.getConversation(convId);
         if (conv) this.renderChatLabelBar(conv);
-        showToast('Đã cập nhật nhãn', 'success');
     }
 
     // ===== Group Stats =====

@@ -462,7 +462,7 @@ class InboxDataManager {
             unread: conv.unread_count || 0,
             online: false,
             phone: '',
-            label: this.labelMap[conv.id] || 'new',
+            labels: this.getLabelArray(conv.id),
             isLivestream: this.livestreamConvIds.has(conv.id) || this.isLivestreamCustomer(conv.from_psid || conv.from?.id || ''),
             type: conv.type, // 'INBOX' or 'COMMENT'
             pageId: conv.page_id,
@@ -519,8 +519,11 @@ class InboxDataManager {
     recalculateGroupCounts() {
         this.groups.forEach(g => { g.count = 0; });
         this.conversations.forEach(conv => {
-            const group = this.groups.find(g => g.id === conv.label);
-            if (group) group.count++;
+            const labels = conv.labels || ['new'];
+            for (const labelId of labels) {
+                const group = this.groups.find(g => g.id === labelId);
+                if (group) group.count++;
+            }
         });
     }
 
@@ -536,7 +539,10 @@ class InboxDataManager {
         }
 
         if (groupFilters && groupFilters.size > 0) {
-            result = result.filter(c => groupFilters.has(c.label));
+            result = result.filter(c => {
+                const labels = c.labels || ['new'];
+                return labels.some(l => groupFilters.has(l));
+            });
         }
 
         if (search) {
@@ -613,22 +619,57 @@ class InboxDataManager {
         };
     }
 
-    setConversationLabel(convId, labelId) {
-        const conv = this.getConversation(convId);
-        if (conv) {
-            conv.label = labelId;
-            this.labelMap[convId] = labelId;
-            this.recalculateGroupCounts();
-            this.save();
+    /**
+     * Get labels array for a conversation (backward-compatible with old string format)
+     */
+    getLabelArray(convId) {
+        const val = this.labelMap[convId];
+        if (!val) return ['new'];
+        if (Array.isArray(val)) return val;
+        return [val]; // old string format → convert to array
+    }
 
-            // Save to server for cross-device sync
-            const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            fetch(`${workerUrl}/api/realtime/conversation-label`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ convId, label: labelId })
-            }).catch(err => console.warn('[InboxData] Failed to save label to server:', err.message));
+    /**
+     * Toggle a label on a conversation (multi-select)
+     * "done" is exclusive — clears all others when selected
+     */
+    toggleConversationLabel(convId, labelId) {
+        const conv = this.getConversation(convId);
+        if (!conv) return;
+
+        let labels = [...(conv.labels || ['new'])];
+
+        if (labelId === 'done') {
+            // "Hoàn Tất" is exclusive — set only this
+            labels = ['done'];
+        } else {
+            // Remove 'done' if selecting another label
+            labels = labels.filter(l => l !== 'done');
+
+            if (labels.includes(labelId)) {
+                labels = labels.filter(l => l !== labelId);
+            } else {
+                labels.push(labelId);
+            }
+
+            // If empty, default to 'new'
+            if (labels.length === 0) labels = ['new'];
+            // Remove 'new' if selecting specific labels
+            if (labels.length > 1) labels = labels.filter(l => l !== 'new');
         }
+
+        conv.labels = labels;
+        this.labelMap[convId] = labels;
+        this.recalculateGroupCounts();
+        this.save();
+
+        // Save to server for cross-device sync
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/conversation-label`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ convId, label: JSON.stringify(labels) })
+        }).catch(err => console.warn('[InboxData] Failed to save label to server:', err.message));
     }
 
     async syncLabelsFromServer() {
@@ -640,10 +681,16 @@ class InboxDataManager {
                 if (data.success && data.labelMap) {
                     let updated = 0;
                     for (const [convId, label] of Object.entries(data.labelMap)) {
-                        if (this.labelMap[convId] !== label) {
-                            this.labelMap[convId] = label;
+                        // Parse label (could be JSON array or old string)
+                        let parsed;
+                        try { parsed = JSON.parse(label); } catch { parsed = [label]; }
+                        if (!Array.isArray(parsed)) parsed = [parsed];
+
+                        const current = JSON.stringify(this.labelMap[convId]);
+                        if (current !== JSON.stringify(parsed)) {
+                            this.labelMap[convId] = parsed;
                             const conv = this.getConversation(convId);
-                            if (conv) conv.label = label;
+                            if (conv) conv.labels = parsed;
                             updated++;
                         }
                     }
@@ -874,7 +921,7 @@ class InboxDataManager {
             psid: conv.psid,
             customerId: conv.customerId,
             isLivestream: conv.isLivestream,
-            label: conv.label,
+            labels: conv.labels || ['new'],
         };
         this.pinnedConversations[conv.id] = data;
 
