@@ -478,8 +478,9 @@ class RealtimeClient {
 
                 if (conversation.type === 'COMMENT' && isLivestream && customerPsid) {
                     // Save to livestream_conversations table (single source of truth)
+                    const postName = conversation.post?.message || null;
                     saveLivestreamConversation(conversation.id, conversation.post_id, {
-                        postName: conversation.post?.message || null,
+                        postName,
                         name: conversation.from?.name || conversation.customers?.[0]?.name,
                         avatar: conversation.from?.avatar,
                         lastMessage: conversation.snippet || conversation.last_message?.message,
@@ -490,12 +491,17 @@ class RealtimeClient {
                         psid: customerPsid,
                         customerId: conversation.customers?.[0]?.id
                     });
+
+                    // WS payload often lacks post.message — fetch from API and update DB
+                    if (!postName) {
+                        fetchAndSavePostName(conversation.id, conversation.page_id, conversation.post_id);
+                    }
                 }
 
                 if (conversation.type === 'COMMENT' && conversation.post_id) {
                     if (postType) {
                         // Cache known post type in memory
-                        postTypeCache.set(conversation.post_id, { postType, liveVideoStatus: conversation.post?.live_video_status || null });
+                        postTypeCache.set(conversation.post_id, { postType, liveVideoStatus: conversation.post?.live_video_status || null, postMessage: conversation.post?.message || null });
                     } else {
                         // No post data in payload — fallback to cache + Pancake API
                         lookupPostType(conversation.id, conversation.page_id, conversation.post_id)
@@ -835,6 +841,55 @@ async function saveLivestreamConversation(convId, postId, data) {
     }
 }
 
+
+/**
+ * Fetch post name from Pancake messages API and update DB
+ * Used when WS payload lacks post.message
+ */
+async function fetchAndSavePostName(conversationId, pageId, postId) {
+    try {
+        // Check if we already have the name in cache
+        const cached = postTypeCache.get(postId);
+        if (cached?.postMessage) {
+            await dbPool.query(
+                `UPDATE livestream_conversations SET post_name = $1 WHERE post_id = $2 AND post_name IS NULL`,
+                [cached.postMessage, postId]
+            );
+            return;
+        }
+
+        const pageAccessToken = await getOrFetchPageAccessToken(pageId);
+        if (!pageAccessToken) return;
+
+        const url = `https://pages.fm/api/public_api/v1/pages/${pageId}/conversations/${conversationId}/messages?page_access_token=${pageAccessToken}&limit=1`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const post = data.post || data.conversation?.post;
+        const postMessage = post?.message;
+
+        if (postMessage && dbPool) {
+            await dbPool.query(
+                `UPDATE livestream_conversations SET post_name = $1 WHERE post_id = $2 AND post_name IS NULL`,
+                [postMessage, postId]
+            );
+            // Update cache too
+            if (cached) cached.postMessage = postMessage;
+            console.log(`[LIVESTREAM] ✅ Fetched & saved post name for ${postId}: "${postMessage.substring(0, 50)}..."`);
+        }
+    } catch (error) {
+        console.error(`[LIVESTREAM] Error fetching post name for ${postId}:`, error.message);
+    }
+}
 
 /**
  * Get or fetch page_access_token for a page (cached 1 hour)
