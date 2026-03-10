@@ -24,6 +24,7 @@ class PancakeTokenManager {
         this.activeAccountId = null;
         this.accounts = {};
         this.pageAccessTokens = {}; // Cache for page_access_tokens
+        this.accountPageAccessMap = {}; // { accountId: Set<pageId> } - which pages each account can access
 
         // localStorage keys
         this.LOCAL_STORAGE_KEYS = {
@@ -152,6 +153,82 @@ class PancakeTokenManager {
 
         console.log('[PANCAKE-TOKEN] Valid accounts for sending:', validAccounts.length, '/', Object.keys(this.accounts).length);
         return validAccounts;
+    }
+
+    // =====================================================
+    // PAGE ACCESS PER ACCOUNT - Track which pages each account can access
+    // =====================================================
+
+    /**
+     * Fetch accessible pages for a specific account and cache them
+     * @param {string} accountId
+     * @param {string} accountToken - JWT token
+     * @returns {Promise<Set<string>>} Set of page IDs this account can access
+     */
+    async fetchAndCacheAccountPages(accountId, accountToken) {
+        try {
+            const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${accountToken}`);
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.success && data.categorized?.activated) {
+                const pages = data.categorized.activated.filter(p => !p.id.startsWith('igo_'));
+                this.accountPageAccessMap[accountId] = new Set(pages.map(p => p.id));
+                console.log(`[PANCAKE-TOKEN] Account ${accountId.substring(0, 8)}: ${pages.length} pages (${pages.map(p => p.name).join(', ')})`);
+                return this.accountPageAccessMap[accountId];
+            }
+
+            this.accountPageAccessMap[accountId] = new Set();
+            return this.accountPageAccessMap[accountId];
+        } catch (error) {
+            console.error(`[PANCAKE-TOKEN] Error fetching pages for account ${accountId}:`, error);
+            this.accountPageAccessMap[accountId] = new Set();
+            return this.accountPageAccessMap[accountId];
+        }
+    }
+
+    /**
+     * Pre-fetch page access for ALL valid accounts (parallel)
+     * Call once before bulk sending
+     */
+    async prefetchAllAccountPages() {
+        const validAccounts = this.getValidAccountsForSending();
+        if (validAccounts.length === 0) return;
+
+        console.log('[PANCAKE-TOKEN] Pre-fetching page access for', validAccounts.length, 'accounts...');
+        await Promise.all(
+            validAccounts.map(acc => this.fetchAndCacheAccountPages(acc.accountId, acc.token))
+        );
+        console.log('[PANCAKE-TOKEN] ✅ Page access pre-fetch complete');
+    }
+
+    /**
+     * Check if a specific account has access to a specific page
+     */
+    accountHasPageAccess(accountId, pageId) {
+        const pages = this.accountPageAccessMap[accountId];
+        return pages ? pages.has(pageId) : false;
+    }
+
+    /**
+     * Get all valid accounts that have access to a specific page
+     */
+    getAccountsWithPageAccess(pageId) {
+        const validAccounts = this.getValidAccountsForSending();
+        return validAccounts.filter(acc => this.accountHasPageAccess(acc.accountId, pageId));
+    }
+
+    /**
+     * Find any valid account with access to a page (for fallback)
+     * @param {string} pageId
+     * @param {string} [excludeAccountId] - Skip this account (already failed)
+     * @returns {Object|null} Account object or null
+     */
+    findAccountWithPageAccess(pageId, excludeAccountId = null) {
+        const validAccounts = this.getValidAccountsForSending();
+        return validAccounts.find(acc =>
+            acc.accountId !== excludeAccountId && this.accountHasPageAccess(acc.accountId, pageId)
+        ) || null;
     }
 
     /**

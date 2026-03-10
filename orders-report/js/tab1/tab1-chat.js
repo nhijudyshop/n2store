@@ -3993,9 +3993,29 @@ async function sendMessageInternal(messageData) {
 
     try {
         // Get page_access_token for Official API (pages.fm)
-        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        // Try active account first, then fallback to other accounts with page access
+        let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
         if (!pageAccessToken) {
-            throw new Error('Không tìm thấy page_access_token. Vui lòng vào Pancake Settings → Tools để tạo token.');
+            // Try generating with active account
+            const activeToken = window.pancakeTokenManager?.currentToken;
+            if (activeToken) {
+                pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, activeToken);
+            }
+            // Fallback: try other accounts that have access to this page
+            if (!pageAccessToken && window.pancakeTokenManager) {
+                console.log('[MESSAGE] Active account cannot access page', channelId, '- trying other accounts...');
+                if (Object.keys(window.pancakeTokenManager.accountPageAccessMap).length === 0) {
+                    await window.pancakeTokenManager.prefetchAllAccountPages();
+                }
+                const fallbackAccount = window.pancakeTokenManager.findAccountWithPageAccess(channelId, window.pancakeTokenManager.activeAccountId);
+                if (fallbackAccount) {
+                    console.log('[MESSAGE] Fallback account:', fallbackAccount.name);
+                    pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, fallbackAccount.token);
+                }
+            }
+        }
+        if (!pageAccessToken) {
+            throw new Error('Không tìm thấy page_access_token. Không có account nào có quyền truy cập page này.');
         }
 
         showChatSendingIndicator('Đang gửi tin nhắn...');
@@ -4564,9 +4584,28 @@ async function sendCommentInternal(commentData) {
 
     try {
         // Get page_access_token for Official API (pages.fm)
-        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+        // Try active account first, then fallback to other accounts with page access
+        let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
         if (!pageAccessToken) {
-            throw new Error('Không tìm thấy page_access_token. Vui lòng vào Pancake Settings → Tools để tạo token.');
+            const activeToken = window.pancakeTokenManager?.currentToken;
+            if (activeToken) {
+                pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, activeToken);
+            }
+            // Fallback: try other accounts that have access to this page
+            if (!pageAccessToken && window.pancakeTokenManager) {
+                console.log('[COMMENT] Active account cannot access page', channelId, '- trying other accounts...');
+                if (Object.keys(window.pancakeTokenManager.accountPageAccessMap).length === 0) {
+                    await window.pancakeTokenManager.prefetchAllAccountPages();
+                }
+                const fallbackAccount = window.pancakeTokenManager.findAccountWithPageAccess(channelId, window.pancakeTokenManager.activeAccountId);
+                if (fallbackAccount) {
+                    console.log('[COMMENT] Fallback account:', fallbackAccount.name);
+                    pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, fallbackAccount.token);
+                }
+            }
+        }
+        if (!pageAccessToken) {
+            throw new Error('Không tìm thấy page_access_token. Không có account nào có quyền truy cập page này.');
         }
 
         showChatSendingIndicator('Đang gửi bình luận...');

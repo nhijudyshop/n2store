@@ -785,6 +785,18 @@ class MessageTemplateManager {
             this.log('⚠️ Warning: Could not pre-load page tokens:', e.message);
         }
 
+        // Pre-fetch page access for all accounts (which pages each account can access)
+        this.log('📋 Pre-fetching account page access...');
+        try {
+            await window.pancakeTokenManager.prefetchAllAccountPages();
+            for (const acc of validAccounts) {
+                const pages = window.pancakeTokenManager.accountPageAccessMap[acc.accountId];
+                this.log(`  - ${acc.name}: ${pages ? pages.size : 0} pages`);
+            }
+        } catch (e) {
+            this.log('⚠️ Warning: Could not pre-fetch page access:', e.message);
+        }
+
         this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Accounts:', validAccounts.length);
         this.log('📋 Valid accounts:', validAccounts.map(a => a.name).join(', '));
 
@@ -819,13 +831,41 @@ class MessageTemplateManager {
             }
 
             // =====================================================
-            // MULTI-ACCOUNT ROUND-ROBIN DISTRIBUTION
-            // Distribute orders to accounts evenly
+            // PAGE-ACCESS-AWARE ORDER DISTRIBUTION
+            // Each order goes to an account that has access to its page
+            // Falls back to round-robin for unknown pages
             // =====================================================
             const accountQueues = validAccounts.map(() => []);
+            const unassignedOrders = [];
+            const pageRoundRobin = {}; // { pageId: counter } for per-page round-robin
 
-            // Round-robin distribution of orders to accounts
-            this.selectedOrders.forEach((order, index) => {
+            this.selectedOrders.forEach((order) => {
+                // Extract channelId (pageId) from order's Facebook_PostId
+                const facebookPostId = order.Facebook_PostId || order.raw?.Facebook_PostId;
+                const channelId = facebookPostId ? facebookPostId.split('_')[0] : null;
+
+                if (channelId) {
+                    // Find accounts with access to this page
+                    const eligible = validAccounts
+                        .map((acc, idx) => ({ acc, idx }))
+                        .filter(({ acc }) => window.pancakeTokenManager.accountHasPageAccess(acc.accountId, channelId));
+
+                    if (eligible.length > 0) {
+                        // Round-robin among eligible accounts for this page
+                        if (!pageRoundRobin[channelId]) pageRoundRobin[channelId] = 0;
+                        const chosen = eligible[pageRoundRobin[channelId] % eligible.length];
+                        pageRoundRobin[channelId]++;
+                        accountQueues[chosen.idx].push(order);
+                    } else {
+                        unassignedOrders.push(order);
+                    }
+                } else {
+                    unassignedOrders.push(order);
+                }
+            });
+
+            // Distribute unassigned orders via standard round-robin
+            unassignedOrders.forEach((order, index) => {
                 const accountIndex = index % validAccounts.length;
                 accountQueues[accountIndex].push(order);
             });
@@ -834,6 +874,9 @@ class MessageTemplateManager {
             validAccounts.forEach((account, i) => {
                 this.log(`  - ${account.name}: ${accountQueues[i].length} orders`);
             });
+            if (unassignedOrders.length > 0) {
+                this.log(`  ⚠️ ${unassignedOrders.length} orders assigned via fallback round-robin (no page access info)`);
+            }
 
             // Worker Function for each account
             const createWorker = (account, queue) => {
