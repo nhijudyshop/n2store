@@ -33,18 +33,14 @@ class InboxChatController {
         this.hasMoreMessages = true;
         this.messageCurrentCount = 0;
 
-        // WebSocket real-time (Phoenix Protocol v2.0.0, like tpos-pancake)
+        // WebSocket real-time (Server Mode Proxy via Render)
         this.socket = null;
         this.isSocketConnected = false;
         this.isSocketConnecting = false;
         this.socketReconnectAttempts = 0;
         this.socketMaxReconnectAttempts = 3;
-        this.socketReconnectDelay = 2000;
+        this.socketReconnectDelay = 3000;
         this.socketReconnectTimer = null;
-        this.heartbeatInterval = null;
-        this.HEARTBEAT_INTERVAL = 30000;
-        this.socketJoinRef = 0;
-        this.socketMsgRef = 0;
         this.userId = null;
         this.autoRefreshInterval = null;
         this.AUTO_REFRESH_INTERVAL = 30000;
@@ -2018,53 +2014,70 @@ class InboxChatController {
         }
     }
 
-    // ===== WebSocket Real-Time (Phoenix Protocol v2.0.0, like tpos-pancake) =====
+    // ===== WebSocket Real-Time (Server Mode Proxy via Render) =====
 
     async initializeWebSocket() {
         if (this.isSocketConnected || this.isSocketConnecting) return true;
 
         try {
             const ptm = window.pancakeTokenManager;
-            if (!ptm) return false;
+            const pdm = window.pancakeDataManager;
+            if (!ptm || !pdm) return false;
 
-            this.wsToken = await ptm.getToken();
-            if (!this.wsToken) {
+            const token = await ptm.getToken();
+            if (!token) {
                 console.warn('[InboxChat] No Pancake token for WebSocket');
                 return false;
             }
 
             // Decode token to get userId
+            let userId = null;
             try {
-                const parts = this.wsToken.split('.');
+                const parts = token.split('.');
                 if (parts.length >= 2) {
                     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                    this.userId = payload.uid || payload.user_id || payload.sub;
+                    userId = payload.uid || payload.user_id || payload.sub;
                 }
             } catch (e) {
                 console.warn('[InboxChat] Failed to decode JWT:', e);
                 return false;
             }
 
-            if (!this.userId) {
+            if (!userId) {
                 console.warn('[InboxChat] No userId from JWT');
                 return false;
             }
+            this.userId = userId;
 
-            // Get pageIds for channel join
-            const pdm = window.pancakeDataManager;
-            this.wsPageIds = (pdm && pdm.pageIds) ? pdm.pageIds.map(id => String(id)) : [];
+            const pageIds = (pdm.pageIds || []).map(id => String(id));
+            const cookie = `jwt=${token}`;
 
             this.isSocketConnecting = true;
-            // Match orders-report: NO token in URL, token sent via channel join payload
-            const wsUrl = `wss://pancake.vn/socket/websocket?vsn=2.0.0`;
-            console.log('[InboxChat] Connecting WebSocket...');
 
-            this.socket = new WebSocket(wsUrl);
+            // Step 1: POST to start server-side Pancake connection
+            console.log('[InboxChat] Starting server-mode realtime...');
+            const startUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/start`;
+            const startResponse = await fetch(startUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, userId, pageIds, cookie })
+            });
+
+            const startData = await startResponse.json();
+            if (!startData.success) {
+                console.warn('[InboxChat] Server-mode start failed:', startData);
+                this.isSocketConnecting = false;
+                return false;
+            }
+            console.log('[InboxChat] Server-mode started, connecting proxy WebSocket...');
+
+            // Step 2: Connect WebSocket to Render server (receives broadcasted events)
+            this.socket = new WebSocket('wss://n2store-realtime.onrender.com');
 
             this.socket.onopen = () => this.onSocketOpen();
             this.socket.onclose = (e) => this.onSocketClose(e);
             this.socket.onerror = (e) => {
-                console.error('[InboxChat] WebSocket error:', e);
+                console.error('[InboxChat] Proxy WebSocket error:', e);
                 this.isSocketConnecting = false;
             };
             this.socket.onmessage = (e) => this.onSocketMessage(e);
@@ -2078,26 +2091,23 @@ class InboxChatController {
     }
 
     onSocketOpen() {
-        console.log('[InboxChat] WebSocket connected');
+        console.log('[InboxChat] Proxy WebSocket connected');
         this.isSocketConnected = true;
         this.isSocketConnecting = false;
         this.socketReconnectAttempts = 0;
-        this.socketReconnectDelay = 2000;
+        this.socketReconnectDelay = 3000;
 
-        this.joinChannels();
-        this.startHeartbeat();
         this.updateSocketStatusUI(true);
         this.stopAutoRefresh();
     }
 
     onSocketClose(event) {
-        console.log('[InboxChat] WebSocket closed:', event.code, event.reason);
+        console.log('[InboxChat] Proxy WebSocket closed:', event.code, event.reason);
         this.isSocketConnected = false;
         this.isSocketConnecting = false;
-        this.stopHeartbeat();
         this.updateSocketStatusUI(false);
 
-        // Reconnect with backoff (match orders-report: simple 5s reconnect)
+        // Reconnect with backoff
         if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
             this.socketReconnectAttempts++;
             const delay = this.socketReconnectDelay;
@@ -2113,75 +2123,15 @@ class InboxChatController {
     onSocketMessage(event) {
         try {
             const data = JSON.parse(event.data);
-            const [joinRef, ref, topic, eventName, payload] = data;
 
-            if (eventName === 'phx_reply') return;
-
-            if (eventName === 'pages:update_conversation' || eventName === 'update_conversation') {
-                this.handleConversationUpdate(payload);
-            } else if (eventName === 'pages:new_message' || eventName === 'new_message') {
-                this.handleNewMessage(payload);
+            // Proxy format: {type: "pages:update_conversation", payload: {...}}
+            if (data.type === 'pages:update_conversation' || data.type === 'update_conversation') {
+                this.handleConversationUpdate(data.payload);
+            } else if (data.type === 'pages:new_message' || data.type === 'new_message') {
+                this.handleNewMessage(data.payload);
             }
         } catch (e) {
-            // Ignore parse errors for heartbeat responses etc.
-        }
-    }
-
-    joinChannels() {
-        if (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.userId) return;
-
-        // 1. Join user channel (match orders-report realtime-manager.js)
-        this.sendPhxMessage(`users:${this.userId}`, 'phx_join', {
-            accessToken: this.wsToken,
-            userId: this.userId,
-            platform: 'web'
-        });
-
-        // 2. Join multi-page channel with pageIds and clientSession
-        this.sendPhxMessage(`multiple_pages:${this.userId}`, 'phx_join', {
-            accessToken: this.wsToken,
-            userId: this.userId,
-            clientSession: this._generateClientSession(),
-            pageIds: this.wsPageIds || [],
-            platform: 'web'
-        });
-
-        // 3. Get online status after join
-        setTimeout(() => {
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                this.sendPhxMessage(`multiple_pages:${this.userId}`, 'get_online_status', {});
-            }
-        }, 1000);
-
-        console.log('[InboxChat] Joined channels for userId:', this.userId, 'pages:', this.wsPageIds?.length || 0);
-    }
-
-    _generateClientSession() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    }
-
-    sendPhxMessage(topic, event, payload) {
-        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
-        this.socketJoinRef++;
-        this.socketMsgRef++;
-        const msg = [this.socketJoinRef.toString(), this.socketMsgRef.toString(), topic, event, payload];
-        this.socket.send(JSON.stringify(msg));
-    }
-
-    startHeartbeat() {
-        this.stopHeartbeat();
-        this.heartbeatInterval = setInterval(() => {
-            this.sendPhxMessage('phoenix', 'heartbeat', {});
-        }, this.HEARTBEAT_INTERVAL);
-    }
-
-    stopHeartbeat() {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
+            // Ignore parse errors
         }
     }
 
@@ -2250,7 +2200,6 @@ class InboxChatController {
     }
 
     closeWebSocket() {
-        this.stopHeartbeat();
         this.stopAutoRefresh();
         if (this.socketReconnectTimer) clearTimeout(this.socketReconnectTimer);
         if (this.socket) {
