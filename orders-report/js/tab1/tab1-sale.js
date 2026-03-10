@@ -1724,7 +1724,9 @@ function toggleChatRightPanel() {
 
 // Export functions
 window.confirmAndPrintSale = confirmAndPrintSale;
-window.confirmDebtUpdate = confirmDebtUpdate;
+if (typeof confirmDebtUpdate !== 'undefined') {
+    window.confirmDebtUpdate = confirmDebtUpdate;
+}
 // Note: openPrintPopup is now exported from bill-service.js
 window.toggleChatRightPanel = toggleChatRightPanel;
 // Note: removeChatProduct and updateChatProductQuantity are defined in tab1-chat-products.js
