@@ -711,6 +711,46 @@ window.addEventListener('failedOrdersUpdated', (event) => {
     });
 });
 
+// Listen for sent orders updates to show green "Đã gửi" badge in messages column
+window.addEventListener('sentOrdersUpdated', (event) => {
+    const sentIds = new Set(event.detail?.sentOrderIds || []);
+    console.log('[TABLE] Sent orders updated, updating message badges:', sentIds.size);
+
+    // Update messages column cells
+    document.querySelectorAll('td[data-column="messages"][data-order-id]').forEach(td => {
+        const orderId = td.getAttribute('data-order-id');
+        const isSent = sentIds.has(orderId);
+        const currentlyShowingSent = td.querySelector('.fa-check-circle') !== null;
+
+        if (isSent && !currentlyShowingSent) {
+            td.innerHTML = `
+                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 6px; color: #16a34a; font-size: 11px; font-weight: 500;">
+                    <i class="fas fa-check-circle" style="font-size: 10px;"></i> Đã gửi
+                </span>`;
+            td.title = '✅ Đã gửi tin nhắn';
+        }
+    });
+
+    // Update merged order message badges
+    document.querySelectorAll('.merged-detail-row[data-order-id]').forEach(row => {
+        const orderId = row.getAttribute('data-order-id');
+        const isMessagesColumn = row.closest('td[data-column="messages"]') !== null;
+        if (!isMessagesColumn) return;
+
+        const isSent = sentIds.has(orderId);
+        const badgeSpan = row.querySelector('.merged-badge-placeholder');
+        if (!badgeSpan || !isSent) return;
+
+        const currentlyShowingSent = row.querySelector('.fa-check-circle') !== null;
+        if (!currentlyShowingSent) {
+            badgeSpan.outerHTML = `
+                <span class="merged-sent-badge" style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; color: #16a34a; font-size: 10px; font-weight: 500;">
+                    <i class="fas fa-check-circle" style="font-size: 9px;"></i> Đã gửi
+                </span>`;
+        }
+    });
+});
+
 function handleTableScroll(e) {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
 
@@ -1226,7 +1266,17 @@ function renderMessagesColumn(order) {
     // Badge "X MỚI" will be set by new-messages-notifier.js based on pending_customers data
     const clickHandler = `openChatModal('${order.Id}', '${channelId}', '${psid}')`;
 
-    return `<td data-column="messages" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem tin nhắn">−</td>`;
+    // Check if this order was already sent via bulk message
+    const isSent = window.messageTemplateManager?.isOrderSent(order.Id);
+    if (isSent) {
+        return `<td data-column="messages" data-order-id="${order.Id}" onclick="${clickHandler}" style="cursor: pointer; text-align: center;">
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 6px; color: #16a34a; font-size: 11px; font-weight: 500;">
+                <i class="fas fa-check-circle" style="font-size: 10px;"></i> Đã gửi
+            </span>
+        </td>`;
+    }
+
+    return `<td data-column="messages" data-order-id="${order.Id}" onclick="${clickHandler}" style="cursor: pointer; text-align: center; color: #9ca3af;" title="Click để xem tin nhắn">−</td>`;
 }
 
 // Render comments column - simple placeholder, badge added by notifier
@@ -1300,13 +1350,22 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
 
         // Check if this order failed message sending (only for comments column)
         const isFailed = columnType === 'comments' && window.messageTemplateManager?.isOrderFailed(originalOrder.Id);
+        // Check if this order was already sent (only for messages column)
+        const isSent = columnType === 'messages' && window.messageTemplateManager?.isOrderSent(originalOrder.Id);
 
-        // Badge content - show warning for failed orders
-        const badgeContent = isFailed
-            ? `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
+        // Badge content - show warning for failed orders, green badge for sent orders
+        let badgeContent;
+        if (isFailed) {
+            badgeContent = `<span style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; color: #dc2626; font-size: 10px; font-weight: 500;">
                 <i class="fas fa-exclamation-triangle" style="font-size: 9px;"></i> Cần gửi
-               </span>`
-            : '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+               </span>`;
+        } else if (isSent) {
+            badgeContent = `<span class="merged-sent-badge" style="display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 3px; color: #16a34a; font-size: 10px; font-weight: 500;">
+                <i class="fas fa-check-circle" style="font-size: 9px;"></i> Đã gửi
+               </span>`;
+        } else {
+            badgeContent = '<span class="merged-badge-placeholder" style="font-size: 12px; color: #9ca3af;">−</span>';
+        }
 
         const titleAttr = isFailed
             ? 'title="⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận"'

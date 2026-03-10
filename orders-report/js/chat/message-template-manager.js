@@ -26,6 +26,9 @@ class MessageTemplateManager {
         // Track failed orders for comment watermark in table
         this.failedOrderIds = new Set();
         this._loadFailedOrderIds();
+        // Track sent orders to prevent duplicate bulk sending
+        this.sentOrderIds = new Set();
+        this._loadSentOrderIds();
         this.init();
     }
 
@@ -94,6 +97,54 @@ class MessageTemplateManager {
 
     getFailedOrderIds() {
         return Array.from(this.failedOrderIds);
+    }
+
+    // =====================================================
+    // SENT ORDERS TRACKING (prevent duplicate bulk sending)
+    // =====================================================
+
+    _loadSentOrderIds() {
+        try {
+            const stored = localStorage.getItem('sent_message_orders');
+            if (stored) {
+                const data = JSON.parse(stored);
+                const now = Date.now();
+                const validEntries = data.filter(entry => (now - entry.timestamp) < 24 * 60 * 60 * 1000);
+                this.sentOrderIds = new Set(validEntries.map(e => e.orderId));
+                if (validEntries.length !== data.length) {
+                    this._saveSentOrderIds();
+                }
+                this.log(`📋 Loaded ${this.sentOrderIds.size} sent order IDs from storage`);
+            }
+        } catch (e) {
+            console.warn('[MESSAGE] Error loading sent order IDs:', e);
+        }
+    }
+
+    _saveSentOrderIds() {
+        try {
+            const now = Date.now();
+            const data = Array.from(this.sentOrderIds).map(orderId => ({
+                orderId,
+                timestamp: now
+            }));
+            localStorage.setItem('sent_message_orders', JSON.stringify(data));
+        } catch (e) {
+            console.warn('[MESSAGE] Error saving sent order IDs:', e);
+        }
+    }
+
+    addSentOrders(orderIds) {
+        orderIds.forEach(id => this.sentOrderIds.add(id));
+        this._saveSentOrderIds();
+        this.log(`✅ Added ${orderIds.length} sent orders, total: ${this.sentOrderIds.size}`);
+        window.dispatchEvent(new CustomEvent('sentOrdersUpdated', {
+            detail: { sentOrderIds: Array.from(this.sentOrderIds) }
+        }));
+    }
+
+    isOrderSent(orderId) {
+        return this.sentOrderIds.has(orderId);
     }
 
     log(...args) {
@@ -385,6 +436,25 @@ class MessageTemplateManager {
             this.selectedOrders = this.getSelectedOrdersFromTable();
             this.currentOrder = this.selectedOrders[0];
             this.log('📦 Orders from table:', this.selectedOrders.length);
+        }
+
+        // Filter out already-sent orders (only in send mode)
+        if (mode === 'send' && this.selectedOrders.length > 0) {
+            const alreadySent = this.selectedOrders.filter(o => this.sentOrderIds.has(o.Id));
+            if (alreadySent.length > 0) {
+                this.selectedOrders = this.selectedOrders.filter(o => !this.sentOrderIds.has(o.Id));
+                const names = alreadySent.map(o => o.customerName || o.code || o.Id).slice(0, 3).join(', ');
+                const extra = alreadySent.length > 3 ? ` và ${alreadySent.length - 3} đơn khác` : '';
+                window.notificationManager?.warning(
+                    `Đã loại ${alreadySent.length} đơn đã gửi tin nhắn: ${names}${extra}`
+                );
+                this.log(`📋 Filtered out ${alreadySent.length} already-sent orders`);
+            }
+            if (this.selectedOrders.length === 0) {
+                window.notificationManager?.info('Tất cả đơn đã được gửi tin nhắn rồi');
+                return;
+            }
+            this.currentOrder = this.selectedOrders[0];
         }
 
         const modal = document.getElementById('messageTemplateModal');
@@ -1063,6 +1133,14 @@ class MessageTemplateManager {
                 this.addFailedOrders(failedIds);
             }
 
+            // Track sent orders to prevent duplicate bulk sending
+            if (this.sendingState.successOrders.length > 0) {
+                const sentIds = this.sendingState.successOrders
+                    .map(o => o.Id)
+                    .filter(id => id);
+                this.addSentOrders(sentIds);
+            }
+
             this.closeModal();
 
         } catch (error) {
@@ -1246,6 +1324,12 @@ class MessageTemplateManager {
             this.log('\n📊 T-Page Send Summary:');
             this.log(`  ✅ Success: ${this.sendingState.success}/${this.sendingState.total}`);
             this.log(`  ❌ Errors: ${this.sendingState.error}/${this.sendingState.total}`);
+
+            // Track sent orders to prevent duplicate bulk sending
+            if (orderCampaignDetails.length > 0) {
+                const sentIds = orderCampaignDetails.map(o => o.rawOrder?.Id).filter(Boolean);
+                if (sentIds.length > 0) this.addSentOrders(sentIds);
+            }
 
             // Show summary modal (will implement next)
             this.showSendSummary(
