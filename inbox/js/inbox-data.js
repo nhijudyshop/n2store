@@ -25,9 +25,6 @@ class InboxDataManager {
         this.livestreamConvIds = new Set(); // Track livestream conversation IDs
         this.livestreamCustomerPsids = new Set(); // Track customers who commented on livestream
         this.labelMap = {};       // convId -> labelId (saved to localStorage)
-        this.unpinnedLivestream = new Set(); // convIds unpinned from Livestream tab
-        this.unpinnedInboxMy = new Set();    // convIds unpinned from Inbox My tab
-        this.pinnedConversations = {};       // convId -> saved conversation data (for persistence after F5)
         this.isInitialized = false;
 
         // Conversation maps for O(1) lookup (like tpos-pancake)
@@ -66,9 +63,6 @@ class InboxDataManager {
                 await this.loadConversations(true);
             }
 
-            // Merge back pinned conversations missing from API response (fetches from server)
-            await this.mergePinnedConversations();
-
             // Sync labels from server (cross-device)
             this.syncLabelsFromServer();
 
@@ -100,15 +94,6 @@ class InboxDataManager {
             if (liveCusts) this.livestreamCustomerPsids = new Set(JSON.parse(liveCusts));
 
             console.log(`[InboxData] Loaded local state: ${this.livestreamConvIds.size} livestream convs, ${this.livestreamCustomerPsids.size} livestream customers`);
-
-            const unpinLive = localStorage.getItem('inbox_unpinned_livestream');
-            if (unpinLive) this.unpinnedLivestream = new Set(JSON.parse(unpinLive));
-
-            const unpinMy = localStorage.getItem('inbox_unpinned_inbox_my');
-            if (unpinMy) this.unpinnedInboxMy = new Set(JSON.parse(unpinMy));
-
-            const pinned = localStorage.getItem('inbox_pinned_conversations');
-            if (pinned) this.pinnedConversations = JSON.parse(pinned);
         } catch (e) {
             console.warn('[InboxData] Error loading local state:', e);
         }
@@ -122,9 +107,6 @@ class InboxDataManager {
             localStorage.setItem('inbox_conv_labels', JSON.stringify(this.labelMap));
             localStorage.setItem('inbox_livestream_convs', JSON.stringify([...this.livestreamConvIds]));
             localStorage.setItem('inbox_livestream_customers', JSON.stringify([...this.livestreamCustomerPsids]));
-            localStorage.setItem('inbox_unpinned_livestream', JSON.stringify([...this.unpinnedLivestream]));
-            localStorage.setItem('inbox_unpinned_inbox_my', JSON.stringify([...this.unpinnedInboxMy]));
-            localStorage.setItem('inbox_pinned_conversations', JSON.stringify(this.pinnedConversations));
         } catch (e) {
             console.warn('[InboxData] Error saving local state:', e);
         }
@@ -533,9 +515,9 @@ class InboxDataManager {
         if (filter === 'unread') {
             result = result.filter(c => c.unread > 0);
         } else if (filter === 'livestream') {
-            result = result.filter(c => c.isLivestream && !this.unpinnedLivestream.has(c.id));
+            result = result.filter(c => c.isLivestream);
         } else if (filter === 'inbox_my') {
-            result = result.filter(c => !c.isLivestream && !this.unpinnedInboxMy.has(c.id));
+            result = result.filter(c => !c.isLivestream);
         }
 
         if (groupFilters && groupFilters.size > 0) {
@@ -819,6 +801,16 @@ class InboxDataManager {
                             if (livestreamConvIds.has(conv.id) && !conv.isLivestream) {
                                 this.livestreamConvIds.add(conv.id);
                                 conv.isLivestream = true;
+                                // Also mark this customer's INBOX conversations as livestream
+                                if (conv.psid) {
+                                    this.livestreamCustomerPsids.add(conv.psid);
+                                    for (const inboxConv of this.conversations) {
+                                        if (inboxConv.psid === conv.psid && inboxConv.type === 'INBOX' && !inboxConv.isLivestream) {
+                                            inboxConv.isLivestream = true;
+                                            this.livestreamConvIds.add(inboxConv.id);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -865,7 +857,16 @@ class InboxDataManager {
         const conv = this.getConversation(convId);
         if (conv) {
             conv.isLivestream = true;
-            this.savePinnedConversation(conv);
+            // Also mark this customer's INBOX conversations as livestream
+            if (conv.psid) {
+                this.livestreamCustomerPsids.add(conv.psid);
+                for (const inboxConv of this.conversations) {
+                    if (inboxConv.psid === conv.psid && inboxConv.type === 'INBOX' && !inboxConv.isLivestream) {
+                        inboxConv.isLivestream = true;
+                        this.livestreamConvIds.add(inboxConv.id);
+                    }
+                }
+            }
         }
         this.saveLocalState();
     }
@@ -882,7 +883,6 @@ class InboxDataManager {
             if (conv.psid === customerPsid && !conv.isLivestream) {
                 conv.isLivestream = true;
                 this.livestreamConvIds.add(conv.id);
-                this.savePinnedConversation(conv);
             }
         }
         this.saveLocalState();
@@ -904,119 +904,6 @@ class InboxDataManager {
     }
 
     /**
-     * Save conversation data for persistence (survives F5 even if Pancake API doesn't return it)
-     */
-    savePinnedConversation(conv) {
-        if (!conv || !conv.id) return;
-        const data = {
-            id: conv.id,
-            name: conv.name,
-            avatar: conv.avatar,
-            lastMessage: conv.lastMessage,
-            time: conv.time instanceof Date ? conv.time.toISOString() : conv.time,
-            unread: conv.unread,
-            type: conv.type,
-            pageId: conv.pageId,
-            pageName: conv.pageName,
-            psid: conv.psid,
-            customerId: conv.customerId,
-            isLivestream: conv.isLivestream,
-            labels: conv.labels || ['new'],
-        };
-        this.pinnedConversations[conv.id] = data;
-
-        // Save to server (persists across browsers)
-        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/realtime/pinned-conversation`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ convId: data.id, ...data })
-        }).catch(err => console.warn('[InboxData] Failed to save pinned conversation to server:', err.message));
-    }
-
-    /**
-     * Merge pinned conversations that are missing from the API response
-     * Fetches from server first, then merges with localStorage
-     */
-    async mergePinnedConversations() {
-        // Fetch from server (cross-browser persistence)
-        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        try {
-            const response = await fetch(`${workerUrl}/api/realtime/pinned-conversations?limit=500`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.conversations) {
-                    for (const row of data.conversations) {
-                        const convId = row.conv_id;
-                        if (!this.pinnedConversations[convId]) {
-                            this.pinnedConversations[convId] = {
-                                id: convId,
-                                name: row.name,
-                                avatar: row.avatar,
-                                lastMessage: row.last_message,
-                                time: row.conv_time,
-                                type: row.type,
-                                pageId: row.page_id,
-                                pageName: row.page_name,
-                                psid: row.psid,
-                                customerId: row.customer_id,
-                                isLivestream: row.is_livestream,
-                                label: row.label || 'new',
-                            };
-                        }
-                    }
-                    console.log(`[InboxData] Server has ${data.conversations.length} pinned conversations`);
-                }
-            }
-        } catch (err) {
-            console.warn('[InboxData] Failed to fetch pinned conversations from server:', err.message);
-        }
-
-        // Merge missing pinned conversations into the list
-        const existingIds = new Set(this.conversations.map(c => c.id));
-        let merged = 0;
-
-        for (const [convId, saved] of Object.entries(this.pinnedConversations)) {
-            if (existingIds.has(convId)) continue;
-
-            this.conversations.push({
-                ...saved,
-                time: new Date(saved.time),
-                unread: 0,
-                online: false,
-                phone: saved.phone || '',
-                messages: [],
-                conversationId: saved.id,
-                _raw: {},
-            });
-
-            // Also ensure livestream flags are set
-            if (saved.isLivestream) {
-                this.livestreamConvIds.add(convId);
-            }
-            merged++;
-        }
-
-        if (merged > 0) {
-            this.saveLocalState();
-            console.log(`[InboxData] Merged ${merged} pinned conversations missing from API`);
-        }
-    }
-
-    /**
-     * Remove saved pinned conversation data
-     */
-    removePinnedConversation(convId) {
-        delete this.pinnedConversations[convId];
-
-        // Remove from server
-        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/realtime/pinned-conversation?convId=${encodeURIComponent(convId)}`, {
-            method: 'DELETE'
-        }).catch(err => console.warn('[InboxData] Failed to delete pinned conversation from server:', err.message));
-    }
-
-    /**
      * Unmark a conversation as livestream (post.type is not 'livestream')
      */
     unmarkAsLivestream(convId) {
@@ -1026,41 +913,6 @@ class InboxDataManager {
             conv.isLivestream = false;
         }
         this.saveLocalState();
-    }
-
-    /**
-     * Unpin a conversation from its current tab (Livestream or Inbox My)
-     */
-    unpinFromTab(convId, tab) {
-        if (tab === 'livestream') {
-            this.unpinnedLivestream.add(convId);
-        } else if (tab === 'inbox_my') {
-            this.unpinnedInboxMy.add(convId);
-        }
-        // Remove from pinned data if unpinned
-        this.removePinnedConversation(convId);
-        this.saveLocalState();
-    }
-
-    /**
-     * Re-pin a conversation to its tab (undo unpin)
-     */
-    repinToTab(convId, tab) {
-        if (tab === 'livestream') {
-            this.unpinnedLivestream.delete(convId);
-        } else if (tab === 'inbox_my') {
-            this.unpinnedInboxMy.delete(convId);
-        }
-        this.saveLocalState();
-    }
-
-    /**
-     * Check if a conversation is pinned in the given tab
-     */
-    isPinnedInTab(convId, tab) {
-        if (tab === 'livestream') return !this.unpinnedLivestream.has(convId);
-        if (tab === 'inbox_my') return !this.unpinnedInboxMy.has(convId);
-        return false;
     }
 
     addMessage(convId, text, sender = 'shop') {

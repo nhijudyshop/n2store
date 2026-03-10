@@ -124,7 +124,7 @@
                     <button class="filter-tab" data-filter="inbox_my">Inbox My</button>
                 </div>
 
-                <!-- Type Filter (comment/message) -->
+                <!-- Type Filter (comment/message) - applies across all tabs -->
                 <div class="type-filters" id="typeFilters">
                     <button class="type-filter-btn active" data-type="all" title="Tất cả">
                         <i data-lucide="messages-square"></i> Tất cả
@@ -134,6 +134,16 @@
                     </button>
                     <button class="type-filter-btn" data-type="COMMENT" title="Bình luận">
                         <i data-lucide="message-square"></i> Bình luận
+                    </button>
+                </div>
+
+                <!-- Livestream Post Selector (only visible in Livestream tab) -->
+                <div class="livestream-post-selector" id="livestreamPostSelector" style="display:none;">
+                    <select id="livestreamPostSelect">
+                        <option value="">Tất cả bài post</option>
+                    </select>
+                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xóa tất cả đoạn hội thoại livestream của bài post này">
+                        <i data-lucide="trash-2"></i> Xóa livestream
                     </button>
                 </div>
 
@@ -163,9 +173,6 @@
                         <span class="ws-status disconnected" id="wsStatus" title="Realtime: Mất kết nối">
                             <i data-lucide="wifi-off"></i>
                         </span>
-                        <button class="btn-icon-sm" id="btnUnpinConversation" title="Bỏ ghim" style="display:none;">
-                            <i data-lucide="pin-off"></i>
-                        </button>
                         <button class="btn-icon-sm" id="btnMarkUnread" title="Đánh dấu chưa đọc" style="display:none;">
                             <i data-lucide="mail"></i>
                         </button>

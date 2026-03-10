@@ -515,6 +515,52 @@ body.col-resizing .resize-handle {
     color: var(--primary);
 }
 
+/* Livestream Post Selector */
+.livestream-post-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+    background: var(--gray-50);
+}
+
+.livestream-post-selector select {
+    flex: 1;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    background: white;
+    color: var(--text-primary);
+}
+
+.btn-clear-livestream {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    border: 1px solid var(--danger, #ef4444);
+    background: transparent;
+    color: var(--danger, #ef4444);
+    font-size: 0.65rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: var(--transition-fast);
+}
+
+.btn-clear-livestream:hover {
+    background: var(--danger, #ef4444);
+    color: white;
+}
+
+.btn-clear-livestream i,
+.btn-clear-livestream svg {
+    width: 11px;
+    height: 11px;
+}
+
 /* Page selector checkbox */
 .page-check {
     width: 14px;
@@ -2247,33 +2293,8 @@ body.col-resizing .resize-handle {
     height: 14px;
 }
 
-.conversation-item:hover .conv-read-toggle,
-.conversation-item:hover .conv-move-btn {
+.conversation-item:hover .conv-read-toggle {
     display: flex;
-}
-
-.conv-move-btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    padding: 2px;
-    cursor: pointer;
-    color: var(--text-tertiary);
-    border-radius: 4px;
-    flex-shrink: 0;
-}
-
-.conv-move-btn:hover {
-    color: var(--primary);
-    background: var(--bg-hover);
-}
-
-.conv-move-btn i,
-.conv-move-btn svg {
-    width: 14px;
-    height: 14px;
 }
 
 /* =====================================================

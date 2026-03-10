@@ -26,6 +26,7 @@ class InboxChatController {
         this.searchResults = null; // null = use local filter, [] = API returned empty
         this.selectedPageIds = new Set(); // Multi-page filter (empty = all)
         this.currentTypeFilter = 'all'; // 'all', 'INBOX', 'COMMENT'
+        this.selectedLivestreamPostId = ''; // Filter livestream by post_id
         this.isSending = false;
         this.isLoadingMessages = false;
         this.currentSendPageId = null; // Page to send from (null = use conversation's page)
@@ -84,7 +85,6 @@ class InboxChatController {
             chatHeader: document.getElementById('chatHeader'),
             searchInput: document.getElementById('searchConversation'),
             btnSend: document.getElementById('btnSend'),
-            btnUnpinConversation: document.getElementById('btnUnpinConversation'),
             btnMarkUnread: document.getElementById('btnMarkUnread'),
             btnRefreshInbox: document.getElementById('btnRefreshInbox'),
             chatLabelBar: document.getElementById('chatLabelBar'),
@@ -156,10 +156,35 @@ class InboxChatController {
                 document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 this.currentFilter = tab.dataset.filter;
-                this.updateUnpinButton();
+                this.toggleLivestreamPostSelector();
                 this.renderConversationList();
             });
         });
+
+        // Type filter (comment/message) — applies across all tabs
+        document.querySelectorAll('.type-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentTypeFilter = btn.dataset.type;
+                this.renderConversationList();
+            });
+        });
+
+        // Livestream post selector
+        const livestreamPostSelect = document.getElementById('livestreamPostSelect');
+        if (livestreamPostSelect) {
+            livestreamPostSelect.addEventListener('change', (e) => {
+                this.selectedLivestreamPostId = e.target.value;
+                this.renderConversationList();
+            });
+        }
+
+        // Clear livestream for selected post
+        const btnClearLivestream = document.getElementById('btnClearLivestream');
+        if (btnClearLivestream) {
+            btnClearLivestream.addEventListener('click', () => this.clearLivestreamForPost());
+        }
 
         // Send message
         this.elements.btnSend.addEventListener('click', () => this.sendMessage());
@@ -309,14 +334,6 @@ class InboxChatController {
             });
         }
 
-        // Unpin conversation from current tab
-        this.elements.btnUnpinConversation.addEventListener('click', () => {
-            if (this.activeConversationId && (this.currentFilter === 'livestream' || this.currentFilter === 'inbox_my')) {
-                this.data.unpinFromTab(this.activeConversationId, this.currentFilter);
-                this.renderConversationList();
-            }
-        });
-
         // Mark as unread
         this.elements.btnMarkUnread.addEventListener('click', () => {
             if (this.activeConversationId) {
@@ -394,15 +411,6 @@ class InboxChatController {
             });
         }
 
-        // Type filter (comment/message)
-        document.querySelectorAll('.type-filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.currentTypeFilter = btn.dataset.type;
-                this.renderConversationList();
-            });
-        });
     }
 
     // ===== Page Selector (from tpos-pancake) =====
@@ -620,9 +628,14 @@ class InboxChatController {
             conversations = conversations.filter(c => this.selectedPageIds.has(c.pageId));
         }
 
-        // Apply type filter (INBOX/COMMENT)
+        // Apply type filter (INBOX/COMMENT) — across all tabs
         if (this.currentTypeFilter !== 'all') {
             conversations = conversations.filter(c => c.type === this.currentTypeFilter);
+        }
+
+        // Apply livestream post filter (only in livestream tab)
+        if (this.currentFilter === 'livestream' && this.selectedLivestreamPostId) {
+            conversations = conversations.filter(c => c._raw?.post_id === this.selectedLivestreamPostId);
         }
 
         if (conversations.length === 0 && this.isSearching) {
@@ -677,13 +690,6 @@ class InboxChatController {
             // Tags
             const tagsHtml = this.getTagsHtml(conv);
 
-            // Move button: only in "all" tab — move to Livestream or Inbox My
-            const moveBtn = this.currentFilter === 'all' ? `
-                <button class="conv-move-btn" title="${conv.isLivestream ? 'Chuyển qua Inbox My' : 'Chuyển qua Livestream'}"
-                    onclick="event.stopPropagation(); window.inboxChat.moveConversationTab('${conv.id}')">
-                    <i data-lucide="${conv.isLivestream ? 'inbox' : 'radio'}"></i>
-                </button>` : '';
-
             return `
                 <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
                      data-id="${conv.id}" onclick="window.inboxChat.selectConversation('${conv.id}')">
@@ -704,7 +710,6 @@ class InboxChatController {
                                 ${tagsHtml}
                                 ${livestreamBadge}
                             </div>
-                            ${moveBtn}
                             <button class="conv-read-toggle" title="${isUnread ? 'Đánh dấu đã đọc' : 'Đánh dấu chưa đọc'}"
                                 onclick="event.stopPropagation(); window.inboxChat.toggleReadUnread('${conv.id}')">
                                 <i data-lucide="${isUnread ? 'mail-open' : 'mail'}"></i>
@@ -729,6 +734,85 @@ class InboxChatController {
         this._iconTimer = requestAnimationFrame(() => {
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
+    }
+
+    // ===== Livestream Post Selector =====
+
+    toggleLivestreamPostSelector() {
+        const selector = document.getElementById('livestreamPostSelector');
+        if (!selector) return;
+        if (this.currentFilter === 'livestream') {
+            selector.style.display = '';
+            this.populateLivestreamPostSelector();
+        } else {
+            selector.style.display = 'none';
+        }
+    }
+
+    populateLivestreamPostSelector() {
+        const select = document.getElementById('livestreamPostSelect');
+        if (!select) return;
+
+        // Collect unique post_ids from livestream conversations
+        const postMap = new Map(); // post_id -> { count, snippet }
+        for (const conv of this.data.conversations) {
+            if (!conv.isLivestream) continue;
+            const postId = conv._raw?.post_id;
+            if (!postId) continue;
+            const existing = postMap.get(postId);
+            if (existing) {
+                existing.count++;
+            } else {
+                const postMessage = conv._raw?.post?.message || '';
+                const snippet = postMessage.substring(0, 40) || `Post ${postId.substring(0, 8)}...`;
+                postMap.set(postId, { count: 1, snippet });
+            }
+        }
+
+        let html = `<option value="">Tất cả bài post (${postMap.size})</option>`;
+        for (const [postId, info] of postMap) {
+            const selected = postId === this.selectedLivestreamPostId ? 'selected' : '';
+            html += `<option value="${postId}" ${selected}>${info.snippet} (${info.count})</option>`;
+        }
+        select.innerHTML = html;
+    }
+
+    clearLivestreamForPost() {
+        const postId = this.selectedLivestreamPostId;
+        if (!postId) {
+            showToast('Chọn bài post trước khi xóa', 'warning');
+            return;
+        }
+
+        // Find all livestream conversations for this post
+        const toRemove = this.data.conversations.filter(c =>
+            c.isLivestream && c._raw?.post_id === postId
+        );
+
+        if (toRemove.length === 0) {
+            showToast('Không có đoạn hội thoại livestream cho bài post này', 'info');
+            return;
+        }
+
+        if (!confirm(`Xóa đánh dấu livestream cho ${toRemove.length} đoạn hội thoại của bài post này?`)) return;
+
+        for (const conv of toRemove) {
+            conv.isLivestream = false;
+            this.data.livestreamConvIds.delete(conv.id);
+            // Also unmark customer if no other livestream convs remain
+            if (conv.psid) {
+                const otherLive = this.data.conversations.some(c => c.psid === conv.psid && c.isLivestream && c.id !== conv.id);
+                if (!otherLive) {
+                    this.data.livestreamCustomerPsids.delete(conv.psid);
+                }
+            }
+        }
+
+        this.data.saveLocalState();
+        this.selectedLivestreamPostId = '';
+        this.populateLivestreamPostSelector();
+        this.renderConversationList();
+        showToast(`Đã xóa ${toRemove.length} đoạn hội thoại livestream`, 'success');
     }
 
     // ===== Load More Conversations (scroll pagination) =====
@@ -791,28 +875,6 @@ class InboxChatController {
         this.updatePageUnreadCounts();
     }
 
-    moveConversationTab(convId) {
-        console.log('[InboxChat] moveConversationTab called:', convId);
-        const conv = this.data.getConversation(convId);
-        if (!conv) { console.warn('[InboxChat] moveConversationTab: conv not found'); return; }
-
-        if (conv.isLivestream) {
-            // Move from Livestream → Inbox My
-            this.data.unmarkAsLivestream(convId);
-            this.data.unpinnedLivestream.add(convId);
-            this.data.unpinnedInboxMy.delete(convId);
-            showToast(`Đã chuyển "${conv.name}" qua Inbox My`, 'success');
-        } else {
-            // Move from Inbox My → Livestream (save customer to server for persistence)
-            this.data.markCustomerAsLivestream(conv.psid, conv.pageId, conv.name);
-            this.data.unpinnedInboxMy.add(convId);
-            this.data.unpinnedLivestream.delete(convId);
-            showToast(`Đã chuyển "${conv.name}" qua Livestream`, 'success');
-        }
-        this.data.saveLocalState();
-        this.renderConversationList();
-    }
-
     // ===== Select Conversation =====
 
     async selectConversation(convId) {
@@ -867,7 +929,6 @@ class InboxChatController {
         }
         chatAvatar.className = 'chat-avatar';
 
-        this.updateUnpinButton();
         this.elements.btnMarkUnread.style.display = '';
         this.renderChatLabelBar(conv);
         this.renderConversationList();
@@ -1623,16 +1684,6 @@ class InboxChatController {
         }
         this.renderConversationList();
         this.renderGroupStats();
-    }
-
-    updateUnpinButton() {
-        const btn = this.elements.btnUnpinConversation;
-        // Only show unpin button when viewing Livestream or Inbox My tab
-        if (this.currentFilter === 'livestream' || this.currentFilter === 'inbox_my') {
-            btn.style.display = '';
-        } else {
-            btn.style.display = 'none';
-        }
     }
 
     // ===== Manage Groups Modal =====
