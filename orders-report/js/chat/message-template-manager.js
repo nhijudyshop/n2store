@@ -1370,22 +1370,62 @@ class MessageTemplateManager {
             }
         }
 
-        // COMMENT-only: Skip Pancake reply_inbox (will fail), go directly to Private Reply
+        // COMMENT-only: Skip Pancake reply_inbox (will fail), use Pancake private_replies action
         if (isCommentOnly && commentConvId) {
-            this.log(`🔄 COMMENT-only → Direct Private Reply for order ${order.code} (commentId: ${commentConvId})`);
-            const fbResult = await this._sendViaFacebookAPI(
-                channelId, psid, messageContent, fullOrderData.raw,
-                fullOrderData.raw.Facebook_PostId, commentConvId
-            );
-            if (fbResult.success) {
-                this.log(`✅ Private Reply succeeded for order ${order.code} (method: ${fbResult.method})`);
-                return true;
+            this.log(`🔄 COMMENT-only → Pancake private_replies for order ${order.code} (commentConvId: ${commentConvId})`);
+
+            // Get page_access_token (same logic as below)
+            let prPageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+            if (!prPageAccessToken) {
+                const accountToken = token || window.pancakeTokenManager?.currentToken;
+                if (accountToken && window.pancakeTokenManager) {
+                    prPageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+                }
             }
+            if (!prPageAccessToken) {
+                throw new Error(`Không tìm thấy page_access_token cho page ${channelId}`);
+            }
+
+            // For private_replies: conversationId = message_id = commentConvId
+            const prApiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${channelId}/conversations/${commentConvId}/messages`,
+                prPageAccessToken
+            ) + (customerId ? `&customer_id=${customerId}` : '');
+
+            const prPayload = {
+                action: 'private_replies',
+                post_id: fullOrderData.raw.Facebook_PostId || '',
+                message_id: commentConvId,
+                from_id: psid,
+                message: messageContent
+            };
+
+            this.log(`📤 Sending private_replies via Pancake API...`);
+            this.log(`📦 Payload:`, JSON.stringify(prPayload));
+
+            try {
+                const prResponse = await API_CONFIG.smartFetch(prApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify(prPayload)
+                }, 1, true);
+
+                const prData = await prResponse.json();
+                this.log(`📥 private_replies Response:`, JSON.stringify(prData, null, 2));
+
+                if (prData.success !== false) {
+                    this.log(`✅ Pancake private_replies succeeded for order ${order.code}`);
+                    return true;
+                }
+
+                this.log(`❌ Pancake private_replies failed: ${prData.error || prData.message || JSON.stringify(prData)}`);
+            } catch (prErr) {
+                this.log(`❌ Pancake private_replies error: ${prErr.message}`);
+            }
+
             // Private Reply failed - throw descriptive error
-            const errMsg = `COMMENT_ONLY: Khách chỉ comment, không có inbox. Private Reply failed: ${fbResult.error}`;
-            this.log(`❌ ${errMsg}`);
             const err = new Error('COMMENT_ONLY_NO_INBOX');
-            err.originalMessage = fbResult.error;
+            err.originalMessage = 'Khách chỉ comment, không có inbox. Pancake private_replies failed.';
             err.isCommentOnly = true;
             throw err;
         }
@@ -1555,15 +1595,14 @@ class MessageTemplateManager {
                     return true; // Success via Facebook API
                 }
 
-                // Send API also failed → try Direct Private Reply with known comment ID
+                // Send API also failed → try Pancake private_replies with known comment conv ID
                 if (commentConvId) {
-                    this.log(`🔄 Send API failed → trying Direct Private Reply with commentId: ${commentConvId}`);
-                    const prResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, null, commentConvId);
-                    if (prResult.success) {
-                        this.log(`✅ Direct Private Reply succeeded for order ${order.code}`);
+                    this.log(`🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`);
+                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, fullOrderData.raw, commentConvId, customerId, token);
+                    if (prResult) {
+                        this.log(`✅ Pancake private_replies succeeded for order ${order.code}`);
                         return true;
                     }
-                    this.log(`❌ Direct Private Reply also failed: ${prResult.error}`);
                 }
 
                 // All fallbacks failed, throw original error
@@ -1588,15 +1627,14 @@ class MessageTemplateManager {
                     return true; // Success via Facebook API
                 }
 
-                // Send API also failed → try Direct Private Reply with known comment ID
+                // Send API also failed → try Pancake private_replies with known comment conv ID
                 if (commentConvId) {
-                    this.log(`🔄 Send API failed → trying Direct Private Reply with commentId: ${commentConvId}`);
-                    const prResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, null, commentConvId);
-                    if (prResult.success) {
-                        this.log(`✅ Direct Private Reply succeeded for order ${order.code}`);
+                    this.log(`🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`);
+                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, fullOrderData.raw, commentConvId, customerId, token);
+                    if (prResult) {
+                        this.log(`✅ Pancake private_replies succeeded for order ${order.code}`);
                         return true;
                     }
-                    this.log(`❌ Direct Private Reply also failed: ${prResult.error}`);
                 }
 
                 // All fallbacks failed, throw original error
@@ -1617,6 +1655,67 @@ class MessageTemplateManager {
         } // End of for loop (messageParts)
 
         return true;
+    }
+
+    /**
+     * Send message via Pancake private_replies action (for COMMENT-only or fallback)
+     * Uses Pancake API endpoint with action: "private_replies"
+     * @returns {boolean} true if succeeded, false if failed
+     */
+    async _sendViaPancakePrivateReply(channelId, psid, messageContent, orderRaw, commentConvId, customerId, token) {
+        this.log(`[PANCAKE-PR] Attempting Pancake private_replies...`);
+
+        try {
+            // Get page_access_token
+            let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+            if (!pageAccessToken) {
+                const accountToken = token || window.pancakeTokenManager?.currentToken;
+                if (accountToken && window.pancakeTokenManager) {
+                    pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+                }
+            }
+            if (!pageAccessToken) {
+                this.log('[PANCAKE-PR] ❌ No page_access_token available');
+                return false;
+            }
+
+            // For private_replies: conversationId = message_id = commentConvId
+            const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${channelId}/conversations/${commentConvId}/messages`,
+                pageAccessToken
+            ) + (customerId ? `&customer_id=${customerId}` : '');
+
+            const payload = {
+                action: 'private_replies',
+                post_id: orderRaw.Facebook_PostId || '',
+                message_id: commentConvId,
+                from_id: psid,
+                message: messageContent
+            };
+
+            this.log(`[PANCAKE-PR] 📤 Sending...`);
+            this.log(`[PANCAKE-PR] 📦 Payload:`, JSON.stringify(payload));
+
+            const response = await API_CONFIG.smartFetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(payload)
+            }, 1, true);
+
+            const data = await response.json();
+            this.log(`[PANCAKE-PR] 📥 Response:`, JSON.stringify(data, null, 2));
+
+            if (data.success !== false) {
+                this.log(`[PANCAKE-PR] ✅ private_replies succeeded!`);
+                return true;
+            }
+
+            this.log(`[PANCAKE-PR] ❌ Failed: ${data.error || data.message || JSON.stringify(data)}`);
+            return false;
+        } catch (err) {
+            this.log(`[PANCAKE-PR] ❌ Error: ${err.message}`);
+            return false;
+        }
     }
 
     /**
