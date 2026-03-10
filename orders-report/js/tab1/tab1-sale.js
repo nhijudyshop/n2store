@@ -1761,7 +1761,7 @@ if (typeof updateChatProductQuantity !== 'undefined') {
 
 // Chat Product Manager - For Orders tab in right panel
 window.chatProductManager = {
-    addProductFromSearch: addChatProductFromSearch,
+    addProductFromSearch: typeof addChatProductFromSearch !== 'undefined' ? addChatProductFromSearch : function() { console.warn('addChatProductFromSearch not loaded yet'); },
     renderInvoiceHistory: function () {
         // TODO: Implement invoice history rendering
         const container = document.getElementById('chatInvoiceHistoryContainer');
