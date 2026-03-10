@@ -28,6 +28,7 @@ class InboxChatController {
         this.currentTypeFilter = 'all'; // 'all', 'INBOX', 'COMMENT'
         this.isSending = false;
         this.isLoadingMessages = false;
+        this.currentSendPageId = null; // Page to send from (null = use conversation's page)
 
         // Message pagination (like tpos-pancake)
         this.isLoadingMoreMessages = false;
@@ -496,6 +497,44 @@ class InboxChatController {
         }
     }
 
+    // ===== Send Page Selector (Gửi từ) =====
+
+    populateSendPageSelector() {
+        const select = document.getElementById('sendPageSelect');
+        const container = document.getElementById('sendPageSelector');
+        if (!select || !container) return;
+
+        const pages = this.data.pages || [];
+        if (pages.length <= 1) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'flex';
+
+        // Get current conversation's page for default
+        const conv = this.activeConversationId ? this.data.getConversation(this.activeConversationId) : null;
+        const currentPageId = conv?.pageId || '';
+
+        let html = `<option value="">Trang hiện tại${currentPageId ? ` (${conv?.pageName || ''})` : ''}</option>`;
+        for (const page of pages) {
+            const selected = this.currentSendPageId === page.id ? 'selected' : '';
+            html += `<option value="${page.id}" ${selected}>${page.name || page.id}</option>`;
+        }
+        select.innerHTML = html;
+    }
+
+    onSendPageChanged(pageId) {
+        this.currentSendPageId = pageId || null;
+        const pages = this.data.pages || [];
+        const page = pages.find(p => p.id === pageId);
+        if (pageId && page) {
+            console.log('[InboxChat] Send page changed to:', page.name || pageId);
+        } else {
+            console.log('[InboxChat] Send page reset to conversation page');
+        }
+    }
+
     // ===== Avatar Helper (from tpos-pancake) =====
 
     getAvatarHtml(conv, size = 'list') {
@@ -833,8 +872,9 @@ class InboxChatController {
         // Fetch real messages from Pancake API
         await this.loadMessages(conv);
 
-        // Show quick reply bar
+        // Show quick reply bar & send page selector
         this.renderQuickReplies();
+        this.populateSendPageSelector();
     }
 
     /**
@@ -1219,16 +1259,21 @@ class InboxChatController {
         this.isSending = true;
         this.elements.btnSend.disabled = true;
 
-        // 24h window check (Facebook messaging policy)
-        const windowCheck = this.data.check24hWindow(this.activeConversationId);
-        if (!windowCheck.isOpen) {
-            showToast('Cửa sổ 24h đã hết hạn. Không thể gửi tin nhắn.', 'warning');
-            this.isSending = false;
-            this.elements.btnSend.disabled = false;
-            return;
-        }
-        if (windowCheck.hoursRemaining !== null && windowCheck.hoursRemaining <= 2) {
-            showToast(`Cửa sổ 24h còn ${windowCheck.hoursRemaining}h. Gửi nhanh!`, 'warning');
+        // Determine send page (from selector or conversation's page)
+        const sendPageId = this.currentSendPageId || conv.pageId;
+
+        // 24h window check (Facebook messaging policy) - only for INBOX
+        if (conv.type !== 'COMMENT') {
+            const windowCheck = this.data.check24hWindow(this.activeConversationId);
+            if (!windowCheck.isOpen) {
+                showToast('Cửa sổ 24h đã hết hạn. Không thể gửi tin nhắn.', 'warning');
+                this.isSending = false;
+                this.elements.btnSend.disabled = false;
+                return;
+            }
+            if (windowCheck.hoursRemaining !== null && windowCheck.hoursRemaining <= 2) {
+                showToast(`Cửa sổ 24h còn ${windowCheck.hoursRemaining}h. Gửi nhanh!`, 'warning');
+            }
         }
 
         // Capture reply state before clearing
@@ -1243,39 +1288,53 @@ class InboxChatController {
         this.renderConversationList();
 
         try {
-            console.log(`[InboxChat] Sending to page: ${conv.pageId} (${conv.pageName}), conv: ${conv.conversationId}, type: ${conv.type}`);
-            const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
+            console.log(`[InboxChat] Sending from page: ${sendPageId}, conv page: ${conv.pageId} (${conv.pageName}), conv: ${conv.conversationId}, type: ${conv.type}`);
+            const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
             if (!pageAccessToken) {
-                throw new Error(`Không tìm thấy page_access_token cho page ${conv.pageId} (${conv.pageName}). Không có account nào có quyền truy cập page này.`);
+                throw new Error(`Không tìm thấy page_access_token cho page ${sendPageId}. Không có account nào có quyền truy cập page này.`);
             }
 
             let url, payload;
 
-            if (replyData && replyData.convType === 'COMMENT') {
-                // Reply to comment: reply_comment (public) or private_replies
-                const commentId = replyData.msgId;
-                // For reply_comment, conversationId = commentId
-                const conversationId = commentId;
+            if (conv.type === 'COMMENT') {
+                // COMMENT conversation: send private reply to customer
+                const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
+                const fromId = conv.psid || conv._raw?.from?.id || '';
+                // For COMMENT, conversationId is the comment thread ID
+                const messageId = replyData?.msgId || conv.conversationId;
+
                 url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${conv.pageId}/conversations/${conversationId}/messages`,
+                    `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
                     pageAccessToken
                 );
 
-                // Default to reply_comment (public reply on post)
+                // Use private_replies to send private message to commenter
                 payload = {
-                    action: 'reply_comment',
-                    message_id: commentId,
+                    action: 'private_replies',
+                    post_id: postId,
+                    message_id: messageId,
+                    from_id: fromId,
                     message: text
                 };
 
-                console.log('[InboxChat] Sending reply_comment:', { pageId: conv.pageId, commentId, text });
+                console.log('[InboxChat] Sending private_replies:', { sendPageId, postId, messageId, fromId, text: text.substring(0, 50) });
             } else {
-                // Normal message or inbox reply
+                // INBOX conversation: reply via Messenger
                 url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                    `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
                     pageAccessToken
                 );
-                payload = { message: { text } };
+                payload = {
+                    action: 'reply_inbox',
+                    message: text
+                };
+
+                // Include replied_message_id if replying to a specific message
+                if (replyData && replyData.msgId) {
+                    payload.replied_message_id = replyData.msgId;
+                }
+
+                console.log('[InboxChat] Sending reply_inbox:', { sendPageId, convId: conv.conversationId, text: text.substring(0, 50) });
             }
 
             const response = await fetch(url, {
@@ -1285,11 +1344,33 @@ class InboxChatController {
             });
 
             if (!response.ok) {
-                const errData = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errData}`);
+                const errText = await response.text();
+                let errData;
+                try { errData = JSON.parse(errText); } catch { errData = { message: errText }; }
+
+                // Handle private_replies failure: fallback to reply_inbox for COMMENT
+                if (conv.type === 'COMMENT' && payload.action === 'private_replies') {
+                    console.warn('[InboxChat] private_replies failed, trying reply_inbox fallback...');
+
+                    // Try to find the inbox conversation for this customer
+                    const inboxPayload = { action: 'reply_inbox', message: text };
+                    const fallbackResponse = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(inboxPayload)
+                    });
+
+                    if (!fallbackResponse.ok) {
+                        const fallbackErr = await fallbackResponse.text();
+                        throw new Error(`private_replies + reply_inbox đều thất bại: ${fallbackErr}`);
+                    }
+                    console.log('[InboxChat] reply_inbox fallback succeeded');
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${errData.message || errText}`);
+                }
             }
 
-            const successMsg = replyData ? 'Đã trả lời thành công' : 'Đã gửi tin nhắn';
+            const successMsg = conv.type === 'COMMENT' ? 'Đã gửi tin nhắn riêng' : 'Đã gửi tin nhắn';
             console.log('[InboxChat]', successMsg);
 
             // Auto mark as read after sending message
@@ -1338,21 +1419,26 @@ class InboxChatController {
                 const pdm = window.pancakeDataManager;
                 if (!pdm) throw new Error('pancakeDataManager not available');
 
-                const result = await pdm.uploadImage(conv.pageId, file);
+                const sendPageId = this.currentSendPageId || conv.pageId;
+                const result = await pdm.uploadImage(sendPageId, file);
                 if (result && result.url) {
-                    const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
+                    const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
                     if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
                     const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                        `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                        `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
                         pageAccessToken
                     );
+
+                    const payload = {
+                        action: 'reply_inbox',
+                        message: '',
+                        content_url: result.url
+                    };
 
                     await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            message: { attachment: { type: 'image', payload: { url: result.url } } }
-                        })
+                        body: JSON.stringify(payload)
                     });
 
                     showToast('Đã gửi ảnh', 'success');
@@ -1856,21 +1942,30 @@ class InboxChatController {
                 const pdm = window.pancakeDataManager;
                 if (!pdm) throw new Error('pancakeDataManager not available');
 
-                const result = await pdm.uploadImage(conv.pageId, file);
+                const sendPageId = this.currentSendPageId || conv.pageId;
+                const result = await pdm.uploadImage(sendPageId, file);
                 if (result && result.url) {
-                    const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
+                    const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
                     if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
                     const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                        `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                        `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
                         pageAccessToken
                     );
                     await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: { attachment: { type: 'file', payload: { url: result.url } } } })
+                        body: JSON.stringify({
+                            action: 'reply_inbox',
+                            message: '',
+                            content_url: result.url
+                        })
                     });
                     showToast('Đã gửi file: ' + file.name, 'success');
-                    setTimeout(() => this.loadMessages(conv), 2000);
+                    setTimeout(() => {
+                        const pdm = window.pancakeDataManager;
+                        if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
+                        this.loadMessages(conv);
+                    }, 2000);
                 }
             } catch (err) {
                 console.error('[InboxChat] File upload error:', err);

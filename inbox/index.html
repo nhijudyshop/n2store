@@ -232,15 +232,26 @@
                 <!-- Chat Input -->
                 <div class="chat-input-area" id="chatInputArea">
                     <div class="chat-input-toolbar">
-                        <button class="btn-icon-sm" title="Đính kèm ảnh" id="btnAttachImage">
-                            <i data-lucide="image"></i>
-                        </button>
-                        <button class="btn-icon-sm" title="Gửi file" id="btnAttachFile">
-                            <i data-lucide="paperclip"></i>
-                        </button>
-                        <button class="btn-icon-sm" title="Emoji" id="btnEmoji">
-                            <i data-lucide="smile"></i>
-                        </button>
+                        <div class="send-page-selector" id="sendPageSelector" style="display:none;">
+                            <label class="send-page-label">
+                                <i data-lucide="send" style="width:12px;height:12px;"></i>
+                                Gửi từ:
+                            </label>
+                            <select id="sendPageSelect" onchange="window.inboxChat?.onSendPageChanged(this.value)">
+                                <option value="">Trang hiện tại</option>
+                            </select>
+                        </div>
+                        <div class="chat-input-toolbar-btns">
+                            <button class="btn-icon-sm" title="Đính kèm ảnh" id="btnAttachImage">
+                                <i data-lucide="image"></i>
+                            </button>
+                            <button class="btn-icon-sm" title="Gửi file" id="btnAttachFile">
+                                <i data-lucide="paperclip"></i>
+                            </button>
+                            <button class="btn-icon-sm" title="Emoji" id="btnEmoji">
+                                <i data-lucide="smile"></i>
+                            </button>
+                        </div>
                     </div>
                     <!-- Emoji Picker -->
                     <div class="emoji-picker" id="emojiPicker" style="display:none;">
