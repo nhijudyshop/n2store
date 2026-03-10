@@ -754,7 +754,7 @@ class InboxChatController {
         if (!select) return;
 
         // Collect unique post_ids from livestream conversations
-        const postMap = new Map(); // post_id -> { count, snippet }
+        const postMap = new Map(); // post_id -> { count, snippet, convSample }
         for (const conv of this.data.conversations) {
             if (!conv.isLivestream) continue;
             const postId = conv._raw?.post_id;
@@ -763,18 +763,63 @@ class InboxChatController {
             if (existing) {
                 existing.count++;
             } else {
-                const postMessage = conv._raw?.post?.message || '';
-                const snippet = postMessage || `Post ${postId}`;
-                postMap.set(postId, { count: 1, snippet });
+                // Try cached post info, then _messagesData, then _raw.post
+                const cachedName = this._postNameCache?.get(postId);
+                const postMessage = cachedName
+                    || conv._messagesData?.post?.message
+                    || conv._raw?.post?.message
+                    || '';
+                postMap.set(postId, { count: 1, snippet: postMessage, convSample: conv });
             }
         }
 
         let html = `<option value="">Tất cả bài post (${postMap.size})</option>`;
         for (const [postId, info] of postMap) {
             const selected = postId === this.selectedLivestreamPostId ? 'selected' : '';
-            html += `<option value="${postId}" ${selected}>${info.snippet} (${info.count})</option>`;
+            const label = info.snippet || `Đang tải...`;
+            html += `<option value="${postId}" ${selected}>${label} (${info.count})</option>`;
         }
         select.innerHTML = html;
+
+        // Fetch post names for entries without snippet
+        const needFetch = [];
+        for (const [postId, info] of postMap) {
+            if (!info.snippet && !this._postNameCache?.has(postId)) {
+                needFetch.push({ postId, conv: info.convSample });
+            }
+        }
+        if (needFetch.length > 0) {
+            this._fetchPostNames(needFetch);
+        }
+    }
+
+    async _fetchPostNames(items) {
+        if (!this._postNameCache) this._postNameCache = new Map();
+        const pdm = window.pancakeDataManager;
+        if (!pdm) return;
+
+        for (const { postId, conv } of items) {
+            if (this._postNameCache.has(postId)) continue;
+            try {
+                const result = await pdm.fetchMessagesForConversation(
+                    conv.pageId, conv.conversationId, null, conv.customerId
+                );
+                const post = result?.post || result?.conversation?.post;
+                const message = post?.message || `Post ${postId}`;
+                this._postNameCache.set(postId, message);
+
+                // Also store for future use
+                if (!conv._messagesData) conv._messagesData = {};
+                conv._messagesData.post = post;
+            } catch (e) {
+                this._postNameCache.set(postId, `Post ${postId}`);
+            }
+        }
+
+        // Re-render dropdown with fetched names (only if still on livestream tab)
+        if (this.currentFilter === 'livestream') {
+            this.populateLivestreamPostSelector();
+        }
     }
 
     clearLivestreamForPost() {
