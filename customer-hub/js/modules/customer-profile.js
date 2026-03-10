@@ -111,7 +111,7 @@ export class CustomerProfileModule {
                 // Render all sections
                 this._renderHeader(data.customer);
                 this._renderRFMCard(data.customer);
-                this._renderTicketsCard(data.recentTickets || []);
+                this._renderTicketsCard(data.recentTickets || [], data.recentActivities || []);
                 this._renderNotesSection(data.notes || []);
 
                 // Initialize wallet panel module
@@ -172,7 +172,7 @@ export class CustomerProfileModule {
                 // Render with TPOS data (basic profile, no tickets/RFM)
                 this._renderHeader(data.customer);
                 this._renderRFMCard(data.customer);
-                this._renderTicketsCard([]);
+                this._renderTicketsCard([], []);
                 this._renderNotesSection([]);
 
                 // Initialize wallet panel module
@@ -453,7 +453,7 @@ export class CustomerProfileModule {
         `).join('');
     }
 
-    _renderTicketsCard(tickets) {
+    _renderTicketsCard(tickets, activities = []) {
         const container = this.container.querySelector('#recent-activities-card');
 
         // Ticket type translations
@@ -477,15 +477,24 @@ export class CustomerProfileModule {
             'CANCELLED': { label: 'Đã hủy', color: 'bg-slate-100 text-slate-500' }
         };
 
+        // Activity type icon/color mapping
+        const activityStyleMap = {
+            'WALLET_DEPOSIT': { icon: 'savings', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+            'WALLET_WITHDRAW': { icon: 'payments', color: 'text-red-600', bg: 'bg-red-50' },
+            'WALLET_REFUND': { icon: 'currency_exchange', color: 'text-blue-600', bg: 'bg-blue-50' },
+            'WALLET_VIRTUAL_CREDIT': { icon: 'card_giftcard', color: 'text-purple-600', bg: 'bg-purple-50' },
+            'ORDER_CANCELLED': { icon: 'cancel', color: 'text-red-500', bg: 'bg-red-50' },
+            'ORDER_CREATED': { icon: 'shopping_cart', color: 'text-blue-500', bg: 'bg-blue-50' },
+            'ORDER_CANCEL_REFUND': { icon: 'currency_exchange', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        };
+        const defaultActivityStyle = { icon: 'info', color: 'text-slate-500', bg: 'bg-slate-50' };
+
+        const hasTickets = tickets && tickets.length > 0;
+        const hasActivities = activities && activities.length > 0;
+        const totalCount = (tickets?.length || 0) + (activities?.length || 0);
+
         let ticketsHtml = '';
-        if (!tickets || tickets.length === 0) {
-            ticketsHtml = `
-                <div class="flex flex-col items-center justify-center py-10 text-slate-400">
-                    <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px;">confirmation_number</span>
-                    <p class="text-sm font-medium">Chưa có hoạt động</p>
-                </div>
-            `;
-        } else {
+        if (hasTickets) {
             ticketsHtml = `
                 <table class="w-full text-sm">
                     <thead class="bg-slate-50 dark:bg-slate-800/50">
@@ -499,11 +508,7 @@ export class CustomerProfileModule {
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                         ${tickets.slice(0, 10).map(ticket => {
-                            // order_id = Mã đơn hàng hiển thị (e.g., "45068" or "NJD/2026/45068")
-                            // tpos_order_id = ID đơn hàng thực để fetch API (e.g., "412249") - MUST be numeric
                             const orderIdDisplay = ticket.order_id ? ticket.order_id.replace(/^NJD\/\d+\//, '') : '-';
-                            // Only use tpos_order_id if it exists and is a positive integer
-                            // Handle both number and string types from API
                             const rawId = ticket.tpos_order_id;
                             const numericId = rawId ? parseInt(rawId, 10) : 0;
                             const tposOrderId = (numericId > 0) ? numericId : null;
@@ -511,7 +516,6 @@ export class CustomerProfileModule {
                             const note = ticket.internal_note && ticket.internal_note.trim()
                                 ? `<span class="text-slate-700 dark:text-slate-300">${ticket.internal_note}</span>`
                                 : '<span class="text-slate-400">-</span>';
-                            // Only show refund if > 0, otherwise leave empty
                             const refund = ticket.refund_amount && ticket.refund_amount > 0 ? this._formatCurrencyShort(ticket.refund_amount) : '';
                             const statusInfo = statusMap[ticket.status] || { label: ticket.status, color: 'bg-slate-100 text-slate-500' };
 
@@ -541,6 +545,47 @@ export class CustomerProfileModule {
             `;
         }
 
+        // Render wallet activities
+        let activitiesHtml = '';
+        if (hasActivities) {
+            activitiesHtml = `
+                <div class="px-4 py-2 border-t border-border-light dark:border-border-dark">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-indigo-500" style="font-size: 18px;">account_balance_wallet</span>
+                        <span class="text-xs font-semibold text-slate-500 uppercase">Hoạt động ví</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${activities.slice(0, 10).map(act => {
+                            const style = activityStyleMap[act.activity_type] || defaultActivityStyle;
+                            const icon = act.icon || style.icon;
+                            const date = act.created_at ? new Date(act.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                            return `
+                                <div class="flex items-start gap-3 p-2 rounded-lg ${style.bg} dark:bg-slate-800/50">
+                                    <span class="material-symbols-outlined ${style.color}" style="font-size: 20px; margin-top: 2px;">${icon}</span>
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">${act.title || act.activity_type}</p>
+                                        ${act.description ? `<p class="text-xs text-slate-500 truncate">${act.description}</p>` : ''}
+                                        <p class="text-xs text-slate-400">${date}</p>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Empty state only when both are empty
+        let emptyHtml = '';
+        if (!hasTickets && !hasActivities) {
+            emptyHtml = `
+                <div class="flex flex-col items-center justify-center py-10 text-slate-400">
+                    <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px;">confirmation_number</span>
+                    <p class="text-sm font-medium">Chưa có hoạt động</p>
+                </div>
+            `;
+        }
+
         container.innerHTML = `
             <!-- Header -->
             <div class="px-4 py-3 border-b border-border-light dark:border-border-dark flex items-center justify-between">
@@ -548,12 +593,14 @@ export class CustomerProfileModule {
                     <span class="material-symbols-outlined text-purple-500">confirmation_number</span>
                     <h3 class="text-base font-bold text-slate-900 dark:text-white">Hoạt động gần đây</h3>
                 </div>
-                <span class="text-xs text-slate-400">${tickets?.length || 0} hoạt động</span>
+                <span class="text-xs text-slate-400">${totalCount} hoạt động</span>
             </div>
 
-            <!-- Table Content -->
+            <!-- Content -->
             <div class="overflow-y-auto" style="flex: 1;">
+                ${emptyHtml}
                 ${ticketsHtml}
+                ${activitiesHtml}
             </div>
         `;
     }

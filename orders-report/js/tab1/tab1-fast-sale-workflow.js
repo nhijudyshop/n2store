@@ -1091,8 +1091,11 @@
             Reference: invoiceData.Reference || orderData?.Code || orderData?.Reference,
             Number: invoiceData.Number,
             PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName || orderData?.PartnerDisplayName,
-            ShowState: invoiceData.ShowState
-            // Note: Tags removed - not used in Bill Chờ Xóa feature
+            ShowState: invoiceData.ShowState,
+            // Phone fields for wallet refund on cancel
+            ReceiverPhone: invoiceData.ReceiverPhone || orderData?.Telephone || '',
+            Phone: invoiceData.ReceiverPhone || orderData?.Telephone || '',
+            AmountTotal: invoiceData.AmountTotal || orderData?.AmountTotal || 0
         };
 
         // Store in a temporary global for confirmCancelOrder to access
