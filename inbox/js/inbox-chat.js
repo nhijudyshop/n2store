@@ -1290,6 +1290,9 @@ class InboxChatController {
 
             setTimeout(async () => {
                 if (this.activeConversationId === conv.id) {
+                    // Clear cache so we get fresh messages from API
+                    const pdm = window.pancakeDataManager;
+                    if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
                     await this.loadMessages(conv);
                 }
             }, 2000);
@@ -1345,7 +1348,11 @@ class InboxChatController {
                     });
 
                     showToast('Đã gửi ảnh', 'success');
-                    setTimeout(() => this.loadMessages(conv), 2000);
+                    setTimeout(() => {
+                        const pdm = window.pancakeDataManager;
+                        if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
+                        this.loadMessages(conv);
+                    }, 2000);
                 }
             } catch (err) {
                 console.error('[InboxChat] Image upload error:', err);
