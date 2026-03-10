@@ -709,7 +709,7 @@ async function confirmAndPrintSale() {
         // Call InsertListOrderModel API with isForce=true (same as fastSaleModal)
         const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/InsertListOrderModel?isForce=true&$expand=DataErrorFast($expand=Partner,OrderLines),OrdersError($expand=Partner,OrderLines),OrdersSucessed($expand=Partner,OrderLines)`;
 
-        const response = await API_CONFIG.smartFetch(url, {
+        let response = await API_CONFIG.smartFetch(url, {
             method: 'POST',
             headers: {
                 ...headers,
@@ -717,6 +717,22 @@ async function confirmAndPrintSale() {
             },
             body: JSON.stringify(requestBody)
         });
+
+        // Retry on 401: force-refresh bill token and retry once
+        if (response.status === 401 && window.billTokenManager) {
+            console.log('[SALE-CONFIRM] 401 received, force-refreshing bill token...');
+            window.billTokenManager.token = null;
+            window.billTokenManager.tokenExpiry = null;
+            headers = await window.billTokenManager.getAuthHeader();
+            response = await API_CONFIG.smartFetch(url, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+        }
 
         if (!response.ok) {
             const errorText = await response.text();
