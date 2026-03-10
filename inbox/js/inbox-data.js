@@ -66,8 +66,8 @@ class InboxDataManager {
                 await this.loadConversations(true);
             }
 
-            // Merge back pinned conversations missing from API response
-            this.mergePinnedConversations();
+            // Merge back pinned conversations missing from API response (fetches from server)
+            await this.mergePinnedConversations();
 
             this.recalculateGroupCounts();
             this.buildMaps();
@@ -818,7 +818,7 @@ class InboxDataManager {
      */
     savePinnedConversation(conv) {
         if (!conv || !conv.id) return;
-        this.pinnedConversations[conv.id] = {
+        const data = {
             id: conv.id,
             name: conv.name,
             avatar: conv.avatar,
@@ -833,34 +833,82 @@ class InboxDataManager {
             isLivestream: conv.isLivestream,
             label: conv.label,
         };
+        this.pinnedConversations[conv.id] = data;
+
+        // Save to server (persists across browsers)
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/pinned-conversation`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ convId: data.id, ...data })
+        }).catch(err => console.warn('[InboxData] Failed to save pinned conversation to server:', err.message));
     }
 
     /**
      * Merge pinned conversations that are missing from the API response
-     * (e.g. read conversations pushed out of the 66-conversation limit)
+     * Fetches from server first, then merges with localStorage
      */
-    mergePinnedConversations() {
+    async mergePinnedConversations() {
+        // Fetch from server (cross-browser persistence)
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        try {
+            const response = await fetch(`${workerUrl}/api/realtime/pinned-conversations?limit=500`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.conversations) {
+                    for (const row of data.conversations) {
+                        const convId = row.conv_id;
+                        if (!this.pinnedConversations[convId]) {
+                            this.pinnedConversations[convId] = {
+                                id: convId,
+                                name: row.name,
+                                avatar: row.avatar,
+                                lastMessage: row.last_message,
+                                time: row.conv_time,
+                                type: row.type,
+                                pageId: row.page_id,
+                                pageName: row.page_name,
+                                psid: row.psid,
+                                customerId: row.customer_id,
+                                isLivestream: row.is_livestream,
+                                label: row.label || 'new',
+                            };
+                        }
+                    }
+                    console.log(`[InboxData] Server has ${data.conversations.length} pinned conversations`);
+                }
+            }
+        } catch (err) {
+            console.warn('[InboxData] Failed to fetch pinned conversations from server:', err.message);
+        }
+
+        // Merge missing pinned conversations into the list
         const existingIds = new Set(this.conversations.map(c => c.id));
         let merged = 0;
 
         for (const [convId, saved] of Object.entries(this.pinnedConversations)) {
             if (existingIds.has(convId)) continue;
 
-            // Restore conversation from saved data
             this.conversations.push({
                 ...saved,
                 time: new Date(saved.time),
-                unread: 0, // It was read (that's why API didn't return it)
+                unread: 0,
                 online: false,
                 phone: saved.phone || '',
                 messages: [],
                 conversationId: saved.id,
                 _raw: {},
             });
+
+            // Also ensure livestream flags are set
+            if (saved.isLivestream) {
+                this.livestreamConvIds.add(convId);
+            }
             merged++;
         }
 
         if (merged > 0) {
+            this.saveLocalState();
             console.log(`[InboxData] Merged ${merged} pinned conversations missing from API`);
         }
     }
@@ -870,6 +918,12 @@ class InboxDataManager {
      */
     removePinnedConversation(convId) {
         delete this.pinnedConversations[convId];
+
+        // Remove from server
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/pinned-conversation?convId=${encodeURIComponent(convId)}`, {
+            method: 'DELETE'
+        }).catch(err => console.warn('[InboxData] Failed to delete pinned conversation from server:', err.message));
     }
 
     /**

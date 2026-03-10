@@ -126,6 +126,25 @@ async function ensureTablesExist() {
             CREATE INDEX IF NOT EXISTS idx_livestream_cust_page ON livestream_customers(page_id);
         `);
 
+        // Create pinned_conversations table (persist conversations across browsers)
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS pinned_conversations (
+                conv_id VARCHAR(500) PRIMARY KEY,
+                name VARCHAR(200),
+                avatar TEXT,
+                last_message TEXT,
+                conv_time TIMESTAMP,
+                type VARCHAR(20),
+                page_id VARCHAR(255),
+                page_name VARCHAR(200),
+                psid VARCHAR(100),
+                customer_id VARCHAR(255),
+                is_livestream BOOLEAN DEFAULT FALSE,
+                label VARCHAR(50) DEFAULT 'new',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         console.log('[DATABASE] ✅ Tables initialized');
     } catch (error) {
         console.error('[DATABASE] Error creating tables:', error.message);
@@ -1333,6 +1352,69 @@ app.put('/api/realtime/livestream-customer', async (req, res) => {
     } catch (error) {
         console.error('[API] Error saving livestream customer:', error);
         res.status(500).json({ error: 'Failed to save livestream customer' });
+    }
+});
+
+// GET /api/realtime/pinned-conversations - List pinned conversations
+app.get('/api/realtime/pinned-conversations', async (req, res) => {
+    if (!dbPool) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+    try {
+        const limit = parseInt(req.query.limit) || 500;
+        const result = await dbPool.query(
+            'SELECT * FROM pinned_conversations ORDER BY updated_at DESC LIMIT $1',
+            [limit]
+        );
+        res.json({ success: true, conversations: result.rows });
+    } catch (error) {
+        console.error('[API] Error fetching pinned conversations:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/realtime/pinned-conversation - Save a pinned conversation
+app.put('/api/realtime/pinned-conversation', async (req, res) => {
+    if (!dbPool) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+    try {
+        const { convId, name, avatar, lastMessage, time, type, pageId, pageName, psid, customerId, isLivestream, label } = req.body;
+        if (!convId) return res.status(400).json({ error: 'convId required' });
+
+        await dbPool.query(`
+            INSERT INTO pinned_conversations (conv_id, name, avatar, last_message, conv_time, type, page_id, page_name, psid, customer_id, is_livestream, label, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+            ON CONFLICT (conv_id) DO UPDATE SET
+                name = EXCLUDED.name,
+                last_message = EXCLUDED.last_message,
+                conv_time = EXCLUDED.conv_time,
+                is_livestream = EXCLUDED.is_livestream,
+                label = EXCLUDED.label,
+                updated_at = NOW()
+        `, [convId, name || '', avatar || null, lastMessage || '', time || new Date(), type || 'INBOX', pageId || '', pageName || '', psid || '', customerId || null, isLivestream || false, label || 'new']);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[API] Error saving pinned conversation:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// DELETE /api/realtime/pinned-conversation?convId=xxx - Remove a pinned conversation
+app.delete('/api/realtime/pinned-conversation', async (req, res) => {
+    if (!dbPool) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+    try {
+        const convId = req.query.convId;
+        if (!convId) return res.status(400).json({ error: 'convId required' });
+
+        await dbPool.query('DELETE FROM pinned_conversations WHERE conv_id = $1', [convId]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[API] Error deleting pinned conversation:', error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 
