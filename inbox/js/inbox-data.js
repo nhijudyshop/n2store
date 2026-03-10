@@ -217,6 +217,10 @@ class InboxDataManager {
                 }
 
                 const convs = data.conversations || [];
+                // Ensure page_id is set on every conversation (per-page API may omit it)
+                for (const c of convs) {
+                    if (!c.page_id) c.page_id = pageId;
+                }
                 console.log(`[InboxData] ✅ Page ${pageId}: ${convs.length} conversations`);
                 allConversations = allConversations.concat(convs);
             } catch (e) {
@@ -507,10 +511,10 @@ class InboxDataManager {
 
         if (filter === 'unread') {
             result = result.filter(c => c.unread > 0);
-        } else if (filter === 'starred') {
-            result = result.filter(c => c.starred);
         } else if (filter === 'livestream') {
-            result = result.filter(c => c.isLivestream && c.unread > 0);
+            result = result.filter(c => c.isLivestream);
+        } else if (filter === 'inbox_my') {
+            result = result.filter(c => !c.isLivestream && c.unread > 0);
         }
 
         if (groupFilter) {
@@ -708,46 +712,57 @@ class InboxDataManager {
      * Falls back to fetchPosts if Render fails
      */
     async detectLivestreamConversations() {
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
         try {
+            // 1. Fetch livestream post_types (marks COMMENT convs by conversation_id)
             const commentConvs = this.conversations.filter(c => c.type === 'COMMENT');
-            if (commentConvs.length === 0) return;
-
-            console.log(`[InboxData] Detecting livestream for ${commentConvs.length} COMMENT convs from Render DB`);
-
-            // Fetch livestream post_types from Render DB via Cloudflare proxy
-            const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-            const response = await fetch(`${workerUrl}/api/realtime/post-types?post_type=livestream&limit=2000`);
-
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-
-            if (!data.success || !data.postTypes) throw new Error('Invalid response');
-
-            // Build set of livestream conversation IDs from DB
-            const livestreamConvIds = new Set(data.postTypes.map(pt => pt.conversation_id));
-            console.log(`[InboxData] Render DB has ${livestreamConvIds.size} livestream conversations`);
-
-            let changed = false;
-            for (const conv of commentConvs) {
-                const isLive = livestreamConvIds.has(conv.id);
-                if (isLive && !conv.isLivestream) {
-                    this.livestreamConvIds.add(conv.id);
-                    conv.isLivestream = true;
-                    changed = true;
+            if (commentConvs.length > 0) {
+                console.log(`[InboxData] Detecting livestream for ${commentConvs.length} COMMENT convs from Render DB`);
+                const response = await fetch(`${workerUrl}/api/realtime/post-types?post_type=livestream&limit=2000`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.postTypes) {
+                        const livestreamConvIds = new Set(data.postTypes.map(pt => pt.conversation_id));
+                        for (const conv of commentConvs) {
+                            if (livestreamConvIds.has(conv.id) && !conv.isLivestream) {
+                                this.livestreamConvIds.add(conv.id);
+                                conv.isLivestream = true;
+                            }
+                        }
+                    }
                 }
             }
 
-            if (changed) {
-                this.saveLocalState();
-                this.recalculateGroupCounts();
-                if (window.inboxChat) window.inboxChat.renderConversationList();
-                console.log(`[InboxData] Livestream detection complete: ${this.livestreamConvIds.size} livestream conversations`);
-            } else {
-                console.log('[InboxData] Livestream detection: no changes from Render DB');
+            // 2. Fetch livestream customers (marks ALL convs by customer psid — INBOX + COMMENT)
+            const custResponse = await fetch(`${workerUrl}/api/realtime/livestream-customers?limit=2000`);
+            if (custResponse.ok) {
+                const custData = await custResponse.json();
+                if (custData.success && custData.customers) {
+                    const livestreamPsids = new Set(custData.customers.map(c => c.psid));
+                    console.log(`[InboxData] Render DB has ${livestreamPsids.size} livestream customers`);
+
+                    // Merge into local set
+                    for (const psid of livestreamPsids) {
+                        this.livestreamCustomerPsids.add(psid);
+                    }
+
+                    // Mark all conversations for these customers
+                    for (const conv of this.conversations) {
+                        if (conv.psid && livestreamPsids.has(conv.psid) && !conv.isLivestream) {
+                            conv.isLivestream = true;
+                            this.livestreamConvIds.add(conv.id);
+                        }
+                    }
+                }
             }
+
+            this.saveLocalState();
+            this.recalculateGroupCounts();
+            if (window.inboxChat) window.inboxChat.renderConversationList();
+            console.log(`[InboxData] Livestream detection complete: ${this.livestreamConvIds.size} convs, ${this.livestreamCustomerPsids.size} customers`);
         } catch (error) {
             console.warn('[InboxData] Render DB livestream detection failed, using localStorage:', error.message);
-            // localStorage already loaded in loadLocalState(), so livestream IDs from previous sessions still work
         }
     }
 
@@ -767,7 +782,7 @@ class InboxDataManager {
      * Mark customer as livestream participant → mark ALL their conversations as livestream
      * @param {string} customerPsid - Customer's fb_id/psid
      */
-    markCustomerAsLivestream(customerPsid) {
+    markCustomerAsLivestream(customerPsid, pageId, customerName, postId) {
         if (!customerPsid) return;
         this.livestreamCustomerPsids.add(customerPsid);
         // Find all conversations for this customer and mark as livestream
@@ -778,6 +793,14 @@ class InboxDataManager {
             }
         }
         this.saveLocalState();
+
+        // Save to server (persists across browsers)
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/livestream-customer`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ psid: customerPsid, pageId: pageId || null, customerName: customerName || null, postId: postId || null })
+        }).catch(err => console.warn('[InboxData] Failed to save livestream customer to server:', err.message));
     }
 
     /**
