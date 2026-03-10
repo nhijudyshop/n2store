@@ -855,8 +855,10 @@ class InboxChatController {
             if (!pageId || !convId) { console.log(`[PostName] Skip ${postId}: no pageId/convId`); continue; }
 
             // Check if messages already loaded (has post data)
-            if (conv?._messagesData?.post?.message) {
-                this.data.livestreamPostNames[postId] = conv._messagesData.post.message;
+            const cachedPost = conv?._messagesData?.post;
+            const cachedName = cachedPost?.message || cachedPost?.story;
+            if (cachedName) {
+                this.data.livestreamPostNames[postId] = cachedName;
                 updated = true;
                 continue;
             }
@@ -871,16 +873,20 @@ class InboxChatController {
                     pageId, convId, null, conv?.customerId || sc.customer_id
                 );
                 const post = result?.post || result?.conversation?.post;
-                console.log(`[PostName] Result post:`, post ? { type: post.type, message: post.message?.substring(0, 50), live_video_status: post.live_video_status } : null);
+                // Livestream posts have message=null, fallback to story or date+admin
+                const postName = post?.message
+                    || post?.story
+                    || (post?.inserted_at ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}` : null);
+                console.log(`[PostName] Result:`, postName);
 
-                if (post?.message) {
-                    this.data.livestreamPostNames[postId] = post.message;
+                if (postName) {
+                    this.data.livestreamPostNames[postId] = postName;
                     // Save to server for persistence
                     const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
                     fetch(`${workerUrl}/api/realtime/livestream-conversation`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ convId, postId, postName: post.message })
+                        body: JSON.stringify({ convId, postId, postName })
                     }).catch(() => {});
                     updated = true;
                 }

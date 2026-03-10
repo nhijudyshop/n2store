@@ -875,16 +875,18 @@ async function fetchAndSavePostName(conversationId, pageId, postId) {
 
         const data = await response.json();
         const post = data.post || data.conversation?.post;
-        const postMessage = post?.message;
+        // Livestream posts have message=null, fallback to story or date+admin
+        const postName = post?.message
+            || post?.story
+            || (post?.inserted_at ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}` : null);
 
-        if (postMessage && dbPool) {
+        if (postName && dbPool) {
             await dbPool.query(
                 `UPDATE livestream_conversations SET post_name = $1 WHERE post_id = $2 AND post_name IS NULL`,
-                [postMessage, postId]
+                [postName, postId]
             );
-            // Update cache too
-            if (cached) cached.postMessage = postMessage;
-            console.log(`[LIVESTREAM] ✅ Fetched & saved post name for ${postId}: "${postMessage.substring(0, 50)}..."`);
+            if (cached) cached.postMessage = postName;
+            console.log(`[LIVESTREAM] ✅ Fetched & saved post name for ${postId}: "${postName.substring(0, 50)}"`);
         }
     } catch (error) {
         console.error(`[LIVESTREAM] Error fetching post name for ${postId}:`, error.message);
@@ -976,7 +978,8 @@ async function lookupPostType(conversationId, pageId, postId) {
         const post = data.post || data.conversation?.post;
 
         if (post && post.type) {
-            const entry = { postType: post.type, liveVideoStatus: post.live_video_status || null, postMessage: post.message || null };
+            const postMessage = post.message || post.story || (post.inserted_at ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}` : null);
+            const entry = { postType: post.type, liveVideoStatus: post.live_video_status || null, postMessage };
             postTypeCache.set(postId, entry);
             console.log(`[LIVESTREAM] ✅ API detected post ${postId}: ${entry.postType} (${entry.liveVideoStatus || 'n/a'})`);
             return entry;
