@@ -434,6 +434,11 @@
         submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
         newSubmitBtn.addEventListener('click', () => submitCreateCustomer(onSuccess));
 
+        // Goong Places autocomplete cho địa chỉ
+        if (typeof goongAttachAutocomplete === 'function') {
+            goongAttachAutocomplete(modalEl.querySelector('#cc-street'));
+        }
+
         // Show modal
         modalEl.classList.add('cc-show');
         document.body.style.overflow = 'hidden';

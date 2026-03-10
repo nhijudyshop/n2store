@@ -34,6 +34,10 @@ class InboxOrderController {
      */
     init() {
         this.bindEvents();
+        // Goong Places autocomplete cho địa chỉ
+        if (typeof goongAttachAutocomplete === 'function') {
+            goongAttachAutocomplete(this.elements.orderAddress);
+        }
     }
 
     /**

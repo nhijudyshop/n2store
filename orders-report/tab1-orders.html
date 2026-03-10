@@ -2436,6 +2436,7 @@
 
     <!-- Pancake Settings Script -->
     <script src="../shared/js/pancake-settings.js"></script>
+    <script src="../shared/js/goong-places.js"></script>
 
     <!-- Employee Assignment Drawer -->
     <div class="employee-drawer-overlay" id="employeeDrawerOverlay" onclick="toggleEmployeeDrawer()"></div>
@@ -3572,6 +3573,13 @@
 
     <!-- Order History JS -->
     <script src="js/tab1/tab1-order-history.js"></script>
+
+    <!-- Goong Places: attach autocomplete to saleReceiverAddress -->
+    <script>
+        if (typeof goongAttachAutocomplete === 'function') {
+            goongAttachAutocomplete(document.getElementById('saleReceiverAddress'));
+        }
+    </script>
 
 </body>
 

@@ -1039,9 +1039,14 @@ function enableAddressEdit(index) {
     if (displayEl) displayEl.style.display = 'none';
     if (editContainer) editContainer.style.display = 'block';
 
-    // Focus on input
+    // Focus on input + attach Goong autocomplete
     const input = document.getElementById(`fastSaleAddress_${index}`);
-    if (input) input.focus();
+    if (input) {
+        if (typeof goongAttachAutocomplete === 'function') {
+            goongAttachAutocomplete(input);
+        }
+        input.focus();
+    }
 }
 
 /**

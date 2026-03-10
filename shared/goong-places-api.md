@@ -158,16 +158,6 @@ async function searchAddress(input, options = {}) {
     }
 }
 
-/**
- * Debounce helper
- */
-function debounce(fn, delay = 300) {
-    let timer;
-    return (...args) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn(...args), delay);
-    };
-}
 ```
 
 ### Bước 2: Tích hợp vào form (HTML + JS)
@@ -176,8 +166,12 @@ function debounce(fn, delay = 300) {
 
 ```html
 <div class="address-wrapper" style="position: relative;">
-    <input type="text" id="addressInput" placeholder="Nhập địa chỉ..."
-           autocomplete="off" />
+    <div style="display: flex; gap: 8px;">
+        <input type="text" id="addressInput" placeholder="Nhập địa chỉ..."
+               autocomplete="off" style="flex: 1;" />
+        <button type="button" id="addressSearchBtn" class="btn-address-search"
+                title="Tìm địa chỉ">🔍 Tìm</button>
+    </div>
     <div id="addressDropdown" class="address-dropdown" style="display: none;"></div>
 </div>
 ```
@@ -231,20 +225,48 @@ function debounce(fn, delay = 300) {
     color: #888;
     margin-top: 2px;
 }
+
+.btn-address-search {
+    padding: 6px 14px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.btn-address-search:hover {
+    background: #43A047;
+}
+
+.btn-address-search:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
 ```
 
 #### JavaScript - Setup autocomplete
 
 ```javascript
-function setupAddressAutocomplete(inputEl, dropdownEl, onSelect) {
-    const handleInput = debounce(async (e) => {
-        const query = e.target.value;
+function setupAddressAutocomplete(inputEl, btnEl, dropdownEl, onSelect) {
+    async function doSearch() {
+        const query = inputEl.value;
         if (query.length < 2) {
             dropdownEl.style.display = 'none';
             return;
         }
 
+        btnEl.disabled = true;
+        btnEl.textContent = '⏳';
+
         const suggestions = await searchAddress(query);
+
+        btnEl.disabled = false;
+        btnEl.textContent = '🔍 Tìm';
+
         if (suggestions.length === 0) {
             dropdownEl.style.display = 'none';
             return;
@@ -272,13 +294,22 @@ function setupAddressAutocomplete(inputEl, dropdownEl, onSelect) {
                 if (onSelect) onSelect(selected);
             });
         });
-    }, 300);
+    }
 
-    inputEl.addEventListener('input', handleInput);
+    // Bấm nút để tìm
+    btnEl.addEventListener('click', doSearch);
+
+    // Enter trong input cũng tìm
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            doSearch();
+        }
+    });
 
     // Đóng dropdown khi click ngoài
     document.addEventListener('click', (e) => {
-        if (!inputEl.contains(e.target) && !dropdownEl.contains(e.target)) {
+        if (!inputEl.contains(e.target) && !dropdownEl.contains(e.target) && !btnEl.contains(e.target)) {
             dropdownEl.style.display = 'none';
         }
     });
@@ -292,9 +323,10 @@ function setupAddressAutocomplete(inputEl, dropdownEl, onSelect) {
 ```javascript
 // Khởi tạo autocomplete
 const addressInput = document.getElementById('addressInput');
+const addressSearchBtn = document.getElementById('addressSearchBtn');
 const addressDropdown = document.getElementById('addressDropdown');
 
-setupAddressAutocomplete(addressInput, addressDropdown, (selected) => {
+setupAddressAutocomplete(addressInput, addressSearchBtn, addressDropdown, (selected) => {
     // Auto-fill các field liên quan
     const communeInput = document.getElementById('communeInput');     // Phường/Xã
     const districtInput = document.getElementById('districtInput');   // Quận/Huyện
@@ -311,6 +343,7 @@ setupAddressAutocomplete(addressInput, addressDropdown, (selected) => {
 ```javascript
 setupAddressAutocomplete(
     document.getElementById('deliveryAddress'),
+    document.getElementById('deliverySearchBtn'),
     document.getElementById('deliveryDropdown'),
     (selected) => {
         // Điền địa chỉ giao hàng đầy đủ
@@ -329,7 +362,7 @@ setupAddressAutocomplete(
 
 | Lưu ý | Chi tiết |
 |--------|---------|
-| **Debounce** | Luôn debounce input 300ms+ để tiết kiệm requests |
+| **Nút tìm** | API chỉ gọi khi user bấm nút "Tìm" hoặc Enter, không tự động |
 | **Min length** | Chỉ gọi API khi input >= 2 ký tự |
 | **XSS** | Dùng `textContent` thay `innerHTML` nếu dữ liệu từ user |
 | **more_compound** | Mặc định `true`, trả thêm commune/district/province |
