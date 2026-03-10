@@ -161,10 +161,12 @@ export class WalletPanelModule {
             return;
         }
 
+        // Use inline styles for button colors because Tailwind CSS purge may not include
+        // dynamic classes like bg-red-600, bg-amber-600 in the built CSS
         const configs = {
-            deposit: { title: 'Nạp tiền vào ví', icon: 'add', color: 'green', buttonText: 'Nạp tiền' },
-            withdraw: { title: 'Rút tiền từ ví', icon: 'remove', color: 'red', buttonText: 'Rút tiền' },
-            issue_vc: { title: 'Cấp công nợ ảo', icon: 'stars', color: 'amber', buttonText: 'Cấp công nợ', showExpiry: true }
+            deposit: { title: 'Nạp tiền vào ví', icon: 'add', btnStyle: 'background:#16a34a;', btnHoverBg: '#15803d', buttonText: 'Nạp tiền', iconColor: '#16a34a' },
+            withdraw: { title: 'Rút tiền từ ví', icon: 'remove', btnStyle: 'background:#dc2626;', btnHoverBg: '#b91c1c', buttonText: 'Rút tiền', iconColor: '#dc2626' },
+            issue_vc: { title: 'Cấp công nợ ảo', icon: 'stars', btnStyle: 'background:#d97706;', btnHoverBg: '#b45309', buttonText: 'Cấp công nợ', showExpiry: true, iconColor: '#d97706' }
         };
         const cfg = configs[action];
         if (!cfg) return;
@@ -176,7 +178,7 @@ export class WalletPanelModule {
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md">
                 <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                     <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                        <span class="material-symbols-outlined text-${cfg.color}-600">${cfg.icon}</span>
+                        <span class="material-symbols-outlined" style="color:${cfg.iconColor}">${cfg.icon}</span>
                         ${cfg.title}
                     </h3>
                     <button class="close-btn p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
@@ -193,7 +195,7 @@ export class WalletPanelModule {
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Ghi chú (tùy chọn)</label>
                     <textarea name="note" rows="2" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white mb-4" placeholder="Nhập ghi chú..."></textarea>
                     <div class="error-msg hidden mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm"></div>
-                    <button class="submit-btn w-full py-3 px-4 bg-${cfg.color}-600 hover:bg-${cfg.color}-700 text-white font-bold rounded-lg flex items-center justify-center gap-2">
+                    <button class="submit-btn w-full py-3 px-4 text-white font-bold rounded-lg flex items-center justify-center gap-2" style="${cfg.btnStyle}">
                         <span class="material-symbols-outlined">${cfg.icon}</span> ${cfg.buttonText}
                     </button>
                 </div>
@@ -253,7 +255,7 @@ export class WalletPanelModule {
                 errorDiv.textContent = err.message;
                 errorDiv.classList.remove('hidden');
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = `<span class="material-symbols-outlined">${cfg.icon}</span> ${cfg.buttonText}`;
+                submitBtn.innerHTML = `<span class="material-symbols-outlined">${cfg.icon}</span> Thử lại`;
             }
         };
 
