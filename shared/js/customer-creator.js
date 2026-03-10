@@ -2,13 +2,68 @@
  * Shared Customer Creator Modal
  * Tạo khách hàng mới - dùng chung cho nhiều page (customer-hub, orders-report, ...)
  *
+ * ═══════════════════════════════════════════════════════════════════════
+ * TÍNH NĂNG: TẠO KHÁCH HÀNG MỚI (Create New Customer)
+ * ═══════════════════════════════════════════════════════════════════════
+ *
+ * MÔ TẢ:
+ *   Modal popup cho phép tạo nhanh khách hàng (Partner) trên hệ thống TPOS.
+ *   Được thiết kế dùng chung (shared module) cho nhiều trang: customer-hub,
+ *   orders-report, và các module khác cần tạo khách hàng.
+ *
+ * FORM FIELDS:
+ *   ┌──────────────────┬──────────┬───────────────────────────────────────┐
+ *   │ Field            │ Bắt buộc │ Validation                            │
+ *   ├──────────────────┼──────────┼───────────────────────────────────────┤
+ *   │ Tên khách hàng   │ Có (*)   │ Không được để trống                   │
+ *   │ Số điện thoại    │ Có (*)   │ Regex /^0\d{8,9}$/ (VN format,       │
+ *   │                  │          │ bắt đầu bằng 0, tổng 10-11 số)       │
+ *   │ Địa chỉ          │ Không    │ Không validation                      │
+ *   └──────────────────┴──────────┴───────────────────────────────────────┘
+ *
+ * LUỒNG HOẠT ĐỘNG (Flow):
+ *   1. User click nút "Tạo KH" → gọi CustomerCreator.open({ onSuccess })
+ *   2. Modal hiện lên, reset form, focus vào ô tên
+ *   3. User điền thông tin → click "Tạo khách hàng"
+ *   4. Validate: tên (required), SĐT (required + regex VN)
+ *   5. Gọi API tạo Partner trên TPOS:
+ *      - Ưu tiên dùng window.apiService.createPartner() nếu có
+ *      - Fallback: gọi trực tiếp TPOS OData qua tokenManager.authenticatedFetch()
+ *      - Endpoint: POST /api/odata/Partner
+ *   6. Thành công → hiện thông báo xanh, gọi callback onSuccess với dữ liệu:
+ *      { id, name, phone, address, status }
+ *   7. Tự đóng modal sau 1 giây
+ *   8. Thất bại → hiện thông báo lỗi đỏ, không đóng modal
+ *
+ * TÍCH HỢP VỚI CUSTOMER-HUB (customer-search.js):
+ *   - Callback onSuccess nhận dữ liệu khách hàng mới
+ *   - Thêm vào đầu mảng customers bằng unshift()
+ *   - Render row mới ở đầu bảng với highlight xanh lá (3 giây)
+ *   - Cập nhật footer đếm số khách hàng
+ *
+ * API PAYLOAD:
+ *   Tạo Partner object với các giá trị mặc định:
+ *   - Customer: true, Supplier: false (là khách hàng, không phải NCC)
+ *   - Status: "Normal", StatusText: "Bình thường"
+ *   - Type: "contact", CompanyType: "person"
+ *   - Bao gồm AccountPayable (331), AccountReceivable (131) mặc định
+ *   - CompanyId lấy từ ShopConfig hoặc mặc định = 1
+ *
  * Requires: window.tokenManager (from pancake-token-manager.js)
  * Optional: window.ShopConfig (for CompanyId)
+ *           window.apiService (preferred API layer)
  *
  * Usage:
  *   window.CustomerCreator.open({
- *       onSuccess: (customer) => { ... }  // callback khi tạo thành công
+ *       onSuccess: (customer) => {
+ *           // customer = { id, name, phone, address, status }
+ *           console.log('Created:', customer.name, customer.phone);
+ *       }
  *   });
+ *
+ * Exposed API:
+ *   window.CustomerCreator.open(options)  — Mở modal tạo KH
+ *   window.CustomerCreator.close()        — Đóng modal
  */
 (function () {
     'use strict';
