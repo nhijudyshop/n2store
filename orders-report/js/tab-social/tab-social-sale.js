@@ -239,6 +239,15 @@ async function openSaleModalInSocialTab(orderId) {
 
     // Auto-fill notes
     autoFillSaleNote();
+
+    // Append social order note to receiver note (Ghi chú)
+    if (order.note) {
+        const noteField = document.getElementById('saleReceiverNote');
+        if (noteField) {
+            const existing = noteField.value.trim();
+            noteField.value = existing ? `${existing}, ${order.note}` : order.note;
+        }
+    }
 }
 
 // =====================================================
