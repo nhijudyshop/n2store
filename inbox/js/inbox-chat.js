@@ -804,6 +804,13 @@ class InboxChatController {
         const postNames = this.data.livestreamPostNames || {};
         const postIds = Object.keys(postMap);
 
+        // Check for missing names — fetch once
+        const missingIds = postIds.filter(pid => !postNames[pid]);
+        if (missingIds.length > 0 && !this._fetchingPostNames) {
+            this._fetchingPostNames = true;
+            this._fetchMissingPostNames(missingIds);
+        }
+
         let html = `<option value="">Tất cả bài post (${postIds.length})</option>`;
         for (const postId of postIds) {
             const convs = postMap[postId] || [];
@@ -812,6 +819,54 @@ class InboxChatController {
             html += `<option value="${postId}" ${selected}>${postName} (${convs.length})</option>`;
         }
         select.innerHTML = html;
+    }
+
+    /**
+     * Fetch missing post names from Pancake messages API (one-time)
+     * Also saves to server so future loads have the name
+     */
+    async _fetchMissingPostNames(postIds) {
+        const pdm = window.pancakeDataManager;
+        if (!pdm) return;
+
+        let updated = false;
+        for (const postId of postIds) {
+            // Find a conversation for this post to use for API call
+            const conv = this.data.conversations.find(c => c._raw?.post_id === postId);
+            if (!conv) continue;
+
+            // Check if messages already loaded (has post data)
+            if (conv._messagesData?.post?.message) {
+                this.data.livestreamPostNames[postId] = conv._messagesData.post.message;
+                updated = true;
+                continue;
+            }
+
+            try {
+                const result = await pdm.fetchMessagesForConversation(
+                    conv.pageId, conv.conversationId, null, conv.customerId
+                );
+                const post = result?.post || result?.conversation?.post;
+                if (post?.message) {
+                    this.data.livestreamPostNames[postId] = post.message;
+                    // Save to server for persistence
+                    const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    fetch(`${workerUrl}/api/realtime/livestream-conversation`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ convId: conv.id, postId, postName: post.message })
+                    }).catch(() => {});
+                    updated = true;
+                }
+            } catch (e) {
+                console.warn(`[InboxChat] Failed to fetch post name for ${postId}:`, e.message);
+            }
+        }
+
+        this._fetchingPostNames = false;
+        if (updated && this.currentFilter === 'livestream') {
+            this.populateLivestreamPostSelector();
+        }
     }
 
     async clearLivestreamForPost() {

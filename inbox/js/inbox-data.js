@@ -848,7 +848,7 @@ class InboxDataManager {
             body: JSON.stringify({
                 convId,
                 postId,
-                postName: conv._raw?.post?.message || this.livestreamPostNames[postId] || null,
+                postName: conv._messagesData?.post?.message || conv._raw?.post?.message || this.livestreamPostNames[postId] || null,
                 name: conv.name,
                 avatar: conv.avatar,
                 lastMessage: conv.lastMessage,
