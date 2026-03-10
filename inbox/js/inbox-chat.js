@@ -512,16 +512,21 @@ class InboxChatController {
 
         container.style.display = 'flex';
 
-        // Get current conversation's page for default
+        // Auto-select conversation's page (like orders-report)
         const conv = this.activeConversationId ? this.data.getConversation(this.activeConversationId) : null;
-        const currentPageId = conv?.pageId || '';
+        const activePageId = this.currentSendPageId || conv?.pageId || '';
 
-        let html = `<option value="">Trang hiện tại${currentPageId ? ` (${conv?.pageName || ''})` : ''}</option>`;
+        let html = '';
         for (const page of pages) {
-            const selected = this.currentSendPageId === page.id ? 'selected' : '';
+            const selected = page.id === activePageId ? 'selected' : '';
             html += `<option value="${page.id}" ${selected}>${page.name || page.id}</option>`;
         }
         select.innerHTML = html;
+
+        // Set currentSendPageId to match
+        if (!this.currentSendPageId && conv?.pageId) {
+            this.currentSendPageId = conv.pageId;
+        }
     }
 
     onSendPageChanged(pageId) {
