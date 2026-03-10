@@ -790,7 +790,21 @@ class InboxChatController {
             showToast('Đã bỏ khỏi Livestream', 'success');
         } else {
             // Add to livestream — need a post_id
-            const postId = conv._raw?.post_id || 'manual';
+            // For INBOX conversations, try to find post_id from activities (livestream videos)
+            let postId = conv._raw?.post_id;
+            let postName = null;
+            if (!postId && conv._messagesData?.activities?.length) {
+                // Get the most recent activity with a post_id
+                const activities = conv._messagesData.activities;
+                const latest = activities[activities.length - 1];
+                if (latest?.post_id) {
+                    postId = latest.post_id;
+                    postName = latest.message || latest.attachments?.title || null;
+                    console.log(`[Livestream] INBOX conv → using activity post_id: ${postId}, name: ${postName}`);
+                }
+            }
+            if (!postId) postId = 'manual';
+            if (postName) this.data.livestreamPostNames[postId] = postName;
             this.data.markAsLivestream(conv.id, postId);
             showToast('Đã đưa vào Livestream', 'success');
         }
@@ -874,9 +888,17 @@ class InboxChatController {
                 );
                 const post = result?.post || result?.conversation?.post;
                 // Livestream posts have message=null, fallback to story or date+admin
-                const postName = post?.message
+                // INBOX conversations have post=null, fallback to activities
+                let postName = post?.message
                     || post?.story
                     || (post?.inserted_at ? `Live ${new Date(post.inserted_at).toLocaleDateString('vi-VN')}${post.admin_creator?.name ? ' - ' + post.admin_creator.name : ''}` : null);
+
+                // If post is null (INBOX conv), try activities for livestream video names
+                if (!postName && result?.activities?.length) {
+                    const latest = result.activities[result.activities.length - 1];
+                    postName = latest?.message || latest?.attachments?.title || null;
+                    if (postName) console.log(`[PostName] Got name from activities: ${postName}`);
+                }
                 console.log(`[PostName] Result:`, postName);
 
                 if (postName) {
