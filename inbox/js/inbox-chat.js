@@ -2181,6 +2181,10 @@ class InboxChatController {
         // Filter by type — only process INBOX and COMMENT (skip unknown types)
         if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') return;
 
+        // Detect livestream from post data in payload
+        const post = conversation.post;
+        const isLivestream = post?.type === 'livestream' || post?.live_video_status === 'vod' || post?.live_video_status === 'live';
+
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
             existing.lastMessage = conversation.snippet || existing.lastMessage;
@@ -2188,9 +2192,18 @@ class InboxChatController {
             existing.unread = conversation.unread_count ?? existing.unread;
             if (conversation.type) existing.type = conversation.type;
             if (conversation.tags) existing._raw.tags = conversation.tags;
+            // Update livestream status from post data
+            if (post) {
+                existing.isLivestream = isLivestream;
+                if (isLivestream) this.data.markAsLivestream(conversation.id);
+            }
         } else {
             // New conversation
             const mapped = this.data.mapConversation(conversation);
+            if (post) {
+                mapped.isLivestream = isLivestream;
+                if (isLivestream) this.data.markAsLivestream(conversation.id);
+            }
             this.data.conversations.unshift(mapped);
             this.data.buildMaps();
         }
