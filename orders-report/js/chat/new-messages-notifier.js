@@ -171,17 +171,19 @@
             text += ` từ ${uniqueCustomers} khách hàng`;
         }
 
+        // Add clickable hint
+        const clickHint = '<div style="font-size:11px;opacity:0.7;margin-top:4px;display:flex;align-items:center;gap:4px;"><i class="fas fa-hand-pointer" style="font-size:10px;"></i> Bấm để xem chi tiết</div>';
+
         // Show toast notification (clickable → opens pending customers modal)
         if (window.notificationManager && window.notificationManager.success) {
-            const notifId = window.notificationManager.success(text, 8000);
+            const notifId = window.notificationManager.success(text + clickHint, 8000);
             // Make it clickable
             setTimeout(() => {
                 const el = document.querySelector(`.toast[data-id="${notifId}"]`);
                 if (el) {
                     el.style.cursor = 'pointer';
-                    el.title = 'Bấm để xem chi tiết';
                     el.addEventListener('click', (e) => {
-                        if (e.target.closest('.toast-close')) return; // skip close button
+                        if (e.target.closest('.toast-close')) return;
                         showPendingCustomersModal();
                     });
                 }
@@ -225,6 +227,9 @@
                         </div>
                         <div style="font-size: 13px; opacity: 0.95;">
                             ${text}
+                        </div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-top: 4px;">
+                            <i class="fas fa-hand-pointer" style="font-size: 10px;"></i> Bấm để xem chi tiết
                         </div>
                     </div>
                     <button onclick="this.parentElement.parentElement.parentElement.remove()"
