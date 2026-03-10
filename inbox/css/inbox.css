@@ -540,6 +540,19 @@ body.col-resizing .resize-handle {
     color: var(--text-primary);
 }
 
+.btn-fetch-postnames {
+    display: flex;
+    align-items: center;
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+.btn-fetch-postnames:hover { background: var(--bg-hover); color: var(--primary); }
+.btn-fetch-postnames i, .btn-fetch-postnames svg { width: 12px; height: 12px; }
+
 .btn-clear-livestream {
     display: flex;
     align-items: center;

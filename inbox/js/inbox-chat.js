@@ -186,6 +186,20 @@ class InboxChatController {
         if (btnClearLivestream) {
             btnClearLivestream.addEventListener('click', () => this.clearLivestreamForPost());
         }
+        const btnFetchPostNames = document.getElementById('btnFetchPostNames');
+        if (btnFetchPostNames) {
+            btnFetchPostNames.addEventListener('click', () => {
+                this._fetchingPostNames = false; // reset flag to allow re-fetch
+                const postIds = Object.keys(this.data.livestreamPostMap || {});
+                const missing = postIds.filter(pid => !this.data.livestreamPostNames[pid]);
+                if (missing.length === 0) {
+                    showToast('Đã có tên tất cả bài post', 'info');
+                    return;
+                }
+                showToast(`Đang lấy tên ${missing.length} bài post...`, 'info');
+                this._fetchMissingPostNames(missing);
+            });
+        }
 
         // Send message
         this.elements.btnSend.addEventListener('click', () => this.sendMessage());
@@ -832,11 +846,18 @@ class InboxChatController {
         let updated = false;
         for (const postId of postIds) {
             // Find a conversation for this post to use for API call
-            const conv = this.data.conversations.find(c => c._raw?.post_id === postId);
-            if (!conv) continue;
+            const convs = this.data.livestreamPostMap[postId] || [];
+            const sc = convs[0];
+            if (!sc) continue;
+
+            // Find matching local conversation (real or virtual)
+            const conv = this.data.getConversation(sc.conv_id);
+            const pageId = conv?.pageId || sc.page_id;
+            const convId = sc.conv_id;
+            if (!pageId || !convId) continue;
 
             // Check if messages already loaded (has post data)
-            if (conv._messagesData?.post?.message) {
+            if (conv?._messagesData?.post?.message) {
                 this.data.livestreamPostNames[postId] = conv._messagesData.post.message;
                 updated = true;
                 continue;
@@ -844,7 +865,7 @@ class InboxChatController {
 
             try {
                 const result = await pdm.fetchMessagesForConversation(
-                    conv.pageId, conv.conversationId, null, conv.customerId
+                    pageId, convId, null, conv?.customerId || sc.customer_id
                 );
                 const post = result?.post || result?.conversation?.post;
                 if (post?.message) {
@@ -854,7 +875,7 @@ class InboxChatController {
                     fetch(`${workerUrl}/api/realtime/livestream-conversation`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ convId: conv.id, postId, postName: post.message })
+                        body: JSON.stringify({ convId, postId, postName: post.message })
                     }).catch(() => {});
                     updated = true;
                 }
