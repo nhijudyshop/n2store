@@ -27,6 +27,7 @@ class InboxDataManager {
         this.labelMap = {};       // convId -> labelId (saved to localStorage)
         this.unpinnedLivestream = new Set(); // convIds unpinned from Livestream tab
         this.unpinnedInboxMy = new Set();    // convIds unpinned from Inbox My tab
+        this.pinnedConversations = {};       // convId -> saved conversation data (for persistence after F5)
         this.isInitialized = false;
 
         // Conversation maps for O(1) lookup (like tpos-pancake)
@@ -65,6 +66,9 @@ class InboxDataManager {
                 await this.loadConversations(true);
             }
 
+            // Merge back pinned conversations missing from API response
+            this.mergePinnedConversations();
+
             this.recalculateGroupCounts();
             this.buildMaps();
             this.isInitialized = true;
@@ -99,6 +103,9 @@ class InboxDataManager {
 
             const unpinMy = localStorage.getItem('inbox_unpinned_inbox_my');
             if (unpinMy) this.unpinnedInboxMy = new Set(JSON.parse(unpinMy));
+
+            const pinned = localStorage.getItem('inbox_pinned_conversations');
+            if (pinned) this.pinnedConversations = JSON.parse(pinned);
         } catch (e) {
             console.warn('[InboxData] Error loading local state:', e);
         }
@@ -114,6 +121,7 @@ class InboxDataManager {
             localStorage.setItem('inbox_livestream_customers', JSON.stringify([...this.livestreamCustomerPsids]));
             localStorage.setItem('inbox_unpinned_livestream', JSON.stringify([...this.unpinnedLivestream]));
             localStorage.setItem('inbox_unpinned_inbox_my', JSON.stringify([...this.unpinnedInboxMy]));
+            localStorage.setItem('inbox_pinned_conversations', JSON.stringify(this.pinnedConversations));
         } catch (e) {
             console.warn('[InboxData] Error saving local state:', e);
         }
@@ -767,6 +775,7 @@ class InboxDataManager {
         const conv = this.getConversation(convId);
         if (conv) {
             conv.isLivestream = true;
+            this.savePinnedConversation(conv);
         }
         this.saveLocalState();
     }
@@ -783,6 +792,7 @@ class InboxDataManager {
             if (conv.psid === customerPsid && !conv.isLivestream) {
                 conv.isLivestream = true;
                 this.livestreamConvIds.add(conv.id);
+                this.savePinnedConversation(conv);
             }
         }
         this.saveLocalState();
@@ -801,6 +811,65 @@ class InboxDataManager {
      */
     isLivestreamCustomer(psid) {
         return psid && this.livestreamCustomerPsids.has(psid);
+    }
+
+    /**
+     * Save conversation data for persistence (survives F5 even if Pancake API doesn't return it)
+     */
+    savePinnedConversation(conv) {
+        if (!conv || !conv.id) return;
+        this.pinnedConversations[conv.id] = {
+            id: conv.id,
+            name: conv.name,
+            avatar: conv.avatar,
+            lastMessage: conv.lastMessage,
+            time: conv.time instanceof Date ? conv.time.toISOString() : conv.time,
+            unread: conv.unread,
+            type: conv.type,
+            pageId: conv.pageId,
+            pageName: conv.pageName,
+            psid: conv.psid,
+            customerId: conv.customerId,
+            isLivestream: conv.isLivestream,
+            label: conv.label,
+        };
+    }
+
+    /**
+     * Merge pinned conversations that are missing from the API response
+     * (e.g. read conversations pushed out of the 66-conversation limit)
+     */
+    mergePinnedConversations() {
+        const existingIds = new Set(this.conversations.map(c => c.id));
+        let merged = 0;
+
+        for (const [convId, saved] of Object.entries(this.pinnedConversations)) {
+            if (existingIds.has(convId)) continue;
+
+            // Restore conversation from saved data
+            this.conversations.push({
+                ...saved,
+                time: new Date(saved.time),
+                unread: 0, // It was read (that's why API didn't return it)
+                online: false,
+                phone: saved.phone || '',
+                messages: [],
+                conversationId: saved.id,
+                _raw: {},
+            });
+            merged++;
+        }
+
+        if (merged > 0) {
+            console.log(`[InboxData] Merged ${merged} pinned conversations missing from API`);
+        }
+    }
+
+    /**
+     * Remove saved pinned conversation data
+     */
+    removePinnedConversation(convId) {
+        delete this.pinnedConversations[convId];
     }
 
     /**
@@ -824,6 +893,8 @@ class InboxDataManager {
         } else if (tab === 'inbox_my') {
             this.unpinnedInboxMy.add(convId);
         }
+        // Remove from pinned data if unpinned
+        this.removePinnedConversation(convId);
         this.saveLocalState();
     }
 
