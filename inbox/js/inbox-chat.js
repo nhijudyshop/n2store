@@ -1168,9 +1168,10 @@ class InboxChatController {
         this.renderConversationList();
 
         try {
+            console.log(`[InboxChat] Sending to page: ${conv.pageId} (${conv.pageName}), conv: ${conv.conversationId}, type: ${conv.type}`);
             const pageAccessToken = await this._getPageAccessTokenWithFallback(conv.pageId);
             if (!pageAccessToken) {
-                throw new Error('Không tìm thấy page_access_token. Không có account nào có quyền truy cập page này.');
+                throw new Error(`Không tìm thấy page_access_token cho page ${conv.pageId} (${conv.pageName}). Không có account nào có quyền truy cập page này.`);
             }
 
             let url, payload;

@@ -217,6 +217,10 @@ class InboxDataManager {
                 }
 
                 const convs = data.conversations || [];
+                // Ensure page_id is set on every conversation (per-page API may omit it)
+                for (const c of convs) {
+                    if (!c.page_id) c.page_id = pageId;
+                }
                 console.log(`[InboxData] ✅ Page ${pageId}: ${convs.length} conversations`);
                 allConversations = allConversations.concat(convs);
             } catch (e) {
