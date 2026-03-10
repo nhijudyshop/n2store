@@ -753,53 +753,42 @@ class InboxChatController {
         const select = document.getElementById('livestreamPostSelect');
         if (!select) return;
 
-        // Collect unique post_ids from livestream conversations
-        const postMap = new Map(); // post_id -> { count, snippet, convSample }
-        for (const conv of this.data.conversations) {
-            if (!conv.isLivestream) continue;
-            const postId = conv._raw?.post_id;
-            if (!postId) continue;
-            const existing = postMap.get(postId);
-            if (existing) {
-                existing.count++;
-            } else {
-                // Try cached post info, then _messagesData, then _raw.post
-                const cachedName = this._postNameCache?.get(postId);
-                const postMessage = cachedName
-                    || conv._messagesData?.post?.message
-                    || conv._raw?.post?.message
-                    || '';
-                postMap.set(postId, { count: 1, snippet: postMessage, convSample: conv });
-            }
-        }
+        const postMap = this.data.livestreamPostMap || {};
+        const postIds = Object.keys(postMap);
 
-        let html = `<option value="">Tất cả bài post (${postMap.size})</option>`;
-        for (const [postId, info] of postMap) {
+        let html = `<option value="">Tất cả bài post (${postIds.length})</option>`;
+        for (const postId of postIds) {
+            const convs = postMap[postId] || [];
             const selected = postId === this.selectedLivestreamPostId ? 'selected' : '';
-            const label = info.snippet || `Đang tải...`;
-            html += `<option value="${postId}" ${selected}>${label} (${info.count})</option>`;
+            // Try to get post name from cached messages data or show post_id
+            const sampleConv = this.data.conversations.find(c => c._raw?.post_id === postId);
+            const postName = sampleConv?._messagesData?.post?.message
+                || sampleConv?._raw?.post?.message
+                || `Post ${postId.substring(0, 20)}...`;
+            html += `<option value="${postId}" ${selected}>${postName} (${convs.length})</option>`;
         }
         select.innerHTML = html;
 
-        // Fetch post names for entries without snippet
-        const needFetch = [];
-        for (const [postId, info] of postMap) {
-            if (!info.snippet && !this._postNameCache?.has(postId)) {
-                needFetch.push({ postId, conv: info.convSample });
-            }
-        }
-        if (needFetch.length > 0) {
-            this._fetchPostNames(needFetch);
-        }
+        // Fetch post names for entries without real names
+        this._fetchPostNamesFromServer(postIds);
     }
 
-    async _fetchPostNames(items) {
+    async _fetchPostNamesFromServer(postIds) {
         if (!this._postNameCache) this._postNameCache = new Map();
         const pdm = window.pancakeDataManager;
         if (!pdm) return;
 
-        for (const { postId, conv } of items) {
+        let updated = false;
+        for (const postId of postIds) {
             if (this._postNameCache.has(postId)) continue;
+            // Find a conversation to use for fetching
+            const conv = this.data.conversations.find(c => c._raw?.post_id === postId);
+            if (!conv) continue;
+            // Skip if already has post name
+            if (conv._messagesData?.post?.message || conv._raw?.post?.message) {
+                this._postNameCache.set(postId, conv._messagesData?.post?.message || conv._raw?.post?.message);
+                continue;
+            }
             try {
                 const result = await pdm.fetchMessagesForConversation(
                     conv.pageId, conv.conversationId, null, conv.customerId
@@ -807,57 +796,53 @@ class InboxChatController {
                 const post = result?.post || result?.conversation?.post;
                 const message = post?.message || `Post ${postId}`;
                 this._postNameCache.set(postId, message);
-
-                // Also store for future use
                 if (!conv._messagesData) conv._messagesData = {};
                 conv._messagesData.post = post;
+                updated = true;
             } catch (e) {
                 this._postNameCache.set(postId, `Post ${postId}`);
             }
         }
 
-        // Re-render dropdown with fetched names (only if still on livestream tab)
-        if (this.currentFilter === 'livestream') {
+        if (updated && this.currentFilter === 'livestream') {
             this.populateLivestreamPostSelector();
         }
     }
 
-    clearLivestreamForPost() {
+    async clearLivestreamForPost() {
         const postId = this.selectedLivestreamPostId;
         if (!postId) {
             showToast('Chọn bài post trước khi xóa', 'warning');
             return;
         }
 
-        // Find all livestream conversations for this post
-        const toRemove = this.data.conversations.filter(c =>
-            c.isLivestream && c._raw?.post_id === postId
-        );
-
-        if (toRemove.length === 0) {
+        const convs = this.data.livestreamPostMap[postId] || [];
+        if (convs.length === 0) {
             showToast('Không có đoạn hội thoại livestream cho bài post này', 'info');
             return;
         }
 
-        if (!confirm(`Xóa đánh dấu livestream cho ${toRemove.length} đoạn hội thoại của bài post này?`)) return;
+        if (!confirm(`Xóa đánh dấu livestream cho ${convs.length} đoạn hội thoại của bài post này?`)) return;
 
-        for (const conv of toRemove) {
-            conv.isLivestream = false;
-            this.data.livestreamConvIds.delete(conv.id);
-            // Also unmark customer if no other livestream convs remain
-            if (conv.psid) {
-                const otherLive = this.data.conversations.some(c => c.psid === conv.psid && c.isLivestream && c.id !== conv.id);
-                if (!otherLive) {
-                    this.data.livestreamCustomerPsids.delete(conv.psid);
-                }
-            }
+        // DELETE on server
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        try {
+            const res = await fetch(`${workerUrl}/api/realtime/livestream-conversations?post_id=${encodeURIComponent(postId)}`, {
+                method: 'DELETE'
+            });
+            const data = await res.json();
+            console.log(`[InboxChat] Deleted ${data.deleted} livestream conversations for post ${postId}`);
+        } catch (err) {
+            console.warn('[InboxChat] Error deleting livestream:', err.message);
         }
 
-        this.data.saveLocalState();
+        // Refetch from server to update local state
+        await this.data.fetchLivestreamFromServer();
+
         this.selectedLivestreamPostId = '';
         this.populateLivestreamPostSelector();
         this.renderConversationList();
-        showToast(`Đã xóa ${toRemove.length} đoạn hội thoại livestream`, 'success');
+        showToast(`Đã xóa ${convs.length} đoạn hội thoại livestream`, 'success');
     }
 
     // ===== Load More Conversations (scroll pagination) =====
@@ -1047,7 +1032,7 @@ class InboxChatController {
             const wasLivestream = conv.isLivestream;
 
             if (postType === 'livestream' || liveVideoStatus === 'vod' || liveVideoStatus === 'live') {
-                this.data.markAsLivestream(conv.id);
+                this.data.markAsLivestream(conv.id, conv._raw?.post_id);
                 conv.isLivestream = true;
             } else if (conv.type === 'COMMENT' && post) {
                 // COMMENT conversation but post is NOT livestream (reel, video, etc.)
@@ -1760,10 +1745,9 @@ class InboxChatController {
 
         // Fetch all endpoints in parallel
         const endpoints = [
-            { name: 'Conversation Labels', url: '/api/realtime/conversation-labels', key: 'labelMap' },
+            { name: 'Livestream Conversations', url: '/api/realtime/livestream-conversations', key: 'posts' },
             { name: 'Pending Customers', url: '/api/realtime/pending-customers?limit=500', key: 'customers' },
             { name: 'Post Types', url: '/api/realtime/post-types?limit=500', key: 'postTypes' },
-            { name: 'Livestream Customers', url: '/api/realtime/livestream-customers?limit=500', key: 'customers' },
             { name: 'Realtime Status', url: '/api/realtime/status', key: null },
         ];
 
@@ -2679,26 +2663,24 @@ class InboxChatController {
             // Update livestream status from post data
             if (isLivestream) {
                 existing.isLivestream = true;
-                this.data.markAsLivestream(conversation.id);
+                this.data.markAsLivestream(conversation.id, conversation.post_id);
                 // Mark customer → all their conversations become livestream
                 const custName = conversation.from?.name || conversation.customers?.[0]?.name;
                 this.data.markCustomerAsLivestream(customerPsid, pageId, custName, conversation.post_id);
-            } else if (this.data.isLivestreamCustomer(customerPsid)) {
-                // Customer is known livestream participant → mark this conv too
+            } else if (this.data.livestreamConvIdSet.has(conversation.id)) {
+                // Already known as livestream from server
                 existing.isLivestream = true;
-                this.data.markAsLivestream(conversation.id);
             }
         } else {
             // New conversation
             const mapped = this.data.mapConversation(conversation);
             if (isLivestream) {
                 mapped.isLivestream = true;
-                this.data.markAsLivestream(conversation.id);
+                this.data.markAsLivestream(conversation.id, conversation.post_id);
                 const custName = conversation.from?.name || conversation.customers?.[0]?.name;
                 this.data.markCustomerAsLivestream(customerPsid, pageId, custName, conversation.post_id);
-            } else if (this.data.isLivestreamCustomer(customerPsid)) {
+            } else if (this.data.livestreamConvIdSet.has(conversation.id)) {
                 mapped.isLivestream = true;
-                this.data.markAsLivestream(conversation.id);
             }
             this.data.conversations.unshift(mapped);
             this.data.buildMaps();
@@ -2731,12 +2713,12 @@ class InboxChatController {
     }
 
     handlePostTypeDetected(data) {
-        const { conversationId, postType, liveVideoStatus } = data;
+        const { conversationId, postId, postType, liveVideoStatus } = data;
         if (!conversationId) return;
 
         const conv = this.data.getConversation(conversationId);
         if (postType === 'livestream' || liveVideoStatus === 'vod' || liveVideoStatus === 'live') {
-            this.data.markAsLivestream(conversationId);
+            this.data.markAsLivestream(conversationId, postId);
             if (conv) conv.isLivestream = true;
             console.log(`[InboxChat] 🔴 Livestream detected: ${conversationId}`);
             this.renderConversationList();

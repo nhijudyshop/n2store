@@ -22,8 +22,8 @@ class InboxDataManager {
         this.conversations = [];  // Mapped conversations from Pancake
         this.groups = [];
         this.pages = [];          // Pancake pages
-        this.livestreamConvIds = new Set(); // Track livestream conversation IDs
-        this.livestreamCustomerPsids = new Set(); // Track customers who commented on livestream
+        this.livestreamPostMap = {};    // { post_id: [{ conv_id, name, ... }] } from server
+        this.livestreamConvIdSet = new Set(); // derived from livestreamPostMap for O(1) lookup
         this.labelMap = {};       // convId -> labelId (saved to localStorage)
         this.isInitialized = false;
 
@@ -56,8 +56,7 @@ class InboxDataManager {
             if (pdm.conversations && pdm.conversations.length > 0) {
                 this.pages = pdm.pages || [];
                 this.conversations = pdm.conversations.map(conv => this.mapConversation(conv));
-                const liveCount = this.conversations.filter(c => c.isLivestream).length;
-                console.log(`[InboxData] Got ${this.conversations.length} conversations from initialize() (${liveCount} livestream from localStorage)`);
+                console.log(`[InboxData] Got ${this.conversations.length} conversations from initialize()`);
             } else {
                 // Try other accounts if current one returned 0
                 await this.loadConversations(true);
@@ -71,8 +70,8 @@ class InboxDataManager {
             this.isInitialized = true;
             console.log('[InboxData] Initialization complete');
 
-            // Detect livestream conversations in background (fetch posts per page)
-            this.detectLivestreamConversations();
+            // Fetch livestream conversations from server (single source of truth)
+            this.fetchLivestreamFromServer();
         } catch (error) {
             console.error('[InboxData] Pancake initialization error:', error);
             showToast('Lỗi kết nối Pancake: ' + error.message, 'error');
@@ -86,14 +85,7 @@ class InboxDataManager {
         try {
             const labels = localStorage.getItem('inbox_conv_labels');
             if (labels) this.labelMap = JSON.parse(labels);
-
-            const liveIds = localStorage.getItem('inbox_livestream_convs');
-            if (liveIds) this.livestreamConvIds = new Set(JSON.parse(liveIds));
-
-            const liveCusts = localStorage.getItem('inbox_livestream_customers');
-            if (liveCusts) this.livestreamCustomerPsids = new Set(JSON.parse(liveCusts));
-
-            console.log(`[InboxData] Loaded local state: ${this.livestreamConvIds.size} livestream convs, ${this.livestreamCustomerPsids.size} livestream customers`);
+            console.log(`[InboxData] Loaded local state: labels`);
         } catch (e) {
             console.warn('[InboxData] Error loading local state:', e);
         }
@@ -105,8 +97,6 @@ class InboxDataManager {
     saveLocalState() {
         try {
             localStorage.setItem('inbox_conv_labels', JSON.stringify(this.labelMap));
-            localStorage.setItem('inbox_livestream_convs', JSON.stringify([...this.livestreamConvIds]));
-            localStorage.setItem('inbox_livestream_customers', JSON.stringify([...this.livestreamCustomerPsids]));
         } catch (e) {
             console.warn('[InboxData] Error saving local state:', e);
         }
@@ -445,7 +435,7 @@ class InboxDataManager {
             online: false,
             phone: '',
             labels: this.getLabelArray(conv.id),
-            isLivestream: this.livestreamConvIds.has(conv.id) || this.isLivestreamCustomer(conv.from_psid || conv.from?.id || ''),
+            isLivestream: this.livestreamConvIdSet.has(conv.id),
             type: conv.type, // 'INBOX' or 'COMMENT'
             pageId: conv.page_id,
             pageName: pageName,
@@ -781,138 +771,118 @@ class InboxDataManager {
 
 
     /**
-     * Detect livestream conversations from Render DB (fast, cached post_types)
-     * Falls back to fetchPosts if Render fails
+     * Fetch livestream conversations from server (single source of truth)
+     * Returns { post_id: [{ conv_id, name, ... }] }
      */
-    async detectLivestreamConversations() {
+    async fetchLivestreamFromServer() {
         const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
         try {
-            // 1. Fetch livestream post_types (marks COMMENT convs by conversation_id)
-            const commentConvs = this.conversations.filter(c => c.type === 'COMMENT');
-            if (commentConvs.length > 0) {
-                console.log(`[InboxData] Detecting livestream for ${commentConvs.length} COMMENT convs from Render DB`);
-                const response = await fetch(`${workerUrl}/api/realtime/post-types?post_type=livestream&limit=2000`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.postTypes) {
-                        const livestreamConvIds = new Set(data.postTypes.map(pt => pt.conversation_id));
-                        for (const conv of commentConvs) {
-                            if (livestreamConvIds.has(conv.id) && !conv.isLivestream) {
-                                this.livestreamConvIds.add(conv.id);
-                                conv.isLivestream = true;
-                                // Also mark this customer's INBOX conversations as livestream
-                                if (conv.psid) {
-                                    this.livestreamCustomerPsids.add(conv.psid);
-                                    for (const inboxConv of this.conversations) {
-                                        if (inboxConv.psid === conv.psid && inboxConv.type === 'INBOX' && !inboxConv.isLivestream) {
-                                            inboxConv.isLivestream = true;
-                                            this.livestreamConvIds.add(inboxConv.id);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            const response = await fetch(`${workerUrl}/api/realtime/livestream-conversations`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+
+            this.livestreamPostMap = data.posts || {};
+
+            // Build conv_id Set for fast lookup
+            this.livestreamConvIdSet = new Set();
+            for (const convs of Object.values(this.livestreamPostMap)) {
+                for (const c of convs) this.livestreamConvIdSet.add(c.conv_id);
             }
 
-            // 2. Fetch livestream customers (marks ALL convs by customer psid — INBOX + COMMENT)
-            const custResponse = await fetch(`${workerUrl}/api/realtime/livestream-customers?limit=2000`);
-            if (custResponse.ok) {
-                const custData = await custResponse.json();
-                if (custData.success && custData.customers) {
-                    const livestreamPsids = new Set(custData.customers.map(c => c.psid));
-                    console.log(`[InboxData] Render DB has ${livestreamPsids.size} livestream customers`);
-
-                    // Merge into local set
-                    for (const psid of livestreamPsids) {
-                        this.livestreamCustomerPsids.add(psid);
-                    }
-
-                    // Mark all conversations for these customers
-                    for (const conv of this.conversations) {
-                        if (conv.psid && livestreamPsids.has(conv.psid) && !conv.isLivestream) {
-                            conv.isLivestream = true;
-                            this.livestreamConvIds.add(conv.id);
-                        }
-                    }
-                }
+            // Mark conversations
+            for (const conv of this.conversations) {
+                conv.isLivestream = this.livestreamConvIdSet.has(conv.id);
             }
 
-            this.saveLocalState();
             this.recalculateGroupCounts();
             if (window.inboxChat) window.inboxChat.renderConversationList();
-            console.log(`[InboxData] Livestream detection complete: ${this.livestreamConvIds.size} convs, ${this.livestreamCustomerPsids.size} customers`);
+            console.log(`[InboxData] Livestream from server: ${this.livestreamConvIdSet.size} convs across ${Object.keys(this.livestreamPostMap).length} posts`);
         } catch (error) {
-            console.warn('[InboxData] Render DB livestream detection failed, using localStorage:', error.message);
+            console.warn('[InboxData] Failed to fetch livestream from server:', error.message);
         }
     }
 
     /**
-     * Mark a conversation as livestream (detected from messages response)
+     * Mark a conversation as livestream — save to server + update local
      */
-    markAsLivestream(convId) {
-        this.livestreamConvIds.add(convId);
+    markAsLivestream(convId, postId) {
         const conv = this.getConversation(convId);
-        if (conv) {
-            conv.isLivestream = true;
-            // Also mark this customer's INBOX conversations as livestream
-            if (conv.psid) {
-                this.livestreamCustomerPsids.add(conv.psid);
-                for (const inboxConv of this.conversations) {
-                    if (inboxConv.psid === conv.psid && inboxConv.type === 'INBOX' && !inboxConv.isLivestream) {
-                        inboxConv.isLivestream = true;
-                        this.livestreamConvIds.add(inboxConv.id);
-                    }
+        if (!conv) return;
+
+        conv.isLivestream = true;
+        this.livestreamConvIdSet.add(convId);
+
+        // Add to local postMap
+        const pid = postId || conv._raw?.post_id || 'unknown';
+        if (!this.livestreamPostMap[pid]) this.livestreamPostMap[pid] = [];
+        if (!this.livestreamPostMap[pid].find(c => c.conv_id === convId)) {
+            this.livestreamPostMap[pid].push({ conv_id: convId, name: conv.name, type: conv.type, psid: conv.psid });
+        }
+
+        // Also mark this customer's INBOX conversations
+        if (conv.psid) {
+            for (const inboxConv of this.conversations) {
+                if (inboxConv.psid === conv.psid && inboxConv.type === 'INBOX' && !inboxConv.isLivestream) {
+                    inboxConv.isLivestream = true;
+                    this.livestreamConvIdSet.add(inboxConv.id);
+                    this._saveLivestreamConvToServer(inboxConv.id, pid, inboxConv);
                 }
             }
         }
-        this.saveLocalState();
+
+        // Save to server
+        this._saveLivestreamConvToServer(convId, pid, conv);
+    }
+
+    /**
+     * Save a single livestream conversation to server
+     */
+    _saveLivestreamConvToServer(convId, postId, conv) {
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/livestream-conversation`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                convId,
+                postId,
+                name: conv.name,
+                avatar: conv.avatar,
+                lastMessage: conv.lastMessage,
+                convTime: conv.time?.toISOString?.() || null,
+                type: conv.type,
+                pageId: conv.pageId,
+                pageName: conv.pageName,
+                psid: conv.psid,
+                customerId: conv.customerId
+            })
+        }).catch(err => console.warn('[InboxData] Failed to save livestream conv to server:', err.message));
     }
 
     /**
      * Mark customer as livestream participant → mark ALL their conversations as livestream
-     * @param {string} customerPsid - Customer's fb_id/psid
      */
-    markCustomerAsLivestream(customerPsid, pageId, customerName, postId) {
+    markCustomerAsLivestream(customerPsid, _pageId, _customerName, postId) {
         if (!customerPsid) return;
-        this.livestreamCustomerPsids.add(customerPsid);
+        const pid = postId || 'unknown';
+
         // Find all conversations for this customer and mark as livestream
         for (const conv of this.conversations) {
             if (conv.psid === customerPsid && !conv.isLivestream) {
                 conv.isLivestream = true;
-                this.livestreamConvIds.add(conv.id);
+                this.livestreamConvIdSet.add(conv.id);
+                this._saveLivestreamConvToServer(conv.id, pid, conv);
             }
         }
-        this.saveLocalState();
-
-        // Save to server (persists across browsers)
-        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/realtime/livestream-customer`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ psid: customerPsid, pageId: pageId || null, customerName: customerName || null, postId: postId || null })
-        }).catch(err => console.warn('[InboxData] Failed to save livestream customer to server:', err.message));
     }
 
     /**
-     * Check if a customer is a known livestream participant
-     */
-    isLivestreamCustomer(psid) {
-        return psid && this.livestreamCustomerPsids.has(psid);
-    }
-
-    /**
-     * Unmark a conversation as livestream (post.type is not 'livestream')
+     * Unmark a conversation as livestream (local only — server uses DELETE by post)
      */
     unmarkAsLivestream(convId) {
-        this.livestreamConvIds.delete(convId);
+        this.livestreamConvIdSet.delete(convId);
         const conv = this.getConversation(convId);
-        if (conv) {
-            conv.isLivestream = false;
-        }
-        this.saveLocalState();
+        if (conv) conv.isLivestream = false;
     }
 
     addMessage(convId, text, sender = 'shop') {

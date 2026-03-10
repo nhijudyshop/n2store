@@ -111,25 +111,11 @@ async function ensureTablesExist() {
             CREATE INDEX IF NOT EXISTS idx_conv_post_types_type ON conversation_post_types(post_type);
         `);
 
-        // Create livestream_customers table (link customer psid to livestream)
+        // Create livestream_conversations table (single source of truth for livestream tab + labels)
         await dbPool.query(`
-            CREATE TABLE IF NOT EXISTS livestream_customers (
-                psid VARCHAR(100) NOT NULL,
-                page_id VARCHAR(255) NOT NULL,
-                customer_name VARCHAR(200),
-                post_id VARCHAR(500),
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (psid, page_id)
-            )
-        `);
-        await dbPool.query(`
-            CREATE INDEX IF NOT EXISTS idx_livestream_cust_page ON livestream_customers(page_id);
-        `);
-
-        // Create pinned_conversations table (persist conversations across browsers)
-        await dbPool.query(`
-            CREATE TABLE IF NOT EXISTS pinned_conversations (
+            CREATE TABLE IF NOT EXISTS livestream_conversations (
                 conv_id VARCHAR(500) PRIMARY KEY,
+                post_id VARCHAR(500) NOT NULL,
                 name VARCHAR(200),
                 avatar TEXT,
                 last_message TEXT,
@@ -139,19 +125,19 @@ async function ensureTablesExist() {
                 page_name VARCHAR(200),
                 psid VARCHAR(100),
                 customer_id VARCHAR(255),
-                is_livestream BOOLEAN DEFAULT FALSE,
                 label VARCHAR(50) DEFAULT 'new',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-
-        // Create conversation_labels table
         await dbPool.query(`
-            CREATE TABLE IF NOT EXISTS conversation_labels (
-                conv_id VARCHAR(500) PRIMARY KEY,
-                label VARCHAR(50) NOT NULL DEFAULT 'new',
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
+            CREATE INDEX IF NOT EXISTS idx_livestream_conv_post ON livestream_conversations(post_id);
+        `);
+
+        // Drop old tables that are no longer needed
+        await dbPool.query(`
+            DROP TABLE IF EXISTS livestream_customers;
+            DROP TABLE IF EXISTS pinned_conversations;
+            DROP TABLE IF EXISTS conversation_labels;
         `);
 
         console.log('[DATABASE] ✅ Tables initialized');
@@ -501,8 +487,18 @@ class RealtimeClient {
                 const isLivestream = postType === 'livestream' || conversation.post?.live_video_status === 'vod' || conversation.post?.live_video_status === 'live';
 
                 if (conversation.type === 'COMMENT' && isLivestream && customerPsid) {
-                    // Save livestream customer to DB (server-side, persists across browsers)
-                    saveLivestreamCustomer(customerPsid, conversation.page_id, conversation.from?.name || conversation.customers?.[0]?.name, conversation.post_id);
+                    // Save to livestream_conversations table (single source of truth)
+                    saveLivestreamConversation(conversation.id, conversation.post_id, {
+                        name: conversation.from?.name || conversation.customers?.[0]?.name,
+                        avatar: conversation.from?.avatar,
+                        lastMessage: conversation.snippet || conversation.last_message?.message,
+                        convTime: conversation.updated_at,
+                        type: conversation.type,
+                        pageId: conversation.page_id,
+                        pageName: null,
+                        psid: customerPsid,
+                        customerId: conversation.customers?.[0]?.id
+                    });
                 }
 
                 if (conversation.type === 'COMMENT' && conversation.post_id) {
@@ -522,9 +518,19 @@ class RealtimeClient {
                                         postType: result.postType,
                                         liveVideoStatus: result.liveVideoStatus
                                     });
-                                    // If detected as livestream, also save customer
+                                    // If detected as livestream, save conversation
                                     if (result.postType === 'livestream' && customerPsid) {
-                                        saveLivestreamCustomer(customerPsid, conversation.page_id, conversation.from?.name, conversation.post_id);
+                                        saveLivestreamConversation(conversation.id, conversation.post_id, {
+                                            name: conversation.from?.name || conversation.customers?.[0]?.name,
+                                            avatar: conversation.from?.avatar,
+                                            lastMessage: conversation.snippet || conversation.last_message?.message,
+                                            convTime: conversation.updated_at,
+                                            type: conversation.type,
+                                            pageId: conversation.page_id,
+                                            pageName: null,
+                                            psid: customerPsid,
+                                            customerId: conversation.customers?.[0]?.id
+                                        });
                                     }
                                 }
                             })
@@ -842,24 +848,44 @@ async function savePostTypeToDB(conversationId, pageId, postId, postType, liveVi
 }
 
 /**
- * Save a customer as livestream participant to DB
+ * Save a conversation to livestream_conversations table (single source of truth)
  */
-async function saveLivestreamCustomer(psid, pageId, customerName, postId) {
-    if (!dbPool || !psid || !pageId) return;
+async function saveLivestreamConversation(convId, postId, data) {
+    if (!dbPool || !convId || !postId) return;
     try {
         await dbPool.query(`
-            INSERT INTO livestream_customers (psid, page_id, customer_name, post_id)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (psid, page_id) DO UPDATE SET
-                customer_name = COALESCE(EXCLUDED.customer_name, livestream_customers.customer_name),
-                post_id = COALESCE(EXCLUDED.post_id, livestream_customers.post_id),
+            INSERT INTO livestream_conversations (conv_id, post_id, name, avatar, last_message, conv_time, type, page_id, page_name, psid, customer_id, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+            ON CONFLICT (conv_id) DO UPDATE SET
+                post_id = EXCLUDED.post_id,
+                name = COALESCE(EXCLUDED.name, livestream_conversations.name),
+                avatar = COALESCE(EXCLUDED.avatar, livestream_conversations.avatar),
+                last_message = COALESCE(EXCLUDED.last_message, livestream_conversations.last_message),
+                conv_time = COALESCE(EXCLUDED.conv_time, livestream_conversations.conv_time),
+                type = COALESCE(EXCLUDED.type, livestream_conversations.type),
+                page_id = COALESCE(EXCLUDED.page_id, livestream_conversations.page_id),
+                page_name = COALESCE(EXCLUDED.page_name, livestream_conversations.page_name),
+                psid = COALESCE(EXCLUDED.psid, livestream_conversations.psid),
+                customer_id = COALESCE(EXCLUDED.customer_id, livestream_conversations.customer_id),
                 updated_at = CURRENT_TIMESTAMP
-        `, [psid, pageId, customerName || null, postId || null]);
-        console.log(`[LIVESTREAM] ✅ Saved livestream customer: ${psid} (${customerName || 'unknown'})`);
+        `, [
+            convId, postId,
+            data.name || null,
+            data.avatar || null,
+            data.lastMessage || null,
+            data.convTime || null,
+            data.type || null,
+            data.pageId || null,
+            data.pageName || null,
+            data.psid || null,
+            data.customerId || null
+        ]);
+        console.log(`[LIVESTREAM] ✅ Saved livestream conversation: ${convId} → post ${postId}`);
     } catch (error) {
-        console.error('[LIVESTREAM] Error saving livestream customer:', error.message);
+        console.error('[LIVESTREAM] Error saving livestream conversation:', error.message);
     }
 }
+
 
 /**
  * Get or fetch page_access_token for a page (cached 1 hour)
@@ -1300,138 +1326,105 @@ app.get('/api/realtime/post-types', async (req, res) => {
     }
 });
 
+
 // =====================================================
-// LIVESTREAM CUSTOMERS ROUTES
+// LIVESTREAM CONVERSATIONS ROUTES (single source of truth)
 // =====================================================
 
-app.get('/api/realtime/livestream-customers', async (req, res) => {
+// GET /api/realtime/livestream-conversations - All conversations grouped by post_id
+app.get('/api/realtime/livestream-conversations', async (req, res) => {
     if (!dbPool) {
         return res.status(503).json({ error: 'Database not available' });
     }
-
     try {
-        const pageId = req.query.page_id;
-        const limit = Math.min(parseInt(req.query.limit) || 2000, 5000);
+        const result = await dbPool.query(
+            'SELECT * FROM livestream_conversations ORDER BY updated_at DESC'
+        );
 
-        let query = 'SELECT psid, page_id, customer_name, post_id, updated_at FROM livestream_customers';
-        const params = [];
-
-        if (pageId) {
-            params.push(pageId);
-            query += ` WHERE page_id = $${params.length}`;
+        // Group by post_id
+        const posts = {};
+        for (const row of result.rows) {
+            if (!posts[row.post_id]) posts[row.post_id] = [];
+            posts[row.post_id].push({
+                conv_id: row.conv_id,
+                name: row.name,
+                avatar: row.avatar,
+                last_message: row.last_message,
+                conv_time: row.conv_time,
+                type: row.type,
+                page_id: row.page_id,
+                page_name: row.page_name,
+                psid: row.psid,
+                customer_id: row.customer_id,
+                label: row.label,
+                updated_at: row.updated_at
+            });
         }
-
-        params.push(limit);
-        query += ` ORDER BY updated_at DESC LIMIT $${params.length}`;
-
-        const result = await dbPool.query(query, params);
 
         res.json({
             success: true,
-            count: result.rows.length,
-            customers: result.rows
+            posts,
+            totalConversations: result.rows.length
         });
     } catch (error) {
-        console.error('[API] Error getting livestream customers:', error);
-        res.status(500).json({ error: 'Failed to get livestream customers' });
+        console.error('[API] Error getting livestream conversations:', error);
+        res.status(500).json({ error: 'Failed to get livestream conversations' });
     }
 });
 
-app.put('/api/realtime/livestream-customer', async (req, res) => {
+// PUT /api/realtime/livestream-conversation - Upsert one conversation
+app.put('/api/realtime/livestream-conversation', async (req, res) => {
     if (!dbPool) {
         return res.status(503).json({ error: 'Database not available' });
     }
-
     try {
-        const { psid, pageId, customerName, postId } = req.body;
-        if (!psid || !pageId) {
-            return res.status(400).json({ error: 'Missing psid or pageId' });
+        const { convId, postId, name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId, label } = req.body;
+        if (!convId || !postId) {
+            return res.status(400).json({ error: 'convId and postId required' });
         }
 
-        await dbPool.query(`
-            INSERT INTO livestream_customers (psid, page_id, customer_name, post_id)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (psid, page_id) DO UPDATE SET
-                customer_name = COALESCE(EXCLUDED.customer_name, livestream_customers.customer_name),
-                post_id = COALESCE(EXCLUDED.post_id, livestream_customers.post_id),
-                updated_at = CURRENT_TIMESTAMP
-        `, [psid, pageId, customerName || null, postId || null]);
+        await saveLivestreamConversation(convId, postId, {
+            name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId
+        });
+
+        // Update label if provided
+        if (label) {
+            await dbPool.query('UPDATE livestream_conversations SET label = $2 WHERE conv_id = $1', [convId, label]);
+        }
 
         res.json({ success: true });
     } catch (error) {
-        console.error('[API] Error saving livestream customer:', error);
-        res.status(500).json({ error: 'Failed to save livestream customer' });
+        console.error('[API] Error saving livestream conversation:', error);
+        res.status(500).json({ error: 'Failed to save livestream conversation' });
     }
 });
 
-// GET /api/realtime/pinned-conversations - List pinned conversations
-app.get('/api/realtime/pinned-conversations', async (req, res) => {
+// DELETE /api/realtime/livestream-conversations - Delete by post_id or all
+app.delete('/api/realtime/livestream-conversations', async (req, res) => {
     if (!dbPool) {
         return res.status(503).json({ error: 'Database not available' });
     }
     try {
-        const limit = parseInt(req.query.limit) || 500;
-        const result = await dbPool.query(
-            'SELECT * FROM pinned_conversations ORDER BY updated_at DESC LIMIT $1',
-            [limit]
-        );
-        res.json({ success: true, conversations: result.rows });
+        const postId = req.query.post_id;
+        let result;
+        if (postId) {
+            result = await dbPool.query('DELETE FROM livestream_conversations WHERE post_id = $1', [postId]);
+        } else {
+            result = await dbPool.query('DELETE FROM livestream_conversations');
+        }
+
+        res.json({ success: true, deleted: result.rowCount });
     } catch (error) {
-        console.error('[API] Error fetching pinned conversations:', error.message);
-        res.status(500).json({ error: error.message });
+        console.error('[API] Error deleting livestream conversations:', error);
+        res.status(500).json({ error: 'Failed to delete livestream conversations' });
     }
 });
 
-// PUT /api/realtime/pinned-conversation - Save a pinned conversation
-app.put('/api/realtime/pinned-conversation', async (req, res) => {
-    if (!dbPool) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-    try {
-        const { convId, name, avatar, lastMessage, time, type, pageId, pageName, psid, customerId, isLivestream, label } = req.body;
-        if (!convId) return res.status(400).json({ error: 'convId required' });
-
-        await dbPool.query(`
-            INSERT INTO pinned_conversations (conv_id, name, avatar, last_message, conv_time, type, page_id, page_name, psid, customer_id, is_livestream, label, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-            ON CONFLICT (conv_id) DO UPDATE SET
-                name = EXCLUDED.name,
-                last_message = EXCLUDED.last_message,
-                conv_time = EXCLUDED.conv_time,
-                is_livestream = EXCLUDED.is_livestream,
-                label = EXCLUDED.label,
-                updated_at = NOW()
-        `, [convId, name || '', avatar || null, lastMessage || '', time || new Date(), type || 'INBOX', pageId || '', pageName || '', psid || '', customerId || null, isLivestream || false, label || 'new']);
-
-        res.json({ success: true });
-    } catch (error) {
-        console.error('[API] Error saving pinned conversation:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// DELETE /api/realtime/pinned-conversation?convId=xxx - Remove a pinned conversation
-app.delete('/api/realtime/pinned-conversation', async (req, res) => {
-    if (!dbPool) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-    try {
-        const convId = req.query.convId;
-        if (!convId) return res.status(400).json({ error: 'convId required' });
-
-        await dbPool.query('DELETE FROM pinned_conversations WHERE conv_id = $1', [convId]);
-        res.json({ success: true });
-    } catch (error) {
-        console.error('[API] Error deleting pinned conversation:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// GET /api/realtime/conversation-labels - Get all labels
+// GET /api/realtime/conversation-labels - Get labels from livestream_conversations
 app.get('/api/realtime/conversation-labels', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
-        const result = await dbPool.query('SELECT conv_id, label FROM conversation_labels ORDER BY updated_at DESC LIMIT 5000');
+        const result = await dbPool.query("SELECT conv_id, label FROM livestream_conversations WHERE label IS NOT NULL AND label != 'new' ORDER BY updated_at DESC LIMIT 5000");
         const labelMap = {};
         for (const row of result.rows) {
             labelMap[row.conv_id] = row.label;
@@ -1442,17 +1435,17 @@ app.get('/api/realtime/conversation-labels', async (req, res) => {
     }
 });
 
-// PUT /api/realtime/conversation-label - Save a label
+// PUT /api/realtime/conversation-label - Update label in livestream_conversations
 app.put('/api/realtime/conversation-label', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
         const { convId, label } = req.body;
         if (!convId || !label) return res.status(400).json({ error: 'convId and label required' });
-        await dbPool.query(`
-            INSERT INTO conversation_labels (conv_id, label, updated_at) VALUES ($1, $2, NOW())
-            ON CONFLICT (conv_id) DO UPDATE SET label = EXCLUDED.label, updated_at = NOW()
+        // Only update if conversation exists in livestream_conversations
+        const result = await dbPool.query(`
+            UPDATE livestream_conversations SET label = $2, updated_at = NOW() WHERE conv_id = $1
         `, [convId, label]);
-        res.json({ success: true });
+        res.json({ success: true, updated: result.rowCount });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
