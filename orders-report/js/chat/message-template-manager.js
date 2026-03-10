@@ -1319,22 +1319,45 @@ class MessageTemplateManager {
         let conversation = window.pancakeDataManager?.getConversationByUserId(psid);
         let conversationId;
         let customerId = null;
+        let isCommentOnly = false;
+        let commentConvId = null; // Track COMMENT conversation for Private Reply fallback
 
         if (conversation && conversation.id) {
             conversationId = conversation.id;
             customerId = conversation.customers?.[0]?.id || null;
-            this.log(`📌 Found conversation in cache: ${conversationId}`);
+            if (conversation.type === 'COMMENT') {
+                isCommentOnly = true;
+                commentConvId = conversation.id;
+                this.log(`📌 Found COMMENT conversation in cache: ${conversationId} (no INBOX available)`);
+            } else {
+                this.log(`📌 Found conversation in cache: ${conversationId}`);
+            }
         } else {
             // Fetch from Pancake API to get correct conversation ID
             this.log(`🔍 Fetching conversation from Pancake API for psid: ${psid}`);
             try {
                 const convResult = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, psid);
                 if (convResult.success && convResult.conversations?.length > 0) {
-                    // Find INBOX conversation
-                    const inboxConv = convResult.conversations.find(c => c.type === 'INBOX') || convResult.conversations[0];
-                    conversationId = inboxConv.id;
-                    customerId = convResult.customerUuid || inboxConv.customers?.[0]?.id || null;
-                    this.log(`✅ Got conversation from API: ${conversationId}, customerId: ${customerId}`);
+                    // Find INBOX conversation first, track COMMENT for fallback
+                    const inboxConv = convResult.conversations.find(c => c.type === 'INBOX');
+                    const commentConv = convResult.conversations.find(c => c.type === 'COMMENT');
+
+                    if (inboxConv) {
+                        conversationId = inboxConv.id;
+                        customerId = convResult.customerUuid || inboxConv.customers?.[0]?.id || null;
+                        if (commentConv) commentConvId = commentConv.id;
+                        this.log(`✅ Got INBOX conversation: ${conversationId}, customerId: ${customerId}`);
+                    } else if (commentConv) {
+                        isCommentOnly = true;
+                        commentConvId = commentConv.id;
+                        customerId = convResult.customerUuid || commentConv.customers?.[0]?.id || null;
+                        this.log(`⚠️ No INBOX conversation found. Only COMMENT: ${commentConvId}`);
+                        this.log(`📋 Available types: ${convResult.conversations.map(c => c.type).join(', ')}`);
+                    } else {
+                        conversationId = convResult.conversations[0].id;
+                        customerId = convResult.customerUuid || convResult.conversations[0].customers?.[0]?.id || null;
+                        this.log(`✅ Got conversation from API: ${conversationId}, customerId: ${customerId}`);
+                    }
                 } else {
                     // Fallback: construct conversationId from channelId_psid
                     conversationId = `${channelId}_${psid}`;
@@ -1345,6 +1368,26 @@ class MessageTemplateManager {
                 conversationId = `${channelId}_${psid}`;
                 this.log(`⚠️ Error fetching conversation: ${fetchErr.message}, using fallback: ${conversationId}`);
             }
+        }
+
+        // COMMENT-only: Skip Pancake reply_inbox (will fail), go directly to Private Reply
+        if (isCommentOnly && commentConvId) {
+            this.log(`🔄 COMMENT-only → Direct Private Reply for order ${order.code} (commentId: ${commentConvId})`);
+            const fbResult = await this._sendViaFacebookAPI(
+                channelId, psid, messageContent, fullOrderData.raw,
+                fullOrderData.raw.Facebook_PostId, commentConvId
+            );
+            if (fbResult.success) {
+                this.log(`✅ Private Reply succeeded for order ${order.code} (method: ${fbResult.method})`);
+                return true;
+            }
+            // Private Reply failed - throw descriptive error
+            const errMsg = `COMMENT_ONLY: Khách chỉ comment, không có inbox. Private Reply failed: ${fbResult.error}`;
+            this.log(`❌ ${errMsg}`);
+            const err = new Error('COMMENT_ONLY_NO_INBOX');
+            err.originalMessage = fbResult.error;
+            err.isCommentOnly = true;
+            throw err;
         }
 
         // Get page_access_token for Official API (pages.fm)
@@ -1504,7 +1547,7 @@ class MessageTemplateManager {
             if (is24HourError) {
                 this.log(`⚠️ 24-hour policy error - attempting Facebook API fallback for order ${order.code}`);
 
-                // Try Facebook API fallback (with postId for Private Reply fallback)
+                // Try Facebook API fallback (with postId + commentConvId for Private Reply)
                 const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, fullOrderData.raw.Facebook_PostId);
 
                 if (fbFallbackResult.success) {
@@ -1512,7 +1555,18 @@ class MessageTemplateManager {
                     return true; // Success via Facebook API
                 }
 
-                // Facebook API also failed, throw original error
+                // Send API also failed → try Direct Private Reply with known comment ID
+                if (commentConvId) {
+                    this.log(`🔄 Send API failed → trying Direct Private Reply with commentId: ${commentConvId}`);
+                    const prResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, null, commentConvId);
+                    if (prResult.success) {
+                        this.log(`✅ Direct Private Reply succeeded for order ${order.code}`);
+                        return true;
+                    }
+                    this.log(`❌ Direct Private Reply also failed: ${prResult.error}`);
+                }
+
+                // All fallbacks failed, throw original error
                 this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
                 const error24h = new Error('24H_POLICY_ERROR');
                 error24h.is24HourError = true;
@@ -1526,7 +1580,7 @@ class MessageTemplateManager {
             if (isUserUnavailable) {
                 this.log(`⚠️ User unavailable (551) error - attempting Facebook API fallback for order ${order.code}`);
 
-                // Try Facebook API fallback (with postId for Private Reply fallback)
+                // Try Facebook API fallback (with postId + commentConvId for Private Reply)
                 const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, fullOrderData.raw.Facebook_PostId);
 
                 if (fbFallbackResult.success) {
@@ -1534,7 +1588,18 @@ class MessageTemplateManager {
                     return true; // Success via Facebook API
                 }
 
-                // Facebook API also failed, throw original error
+                // Send API also failed → try Direct Private Reply with known comment ID
+                if (commentConvId) {
+                    this.log(`🔄 Send API failed → trying Direct Private Reply with commentId: ${commentConvId}`);
+                    const prResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, null, commentConvId);
+                    if (prResult.success) {
+                        this.log(`✅ Direct Private Reply succeeded for order ${order.code}`);
+                        return true;
+                    }
+                    this.log(`❌ Direct Private Reply also failed: ${prResult.error}`);
+                }
+
+                // All fallbacks failed, throw original error
                 this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
                 const error551 = new Error('USER_UNAVAILABLE');
                 error551.isUserUnavailable = true;
@@ -1558,7 +1623,7 @@ class MessageTemplateManager {
      * Send message via Facebook Graph API with HUMAN_AGENT/CUSTOMER_FEEDBACK tag
      * Falls back to Private Reply if Send API fails with 551 (no inbox conversation)
      */
-    async _sendViaFacebookAPI(pageId, psid, message, orderRaw, postId) {
+    async _sendViaFacebookAPI(pageId, psid, message, orderRaw, postId, commentId) {
         this.log('[FB-FALLBACK] Attempting Facebook API fallback...');
 
         try {
@@ -1608,6 +1673,12 @@ class MessageTemplateManager {
                 pageToken: facebookPageToken,
                 useTag: true
             };
+
+            // Direct Private Reply mode: pass commentId to skip Send API entirely
+            if (commentId) {
+                requestBody.commentId = commentId;
+                this.log('[FB-FALLBACK] Direct Private Reply mode → commentId:', commentId);
+            }
 
             // Pass postId and customerName for Private Reply fallback (when Send API fails with 551)
             if (postId) {

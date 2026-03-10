@@ -390,9 +390,10 @@ export async function handleFacebookSend(request, url) {
         }
 
         // ===== PRIVATE REPLY FALLBACK =====
-        // If Send API failed with 551 (no inbox conversation) and we have a postId,
-        // query Facebook Graph API for the real comment ID and use Private Reply
-        if (sendFailed551 && postId && hasTextMessage) {
+        // If Send API failed (551=no inbox, or other errors like 100=invalid param/24h policy)
+        // and we have a postId, query Facebook Graph API for the real comment ID and use Private Reply
+        const sendApiFailed = messageIds.length === 0 && lastError;
+        if (sendApiFailed && postId && hasTextMessage) {
             console.log('[FACEBOOK-SEND] ========================================');
             console.log('[FACEBOOK-SEND] Send API failed with 551 → trying Private Reply fallback');
 
