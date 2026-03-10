@@ -767,13 +767,16 @@ class InboxChatController {
     // ===== Toggle Read/Unread =====
 
     toggleReadUnread(convId) {
+        console.log('[InboxChat] toggleReadUnread called:', convId);
         const conv = this.data.getConversation(convId);
-        if (!conv) return;
+        if (!conv) { console.warn('[InboxChat] toggleReadUnread: conv not found'); return; }
 
         if (conv.unread > 0) {
             this.data.markAsRead(convId);
+            showToast('Đã đánh dấu đã đọc', 'info');
         } else {
             this.data.markAsUnread(convId);
+            showToast('Đã đánh dấu chưa đọc', 'info');
         }
         this.renderConversationList();
         this.data.recalculateGroupCounts();
@@ -782,19 +785,22 @@ class InboxChatController {
     }
 
     moveConversationTab(convId) {
+        console.log('[InboxChat] moveConversationTab called:', convId);
         const conv = this.data.getConversation(convId);
-        if (!conv) return;
+        if (!conv) { console.warn('[InboxChat] moveConversationTab: conv not found'); return; }
 
         if (conv.isLivestream) {
             // Move from Livestream → Inbox My
             this.data.unmarkAsLivestream(convId);
             this.data.unpinnedLivestream.add(convId);
             this.data.unpinnedInboxMy.delete(convId);
+            showToast(`Đã chuyển "${conv.name}" qua Inbox My`, 'success');
         } else {
             // Move from Inbox My → Livestream (save customer to server for persistence)
             this.data.markCustomerAsLivestream(conv.psid, conv.pageId, conv.name);
             this.data.unpinnedInboxMy.add(convId);
             this.data.unpinnedLivestream.delete(convId);
+            showToast(`Đã chuyển "${conv.name}" qua Livestream`, 'success');
         }
         this.data.saveLocalState();
         this.renderConversationList();
