@@ -111,6 +111,21 @@ async function ensureTablesExist() {
             CREATE INDEX IF NOT EXISTS idx_conv_post_types_type ON conversation_post_types(post_type);
         `);
 
+        // Create livestream_customers table (link customer psid to livestream)
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS livestream_customers (
+                psid VARCHAR(100) NOT NULL,
+                page_id VARCHAR(255) NOT NULL,
+                customer_name VARCHAR(200),
+                post_id VARCHAR(500),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (psid, page_id)
+            )
+        `);
+        await dbPool.query(`
+            CREATE INDEX IF NOT EXISTS idx_livestream_cust_page ON livestream_customers(page_id);
+        `);
+
         console.log('[DATABASE] ✅ Tables initialized');
     } catch (error) {
         console.error('[DATABASE] Error creating tables:', error.message);
@@ -453,21 +468,40 @@ class RealtimeClient {
                     });
                 }
 
-                // 3. Async livestream detection for COMMENT conversations
+                // 3. Livestream detection for COMMENT conversations
+                const postType = conversation.post?.type;
+                const isLivestream = postType === 'livestream' || conversation.post?.live_video_status === 'vod' || conversation.post?.live_video_status === 'live';
+
+                if (conversation.type === 'COMMENT' && isLivestream && customerPsid) {
+                    // Save livestream customer to DB (server-side, persists across browsers)
+                    saveLivestreamCustomer(customerPsid, conversation.page_id, conversation.from?.name || conversation.customers?.[0]?.name, conversation.post_id);
+                }
+
                 if (conversation.type === 'COMMENT' && conversation.post_id) {
-                    lookupPostType(conversation.id, conversation.page_id, conversation.post_id)
-                        .then(result => {
-                            if (result) {
-                                broadcastToClients({
-                                    type: 'post_type_detected',
-                                    conversationId: conversation.id,
-                                    postId: conversation.post_id,
-                                    postType: result.postType,
-                                    liveVideoStatus: result.liveVideoStatus
-                                });
-                            }
-                        })
-                        .catch(err => console.error('[LIVESTREAM] Detection error:', err.message));
+                    // Save post_type if available in payload
+                    if (postType) {
+                        savePostTypeToDB(conversation.id, conversation.page_id, conversation.post_id, postType, conversation.post?.live_video_status || null);
+                        postTypeCache.set(conversation.post_id, { postType, liveVideoStatus: conversation.post?.live_video_status || null });
+                    } else {
+                        // No post data in payload — fallback to API detection
+                        lookupPostType(conversation.id, conversation.page_id, conversation.post_id)
+                            .then(result => {
+                                if (result) {
+                                    broadcastToClients({
+                                        type: 'post_type_detected',
+                                        conversationId: conversation.id,
+                                        postId: conversation.post_id,
+                                        postType: result.postType,
+                                        liveVideoStatus: result.liveVideoStatus
+                                    });
+                                    // If detected as livestream, also save customer
+                                    if (result.postType === 'livestream' && customerPsid) {
+                                        saveLivestreamCustomer(customerPsid, conversation.page_id, conversation.from?.name, conversation.post_id);
+                                    }
+                                }
+                            })
+                            .catch(err => console.error('[LIVESTREAM] Detection error:', err.message));
+                    }
                 }
             }
         } else if (event === 'order:tags_updated') {
@@ -776,6 +810,26 @@ async function savePostTypeToDB(conversationId, pageId, postId, postType, liveVi
         `, [conversationId, pageId || null, postId || null, postType, liveVideoStatus || null]);
     } catch (error) {
         console.error('[LIVESTREAM] Error saving post_type to DB:', error.message);
+    }
+}
+
+/**
+ * Save a customer as livestream participant to DB
+ */
+async function saveLivestreamCustomer(psid, pageId, customerName, postId) {
+    if (!dbPool || !psid || !pageId) return;
+    try {
+        await dbPool.query(`
+            INSERT INTO livestream_customers (psid, page_id, customer_name, post_id)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (psid, page_id) DO UPDATE SET
+                customer_name = COALESCE(EXCLUDED.customer_name, livestream_customers.customer_name),
+                post_id = COALESCE(EXCLUDED.post_id, livestream_customers.post_id),
+                updated_at = CURRENT_TIMESTAMP
+        `, [psid, pageId, customerName || null, postId || null]);
+        console.log(`[LIVESTREAM] ✅ Saved livestream customer: ${psid} (${customerName || 'unknown'})`);
+    } catch (error) {
+        console.error('[LIVESTREAM] Error saving livestream customer:', error.message);
     }
 }
 
@@ -1215,6 +1269,70 @@ app.get('/api/realtime/post-types', async (req, res) => {
     } catch (error) {
         console.error('[API] Error getting post_types:', error);
         res.status(500).json({ error: 'Failed to get post_types' });
+    }
+});
+
+// =====================================================
+// LIVESTREAM CUSTOMERS ROUTES
+// =====================================================
+
+app.get('/api/realtime/livestream-customers', async (req, res) => {
+    if (!dbPool) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const pageId = req.query.page_id;
+        const limit = Math.min(parseInt(req.query.limit) || 2000, 5000);
+
+        let query = 'SELECT psid, page_id, customer_name, post_id, updated_at FROM livestream_customers';
+        const params = [];
+
+        if (pageId) {
+            params.push(pageId);
+            query += ` WHERE page_id = $${params.length}`;
+        }
+
+        params.push(limit);
+        query += ` ORDER BY updated_at DESC LIMIT $${params.length}`;
+
+        const result = await dbPool.query(query, params);
+
+        res.json({
+            success: true,
+            count: result.rows.length,
+            customers: result.rows
+        });
+    } catch (error) {
+        console.error('[API] Error getting livestream customers:', error);
+        res.status(500).json({ error: 'Failed to get livestream customers' });
+    }
+});
+
+app.put('/api/realtime/livestream-customer', async (req, res) => {
+    if (!dbPool) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const { psid, pageId, customerName, postId } = req.body;
+        if (!psid || !pageId) {
+            return res.status(400).json({ error: 'Missing psid or pageId' });
+        }
+
+        await dbPool.query(`
+            INSERT INTO livestream_customers (psid, page_id, customer_name, post_id)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (psid, page_id) DO UPDATE SET
+                customer_name = COALESCE(EXCLUDED.customer_name, livestream_customers.customer_name),
+                post_id = COALESCE(EXCLUDED.post_id, livestream_customers.post_id),
+                updated_at = CURRENT_TIMESTAMP
+        `, [psid, pageId, customerName || null, postId || null]);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[API] Error saving livestream customer:', error);
+        res.status(500).json({ error: 'Failed to save livestream customer' });
     }
 });
 

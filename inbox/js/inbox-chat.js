@@ -2203,7 +2203,8 @@ class InboxChatController {
                 existing.isLivestream = true;
                 this.data.markAsLivestream(conversation.id);
                 // Mark customer → all their conversations become livestream
-                this.data.markCustomerAsLivestream(customerPsid);
+                const custName = conversation.from?.name || conversation.customers?.[0]?.name;
+                this.data.markCustomerAsLivestream(customerPsid, pageId, custName, conversation.post_id);
             } else if (this.data.isLivestreamCustomer(customerPsid)) {
                 // Customer is known livestream participant → mark this conv too
                 existing.isLivestream = true;
@@ -2215,7 +2216,8 @@ class InboxChatController {
             if (isLivestream) {
                 mapped.isLivestream = true;
                 this.data.markAsLivestream(conversation.id);
-                this.data.markCustomerAsLivestream(customerPsid);
+                const custName = conversation.from?.name || conversation.customers?.[0]?.name;
+                this.data.markCustomerAsLivestream(customerPsid, pageId, custName, conversation.post_id);
             } else if (this.data.isLivestreamCustomer(customerPsid)) {
                 mapped.isLivestream = true;
                 this.data.markAsLivestream(conversation.id);
