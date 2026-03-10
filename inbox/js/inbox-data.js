@@ -510,7 +510,7 @@ class InboxDataManager {
         } else if (filter === 'starred') {
             result = result.filter(c => c.starred);
         } else if (filter === 'livestream') {
-            result = result.filter(c => c.isLivestream);
+            result = result.filter(c => c.isLivestream && c.unread > 0);
         }
 
         if (groupFilter) {
