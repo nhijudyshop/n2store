@@ -2,6 +2,14 @@
 import apiService from '../api-service.js';
 import { PermissionHelper } from '../utils/permissions.js';
 
+const STATUS_COLORS = {
+    'Bình thường': '#22c55e',
+    'Bom hàng': '#ef4444',
+    'Cảnh báo': '#f59e0b',
+    'Nguy hiểm': '#dc2626',
+    'VIP': '#6366f1'
+};
+
 export class CustomerSearchModule {
     constructor(containerId, permissionHelper) {
         this.container = document.getElementById(containerId);
@@ -13,6 +21,7 @@ export class CustomerSearchModule {
         this.isLoading = false;
         this.hasMore = true;
         this.isSearchMode = false; // false = recent customers, true = search results
+        this._tposModalEl = null;
         this.initUI();
     }
 
@@ -290,6 +299,14 @@ export class CustomerSearchModule {
         }
     }
 
+    /**
+     * Check if query looks like a phone number (digits only, 6+ chars)
+     */
+    _isPhoneQuery(query) {
+        const digits = query.replace(/\D/g, '');
+        return digits.length >= 6 && digits === query.replace(/[\s\-\+]/g, '').replace(/^(\+84|84)/, '0');
+    }
+
     async performSearch() {
         const query = this.searchInput.value.trim();
         const searchType = this.searchType.value;
@@ -342,28 +359,83 @@ export class CustomerSearchModule {
         `;
 
         try {
+            // Search local v2 API
             const response = await apiService.searchCustomers(query, this.currentPage, this.limit, { searchType, status });
-            if (response.success && response.data && response.data.length > 0) {
+            const hasLocalResults = response.success && response.data && response.data.length > 0;
+
+            if (hasLocalResults) {
                 this.customers = response.data;
                 this.totalCustomers = response.pagination?.total || response.data.length;
                 this.hasMore = response.data.length === this.limit;
                 await this.enrichCustomersWithWallet(response.data);
                 this.renderResults(response.data);
-            } else {
-                this.tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
-                            <div class="flex flex-col items-center">
-                                <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
-                                    <span class="material-symbols-outlined text-slate-400 text-2xl">search_off</span>
+            }
+
+            // If query looks like a phone number (6+ digits), also search TPOS
+            const digits = query.replace(/\D/g, '');
+            if (digits.length >= 6 && (searchType === '' || searchType === 'phone') && window.fetchTPOSCustomer) {
+                // Only call TPOS with full 10-digit phone
+                if (digits.length >= 10) {
+                    const phone = digits.substring(0, 11); // max 11 digits
+                    console.log('[CustomerSearch] Also searching TPOS for phone:', phone);
+
+                    try {
+                        const tposResult = await window.fetchTPOSCustomer(phone);
+                        if (tposResult.success && tposResult.count > 0) {
+                            // Filter out TPOS customers that already exist locally
+                            const localPhones = new Set((response.data || []).map(c => c.phone));
+                            const newFromTpos = tposResult.customers.filter(c => !localPhones.has(c.phone));
+
+                            if (newFromTpos.length > 0) {
+                                console.log('[CustomerSearch] Found', newFromTpos.length, 'TPOS customer(s) not in local DB');
+                                this._showTPOSSelectionModal(newFromTpos);
+                            }
+                        }
+                    } catch (tposErr) {
+                        console.warn('[CustomerSearch] TPOS lookup failed:', tposErr);
+                    }
+                }
+
+                if (!hasLocalResults) {
+                    if (digits.length < 10) {
+                        // Phone too short for TPOS, show hint
+                        this.tableBody.innerHTML = `
+                            <tr>
+                                <td colspan="6" class="px-6 py-12 text-center">
+                                    <div class="flex flex-col items-center">
+                                        <div class="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center mb-3">
+                                            <span class="material-symbols-outlined text-amber-500 text-2xl">phone_iphone</span>
+                                        </div>
+                                        <p class="text-slate-500 dark:text-slate-400">Không tìm thấy trong hệ thống</p>
+                                        <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Nhập đủ 10 số để tìm trên TPOS</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                        this.hasMore = false;
+                    }
+                    // If 10+ digits but no TPOS results either, show not found below
+                }
+            }
+
+            if (!hasLocalResults && !(digits.length >= 6 && digits.length < 10)) {
+                // No results from either source
+                if (this.customers.length === 0) {
+                    this.tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3">
+                                        <span class="material-symbols-outlined text-slate-400 text-2xl">search_off</span>
+                                    </div>
+                                    <p class="text-slate-500 dark:text-slate-400">Không tìm thấy khách hàng</p>
+                                    <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Thử điều chỉnh tiêu chí tìm kiếm</p>
                                 </div>
-                                <p class="text-slate-500 dark:text-slate-400">Không tìm thấy khách hàng</p>
-                                <p class="text-sm text-slate-400 dark:text-slate-500 mt-1">Thử điều chỉnh tiêu chí tìm kiếm</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                this.hasMore = false;
+                            </td>
+                        </tr>
+                    `;
+                    this.hasMore = false;
+                }
             }
         } catch (error) {
             console.error('Customer search error:', error);
@@ -385,6 +457,205 @@ export class CustomerSearchModule {
             this.isLoading = false;
             this.updateFooter();
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TPOS Customer Selection Modal
+    // ═══════════════════════════════════════════════════════════════
+
+    _ensureTPOSModal() {
+        if (this._tposModalEl) return;
+
+        const style = document.createElement('style');
+        style.textContent = `
+            .tpos-modal { position: fixed; inset: 0; z-index: 10001; display: none; }
+            .tpos-modal.show { display: block; }
+            .tpos-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(2px); }
+            .tpos-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+            .tpos-dialog { background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 640px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; }
+            .tpos-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; }
+            .tpos-header h3 { font-size: 16px; font-weight: 600; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 8px; }
+            .tpos-header h3 .material-symbols-outlined { color: #f59e0b; }
+            .tpos-close { background: none; border: none; font-size: 22px; color: #9ca3af; cursor: pointer; }
+            .tpos-close:hover { color: #374151; }
+            .tpos-body { padding: 0; overflow-y: auto; flex: 1; }
+            .tpos-info { padding: 12px 20px; background: #fffbeb; border-bottom: 1px solid #fef3c7; font-size: 13px; color: #92400e; display: flex; align-items: center; gap: 8px; }
+            .tpos-table { width: 100%; border-collapse: collapse; }
+            .tpos-table thead { background: #f8fafc; position: sticky; top: 0; z-index: 1; }
+            .tpos-table th { padding: 10px 16px; text-align: left; font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; }
+            .tpos-table td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
+            .tpos-table tr.tpos-row { cursor: pointer; transition: background 0.15s; }
+            .tpos-table tr.tpos-row:hover { background: #f0f9ff; }
+            .tpos-customer-name { font-weight: 600; color: #1e293b; }
+            .tpos-customer-phone { color: #64748b; font-size: 12px; }
+            .tpos-customer-address { color: #94a3b8; font-size: 12px; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .tpos-status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: #fff; }
+            .tpos-btn-save { padding: 4px 12px; font-size: 12px; font-weight: 500; color: #fff; background: #3b82f6; border: none; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.2s; }
+            .tpos-btn-save:hover { background: #2563eb; }
+            .tpos-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+            .tpos-btn-save.saved { background: #22c55e; }
+            .tpos-footer { padding: 12px 20px; border-top: 1px solid #e5e7eb; text-align: right; }
+            .tpos-btn-close { padding: 8px 16px; font-size: 13px; font-weight: 500; color: #6b7280; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; }
+        `;
+        document.head.appendChild(style);
+
+        this._tposModalEl = document.createElement('div');
+        this._tposModalEl.className = 'tpos-modal';
+        this._tposModalEl.innerHTML = `
+            <div class="tpos-backdrop"></div>
+            <div class="tpos-center">
+                <div class="tpos-dialog">
+                    <div class="tpos-header">
+                        <h3><span class="material-symbols-outlined">cloud_download</span> Khách hàng tìm thấy trên TPOS</h3>
+                        <button class="tpos-close" data-tpos-close>×</button>
+                    </div>
+                    <div class="tpos-info">
+                        <span class="material-symbols-outlined" style="font-size:18px;">info</span>
+                        Những khách hàng này có trên TPOS nhưng chưa được lưu trên web. Bấm "Lưu" để thêm vào hệ thống.
+                    </div>
+                    <div class="tpos-body">
+                        <table class="tpos-table">
+                            <thead>
+                                <tr>
+                                    <th>Khách hàng</th>
+                                    <th>Trạng thái</th>
+                                    <th>Địa chỉ</th>
+                                    <th style="text-align:right;">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tpos-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="tpos-footer">
+                        <button class="tpos-btn-close" data-tpos-close>Đóng</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(this._tposModalEl);
+
+        // Close handlers
+        this._tposModalEl.querySelectorAll('[data-tpos-close]').forEach(btn => {
+            btn.addEventListener('click', () => this._closeTPOSModal());
+        });
+        this._tposModalEl.querySelector('.tpos-backdrop').addEventListener('click', () => this._closeTPOSModal());
+    }
+
+    _showTPOSSelectionModal(tposCustomers) {
+        this._ensureTPOSModal();
+
+        const tbody = this._tposModalEl.querySelector('#tpos-table-body');
+        let html = '';
+
+        tposCustomers.forEach((c, idx) => {
+            const color = STATUS_COLORS[c.statusText] || '#6b7280';
+            const escapedName = this._escapeHtml(c.name);
+            const escapedPhone = this._escapeHtml(c.phone || '');
+            const escapedAddress = this._escapeHtml(c.address || '');
+            const escapedStatus = this._escapeHtml(c.statusText || 'N/A');
+
+            html += `
+                <tr class="tpos-row" data-tpos-idx="${idx}">
+                    <td>
+                        <div class="tpos-customer-name">${escapedName}</div>
+                        <div class="tpos-customer-phone">${escapedPhone} · ID: ${c.id || 'N/A'}</div>
+                    </td>
+                    <td>
+                        <span class="tpos-status-badge" style="background:${color}">${escapedStatus}</span>
+                    </td>
+                    <td>
+                        <div class="tpos-customer-address" title="${escapedAddress}">${escapedAddress || '-'}</div>
+                    </td>
+                    <td style="text-align:right;">
+                        <button class="tpos-btn-save" data-tpos-save="${idx}">
+                            <span class="material-symbols-outlined" style="font-size:14px;">save</span>
+                            Lưu
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+
+        // Bind save buttons
+        tbody.querySelectorAll('[data-tpos-save]').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.tposSave);
+                await this._saveTPOSCustomer(tposCustomers[idx], btn);
+            });
+        });
+
+        // Bind row click (same as save)
+        tbody.querySelectorAll('.tpos-row').forEach(row => {
+            row.addEventListener('click', async () => {
+                const idx = parseInt(row.dataset.tposIdx);
+                const btn = row.querySelector('[data-tpos-save]');
+                if (!btn.disabled) {
+                    await this._saveTPOSCustomer(tposCustomers[idx], btn);
+                }
+            });
+        });
+
+        this._tposModalEl.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    _closeTPOSModal() {
+        if (!this._tposModalEl) return;
+        this._tposModalEl.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    async _saveTPOSCustomer(tposCustomer, btnEl) {
+        // Disable button, show saving state
+        btnEl.disabled = true;
+        btnEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;animation:spin 1s linear infinite;">progress_activity</span> Đang lưu...';
+
+        try {
+            // Save to v2 API via upsertCustomer
+            const saved = await apiService.upsertCustomer({
+                phone: tposCustomer.phone,
+                name: tposCustomer.name,
+                address: tposCustomer.address || '',
+                status: tposCustomer.statusText || 'Bình thường'
+            });
+
+            console.log('[CustomerSearch] Saved TPOS customer to v2:', saved);
+
+            // Update button to "Saved"
+            btnEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">check_circle</span> Đã lưu';
+            btnEl.classList.add('saved');
+
+            // Add to table immediately
+            const newCustomer = {
+                id: saved?.id || tposCustomer.id,
+                name: tposCustomer.name,
+                phone: tposCustomer.phone,
+                address: tposCustomer.address || '',
+                status: tposCustomer.statusText || 'Bình thường',
+                balance: 0,
+                virtual_balance: 0,
+                real_balance: 0,
+                notes: []
+            };
+            this.customers.unshift(newCustomer);
+            this.prependRow(newCustomer);
+            this.updateFooter();
+
+        } catch (error) {
+            console.error('[CustomerSearch] Failed to save TPOS customer:', error);
+            btnEl.disabled = false;
+            btnEl.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">error</span> Lỗi - Thử lại';
+        }
+    }
+
+    _escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     renderResults(customers) {
