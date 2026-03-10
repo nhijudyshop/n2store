@@ -477,6 +477,53 @@ body.col-resizing .resize-handle {
     color: white;
 }
 
+/* Type Filters (comment/message) */
+.type-filters {
+    display: flex;
+    gap: 4px;
+    padding: 4px var(--spacing-md);
+    border-bottom: 1px solid var(--border);
+}
+
+.type-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.type-filter-btn i,
+.type-filter-btn svg {
+    width: 12px;
+    height: 12px;
+}
+
+.type-filter-btn:hover {
+    background: var(--gray-100);
+}
+
+.type-filter-btn.active {
+    background: var(--gray-100);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* Page selector checkbox */
+.page-check {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
 /* Conversation List */
 .conversation-list {
     flex: 1;

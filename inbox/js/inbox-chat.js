@@ -24,7 +24,8 @@ class InboxChatController {
         this.searchQuery = '';
         this.isSearching = false;
         this.searchResults = null; // null = use local filter, [] = API returned empty
-        this.selectedPageId = null; // Page filter
+        this.selectedPageIds = new Set(); // Multi-page filter (empty = all)
+        this.currentTypeFilter = 'all'; // 'all', 'INBOX', 'COMMENT'
         this.isSending = false;
         this.isLoadingMessages = false;
 
@@ -390,6 +391,16 @@ class InboxChatController {
                 }
             });
         }
+
+        // Type filter (comment/message)
+        document.querySelectorAll('.type-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentTypeFilter = btn.dataset.type;
+                this.renderConversationList();
+            });
+        });
     }
 
     // ===== Page Selector (from tpos-pancake) =====
@@ -404,8 +415,11 @@ class InboxChatController {
             return;
         }
 
+        const allSelected = this.selectedPageIds.size === 0;
+
         let html = `
-            <div class="page-item ${!this.selectedPageId ? 'active' : ''}" data-page-id="">
+            <div class="page-item ${allSelected ? 'active' : ''}" data-page-id="">
+                <input type="checkbox" class="page-check" ${allSelected ? 'checked' : ''} />
                 <div class="page-item-icon"><i data-lucide="layout-grid"></i></div>
                 <div class="page-item-info">
                     <div class="page-item-name">Tất cả Pages</div>
@@ -417,7 +431,7 @@ class InboxChatController {
         for (const page of pages) {
             const pageId = page.id;
             const pageName = page.name || 'Page';
-            const isActive = this.selectedPageId === pageId;
+            const isActive = allSelected || this.selectedPageIds.has(pageId);
             const initial = pageName.charAt(0).toUpperCase();
             const avatarHtml = page.avatar
                 ? `<img src="${page.avatar}" class="page-item-avatar" alt="${this.escapeHtml(pageName)}" onerror="this.outerHTML='<div class=page-item-avatar-ph>${initial}</div>'">`
@@ -430,6 +444,7 @@ class InboxChatController {
 
             html += `
                 <div class="page-item ${isActive ? 'active' : ''}" data-page-id="${pageId}">
+                    <input type="checkbox" class="page-check" ${isActive ? 'checked' : ''} />
                     ${avatarHtml}
                     <div class="page-item-info">
                         <div class="page-item-name">${this.escapeHtml(pageName)}</div>
@@ -441,24 +456,44 @@ class InboxChatController {
 
         dropdown.innerHTML = html;
 
-        // Bind click events
+        // Bind click events — multi-select toggle
         dropdown.querySelectorAll('.page-item').forEach(item => {
-            item.addEventListener('click', () => {
-                this.selectedPageId = item.dataset.pageId || null;
-                const label = this.elements.pageSelectorLabel;
-                if (this.selectedPageId) {
-                    const page = pages.find(p => p.id === this.selectedPageId);
-                    label.textContent = page?.name || 'Page';
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const pageId = item.dataset.pageId;
+
+                if (!pageId) {
+                    // "Tất cả" clicked — clear selection (show all)
+                    this.selectedPageIds.clear();
                 } else {
-                    label.textContent = 'Tất cả Pages';
+                    if (this.selectedPageIds.has(pageId)) {
+                        this.selectedPageIds.delete(pageId);
+                    } else {
+                        this.selectedPageIds.add(pageId);
+                    }
                 }
-                dropdown.style.display = 'none';
-                this.renderPageSelector(); // Update active state
+
+                this.updatePageSelectorLabel();
+                this.renderPageSelector();
                 this.renderConversationList();
             });
         });
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    updatePageSelectorLabel() {
+        const label = this.elements.pageSelectorLabel;
+        const pages = this.data.pages || [];
+        if (this.selectedPageIds.size === 0) {
+            label.textContent = 'Tất cả Pages';
+        } else if (this.selectedPageIds.size === 1) {
+            const pageId = [...this.selectedPageIds][0];
+            const page = pages.find(p => p.id === pageId);
+            label.textContent = page?.name || 'Page';
+        } else {
+            label.textContent = `${this.selectedPageIds.size} Pages`;
+        }
     }
 
     // ===== Avatar Helper (from tpos-pancake) =====
@@ -532,9 +567,14 @@ class InboxChatController {
             });
         }
 
-        // Apply page filter
-        if (this.selectedPageId) {
-            conversations = conversations.filter(c => c.pageId === this.selectedPageId);
+        // Apply page filter (multi-select)
+        if (this.selectedPageIds.size > 0) {
+            conversations = conversations.filter(c => this.selectedPageIds.has(c.pageId));
+        }
+
+        // Apply type filter (INBOX/COMMENT)
+        if (this.currentTypeFilter !== 'all') {
+            conversations = conversations.filter(c => c.type === this.currentTypeFilter);
         }
 
         if (conversations.length === 0 && this.isSearching) {

@@ -124,6 +124,19 @@
                     <button class="filter-tab" data-filter="inbox_my">Inbox My</button>
                 </div>
 
+                <!-- Type Filter (comment/message) -->
+                <div class="type-filters" id="typeFilters">
+                    <button class="type-filter-btn active" data-type="all" title="Tất cả">
+                        <i data-lucide="messages-square"></i> Tất cả
+                    </button>
+                    <button class="type-filter-btn" data-type="INBOX" title="Tin nhắn">
+                        <i data-lucide="message-circle"></i> Tin nhắn
+                    </button>
+                    <button class="type-filter-btn" data-type="COMMENT" title="Bình luận">
+                        <i data-lucide="message-square"></i> Bình luận
+                    </button>
+                </div>
+
                 <!-- Conversation List -->
                 <div class="conversation-list" id="conversationList">
                     <!-- Conversations will be rendered by JS -->
