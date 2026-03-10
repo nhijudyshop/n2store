@@ -176,8 +176,12 @@
         'VIP': '#6366f1'
     };
 
+    let _phoneLookupBound = false;
+
     function ensureModal() {
         if (modalEl) return;
+
+        console.log('[CustomerCreator] Creating modal...');
 
         // Inject styles
         const style = document.createElement('style');
@@ -196,14 +200,34 @@
         });
         modalEl.querySelector('.cc-backdrop').addEventListener('click', close);
 
-        // Phone input lookup handler
-        initPhoneLookup();
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (modalEl && !modalEl.querySelector('.cc-field-phone')?.contains(e.target)) {
+                hideDropdown();
+            }
+        });
+
+        console.log('[CustomerCreator] Modal created. fetchTPOSCustomer available:', typeof window.fetchTPOSCustomer === 'function');
     }
 
-    function initPhoneLookup() {
+    function bindPhoneLookup() {
+        // Bind phone input lookup - called every time open() runs to ensure handler is attached
         const phoneInput = modalEl.querySelector('#cc-phone');
+        if (!phoneInput) {
+            console.error('[CustomerCreator] Phone input #cc-phone not found!');
+            return;
+        }
+
+        if (_phoneLookupBound) return; // Already bound
+        _phoneLookupBound = true;
+
+        console.log('[CustomerCreator] Binding phone lookup handler...');
+
         phoneInput.addEventListener('input', function () {
-            const phone = this.value.replace(/\D/g, '');
+            const rawValue = this.value;
+            const phone = rawValue.replace(/\D/g, '');
+
+            console.log('[CustomerCreator] Phone input:', rawValue, '→ digits:', phone, '(length:', phone.length + ')');
 
             // Clear previous timeout
             if (_phoneLookupTimeout) {
@@ -219,8 +243,10 @@
                 clearExistingSelection();
             }
 
-            // Only lookup when phone is 10 digits (VN format)
+            // Only lookup when phone is 10+ digits (VN format: 10 or 11 digits)
             if (phone.length < 10) return;
+
+            console.log('[CustomerCreator] Phone valid, will lookup in 500ms...');
 
             // Show loading
             modalEl.querySelector('#cc-phone-loading').style.display = 'block';
@@ -230,12 +256,7 @@
             }, 500);
         });
 
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (modalEl && !modalEl.querySelector('.cc-field-phone')?.contains(e.target)) {
-                hideDropdown();
-            }
-        });
+        console.log('[CustomerCreator] Phone lookup handler bound successfully');
     }
 
     async function lookupCustomerByPhone(phone) {
@@ -243,13 +264,18 @@
 
         if (!window.fetchTPOSCustomer) {
             loadingEl.style.display = 'none';
-            console.warn('[CustomerCreator] fetchTPOSCustomer not available');
+            console.warn('[CustomerCreator] fetchTPOSCustomer not available! Make sure tpos-customer-lookup.js is loaded.');
+            // Show inline warning
+            const errorEl = modalEl.querySelector('#cc-error');
+            errorEl.textContent = 'Không thể tìm KH (module lookup chưa sẵn sàng)';
+            errorEl.style.display = 'block';
             return;
         }
 
         try {
-            console.log('[CustomerCreator] Looking up phone:', phone);
+            console.log('[CustomerCreator] Calling fetchTPOSCustomer for phone:', phone);
             const result = await window.fetchTPOSCustomer(phone);
+            console.log('[CustomerCreator] Lookup result:', JSON.stringify(result));
             loadingEl.style.display = 'none';
 
             if (result.success && result.count > 0) {
@@ -398,6 +424,9 @@
 
     function open(options = {}) {
         ensureModal();
+        bindPhoneLookup(); // Ensure phone lookup is bound
+
+        console.log('[CustomerCreator] Opening modal. fetchTPOSCustomer:', typeof window.fetchTPOSCustomer);
 
         const onSuccess = options.onSuccess || function () { };
 

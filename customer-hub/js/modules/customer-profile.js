@@ -121,11 +121,75 @@ export class CustomerProfileModule {
                 this.loader.classList.add('hidden');
                 this.contentLoaded.classList.remove('hidden');
             } else {
-                this._showError(`Không tìm thấy khách hàng với SĐT: ${phone}`);
+                // V2 API returned no data — try TPOS fallback
+                await this._tryTPOSFallback(phone);
             }
         } catch (error) {
-            this._showError(`Lỗi khi tải thông tin: ${error.message}`);
-            console.error('Lỗi tải hồ sơ khách hàng:', error);
+            // If API error, try TPOS fallback before showing error
+            console.warn('[CustomerProfile] V2 API failed, trying TPOS fallback:', error.message);
+            const fallbackOk = await this._tryTPOSFallback(phone);
+            if (!fallbackOk) {
+                this._showError(`Lỗi khi tải thông tin: ${error.message}`);
+                console.error('Lỗi tải hồ sơ khách hàng:', error);
+            }
+        }
+    }
+
+    /**
+     * Fallback: lookup customer on TPOS when V2 API doesn't have the customer
+     * This happens for newly created customers or customers only existing on TPOS
+     */
+    async _tryTPOSFallback(phone) {
+        if (!window.fetchTPOSCustomer) {
+            this._showError(`Không tìm thấy khách hàng với SĐT: ${phone}`);
+            return false;
+        }
+
+        try {
+            console.log('[CustomerProfile] Trying TPOS fallback for:', phone);
+            const result = await window.fetchTPOSCustomer(phone);
+
+            if (result.success && result.count > 0) {
+                const tposCustomer = result.customers[0];
+                console.log('[CustomerProfile] TPOS fallback found:', tposCustomer.name, 'ID:', tposCustomer.id);
+
+                // Build minimal customer data from TPOS
+                const data = {
+                    customer: {
+                        id: tposCustomer.id,
+                        name: tposCustomer.name,
+                        phone: tposCustomer.phone || phone,
+                        address: tposCustomer.address || '',
+                        statusText: tposCustomer.statusText || 'Bình thường',
+                        source: 'TPOS'
+                    },
+                    recentTickets: [],
+                    notes: []
+                };
+
+                this.customerData = data;
+
+                // Render with TPOS data (basic profile, no tickets/RFM)
+                this._renderHeader(data.customer);
+                this._renderRFMCard(data.customer);
+                this._renderTicketsCard([]);
+                this._renderNotesSection([]);
+
+                // Initialize wallet panel module
+                this.walletPanelModule = new WalletPanelModule('customer-wallet-panel', this.permissionHelper);
+                this.walletPanelModule.render(phone);
+
+                this.loader.classList.add('hidden');
+                this.contentLoaded.classList.remove('hidden');
+                return true;
+            } else {
+                this._showError(`Không tìm thấy khách hàng với SĐT: ${phone}`);
+                return false;
+            }
+        } catch (tposError) {
+            console.error('[CustomerProfile] TPOS fallback also failed:', tposError);
+            this._showError(`Không tìm thấy khách hàng với SĐT: ${phone}`);
+            return false;
         }
     }
 
