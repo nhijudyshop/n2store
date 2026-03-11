@@ -218,23 +218,7 @@ class InboxChatController {
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
         });
 
-        // Typing indicator - send typing status to Pancake API
-        let typingTimeout = null;
-        let isTyping = false;
-        this.elements.chatInput.addEventListener('input', () => {
-            if (!this.activeConversationId) return;
-            const conv = this.data.getConversation(this.activeConversationId);
-            if (!conv) return;
-            if (!isTyping) {
-                isTyping = true;
-                window.pancakeDataManager?.sendTypingIndicator?.(conv.pageId, conv.conversationId, true);
-            }
-            if (typingTimeout) clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                isTyping = false;
-                window.pancakeDataManager?.sendTypingIndicator?.(conv.pageId, conv.conversationId, false);
-            }, 2000);
-        });
+
 
         // Message scroll: pagination (scroll up) + scroll-to-bottom button
         this.elements.chatMessages.addEventListener('scroll', () => {
