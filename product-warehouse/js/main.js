@@ -65,6 +65,7 @@
     let excelProducts = [];       // product list from Excel export
     let isLoadingExcel = false;
     let excelLoaded = false;
+    let excelLoadPromise = null;  // reusable promise for concurrent callers
 
     // Image cache: templateId → imageUrl
     let imageCache = {};
@@ -130,49 +131,57 @@
      * Used for fast client-side search suggestions.
      */
     async function loadExcelData() {
-        if (isLoadingExcel || excelLoaded) return;
-        isLoadingExcel = true;
+        if (excelLoaded) return;
+        // Return existing promise if already loading (avoid duplicate requests)
+        if (excelLoadPromise) return excelLoadPromise;
 
-        const suggestionsDiv = $('#searchSuggestions');
-        if (suggestionsDiv) {
-            suggestionsDiv.innerHTML = '<div class="suggestion-loading">Đang tải danh sách sản phẩm...</div>';
-            suggestionsDiv.classList.add('show');
-        }
+        excelLoadPromise = (async () => {
+            isLoadingExcel = true;
 
-        try {
-            const response = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: { Active: 'true' }, ids: '' })
-                }
-            );
+            const suggestionsDiv = $('#searchSuggestions');
+            if (suggestionsDiv) {
+                suggestionsDiv.innerHTML = '<div class="suggestion-loading">Đang tải danh sách sản phẩm...</div>';
+                suggestionsDiv.classList.add('show');
+            }
 
-            if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
+            try {
+                const response = await window.tokenManager.authenticatedFetch(
+                    `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: { Active: 'true' }, ids: '' })
+                    }
+                );
 
-            const blob = await response.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
 
-            excelProducts = jsonData.map(row => ({
-                id: row['Id sản phẩm (*)'],
-                name: row['Tên sản phẩm'] || '',
-                nameNoSign: removeVietnameseTones(row['Tên sản phẩm'] || ''),
-                code: row['Mã sản phẩm'] || '',
-                image: row['Link ảnh'] || ''
-            }));
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-            excelLoaded = true;
-            console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
-        } catch (error) {
-            console.error('[Warehouse] Excel load error:', error);
-            showToast('Lỗi tải suggestion: ' + error.message, 'error');
-        } finally {
-            isLoadingExcel = false;
-        }
+                excelProducts = jsonData.map(row => ({
+                    id: row['Id sản phẩm (*)'],
+                    name: row['Tên sản phẩm'] || '',
+                    nameNoSign: removeVietnameseTones(row['Tên sản phẩm'] || ''),
+                    code: row['Mã sản phẩm'] || '',
+                    image: row['Link ảnh'] || ''
+                }));
+
+                excelLoaded = true;
+                console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
+            } catch (error) {
+                console.error('[Warehouse] Excel load error:', error);
+                showToast('Lỗi tải suggestion: ' + error.message, 'error');
+            } finally {
+                isLoadingExcel = false;
+                excelLoadPromise = null;
+            }
+        })();
+
+        return excelLoadPromise;
     }
 
     /**
@@ -694,27 +703,31 @@
             searchInput.addEventListener('input', () => {
                 const text = searchInput.value.trim();
 
-                // Show suggestions (fast, client-side from Excel data)
+                // Show suggestions (client-side from Excel data)
                 clearTimeout(suggestionTimeout);
                 if (text.length >= 2) {
                     suggestionTimeout = setTimeout(async () => {
-                        if (!excelLoaded && !isLoadingExcel) {
+                        // Always await loadExcelData — it returns existing promise if already loading
+                        if (!excelLoaded) {
                             await loadExcelData();
                         }
-                        const results = searchProductsSuggestion(text);
-                        displaySuggestions(results);
+                        // Only show suggestions if input still has text and is focused
+                        const currentText = searchInput.value.trim();
+                        if (currentText.length >= 2 && document.activeElement === searchInput) {
+                            const results = searchProductsSuggestion(currentText);
+                            displaySuggestions(results);
+                        }
                     }, 150);
                 } else {
                     hideSuggestions();
                 }
 
-                // Debounced server-side search
+                // Debounced server-side search (don't hide suggestions here)
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    hideSuggestions();
                     currentPage = 1;
                     fetchProducts();
-                }, 600);
+                }, 800);
             });
 
             // Enter key: immediately search and hide suggestions
@@ -729,9 +742,9 @@
                 }
             });
 
-            // Focus: load Excel data in background
+            // Focus: preload Excel data in background
             searchInput.addEventListener('focus', () => {
-                if (!excelLoaded && !isLoadingExcel) {
+                if (!excelLoaded) {
                     loadExcelData();
                 }
             });
