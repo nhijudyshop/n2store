@@ -193,6 +193,7 @@ class InboxChatController {
                 this._consecutiveEmptyLoads = 0;
                 this._loadMoreCooldownUntil = 0;
                 this.renderConversationList();
+                this.renderGroupStats();
             });
         });
 
@@ -1955,7 +1956,7 @@ class InboxChatController {
     // ===== Group Stats =====
 
     renderGroupStats() {
-        this.data.recalculateGroupCounts();
+        this.data.recalculateGroupCounts(this.currentTypeFilter);
         const iconMap = {
             'new': 'inbox', 'processing': 'loader', 'waiting': 'clock',
             'ordered': 'shopping-cart', 'urgent': 'alert-triangle', 'done': 'check-circle',

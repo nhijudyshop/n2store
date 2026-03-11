@@ -562,9 +562,10 @@ class InboxDataManager {
         this.saveGroupsToServer();
     }
 
-    recalculateGroupCounts() {
+    recalculateGroupCounts(typeFilter = 'all') {
         this.groups.forEach(g => { g.count = 0; });
         this.conversations.forEach(conv => {
+            if (typeFilter !== 'all' && conv.type !== typeFilter) return;
             const labels = conv.labels || ['new'];
             for (const labelId of labels) {
                 const group = this.groups.find(g => g.id === labelId);

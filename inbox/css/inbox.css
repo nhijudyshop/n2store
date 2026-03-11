@@ -521,9 +521,13 @@ body.col-resizing .resize-handle {
 }
 
 .type-count {
-    font-weight: 600;
-    font-size: 0.65rem;
-    opacity: 0.8;
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: var(--primary);
+}
+
+.type-filter-btn.active .type-count {
+    color: inherit;
 }
 
 /* Livestream Post Selector */
