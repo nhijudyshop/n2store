@@ -2213,14 +2213,18 @@ class InventoryPickerDialog {
             }
         }
 
+        // Get original product from Excel list (has full name with variant info)
+        const basicProduct = this.products.find(p => String(p.id) === productIdStr);
+
         if (productDetails) {
-            this.selectedProducts.set(productIdStr, productDetails);
-        } else {
-            // Fallback: use basic product info from Excel
-            const basicProduct = this.products.find(p => String(p.id) === productIdStr);
-            if (basicProduct) {
-                this.selectedProducts.set(productIdStr, basicProduct);
+            // Preserve the original full name from Excel (includes variant prefix/suffix)
+            // e.g. "[B35T] B4 0603 ÁO THUN CHỮ GUESS 7688 (Trắng)" instead of "B4 0603 ÁO THUN CHỮ GUESS 7688"
+            if (basicProduct?.name) {
+                productDetails.name = basicProduct.name;
             }
+            this.selectedProducts.set(productIdStr, productDetails);
+        } else if (basicProduct) {
+            this.selectedProducts.set(productIdStr, basicProduct);
         }
 
         // Save selected products to localStorage
@@ -2272,6 +2276,10 @@ class InventoryPickerDialog {
             if (!this.selectedProducts.has(productIdStr)) {
                 let productDetails = this.getProductDetailsFromCache(product.id);
                 if (productDetails) {
+                    // Preserve original full name from Excel (includes variant info)
+                    if (product.name) {
+                        productDetails = { ...productDetails, name: product.name };
+                    }
                     this.selectedProducts.set(productIdStr, productDetails);
                 } else {
                     this.selectedProducts.set(productIdStr, product);
