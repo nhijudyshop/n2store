@@ -40,7 +40,8 @@
         let tokenExpiry = null;
 
         // Staff info for logging sales
-        const authManager = new AuthManager();
+        const authManager = new AuthManager({ redirectUrl: '../index.html' });
+        window.authManager = authManager; // Expose to window for navigation-core.js
         let staffName = 'Livestream Operator';
         let staffUsername = 'livestream';
 
