@@ -522,12 +522,14 @@ body.col-resizing .resize-handle {
 
 .type-count {
     font-weight: 700;
-    font-size: 0.75rem;
-    color: var(--primary);
-}
-
-.type-filter-btn.active .type-count {
-    color: inherit;
+    font-size: 0.7rem;
+    background: #ef4444;
+    color: #fff;
+    padding: 0 5px;
+    border-radius: 8px;
+    min-width: 18px;
+    text-align: center;
+    line-height: 1.5;
 }
 
 /* Livestream Post Selector */
