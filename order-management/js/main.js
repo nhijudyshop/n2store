@@ -759,8 +759,8 @@
             if (needsRetry) {
                 const reason = response.status === 401 ? '401' : '200+HTML';
                 console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
-                localStorage.removeItem('soluong_bearerToken');
-                localStorage.removeItem('soluong_tokenExpiry');
+                localStorage.removeItem('bearerToken');
+                localStorage.removeItem('tokenExpiry');
                 bearerToken = null;
                 tokenExpiry = null;
                 const newToken = await getAuthToken();
