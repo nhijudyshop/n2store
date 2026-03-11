@@ -488,6 +488,34 @@ function stopEmployeeRangesListener() {
     }
 }
 
+/**
+ * Enable or disable the "Xem phân chia nhân viên" toggle button.
+ * Disabled (greyed out) when the current user is already filtered to their assigned orders.
+ */
+function _setEmployeeToggleBtnDisabled(disabled) {
+    const btn = document.getElementById('toggleEmployeeViewBtn');
+    if (!btn) return;
+    if (disabled) {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'not-allowed';
+        btn.title = 'Bạn đang xem các đơn được phân cho bạn';
+        // Also reset view mode since button is disabled
+        employeeViewMode = false;
+        window.employeeViewMode = false;
+    } else {
+        btn.disabled = false;
+        btn.style.opacity = '';
+        btn.style.cursor = '';
+        // Restore title based on current mode
+        if (employeeViewMode) {
+            btn.title = 'Chuyển về xem tất cả đơn hàng';
+        } else {
+            btn.title = 'Chuyển sang xem phân chia nhân viên';
+        }
+    }
+}
+
 function _resetEmployeeViewModeBtn() {
     employeeViewMode = false;
     window.employeeViewMode = false;
@@ -503,6 +531,9 @@ function _resetEmployeeViewModeBtn() {
  * Toggle between normal view and employee grouped view
  */
 function toggleEmployeeViewMode() {
+    const btn = document.getElementById('toggleEmployeeViewBtn');
+    if (btn && btn.disabled) return; // User is filtered — button not available
+
     if (employeeRanges.length === 0) {
         if (window.notificationManager) {
             window.notificationManager.show('⚠️ Chưa có cấu hình phân chia nhân viên cho chiến dịch này', 'warning');

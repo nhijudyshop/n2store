@@ -198,8 +198,40 @@ function performTableSearch() {
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
 
-    // No automatic filtering by employee range - all users see all orders.
-    // Employee grouped view is enabled manually via toggleEmployeeViewMode() button.
+    // Apply Employee STT Range Filter for assigned users (non-admin only)
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    if (!isAdmin && employeeRanges.length > 0) {
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const currentUserId = auth?.id || null;
+        const currentDisplayName = auth?.displayName || null;
+        const currentUserType = auth?.userType || null;
+
+        let userRange = null;
+        if (currentUserId) userRange = employeeRanges.find(r => r.id === currentUserId);
+        if (!userRange && currentDisplayName) userRange = employeeRanges.find(r => r.name === currentDisplayName);
+        if (!userRange && currentUserType) userRange = employeeRanges.find(r => r.name === currentUserType);
+        if (!userRange && currentUserType) {
+            const shortName = currentUserType.split('-')[0].trim();
+            userRange = employeeRanges.find(r => r.name === shortName);
+        }
+
+        if (userRange) {
+            tempData = tempData.filter(order => {
+                const stt = parseInt(order.SessionIndex);
+                return !isNaN(stt) && stt >= userRange.start && stt <= userRange.end;
+            });
+            console.log(`[FILTER] ✅ User "${currentDisplayName}" filtered to STT ${userRange.start}-${userRange.end}: ${tempData.length} orders`);
+
+            // Disable toggle button — user already sees only their assigned orders
+            _setEmployeeToggleBtnDisabled(true);
+        } else {
+            // User not in any range → show all, enable toggle
+            _setEmployeeToggleBtnDisabled(false);
+        }
+    } else {
+        // Admin or no ranges configured → enable toggle button
+        _setEmployeeToggleBtnDisabled(false);
+    }
 
     // Apply conversation status filter (Merged Messages & Comments)
     const conversationFilter = document.getElementById('conversationFilter')?.value || 'all';
