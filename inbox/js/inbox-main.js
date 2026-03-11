@@ -125,13 +125,6 @@ function initColumnResizer() {
    ===================================================== */
 
 async function initInboxApp() {
-    // ===== Permission Check =====
-    if (typeof PermissionHelper !== 'undefined') {
-        if (!PermissionHelper.enforcePageAccess('inbox')) {
-            return; // No access - will redirect
-        }
-    }
-
     // Show loading state in conversation list
     const convList = document.getElementById('conversationList');
     if (convList) {

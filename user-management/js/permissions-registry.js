@@ -54,7 +54,6 @@ const PAGES_REGISTRY = {
         adminOnly: false,
         category: "sales",
         detailedPermissions: {
-            view: { name: "Xem & Trả lời tin nhắn", icon: "message-circle", description: "Xem hội thoại, đọc và gửi tin nhắn trả lời khách hàng" },
             manage_labels: { name: "Quản lý nhãn", icon: "tags", description: "Phân nhóm và gắn nhãn hội thoại" },
             create_order: { name: "Tạo đơn hàng", icon: "shopping-bag", description: "Tạo đơn hàng từ chat" },
             settings: { name: "Cài đặt Pancake", icon: "settings", description: "Quản lý tài khoản và token Pancake" }
