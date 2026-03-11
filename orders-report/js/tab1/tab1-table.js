@@ -902,8 +902,15 @@ function renderByEmployee() {
         dataByEmployee[name].sort((a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0));
     });
 
-    // Get ordered list of employees
-    const orderedEmployees = employeeRanges.map(r => r.name).filter(name => dataByEmployee[name].length > 0);
+    // Get ordered list of employees — sort by max STT in their orders (descending)
+    const orderedEmployees = employeeRanges
+        .map(r => r.name)
+        .filter(name => dataByEmployee[name] && dataByEmployee[name].length > 0)
+        .sort((a, b) => {
+            const maxA = Math.max(...dataByEmployee[a].map(o => parseInt(o.SessionIndex) || 0));
+            const maxB = Math.max(...dataByEmployee[b].map(o => parseInt(o.SessionIndex) || 0));
+            return maxB - maxA;
+        });
 
     // Add "Khác" at the end if it has data
     if (dataByEmployee['Khác'].length > 0) {
