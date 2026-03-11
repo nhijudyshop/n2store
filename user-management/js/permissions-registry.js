@@ -63,6 +63,21 @@ const PAGES_REGISTRY = {
     // =====================================================
     // CATEGORY: WAREHOUSE - Kho & Nhận hàng
     // =====================================================
+    "product-warehouse": {
+        id: "product-warehouse",
+        name: "Kho Sản Phẩm",
+        shortName: "Kho SP",
+        icon: "warehouse",
+        href: "../product-warehouse/index.html",
+        description: "Xem và tìm kiếm sản phẩm trong kho. Tất cả user đều có quyền truy cập.",
+        adminOnly: false,
+        category: "warehouse",
+        detailedPermissions: {
+            view: { name: "Xem sản phẩm", icon: "eye", description: "Xem danh sách sản phẩm trong kho" },
+            search: { name: "Tìm kiếm", icon: "search", description: "Tìm kiếm sản phẩm theo mã, tên" }
+        }
+    },
+
     nhanhang: {
         id: "nhanhang",
         name: "Cân Nặng Hàng",
