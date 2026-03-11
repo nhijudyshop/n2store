@@ -1382,12 +1382,12 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="../shared/js/firebase-config.js"></script>
     <!-- Shop Config + Token Manager for TPOS auth -->
     <script src="../shared/js/shop-config.js"></script>
-    <script src="../orders-report/js/core/token-manager.js"></script>
+    <script src="../shared/js/token-manager.js"></script>
 
     <!-- Navigation & Auth -->
     <script defer src="../shared/js/navigation-modern.js"></script>
@@ -1399,13 +1399,18 @@
         window.hasDetailedPermission = (pageId, action) => window.authManager?.hasDetailedPermission?.(pageId, action) ?? false;
     </script>
 
-    <!-- Page Scripts - v=20260123b for cache busting -->
-    <script src="js/config.js?v=20260123b"></script>
-    <script src="js/qr-generator.js?v=20260123b"></script>
-    <script src="js/customer-info.js?v=20260123b"></script>
+    <!-- Page Scripts - v=20260311a for cache busting -->
+    <script src="js/config.js?v=20260311a"></script>
+    <script src="js/qr-generator.js?v=20260311a"></script>
+    <script src="js/customer-info.js?v=20260311a"></script>
     <script src="../shared/js/audit-logger.js"></script>
     <script src="../shared/js/tpos-customer-lookup.js"></script>
-    <script src="js/main.js?v=20260123b"></script>
+    <!-- Balance History sub-modules (load order: core -> filters -> table -> verification -> aggregator) -->
+    <script src="js/balance-core.js?v=20260311a"></script>
+    <script src="js/balance-filters.js?v=20260311a"></script>
+    <script src="js/balance-table.js?v=20260311a"></script>
+    <script src="js/balance-verification.js?v=20260311a"></script>
+    <script src="js/main.js?v=20260311a"></script>
     <script src="js/transfer-stats.js?v=20260123b"></script>
     <script src="js/accountant.js?v=20260123b"></script>
     <script src="js/live-mode.js?v=20260123b"></script>

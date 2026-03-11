@@ -50,5 +50,8 @@ yarn.lock
 pnpm-lock.yaml
 dynamic-headers.json
 
+# Secrets file (NEVER commit)
+serect_dont_push.txt
+
 # Windows reserved filenames
 nul

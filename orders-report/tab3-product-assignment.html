@@ -700,7 +700,7 @@
 
     <script src="js/core/api-config.js"></script>
     <script src="../shared/js/shop-config.js"></script>
-    <script src="js/core/token-manager.js"></script>
+    <script src="../shared/js/token-manager.js"></script>
     <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
     <script src="js/core/indexeddb-storage.js"></script>
     <script src="js/core/cache.js"></script>
@@ -738,7 +738,16 @@
     <!-- Version checker is now in navigation-modern.js (loaded in main.html) -->
     <!-- Note: TPOS token caching is now handled server-side (Cloudflare Worker & Render.com) -->
 
-    <script src="js/tab3/tab3-product-assignment.js"></script>
+    <!-- Tab3 sub-modules (load order matters!) -->
+    <script src="js/tab3/tab3-core.js"></script>
+    <script src="js/tab3/tab3-filters.js"></script>
+    <script src="js/tab3/tab3-table.js"></script>
+    <script src="js/tab3/tab3-assignment.js"></script>
+    <script src="js/tab3/tab3-export.js"></script>
+    <script src="js/tab3/tab3-upload.js"></script>
+    <script src="js/tab3/tab3-history.js"></script>
+    <script src="js/tab3/tab3-history-v2.js"></script>
+    <script src="js/tab3/tab3-removal.js"></script>
 </body>
 
 </html>

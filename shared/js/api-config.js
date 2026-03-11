@@ -1,22 +1,28 @@
 /**
  * API Configuration
  * Central configuration for all API endpoints
- * Primary: Cloudflare Worker (no fallback)
+ * Primary: Cloudflare Worker
  */
 
-// Primary: Cloudflare Worker URL
+// =====================================================
+// SERVER CONFIGURATION
+// =====================================================
 const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
 // API Configuration
 const API_CONFIG = {
-    // Primary Worker URL
+    // Server URL
     WORKER_URL: WORKER_URL,
 
     // TPOS OData API (SaleOnline_Order, AuditLog, etc.)
-    TPOS_ODATA: `${WORKER_URL}/api/odata`,
+    get TPOS_ODATA() {
+        return `${WORKER_URL}/api/odata`;
+    },
 
-    // Pancake API (Pages, Conversations) - Via Cloudflare Worker proxy
-    PANCAKE: `${WORKER_URL}/api/pancake`,
+    // Pancake API (Pages, Conversations) - Via proxy
+    get PANCAKE() {
+        return `${WORKER_URL}/api/pancake`;
+    },
 
     // Helper functions
     buildUrl: {
@@ -35,7 +41,7 @@ const API_CONFIG = {
          * Build Pancake API URL
          * @param {string} endpoint - e.g., "pages", "conversations"
          * @param {string} params - Query string (optional)
-         * @returns {string} - Full URL via Cloudflare Worker proxy
+         * @returns {string} - Full URL via worker
          */
         pancake: (endpoint, params = '') => {
             const baseUrl = `${WORKER_URL}/api/pancake/${endpoint}`;
@@ -49,7 +55,7 @@ const API_CONFIG = {
          * @param {string} pageId - Page ID for Referer mapping
          * @param {string} jwtToken - JWT token for Cookie header
          * @param {string} accessToken - Pancake access token
-         * @returns {string} - Full URL via Cloudflare Worker proxy
+         * @returns {string} - Full URL via worker
          */
         pancakeDirect: (endpoint, pageId, jwtToken, accessToken) => {
             const params = new URLSearchParams();
@@ -64,7 +70,7 @@ const API_CONFIG = {
          * Uses page_access_token (from Settings → Tools, never expires)
          * @param {string} endpoint - e.g., "pages/123/conversations/456/messages"
          * @param {string} pageAccessToken - Page access token (from Pancake Settings → Tools)
-         * @returns {string} - Full URL via Cloudflare Worker proxy
+         * @returns {string} - Full URL via worker
          */
         pancakeOfficial: (endpoint, pageAccessToken) => {
             const baseUrl = `${WORKER_URL}/api/pancake-official/${endpoint}`;
@@ -74,15 +80,27 @@ const API_CONFIG = {
         /**
          * Get Facebook Send API URL (for sending messages with message_tag)
          * Used to bypass 24h policy with POST_PURCHASE_UPDATE tag
-         * @returns {string} - Full URL via Cloudflare Worker proxy
+         * @returns {string} - Full URL via worker
          */
         facebookSend: () => {
             return `${WORKER_URL}/api/facebook-send`;
+        },
+
+        /**
+         * Facebook Graph API proxy for querying posts, comments, etc.
+         * @param {string} path - Graph path (e.g. "{pageId}/live_videos")
+         * @param {string} accessToken - Page Access Token
+         * @param {object} params - Additional query params (fields, limit, filter)
+         * @returns {string} - Full URL via worker proxy
+         */
+        facebookGraph: (path, accessToken, params = {}) => {
+            const qs = new URLSearchParams({ path, access_token: accessToken, ...params });
+            return `${WORKER_URL}/api/facebook-graph?${qs.toString()}`;
         }
     },
 
     /**
-     * Smart Fetch - simple wrapper around fetch
+     * Simple Fetch wrapper
      * @param {string} url - Full URL
      * @param {object} options - Fetch options
      * @returns {Promise<Response>}
@@ -107,7 +125,7 @@ if (typeof window !== 'undefined') {
     window.API_CONFIG = API_CONFIG;
 }
 
-console.log('[API-CONFIG] API configuration loaded:', {
+console.log('[API-CONFIG] Loaded:', {
     worker: WORKER_URL,
     tposOData: API_CONFIG.TPOS_ODATA,
     pancake: API_CONFIG.PANCAKE

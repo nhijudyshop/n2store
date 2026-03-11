@@ -1316,7 +1316,7 @@
     <script src="js/core/user-employee-loader.js"></script>
 
     <script src="../shared/js/shop-config.js"></script>
-    <script src="js/core/token-manager.js"></script>
+    <script src="../shared/js/token-manager.js"></script>
     <script src="js/core/bill-token-manager.js"></script>
     <!-- IndexedDB Storage for large data (replaces localStorage for caches) -->
     <script src="js/core/indexeddb-storage.js"></script>
@@ -1410,7 +1410,12 @@
     <!-- 9. Edit Modal: Order editing, inline search (lines 8393-10015) -->
     <script src="js/tab1/tab1-edit-modal.js"></script>
 
-    <!-- 10. Chat: Messaging, comments, realtime (lines 10016-16370) -->
+    <!-- 10. Chat: Split into 5 sub-modules + aggregator -->
+    <script src="js/tab1/tab1-chat-core.js"></script>
+    <script src="js/tab1/tab1-chat-messages.js"></script>
+    <script src="js/tab1/tab1-chat-facebook.js"></script>
+    <script src="js/tab1/tab1-chat-images.js"></script>
+    <script src="js/tab1/tab1-chat-realtime.js"></script>
     <script src="js/tab1/tab1-chat.js"></script>
 
     <!-- 11. Encoding: Note encoding/decoding (lines 16371-17195) -->
