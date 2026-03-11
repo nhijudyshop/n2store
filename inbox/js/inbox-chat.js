@@ -19,7 +19,7 @@ class InboxChatController {
     constructor(dataManager) {
         this.data = dataManager;
         this.activeConversationId = null;
-        this.currentFilter = 'unread';
+        this.currentFilter = localStorage.getItem('inbox_current_filter') || 'all';
         this.currentGroupFilters = new Set(); // Multi-select group filter
         this.searchQuery = '';
         this.isSearching = false;
@@ -100,6 +100,16 @@ class InboxChatController {
 
     init() {
         this.bindEvents();
+
+        // Restore saved filter tab
+        const savedFilter = this.currentFilter;
+        const tab = document.querySelector(`.filter-tab[data-filter="${savedFilter}"]`);
+        if (tab) {
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+        }
+        this.toggleLivestreamPostSelector();
+
         this.renderPageSelector();
         this.renderConversationList();
         this.renderGroupStats();
@@ -165,6 +175,7 @@ class InboxChatController {
                 document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 this.currentFilter = tab.dataset.filter;
+                localStorage.setItem('inbox_current_filter', this.currentFilter);
                 this._consecutiveEmptyLoads = 0;
                 this._loadMoreCooldownUntil = 0;
                 this.toggleLivestreamPostSelector();
@@ -1183,6 +1194,9 @@ class InboxChatController {
                 || '';
             if (extractedPhone) conv.phone = extractedPhone;
 
+            // Preserve optimistic messages (temp IDs starting with 'm') before replacing
+            const prevOptimistic = (conv.messages || []).filter(m => typeof m.id === 'string' && m.id.startsWith('m'));
+
             // Map Pancake messages to inbox format
             conv.messages = messages.map(msg => {
                 const isFromPage = msg.from?.id === conv.pageId;
@@ -1207,6 +1221,18 @@ class InboxChatController {
                     canLike: msg.can_like !== false,
                 };
             });
+
+            // Re-append optimistic messages not yet confirmed by API
+            // Check if API already returned a message with matching text+sender (confirmed)
+            for (const opt of prevOptimistic) {
+                const alreadyInApi = conv.messages.some(m =>
+                    m.sender === opt.sender && m.text === opt.text &&
+                    Math.abs(new Date(m.time) - new Date(opt.time)) < 60000
+                );
+                if (!alreadyInApi) {
+                    conv.messages.push(opt);
+                }
+            }
 
             // Messages from API are already oldest-first, no reverse needed
 
