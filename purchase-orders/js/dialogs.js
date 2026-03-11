@@ -1834,8 +1834,18 @@ class InventoryPickerDialog {
                     align-items: center;
                     background: #f9fafb;
                 ">
-                    <div style="font-size: 13px; color: #6b7280;">
-                        Đã chọn: <span id="selectedCount" style="font-weight: 600; color: #3b82f6;">${this.selectedProducts.size}</span> sản phẩm
+                    <div style="font-size: 13px; color: #6b7280; display: flex; align-items: center; gap: 12px;">
+                        <span>Đã chọn <span id="selectedCount" style="font-weight: 600; color: #3b82f6;">${this.selectedProducts.size}</span> sản phẩm</span>
+                        <button type="button" id="btnDeselectAll" style="
+                            background: none;
+                            border: 1px solid #d1d5db;
+                            border-radius: 6px;
+                            color: #6b7280;
+                            font-size: 12px;
+                            cursor: pointer;
+                            padding: 4px 10px;
+                            display: ${this.selectedProducts.size > 0 ? 'inline-block' : 'none'};
+                        ">Bỏ chọn tất cả</button>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button type="button" id="btnCancelInventory" style="
@@ -1914,7 +1924,9 @@ class InventoryPickerDialog {
                         <th style="padding: 12px 8px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 70px;">Tồn kho</th>
                         <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá mua</th>
                         <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá bán</th>
-                        <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 50px;"></th>
+                        <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 50px;">
+                            <input type="checkbox" id="selectAllCheckbox" title="Chọn tất cả" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer;">
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -2080,6 +2092,23 @@ class InventoryPickerDialog {
                 this.updateSelectedCount();
             });
 
+            // Update select-all checkbox state
+            const selectAllCb = listContainer.querySelector('#selectAllCheckbox');
+            if (selectAllCb && this.filteredProducts.length > 0) {
+                const allSelected = this.filteredProducts.every(p => this.selectedProducts.has(String(p.id)));
+                selectAllCb.checked = allSelected;
+            }
+
+            // Bind select-all checkbox event
+            selectAllCb?.addEventListener('change', (e) => {
+                const checked = e.target.checked;
+                if (checked) {
+                    this.selectAllFiltered();
+                } else {
+                    this.deselectAllFiltered();
+                }
+            });
+
             // Bind events for remove individual product buttons
             listContainer.querySelectorAll('.btn-remove-product').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -2135,6 +2164,10 @@ class InventoryPickerDialog {
         const countEl = this.modalElement?.querySelector('#selectedCount');
         if (countEl) {
             countEl.textContent = this.selectedProducts.size;
+        }
+        const deselectBtn = this.modalElement?.querySelector('#btnDeselectAll');
+        if (deselectBtn) {
+            deselectBtn.style.display = this.selectedProducts.size > 0 ? 'inline-block' : 'none';
         }
     }
 
@@ -2193,12 +2226,16 @@ class InventoryPickerDialog {
         // Save selected products to localStorage
         this.saveSelectedToStorage();
 
-        // Clear search and show selected products list
-        this.searchTerm = '';
-        const searchInput = this.modalElement?.querySelector('#inventorySearchInput');
-        if (searchInput) searchInput.value = '';
-
-        this.updateProductsList();
+        // Update UI without clearing search - allow continued multi-selection
+        if (this.searchTerm.length >= 2) {
+            // Stay in search results view - just update checkbox and row style
+            row.style.background = '#eff6ff';
+            row.setAttribute('data-selected', 'true');
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox) checkbox.checked = true;
+        } else {
+            this.updateProductsList();
+        }
         this.updateSelectedCount();
     }
 
@@ -2226,10 +2263,49 @@ class InventoryPickerDialog {
         }
     }
 
+    /**
+     * Select all currently filtered/visible products
+     */
+    async selectAllFiltered() {
+        for (const product of this.filteredProducts) {
+            const productIdStr = String(product.id);
+            if (!this.selectedProducts.has(productIdStr)) {
+                let productDetails = this.getProductDetailsFromCache(product.id);
+                if (productDetails) {
+                    this.selectedProducts.set(productIdStr, productDetails);
+                } else {
+                    this.selectedProducts.set(productIdStr, product);
+                }
+            }
+        }
+        this.saveSelectedToStorage();
+        this.updateProductsList();
+        this.updateSelectedCount();
+    }
+
+    /**
+     * Deselect all currently filtered/visible products
+     */
+    deselectAllFiltered() {
+        for (const product of this.filteredProducts) {
+            this.selectedProducts.delete(String(product.id));
+        }
+        this.saveSelectedToStorage();
+        this.updateProductsList();
+        this.updateSelectedCount();
+    }
+
     bindEvents() {
         // Close buttons
         this.modalElement.querySelector('#btnCloseInventory')?.addEventListener('click', () => this.close());
         this.modalElement.querySelector('#btnCancelInventory')?.addEventListener('click', () => this.close());
+
+        // Deselect all button
+        this.modalElement.querySelector('#btnDeselectAll')?.addEventListener('click', () => {
+            this.clearSelectedFromStorage();
+            this.updateProductsList();
+            this.updateSelectedCount();
+        });
 
         // Reload button
         this.modalElement.querySelector('#btnReloadInventory')?.addEventListener('click', async () => {
