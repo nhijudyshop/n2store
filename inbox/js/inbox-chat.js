@@ -79,6 +79,7 @@ class InboxChatController {
         this.elements = {
             conversationList: document.getElementById('conversationList'),
             chatMessages: document.getElementById('chatMessages'),
+            btnScrollBottom: document.getElementById('btnScrollBottom'),
             chatInput: document.getElementById('chatInput'),
             chatUserName: document.getElementById('chatUserName'),
             chatUserStatus: document.getElementById('chatUserStatus'),
@@ -235,16 +236,29 @@ class InboxChatController {
             }, 2000);
         });
 
-        // Message scroll: pagination (scroll up)
+        // Message scroll: pagination (scroll up) + scroll-to-bottom button
         this.elements.chatMessages.addEventListener('scroll', () => {
             const container = this.elements.chatMessages;
+            // Load more when scrolled near top
             if (container.scrollTop < 100 &&
                 this.hasMoreMessages &&
                 !this.isLoadingMoreMessages &&
                 this.activeConversationId) {
                 this.loadMoreMessages();
             }
+            // Show/hide scroll-to-bottom button
+            const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+            if (this.elements.btnScrollBottom) {
+                this.elements.btnScrollBottom.style.display = distanceFromBottom > 200 ? 'flex' : 'none';
+            }
         });
+
+        // Scroll-to-bottom button click
+        if (this.elements.btnScrollBottom) {
+            this.elements.btnScrollBottom.addEventListener('click', () => {
+                this.elements.chatMessages.scrollTo({ top: this.elements.chatMessages.scrollHeight, behavior: 'smooth' });
+            });
+        }
 
         // Quick reply bar click
         const qrBar = document.getElementById('quickReplyBar');
@@ -1198,8 +1212,7 @@ class InboxChatController {
                 };
             });
 
-            // Messages from API are newest-first, reverse for display
-            conv.messages.reverse();
+            // Messages from API are already oldest-first, no reverse needed
 
             // Reset pagination state
             this.hasMoreMessages = true;
@@ -2277,8 +2290,9 @@ class InboxChatController {
                         canRemove: msg.can_remove !== false,
                         canLike: msg.can_like !== false,
                     };
-                }).reverse();
+                });
 
+                // API returns oldest-first, prepend older messages before current
                 conv.messages = [...mapped, ...conv.messages];
                 this.messageCurrentCount = conv.messages.length;
                 this.renderMessages(conv);

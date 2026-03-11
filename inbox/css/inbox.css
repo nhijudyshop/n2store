@@ -844,6 +844,35 @@ body.col-resizing .resize-handle {
     border-radius: 3px;
 }
 
+.btn-scroll-bottom {
+    position: absolute;
+    bottom: 12px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--white);
+    border: 1px solid var(--gray-300);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.btn-scroll-bottom:hover {
+    background: var(--gray-100);
+    transform: scale(1.1);
+}
+
+.btn-scroll-bottom svg {
+    width: 20px;
+    height: 20px;
+    color: var(--gray-600);
+}
+
 .chat-empty-state {
     flex: 1;
     display: flex;

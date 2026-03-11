@@ -198,11 +198,16 @@
                 <div class="post-info-banner" id="postInfoBanner" style="display:none;"></div>
 
                 <!-- Chat Messages -->
-                <div class="chat-messages" id="chatMessages">
-                    <div class="chat-empty-state">
-                        <i data-lucide="message-square"></i>
-                        <p>Chọn một cuộc hội thoại để bắt đầu chat</p>
+                <div class="chat-messages-wrapper" style="position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-empty-state">
+                            <i data-lucide="message-square"></i>
+                            <p>Chọn một cuộc hội thoại để bắt đầu chat</p>
+                        </div>
                     </div>
+                    <button class="btn-scroll-bottom" id="btnScrollBottom" style="display:none;" title="Xuống cuối">
+                        <i data-lucide="chevron-down"></i>
+                    </button>
                 </div>
 
                 <!-- Label Bar (moved from col3) -->
