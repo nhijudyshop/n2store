@@ -857,14 +857,20 @@ class InboxDataManager {
             this.livestreamPostMap[pid].push({ conv_id: convId, name: conv.name, type: conv.type, psid: conv.psid });
         }
 
-        // Also mark this customer's INBOX conversations
+        // Also mark this customer's NEWEST INBOX conversation only
         if (conv.psid) {
+            let newestInbox = null;
             for (const inboxConv of this.conversations) {
                 if (inboxConv.psid === conv.psid && inboxConv.type === 'INBOX' && !inboxConv.isLivestream) {
-                    inboxConv.isLivestream = true;
-                    this.livestreamConvIdSet.add(inboxConv.id);
-                    this._saveLivestreamConvToServer(inboxConv.id, pid, inboxConv);
+                    if (!newestInbox || inboxConv.time > newestInbox.time) {
+                        newestInbox = inboxConv;
+                    }
                 }
+            }
+            if (newestInbox) {
+                newestInbox.isLivestream = true;
+                this.livestreamConvIdSet.add(newestInbox.id);
+                this._saveLivestreamConvToServer(newestInbox.id, pid, newestInbox);
             }
         }
 
@@ -903,19 +909,30 @@ class InboxDataManager {
     }
 
     /**
-     * Mark customer as livestream participant → mark ALL their conversations as livestream
+     * Mark customer as livestream participant → mark COMMENT + newest INBOX only
      */
     markCustomerAsLivestream(customerPsid, _pageId, _customerName, postId) {
         if (!customerPsid) return;
         const pid = postId || 'unknown';
 
-        // Find all conversations for this customer and mark as livestream
+        let newestInbox = null;
         for (const conv of this.conversations) {
             if (conv.psid === customerPsid && !conv.isLivestream) {
-                conv.isLivestream = true;
-                this.livestreamConvIdSet.add(conv.id);
-                this._saveLivestreamConvToServer(conv.id, pid, conv);
+                if (conv.type === 'COMMENT') {
+                    conv.isLivestream = true;
+                    this.livestreamConvIdSet.add(conv.id);
+                    this._saveLivestreamConvToServer(conv.id, pid, conv);
+                } else if (conv.type === 'INBOX') {
+                    if (!newestInbox || conv.time > newestInbox.time) {
+                        newestInbox = conv;
+                    }
+                }
             }
+        }
+        if (newestInbox) {
+            newestInbox.isLivestream = true;
+            this.livestreamConvIdSet.add(newestInbox.id);
+            this._saveLivestreamConvToServer(newestInbox.id, pid, newestInbox);
         }
     }
 
