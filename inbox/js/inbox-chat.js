@@ -1686,6 +1686,9 @@ class InboxChatController {
         } finally {
             this.isSending = false;
             this.elements.btnSend.disabled = false;
+            // Ensure input is always cleared after send attempt
+            this.elements.chatInput.value = '';
+            this.elements.chatInput.style.height = 'auto';
         }
     }
 
