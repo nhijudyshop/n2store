@@ -87,10 +87,10 @@
                 <div class="col-header">
                     <h2>Inbox</h2>
                     <div class="col-header-actions">
-                        <button class="btn-icon-sm" id="btnRenderData" title="Xem dữ liệu Render DB" onclick="window.inboxChat?.showRenderDataModal()">
+                        <button class="btn-icon-sm" id="btnRenderData" title="Xem dữ liệu Render DB" data-perm="inbox:settings" data-perm-action="hide" onclick="window.inboxChat?.showRenderDataModal()">
                             <i data-lucide="database"></i>
                         </button>
-                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Quản lý Pancake Accounts" onclick="openPancakeSettingsModal()">
+                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Quản lý Pancake Accounts" data-perm="inbox:settings" data-perm-action="hide" onclick="openPancakeSettingsModal()">
                             <i data-lucide="settings"></i>
                         </button>
                         <button class="btn-icon-sm" id="btnRefreshInbox" title="Làm mới">
@@ -148,7 +148,7 @@
                     <button class="btn-fetch-postnames" id="btnFetchPostNames" title="Lấy tên bài viết">
                         <i data-lucide="search"></i>
                     </button>
-                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xóa tất cả đoạn hội thoại livestream của bài post này">
+                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xóa tất cả đoạn hội thoại livestream của bài post này" data-perm="inbox:manage_labels" data-perm-action="hide">
                         <i data-lucide="trash-2"></i> Xóa livestream
                     </button>
                 </div>
@@ -211,7 +211,7 @@
                 </div>
 
                 <!-- Label Bar (moved from col3) -->
-                <div class="chat-label-bar" id="chatLabelBar" style="display:none;">
+                <div class="chat-label-bar" id="chatLabelBar" style="display:none;" data-perm="inbox:manage_labels" data-perm-action="hide">
                     <div class="chat-label-bar-inner">
                         <span class="chat-label-bar-title">Nhãn:</span>
                         <div class="chat-label-bar-list" id="chatLabelBarList">
@@ -322,7 +322,7 @@
                         <i data-lucide="activity"></i>
                         <span>Hoạt Động</span>
                     </button>
-                    <button class="info-tab" data-tab="orders">
+                    <button class="info-tab" data-tab="orders" data-perm="inbox:create_order" data-perm-action="hide">
                         <i data-lucide="shopping-bag"></i>
                         <span>Đơn Hàng</span>
                     </button>
@@ -333,7 +333,7 @@
                     <!-- Group Stats Cards (rendered by JS) -->
                     <div class="group-stats-header">
                         <h3>Nhóm Phân Loại</h3>
-                        <button class="btn-manage-groups" id="btnManageGroups">
+                        <button class="btn-manage-groups" id="btnManageGroups" data-perm="inbox:manage_labels" data-perm-action="hide">
                             <i data-lucide="settings"></i>
                             Quản Lý
                         </button>
@@ -352,7 +352,7 @@
                 </div>
 
                 <!-- Tab 3: Order Creation -->
-                <div class="info-tab-content" id="tabOrders">
+                <div class="info-tab-content" id="tabOrders" data-perm="inbox:create_order" data-perm-action="hide">
                     <div class="order-form-wrapper">
                         <h3 class="order-form-title">
                             <i data-lucide="shopping-bag"></i>

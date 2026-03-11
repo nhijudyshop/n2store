@@ -44,6 +44,22 @@ const PAGES_REGISTRY = {
         }
     },
 
+    inbox: {
+        id: "inbox",
+        name: "Inbox Chat",
+        shortName: "Chat",
+        icon: "messages-square",
+        href: "../inbox/index.html",
+        description: "Chat trực tiếp với khách hàng qua Pancake",
+        adminOnly: false,
+        category: "sales",
+        detailedPermissions: {
+            manage_labels: { name: "Quản lý nhãn", icon: "tags", description: "Phân nhóm và gắn nhãn hội thoại" },
+            create_order: { name: "Tạo đơn hàng", icon: "shopping-bag", description: "Tạo đơn hàng từ chat" },
+            settings: { name: "Cài đặt Pancake", icon: "settings", description: "Quản lý tài khoản và token Pancake" }
+        }
+    },
+
     // =====================================================
     // CATEGORY: WAREHOUSE - Kho & Nhận hàng
     // =====================================================

@@ -189,6 +189,11 @@ async function initInboxApp() {
         lucide.createIcons();
     }
 
+    // ===== Apply Permission-based UI Restrictions =====
+    if (typeof PermissionHelper !== 'undefined') {
+        PermissionHelper.applyUIRestrictions('inbox');
+    }
+
     console.log('[Inbox] App initialized successfully with Pancake API + WebSocket');
 }
 
