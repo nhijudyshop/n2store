@@ -230,6 +230,14 @@ const MENU_CONFIG = [
         pageIdentifier: "gemini-ai",
     },
     {
+        href: "../product-warehouse/index.html",
+        icon: "warehouse",
+        text: "Kho Sản Phẩm",
+        shortText: "Kho SP",
+        pageIdentifier: "product-warehouse",
+        publicAccess: true,
+    },
+    {
         href: "../lichsuchinhsua/index.html",
         icon: "history",
         text: "Lịch Sử Chỉnh Sửa",
@@ -428,7 +436,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Kho & Nhập Hàng",
         icon: "package",
-        items: ["inventory-tracking", "purchase-orders", "nhanhang"]
+        items: ["product-warehouse", "inventory-tracking", "purchase-orders", "nhanhang"]
     },
     {
         name: "Khách Hàng",

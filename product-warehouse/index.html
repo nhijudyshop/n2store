@@ -1,0 +1,205 @@
+<!--
+  Kho San Pham - Product Warehouse
+  Trang xem va tim kiem san pham trong kho.
+  Tat ca user deu co quyen truy cap.
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kho San Pham</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../shared/css/modern.css">
+    <!-- Module Styles -->
+    <link rel="stylesheet" href="css/warehouse.css">
+
+    <!-- ES Module: Shared utilities -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+    <!-- Navigation Manager -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase Configuration (SHARED) -->
+    <script src="../shared/js/firebase-config.js"></script>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <img src="../shared/images/logo.jpg" alt="N2STORE" class="sidebar-logo-img">
+                <span>N2STORE</span>
+            </div>
+            <button class="sidebar-toggle" id="sidebarToggle">
+                <i data-lucide="panel-left-close"></i>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav" id="sidebarNav">
+            <!-- Menu items auto-generated -->
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i data-lucide="user-circle"></i>
+                </div>
+                <div class="user-details">
+                    <div class="user-name" id="userName">Admin</div>
+                    <div class="user-role">Quan tri vien</div>
+                </div>
+            </div>
+            <button class="btn-permissions" id="btnPermissions">
+                <i data-lucide="shield-check"></i>
+                <span>Xem Quyen Cua Toi</span>
+            </button>
+            <button class="btn-logout" id="btnLogout">
+                <i data-lucide="log-out"></i>
+                <span>Dang xuat</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="btn-icon" id="menuToggle">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="breadcrumb">
+                    <i data-lucide="warehouse"></i>
+                    <span>Kho San Pham</span>
+                </div>
+            </div>
+            <div class="top-bar-right">
+                <button class="btn-icon" id="refreshButton" title="Lam moi du lieu">
+                    <i data-lucide="refresh-cw"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Search & Filter Bar -->
+        <div class="warehouse-toolbar">
+            <div class="toolbar-left">
+                <div class="search-box">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Tim kiem theo ma, ten san pham...">
+                    <button class="search-clear hidden" id="searchClear" title="Xoa tim kiem">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="filter-group">
+                    <select id="filterStock" class="filter-select">
+                        <option value="all">Tat ca ton kho</option>
+                        <option value="in-stock">Con hang</option>
+                        <option value="low-stock">Sap het (≤5)</option>
+                        <option value="out-of-stock">Het hang</option>
+                    </select>
+                </div>
+            </div>
+            <div class="toolbar-right">
+                <span class="product-count" id="productCount">0 san pham</span>
+            </div>
+        </div>
+
+        <!-- Product Table -->
+        <div class="warehouse-table-wrapper">
+            <table class="warehouse-table" id="productTable">
+                <thead>
+                    <tr>
+                        <th class="col-image">Anh</th>
+                        <th class="col-code sortable" data-sort="code">
+                            <div class="th-content">
+                                <span>Ma</span>
+                                <div class="th-filter">
+                                    <i data-lucide="filter" class="filter-icon"></i>
+                                    <input type="text" class="th-filter-input" id="filterCode" placeholder="Loc ma...">
+                                </div>
+                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                            </div>
+                        </th>
+                        <th class="col-name sortable" data-sort="name">
+                            <div class="th-content">
+                                <span>Ten</span>
+                                <div class="th-filter">
+                                    <i data-lucide="filter" class="filter-icon"></i>
+                                    <input type="text" class="th-filter-input" id="filterName" placeholder="Loc ten...">
+                                </div>
+                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                            </div>
+                        </th>
+                        <th class="col-price sortable" data-sort="price">
+                            <div class="th-content">
+                                <span>Gia ban</span>
+                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                            </div>
+                        </th>
+                        <th class="col-qty sortable" data-sort="qty">
+                            <div class="th-content">
+                                <span>So luong thuc te</span>
+                                <i data-lucide="chevrons-up-down" class="sort-icon"></i>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody">
+                    <!-- Products rendered by JS -->
+                </tbody>
+            </table>
+
+            <!-- Loading State -->
+            <div class="loading-state" id="loadingState">
+                <div class="loading-spinner"></div>
+                <span>Dang tai du lieu...</span>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state hidden" id="emptyState">
+                <i data-lucide="package-x"></i>
+                <h3>Khong tim thay san pham</h3>
+                <p>Thu thay doi bo loc hoac tu khoa tim kiem</p>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="warehouse-pagination" id="pagination">
+            <div class="pagination-info">
+                <span id="paginationInfo">Hien thi 0 - 0 / 0 san pham</span>
+            </div>
+            <div class="pagination-controls">
+                <button class="btn-page" id="btnPrevPage" disabled>
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <div class="page-numbers" id="pageNumbers"></div>
+                <button class="btn-page" id="btnNextPage" disabled>
+                    <i data-lucide="chevron-right"></i>
+                </button>
+            </div>
+            <div class="pagination-size">
+                <select id="pageSize" class="filter-select">
+                    <option value="20">20 / trang</option>
+                    <option value="50" selected>50 / trang</option>
+                    <option value="100">100 / trang</option>
+                </select>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/main.js"></script>
+</body>
+</html>
