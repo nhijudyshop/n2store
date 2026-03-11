@@ -1598,7 +1598,7 @@ class InboxChatController {
         const payload = { action: 'reply_inbox', message: text };
         if (replyData?.msgId) payload.replied_message_id = replyData.msgId;
 
-        console.log('[InboxChat] Sending reply_inbox:', { sendPageId, convId: conv.conversationId });
+        console.log('[InboxChat] Sending reply_inbox:', { pageId: conv.pageId, convId: conv.conversationId });
 
         try {
             await this._sendApi(url, payload);
