@@ -38,7 +38,7 @@ async function loadEmployeeRanges() {
     if (!database) return;
 
     try {
-        // Try campaign-specific first
+        // Only load campaign-specific ranges (no general config)
         if (currentTableName) {
             const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
             const campaignDoc = await database.collection('settings').doc('employee_ranges_by_campaign').get();
@@ -52,11 +52,9 @@ async function loadEmployeeRanges() {
             }
         }
 
-        // Fallback to general - handle both { ranges: [...] } and direct array format
-        const snapshot = await database.collection('settings').doc('employee_ranges').get();
-        const data = snapshot.exists ? snapshot.data() : null;
-        employeeRanges = normalizeEmployeeRanges(data?.ranges || data);
-        console.log('[REPORT] ✅ Loaded general employee ranges:', employeeRanges.length);
+        // No campaign or no config found for this campaign
+        employeeRanges = [];
+        console.log('[REPORT] ⚠️ No employee ranges for current campaign');
     } catch (error) {
         console.error('[REPORT] ❌ Error loading employee ranges:', error);
         employeeRanges = [];

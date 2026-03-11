@@ -118,10 +118,12 @@ window.addEventListener("DOMContentLoaded", async function () {
             if (selectedOption && selectedOption.dataset.campaign) {
                 const campaign = JSON.parse(selectedOption.dataset.campaign);
                 console.log(`[EMPLOYEE] Campaign changed in drawer, loading ranges for: ${campaign.displayName}`);
-                loadEmployeeRangesForCampaign(campaign.displayName);
-            } else {
-                console.log('[EMPLOYEE] Loading general employee ranges');
-                loadEmployeeRangesForCampaign(null);
+                loadEmployeeRangesForCampaign(campaign.displayName).then(() => {
+                    // Re-render table with new ranges
+                    if (window.userEmployeeLoader && window.userEmployeeLoader.getUsers().length > 0) {
+                        renderEmployeeTable(window.userEmployeeLoader.getUsers());
+                    }
+                });
             }
         });
     }
@@ -436,7 +438,7 @@ async function initializeApp() {
         const [campaigns, activeCampaignId, _] = await Promise.all([
             loadAllCampaigns(),
             loadActiveCampaignId(),
-            loadEmployeeRangesForCampaign(null) // Load employee ranges in parallel
+            Promise.resolve() // Employee ranges loaded per-campaign, not globally
         ]);
         console.log('[APP] Data loaded - Campaigns:', Object.keys(campaigns).length, 'Active:', activeCampaignId);
 
