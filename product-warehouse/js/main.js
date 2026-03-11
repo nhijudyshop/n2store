@@ -832,18 +832,15 @@
     // EVENT HANDLERS
     // =====================================================
     function setupEventListeners() {
-        // Search — show suggestions + debounced server-side search
-        let searchTimeout;
-
+        // Search — show suggestion dropdown only (no server search on typing)
         const searchInput = $('#searchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const searchText = e.target.value.trim();
 
-                // Show suggestions from Excel data (client-side)
+                // Show suggestions from Excel data (client-side only)
                 if (searchText.length >= 2) {
                     if (excelProducts.length === 0) {
-                        // Excel not loaded yet — load then show suggestions
                         loadExcelData().then(() => {
                             const results = searchProductsSuggestion(searchText);
                             displaySuggestions(results);
@@ -855,20 +852,12 @@
                 } else {
                     hideSuggestions();
                 }
-
-                // Debounced server-side search
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    currentPage = 1;
-                    fetchProducts();
-                }, 800);
             });
 
-            // Enter key: immediately search and hide suggestions
+            // Enter key: search server and hide suggestions
             searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    clearTimeout(searchTimeout);
                     hideSuggestions();
                     currentPage = 1;
                     fetchProducts();
