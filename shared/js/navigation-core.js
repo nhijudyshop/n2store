@@ -1810,13 +1810,20 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
 
 let unifiedNavigationManager;
 
-document.addEventListener("DOMContentLoaded", () => {
+function initNavigation() {
     console.log("[Unified Nav] DOM loaded...");
     waitForDependencies(() => {
         unifiedNavigationManager = new UnifiedNavigationManager();
         window.navigationManager = unifiedNavigationManager;
     });
-});
+}
+
+// If DOM already loaded (e.g. script loaded dynamically after DOMContentLoaded), init immediately
+if (document.readyState === 'loading') {
+    document.addEventListener("DOMContentLoaded", initNavigation);
+} else {
+    initNavigation();
+}
 
 // =====================================================
 // APP VERSION SYSTEM - Auto-incremented on each commit
