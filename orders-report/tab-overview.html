@@ -82,6 +82,9 @@
                 style="display: none;">
                 <i class="fas fa-chart-line"></i> Phân tích hiệu quả
             </button>
+            <button class="main-tab-btn" onclick="switchMainTab('ledger')" data-tab="ledger">
+                <i class="fas fa-book-open" style="color: #8b5cf6;"></i> Sổ Sách
+            </button>
         </div>
 
         <!-- Progress Bar (outside tabs - always visible when loading) -->
@@ -271,6 +274,34 @@
                         <i class="fas fa-chart-line"></i>
                         <h3>Phân Tích Hiệu Quả</h3>
                         <p>Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem phân tích</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Sổ Sách Live -->
+        <div class="main-tab-content" id="tabLedger">
+            <div class="ledger-inline-container">
+                <!-- Ledger Filters -->
+                <div class="ledger-inline-header">
+                    <div class="ledger-inline-filters">
+                        <div class="ledger-filter-group">
+                            <label>NCC:</label>
+                            <select id="ledgerNccFilter" onchange="window.ledgerModule.onNccChange()">
+                                <option value="">Tất cả NCC</option>
+                            </select>
+                        </div>
+                        <button class="btn-action green" onclick="window.ledgerModule.refreshFromCachedData()" id="btnLedgerRefresh" style="padding: 8px 16px; font-size: 13px;">
+                            <i class="fas fa-sync-alt"></i> Cập nhật sổ sách
+                        </button>
+                    </div>
+                </div>
+                <!-- Ledger Table -->
+                <div id="ledgerContent">
+                    <div class="ledger-empty-inline">
+                        <i class="fas fa-book-open"></i>
+                        <p>Chọn chiến dịch live và lấy chi tiết đơn hàng trước</p>
+                        <p style="font-size: 12px;">Sổ sách sẽ tổng hợp từ dữ liệu đã tải trong tab "Chi tiết đã tải"</p>
                     </div>
                 </div>
             </div>
@@ -541,6 +572,7 @@
     <!-- Firebase SDK v8 -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
     <!-- Firebase Configuration (SHARED) -->
     <script src="../shared/js/firebase-config.js"></script>
@@ -567,6 +599,7 @@
     <script src="js/overview/overview-table.js"></script>
     <script src="js/overview/overview-events.js"></script>
     <script src="js/overview/overview-ui.js"></script>
+    <script src="js/overview/overview-ledger.js"></script>
     <script src="js/overview/overview-init.js"></script>
 
     <!-- Mobile JS removed - will be reimplemented later -->

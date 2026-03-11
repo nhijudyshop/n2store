@@ -3084,3 +3084,174 @@
         .btn-refresh-discount:hover {
             box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
         }
+
+
+/* =====================================================
+   SỔ SÁCH INLINE - Ledger Tab Styles
+   ===================================================== */
+
+.ledger-inline-container {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.ledger-inline-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.ledger-inline-filters {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ledger-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ledger-filter-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.ledger-filter-group select {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #374151;
+    background: white;
+}
+
+.ledger-filter-group select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
+    outline: none;
+}
+
+/* Ledger Table */
+.ledger-table-inline {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.ledger-table-inline thead th {
+    background: #f1f5f9;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.ledger-table-inline tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.ledger-table-inline tbody tr:hover {
+    background: #f8fafc;
+}
+
+.ledger-table-inline .text-right { text-align: right; }
+.ledger-table-inline .text-center { text-align: center; }
+
+.ledger-table-inline .ledger-code {
+    font-weight: 600;
+    color: #3b82f6;
+}
+
+.ledger-table-inline .ledger-editable {
+    padding: 0;
+}
+
+.ledger-table-inline .ledger-editable input {
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #1e293b;
+    outline: none;
+    text-align: right;
+}
+
+.ledger-table-inline .ledger-editable input[type="text"] {
+    text-align: left;
+}
+
+.ledger-table-inline .ledger-editable input:focus {
+    background: #eff6ff;
+    box-shadow: inset 0 0 0 2px #3b82f6;
+}
+
+.ledger-table-inline tfoot td {
+    padding: 10px 12px;
+    font-weight: 700;
+    background: #f8fafc;
+    border-top: 2px solid #e2e8f0;
+}
+
+.diff-positive { color: #16a34a; font-weight: 600; }
+.diff-negative { color: #dc2626; font-weight: 600; }
+.diff-zero { color: #94a3b8; }
+
+/* Empty & Loading states */
+.ledger-empty-inline {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+}
+
+.ledger-empty-inline i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+}
+
+.ledger-empty-inline p {
+    font-size: 14px;
+    margin: 4px 0;
+}
+
+.ledger-loading-inline {
+    text-align: center;
+    padding: 40px;
+    color: #64748b;
+}
+
+.ledger-loading-inline i {
+    margin-right: 8px;
+}
+
+@keyframes spinning {
+    to { transform: rotate(360deg); }
+}
+
+.spinning {
+    animation: spinning 1s linear infinite;
+}
+
+@media (max-width: 768px) {
+    .ledger-inline-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

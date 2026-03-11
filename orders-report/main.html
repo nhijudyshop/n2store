@@ -434,12 +434,6 @@
                 <span>Báo Cáo Tổng Hợp</span>
                 <i data-lucide="check" class="check-icon"></i>
             </div>
-            <div class="mobile-dropdown-item" onclick="switchMobileTab('live-ledger', 'Sổ Sách')"
-                data-mobile-tab="live-ledger">
-                <i data-lucide="book-open"></i>
-                <span>Sổ Sách</span>
-                <i data-lucide="check" class="check-icon"></i>
-            </div>
             <div class="mobile-dropdown-item" onclick="switchMobileTab('social-orders', 'Đơn Social')"
                 data-mobile-tab="social-orders">
                 <i data-lucide="share-2"></i>
@@ -524,10 +518,6 @@
                     <i data-lucide="file-bar-chart" class="tab-icon"></i>
                     Báo Cáo Tổng Hợp
                 </button>
-                <button class="tab-button" onclick="switchTab('live-ledger')" data-tab="live-ledger">
-                    <i data-lucide="book-open" class="tab-icon"></i>
-                    Sổ Sách
-                </button>
                 <button class="tab-button" onclick="switchTab('social-orders')" data-tab="social-orders">
                     <i data-lucide="share-2" class="tab-icon"></i>
                     Đơn Social
@@ -585,10 +575,6 @@
 
         <div id="overviewTab" class="tab-content">
             <iframe id="overviewFrame" src="tab-overview.html"></iframe>
-        </div>
-
-        <div id="liveLedgerTab" class="tab-content">
-            <iframe id="liveLedgerFrame" src="tab-live-ledger.html"></iframe>
         </div>
 
         <div id="socialOrdersTab" class="tab-content">
@@ -668,8 +654,6 @@
                 }
             } else if (tabName === 'overview') {
                 document.getElementById('overviewTab').classList.add('active');
-            } else if (tabName === 'live-ledger') {
-                document.getElementById('liveLedgerTab').classList.add('active');
             } else if (tabName === 'social-orders') {
                 document.getElementById('socialOrdersTab').classList.add('active');
             } else if (tabName === 'pending-delete') {
@@ -1035,7 +1019,6 @@
                     'statistics',
                     'product-assignment',
                     'overview',
-                    'live-ledger',
                     'social-orders',
                     'pending-delete',
                     'kpi-commission',

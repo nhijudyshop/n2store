@@ -23,6 +23,12 @@ function switchMainTab(tabName) {
         if (cachedOrderDetails.length > 0 && window.discountStatsUI) {
             window.discountStatsUI.refreshStats();
         }
+    } else if (tabName === 'ledger') {
+        document.getElementById('tabLedger').classList.add('active');
+        // Auto-refresh ledger from cached data when switching to tab
+        if (window.ledgerModule) {
+            window.ledgerModule.refreshFromCachedData();
+        }
     }
 }
 
