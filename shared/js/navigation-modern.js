@@ -1122,14 +1122,23 @@ class UnifiedNavigationManager {
      * @returns {Array} List of page IDs user can access
      */
     _getAccessiblePagesFromDetailed(detailedPermissions) {
-        if (!detailedPermissions) return [];
+        if (!detailedPermissions) detailedPermissions = {};
 
-        return Object.entries(detailedPermissions)
+        const accessible = Object.entries(detailedPermissions)
             .filter(([pageId, perms]) => {
                 // Check if any permission in this page is true
                 return Object.values(perms).some(value => value === true);
             })
             .map(([pageId]) => pageId);
+
+        // Always include publicAccess pages
+        MENU_CONFIG.forEach(item => {
+            if (item.publicAccess && item.permissionRequired && !accessible.includes(item.permissionRequired)) {
+                accessible.push(item.permissionRequired);
+            }
+        });
+
+        return accessible;
     }
 
     /**
@@ -3166,6 +3175,8 @@ class UnifiedNavigationManager {
         const accessible = MENU_CONFIG.filter((item) => {
             // Items without permissionRequired are accessible to everyone
             if (!item.permissionRequired) return true;
+            // Public access pages are accessible to everyone
+            if (item.publicAccess) return true;
             return this.userPermissions.includes(item.permissionRequired);
         });
 
