@@ -3240,18 +3240,13 @@ body.col-resizing .resize-handle {
 .conv-tag.tag-pink { background: #fdf2f8; color: #ec4899; }
 .conv-tag.tag-teal { background: #f0fdfa; color: #14b8a6; }
 
-/* ===== Message Actions (beside bubble) ===== */
+/* ===== Message Actions (right of bubble, always visible) ===== */
 .msg-hover-actions {
     display: flex;
     gap: 1px;
     align-items: center;
     align-self: flex-end;
-    opacity: 0;
-    transition: opacity 0.15s;
     flex-shrink: 0;
-}
-.message-row:hover .msg-hover-actions {
-    opacity: 1;
 }
 .message-bubble { position: relative; }
 
