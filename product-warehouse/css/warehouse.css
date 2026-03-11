@@ -1003,3 +1003,153 @@
     .header-search-box { min-width: 140px; }
     .toolbar-filter-group { flex-wrap: wrap; }
 }
+
+/* =====================================================
+   VARIANT EXPAND ROW
+   ===================================================== */
+.warehouse-table tbody tr.row-expandable {
+    cursor: pointer;
+}
+
+.warehouse-table tbody tr.row-expanded-parent {
+    background-color: #eef2ff !important;
+    border-bottom: none;
+}
+
+.btn-action-expand {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+.btn-action-expand:hover {
+    background: #16a34a;
+    color: white;
+}
+.btn-action-expand.expanded i {
+    transform: rotate(180deg);
+}
+.btn-action-expand i {
+    transition: transform 0.2s;
+}
+
+/* Variant sub-row */
+.variant-expand-row {
+    background-color: #f8fafc !important;
+}
+.variant-expand-row:hover {
+    background-color: #f8fafc !important;
+}
+.variant-expand-row td {
+    padding: 0 !important;
+    border-right: none !important;
+}
+
+.variant-container {
+    padding: 8px 16px 12px 16px;
+    margin-left: 80px;
+}
+
+.variant-container h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    margin: 0 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.variant-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.variant-table thead {
+    background: #f1f5f9;
+}
+
+.variant-table th {
+    padding: 6px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.variant-table td {
+    padding: 6px 12px !important;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    text-align: left !important;
+    vertical-align: middle;
+    font-size: 13px !important;
+}
+
+.variant-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.variant-table tbody tr:hover {
+    background-color: #f1f5f9 !important;
+}
+
+.variant-table .variant-code {
+    font-weight: 600;
+    color: #1e40af;
+}
+
+.variant-table .variant-attr {
+    color: #64748b;
+    font-size: 12px;
+}
+
+.variant-table .variant-price {
+    text-align: right !important;
+    white-space: nowrap;
+}
+
+.variant-table .variant-qty {
+    text-align: right !important;
+    font-weight: 500;
+}
+
+.variant-table .variant-qty.qty-zero {
+    color: #dc2626;
+}
+
+.variant-table .variant-barcode {
+    color: #64748b;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.variant-loading {
+    padding: 16px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.variant-table .variant-img {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+}
+
+.variant-table .variant-img-placeholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+    font-size: 12px;
+}

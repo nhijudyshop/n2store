@@ -70,6 +70,10 @@
     // Image cache: templateId → imageUrl
     let imageCache = {};
 
+    // Variant expand state
+    let variantCache = {};        // templateId → variants array
+    let expandedIds = new Set();  // currently expanded template IDs
+
     // =====================================================
     // DOM REFS
     // =====================================================
@@ -354,6 +358,153 @@
     }
 
     // =====================================================
+    // VARIANT EXPAND SYSTEM
+    // =====================================================
+
+    const SIZE_ORDER = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+    function sortVariants(variants) {
+        return [...variants].sort((a, b) => {
+            const nameA = a.NameGet || '';
+            const nameB = b.NameGet || '';
+
+            // Extract number in parentheses: (1), (2), (3)
+            const numA = nameA.match(/\((\d+)\)/);
+            const numB = nameB.match(/\((\d+)\)/);
+            if (numA && numB) return parseInt(numA[1]) - parseInt(numB[1]);
+            if (numA) return -1;
+            if (numB) return 1;
+
+            // Extract size in parentheses: (S), (M), (L)
+            const sizeA = nameA.match(/\(([^)]+)\)$/);
+            const sizeB = nameB.match(/\(([^)]+)\)$/);
+            if (sizeA && sizeB) {
+                const idxA = SIZE_ORDER.indexOf(sizeA[1].toUpperCase());
+                const idxB = SIZE_ORDER.indexOf(sizeB[1].toUpperCase());
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+            }
+
+            return nameA.localeCompare(nameB, 'vi');
+        });
+    }
+
+    async function fetchVariants(templateId) {
+        if (variantCache[templateId]) return variantCache[templateId];
+
+        const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=ProductVariants($expand=AttributeValues)`;
+        const response = await window.tokenManager.authenticatedFetch(url, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const data = await response.json();
+        const variants = (data.ProductVariants || []).filter(v => v.Active === true);
+        const sorted = sortVariants(variants);
+
+        variantCache[templateId] = sorted;
+        return sorted;
+    }
+
+    function formatAttributeValues(attrValues) {
+        if (!attrValues || attrValues.length === 0) return '-';
+        return attrValues.map(a => {
+            const name = a.AttributeName || a.Attribute?.Name || '';
+            const value = a.Name || a.Value || '';
+            return name ? `${name}: ${value}` : value;
+        }).join(', ');
+    }
+
+    function renderVariantSubRow(variants, templateId, templateImage) {
+        if (!variants || variants.length === 0) {
+            return `<tr class="variant-expand-row" data-variant-for="${templateId}">
+                <td colspan="20"><div class="variant-loading">Không có biến thể</div></td>
+            </tr>`;
+        }
+
+        const rows = variants.map(v => {
+            const imgUrl = v.ImageUrl || templateImage || '';
+            const imgHtml = imgUrl
+                ? `<img class="variant-img" src="${escapeHtml(imgUrl)}" alt="" loading="lazy">`
+                : `<span class="variant-img-placeholder">-</span>`;
+            const qtyClass = (v.QtyAvailable || 0) <= 0 ? ' qty-zero' : '';
+            const price = v.PriceVariant || v.ListPrice || 0;
+            const cost = v.StandardPrice || 0;
+
+            return `<tr>
+                <td>${imgHtml}</td>
+                <td class="variant-code">${escapeHtml(v.DefaultCode || '')}</td>
+                <td>${escapeHtml(v.NameGet || '')}</td>
+                <td class="variant-attr">${formatAttributeValues(v.AttributeValues)}</td>
+                <td class="variant-price">${formatPrice(price)}</td>
+                <td class="variant-price">${formatPrice(cost)}</td>
+                <td class="variant-qty${qtyClass}">${formatQty(v.QtyAvailable || 0)}</td>
+                <td class="variant-barcode">${escapeHtml(v.Barcode || v.DefaultCode || '')}</td>
+            </tr>`;
+        }).join('');
+
+        return `<tr class="variant-expand-row" data-variant-for="${templateId}">
+            <td colspan="20">
+                <div class="variant-container">
+                    <h4>*Biến thể</h4>
+                    <table class="variant-table">
+                        <thead><tr>
+                            <th style="width:40px"></th>
+                            <th>Mã</th>
+                            <th>Tên</th>
+                            <th>Thuộc tính</th>
+                            <th style="text-align:right">Giá biến thể</th>
+                            <th style="text-align:right">Giá vốn</th>
+                            <th style="text-align:right">Số lượng thực tế</th>
+                            <th>Mã vạch</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    async function toggleVariantExpand(templateId, rowElement) {
+        const existingRow = document.querySelector(`tr[data-variant-for="${templateId}"]`);
+
+        if (existingRow) {
+            // Collapse
+            existingRow.remove();
+            expandedIds.delete(templateId);
+            rowElement.classList.remove('row-expanded-parent');
+            const btn = rowElement.querySelector('.btn-action-expand');
+            if (btn) btn.classList.remove('expanded');
+            return;
+        }
+
+        // Expand
+        expandedIds.add(templateId);
+        rowElement.classList.add('row-expanded-parent');
+        const btn = rowElement.querySelector('.btn-action-expand');
+        if (btn) btn.classList.add('expanded');
+
+        // Show loading row
+        const loadingRow = document.createElement('tr');
+        loadingRow.className = 'variant-expand-row';
+        loadingRow.setAttribute('data-variant-for', templateId);
+        loadingRow.innerHTML = '<td colspan="20"><div class="variant-loading">Đang tải biến thể...</div></td>';
+        rowElement.after(loadingRow);
+
+        try {
+            const variants = await fetchVariants(templateId);
+            const product = pageProducts.find(p => p.id === templateId);
+            const templateImage = product?.image || '';
+            loadingRow.outerHTML = renderVariantSubRow(variants, templateId, templateImage);
+        } catch (error) {
+            console.error('[Warehouse] Variant load error:', error);
+            loadingRow.innerHTML = '<td colspan="20"><div class="variant-loading" style="color:#dc2626">Lỗi tải biến thể</div></td>';
+        }
+    }
+
+    // =====================================================
     // API - Map TPOS response to local product format
     // =====================================================
     function mapProduct(item) {
@@ -622,6 +773,7 @@
                         <td class="col-checkbox"><input type="checkbox" class="row-checkbox" data-id="${p.id}" ${checked}></td>
                         <td class="col-actions">
                             <div class="action-btns">
+                                <button class="btn-action btn-action-expand${expandedIds.has(p.id) ? ' expanded' : ''}" title="Xem biến thể" data-expand-id="${p.id}"><i data-lucide="chevron-down"></i></button>
                                 <button class="btn-action btn-action-edit" title="Sửa"><i data-lucide="pencil"></i></button>
                                 <button class="btn-action btn-action-delete" title="Xóa"><i data-lucide="trash-2"></i></button>
                             </div>
@@ -834,6 +986,32 @@
                 const id = parseInt(e.target.dataset.id, 10);
                 if (e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
                 e.target.closest('tr')?.classList.toggle('selected', e.target.checked);
+            }
+        });
+
+        // Variant expand — click expand button or click on row
+        $('#productTableBody')?.addEventListener('click', (e) => {
+            // Expand button click
+            const expandBtn = e.target.closest('.btn-action-expand');
+            if (expandBtn) {
+                e.stopPropagation();
+                const templateId = parseInt(expandBtn.dataset.expandId, 10);
+                const row = expandBtn.closest('tr');
+                if (templateId && row) toggleVariantExpand(templateId, row);
+                return;
+            }
+
+            // Row click (exclude checkbox, actions buttons, image)
+            if (e.target.closest('.col-checkbox') ||
+                e.target.closest('.btn-action-edit') ||
+                e.target.closest('.btn-action-delete') ||
+                e.target.closest('.product-image-cell') ||
+                e.target.closest('.variant-expand-row')) return;
+
+            const row = e.target.closest('tr[data-template-id]');
+            if (row) {
+                const templateId = parseInt(row.dataset.templateId, 10);
+                if (templateId) toggleVariantExpand(templateId, row);
             }
         });
 
