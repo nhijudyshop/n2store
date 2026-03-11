@@ -130,6 +130,18 @@ async function ensureTablesExist() {
             DROP TABLE IF EXISTS conversation_labels;
         `);
 
+        // Create inbox_groups table (group definitions synced across devices)
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS inbox_groups (
+                id VARCHAR(100) PRIMARY KEY,
+                name VARCHAR(200) NOT NULL,
+                color VARCHAR(20) DEFAULT '#3b82f6',
+                note TEXT,
+                sort_order INTEGER DEFAULT 0,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         console.log('[DATABASE] ✅ Tables initialized');
     } catch (error) {
         console.error('[DATABASE] Error creating tables:', error.message);
@@ -1355,6 +1367,72 @@ app.put('/api/realtime/conversation-label', async (req, res) => {
         `, [convId, label]);
         res.json({ success: true, updated: result.rowCount });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/realtime/inbox-groups - Get all group definitions
+app.get('/api/realtime/inbox-groups', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'Database not available' });
+    try {
+        const result = await dbPool.query('SELECT id, name, color, note, sort_order FROM inbox_groups ORDER BY sort_order ASC');
+        res.json({ success: true, groups: result.rows });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/realtime/inbox-groups - Bulk save group definitions (upsert + delete missing)
+app.put('/api/realtime/inbox-groups', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'Database not available' });
+    try {
+        const { groups } = req.body;
+        if (!Array.isArray(groups)) return res.status(400).json({ error: 'groups array required' });
+
+        const client = await dbPool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // Get current group IDs
+            const incomingIds = groups.map(g => g.id).filter(Boolean);
+
+            // Delete groups not in the new list
+            if (incomingIds.length > 0) {
+                await client.query(
+                    `DELETE FROM inbox_groups WHERE id NOT IN (${incomingIds.map((_, i) => `$${i + 1}`).join(',')})`,
+                    incomingIds
+                );
+            } else {
+                await client.query('DELETE FROM inbox_groups');
+            }
+
+            // Upsert each group
+            for (let i = 0; i < groups.length; i++) {
+                const g = groups[i];
+                if (!g.id || !g.name) continue;
+                await client.query(`
+                    INSERT INTO inbox_groups (id, name, color, note, sort_order, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, NOW())
+                    ON CONFLICT (id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        color = EXCLUDED.color,
+                        note = EXCLUDED.note,
+                        sort_order = EXCLUDED.sort_order,
+                        updated_at = NOW()
+                `, [g.id, g.name, g.color || '#3b82f6', g.note || '', g.sort_order ?? i]);
+            }
+
+            await client.query('COMMIT');
+            console.log(`[API] Saved ${groups.length} inbox groups`);
+            res.json({ success: true, count: groups.length });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    } catch (error) {
+        console.error('[API] Error saving inbox groups:', error);
         res.status(500).json({ error: error.message });
     }
 });

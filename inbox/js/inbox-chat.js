@@ -2115,14 +2115,21 @@ class InboxChatController {
         });
 
         document.getElementById('btnModalSave').addEventListener('click', () => {
+            // Update all groups locally (without individual server syncs)
             overlay.querySelectorAll('.modal-group-item').forEach(item => {
                 const groupId = item.dataset.groupId;
                 const nameInput = item.querySelector('.modal-group-name-input');
                 const noteInput = item.querySelector('.modal-group-note-input');
                 if (nameInput && noteInput) {
-                    this.data.updateGroup(groupId, { name: nameInput.value.trim(), note: noteInput.value.trim() });
+                    const group = this.data.groups.find(g => g.id === groupId);
+                    if (group) {
+                        group.name = nameInput.value.trim();
+                        group.note = noteInput.value.trim();
+                    }
                 }
             });
+            // Single save + server sync
+            this.data.saveAndSync();
             this.renderGroupStats();
             this.renderConversationList();
             if (this.activeConversationId) {

@@ -63,7 +63,8 @@ class InboxDataManager {
                 await this.loadConversations(true);
             }
 
-            // Sync labels from server (cross-device)
+            // Sync groups + labels from server (cross-device)
+            await this.loadGroupsFromServer();
             this.syncLabelsFromServer();
 
             this.recalculateGroupCounts();
@@ -104,17 +105,64 @@ class InboxDataManager {
     }
 
     loadGroups() {
+        // Load from localStorage first (immediate, offline cache)
         try {
             const saved = localStorage.getItem('inbox_groups');
             if (saved) {
-                const parsed = JSON.parse(saved);
-                this.groups = parsed.map(g => ({ note: '', ...g }));
+                this.groups = JSON.parse(saved).map(g => ({ note: '', ...g }));
             } else {
                 this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
             }
         } catch {
             this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
         }
+    }
+
+    /**
+     * Fetch groups from server (call after init, async)
+     */
+    async loadGroupsFromServer() {
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        try {
+            const response = await fetch(`${workerUrl}/api/realtime/inbox-groups`);
+            const data = await response.json();
+            if (data.groups?.length > 0) {
+                this.groups = data.groups.map(g => ({
+                    id: g.id,
+                    name: g.name,
+                    color: g.color || '#3b82f6',
+                    note: g.note || '',
+                    count: 0,
+                }));
+                localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
+                console.log(`[InboxData] Loaded ${this.groups.length} groups from server`);
+            } else {
+                // Server empty → seed defaults
+                console.log('[InboxData] No groups on server, seeding defaults');
+                this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
+                this.saveGroupsToServer();
+            }
+        } catch (err) {
+            console.warn('[InboxData] Failed to load groups from server, using local:', err.message);
+        }
+    }
+
+    /**
+     * Save groups to server (fire-and-forget) + localStorage cache
+     */
+    saveGroupsToServer() {
+        localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
+        const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/realtime/inbox-groups`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                groups: this.groups.map((g, i) => ({
+                    id: g.id, name: g.name, color: g.color, note: g.note || '', sort_order: i
+                }))
+            })
+        }).then(() => console.log('[InboxData] Groups saved to server'))
+          .catch(err => console.warn('[InboxData] Failed to save groups to server:', err.message));
     }
 
     /**
@@ -487,6 +535,14 @@ class InboxDataManager {
         } catch (e) {
             console.error('[InboxData] Save error:', e);
         }
+    }
+
+    /**
+     * Save groups + sync to server (call from group management operations)
+     */
+    saveAndSync() {
+        this.save();
+        this.saveGroupsToServer();
     }
 
     recalculateGroupCounts() {
@@ -968,7 +1024,7 @@ class InboxDataManager {
         const id = 'group_' + Date.now();
         const group = { id, name, color, count: 0, note: note || '' };
         this.groups.push(group);
-        this.save();
+        this.saveAndSync();
         return group;
     }
 
@@ -978,7 +1034,7 @@ class InboxDataManager {
             if (updates.name !== undefined) group.name = updates.name;
             if (updates.color !== undefined) group.color = updates.color;
             if (updates.note !== undefined) group.note = updates.note;
-            this.save();
+            this.saveAndSync();
         }
     }
 
@@ -993,7 +1049,7 @@ class InboxDataManager {
             });
             this.groups.splice(idx, 1);
             this.recalculateGroupCounts();
-            this.save();
+            this.saveAndSync();
         }
     }
 
