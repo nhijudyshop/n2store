@@ -1057,6 +1057,34 @@ body.col-resizing .resize-handle {
     color: rgba(255,255,255,0.85);
 }
 
+/* Quoted message (reply) */
+.quoted-message {
+    background: rgba(0,0,0,0.05);
+    border-left: 3px solid #3b82f6;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.quoted-message:hover {
+    background: rgba(0,0,0,0.08);
+}
+
+.message-row.outgoing .quoted-message {
+    background: rgba(255,255,255,0.15);
+    border-left-color: rgba(255,255,255,0.5);
+}
+
+.message-row.outgoing .quoted-message:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.message-row.outgoing .quoted-message div {
+    color: rgba(255,255,255,0.85) !important;
+}
+
 /* =====================================================
    CHAT LABEL BAR - Inline label assignment in chat
    ===================================================== */

@@ -4,6 +4,15 @@
    tpos-pancake version has built-in Instagram page filtering
    ===================================================== */
 
+/**
+ * Remove Vietnamese diacritics for search matching
+ * "Huỳnh Thành Đạt" → "huynh thanh dat"
+ */
+function removeDiacritics(str) {
+    if (!str) return '';
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
+
 // Default group labels for categorizing conversations
 const DEFAULT_GROUPS = [
     { id: 'new', name: 'Inbox Mới', color: '#3b82f6', count: 0, note: 'Các tin nhắn mới từ khách hàng chưa được xử lý, cần phản hồi sớm.' },
@@ -575,12 +584,12 @@ class InboxDataManager {
         }
 
         if (search) {
-            const q = search.toLowerCase();
+            const q = removeDiacritics(search);
             result = result.filter(c =>
-                c.name.toLowerCase().includes(q) ||
-                c.lastMessage.toLowerCase().includes(q) ||
+                removeDiacritics(c.name).includes(q) ||
+                removeDiacritics(c.lastMessage).includes(q) ||
                 (c.phone && c.phone.includes(q)) ||
-                (c.pageName && c.pageName.toLowerCase().includes(q))
+                removeDiacritics(c.pageName).includes(q)
             );
         }
 

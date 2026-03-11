@@ -1508,6 +1508,32 @@ class InboxChatController {
      */
     renderAttachments(attachments) {
         return attachments.map(att => {
+            // Replied Message (Quoted message) — no URL needed
+            if (att.type === 'replied_message') {
+                const quotedText = att.message || '';
+                const quotedFrom = att.from?.name || att.from?.admin_name || '';
+                const quotedId = att.id || att.message_id || att.mid || '';
+                let attachPreview = '';
+                if (att.attachments?.length > 0) {
+                    const qAtt = att.attachments[0];
+                    const qUrl = qAtt.url || qAtt.file_url || '';
+                    if ((qAtt.type === 'photo' || qAtt.mime_type?.startsWith('image/')) && qUrl) {
+                        attachPreview = `<img src="${qUrl}" style="max-width:60px;max-height:40px;border-radius:4px;margin-top:3px;object-fit:cover;" loading="lazy">`;
+                    } else if (qAtt.type === 'sticker' && qUrl) {
+                        attachPreview = `<img src="${qUrl}" style="max-width:40px;max-height:40px;margin-top:3px;" loading="lazy">`;
+                    } else {
+                        attachPreview = `<span style="font-size:11px;color:#9ca3af;"><i data-lucide="paperclip" style="width:10px;height:10px;display:inline;"></i> Tệp đính kèm</span>`;
+                    }
+                }
+                const content = quotedText
+                    ? `<div style="font-size:12px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">${this.escapeHtml(quotedText)}</div>`
+                    : (attachPreview || '<span style="font-size:11px;color:#9ca3af;">[Tin nhắn]</span>');
+                return `<div class="quoted-message" ${quotedId ? `data-msg-id="${quotedId}"` : ''}>
+                    <div style="font-size:11px;color:#6b7280;margin-bottom:2px;"><i data-lucide="corner-up-left" style="width:10px;height:10px;display:inline;"></i> ${this.escapeHtml(quotedFrom)}</div>
+                    ${content}${quotedText && attachPreview ? `<div>${attachPreview}</div>` : ''}
+                </div>`;
+            }
+
             const url = att.url || att.file_url || att.preview_url || att.payload?.url || att.src || '';
             if (!url) return '';
 

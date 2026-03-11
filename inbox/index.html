@@ -13,6 +13,10 @@
 
         <!-- External CSS -->
         <link rel="stylesheet" href="css/inbox.css" />
+        <link rel="stylesheet" href="css/quick-reply-modal.css" />
+
+        <!-- Font Awesome (for quick reply modal icons) -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
 
         <!-- ES Module: Shared utilities -->
         <script type="module" src="../shared/esm/compat.js"></script>
@@ -274,6 +278,9 @@
                             </select>
                         </div>
                         <div class="chat-input-toolbar-btns">
+                            <button class="btn-icon-sm" title="Mẫu trả lời nhanh" id="btnQuickReply" onclick="window.quickReplyManager?.openModal('chatInput')">
+                                <i data-lucide="message-square-text"></i>
+                            </button>
                             <button class="btn-icon-sm" title="Đính kèm ảnh" id="btnAttachImage">
                                 <i data-lucide="image"></i>
                             </button>
@@ -678,6 +685,9 @@
         <script src="../shared/js/pancake-data-manager.js"></script>
         <script src="../shared/js/pancake-settings.js"></script>
         <script src="../shared/js/goong-places.js"></script>
+
+        <!-- Quick Reply Manager (shared) -->
+        <script src="../shared/js/quick-reply-manager.js"></script>
 
         <!-- Inbox modules -->
         <script src="js/inbox-data.js"></script>
