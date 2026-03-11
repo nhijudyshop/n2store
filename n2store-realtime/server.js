@@ -1251,7 +1251,7 @@ app.get('/api/realtime/livestream-conversations', async (req, res) => {
     }
     try {
         const result = await dbPool.query(
-            'SELECT * FROM livestream_conversations ORDER BY updated_at DESC'
+            "SELECT * FROM livestream_conversations WHERE post_id != 'inbox' ORDER BY updated_at DESC"
         );
 
         // Group by post_id + collect post names
