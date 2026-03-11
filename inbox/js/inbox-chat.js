@@ -633,6 +633,7 @@ class InboxChatController {
                 .filter(c => !localIds.has(c.id))
                 .map(c => this.data.mapConversation(c));
             conversations = [...localResults, ...apiMapped];
+            conversations.sort((a, b) => b.time - a.time);
         } else {
             conversations = this.data.getConversations({
                 search: this.searchQuery,
