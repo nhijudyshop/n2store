@@ -757,8 +757,8 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             // Update selectedCampaign
             selectedCampaign = { isCustom: true };
 
-            // Load general employee ranges for custom mode
-            console.log('[EMPLOYEE] Loading general employee ranges for restored custom mode');
+            // Custom mode: no campaign selected, clear employee ranges
+            console.log('[EMPLOYEE] Custom mode - no campaign, clearing employee ranges');
             await loadEmployeeRangesForCampaign(null);
 
             if (autoLoad && savedPrefs.customStartDate) {
@@ -936,8 +936,8 @@ async function handleCampaignChange() {
             customStartDate: customStartDateInput.value
         });
 
-        // Load employee ranges (general, no campaign)
-        console.log('[EMPLOYEE] Loading general employee ranges for custom mode');
+        // Custom mode: no campaign selected, clear employee ranges
+        console.log('[EMPLOYEE] Custom mode - no campaign, clearing employee ranges');
         await loadEmployeeRangesForCampaign(null);
 
         // Don't auto-search yet, wait for user to confirm custom date
@@ -971,7 +971,7 @@ async function handleCampaignChange() {
         console.log(`[CAMPAIGN-SWITCH] ✅ Employee ranges loaded. Count: ${window.employeeRanges?.length || 0}`);
         console.log(`[CAMPAIGN-SWITCH] 📋 Ranges:`, window.employeeRanges);
     } else {
-        console.log('[CAMPAIGN-SWITCH] Loading general employee ranges (no campaign selected)');
+        console.log('[CAMPAIGN-SWITCH] No campaign selected, clearing employee ranges');
         await loadEmployeeRangesForCampaign(null);
     }
 
