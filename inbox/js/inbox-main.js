@@ -125,6 +125,13 @@ function initColumnResizer() {
    ===================================================== */
 
 async function initInboxApp() {
+    // ===== Permission Check =====
+    if (typeof PermissionHelper !== 'undefined') {
+        if (!PermissionHelper.enforcePageAccess('inbox')) {
+            return; // No access - will redirect
+        }
+    }
+
     // Show loading state in conversation list
     const convList = document.getElementById('conversationList');
     if (convList) {
@@ -187,6 +194,11 @@ async function initInboxApp() {
     // Re-initialize Lucide icons after rendering
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
+    }
+
+    // ===== Apply Permission-based UI Restrictions =====
+    if (typeof PermissionHelper !== 'undefined') {
+        PermissionHelper.applyUIRestrictions('inbox');
     }
 
     console.log('[Inbox] App initialized successfully with Pancake API + WebSocket');
