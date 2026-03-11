@@ -30,6 +30,7 @@ class InboxChatController {
         this.isSending = false;
         this.isLoadingMessages = false;
         this.currentSendPageId = null; // Page to send from (null = use conversation's page)
+        this.currentReplyType = null; // 'reply_comment' | 'private_replies' | 'reply_inbox'
 
         // Message pagination (like tpos-pancake)
         this.isLoadingMoreMessages = false;
@@ -591,6 +592,65 @@ class InboxChatController {
         }
     }
 
+    // ===== Reply Type Selector (COMMENT conversations) =====
+
+    /**
+     * Auto-select best reply type based on conversation context.
+     */
+    getAutoReplyType(conv) {
+        if (!conv || conv.type !== 'COMMENT') return null;
+        // Default: public comment reply (visible in chat thread)
+        return 'reply_comment';
+    }
+
+    /**
+     * Show/hide reply-type selector. Only visible for COMMENT conversations.
+     */
+    populateReplyTypeSelector() {
+        const container = document.getElementById('replyTypeSelector');
+        const select = document.getElementById('replyTypeSelect');
+        if (!container || !select) return;
+
+        const conv = this.activeConversationId
+            ? this.data.getConversation(this.activeConversationId)
+            : null;
+
+        if (!conv || conv.type !== 'COMMENT') {
+            container.style.display = 'none';
+            this.currentReplyType = null;
+            this._updateReplyPlaceholder();
+            return;
+        }
+
+        container.style.display = 'flex';
+
+        // Auto-select if not already set
+        if (!this.currentReplyType) {
+            this.currentReplyType = this.getAutoReplyType(conv);
+        }
+        select.value = this.currentReplyType || 'reply_comment';
+
+        // Update placeholder hint
+        this._updateReplyPlaceholder();
+    }
+
+    onReplyTypeChanged(value) {
+        this.currentReplyType = value || null;
+        this._updateReplyPlaceholder();
+        console.log('[InboxChat] Reply type changed to:', value);
+    }
+
+    _updateReplyPlaceholder() {
+        const input = this.elements.chatInput;
+        if (!input) return;
+        const hints = {
+            'reply_comment': 'Trả lời bình luận công khai...',
+            'private_replies': 'Nhắn riêng trên bài viết...',
+            'reply_inbox': 'Gửi tin nhắn Messenger...',
+        };
+        input.placeholder = hints[this.currentReplyType] || 'Nhập tin nhắn...';
+    }
+
     // ===== Avatar Helper (from tpos-pancake) =====
 
     getAvatarHtml(conv, size = 'list') {
@@ -1118,6 +1178,8 @@ class InboxChatController {
         // Show quick reply bar & send page selector
         this.renderQuickReplies();
         this.populateSendPageSelector();
+        this.currentReplyType = null; // Reset on conversation switch
+        this.populateReplyTypeSelector();
     }
 
     /**
@@ -1548,10 +1610,12 @@ class InboxChatController {
         const conv = this.data.getConversation(this.activeConversationId);
         if (!conv) return;
 
-        // COMMENT conversations: must reply to a specific comment, no free chat
+        // COMMENT conversations: reply_comment requires a specific comment target
         if (conv.type === 'COMMENT' && !this.replyingTo) {
-            showToast('Bình luận chỉ cho reply. Chọn bình luận để trả lời.', 'warning');
-            return;
+            if (!this.currentReplyType || this.currentReplyType === 'reply_comment') {
+                showToast('Chọn bình luận để trả lời, hoặc đổi kiểu sang "Nhắn riêng" / "Messenger".', 'warning');
+                return;
+            }
         }
 
         this.isSending = true;
@@ -1592,7 +1656,7 @@ class InboxChatController {
             );
 
             if (conv.type === 'COMMENT') {
-                await this._sendComment(url, text, conv, replyData);
+                await this._sendComment(url, text, conv, replyData, this.currentReplyType);
             } else {
                 await this._sendInbox(url, text, conv, replyData);
             }
@@ -1674,56 +1738,62 @@ class InboxChatController {
     }
 
     /**
-     * Send to COMMENT conversation with fallback chain:
-     * reply_comment (public, visible in chat) → private_replies → reply_inbox
+     * Send to COMMENT conversation.
+     * Uses user-selected reply type, with fallback chain on failure.
      */
-    async _sendComment(url, text, conv, replyData) {
+    async _sendComment(url, text, conv, replyData, selectedReplyType) {
         const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
         const fromId = conv.psid || conv._raw?.from?.id || '';
         const messageId = replyData?.msgId || conv.conversationId;
 
-        // Step 1: Try reply_comment (public comment reply — visible in chat)
-        console.log('[InboxChat] Sending reply_comment:', { messageId });
-        try {
-            await this._sendApi(url, {
-                action: 'reply_comment',
-                message_id: messageId,
-                message: text
-            });
-            console.log('[InboxChat] reply_comment succeeded');
-            return;
-        } catch (err1) {
-            console.warn('[InboxChat] reply_comment failed:', err1.message);
+        const actions = {
+            reply_comment: () => this._sendApi(url, {
+                action: 'reply_comment', message_id: messageId, message: text
+            }),
+            private_replies: () => this._sendApi(url, {
+                action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text
+            }),
+            reply_inbox: () => this._sendApi(url, {
+                action: 'reply_inbox', message: text
+            }),
+        };
+
+        const labels = {
+            reply_comment: 'Bình luận công khai',
+            private_replies: 'Nhắn riêng',
+            reply_inbox: 'Messenger',
+        };
+
+        // Build ordered list: selected type first, then remaining as fallback
+        const type = selectedReplyType || 'reply_comment';
+        const order = [type, ...Object.keys(actions).filter(k => k !== type)];
+
+        for (let i = 0; i < order.length; i++) {
+            const action = order[i];
+            const isFallback = i > 0;
+
+            if (isFallback) {
+                console.log(`[InboxChat] Fallback to ${action}...`);
+            } else {
+                console.log(`[InboxChat] Sending ${action}:`, { messageId });
+            }
+
+            try {
+                await actions[action]();
+                console.log(`[InboxChat] ${action} succeeded`);
+                if (action !== 'reply_comment') {
+                    showToast(`Đã gửi qua ${labels[action]} (không hiện trong bình luận)`, 'info');
+                }
+                if (isFallback) {
+                    showToast(`${labels[type]} thất bại, đã gửi qua ${labels[action]}`, 'warning');
+                }
+                return;
+            } catch (err) {
+                console.warn(`[InboxChat] ${action} failed:`, err.message);
+            }
         }
 
-        // Step 2: Fallback to private_replies
-        console.log('[InboxChat] Trying private_replies fallback...');
-        try {
-            await this._sendApi(url, {
-                action: 'private_replies',
-                post_id: postId,
-                message_id: messageId,
-                from_id: fromId,
-                message: text
-            });
-            console.log('[InboxChat] private_replies succeeded');
-            showToast('Đã gửi tin nhắn riêng (không hiện trong bình luận)', 'info');
-            return;
-        } catch (err2) {
-            console.warn('[InboxChat] private_replies failed:', err2.message);
-        }
-
-        // Step 3: Last resort - reply_inbox
-        console.log('[InboxChat] Trying reply_inbox as last resort...');
-        try {
-            await this._sendApi(url, { action: 'reply_inbox', message: text });
-            console.log('[InboxChat] reply_inbox succeeded');
-            showToast('Đã gửi qua Messenger (không hiện trong bình luận)', 'info');
-            return;
-        } catch (err3) {
-            console.error('[InboxChat] All 3 methods failed');
-            throw err3;
-        }
+        throw new Error('Tất cả phương thức gửi đều thất bại');
     }
 
     /**
@@ -2497,12 +2567,15 @@ class InboxChatController {
             bar.style.display = 'flex';
         }
         this.elements.chatInput.focus();
+        this.populateReplyTypeSelector();
     }
 
     cancelReply() {
         this.replyingTo = null;
+        this.currentReplyType = null;
         const bar = document.getElementById('replyPreviewBar');
         if (bar) bar.style.display = 'none';
+        this.populateReplyTypeSelector();
     }
 
     // ===== Reaction Picker =====

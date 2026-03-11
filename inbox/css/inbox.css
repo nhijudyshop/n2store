@@ -1077,6 +1077,7 @@ body.col-resizing .resize-handle {
     justify-content: space-between;
     gap: var(--spacing-sm);
     padding-bottom: var(--spacing-xs);
+    flex-wrap: wrap;
 }
 .chat-input-toolbar-btns {
     display: flex;
@@ -1105,6 +1106,32 @@ body.col-resizing .resize-handle {
     font-size: 11px;
     cursor: pointer;
     max-width: 160px;
+}
+
+/* Reply Type Selector (COMMENT conversations) */
+.reply-type-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+}
+.reply-type-label {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    font-size: 11px;
+}
+.reply-type-selector select {
+    padding: 3px 6px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: white;
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    max-width: 200px;
 }
 
 .chat-input-wrapper {

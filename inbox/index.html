@@ -262,6 +262,18 @@
                                 <option value="">Trang hiện tại</option>
                             </select>
                         </div>
+                        <!-- Reply Type Selector (COMMENT only) -->
+                        <div class="reply-type-selector" id="replyTypeSelector" style="display:none;">
+                            <label class="reply-type-label">
+                                <i data-lucide="message-square" style="width:12px;height:12px;"></i>
+                                Kiểu:
+                            </label>
+                            <select id="replyTypeSelect" onchange="window.inboxChat?.onReplyTypeChanged(this.value)">
+                                <option value="reply_comment">Bình luận (công khai)</option>
+                                <option value="private_replies">Nhắn riêng (post)</option>
+                                <option value="reply_inbox">Messenger</option>
+                            </select>
+                        </div>
                         <div class="chat-input-toolbar-btns">
                             <button class="btn-icon-sm" title="Đính kèm ảnh" id="btnAttachImage">
                                 <i data-lucide="image"></i>
