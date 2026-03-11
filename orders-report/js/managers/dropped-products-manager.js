@@ -182,6 +182,19 @@
                 // Log for debugging (skip during initial load to reduce spam)
                 if (!isFirstLoad) {
                     console.log('[DROPPED-PRODUCTS] ✓ Item added by user:', itemId, itemData.ProductNameGet);
+
+                    // Real-time notification for sale_removed items
+                    if (itemData.reason === 'sale_removed') {
+                        const removedBy = itemData.removedBy || 'Sale';
+                        const productName = itemData.ProductNameGet || itemData.ProductName || 'SP';
+                        const qty = itemData.Quantity || 1;
+                        const stt = itemData.removedFromOrderSTT || '?';
+                        const customer = itemData.removedFromCustomer || '?';
+                        const msg = `🔔 ${removedBy} vừa xả ${productName} x${qty} từ đơn STT ${stt} (${customer})`;
+                        if (window.notificationManager) {
+                            window.notificationManager.show(msg, 'warning', 5000);
+                        }
+                    }
                 }
 
                 // Update UI with debounce to prevent stack overflow
@@ -433,14 +446,15 @@
      * Add product to dropped list
      * FIREBASE-ONLY: Uses transaction for atomic quantity updates in multi-user environment
      */
-    window.addToDroppedProducts = async function (product, quantity, reason = 'removed', holderName = null) {
+    window.addToDroppedProducts = async function (product, quantity, reason = 'removed', holderName = null, metadata = null) {
         if (!firebaseDb) {
             showError('Firebase không khả dụng');
             return;
         }
 
-        console.log('[DROPPED-PRODUCTS] Adding product:', product.ProductNameGet, 'qty:', quantity);
+        console.log('[DROPPED-PRODUCTS] Adding product:', product.ProductNameGet, 'qty:', quantity, 'reason:', reason);
         // Note: holderName parameter is deprecated - heldBy is now computed dynamically from held_products
+        // metadata: optional object { removedBy, removedFromOrderSTT, removedFromCustomer, removedAt }
 
         try {
             // Check if product already exists
@@ -453,13 +467,22 @@
                 await itemRef.transaction((current) => {
                     if (current === null) return current; // Item was deleted, abort
 
-                    // Atomic increment - NO longer storing heldBy
+                    // Atomic increment
                     const updates = {
                         ...current,
                         Quantity: (current.Quantity || 0) + quantity,
+                        reason: reason,
                         addedAt: window.firebase.database.ServerValue.TIMESTAMP,
                         addedDate: new Date().toLocaleString('vi-VN')
                     };
+
+                    // Merge metadata if provided (update with latest removal info)
+                    if (metadata) {
+                        if (metadata.removedBy) updates.removedBy = metadata.removedBy;
+                        if (metadata.removedFromOrderSTT) updates.removedFromOrderSTT = metadata.removedFromOrderSTT;
+                        if (metadata.removedFromCustomer) updates.removedFromCustomer = metadata.removedFromCustomer;
+                        updates.removedAt = metadata.removedAt || Date.now();
+                    }
 
                     return updates;
                 });
@@ -481,6 +504,14 @@
                     addedDate: new Date().toLocaleString('vi-VN')
                     // NO heldBy field - computed dynamically
                 };
+
+                // Merge metadata if provided
+                if (metadata) {
+                    if (metadata.removedBy) newItem.removedBy = metadata.removedBy;
+                    if (metadata.removedFromOrderSTT) newItem.removedFromOrderSTT = metadata.removedFromOrderSTT;
+                    if (metadata.removedFromCustomer) newItem.removedFromCustomer = metadata.removedFromCustomer;
+                    newItem.removedAt = metadata.removedAt || Date.now();
+                }
 
                 const newRef = await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(newItem);
                 console.log('[DROPPED-PRODUCTS] ✓ New item created:', newRef.key);
@@ -1062,6 +1093,9 @@
                         })() : isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
                     </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
+                    ${p.removedBy || p.removedFromOrderSTT || p.removedFromCustomer ? `<div style="font-size: 10px; color: #8b5cf6; margin-top: 2px;">
+                        ${p.removedBy ? `Xả bởi: ${p.removedBy}` : ''}${p.removedFromOrderSTT ? ` | STT: ${p.removedFromOrderSTT}` : ''}${p.removedFromCustomer ? ` | KH: ${p.removedFromCustomer}` : ''}
+                    </div>` : ''}
                     ${p._holders && p._holders.length > 1 ? p._holders.slice(1).map(h => {
                         const orderInfo = h.campaign || h.stt ? ` <span style="color: #6b7280;">(${h.campaign ? h.campaign : ''}${h.campaign && h.stt ? ' - ' : ''}${h.stt ? 'STT ' + h.stt : ''})</span>` : '';
                         return `<div style="font-size: 11px; color: #d97706; margin-top: 2px;"><i class="fas fa-user"></i> <strong>${h.name}</strong>${orderInfo}</div>`;

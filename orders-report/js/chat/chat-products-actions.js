@@ -309,6 +309,28 @@
 
             if (!confirmed) return;
 
+            // Phân nhánh theo nguồn SP:
+            // - Từ hàng rớt xả (IsFromDropped) → trả về dropped_products
+            // - Từ kho (search) → chỉ xóa held, giải phóng reserve kho
+            if (heldProduct.IsFromDropped === true && typeof window.addToDroppedProducts === 'function') {
+                try {
+                    await window.addToDroppedProducts({
+                        ProductId: normalizedProductId,
+                        ProductName: heldProduct.ProductName || heldProduct.Name || '',
+                        ProductNameGet: heldProduct.ProductNameGet || heldProduct.ProductName || heldProduct.Name || '',
+                        ProductCode: heldProduct.ProductCode || heldProduct.Code || '',
+                        ImageUrl: heldProduct.ImageUrl || '',
+                        Price: heldProduct.Price || 0,
+                        UOMName: heldProduct.UOMName || 'Cái'
+                    }, heldProduct.Quantity || 1, 'returned_from_held');
+                    console.log('[HELD-DELETE] ✓ Returned to dropped products (was from dropped)');
+                } catch (droppedError) {
+                    console.warn('[HELD-DELETE] Return to dropped failed (non-blocking):', droppedError);
+                }
+            } else {
+                console.log('[HELD-DELETE] Product from search/kho — only removing hold, releasing reserve');
+            }
+
             // Remove from Firebase held_products using normalized ID
             if (typeof window.removeHeldProduct === 'function') {
                 await window.removeHeldProduct(normalizedProductId);
@@ -639,6 +661,33 @@
                     }
                 } catch (kpiError) {
                     console.warn('[DECREASE] KPI audit log failed (non-blocking):', kpiError);
+                }
+            }
+
+            // Chuyển SP qua hàng rớt xả — sale khác có thể claim
+            if (typeof window.addToDroppedProducts === 'function') {
+                try {
+                    const currentUser = window.authManager ? window.authManager.getAuthState() : {};
+                    const orderSTT = window.currentChatOrderData?.Code || window.currentChatOrderData?.Id || '';
+                    const customerName = window.currentChatOrderData?.PartnerName || window.currentChatOrderData?.Partner?.Name || '';
+
+                    await window.addToDroppedProducts({
+                        ProductId: freshProduct.ProductId || normalizedProductId,
+                        ProductName: freshProduct.ProductName || freshProduct.Name || '',
+                        ProductNameGet: freshProduct.ProductNameGet || freshProduct.ProductName || freshProduct.Name || '',
+                        ProductCode: freshProduct.ProductCode || freshProduct.Code || '',
+                        ImageUrl: freshProduct.ImageUrl || '',
+                        Price: freshProduct.Price || 0,
+                        UOMName: freshProduct.UOMName || 'Cái'
+                    }, 1, 'sale_removed', null, {
+                        removedBy: currentUser.displayName || currentUser.userName || currentUser.email || '',
+                        removedFromOrderSTT: String(orderSTT),
+                        removedFromCustomer: customerName,
+                        removedAt: Date.now()
+                    });
+                    console.log('[DECREASE-BY-ID] ✓ Product pushed to dropped products');
+                } catch (droppedError) {
+                    console.warn('[DECREASE-BY-ID] Push to dropped failed (non-blocking):', droppedError);
                 }
             }
 
