@@ -1675,15 +1675,29 @@ class InboxChatController {
 
     /**
      * Send to COMMENT conversation with fallback chain:
-     * private_replies → reply_inbox → reply_comment (public)
+     * reply_comment (public, visible in chat) → private_replies → reply_inbox
      */
     async _sendComment(url, text, conv, replyData) {
         const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
         const fromId = conv.psid || conv._raw?.from?.id || '';
         const messageId = replyData?.msgId || conv.conversationId;
 
-        // Step 1: Try private_replies (send private message to commenter)
-        console.log('[InboxChat] Sending private_replies:', { postId, messageId, fromId });
+        // Step 1: Try reply_comment (public comment reply — visible in chat)
+        console.log('[InboxChat] Sending reply_comment:', { messageId });
+        try {
+            await this._sendApi(url, {
+                action: 'reply_comment',
+                message_id: messageId,
+                message: text
+            });
+            console.log('[InboxChat] reply_comment succeeded');
+            return;
+        } catch (err1) {
+            console.warn('[InboxChat] reply_comment failed:', err1.message);
+        }
+
+        // Step 2: Fallback to private_replies
+        console.log('[InboxChat] Trying private_replies fallback...');
         try {
             await this._sendApi(url, {
                 action: 'private_replies',
@@ -1693,37 +1707,22 @@ class InboxChatController {
                 message: text
             });
             console.log('[InboxChat] private_replies succeeded');
-            showToast('Đã gửi tin nhắn riêng', 'success');
-            return;
-        } catch (err1) {
-            console.warn('[InboxChat] private_replies failed:', err1.message);
-        }
-
-        // Step 2: Fallback to reply_inbox (messenger reply)
-        console.log('[InboxChat] Trying reply_inbox fallback...');
-        try {
-            await this._sendApi(url, { action: 'reply_inbox', message: text });
-            console.log('[InboxChat] reply_inbox fallback succeeded');
-            showToast('Đã gửi qua Messenger', 'success');
+            showToast('Đã gửi tin nhắn riêng (không hiện trong bình luận)', 'info');
             return;
         } catch (err2) {
-            console.warn('[InboxChat] reply_inbox fallback failed:', err2.message);
+            console.warn('[InboxChat] private_replies failed:', err2.message);
         }
 
-        // Step 3: Last resort - reply_comment (public comment reply)
-        console.log('[InboxChat] Trying reply_comment (public) as last resort...');
+        // Step 3: Last resort - reply_inbox
+        console.log('[InboxChat] Trying reply_inbox as last resort...');
         try {
-            await this._sendApi(url, {
-                action: 'reply_comment',
-                message_id: messageId,
-                message: text
-            });
-            console.log('[InboxChat] reply_comment succeeded');
-            showToast('Đã trả lời bình luận công khai', 'success');
+            await this._sendApi(url, { action: 'reply_inbox', message: text });
+            console.log('[InboxChat] reply_inbox succeeded');
+            showToast('Đã gửi qua Messenger (không hiện trong bình luận)', 'info');
             return;
         } catch (err3) {
             console.error('[InboxChat] All 3 methods failed');
-            throw err3; // Throw last error
+            throw err3;
         }
     }
 
