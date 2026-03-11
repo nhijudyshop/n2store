@@ -129,8 +129,27 @@ async function ensureTablesExist() {
         await dbPool.query(`
             DROP TABLE IF EXISTS livestream_customers;
             DROP TABLE IF EXISTS pinned_conversations;
-            DROP TABLE IF EXISTS conversation_labels;
         `);
+
+        // Create conversation_labels table (dedicated label storage, separate from livestream)
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS conversation_labels (
+                conv_id VARCHAR(500) PRIMARY KEY,
+                labels TEXT NOT NULL DEFAULT '["new"]',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // One-time migration: copy labels from livestream_conversations to conversation_labels
+        await dbPool.query(`
+            INSERT INTO conversation_labels (conv_id, labels, updated_at)
+            SELECT conv_id, label, updated_at FROM livestream_conversations
+            WHERE label IS NOT NULL AND label != 'new' AND label != '["new"]'
+            ON CONFLICT (conv_id) DO NOTHING
+        `).catch(() => {});
+
+        // Clean up: remove fake 'inbox' rows from livestream_conversations (created by old label upsert)
+        await dbPool.query(`DELETE FROM livestream_conversations WHERE post_id = 'inbox'`).catch(() => {});
 
         // Create inbox_groups table (group definitions synced across devices)
         await dbPool.query(`
@@ -1251,7 +1270,7 @@ app.get('/api/realtime/livestream-conversations', async (req, res) => {
     }
     try {
         const result = await dbPool.query(
-            "SELECT * FROM livestream_conversations WHERE post_id != 'inbox' ORDER BY updated_at DESC"
+            'SELECT * FROM livestream_conversations ORDER BY updated_at DESC'
         );
 
         // Group by post_id + collect post names
@@ -1342,16 +1361,20 @@ app.delete('/api/realtime/livestream-conversations', async (req, res) => {
     }
 });
 
-// GET /api/realtime/conversation-labels - Get labels from livestream_conversations
+// GET /api/realtime/conversation-labels - Get all labels from dedicated table
 app.get('/api/realtime/conversation-labels', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
-        const result = await dbPool.query("SELECT conv_id, label FROM livestream_conversations WHERE label IS NOT NULL AND label != 'new' AND label != '[\"new\"]' ORDER BY updated_at DESC LIMIT 5000");
+        const result = await dbPool.query(`
+            SELECT conv_id, labels FROM conversation_labels
+            WHERE labels != '["new"]' AND labels != 'new'
+            ORDER BY updated_at DESC LIMIT 5000
+        `);
         const labelMap = {};
         for (const row of result.rows) {
-            labelMap[row.conv_id] = row.label;
+            labelMap[row.conv_id] = row.labels;
         }
-        res.json({ success: true, labelMap });
+        res.json({ success: true, labelMap, total: result.rowCount });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -1361,15 +1384,39 @@ app.get('/api/realtime/conversation-labels', async (req, res) => {
 app.put('/api/realtime/conversation-label', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
-        const { convId, label } = req.body;
-        if (!convId || !label) return res.status(400).json({ error: 'convId and label required' });
-        // Upsert: insert if not exists, update if exists (works for all conversations, not just livestream)
+        const { convId, labels } = req.body;
+        // Support both old format {convId, label} and new format {convId, labels}
+        const labelsStr = labels || req.body.label;
+        if (!convId || !labelsStr) return res.status(400).json({ error: 'convId and labels required' });
         const result = await dbPool.query(`
-            INSERT INTO livestream_conversations (conv_id, post_id, label, updated_at)
-            VALUES ($1, 'inbox', $2, NOW())
-            ON CONFLICT (conv_id) DO UPDATE SET label = $2, updated_at = NOW()
-        `, [convId, label]);
+            INSERT INTO conversation_labels (conv_id, labels, updated_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (conv_id) DO UPDATE SET labels = $2, updated_at = NOW()
+        `, [convId, labelsStr]);
         res.json({ success: true, upserted: result.rowCount });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/realtime/conversation-labels/bulk - Bulk upsert labels (for initial sync from localStorage)
+app.put('/api/realtime/conversation-labels/bulk', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'Database not available' });
+    try {
+        const { labelMap } = req.body;
+        if (!labelMap || typeof labelMap !== 'object') return res.status(400).json({ error: 'labelMap required' });
+        let upserted = 0;
+        for (const [convId, labels] of Object.entries(labelMap)) {
+            const labelsStr = typeof labels === 'string' ? labels : JSON.stringify(labels);
+            if (labelsStr === '["new"]' || labelsStr === 'new') continue;
+            await dbPool.query(`
+                INSERT INTO conversation_labels (conv_id, labels, updated_at)
+                VALUES ($1, $2, NOW())
+                ON CONFLICT (conv_id) DO UPDATE SET labels = $2, updated_at = NOW()
+            `, [convId, labelsStr]);
+            upserted++;
+        }
+        res.json({ success: true, upserted });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

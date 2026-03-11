@@ -2027,7 +2027,8 @@ class InboxChatController {
 
         // Fetch all endpoints in parallel
         const endpoints = [
-            { name: 'Livestream Conversations', url: '/api/realtime/livestream-conversations', key: 'posts' },
+            { name: 'Livestream Convs', url: '/api/realtime/livestream-conversations', key: 'posts' },
+            { name: 'Labels', url: '/api/realtime/conversation-labels', key: 'labelMap' },
             { name: 'Pending Customers', url: '/api/realtime/pending-customers?limit=500', key: 'customers' },
             { name: 'Realtime Status', url: '/api/realtime/status', key: null },
         ];
@@ -2089,8 +2090,8 @@ class InboxChatController {
         const d = result.data;
         if (!d) return '0';
         if (d.totalConversations !== undefined) return d.totalConversations;
+        if (d.total !== undefined) return d.total;
         if (d.customers) return d.customers.length;
-        if (d.postTypes) return d.postTypes.length;
         if (d.labelMap) return Object.keys(d.labelMap).length;
         if (d.connected !== undefined) return d.connected ? 'ON' : 'OFF';
         return '?';

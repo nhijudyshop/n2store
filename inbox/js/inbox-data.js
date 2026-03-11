@@ -687,21 +687,15 @@ class InboxDataManager {
         let labels = [...(conv.labels || ['new'])];
 
         if (labelId === 'done') {
-            // "Hoàn Tất" is exclusive — set only this
             labels = ['done'];
         } else {
-            // Remove 'done' if selecting another label
             labels = labels.filter(l => l !== 'done');
-
             if (labels.includes(labelId)) {
                 labels = labels.filter(l => l !== labelId);
             } else {
                 labels.push(labelId);
             }
-
-            // If empty, default to 'new'
             if (labels.length === 0) labels = ['new'];
-            // Remove 'new' if selecting specific labels
             if (labels.length > 1) labels = labels.filter(l => l !== 'new');
         }
 
@@ -710,12 +704,12 @@ class InboxDataManager {
         this.recalculateGroupCounts();
         this.save();
 
-        // Save to server for cross-device sync
+        // Save to dedicated conversation_labels table on server
         const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         fetch(`${workerUrl}/api/realtime/conversation-label`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ convId, label: JSON.stringify(labels) })
+            body: JSON.stringify({ convId, labels: JSON.stringify(labels) })
         }).catch(err => console.warn('[InboxData] Failed to save label to server:', err.message));
     }
 
@@ -723,56 +717,56 @@ class InboxDataManager {
         const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         try {
             const response = await fetch(`${workerUrl}/api/realtime/conversation-labels`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.labelMap) {
-                    let updated = 0;
-                    const serverConvIds = new Set(Object.keys(data.labelMap));
+            if (!response.ok) return;
+            const data = await response.json();
+            if (!data.success || !data.labelMap) return;
 
-                    // Server → local: apply server labels
-                    for (const [convId, label] of Object.entries(data.labelMap)) {
-                        let parsed;
-                        try { parsed = JSON.parse(label); } catch { parsed = [label]; }
-                        if (!Array.isArray(parsed)) parsed = [parsed];
+            let updated = 0;
+            const serverConvIds = new Set(Object.keys(data.labelMap));
 
-                        const current = JSON.stringify(this.labelMap[convId]);
-                        if (current !== JSON.stringify(parsed)) {
-                            this.labelMap[convId] = parsed;
-                            const conv = this.getConversation(convId);
-                            if (conv) conv.labels = parsed;
-                            updated++;
-                        }
-                    }
+            // Server → local: apply server labels
+            for (const [convId, labelsStr] of Object.entries(data.labelMap)) {
+                let parsed;
+                try { parsed = JSON.parse(labelsStr); } catch { parsed = [labelsStr]; }
+                if (!Array.isArray(parsed)) parsed = [parsed];
 
-                    // Local → server: push local labels missing from server
-                    let pushed = 0;
-                    for (const [convId, labels] of Object.entries(this.labelMap)) {
-                        if (serverConvIds.has(convId)) continue;
-                        const arr = Array.isArray(labels) ? labels : [labels];
-                        if (arr.length === 1 && arr[0] === 'new') continue;
-                        fetch(`${workerUrl}/api/realtime/conversation-label`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ convId, label: JSON.stringify(arr) })
-                        }).catch(() => {});
-                        pushed++;
-                    }
-
-                    if (updated > 0) {
-                        this.saveLocalState();
-                        this.recalculateGroupCounts();
-                        if (window.inboxChat) {
-                            window.inboxChat.renderConversationList();
-                            window.inboxChat.renderGroupStats();
-                        }
-                    }
-                    if (updated > 0 || pushed > 0) {
-                        console.log(`[InboxData] Label sync: ${updated} from server, ${pushed} pushed to server`);
-                    }
+                if (JSON.stringify(this.labelMap[convId]) !== JSON.stringify(parsed)) {
+                    this.labelMap[convId] = parsed;
+                    const conv = this.getConversation(convId);
+                    if (conv) conv.labels = parsed;
+                    updated++;
                 }
             }
+
+            // Local → server: bulk push local labels missing from server
+            const localOnly = {};
+            for (const [convId, labels] of Object.entries(this.labelMap)) {
+                if (serverConvIds.has(convId)) continue;
+                const arr = Array.isArray(labels) ? labels : [labels];
+                if (arr.length === 1 && arr[0] === 'new') continue;
+                localOnly[convId] = JSON.stringify(arr);
+            }
+
+            if (Object.keys(localOnly).length > 0) {
+                fetch(`${workerUrl}/api/realtime/conversation-labels/bulk`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ labelMap: localOnly })
+                }).catch(() => {});
+                console.log(`[InboxData] Pushed ${Object.keys(localOnly).length} local labels to server`);
+            }
+
+            if (updated > 0) {
+                this.saveLocalState();
+                this.recalculateGroupCounts();
+                if (window.inboxChat) {
+                    window.inboxChat.renderConversationList();
+                    window.inboxChat.renderGroupStats();
+                }
+                console.log(`[InboxData] Applied ${updated} labels from server`);
+            }
         } catch (err) {
-            console.warn('[InboxData] Failed to sync labels from server:', err.message);
+            console.warn('[InboxData] Failed to sync labels:', err.message);
         }
     }
 
@@ -905,7 +899,7 @@ class InboxDataManager {
                             unread: 0,
                             online: false,
                             phone: '',
-                            labels: sc.label ? (sc.label.startsWith('[') ? JSON.parse(sc.label) : [sc.label]) : ['new'],
+                            labels: this.labelMap[sc.conv_id] || ['new'],
                             isLivestream: true,
                             type: sc.type || 'COMMENT',
                             pageId: sc.page_id || '',
