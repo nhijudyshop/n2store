@@ -961,10 +961,23 @@ class InboxChatController {
                 return;
             }
 
-            // Append new items directly (no full re-render, preserves scroll)
-            const newHtml = newConvs.map(conv => this._buildConvItemHtml(conv)).join('');
-            this.elements.conversationList.insertAdjacentHTML('beforeend', newHtml);
-            this._debouncedCreateIcons();
+            // Filter new conversations by current tab/type before appending
+            let filtered = newConvs;
+            if (this.currentFilter === 'unread') filtered = filtered.filter(c => c.unread > 0);
+            else if (this.currentFilter === 'livestream') filtered = filtered.filter(c => c.isLivestream);
+            else if (this.currentFilter === 'inbox_my') filtered = filtered.filter(c => !c.isLivestream);
+            if (this.currentTypeFilter !== 'all') filtered = filtered.filter(c => c.type === this.currentTypeFilter);
+            if (this.selectedPageIds.size > 0) filtered = filtered.filter(c => this.selectedPageIds.has(c.pageId));
+            if (this.currentFilter === 'livestream' && this.selectedLivestreamPostId) {
+                filtered = filtered.filter(c => c._raw?.post_id === this.selectedLivestreamPostId);
+            }
+
+            // Append filtered items (preserves scroll)
+            if (filtered.length > 0) {
+                const newHtml = filtered.map(conv => this._buildConvItemHtml(conv)).join('');
+                this.elements.conversationList.insertAdjacentHTML('beforeend', newHtml);
+                this._debouncedCreateIcons();
+            }
 
             console.log(`[InboxChat] Loaded ${newConvs.length} more conversations`);
         } catch (error) {
