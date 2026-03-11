@@ -1439,9 +1439,20 @@ class InboxChatController {
                 ? `<span class="message-sender">${this.escapeHtml(msg.senderName)}</span>`
                 : '';
 
-            // Hover action buttons (like, hide/unhide, delete, reply, react)
+            // Determine message type for visual distinction
             const isComment = conv.type === 'COMMENT';
             const isInbox = conv.type === 'INBOX';
+            const isPrivateReply = isComment && msg.replyType === 'private_replies';
+            const isCommentMsg = isComment && !isPrivateReply;
+
+            // Type badge icon (shown in meta area)
+            const typeIcon = isComment
+                ? (isPrivateReply
+                    ? '<span class="msg-type-icon type-inbox" title="Tin nhắn riêng"><i data-lucide="mail"></i></span>'
+                    : '<span class="msg-type-icon type-comment" title="Bình luận"><i data-lucide="message-circle"></i></span>')
+                : '';
+
+            // Hover action buttons (like, hide/unhide, delete, reply, react)
             const likeBtn = isComment ? `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="like" data-msg-id="${msg.id}" title="${msg.userLikes ? 'Bỏ thích' : 'Thích'}"><i data-lucide="${msg.userLikes ? 'heart' : 'heart'}"></i></button>` : '';
             const replyBtn = (isComment && !isOutgoing) ? `<button class="msg-action-btn" data-action="reply" data-msg-id="${msg.id}" title="Trả lời"><i data-lucide="reply"></i></button>` : '';
             const reactBtn = isComment ? `<button class="msg-action-btn" data-action="react" data-msg-id="${msg.id}" title="React"><i data-lucide="smile-plus"></i></button>` : '';
@@ -1454,7 +1465,7 @@ class InboxChatController {
 
             return `
                 ${dateSeparator}
-                <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isRemoved ? 'removed' : ''} ${isHidden ? 'hidden-msg' : ''}">
+                <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isCommentMsg ? 'is-comment' : ''} ${isPrivateReply ? 'is-private-reply' : ''} ${isRemoved ? 'removed' : ''} ${isHidden ? 'hidden-msg' : ''}">
                     ${!isOutgoing ? msgAvatarHtml : ''}
                     <div class="message-bubble">
                         ${messageContent}
@@ -1462,6 +1473,7 @@ class InboxChatController {
                         ${reactionsHtml}
                         ${actionsHtml}
                         <div class="message-meta">
+                            ${typeIcon}
                             ${statusIndicator}
                             ${replyTypeBadge}
                             ${senderHtml}

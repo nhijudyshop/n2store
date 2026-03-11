@@ -995,6 +995,68 @@ body.col-resizing .resize-handle {
     color: var(--text-tertiary);
 }
 
+/* Comment vs Message visual distinction */
+.message-row.is-comment.incoming .message-bubble {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    border-left: 3px solid #f59e0b;
+}
+
+.message-row.is-comment.outgoing .message-bubble {
+    background: #059669;
+    border-left: none;
+    border-right: 3px solid #047857;
+}
+
+.message-row.is-private-reply.outgoing .message-bubble {
+    background: var(--primary);
+    border-right: 3px solid #4f46e5;
+}
+
+.message-row.is-private-reply.incoming .message-bubble {
+    background: #eef2ff;
+    border-color: #a5b4fc;
+    border-left: 3px solid #6366f1;
+}
+
+/* Type icon in message meta */
+.msg-type-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.5625rem;
+    padding: 1px 5px;
+    border-radius: 6px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.msg-type-icon i,
+.msg-type-icon svg {
+    width: 10px;
+    height: 10px;
+}
+
+.msg-type-icon.type-comment {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.message-row.outgoing .msg-type-icon.type-comment {
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85);
+}
+
+.msg-type-icon.type-inbox {
+    background: #e0e7ff;
+    color: #3730a3;
+}
+
+.message-row.outgoing .msg-type-icon.type-inbox {
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85);
+}
+
 /* =====================================================
    CHAT LABEL BAR - Inline label assignment in chat
    ===================================================== */
