@@ -360,9 +360,15 @@
         let totalCustomer = 0, totalDuyen = 0, totalNcc = 0, totalStock = 0;
 
         const rows = products.map((p, i) => {
-            const diff = (p.duyenOrderQty || 0) - (p.nccDeliveredQty || 0);
-            const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
-            const diffText = diff > 0 ? `+${diff}` : diff === 0 ? '0' : String(diff);
+            // Chênh lệch 1: Khách đặt vs Duyên order
+            const diff1 = (p.customerOrderQty || 0) - (p.duyenOrderQty || 0);
+            const diff1Class = diff1 > 0 ? 'diff-positive' : diff1 < 0 ? 'diff-negative' : 'diff-zero';
+            const diff1Text = diff1 > 0 ? `+${diff1}` : diff1 === 0 ? '0' : String(diff1);
+
+            // Chênh lệch 2: Duyên order vs NCC giao
+            const diff2 = (p.duyenOrderQty || 0) - (p.nccDeliveredQty || 0);
+            const diff2Class = diff2 > 0 ? 'diff-positive' : diff2 < 0 ? 'diff-negative' : 'diff-zero';
+            const diff2Text = diff2 > 0 ? `+${diff2}` : diff2 === 0 ? '0' : String(diff2);
 
             totalCustomer += (p.customerOrderQty || 0);
             totalDuyen += (p.duyenOrderQty || 0);
@@ -378,21 +384,24 @@
                 <td class="ledger-editable"><input type="number" value="${p.duyenOrderQty || 0}" min="0"
                     onblur="window.ledgerModule.saveCell('${p.id}', 'duyenOrderQty', this.value)"
                     onkeydown="if(event.key==='Enter') this.blur()"></td>
+                <td class="text-center"><span class="${diff1Class}">${diff1Text}</span></td>
                 <td class="ledger-editable"><input type="number" value="${p.nccDeliveredQty || 0}" min="0"
                     onblur="window.ledgerModule.saveCell('${p.id}', 'nccDeliveredQty', this.value)"
                     onkeydown="if(event.key==='Enter') this.blur()"></td>
+                <td class="text-center"><span class="${diff2Class}">${diff2Text}</span></td>
                 <td class="ledger-editable"><input type="number" value="${p.stockQty || 0}" min="0"
                     onblur="window.ledgerModule.saveCell('${p.id}', 'stockQty', this.value)"
                     onkeydown="if(event.key==='Enter') this.blur()"></td>
-                <td class="text-center"><span class="${diffClass}">${diffText}</span></td>
                 <td class="ledger-editable"><input type="text" value="${p.notes || ''}" placeholder="Ghi chú..."
                     onblur="window.ledgerModule.saveCell('${p.id}', 'notes', this.value)"
                     onkeydown="if(event.key==='Enter') this.blur()"></td>
             </tr>`;
         }).join('');
 
-        const totalDiff = totalDuyen - totalNcc;
-        const totalDiffClass = totalDiff > 0 ? 'diff-positive' : totalDiff < 0 ? 'diff-negative' : 'diff-zero';
+        const totalDiff1 = totalCustomer - totalDuyen;
+        const totalDiff1Class = totalDiff1 > 0 ? 'diff-positive' : totalDiff1 < 0 ? 'diff-negative' : 'diff-zero';
+        const totalDiff2 = totalDuyen - totalNcc;
+        const totalDiff2Class = totalDiff2 > 0 ? 'diff-positive' : totalDiff2 < 0 ? 'diff-negative' : 'diff-zero';
 
         container.innerHTML = `
             <table class="ledger-table-inline">
@@ -400,9 +409,10 @@
                     <th>#</th><th>Mã SP</th><th>Tên SP</th><th>NCC</th>
                     <th class="text-right">SL Khách đặt</th>
                     <th class="text-right">SL Duyên order</th>
+                    <th class="text-center">CL K-D</th>
                     <th class="text-right">SL NCC giao</th>
+                    <th class="text-center">CL D-N</th>
                     <th class="text-right">Tồn kho</th>
-                    <th class="text-center">Chênh lệch</th>
                     <th>Ghi chú</th>
                 </tr></thead>
                 <tbody>${rows}</tbody>
@@ -410,9 +420,10 @@
                     <td colspan="4" class="text-right"><strong>Tổng (${products.length} SP):</strong></td>
                     <td class="text-right"><strong>${totalCustomer}</strong></td>
                     <td class="text-right"><strong>${totalDuyen}</strong></td>
+                    <td class="text-center"><strong class="${totalDiff1Class}">${totalDiff1 > 0 ? '+' + totalDiff1 : totalDiff1}</strong></td>
                     <td class="text-right"><strong>${totalNcc}</strong></td>
+                    <td class="text-center"><strong class="${totalDiff2Class}">${totalDiff2 > 0 ? '+' + totalDiff2 : totalDiff2}</strong></td>
                     <td class="text-right"><strong>${totalStock}</strong></td>
-                    <td class="text-center"><strong class="${totalDiffClass}">${totalDiff > 0 ? '+' + totalDiff : totalDiff}</strong></td>
                     <td></td>
                 </tr></tfoot>
             </table>`;
