@@ -2088,6 +2088,7 @@ class InboxChatController {
     _renderDataCount(result) {
         const d = result.data;
         if (!d) return '0';
+        if (d.totalConversations !== undefined) return d.totalConversations;
         if (d.customers) return d.customers.length;
         if (d.postTypes) return d.postTypes.length;
         if (d.labelMap) return Object.keys(d.labelMap).length;
