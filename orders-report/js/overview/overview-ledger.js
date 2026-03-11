@@ -33,6 +33,42 @@
     }
 
     // =====================================================
+    // PRODUCT INFO EXTRACTION FROM NameGet
+    // =====================================================
+
+    /**
+     * Extract product code from NameGet.
+     * Pattern: "[B34C] B4 0603 ÁO THUN..." → code = "B34C"
+     * Also checks DefaultCode field from TPOS data.
+     */
+    function extractProductCode(product) {
+        if (product.DefaultCode) return product.DefaultCode;
+        const name = product.NameGet || product.Name || '';
+        const match = name.match(/^\[([^\]]+)\]/);
+        return match ? match[1].trim() : '';
+    }
+
+    /**
+     * Extract supplier/NCC name from NameGet.
+     * Pattern: "[B34C] B4 0603 ÁO THUN..." → ncc = "B4"
+     * Takes the first word after the "]" bracket.
+     */
+    function extractNccName(product) {
+        if (product.supplierName) return product.supplierName;
+        if (product.nccName) return product.nccName;
+        const name = product.NameGet || product.Name || '';
+        const match = name.match(/^\[[^\]]+\]\s*(\S+)/);
+        return match ? match[1].trim() : '';
+    }
+
+    /**
+     * Get clean product name from NameGet (full name).
+     */
+    function extractProductName(product) {
+        return product.NameGet || product.ProductNameGet || product.Name || '';
+    }
+
+    // =====================================================
     // REFRESH FROM CACHED DATA
     // =====================================================
 
@@ -81,18 +117,45 @@
                 });
             }
 
-            // Step 2: Pull order-management data (Duyên's soldQty)
+            // Step 2: Pull order-management data (Duyên's soldQty + product info)
             const omSnapshot = await db.ref('orderProducts').once('value');
             const orderProducts = omSnapshot.val() || {};
             const duyenQtyMap = {};
             const nccMap = {};
+            const omProductInfoMap = {}; // Product info from order-management
+            const omStockMap = {}; // QtyAvailable from order-management
 
-            Object.values(orderProducts).forEach(product => {
+            // Check current campaign ID for filtering
+            const currentCampaignForFilter = campaignId;
+
+            Object.entries(orderProducts).forEach(([key, product]) => {
                 if (!product || !product.Id) return;
                 const pid = String(product.Id);
+
+                // Filter by campaign if product has campaignId tag
+                if (product.campaignId && product.campaignId !== currentCampaignForFilter) {
+                    return; // Skip products from other campaigns
+                }
+
                 duyenQtyMap[pid] = product.soldQty || 0;
-                if (product.supplierName || product.nccName) {
-                    nccMap[pid] = product.supplierName || product.nccName || '';
+
+                // Extract NCC from NameGet pattern: "[CODE] NCC ..."
+                const ncc = extractNccName(product);
+                if (ncc) nccMap[pid] = ncc;
+
+                // Extract product code and name from NameGet
+                const code = extractProductCode(product);
+                const name = extractProductName(product);
+                if (code || name) {
+                    omProductInfoMap[pid] = {
+                        productCode: code,
+                        productName: name,
+                    };
+                }
+
+                // Stock from QtyAvailable
+                if (product.QtyAvailable > 0) {
+                    omStockMap[pid] = product.QtyAvailable;
                 }
             });
 
@@ -107,18 +170,22 @@
                 ...Object.keys(existingLedger)
             ]);
 
-            // Step 5: Build updates — preserve manual edits (nccDeliveredQty, stockQty, notes)
+            // Step 5: Build updates — preserve manual edits, enrich from order-management
             const updates = {};
             allPids.forEach(pid => {
                 const existing = existingLedger[pid] || {};
+                const omInfo = omProductInfoMap[pid] || {};
+                const custInfo = productInfoMap[pid] || {};
+
+                // Priority: existing > order-management > customer orders
                 updates[pid] = {
-                    productCode: existing.productCode || productInfoMap[pid]?.productCode || '',
-                    productName: existing.productName || productInfoMap[pid]?.productName || '',
+                    productCode: existing.productCode || omInfo.productCode || custInfo.productCode || '',
+                    productName: existing.productName || omInfo.productName || custInfo.productName || '',
                     nccName: existing.nccName || nccMap[pid] || '',
                     customerOrderQty: qtyMap[pid] || existing.customerOrderQty || 0,
                     duyenOrderQty: duyenQtyMap[pid] || existing.duyenOrderQty || 0,
                     nccDeliveredQty: existing.nccDeliveredQty || 0,
-                    stockQty: existing.stockQty || 0,
+                    stockQty: omStockMap[pid] || existing.stockQty || 0,
                     notes: existing.notes || '',
                     lastUpdated: Date.now()
                 };
@@ -179,23 +246,45 @@
 
             Object.values(orderProducts).forEach(product => {
                 if (!product || !product.Id) return;
+
+                // Filter by campaign if product has campaignId tag
+                if (product.campaignId && product.campaignId !== campaignId) return;
+
                 const pid = String(product.Id);
                 const soldQty = product.soldQty || 0;
 
                 if (ledgerProducts[pid]) {
+                    // Update soldQty
                     if (ledgerProducts[pid].duyenOrderQty !== soldQty) {
                         db.ref(`live_ledger/${campaignId}/products/${pid}/duyenOrderQty`).set(soldQty);
                         updated = true;
                     }
+                    // Update product info if missing in ledger
+                    if (!ledgerProducts[pid].productCode) {
+                        const code = extractProductCode(product);
+                        if (code) db.ref(`live_ledger/${campaignId}/products/${pid}/productCode`).set(code);
+                    }
+                    if (!ledgerProducts[pid].productName || ledgerProducts[pid].productName === '—') {
+                        const name = extractProductName(product);
+                        if (name) db.ref(`live_ledger/${campaignId}/products/${pid}/productName`).set(name);
+                    }
+                    if (!ledgerProducts[pid].nccName) {
+                        const ncc = extractNccName(product);
+                        if (ncc) db.ref(`live_ledger/${campaignId}/products/${pid}/nccName`).set(ncc);
+                    }
+                    // Update stock from QtyAvailable
+                    if (product.QtyAvailable > 0 && ledgerProducts[pid].stockQty === 0) {
+                        db.ref(`live_ledger/${campaignId}/products/${pid}/stockQty`).set(product.QtyAvailable);
+                    }
                 } else if (soldQty > 0) {
                     db.ref(`live_ledger/${campaignId}/products/${pid}`).set({
-                        productCode: product.ProductCode || product.Code || '',
-                        productName: product.ProductName || product.Name || product.ProductNameGet || '',
-                        nccName: product.supplierName || product.nccName || '',
+                        productCode: extractProductCode(product),
+                        productName: extractProductName(product),
+                        nccName: extractNccName(product),
                         customerOrderQty: 0,
                         duyenOrderQty: soldQty,
                         nccDeliveredQty: 0,
-                        stockQty: 0,
+                        stockQty: product.QtyAvailable || 0,
                         notes: '',
                         lastUpdated: Date.now()
                     });

@@ -9,6 +9,8 @@
         let hiddenListSearchKeyword = ''; // Current search keyword for hidden product list
         let isSyncMode = false;
         let autoAddVariants = true; // Mặc định BẬT chế độ tự động thêm variants
+        let currentCampaignId = null; // Current live campaign ID for tagging products
+        let currentCampaignName = null; // Current live campaign display name
 
         // Initialize Firebase using shared config
         const database = initializeRealtimeDB();
@@ -95,7 +97,9 @@
                 PriceVariant: Number(product.PriceVariant) || 0, // Variant price for display
                 addedAt: product.addedAt || Date.now(), // Timestamp for auto-cleanup
                 isHidden: product.isHidden || false, // Hidden status
-                lastRefreshed: product.lastRefreshed || null // Timestamp for image cache-busting
+                lastRefreshed: product.lastRefreshed || null, // Timestamp for image cache-busting
+                campaignId: product.campaignId || currentCampaignId || null, // Live campaign tag
+                campaignName: product.campaignName || currentCampaignName || null // Live campaign name
             };
             return cleanProduct;
         }
@@ -103,6 +107,119 @@
         function cleanProductsArray(products) {
             if (!Array.isArray(products)) return [];
             return products.map(p => cleanProductForFirebase(p));
+        }
+
+        // =====================================================
+        // CAMPAIGN SELECTOR (Đợt Live)
+        // =====================================================
+
+        /**
+         * Load available campaigns from Firestore report_order_details collection
+         * Same source as tab-overview's loadAvailableTables()
+         */
+        async function loadCampaigns() {
+            try {
+                const firestore = firebase.firestore();
+                const snapshot = await firestore.collection('report_order_details').get();
+                const selector = document.getElementById('campaignSelector');
+                if (!selector) return;
+
+                selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
+
+                const campaigns = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const name = data.tableName || doc.id.replace(/_/g, ' ');
+                    const orderCount = data.totalOrders || 0;
+                    const isSavedCopy = data.isSavedCopy || false;
+                    if (!isSavedCopy) {
+                        campaigns.push({ id: doc.id, name, orderCount, fetchedAt: data.fetchedAt });
+                    }
+                });
+
+                // Sort by fetchedAt descending (newest first)
+                campaigns.sort((a, b) => {
+                    const dateA = a.fetchedAt ? new Date(a.fetchedAt).getTime() : 0;
+                    const dateB = b.fetchedAt ? new Date(b.fetchedAt).getTime() : 0;
+                    return dateB - dateA;
+                });
+
+                campaigns.forEach(c => {
+                    const opt = document.createElement('option');
+                    // Campaign ID = sanitized name (same as overview-ledger)
+                    opt.value = c.name.replace(/[.$#\[\]\/]/g, '_');
+                    opt.dataset.campaignName = c.name;
+                    opt.textContent = `${c.name} (${c.orderCount} đơn)`;
+                    selector.appendChild(opt);
+                });
+
+                // Restore last selected campaign
+                const savedCampaignId = localStorage.getItem('om_current_campaign_id');
+                if (savedCampaignId) {
+                    selector.value = savedCampaignId;
+                    const selectedOpt = selector.options[selector.selectedIndex];
+                    if (selectedOpt && selectedOpt.value) {
+                        currentCampaignId = selectedOpt.value;
+                        currentCampaignName = selectedOpt.dataset.campaignName || '';
+                        updateCampaignBadgeOM();
+                    }
+                }
+
+                // Also load default table name from Firestore settings
+                if (!savedCampaignId) {
+                    try {
+                        const settingsDoc = await firestore.collection('settings').doc('table_name').get();
+                        if (settingsDoc.exists) {
+                            const defaultName = settingsDoc.data().name;
+                            if (defaultName) {
+                                const defaultId = defaultName.replace(/[.$#\[\]\/]/g, '_');
+                                selector.value = defaultId;
+                                if (selector.value === defaultId) {
+                                    currentCampaignId = defaultId;
+                                    currentCampaignName = defaultName;
+                                    localStorage.setItem('om_current_campaign_id', defaultId);
+                                    updateCampaignBadgeOM();
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[CAMPAIGN] Could not load default table name:', e);
+                    }
+                }
+
+                console.log(`[CAMPAIGN] Loaded ${campaigns.length} campaigns`);
+            } catch (error) {
+                console.error('[CAMPAIGN] Error loading campaigns:', error);
+            }
+        }
+
+        function handleCampaignChange() {
+            const selector = document.getElementById('campaignSelector');
+            const selectedOpt = selector.options[selector.selectedIndex];
+
+            if (selectedOpt && selectedOpt.value) {
+                currentCampaignId = selectedOpt.value;
+                currentCampaignName = selectedOpt.dataset.campaignName || '';
+                localStorage.setItem('om_current_campaign_id', currentCampaignId);
+                updateCampaignBadgeOM();
+                console.log(`[CAMPAIGN] Selected: ${currentCampaignName} (${currentCampaignId})`);
+            } else {
+                currentCampaignId = null;
+                currentCampaignName = null;
+                localStorage.removeItem('om_current_campaign_id');
+                updateCampaignBadgeOM();
+            }
+        }
+
+        function updateCampaignBadgeOM() {
+            const badge = document.getElementById('campaignBadgeOM');
+            if (!badge) return;
+            if (currentCampaignName) {
+                badge.style.display = 'inline-block';
+                badge.textContent = `✓ ${currentCampaignName}`;
+            } else {
+                badge.style.display = 'none';
+            }
         }
 
         async function cleanupOldProductsLocal() {
@@ -2301,6 +2418,9 @@
             try {
                 await getValidToken();
                 await loadExcelData();
+
+                // Load campaign list from Firestore
+                await loadCampaigns();
 
                 // Load initial data from Firebase FIRST
                 await loadInitialData();

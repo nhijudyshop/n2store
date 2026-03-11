@@ -74,6 +74,12 @@
             margin-bottom: 10px;
         }
 
+        /* Campaign selector option styling */
+        #campaignSelector option {
+            background: #333;
+            color: white;
+        }
+
         /* Settings Button */
         .btn-settings {
             position: absolute;
@@ -2118,6 +2124,16 @@
         <div class="header">
             <h1>📦 Quản lý Order N2STORE</h1>
             <p>Tìm kiếm và quản lý tồn kho sản phẩm</p>
+            <!-- Campaign Selector -->
+            <div id="campaignSelectorContainer" style="margin-top: 10px; display: flex; align-items: center; gap: 10px; justify-content: center;">
+                <label style="color: rgba(255,255,255,0.9); font-weight: 600; font-size: 14px;">
+                    🎯 Đợt Live:
+                </label>
+                <select id="campaignSelector" onchange="handleCampaignChange()" style="padding: 8px 16px; border: 2px solid rgba(255,255,255,0.5); border-radius: 20px; font-size: 14px; font-weight: 600; background: rgba(255,255,255,0.15); color: white; min-width: 200px; cursor: pointer; backdrop-filter: blur(10px);">
+                    <option value="">-- Chọn đợt live --</option>
+                </select>
+                <span id="campaignBadgeOM" style="display: none; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 15px; font-size: 12px; color: rgba(255,255,255,0.9);"></span>
+            </div>
             <button class="btn-settings" id="btnSettings" onclick="toggleSettingsSidebar()">
                 <span class="settings-icon">⚙️</span>
                 <span class="settings-text">Cài đặt</span>
