@@ -360,6 +360,8 @@ let loadingAborted = false;
 let isRendering = false; // Flag to prevent duplicate renders during scroll
 let employeeRanges = []; // Employee STT ranges
 window.employeeRanges = employeeRanges; // Expose globally for debugging
+let employeeViewMode = false; // Toggle: false = normal view, true = grouped by employee view
+window.employeeViewMode = false;
 let selectedCampaign = null; // Currently selected campaign (null = not selected, { isCustom: true } = custom mode)
 
 // Table Sorting State

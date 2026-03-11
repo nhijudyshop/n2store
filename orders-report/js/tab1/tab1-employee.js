@@ -378,6 +378,8 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
         employeeRanges = [];
         window.employeeRanges = [];
         stopEmployeeRangesListener();
+        // Reset view mode when no campaign
+        _resetEmployeeViewModeBtn();
         return Promise.resolve();
     }
 
@@ -484,5 +486,53 @@ function stopEmployeeRangesListener() {
         _currentListeningCampaign = null;
         console.log('[EMPLOYEE] 🛑 Stopped real-time listener');
     }
+}
+
+function _resetEmployeeViewModeBtn() {
+    employeeViewMode = false;
+    window.employeeViewMode = false;
+    const btn = document.getElementById('toggleEmployeeViewBtn');
+    if (btn) {
+        btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+        btn.innerHTML = '<i class="fas fa-layer-group"></i> Xem phân chia nhân viên';
+        btn.title = 'Chuyển sang xem phân chia nhân viên';
+    }
+}
+
+/**
+ * Toggle between normal view and employee grouped view
+ */
+function toggleEmployeeViewMode() {
+    if (employeeRanges.length === 0) {
+        if (window.notificationManager) {
+            window.notificationManager.show('⚠️ Chưa có cấu hình phân chia nhân viên cho chiến dịch này', 'warning');
+        } else {
+            alert('⚠️ Chưa có cấu hình phân chia nhân viên cho chiến dịch này');
+        }
+        return;
+    }
+
+    employeeViewMode = !employeeViewMode;
+    window.employeeViewMode = employeeViewMode;
+
+    const btn = document.getElementById('toggleEmployeeViewBtn');
+    if (btn) {
+        if (employeeViewMode) {
+            btn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            btn.innerHTML = '<i class="fas fa-list"></i> Xem thường';
+            btn.title = 'Chuyển về xem tất cả đơn hàng';
+        } else {
+            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            btn.innerHTML = '<i class="fas fa-layer-group"></i> Xem phân chia nhân viên';
+            btn.title = 'Chuyển sang xem phân chia nhân viên';
+        }
+    }
+
+    // Re-render table with new mode
+    if (typeof performTableSearch === 'function') {
+        performTableSearch();
+    }
+
+    console.log(`[EMPLOYEE] View mode: ${employeeViewMode ? 'grouped by employee' : 'all orders'}`);
 }
 
