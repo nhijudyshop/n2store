@@ -196,6 +196,22 @@ class InboxChatController {
             });
         });
 
+        // Update type filter count badges
+        this._updateTypeFilterCounts = (total, inbox, comment) => {
+            document.querySelectorAll('.type-filter-btn').forEach(btn => {
+                const type = btn.dataset.type;
+                const count = type === 'all' ? total : type === 'INBOX' ? inbox : comment;
+                // Update or create badge span
+                let badge = btn.querySelector('.type-count');
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'type-count';
+                    btn.appendChild(badge);
+                }
+                badge.textContent = `(${count})`;
+            });
+        };
+
         // Livestream post selector
         const livestreamPostSelect = document.getElementById('livestreamPostSelect');
         if (livestreamPostSelect) {
@@ -729,6 +745,12 @@ class InboxChatController {
         if (this.selectedPageIds.size > 0) {
             conversations = conversations.filter(c => this.selectedPageIds.has(c.pageId));
         }
+
+        // Count by type for filter badges (before type filter applied)
+        const totalCount = conversations.length;
+        const inboxCount = conversations.filter(c => c.type === 'INBOX').length;
+        const commentCount = conversations.filter(c => c.type === 'COMMENT').length;
+        this._updateTypeFilterCounts(totalCount, inboxCount, commentCount);
 
         // Apply type filter (INBOX/COMMENT) — across all tabs
         if (this.currentTypeFilter !== 'all') {
