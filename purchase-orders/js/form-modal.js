@@ -2421,6 +2421,12 @@ class PurchaseOrderFormModal {
                                     if (first.image) {
                                         item.productImages = [first.image];
                                     }
+                                    // Save TPOS IDs (same as bulk picker)
+                                    if (first.tposProductId) {
+                                        item.tposProductId = first.tposProductId;
+                                        item.tposSynced = true;
+                                    }
+                                    if (first.tposProductTmplId) item.tposProductTmplId = first.tposProductTmplId;
 
                                     // Remaining products add new rows
                                     for (let i = 1; i < products.length; i++) {
@@ -2433,6 +2439,12 @@ class PurchaseOrderFormModal {
                                         if (product.image) {
                                             newItem.productImages = [product.image];
                                         }
+                                        // Save TPOS IDs (same as bulk picker)
+                                        if (product.tposProductId) {
+                                            newItem.tposProductId = product.tposProductId;
+                                            newItem.tposSynced = true;
+                                        }
+                                        if (product.tposProductTmplId) newItem.tposProductTmplId = product.tposProductTmplId;
                                     }
 
                                     formModal.refreshItemsTable();

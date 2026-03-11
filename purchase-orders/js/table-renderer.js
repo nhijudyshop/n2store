@@ -479,6 +479,8 @@ class PurchaseOrderTableRenderer {
      */
     renderActionCell(order, rowSpan, isSelected, canEdit, canDelete, isProcessing) {
         const isDraft = order.status === 'DRAFT';
+        const items = order.items || [];
+        const canPrintBarcode = isDraft && items.length > 0 && items.every(item => !!item.tposProductId);
 
         return `
             <td class="col-actions" rowspan="${rowSpan}">
@@ -503,7 +505,8 @@ class PurchaseOrderTableRenderer {
                     </button>
                     ` : ''}
 
-                    <!-- Print barcode -->
+                    <!-- Print barcode (only for drafts with all items from inventory) -->
+                    ${canPrintBarcode ? `
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
                             title="In tem barcode"
                             data-action="print-barcode"
@@ -511,6 +514,7 @@ class PurchaseOrderTableRenderer {
                             ${isProcessing ? 'disabled' : ''}>
                         <i data-lucide="printer" class="text-teal"></i>
                     </button>
+                    ` : ''}
 
                     <!-- Copy order -->
                     <button class="btn-icon btn-sm ${isProcessing ? 'disabled' : ''}"
