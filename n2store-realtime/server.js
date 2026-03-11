@@ -113,12 +113,14 @@ async function ensureTablesExist() {
                 page_name VARCHAR(200),
                 psid VARCHAR(100),
                 customer_id VARCHAR(255),
-                label VARCHAR(50) DEFAULT 'new',
+                label TEXT DEFAULT 'new',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
         // Add post_name column if missing (for existing tables)
         await dbPool.query(`ALTER TABLE livestream_conversations ADD COLUMN IF NOT EXISTS post_name TEXT`).catch(() => {});
+        // Widen label column from VARCHAR(50) to TEXT (supports JSON arrays of multiple labels)
+        await dbPool.query(`ALTER TABLE livestream_conversations ALTER COLUMN label TYPE TEXT`).catch(() => {});
         await dbPool.query(`
             CREATE INDEX IF NOT EXISTS idx_livestream_conv_post ON livestream_conversations(post_id);
         `);
@@ -1355,17 +1357,19 @@ app.get('/api/realtime/conversation-labels', async (req, res) => {
     }
 });
 
-// PUT /api/realtime/conversation-label - Update label in livestream_conversations
+// PUT /api/realtime/conversation-label - Upsert label for any conversation
 app.put('/api/realtime/conversation-label', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
         const { convId, label } = req.body;
         if (!convId || !label) return res.status(400).json({ error: 'convId and label required' });
-        // Only update if conversation exists in livestream_conversations
+        // Upsert: insert if not exists, update if exists (works for all conversations, not just livestream)
         const result = await dbPool.query(`
-            UPDATE livestream_conversations SET label = $2, updated_at = NOW() WHERE conv_id = $1
+            INSERT INTO livestream_conversations (conv_id, post_id, label, updated_at)
+            VALUES ($1, 'inbox', $2, NOW())
+            ON CONFLICT (conv_id) DO UPDATE SET label = $2, updated_at = NOW()
         `, [convId, label]);
-        res.json({ success: true, updated: result.rowCount });
+        res.json({ success: true, upserted: result.rowCount });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
