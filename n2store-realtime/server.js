@@ -1346,7 +1346,7 @@ app.delete('/api/realtime/livestream-conversations', async (req, res) => {
 app.get('/api/realtime/conversation-labels', async (req, res) => {
     if (!dbPool) return res.status(503).json({ error: 'Database not available' });
     try {
-        const result = await dbPool.query("SELECT conv_id, label FROM livestream_conversations WHERE label IS NOT NULL AND label != 'new' ORDER BY updated_at DESC LIMIT 5000");
+        const result = await dbPool.query("SELECT conv_id, label FROM livestream_conversations WHERE label IS NOT NULL AND label != 'new' AND label != '[\"new\"]' ORDER BY updated_at DESC LIMIT 5000");
         const labelMap = {};
         for (const row of result.rows) {
             labelMap[row.conv_id] = row.label;

@@ -727,8 +727,10 @@ class InboxDataManager {
                 const data = await response.json();
                 if (data.success && data.labelMap) {
                     let updated = 0;
+                    const serverConvIds = new Set(Object.keys(data.labelMap));
+
+                    // Server → local: apply server labels
                     for (const [convId, label] of Object.entries(data.labelMap)) {
-                        // Parse label (could be JSON array or old string)
                         let parsed;
                         try { parsed = JSON.parse(label); } catch { parsed = [label]; }
                         if (!Array.isArray(parsed)) parsed = [parsed];
@@ -741,6 +743,21 @@ class InboxDataManager {
                             updated++;
                         }
                     }
+
+                    // Local → server: push local labels missing from server
+                    let pushed = 0;
+                    for (const [convId, labels] of Object.entries(this.labelMap)) {
+                        if (serverConvIds.has(convId)) continue;
+                        const arr = Array.isArray(labels) ? labels : [labels];
+                        if (arr.length === 1 && arr[0] === 'new') continue;
+                        fetch(`${workerUrl}/api/realtime/conversation-label`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ convId, label: JSON.stringify(arr) })
+                        }).catch(() => {});
+                        pushed++;
+                    }
+
                     if (updated > 0) {
                         this.saveLocalState();
                         this.recalculateGroupCounts();
@@ -748,7 +765,9 @@ class InboxDataManager {
                             window.inboxChat.renderConversationList();
                             window.inboxChat.renderGroupStats();
                         }
-                        console.log(`[InboxData] Synced ${updated} labels from server`);
+                    }
+                    if (updated > 0 || pushed > 0) {
+                        console.log(`[InboxData] Label sync: ${updated} from server, ${pushed} pushed to server`);
                     }
                 }
             }
