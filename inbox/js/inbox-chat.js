@@ -2180,22 +2180,25 @@ class InboxChatController {
             showToast('Đã thêm nhóm: ' + name, 'success');
         });
 
-        document.getElementById('btnModalSave').addEventListener('click', () => {
-            // Update all groups locally (without individual server syncs)
+        document.getElementById('btnModalSave').addEventListener('click', async () => {
+            // Update all groups locally (name, note, color)
             overlay.querySelectorAll('.modal-group-item').forEach(item => {
                 const groupId = item.dataset.groupId;
                 const nameInput = item.querySelector('.modal-group-name-input');
                 const noteInput = item.querySelector('.modal-group-note-input');
+                const colorEl = item.querySelector('.modal-group-color-pick');
                 if (nameInput && noteInput) {
                     const group = this.data.groups.find(g => g.id === groupId);
                     if (group) {
                         group.name = nameInput.value.trim();
                         group.note = noteInput.value.trim();
+                        if (colorEl) group.color = colorEl.style.background || colorEl.style.backgroundColor;
                     }
                 }
             });
-            // Single save + server sync
-            this.data.saveAndSync();
+            // Save + server sync with feedback
+            this.data.save();
+            const ok = await this.data.saveGroupsToServer();
             this.renderGroupStats();
             this.renderConversationList();
             if (this.activeConversationId) {
@@ -2203,7 +2206,7 @@ class InboxChatController {
                 if (conv) this.renderChatLabelBar(conv);
             }
             overlay.remove();
-            showToast('Đã lưu thay đổi nhóm', 'success');
+            showToast(ok ? 'Đã lưu thay đổi nhóm lên server' : 'Lưu local OK, nhưng server lỗi', ok ? 'success' : 'warning');
         });
     }
 

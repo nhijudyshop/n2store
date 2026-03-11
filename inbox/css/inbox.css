@@ -1514,8 +1514,10 @@ body.col-resizing .resize-handle {
     font-size: 0.75rem;
     font-weight: 400;
     line-height: 1.5;
-    max-width: 260px;
+    width: max-content;
+    max-width: min(260px, calc(100vw - 40px));
     white-space: normal;
+    word-break: break-word;
     box-shadow: var(--shadow-lg);
     z-index: 100;
     pointer-events: none;

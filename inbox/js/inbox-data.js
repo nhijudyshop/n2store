@@ -157,21 +157,29 @@ class InboxDataManager {
     }
 
     /**
-     * Save groups to server (fire-and-forget) + localStorage cache
+     * Save groups to server + localStorage cache. Returns promise for feedback.
      */
-    saveGroupsToServer() {
+    async saveGroupsToServer() {
         localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
         const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/realtime/inbox-groups`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                groups: this.groups.map((g, i) => ({
-                    id: g.id, name: g.name, color: g.color, note: g.note || '', sort_order: i
-                }))
-            })
-        }).then(() => console.log('[InboxData] Groups saved to server'))
-          .catch(err => console.warn('[InboxData] Failed to save groups to server:', err.message));
+        try {
+            const resp = await fetch(`${workerUrl}/api/realtime/inbox-groups`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groups: this.groups.map((g, i) => ({
+                        id: g.id, name: g.name, color: g.color, note: g.note || '', sort_order: i
+                    }))
+                })
+            });
+            if (!resp.ok) throw new Error(`Server ${resp.status}`);
+            console.log('[InboxData] Groups saved to server');
+            return true;
+        } catch (err) {
+            console.error('[InboxData] Failed to save groups to server:', err.message);
+            if (typeof showToast === 'function') showToast('Lỗi lưu nhóm lên server: ' + err.message, 'error');
+            return false;
+        }
     }
 
     /**
