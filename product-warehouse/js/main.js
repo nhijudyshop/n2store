@@ -1,7 +1,9 @@
 /* =====================================================
    KHO SẢN PHẨM - PRODUCT WAREHOUSE
    Main JS - UI with all columns, column visibility,
-   search, filter, sort, pagination
+   search with Excel suggestions, filter, sort,
+   server-side pagination, variant images
+   Data from TPOS OData API via Cloudflare proxy
    ===================================================== */
 
 (function () {
@@ -9,7 +11,6 @@
 
     // =====================================================
     // COLUMN DEFINITIONS (order matches screenshot)
-    // Bỏ cột Thuế % theo yêu cầu
     // =====================================================
     const COLUMNS = [
         { key: 'code',           label: 'Mã',                  visible: true,  locked: false },
@@ -32,53 +33,41 @@
 
     const STORAGE_KEY = 'n2store_warehouse_columns';
 
-    // =====================================================
-    // MOCK DATA - full fields
-    // =====================================================
-    const MOCK_PRODUCTS = [
-        { id:1,  code:'B146', name:'B1 1103 ÁO SMI KẺ BBR NÂU 2665',                  group:'Có thể bán', price:340000, defaultBuyPrice:230000, costPrice:230000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:true,  note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:2,  code:'B147', name:'B1 1103 ÁO SMI ONG THÊU TRẮNG 2667',              group:'Có thể bán', price:320000, defaultBuyPrice:210000, costPrice:210000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:3,  code:'B149', name:'B1 1103 ÁO TD LAI REN NÚT TÍM TRẮNG 88083',      group:'Có thể bán', price:390000, defaultBuyPrice:240000, costPrice:240000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:4,  code:'B148', name:'B1 1103 ÁO SMI TAY REN DỌC TRẮNG 85110',          group:'Có thể bán', price:390000, defaultBuyPrice:290000, costPrice:290000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:5,  code:'B145', name:'B1 1103 ÁO SMI NÚT VÀNG LAI REN TRẮNG 9518',     group:'Có thể bán', price:380000, defaultBuyPrice:260000, costPrice:260000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:6,  code:'B164', name:'B27 1103 ÁO THUN DR NGỰA HOA VĂN NỮ SIZE',       group:'Có thể bán', price:190000, defaultBuyPrice:110000, costPrice:0,      qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:7,  code:'B165', name:'B27 1103 ÁO THUN NGỰA PHI CÁNH HOA HỒNG SIZE',   group:'Có thể bán', price:190000, defaultBuyPrice:110000, costPrice:0,      qtyActual:2,    qtyForecast:2,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:8,  code:'B162', name:'B27 1103 ÁO THUN DR THÀNH PHỐ HOA NỮ SIZE',       group:'Có thể bán', price:190000, defaultBuyPrice:110000, costPrice:0,      qtyActual:2,    qtyForecast:2,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:9,  code:'B161', name:'B27 1103 ÁO THUN DR NGỰA LÂU ĐÀI TRẮNG SIZE',   group:'Có thể bán', price:190000, defaultBuyPrice:110000, costPrice:0,      qtyActual:2,    qtyForecast:2,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:10, code:'B150', name:'B1 1103 ÁO SMI REN CÚC TRẮNG 72015',              group:'Có thể bán', price:360000, defaultBuyPrice:220000, costPrice:220000, qtyActual:3,    qtyForecast:3,    unit:'Cái', label:true,  active:true,  allCompany:true,  note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:11, code:'B151', name:'B1 1103 ÁO SMI TAY BÈO HOA NHÍ TRẮNG 6892',      group:'Có thể bán', price:350000, defaultBuyPrice:210000, costPrice:210000, qtyActual:0,    qtyForecast:0,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'Hết hàng', createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:12, code:'B152', name:'B1 1103 ÁO SMI CÚC NGỌC TAY ĐƠN TRẮNG 5524',    group:'Có thể bán', price:370000, defaultBuyPrice:230000, costPrice:230000, qtyActual:5,    qtyForecast:5,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:13, code:'B153', name:'B1 1103 ÁO SMI DÁNG DÀI TAY BÈO TRẮNG 8823',     group:'Có thể bán', price:340000, defaultBuyPrice:200000, costPrice:200000, qtyActual:0,    qtyForecast:0,    unit:'Cái', label:true,  active:false, allCompany:false, note:'Ngừng kinh doanh', createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:14, code:'B160', name:'B27 1103 ÁO THUN DR NGỰA HOA SEN NỮ SIZE',        group:'Có thể bán', price:190000, defaultBuyPrice:110000, costPrice:0,      qtyActual:4,    qtyForecast:4,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:15, code:'B163', name:'B27 1103 ÁO THUN DR NGỰA CÁNH BƯỚM SIZE',         group:'Có thể bán', price:190000, defaultBuyPrice:110000, costPrice:0,      qtyActual:3,    qtyForecast:3,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:16, code:'B170', name:'B28 1103 ÁO KIỂU NỮ TAY LOÈ REN TRẮNG 4421',     group:'Có thể bán', price:280000, defaultBuyPrice:170000, costPrice:170000, qtyActual:7,    qtyForecast:7,    unit:'Cái', label:true,  active:true,  allCompany:true,  note:'Best seller', createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:17, code:'B171', name:'B28 1103 ÁO KIỂU NỮ CỔ TIM THÊU HOA 3356',       group:'Có thể bán', price:290000, defaultBuyPrice:180000, costPrice:180000, qtyActual:2,    qtyForecast:2,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:18, code:'B172', name:'B28 1103 ÁO KIỂU NỮ DÁNG RỘNG TAY DÀI 5578',     group:'Có thể bán', price:310000, defaultBuyPrice:190000, costPrice:190000, qtyActual:0,    qtyForecast:0,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Admin', image:'' },
-        { id:19, code:'B180', name:'B30 1103 ĐẦM NỮ HOA NHÍ CỔ TRÒN TRẮNG SIZE',     group:'Có thể bán', price:450000, defaultBuyPrice:280000, costPrice:280000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Admin', image:'' },
-        { id:20, code:'B181', name:'B30 1103 ĐẦM NỮ HOA TULIP VÀNG KEM SIZE',         group:'Có thể bán', price:460000, defaultBuyPrice:290000, costPrice:290000, qtyActual:6,    qtyForecast:6,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Admin', image:'' },
-        { id:21, code:'B182', name:'B30 1103 ĐẦM NỮ SỌC CA RÔ ĐEN TRẮNG SIZE',       group:'Có thể bán', price:420000, defaultBuyPrice:260000, costPrice:260000, qtyActual:3,    qtyForecast:3,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Hạnh', image:'' },
-        { id:22, code:'B183', name:'B30 1103 ĐẦM NỮ THÊU HOA LAVENDER TÍM SIZE',      group:'Có thể bán', price:480000, defaultBuyPrice:300000, costPrice:300000, qtyActual:2,    qtyForecast:2,    unit:'Cái', label:true,  active:true,  allCompany:true,  note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Hạnh', image:'' },
-        { id:23, code:'B190', name:'B32 1103 QUẦN NỮ SUÔNG ỐNG RỘNG ĐEN SIZE',        group:'Có thể bán', price:250000, defaultBuyPrice:150000, costPrice:150000, qtyActual:8,    qtyForecast:8,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Hạnh', image:'' },
-        { id:24, code:'B191', name:'B32 1103 QUẦN NỮ ỐNG ĐỨNG NÂU BÊ SIZE',           group:'Có thể bán', price:260000, defaultBuyPrice:160000, costPrice:160000, qtyActual:4,    qtyForecast:4,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Hạnh', image:'' },
-        { id:25, code:'B192', name:'B32 1103 QUẦN NỮ LƯNG CAO CO GIÃN ĐEN SIZE',      group:'Có thể bán', price:270000, defaultBuyPrice:170000, costPrice:170000, qtyActual:0,    qtyForecast:0,    unit:'Cái', label:true,  active:false, allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD SHOP', creator:'Hạnh', image:'' },
-        { id:26, code:'B200', name:'B35 1103 SET BỘ ÁO CHÂN VÁY HOA HỒNG SIZE',       group:'Có thể bán', price:520000, defaultBuyPrice:320000, costPrice:320000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:27, code:'B201', name:'B35 1103 SET BỘ ÁO VEST + QUẦN DÀI ĐEN SIZE',     group:'Có thể bán', price:580000, defaultBuyPrice:360000, costPrice:360000, qtyActual:3,    qtyForecast:3,    unit:'Cái', label:true,  active:true,  allCompany:true,  note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:28, code:'B202', name:'B35 1103 SET BỘ ÁO CROPTOP + CHÂN VÁY TRẮNG',     group:'Có thể bán', price:490000, defaultBuyPrice:300000, costPrice:300000, qtyActual:2,    qtyForecast:2,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:29, code:'B210', name:'B38 1103 ÁO BLAZER NỮ FORM RỘNG KEM SIZE',         group:'Có thể bán', price:550000, defaultBuyPrice:340000, costPrice:340000, qtyActual:1,    qtyForecast:1,    unit:'Cái', label:true,  active:true,  allCompany:false, note:'',  createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-        { id:30, code:'B211', name:'B38 1103 ÁO BLAZER NỮ 2 LỚP ĐEN SIZE',            group:'Có thể bán', price:580000, defaultBuyPrice:360000, costPrice:360000, qtyActual:0,    qtyForecast:0,    unit:'Cái', label:true,  active:false, allCompany:false, note:'Ngừng kinh doanh', createdAt:'2024-11-03', company:'NJD LIVE', creator:'Admin', image:'' },
-    ];
+    // OData sort field mapping (local key → API field)
+    const SORT_FIELD_MAP = {
+        code: 'DefaultCode',
+        name: 'Name',
+        group: 'CategCompleteName',
+        price: 'ListPrice',
+        defaultBuyPrice: 'PurchasePrice',
+        costPrice: 'StandardPrice',
+        qtyActual: 'QtyAvailable',
+        qtyForecast: 'VirtualAvailable',
+        active: 'Active',
+        createdAt: 'DateCreated',
+    };
+
+    const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     // =====================================================
     // STATE
     // =====================================================
-    let allProducts = [...MOCK_PRODUCTS];
-    let filteredProducts = [];
+    let pageProducts = [];   // current page data from API
+    let totalCount = 0;      // total from @odata.count
     let currentPage = 1;
     let pageSize = 50;
-    let sortField = null;
-    let sortDirection = 'asc';
-    let columnVisibility = {};
+    let sortField = 'createdAt';
+    let sortDirection = 'desc';
     let selectedIds = new Set();
+    let isLoading = false;
+
+    // Excel suggestion state
+    let excelProducts = [];       // product list from Excel export
+    let isLoadingExcel = false;
+    let excelLoaded = false;
+
+    // Image cache: templateId → imageUrl
+    let imageCache = {};
 
     // =====================================================
     // DOM REFS
@@ -119,6 +108,388 @@
         return escaped.replace(regex, '<span class="highlight">$1</span>');
     }
 
+    function removeVietnameseTones(str) {
+        if (!str) return '';
+        str = str.toLowerCase();
+        str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+        str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+        str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+        str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+        str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+        str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+        str = str.replace(/đ/g, 'd');
+        return str;
+    }
+
+    // =====================================================
+    // EXCEL SUGGESTION SYSTEM
+    // =====================================================
+
+    /**
+     * Load product data from TPOS Excel export API.
+     * Used for fast client-side search suggestions.
+     */
+    async function loadExcelData() {
+        if (isLoadingExcel || excelLoaded) return;
+        isLoadingExcel = true;
+
+        const suggestionsDiv = $('#searchSuggestions');
+        if (suggestionsDiv) {
+            suggestionsDiv.innerHTML = '<div class="suggestion-loading">Đang tải danh sách sản phẩm...</div>';
+            suggestionsDiv.classList.add('show');
+        }
+
+        try {
+            const response = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: { Active: 'true' }, ids: '' })
+                }
+            );
+
+            if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
+
+            const blob = await response.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+            excelProducts = jsonData.map(row => ({
+                id: row['Id sản phẩm (*)'],
+                name: row['Tên sản phẩm'] || '',
+                nameNoSign: removeVietnameseTones(row['Tên sản phẩm'] || ''),
+                code: row['Mã sản phẩm'] || '',
+                image: row['Link ảnh'] || ''
+            }));
+
+            excelLoaded = true;
+            console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
+        } catch (error) {
+            console.error('[Warehouse] Excel load error:', error);
+            showToast('Lỗi tải suggestion: ' + error.message, 'error');
+        } finally {
+            isLoadingExcel = false;
+        }
+    }
+
+    /**
+     * Search products from Excel data for suggestions.
+     * Matches by code, name (with and without Vietnamese tones).
+     */
+    function searchProductsSuggestion(searchText) {
+        if (!searchText || searchText.length < 2 || excelProducts.length === 0) return [];
+
+        const searchLower = searchText.toLowerCase();
+        const searchNoSign = removeVietnameseTones(searchText);
+
+        const matched = excelProducts.filter(p => {
+            const matchName = p.nameNoSign.includes(searchNoSign);
+            const matchNameOriginal = p.name.toLowerCase().includes(searchLower);
+            const matchCode = p.code.toLowerCase().includes(searchLower);
+            return matchName || matchNameOriginal || matchCode;
+        });
+
+        // Sort: bracket match first, then code match, then alphabetical
+        matched.sort((a, b) => {
+            const extractBracket = (name) => {
+                const m = name?.match(/\[([^\]]+)\]/);
+                return m ? m[1].toLowerCase().trim() : '';
+            };
+
+            const aBracket = extractBracket(a.name);
+            const bBracket = extractBracket(b.name);
+            const aInBracket = aBracket && aBracket.includes(searchLower);
+            const bInBracket = bBracket && bBracket.includes(searchLower);
+
+            if (aInBracket && !bInBracket) return -1;
+            if (!aInBracket && bInBracket) return 1;
+
+            if (aInBracket && bInBracket) {
+                if (aBracket === searchLower && bBracket !== searchLower) return -1;
+                if (aBracket !== searchLower && bBracket === searchLower) return 1;
+                if (aBracket.length !== bBracket.length) return aBracket.length - bBracket.length;
+                return aBracket.localeCompare(bBracket);
+            }
+
+            const aCode = a.code.toLowerCase().includes(searchLower);
+            const bCode = b.code.toLowerCase().includes(searchLower);
+            if (aCode && !bCode) return -1;
+            if (!aCode && bCode) return 1;
+
+            return a.name.localeCompare(b.name);
+        });
+
+        return matched.slice(0, 10);
+    }
+
+    /**
+     * Display suggestion dropdown below search input.
+     */
+    function displaySuggestions(suggestions) {
+        const suggestionsDiv = $('#searchSuggestions');
+        if (!suggestionsDiv) return;
+
+        if (suggestions.length === 0) {
+            suggestionsDiv.classList.remove('show');
+            return;
+        }
+
+        suggestionsDiv.innerHTML = suggestions.map(p => {
+            const imgHtml = p.image
+                ? `<img class="sugg-img" src="${escapeHtml(p.image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="sugg-img-placeholder" style="display:none">?</div>`
+                : `<div class="sugg-img-placeholder">?</div>`;
+            return `<div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
+                ${imgHtml}
+                <div class="sugg-info">
+                    <div class="sugg-code">${escapeHtml(p.code)}</div>
+                    <div class="sugg-name">${escapeHtml(p.name)}</div>
+                </div>
+            </div>`;
+        }).join('');
+
+        suggestionsDiv.classList.add('show');
+
+        // Click handlers for suggestion items
+        suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const code = item.dataset.code;
+                const searchInput = $('#searchInput');
+                if (searchInput) searchInput.value = code;
+                suggestionsDiv.classList.remove('show');
+                currentPage = 1;
+                fetchProducts();
+            });
+        });
+    }
+
+    function hideSuggestions() {
+        $('#searchSuggestions')?.classList.remove('show');
+    }
+
+    // =====================================================
+    // VARIANT IMAGE LOADING
+    // =====================================================
+
+    /**
+     * Load variant images for a product template from TPOS API.
+     * Updates the table row image in-place.
+     */
+    async function loadVariantImages(templateId, rowElement) {
+        if (!templateId || imageCache[templateId] !== undefined) return;
+
+        try {
+            const url = `${PROXY_URL}/api/odata/ProductTemplate(${templateId})?$expand=Images,ProductVariants`;
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            // Try template ImageUrl, then Images array, then first variant ImageUrl
+            let imgUrl = data.ImageUrl || '';
+            if (!imgUrl && data.Images && data.Images.length > 0) {
+                imgUrl = data.Images[0].Url || data.Images[0].ImageUrl || '';
+            }
+            if (!imgUrl && data.ProductVariants) {
+                for (const v of data.ProductVariants) {
+                    if (v.ImageUrl) { imgUrl = v.ImageUrl; break; }
+                }
+            }
+
+            imageCache[templateId] = imgUrl || null;
+
+            // Update the row's image cell if we found an image
+            if (imgUrl && rowElement) {
+                const imgCell = rowElement.querySelector('.product-image-cell');
+                if (imgCell) {
+                    imgCell.innerHTML = `<img src="${escapeHtml(imgUrl)}" alt="" class="product-thumb" loading="lazy" onclick="window.warehouseApp.showImage(this.src)">`;
+                }
+            }
+        } catch (e) {
+            console.warn('[Warehouse] Image load error for template', templateId, e);
+            imageCache[templateId] = null;
+        }
+    }
+
+    /**
+     * After render, lazy-load images for products without ImageUrl.
+     * Uses IntersectionObserver for viewport-based loading.
+     */
+    function lazyLoadImages() {
+        const rows = $$('#productTableBody tr');
+        rows.forEach((row, idx) => {
+            const product = pageProducts[idx];
+            if (!product || product.image) return; // already has image
+
+            // Get templateId from the product's TPOS data (stored in product.id → actually product template ID)
+            // The GetViewV2 returns product templates, so product.id IS the template ID
+            const templateId = product.id;
+            if (imageCache[templateId] === null) return; // already checked, no image
+
+            if (imageCache[templateId]) {
+                // Use cached image
+                const imgCell = row.querySelector('.product-image-cell');
+                if (imgCell) {
+                    imgCell.innerHTML = `<img src="${escapeHtml(imageCache[templateId])}" alt="" class="product-thumb" loading="lazy" onclick="window.warehouseApp.showImage(this.src)">`;
+                }
+            } else {
+                // Load from API
+                loadVariantImages(templateId, row);
+            }
+        });
+    }
+
+    // =====================================================
+    // API - Map TPOS response to local product format
+    // =====================================================
+    function mapProduct(item) {
+        // Check image cache for this template
+        const cachedImg = imageCache[item.Id];
+        return {
+            id: item.Id,
+            code: item.DefaultCode || '',
+            name: item.Name || '',
+            group: item.CategCompleteName || '',
+            price: item.ListPrice || 0,
+            defaultBuyPrice: item.PurchasePrice || 0,
+            costPrice: item.StandardPrice || 0,
+            qtyActual: item.QtyAvailable || 0,
+            qtyForecast: item.VirtualAvailable || 0,
+            unit: item.UOMName || '',
+            label: !!item.Tags,
+            active: item.Active,
+            allCompany: item.EnableAll,
+            note: item.DescriptionSale || '',
+            createdAt: item.DateCreated ? item.DateCreated.split('T')[0] : '',
+            company: item.CompanyName || '',
+            creator: item.CreatedByName || '',
+            image: item.ImageUrl || cachedImg || '',
+        };
+    }
+
+    // =====================================================
+    // API - Build OData filter string
+    // =====================================================
+    function buildODataFilter() {
+        const filters = [];
+
+        // Status filter (Active)
+        const statusFilter = $('#filterStatus')?.value || 'all';
+        if (statusFilter === 'active') filters.push('Active eq true');
+        else if (statusFilter === 'inactive') filters.push('Active eq false');
+
+        // Stock filter (QtyAvailable)
+        const stockFilter = $('#filterStock')?.value || 'all';
+        if (stockFilter === 'in-stock') filters.push('QtyAvailable gt 0');
+        else if (stockFilter === 'low-stock') filters.push('QtyAvailable gt 0 and QtyAvailable le 5');
+        else if (stockFilter === 'out-of-stock') filters.push('QtyAvailable le 0');
+
+        // Search (global)
+        const searchQuery = ($('#searchInput')?.value || '').trim();
+        if (searchQuery) {
+            const escaped = searchQuery.replace(/'/g, "''");
+            filters.push(`(contains(Name,'${escaped}') or contains(DefaultCode,'${escaped}'))`);
+        }
+
+        // Column-level filters
+        const codeFilter = ($('[data-filter="code"]')?.value || '').trim();
+        if (codeFilter) {
+            filters.push(`contains(DefaultCode,'${codeFilter.replace(/'/g, "''")}')`);
+        }
+        const nameFilter = ($('[data-filter="name"]')?.value || '').trim();
+        if (nameFilter) {
+            filters.push(`contains(Name,'${nameFilter.replace(/'/g, "''")}')`);
+        }
+
+        return filters.length > 0 ? filters.join(' and ') : '';
+    }
+
+    // =====================================================
+    // API - Fetch products from TPOS OData
+    // =====================================================
+    async function fetchProducts() {
+        if (isLoading) return;
+        isLoading = true;
+        showLoading(true);
+
+        try {
+            const skip = (currentPage - 1) * pageSize;
+
+            // Build OData orderby
+            const odataField = SORT_FIELD_MAP[sortField] || 'DateCreated';
+            const orderby = `${odataField} ${sortDirection}`;
+
+            // Build URL params
+            const params = new URLSearchParams();
+            params.set('priceId', '0');
+            params.set('$top', String(pageSize));
+            params.set('$skip', String(skip));
+            params.set('$orderby', orderby);
+            params.set('$count', 'true');
+
+            const filterStr = buildODataFilter();
+            if (filterStr) params.set('$filter', filterStr);
+
+            const url = API_CONFIG.buildUrl.tposOData(
+                'ProductTemplate/ODataService.GetViewV2',
+                params.toString()
+            );
+
+            console.log('[Warehouse] Fetching:', url);
+
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            totalCount = data['@odata.count'] || 0;
+            pageProducts = (data.value || []).map(mapProduct);
+
+            console.log('[Warehouse] Loaded', pageProducts.length, 'products, total:', totalCount);
+        } catch (error) {
+            console.error('[Warehouse] Fetch error:', error);
+            pageProducts = [];
+            totalCount = 0;
+            showToast('Lỗi tải dữ liệu: ' + error.message, 'error');
+        } finally {
+            isLoading = false;
+            showLoading(false);
+            render();
+            // Lazy-load images for products without ImageUrl
+            lazyLoadImages();
+        }
+    }
+
+    function showLoading(show) {
+        const loadingState = $('#loadingState');
+        const tableBody = $('#productTableBody');
+        if (show) {
+            if (loadingState) loadingState.classList.remove('hidden');
+            if (tableBody) tableBody.innerHTML = '';
+        } else {
+            if (loadingState) loadingState.classList.add('hidden');
+        }
+    }
+
+    function showToast(message, type = 'info') {
+        const container = $('#toastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
     // =====================================================
     // COLUMN VISIBILITY
     // =====================================================
@@ -147,11 +518,9 @@
 
     function syncColumnVisibilityToDOM() {
         COLUMNS.forEach(col => {
-            // Hide/show header th
             const th = $(`th[data-col="${col.key}"]`);
             if (th) th.style.display = col.visible ? '' : 'none';
 
-            // Hide/show body tds
             $$(`td[data-col="${col.key}"]`).forEach(td => {
                 td.style.display = col.visible ? '' : 'none';
             });
@@ -170,7 +539,6 @@
             </label>
         `).join('');
 
-        // Toggle checked class on change
         list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', () => {
                 cb.closest('.column-setting-item').classList.toggle('checked', cb.checked);
@@ -199,7 +567,6 @@
 
     function resetColumnDefaults() {
         COLUMNS.forEach(col => { col.visible = true; });
-        // Re-render settings list
         const list = $('#columnSettingsList');
         if (list) {
             list.querySelectorAll('input[type="checkbox"]').forEach(cb => {
@@ -210,86 +577,28 @@
     }
 
     // =====================================================
-    // FILTER & SORT
-    // =====================================================
-    function applyFiltersAndSort() {
-        const searchQuery = ($('#searchInput')?.value || '').trim().toLowerCase();
-        const stockFilter = $('#filterStock')?.value || 'all';
-        const statusFilter = $('#filterStatus')?.value || 'all';
-        const codeFilter = ($('[data-filter="code"]')?.value || '').trim().toLowerCase();
-        const nameFilter = ($('[data-filter="name"]')?.value || '').trim().toLowerCase();
-
-        filteredProducts = allProducts.filter(p => {
-            // Global search
-            if (searchQuery) {
-                const match = p.code.toLowerCase().includes(searchQuery) ||
-                              p.name.toLowerCase().includes(searchQuery) ||
-                              (p.note || '').toLowerCase().includes(searchQuery);
-                if (!match) return false;
-            }
-
-            // Column filters
-            if (codeFilter && !p.code.toLowerCase().includes(codeFilter)) return false;
-            if (nameFilter && !p.name.toLowerCase().includes(nameFilter)) return false;
-
-            // Stock filter
-            if (stockFilter === 'in-stock' && p.qtyActual <= 0) return false;
-            if (stockFilter === 'low-stock' && (p.qtyActual <= 0 || p.qtyActual > 5)) return false;
-            if (stockFilter === 'out-of-stock' && p.qtyActual > 0) return false;
-
-            // Status filter
-            if (statusFilter === 'active' && !p.active) return false;
-            if (statusFilter === 'inactive' && p.active) return false;
-
-            return true;
-        });
-
-        // Sort
-        if (sortField) {
-            filteredProducts.sort((a, b) => {
-                let valA = a[sortField], valB = b[sortField];
-                if (valA === undefined) valA = '';
-                if (valB === undefined) valB = '';
-                if (typeof valA === 'boolean') { valA = valA ? 1 : 0; valB = valB ? 1 : 0; }
-                if (typeof valA === 'string') {
-                    const cmp = valA.localeCompare(valB, 'vi');
-                    return sortDirection === 'asc' ? cmp : -cmp;
-                }
-                return sortDirection === 'asc' ? valA - valB : valB - valA;
-            });
-        }
-
-        currentPage = 1;
-        render();
-    }
-
-    // =====================================================
-    // RENDER
+    // RENDER (uses server-side paged data)
     // =====================================================
     function render() {
-        const total = filteredProducts.length;
-        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
         if (currentPage > totalPages) currentPage = totalPages;
 
         const start = (currentPage - 1) * pageSize;
-        const end = Math.min(start + pageSize, total);
-        const pageProducts = filteredProducts.slice(start, end);
+        const end = Math.min(start + pageProducts.length, totalCount);
 
         // Update count
         const countEl = $('#productCount');
-        if (countEl) countEl.innerHTML = `<i data-lucide="package"></i> <strong>${total}</strong> sản phẩm`;
+        if (countEl) countEl.innerHTML = `<i data-lucide="package"></i> <strong>${totalCount}</strong> sản phẩm`;
 
-        // Loading / empty
-        const loadingState = $('#loadingState');
+        // Empty state
         const emptyState = $('#emptyState');
-        if (loadingState) loadingState.classList.add('hidden');
-        if (emptyState) emptyState.classList.toggle('hidden', total > 0);
+        if (emptyState) emptyState.classList.toggle('hidden', pageProducts.length > 0);
 
         const searchQuery = ($('#searchInput')?.value || '').trim();
         const tableBody = $('#productTableBody');
 
         if (tableBody) {
-            if (total === 0) {
+            if (pageProducts.length === 0) {
                 tableBody.innerHTML = '';
             } else {
                 tableBody.innerHTML = pageProducts.map(p => {
@@ -300,7 +609,7 @@
                     const checked = selectedIds.has(p.id) ? 'checked' : '';
                     const rowClass = selectedIds.has(p.id) ? ' selected' : '';
 
-                    return `<tr class="${rowClass}">
+                    return `<tr class="${rowClass}" data-template-id="${p.id}">
                         <td class="col-checkbox"><input type="checkbox" class="row-checkbox" data-id="${p.id}" ${checked}></td>
                         <td class="col-actions">
                             <div class="action-btns">
@@ -335,7 +644,7 @@
         }
 
         // Pagination
-        renderPagination(total, totalPages, start, end);
+        renderPagination(totalCount, totalPages, start, end);
 
         // Column visibility
         syncColumnVisibilityToDOM();
@@ -376,19 +685,76 @@
     // EVENT HANDLERS
     // =====================================================
     function setupEventListeners() {
-        // Search
+        // Search — show suggestions + debounced server-side search
         let searchTimeout;
-        $('#searchInput')?.addEventListener('input', () => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(applyFiltersAndSort, 250);
+        let suggestionTimeout;
+
+        const searchInput = $('#searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const text = searchInput.value.trim();
+
+                // Show suggestions (fast, client-side from Excel data)
+                clearTimeout(suggestionTimeout);
+                if (text.length >= 2) {
+                    suggestionTimeout = setTimeout(async () => {
+                        if (!excelLoaded && !isLoadingExcel) {
+                            await loadExcelData();
+                        }
+                        const results = searchProductsSuggestion(text);
+                        displaySuggestions(results);
+                    }, 150);
+                } else {
+                    hideSuggestions();
+                }
+
+                // Debounced server-side search
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    hideSuggestions();
+                    currentPage = 1;
+                    fetchProducts();
+                }, 600);
+            });
+
+            // Enter key: immediately search and hide suggestions
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(searchTimeout);
+                    clearTimeout(suggestionTimeout);
+                    hideSuggestions();
+                    currentPage = 1;
+                    fetchProducts();
+                }
+            });
+
+            // Focus: load Excel data in background
+            searchInput.addEventListener('focus', () => {
+                if (!excelLoaded && !isLoadingExcel) {
+                    loadExcelData();
+                }
+            });
+        }
+
+        // Search button
+        $('#searchBtn')?.addEventListener('click', () => {
+            hideSuggestions();
+            currentPage = 1;
+            fetchProducts();
         });
 
-        $('#searchBtn')?.addEventListener('click', applyFiltersAndSort);
+        // Click outside to close suggestions
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.header-search-box')) {
+                hideSuggestions();
+            }
+        });
 
-        // Filters
-        $('#filterStock')?.addEventListener('change', applyFiltersAndSort);
-        $('#filterStatus')?.addEventListener('change', applyFiltersAndSort);
-        $('#filterGroup')?.addEventListener('change', applyFiltersAndSort);
+        // Filters — reset to page 1 and re-fetch
+        $('#filterStock')?.addEventListener('change', () => { currentPage = 1; fetchProducts(); });
+        $('#filterStatus')?.addEventListener('change', () => { currentPage = 1; fetchProducts(); });
+        $('#filterGroup')?.addEventListener('change', () => { currentPage = 1; fetchProducts(); });
 
         // Column filter toggle
         $$('.th-filter-icon').forEach(icon => {
@@ -398,7 +764,6 @@
                 const input = th?.querySelector('.th-filter-input');
                 if (input) {
                     const wasActive = input.classList.contains('active');
-                    // Close all others
                     $$('.th-filter-input').forEach(i => i.classList.remove('active'));
                     $$('.th-filter-icon').forEach(i => i.classList.remove('active'));
                     if (!wasActive) {
@@ -410,21 +775,22 @@
             });
         });
 
-        // Column filter inputs
+        // Column filter inputs — debounced re-fetch
         let colFilterTimeout;
         $$('.th-filter-input').forEach(input => {
             input.addEventListener('input', () => {
                 clearTimeout(colFilterTimeout);
-                colFilterTimeout = setTimeout(applyFiltersAndSort, 250);
+                colFilterTimeout = setTimeout(() => { currentPage = 1; fetchProducts(); }, 400);
             });
             input.addEventListener('click', (e) => e.stopPropagation());
         });
 
-        // Sort
+        // Sort — server-side via $orderby
         $$('.sortable').forEach(th => {
             th.addEventListener('click', (e) => {
                 if (e.target.closest('.th-filter-input') || e.target.closest('.th-filter-icon')) return;
                 const field = th.dataset.sort;
+                if (!SORT_FIELD_MAP[field]) return;
                 if (sortField === field) {
                     sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
                 } else {
@@ -433,7 +799,8 @@
                 }
                 $$('.sortable').forEach(t => t.classList.remove('sort-asc', 'sort-desc'));
                 th.classList.add(`sort-${sortDirection}`);
-                applyFiltersAndSort();
+                currentPage = 1;
+                fetchProducts();
             });
         });
 
@@ -457,37 +824,33 @@
             }
         });
 
-        // Pagination
+        // Pagination — fetch new page
         $('#btnPrevPage')?.addEventListener('click', () => {
-            if (currentPage > 1) { currentPage--; render(); }
+            if (currentPage > 1) { currentPage--; fetchProducts(); }
         });
 
         $('#btnNextPage')?.addEventListener('click', () => {
-            const totalPages = Math.ceil(filteredProducts.length / pageSize);
-            if (currentPage < totalPages) { currentPage++; render(); }
+            const totalPages = Math.ceil(totalCount / pageSize);
+            if (currentPage < totalPages) { currentPage++; fetchProducts(); }
         });
 
         $('#pageNumbers')?.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-page]');
-            if (btn) { currentPage = parseInt(btn.dataset.page, 10); render(); }
+            if (btn) {
+                currentPage = parseInt(btn.dataset.page, 10);
+                fetchProducts();
+            }
         });
 
         $('#pageSize')?.addEventListener('change', (e) => {
             pageSize = parseInt(e.target.value, 10);
             currentPage = 1;
-            render();
+            fetchProducts();
         });
 
         // Refresh
         $('#refreshButton')?.addEventListener('click', () => {
-            const loadingState = $('#loadingState');
-            const tableBody = $('#productTableBody');
-            if (loadingState) loadingState.classList.remove('hidden');
-            if (tableBody) tableBody.innerHTML = '';
-            setTimeout(() => {
-                allProducts = [...MOCK_PRODUCTS];
-                applyFiltersAndSort();
-            }, 500);
+            fetchProducts();
         });
 
         // Column settings modal
@@ -504,7 +867,10 @@
 
         // Close modal on Escape
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeColumnSettingsModal();
+            if (e.key === 'Escape') {
+                closeColumnSettingsModal();
+                hideSuggestions();
+            }
         });
     }
 
@@ -522,19 +888,24 @@
     // =====================================================
     // INIT
     // =====================================================
-    function init() {
+    async function init() {
         console.log('[ProductWarehouse] Initializing...');
 
         const pageSizeSelect = $('#pageSize');
         if (pageSizeSelect) pageSize = parseInt(pageSizeSelect.value, 10);
 
         loadColumnVisibility();
-        applyFiltersAndSort();
         setupEventListeners();
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        console.log('[ProductWarehouse] Initialized with', allProducts.length, 'products,', COLUMNS.length, 'columns');
+        // Wait for TokenManager then fetch first page
+        if (window.tokenManager) {
+            await window.tokenManager.waitForFirebaseAndInit();
+        }
+        await fetchProducts();
+
+        console.log('[ProductWarehouse] Initialized, total products:', totalCount);
     }
 
     window.warehouseApp = { showImage };
