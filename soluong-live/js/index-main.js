@@ -1,5 +1,5 @@
 // Wait for shared modules to load
-import { getAuthManager } from '../shared/browser/index.js';
+import { getAuthManager } from '../../shared/browser/index.js';
 
 // Save referrer before going to report page
 window.saveReferrer = function() {
