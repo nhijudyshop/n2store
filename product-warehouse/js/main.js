@@ -63,8 +63,8 @@
 
     // Excel suggestion state
     let excelProducts = [];       // product list from Excel export
-    let isLoadingExcel = false;
     let excelLoaded = false;
+    let excelLoadPromise = null;  // shared promise so concurrent callers can await
 
     // Image cache: templateId → imageUrl
     let imageCache = {};
@@ -133,26 +133,25 @@
      * Load product data from TPOS Excel export API.
      * Used for fast client-side search suggestions.
      */
-    async function loadExcelData() {
-        if (isLoadingExcel || excelProducts.length > 0) return;
+    function loadExcelData() {
+        if (excelLoaded) return Promise.resolve();
+        // Return existing promise if already loading (callers await same request)
+        if (excelLoadPromise) return excelLoadPromise;
 
-        isLoadingExcel = true;
         console.log('[Warehouse] Loading Excel data...');
 
-        try {
-            const response = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: { Active: 'true' }, ids: '' })
-                }
-            );
-
+        excelLoadPromise = window.tokenManager.authenticatedFetch(
+            `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: { Active: 'true' }, ids: '' })
+            }
+        ).then(response => {
             if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
-
-            const blob = await response.blob();
-            const arrayBuffer = await blob.arrayBuffer();
+            return response.blob();
+        }).then(blob => blob.arrayBuffer())
+        .then(arrayBuffer => {
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
@@ -167,12 +166,12 @@
 
             excelLoaded = true;
             console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
-        } catch (error) {
+        }).catch(error => {
             console.error('[Warehouse] Excel load error:', error);
-            showToast('Lỗi tải suggestion: ' + error.message, 'error');
-        } finally {
-            isLoadingExcel = false;
-        }
+            excelLoadPromise = null; // allow retry on error
+        });
+
+        return excelLoadPromise;
     }
 
     /**
