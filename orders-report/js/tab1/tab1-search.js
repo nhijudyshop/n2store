@@ -198,87 +198,39 @@ function performTableSearch() {
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
         : [...allData];
 
-    // Apply Employee STT Range Filter
-    // Check if user has admin access via roleTemplate
-    const auth = window.authManager ? window.authManager.getAuthState() : null;
-    let isAdmin = window.authManager?.isAdminTemplate?.() || false;
-
-    const currentUserType = auth && auth.userType ? auth.userType : null;
-    const currentDisplayName = auth && auth.displayName ? auth.displayName : null;
-    const currentUserId = auth && auth.id ? auth.id : null;
-
-    console.log('[FILTER] 🔍 DEBUG Employee Filter:');
-    console.log(`  - isAdmin: ${isAdmin}`);
-    console.log(`  - employeeRanges.length: ${employeeRanges.length}`);
-    console.log(`  - currentDisplayName: "${currentDisplayName}"`);
-    console.log(`  - currentUserType: "${currentUserType}"`);
-    console.log(`  - currentUserId: "${currentUserId}"`);
-
+    // Apply Employee STT Range Filter for assigned users (non-admin only)
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
     if (!isAdmin && employeeRanges.length > 0) {
-        console.log('[FILTER] Current user:', currentDisplayName || currentUserType, 'ID:', currentUserId);
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const currentUserId = auth?.id || null;
+        const currentDisplayName = auth?.displayName || null;
+        const currentUserType = auth?.userType || null;
 
         let userRange = null;
-
-        // 1. Try matching by ID first (most reliable)
-        if (currentUserId) {
-            userRange = employeeRanges.find(r => r.id === currentUserId);
-            if (userRange) console.log('[FILTER] Matched by ID');
-        }
-
-        // 2. If not found, try matching by Display Name (Exact match)
-        if (!userRange && currentDisplayName) {
-            userRange = employeeRanges.find(r => r.name === currentDisplayName);
-            if (userRange) console.log('[FILTER] Matched by Display Name');
-        }
-
-        // 3. If not found, try matching by User Type (Legacy)
-        if (!userRange && currentUserType) {
-            userRange = employeeRanges.find(r => r.name === currentUserType);
-            if (userRange) console.log('[FILTER] Matched by User Type');
-        }
-
-        // 4. If not found, try matching by short name (before "-")
+        if (currentUserId) userRange = employeeRanges.find(r => r.id === currentUserId);
+        if (!userRange && currentDisplayName) userRange = employeeRanges.find(r => r.name === currentDisplayName);
+        if (!userRange && currentUserType) userRange = employeeRanges.find(r => r.name === currentUserType);
         if (!userRange && currentUserType) {
             const shortName = currentUserType.split('-')[0].trim();
             userRange = employeeRanges.find(r => r.name === shortName);
-            if (userRange) console.log('[FILTER] Matched by Short Name:', shortName);
         }
 
         if (userRange) {
-            const debugInfo = `
-🔍 THÔNG TIN DEBUG:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👤 Tài khoản hiện tại: ${currentDisplayName || currentUserType}
-🆔 User ID: ${currentUserId || 'Không có'}
-🔐 Là Admin? ${isAdmin ? 'CÓ' : 'KHÔNG'}
-📊 STT được phân: ${userRange.start} - ${userRange.end}
-👥 Tên trong setting: ${userRange.name}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ Đang áp dụng filter cho bạn!
-            `.trim();
-
-            console.log(debugInfo);
-
-            // Alert removed as per user request
-            // if (!window._filterDebugShown) {
-            //     alert(debugInfo);
-            //     window._filterDebugShown = true;
-            // }
-
             tempData = tempData.filter(order => {
                 const stt = parseInt(order.SessionIndex);
-                if (isNaN(stt)) return false;
-                return stt >= userRange.start && stt <= userRange.end;
+                return !isNaN(stt) && stt >= userRange.start && stt <= userRange.end;
             });
-            console.log(`[FILTER] ✅ Applied STT range ${userRange.start}-${userRange.end}, filtered from ${allData.length} to ${tempData.length} orders`);
+            console.log(`[FILTER] ✅ User "${currentDisplayName}" filtered to STT ${userRange.start}-${userRange.end}: ${tempData.length} orders`);
+
+            // Disable toggle button — user already sees only their assigned orders
+            _setEmployeeToggleBtnDisabled(true);
         } else {
-            console.log('[FILTER] ⚠️ No range found for user:', currentDisplayName || currentUserType);
-            console.log('[FILTER] 🔍 Available ranges:', employeeRanges.map(r => r.name));
+            // User not in any range → show all, enable toggle
+            _setEmployeeToggleBtnDisabled(false);
         }
-    } else if (isAdmin) {
-        console.log('[FILTER] ⚠️ User is Admin - NO FILTER APPLIED');
     } else {
-        console.log('[FILTER] ⚠️ No employee ranges configured - NO FILTER APPLIED');
+        // Admin or no ranges configured → enable toggle button
+        _setEmployeeToggleBtnDisabled(false);
     }
 
     // Apply conversation status filter (Merged Messages & Comments)

@@ -327,11 +327,8 @@ function renderTable() {
         return;
     }
 
-    // Check if user has admin access via roleTemplate
-    let isAdmin = window.authManager?.isAdminTemplate?.() || false;
-
-    // Group by employee if ranges are configured AND user is NOT admin
-    if (!isAdmin && employeeRanges.length > 0) {
+    // Show employee grouped view only when toggle is ON and ranges are configured
+    if (employeeViewMode && employeeRanges.length > 0) {
         renderByEmployee();
     } else {
         renderAllOrders();
@@ -898,6 +895,11 @@ function renderByEmployee() {
             dataByEmployee[employeeName] = [];
         }
         dataByEmployee[employeeName].push(order);
+    });
+
+    // Sort each group by STT descending (largest to smallest)
+    Object.keys(dataByEmployee).forEach(name => {
+        dataByEmployee[name].sort((a, b) => (parseInt(b.SessionIndex) || 0) - (parseInt(a.SessionIndex) || 0));
     });
 
     // Get ordered list of employees
