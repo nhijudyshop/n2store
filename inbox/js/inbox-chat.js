@@ -1489,11 +1489,11 @@ class InboxChatController {
                 ${dateSeparator}
                 <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'} ${isCommentMsg ? 'is-comment' : ''} ${isPrivateReply ? 'is-private-reply' : ''} ${isRemoved ? 'removed' : ''} ${isHidden ? 'hidden-msg' : ''}">
                     ${!isOutgoing ? msgAvatarHtml : ''}
+                    ${isOutgoing ? actionsHtml : ''}
                     <div class="message-bubble">
                         ${messageContent}
                         ${phoneTagsHtml}
                         ${reactionsHtml}
-                        ${actionsHtml}
                         <div class="message-meta">
                             ${typeIcon}
                             ${statusIndicator}
@@ -1503,6 +1503,7 @@ class InboxChatController {
                             ${isOutgoing ? '<span class="message-read-receipt"><i data-lucide="check-check"></i></span>' : ''}
                         </div>
                     </div>
+                    ${!isOutgoing ? actionsHtml : ''}
                 </div>
             `;
         }).join('');
