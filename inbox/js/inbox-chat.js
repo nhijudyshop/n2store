@@ -142,14 +142,19 @@ class InboxChatController {
             }
         });
 
-        // Conversation list scroll-to-load-more (skip during programmatic re-renders)
+        // Conversation list scroll-to-load-more (throttled to prevent jank)
+        let convScrollThrottled = false;
         this.elements.conversationList.addEventListener('scroll', () => {
-            if (this._isRerendering) return;
-            const el = this.elements.conversationList;
-            const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
-            if (nearBottom && !this.isLoadingMoreConversations && this.hasMoreConversations && !this.searchQuery) {
-                this.loadMoreConversations();
-            }
+            if (this._isRerendering || convScrollThrottled) return;
+            convScrollThrottled = true;
+            requestAnimationFrame(() => {
+                convScrollThrottled = false;
+                const el = this.elements.conversationList;
+                const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
+                if (nearBottom && !this.isLoadingMoreConversations && this.hasMoreConversations && !this.searchQuery) {
+                    this.loadMoreConversations();
+                }
+            });
         });
 
         // Filter tabs
@@ -678,74 +683,50 @@ class InboxChatController {
             return;
         }
 
-        this.elements.conversationList.innerHTML = conversations.map(conv => {
-            const labelsHtml = (conv.labels || ['new']).map(l =>
-                `<span class="conv-label ${this.getLabelClass(l)}">${this.getLabelText(l)}</span>`
-            ).join('');
-            const isActive = conv.id === this.activeConversationId;
-            const isUnread = conv.unread > 0;
-
-            // Avatar with gradient fallback
-            const avatarHtml = this.getAvatarHtml(conv);
-
-            // Unread badge (9+ cap like tpos-pancake)
-            const unreadBadge = isUnread
-                ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>`
-                : '';
-
-            // Livestream badge
-            const livestreamBadge = conv.isLivestream
-                ? '<span class="conv-livestream-badge">LIVE</span>'
-                : '';
-
-            // Page name
-            const pageNameHtml = conv.pageName
-                ? `<span class="conv-page-name">${this.escapeHtml(conv.pageName)}</span>`
-                : '';
-
-            // Type icon (like tpos-pancake: message-circle for inbox, message-square for comment)
-            const typeIcon = conv.type === 'COMMENT' ? 'message-square' : 'message-circle';
-
-            // Tags
-            const tagsHtml = this.getTagsHtml(conv);
-
-            return `
-                <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
-                     data-id="${conv.id}" onclick="window.inboxChat.selectConversation('${conv.id}')">
-                    <div class="conv-avatar-wrap">
-                        ${avatarHtml}
-                        ${unreadBadge}
-                    </div>
-                    <div class="conv-content">
-                        <div class="conv-header">
-                            <span class="conv-name">${this.escapeHtml(conv.name)}</span>
-                            <span class="conv-time">${this.formatTime(conv.time)}</span>
-                        </div>
-                        ${pageNameHtml}
-                        <div class="conv-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(conv.lastMessage)}</div>
-                        <div class="conv-footer">
-                            <div class="conv-footer-left">
-                                ${labelsHtml}
-                                ${tagsHtml}
-                                ${livestreamBadge}
-                            </div>
-                            <button class="conv-read-toggle" title="${isUnread ? 'Đánh dấu đã đọc' : 'Đánh dấu chưa đọc'}"
-                                onclick="event.stopPropagation(); window.inboxChat.toggleReadUnread('${conv.id}')">
-                                <i data-lucide="${isUnread ? 'mail-open' : 'mail'}"></i>
-                            </button>
-                            <span class="conv-type-icon" title="${conv.type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn'}">
-                                <i data-lucide="${typeIcon}"></i>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        this.elements.conversationList.innerHTML = conversations.map(conv => this._buildConvItemHtml(conv)).join('');
 
         this._debouncedCreateIcons();
 
         // Restore scroll guard after render settles
         requestAnimationFrame(() => { this._isRerendering = false; });
+    }
+
+    _buildConvItemHtml(conv) {
+        const labelsHtml = (conv.labels || ['new']).map(l =>
+            `<span class="conv-label ${this.getLabelClass(l)}">${this.getLabelText(l)}</span>`
+        ).join('');
+        const isActive = conv.id === this.activeConversationId;
+        const isUnread = conv.unread > 0;
+        const avatarHtml = this.getAvatarHtml(conv);
+        const unreadBadge = isUnread ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>` : '';
+        const livestreamBadge = conv.isLivestream ? '<span class="conv-livestream-badge">LIVE</span>' : '';
+        const pageNameHtml = conv.pageName ? `<span class="conv-page-name">${this.escapeHtml(conv.pageName)}</span>` : '';
+        const typeIcon = conv.type === 'COMMENT' ? 'message-square' : 'message-circle';
+        const tagsHtml = this.getTagsHtml(conv);
+        return `
+            <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
+                 data-id="${conv.id}" onclick="window.inboxChat.selectConversation('${conv.id}')">
+                <div class="conv-avatar-wrap">${avatarHtml}${unreadBadge}</div>
+                <div class="conv-content">
+                    <div class="conv-header">
+                        <span class="conv-name">${this.escapeHtml(conv.name)}</span>
+                        <span class="conv-time">${this.formatTime(conv.time)}</span>
+                    </div>
+                    ${pageNameHtml}
+                    <div class="conv-preview ${isUnread ? 'unread' : ''}">${this.escapeHtml(conv.lastMessage)}</div>
+                    <div class="conv-footer">
+                        <div class="conv-footer-left">${labelsHtml}${tagsHtml}${livestreamBadge}</div>
+                        <button class="conv-read-toggle" title="${isUnread ? 'Đánh dấu đã đọc' : 'Đánh dấu chưa đọc'}"
+                            onclick="event.stopPropagation(); window.inboxChat.toggleReadUnread('${conv.id}')">
+                            <i data-lucide="${isUnread ? 'mail-open' : 'mail'}"></i>
+                        </button>
+                        <span class="conv-type-icon" title="${conv.type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn'}">
+                            <i data-lucide="${typeIcon}"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     _debouncedCreateIcons() {
@@ -971,9 +952,6 @@ class InboxChatController {
         this.elements.conversationList.appendChild(spinner);
 
         try {
-            // Save scroll position before re-render
-            const scrollTop = this.elements.conversationList.scrollTop;
-
             const newConvs = await this.data.loadMoreConversations();
             spinner.remove();
 
@@ -983,11 +961,10 @@ class InboxChatController {
                 return;
             }
 
-            // Re-render the full list with new conversations appended
-            this.renderConversationList();
-
-            // Restore scroll position so user can continue scrolling down
-            this.elements.conversationList.scrollTop = scrollTop;
+            // Append new items directly (no full re-render, preserves scroll)
+            const newHtml = newConvs.map(conv => this._buildConvItemHtml(conv)).join('');
+            this.elements.conversationList.insertAdjacentHTML('beforeend', newHtml);
+            this._debouncedCreateIcons();
 
             console.log(`[InboxChat] Loaded ${newConvs.length} more conversations`);
         } catch (error) {

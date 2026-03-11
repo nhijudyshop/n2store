@@ -592,6 +592,8 @@ body.col-resizing .resize-handle {
 .conversation-list {
     flex: 1;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    will-change: scroll-position;
 }
 
 .conversation-list::-webkit-scrollbar {
