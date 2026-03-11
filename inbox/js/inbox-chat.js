@@ -142,7 +142,9 @@ class InboxChatController {
             }
         });
 
-        // Conversation list scroll-to-load-more (throttled to prevent jank)
+        // Conversation list scroll-to-load-more (with cooldown to prevent 429)
+        this._loadMoreCooldownUntil = 0;
+        this._consecutiveEmptyLoads = 0;
         let convScrollThrottled = false;
         this.elements.conversationList.addEventListener('scroll', () => {
             if (this._isRerendering || convScrollThrottled) return;
@@ -151,7 +153,7 @@ class InboxChatController {
                 convScrollThrottled = false;
                 const el = this.elements.conversationList;
                 const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
-                if (nearBottom && !this.isLoadingMoreConversations && this.hasMoreConversations && !this.searchQuery) {
+                if (nearBottom && !this.isLoadingMoreConversations && this.hasMoreConversations && !this.searchQuery && Date.now() >= this._loadMoreCooldownUntil) {
                     this.loadMoreConversations();
                 }
             });
@@ -163,6 +165,8 @@ class InboxChatController {
                 document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 this.currentFilter = tab.dataset.filter;
+                this._consecutiveEmptyLoads = 0;
+                this._loadMoreCooldownUntil = 0;
                 this.toggleLivestreamPostSelector();
                 this.renderConversationList();
             });
@@ -174,6 +178,8 @@ class InboxChatController {
                 document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 this.currentTypeFilter = btn.dataset.type;
+                this._consecutiveEmptyLoads = 0;
+                this._loadMoreCooldownUntil = 0;
                 this.renderConversationList();
             });
         });
@@ -183,6 +189,8 @@ class InboxChatController {
         if (livestreamPostSelect) {
             livestreamPostSelect.addEventListener('change', (e) => {
                 this.selectedLivestreamPostId = e.target.value;
+                this._consecutiveEmptyLoads = 0;
+                this._loadMoreCooldownUntil = 0;
                 this.renderConversationList();
             });
         }
@@ -977,12 +985,25 @@ class InboxChatController {
                 const newHtml = filtered.map(conv => this._buildConvItemHtml(conv)).join('');
                 this.elements.conversationList.insertAdjacentHTML('beforeend', newHtml);
                 this._debouncedCreateIcons();
+                this._consecutiveEmptyLoads = 0;
+            } else {
+                // No visible results after filter — increase cooldown to prevent cascade
+                this._consecutiveEmptyLoads++;
             }
 
-            console.log(`[InboxChat] Loaded ${newConvs.length} more conversations`);
+            // Cooldown: back off progressively when filter removes most results
+            if (this._consecutiveEmptyLoads > 0) {
+                const delay = Math.min(this._consecutiveEmptyLoads * 2000, 10000); // 2s, 4s, 6s... max 10s
+                this._loadMoreCooldownUntil = Date.now() + delay;
+                console.log(`[InboxChat] Load-more cooldown ${delay}ms (${this._consecutiveEmptyLoads} empty loads)`);
+            }
+
+            console.log(`[InboxChat] Loaded ${newConvs.length} more, ${filtered.length} matched filter`);
         } catch (error) {
             console.error('[InboxChat] Error loading more conversations:', error);
             spinner.remove();
+            // On error (including 429), back off for 5 seconds
+            this._loadMoreCooldownUntil = Date.now() + 5000;
         } finally {
             this.isLoadingMoreConversations = false;
         }
