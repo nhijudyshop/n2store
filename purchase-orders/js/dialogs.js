@@ -328,8 +328,9 @@ class VariantGeneratorDialog {
      */
     async loadCSVData() {
         try {
-            const basePath = window.location.pathname.includes('/purchase-orders/')
-                ? '' : 'purchase-orders/';
+            const repoBase = window.location.pathname.match(/\/n2store\//)?.[0] ?
+                window.location.pathname.substring(0, window.location.pathname.indexOf('/n2store/') + '/n2store/'.length) : '/';
+            const basePath = `${repoBase}purchase-orders/`;
 
             const [attrsText, valsText] = await Promise.all([
                 fetch(`${basePath}product_attributes_rows.csv`).then(r => r.text()),
