@@ -1633,6 +1633,7 @@ class InboxChatController {
 
         // Capture reply state before clearing
         const replyData = this.replyingTo;
+        const replyType = this.currentReplyType;
         this.cancelReply();
 
         // Optimistic UI update
@@ -1655,7 +1656,7 @@ class InboxChatController {
             );
 
             if (conv.type === 'COMMENT') {
-                await this._sendComment(url, text, conv, replyData, this.currentReplyType);
+                await this._sendComment(url, text, conv, replyData, replyType);
             } else {
                 await this._sendInbox(url, text, conv, replyData);
             }
