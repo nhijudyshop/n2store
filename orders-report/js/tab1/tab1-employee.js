@@ -546,7 +546,6 @@ function toggleEmployeeViewMode() {
     employeeViewMode = !employeeViewMode;
     window.employeeViewMode = employeeViewMode;
 
-    const btn = document.getElementById('toggleEmployeeViewBtn');
     if (btn) {
         if (employeeViewMode) {
             btn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';

@@ -223,14 +223,14 @@ function performTableSearch() {
             console.log(`[FILTER] ✅ User "${currentDisplayName}" filtered to STT ${userRange.start}-${userRange.end}: ${tempData.length} orders`);
 
             // Disable toggle button — user already sees only their assigned orders
-            _setEmployeeToggleBtnDisabled(true);
+            if (typeof _setEmployeeToggleBtnDisabled === 'function') _setEmployeeToggleBtnDisabled(true);
         } else {
             // User not in any range → show all, enable toggle
-            _setEmployeeToggleBtnDisabled(false);
+            if (typeof _setEmployeeToggleBtnDisabled === 'function') _setEmployeeToggleBtnDisabled(false);
         }
     } else {
         // Admin or no ranges configured → enable toggle button
-        _setEmployeeToggleBtnDisabled(false);
+        if (typeof _setEmployeeToggleBtnDisabled === 'function') _setEmployeeToggleBtnDisabled(false);
     }
 
     // Apply conversation status filter (Merged Messages & Comments)
