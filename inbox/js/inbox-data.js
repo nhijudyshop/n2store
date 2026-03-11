@@ -1001,7 +1001,7 @@ class InboxDataManager {
         if (conv) conv.isLivestream = false;
     }
 
-    addMessage(convId, text, sender = 'shop') {
+    addMessage(convId, text, sender = 'shop', extra = {}) {
         const conv = this.getConversation(convId);
         if (!conv) return null;
 
@@ -1010,6 +1010,7 @@ class InboxDataManager {
             text,
             time: new Date(),
             sender,
+            ...extra,
         };
 
         conv.messages.push(message);

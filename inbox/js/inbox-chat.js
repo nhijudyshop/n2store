@@ -1429,6 +1429,11 @@ class InboxChatController {
                 statusIndicator = '<span class="msg-status-indicator hidden-msg" title="Đã ẩn"><i data-lucide="eye-off"></i></span>';
             }
 
+            // Reply type badge (private_replies = nhắn riêng)
+            const replyTypeBadge = msg.replyType === 'private_replies'
+                ? '<span class="msg-reply-type-badge private"><i data-lucide="lock"></i> Nhắn riêng</span>'
+                : '';
+
             // Sender name for outgoing messages (staff name)
             const senderHtml = isOutgoing && msg.senderName
                 ? `<span class="message-sender">${this.escapeHtml(msg.senderName)}</span>`
@@ -1458,6 +1463,7 @@ class InboxChatController {
                         ${actionsHtml}
                         <div class="message-meta">
                             ${statusIndicator}
+                            ${replyTypeBadge}
                             ${senderHtml}
                             <span class="message-time">${this.formatMessageTime(msg.time)}</span>
                             ${isOutgoing ? '<span class="message-read-receipt"><i data-lucide="check-check"></i></span>' : ''}
@@ -1637,7 +1643,7 @@ class InboxChatController {
         this.cancelReply();
 
         // Optimistic UI update
-        this.data.addMessage(this.activeConversationId, text, 'shop');
+        this.data.addMessage(this.activeConversationId, text, 'shop', replyType ? { replyType } : {});
         this.elements.chatInput.value = '';
         this.elements.chatInput.style.height = 'auto';
         this.renderMessages(conv);
