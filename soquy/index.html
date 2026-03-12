@@ -17,13 +17,19 @@
     (function(){
         var h = location.hash.replace('#','');
         if (h && h !== 'cashbook') {
+            // Inject CSS immediately to hide cashbook and show target tab
+            var style = document.createElement('style');
+            style.textContent = '#cashbookTabContent{display:none!important}#' + h + 'TabContent{display:flex!important}';
+            document.head.appendChild(style);
             document.addEventListener('DOMContentLoaded', function() {
+                // Clean up injected style after proper class toggle
                 document.querySelectorAll('.tab-header-btn').forEach(function(b) {
                     b.classList.toggle('active', b.dataset.tab === h);
                 });
                 document.querySelectorAll('.tab-content').forEach(function(c) {
                     c.classList.toggle('active', c.id === h + 'TabContent');
                 });
+                style.remove();
             });
         }
     })();
@@ -366,14 +372,21 @@
                                 <i data-lucide="chevron-down"
                                     style="width: 14px; height: 14px; color: #bfbfbf; cursor:pointer;"></i>
                             </div>
+                            <select class="ts-select" id="schedPeriodSelect">
+                                <option value="week">Theo tuần</option>
+                                <option value="month">Theo tháng</option>
+                            </select>
                             <div class="ts-pager">
                                 <button><i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i></button>
                                 <span>Tuần 4 - Th. 2 2026</span>
                                 <button><i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></button>
                             </div>
-                            <button class="ts-btn">Tuần này</button>
+                            <button class="ts-btn" id="btnSchedNow">Tuần này</button>
                         </div>
                         <div class="ts-header-right">
+                            <button class="ts-btn" id="btnSchedReload" title="Tải lại dữ liệu">
+                                <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+                            </button>
                             <button class="ts-btn" id="btnSchedSwitchView">
                                 <i data-lucide="user" style="width: 14px; height: 14px;"></i> Xem theo nhân viên <i
                                     data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>

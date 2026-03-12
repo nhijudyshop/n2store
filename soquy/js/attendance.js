@@ -40,6 +40,9 @@
     let syncStatus = null;       // Sync service status
     let unsubSyncStatus = null;  // Firestore listener unsubscribe
     let showHidden = false;      // Toggle hiển thị nhân viên ẩn
+    let viewPeriod = 'week';     // 'week' or 'month'
+    let currentMonth = null;     // { year, month } for monthly view
+    let monthRecords = [];       // Records for entire month
 
     // Load hidden employees from localStorage
     const HIDDEN_KEY = 'attendance_hidden_employees';
@@ -84,6 +87,8 @@
         }
 
         currentWeekStart = getMonday(new Date());
+        const now = new Date();
+        currentMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
 
         bindEvents();
         injectTestButton();
@@ -212,6 +217,33 @@
             renderTimesheet();
             renderSchedule();
         }
+    }
+
+    /** Load dữ liệu chấm công cho cả tháng */
+    async function loadMonthData() {
+        const y = currentMonth.year;
+        const m = currentMonth.month;
+        const startKey = `${y}-${String(m).padStart(2, '0')}-01`;
+        const lastDay = new Date(y, m, 0).getDate();
+        const endKey = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        try {
+            const snapshot = await db.collection(COLLECTIONS.records)
+                .where('dateKey', '>=', startKey)
+                .where('dateKey', '<=', endKey)
+                .get();
+
+            monthRecords = [];
+            snapshot.forEach(doc => {
+                monthRecords.push({ id: doc.id, ...doc.data() });
+            });
+            console.log(`[Attendance] Month: ${monthRecords.length} records (${startKey} → ${endKey})`);
+        } catch (err) {
+            console.error('[Attendance] Lỗi load month data:', err);
+            monthRecords = [];
+        }
+
+        renderMonthlySchedule();
     }
 
     /** Lắng nghe trạng thái sync (real-time) */
@@ -610,9 +642,13 @@
     // ================================================================
 
     function renderSchedule() {
-        renderScheduleHeader();
-        renderScheduleBody();
-        renderWeekLabel();
+        if (viewPeriod === 'month') {
+            renderMonthlySchedule();
+        } else {
+            renderScheduleHeader();
+            renderScheduleBody();
+            renderWeekLabel();
+        }
     }
 
     function renderScheduleHeader() {
@@ -836,6 +872,145 @@
         `;
     }
 
+    // ================================================================
+    // RENDERING - MONTHLY VIEW (Theo tháng)
+    // ================================================================
+
+    function renderMonthlySchedule() {
+        const thead = document.querySelector('#scheduleGrid thead tr');
+        const tbody = document.querySelector('#scheduleGrid tbody');
+        if (!thead || !tbody) return;
+
+        // Update pager label
+        const scLabel = document.querySelector('#viewSchedule .ts-pager span');
+        if (scLabel) {
+            const monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+                'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+            scLabel.textContent = `${monthNames[currentMonth.month]} ${currentMonth.year}`;
+        }
+
+        // Header
+        thead.innerHTML = `
+            <th class="ts-col-fixed">Nhân viên</th>
+            <th style="text-align:center;">Ngày công</th>
+            <th style="text-align:right;">Lương CB</th>
+            <th style="text-align:right;">Trừ muộn</th>
+            <th style="text-align:right;">OT</th>
+            <th style="text-align:right; min-width:130px;">Tổng lương tháng</th>
+        `;
+
+        if (employees.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:60px 20px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
+            return;
+        }
+
+        const records = monthRecords;
+        const y = currentMonth.year;
+        const m = currentMonth.month;
+        const lastDay = new Date(y, m, 0).getDate();
+
+        // Tính lương tháng cho từng nhân viên
+        const empData = employees.map(emp => {
+            const empId = String(emp.userId || emp.uid || emp.id);
+            let totalBase = 0, totalLate = 0, totalOT = 0, totalSalary = 0, workedDays = 0;
+
+            for (let d = 1; d <= lastDay; d++) {
+                const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const dayRecs = records.filter(r => String(r.deviceUserId) === empId && r.dateKey === dateKey);
+                const cellData = processDayRecords(dayRecs);
+                const sal = calculateDaySalary(cellData);
+                totalBase += sal.baseSalary;
+                totalLate += sal.lateDeduction;
+                totalOT += sal.otPay;
+                totalSalary += sal.totalSalary;
+                if (sal.totalSalary > 0) workedDays++;
+            }
+
+            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary };
+        });
+
+        empData.sort((a, b) => b.totalSalary - a.totalSalary);
+
+        const visibleData = empData.filter(d => !isHidden(d.empId));
+        const hiddenData = empData.filter(d => isHidden(d.empId));
+
+        let html = '';
+
+        // Grand total row
+        const gt = visibleData.reduce((acc, e) => {
+            acc.base += e.totalBase; acc.late += e.totalLate; acc.ot += e.totalOT; acc.total += e.totalSalary; acc.days += e.workedDays;
+            return acc;
+        }, { base: 0, late: 0, ot: 0, total: 0, days: 0 });
+
+        html += `
+            <tr style="background:#fafafa;">
+                <td class="ts-col-fixed" style="border:none; background:#fafafa;"></td>
+                <td style="border:none;"></td>
+                <td style="border:none;"></td>
+                <td style="border:none;"></td>
+                <td style="border:none;"></td>
+                <td style="text-align:right; font-weight:700; font-size:15px; color:#d4380d; border:none;">
+                    ${formatVND(gt.total)}đ
+                </td>
+            </tr>
+        `;
+
+        for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of visibleData) {
+            html += `
+                <tr>
+                    <td class="ts-col-fixed">
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                            <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn" style="cursor:pointer; color:#d9d9d9; font-size:14px;">✕</span>
+                        </div>
+                        <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
+                    </td>
+                    <td style="text-align:center; font-weight:600;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
+                    <td style="text-align:right; color:#1e293b;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
+                    <td style="text-align:right; color:${totalLate > 0 ? '#cf1322' : '#bfbfbf'};">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
+                    <td style="text-align:right; color:${totalOT > 0 ? '#096dd9' : '#bfbfbf'};">${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}</td>
+                    <td style="text-align:right;">
+                        <div style="font-weight:700; font-size:14px; color:${totalSalary > 0 ? '#1e293b' : '#bfbfbf'};">
+                            ${totalSalary > 0 ? formatVND(totalSalary) + 'đ' : '-'}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Hidden employees
+        if (hiddenData.length > 0) {
+            html += `
+                <tr><td colspan="6" style="text-align:center; padding:8px; border:none;">
+                    <span onclick="window._attendance.toggleHidden()" style="cursor:pointer; color:#1890ff; font-size:12px;">
+                        ${showHidden ? 'Ẩn' : 'Hiện'} ${hiddenData.length} nhân viên đã ẩn
+                    </span>
+                </td></tr>
+            `;
+            if (showHidden) {
+                for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of hiddenData) {
+                    html += `
+                        <tr style="opacity:0.5;">
+                            <td class="ts-col-fixed">
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                                    <span onclick="window._attendance.unhideEmployee('${empId}')" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
+                                </div>
+                            </td>
+                            <td style="text-align:center; color:#8c8c8c;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
+                            <td style="text-align:right; color:#8c8c8c;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
+                            <td style="text-align:right; color:#8c8c8c;">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
+                            <td style="text-align:right; color:#8c8c8c;">${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}</td>
+                            <td style="text-align:right; color:#8c8c8c;">${totalSalary > 0 ? formatVND(totalSalary) + 'đ' : '-'}</td>
+                        </tr>
+                    `;
+                }
+            }
+        }
+
+        tbody.innerHTML = html;
+    }
+
     /** Render trạng thái sync */
     function renderSyncStatus() {
         const el = document.getElementById('syncIndicator');
@@ -894,12 +1069,48 @@
             if (btns[1]) btns[1].addEventListener('click', () => changeWeek(1));
         }
 
-        // "Tuần này" button
-        const btnThisWeek = document.querySelector('#viewSchedule .ts-header-left .ts-btn');
-        if (btnThisWeek && btnThisWeek.textContent.trim() === 'Tuần này') {
-            btnThisWeek.addEventListener('click', () => {
-                currentWeekStart = getMonday(new Date());
-                loadWeekData();
+        // "Tuần này / Tháng này" button
+        const btnSchedNow = document.getElementById('btnSchedNow');
+        if (btnSchedNow) {
+            btnSchedNow.addEventListener('click', () => {
+                if (viewPeriod === 'month') {
+                    const now = new Date();
+                    currentMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
+                    loadMonthData();
+                } else {
+                    currentWeekStart = getMonday(new Date());
+                    loadWeekData();
+                }
+            });
+        }
+
+        // Period select (Theo tuần / Theo tháng)
+        const periodSelect = document.getElementById('schedPeriodSelect');
+        if (periodSelect) {
+            periodSelect.addEventListener('change', (e) => {
+                viewPeriod = e.target.value;
+                if (viewPeriod === 'month') {
+                    btnSchedNow.textContent = 'Tháng này';
+                    if (!currentMonth) {
+                        const now = new Date();
+                        currentMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
+                    }
+                    loadMonthData();
+                } else {
+                    btnSchedNow.textContent = 'Tuần này';
+                    loadWeekData();
+                }
+            });
+        }
+
+        // Reload button
+        const btnReload = document.getElementById('btnSchedReload');
+        if (btnReload) {
+            btnReload.addEventListener('click', () => {
+                loadEmployees().then(() => {
+                    if (viewPeriod === 'month') loadMonthData();
+                    else loadWeekData();
+                });
             });
         }
 
@@ -930,8 +1141,17 @@
     }
 
     function changeWeek(delta) {
-        currentWeekStart.setDate(currentWeekStart.getDate() + (7 * delta));
-        loadWeekData();
+        if (viewPeriod === 'month') {
+            let m = currentMonth.month + delta;
+            let y = currentMonth.year;
+            if (m > 12) { m = 1; y++; }
+            if (m < 1) { m = 12; y--; }
+            currentMonth = { year: y, month: m };
+            loadMonthData();
+        } else {
+            currentWeekStart.setDate(currentWeekStart.getDate() + (7 * delta));
+            loadWeekData();
+        }
     }
 
     function filterEmployees(keyword) {
