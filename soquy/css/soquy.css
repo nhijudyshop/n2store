@@ -3855,11 +3855,16 @@
 
 .ts-block {
     background: #fff7e6;
-    border-radius: 4px;
-    padding: 8px;
+    border-radius: 6px;
+    padding: 8px 10px;
     font-size: 12px;
     cursor: pointer;
     min-width: 120px;
+    transition: box-shadow 0.15s;
+}
+
+.ts-block:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .ts-block-green {
