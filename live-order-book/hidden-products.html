@@ -1,0 +1,240 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sản phẩm đã ẩn - Live Order Book - N2STORE</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <!-- Firebase Configuration (SHARED) -->
+    <script src="../shared/js/firebase-config.js"></script>
+
+    <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager, cache) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol (ES modules don't work locally) -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script src="../shared/js/shared-cache-manager.js"><\/script>');
+        }
+    </script>
+
+    <script type="module" src="firebase-helpers-global.js"></script>
+
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 { font-size: 1.6em; margin-bottom: 5px; }
+        .header p { opacity: 0.8; font-size: 0.9em; }
+
+        .header-nav {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+        }
+
+        .btn-back-header {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-back-header:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .product-list {
+            padding: 20px;
+        }
+
+        .product-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            transition: all 0.3s;
+            background: #fafafa;
+        }
+
+        .product-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 3px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .product-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 2px solid #667eea;
+            flex-shrink: 0;
+        }
+
+        .product-image.no-image {
+            background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #666;
+        }
+
+        .product-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .product-name {
+            font-weight: 700;
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 4px;
+            word-wrap: break-word;
+        }
+
+        .product-code {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .product-qty {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+        }
+
+        .product-qty span {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .qty-total {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .qty-ordered {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .btn-unhide {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            transition: all 0.3s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .btn-unhide:hover {
+            background: #388e3c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-unhide:active { transform: scale(0.95); }
+        .btn-unhide:disabled { background: #ccc; cursor: not-allowed; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .empty-state h2 { font-size: 1.5em; margin-bottom: 10px; color: #666; }
+        .empty-state p { font-size: 1em; }
+
+        .session-info {
+            padding: 10px 20px;
+            background: #f0f0ff;
+            border-bottom: 1px solid #e0e0ff;
+            font-size: 13px;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .session-info strong { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-nav">
+                <a href="index.html" class="btn-back-header">← Quay lại</a>
+            </div>
+            <h1>👁️ Sản phẩm đã ẩn</h1>
+            <p>Danh sách sản phẩm đã ẩn khỏi trang hiển thị</p>
+        </div>
+        <div class="session-info" id="sessionInfo">
+            📋 Đợt live: <strong id="sessionName">—</strong>
+            &nbsp;|&nbsp; Số SP ẩn: <strong id="hiddenCount">0</strong>
+        </div>
+        <div class="product-list" id="productList">
+            <div class="empty-state">
+                <h2>⏳ Đang tải...</h2>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/hidden-products.js"></script>
+</body>
+</html>

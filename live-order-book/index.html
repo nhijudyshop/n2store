@@ -1,0 +1,1271 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Order NCC - Live Order Book - N2STORE</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <!-- Firebase Configuration (SHARED) -->
+    <script src="../shared/js/firebase-config.js"></script>
+
+    <!-- XLSX library for TPOS Excel API -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+
+    <!-- TPOS Config -->
+    <script src="../shared/js/tpos-config.js"></script>
+
+    <!-- Permissions Helper -->
+    <script src="../shared/js/permissions-helper.js"></script>
+
+    <!-- Navigation (deferred) -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Firebase Helpers (ES Module → exposes to window) -->
+    <script type="module" src="firebase-helpers-global.js"></script>
+
+    <!-- Main Application (regular script, uses global functions) -->
+    <script defer src="js/main.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 { font-size: 2em; margin-bottom: 10px; }
+
+        .header-nav {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-nav-header {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(10px);
+            text-decoration: none;
+        }
+
+        .btn-nav-header:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-settings {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-settings:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Session Controls */
+        .session-section {
+            padding: 20px 30px;
+            background: #f0f0ff;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .session-section label { font-weight: 600; color: #333; white-space: nowrap; }
+
+        .session-select {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            font-size: 14px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            outline: none;
+            background: white;
+        }
+
+        .session-select:focus { border-color: #764ba2; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+
+        .btn-session {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .btn-session-create { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; }
+        .btn-session-create:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(40,167,69,0.4); }
+
+        .btn-session-delete { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; }
+        .btn-session-delete:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(220,53,69,0.4); }
+
+        .btn-session-rename { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; }
+        .btn-session-rename:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,193,7,0.4); }
+
+        .btn-session-expand { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-session-expand:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102,126,234,0.4); }
+
+        /* Search Section */
+        .search-section {
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .search-wrapper {
+            position: relative;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus { border-color: #764ba2; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+
+        .suggestions {
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 0; right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 5px;
+        }
+
+        .suggestions.show { display: block; }
+
+        .suggestion-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #eee;
+        }
+
+        .suggestion-item:hover { background: #f0f0ff; }
+        .suggestion-item:last-child { border-bottom: none; }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Product List Section */
+        .product-list-section {
+            padding: 30px;
+            background: #f8f9fa;
+            border-top: 3px solid #667eea;
+        }
+
+        .list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .list-header h2 { color: #333; font-size: 1.5em; flex: 1; min-width: 250px; }
+
+        .list-search-box { position: relative; flex: 0 1 300px; }
+
+        .list-search-input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            font-size: 14px;
+            border: 2px solid #667eea;
+            border-radius: 20px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .list-search-input:focus { border-color: #764ba2; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+
+        .list-search-clear {
+            position: absolute;
+            right: 10px; top: 50%;
+            transform: translateY(-50%);
+            background: #dc3545;
+            color: white;
+            border: none;
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .list-search-clear.show { display: flex; }
+
+        .product-list-preview {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state .icon { font-size: 48px; margin-bottom: 15px; }
+        .empty-state p { font-size: 16px; }
+
+        /* Product Card in List */
+        .preview-item {
+            display: grid;
+            grid-template-columns: 80px 1fr auto;
+            gap: 15px;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            align-items: center;
+        }
+
+        .preview-item:last-child { border-bottom: none; }
+
+        .preview-image {
+            width: 80px; height: 80px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+        }
+
+        .preview-image.no-image {
+            background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .preview-info { display: flex; flex-direction: column; gap: 5px; }
+
+        .preview-name { font-weight: 600; color: #333; font-size: 14px; }
+
+        .preview-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #666;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .qty-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff3e0;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 2px solid #ff9800;
+        }
+
+        .qty-btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            width: 24px; height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        .qty-btn:hover { background: #f57c00; transform: scale(1.1); }
+        .qty-btn:active { transform: scale(0.95); }
+
+        .qty-value {
+            font-weight: 600;
+            color: #e65100;
+            min-width: 30px;
+            text-align: center;
+        }
+
+        .qty-input {
+            width: 50px;
+            padding: 2px 4px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .qty-input:focus { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.2); }
+
+        .ordered-qty-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #e8f5e9;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 2px solid #4caf50;
+        }
+
+        .preview-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .btn-action {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .btn-change-image { background: #17a2b8; color: white; }
+        .btn-change-image:hover { background: #138496; }
+
+        .btn-hide { background: #ff9800; color: white; }
+        .btn-hide:hover { background: #f57c00; }
+
+        .btn-remove { background: #dc3545; color: white; }
+        .btn-remove:hover { background: #c82333; }
+
+        /* Image Modal */
+        .image-modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .image-modal-overlay.show { display: flex; }
+
+        .image-modal {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .image-modal-header {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .image-modal-header h3 { margin: 0; font-size: 18px; }
+
+        .image-modal-close {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            width: 32px; height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .image-modal-close:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
+
+        .image-modal-body { padding: 20px; max-height: calc(90vh - 140px); overflow-y: auto; }
+
+        .image-modal-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .image-modal-tab {
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            position: relative;
+            top: 2px;
+        }
+
+        .image-modal-tab:hover { color: #17a2b8; }
+        .image-modal-tab.active { color: #17a2b8; border-bottom-color: #17a2b8; }
+
+        .image-modal-content { display: none; }
+        .image-modal-content.active { display: block; }
+
+        .paste-area {
+            border: 3px dashed #17a2b8;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .paste-area:hover { background: #e9ecef; border-color: #138496; }
+        .paste-area.has-image { border-color: #28a745; background: #d4edda; }
+
+        .paste-icon { font-size: 48px; color: #17a2b8; }
+        .paste-text { font-size: 16px; color: #666; font-weight: 600; }
+        .paste-hint { font-size: 13px; color: #999; }
+
+        .paste-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .paste-preview.show { display: block; }
+
+        .file-upload-area {
+            border: 3px dashed #17a2b8;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-upload-area:hover { background: #e9ecef; }
+        .file-upload-area.dragover { background: #d1ecf1; border-color: #17a2b8; transform: scale(1.02); }
+
+        .file-upload-input { display: none; }
+
+        .link-input-area { display: flex; flex-direction: column; gap: 15px; }
+
+        .link-input {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 15px;
+            border: 2px solid #17a2b8;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        .link-input:focus { border-color: #138496; box-shadow: 0 0 0 3px rgba(23,162,184,0.1); }
+
+        .link-preview-container { display: none; margin-top: 15px; }
+        .link-preview-container.show { display: block; }
+
+        .link-preview-image { max-width: 100%; max-height: 300px; border-radius: 10px; border: 2px solid #17a2b8; }
+
+        .image-modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-modal {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-modal-cancel { background: #6c757d; color: white; }
+        .btn-modal-cancel:hover { background: #5a6268; }
+
+        .btn-modal-save { background: linear-gradient(135deg, #17a2b8 0%, #138496 100%); color: white; }
+        .btn-modal-save:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(23,162,184,0.4); }
+        .btn-modal-save:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+
+        /* Camera */
+        .camera-container {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            min-height: 200px;
+        }
+
+        .camera-video { width: 100%; height: auto; display: block; max-height: 400px; object-fit: contain; }
+        .camera-canvas { display: none; }
+
+        .camera-controls { display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
+
+        .btn-camera {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-camera-start { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; }
+        .btn-camera-capture { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; }
+        .btn-camera-switch { background: linear-gradient(135deg, #6c757d 0%, #495057 100%); color: white; }
+        .btn-camera-stop { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; }
+
+        .camera-message {
+            padding: 40px;
+            text-align: center;
+            color: #666;
+            font-size: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .camera-message-icon { font-size: 48px; color: #17a2b8; }
+
+        /* Settings Sidebar */
+        .settings-sidebar {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.2);
+            z-index: 10000;
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+        }
+
+        .settings-sidebar.open { right: 0; }
+
+        .settings-sidebar-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .settings-sidebar-overlay.show { opacity: 1; visibility: visible; }
+
+        .settings-sidebar-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .settings-sidebar-header h2 { margin: 0; font-size: 20px; }
+
+        .btn-close-sidebar {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            width: 32px; height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .btn-close-sidebar:hover { background: rgba(255,255,255,0.2); transform: rotate(90deg); }
+
+        .settings-sidebar-content { padding: 20px; }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .setting-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .setting-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .setting-input {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .setting-input:focus { border-color: #ff9800; box-shadow: 0 0 0 3px rgba(255,193,7,0.2); }
+
+        .setting-description { font-size: 12px; color: #999; margin-top: 5px; }
+
+        .btn-apply-settings {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        .btn-apply-settings:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,152,0,0.4); }
+
+        /* Cart History */
+        .cart-history-section { margin-bottom: 20px; }
+
+        .cart-history-list {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        .cart-history-list.collapsed { max-height: 0; opacity: 0; overflow: hidden; margin-top: 0; }
+
+        .no-history { text-align: center; padding: 20px; color: #999; font-style: italic; }
+
+        .snapshot-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+
+        .snapshot-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); transform: translateY(-2px); }
+
+        .snapshot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            gap: 10px;
+        }
+
+        .snapshot-name { font-weight: bold; font-size: 14px; color: #333; flex: 1; }
+        .snapshot-date { font-size: 11px; color: #666; white-space: nowrap; }
+
+        .snapshot-stats {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .snapshot-stats span { background: #f8f9fa; padding: 4px 8px; border-radius: 4px; }
+
+        .snapshot-actions { display: flex; gap: 6px; }
+
+        .snapshot-actions button {
+            flex: 1;
+            padding: 6px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-restore { background: #28a745; color: white; }
+        .btn-restore:hover { background: #218838; }
+
+        .btn-delete { background: #dc3545; color: white; }
+        .btn-delete:hover { background: #c82333; }
+
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+            font-size: 12px;
+            color: #667eea;
+        }
+
+        .toggle-icon.expanded { transform: rotate(90deg); }
+
+        /* Variant Group Header */
+        .variant-group-header {
+            background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%);
+            padding: 8px 15px;
+            font-weight: 700;
+            font-size: 13px;
+            color: #3f51b5;
+            border-radius: 8px 8px 0 0;
+            margin-top: 10px;
+        }
+
+        .variant-group-header:first-child { margin-top: 0; }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 20000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-header-custom {
+            padding: 20px;
+            border-bottom: 1px solid #ddd;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header-custom h3 { margin: 0; font-size: 18px; color: #333; }
+
+        .modal-body-custom { padding: 20px; overflow-y: auto; flex: 1; }
+
+        .modal-footer-custom {
+            padding: 15px 20px;
+            border-top: 1px solid #ddd;
+            background: #f8f9fa;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-footer-custom button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary-custom { background: linear-gradient(135deg, #28a745 0%, #218838 100%); color: white; }
+        .btn-primary-custom:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(40,167,69,0.3); }
+
+        .btn-secondary-custom { background: #6c757d; color: white; }
+        .btn-secondary-custom:hover { background: #5a6268; }
+
+        .warning-message {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+            color: #856404;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .auto-save-option { margin-bottom: 15px; }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .checkbox-label input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+        .checkbox-label span { font-size: 14px; font-weight: 500; color: #28a745; }
+
+        .auto-save-name-input { margin-bottom: 15px; }
+        .auto-save-name-input label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; }
+
+        .auto-save-name-input input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .info-message {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 10px;
+            color: #0c5460;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        /* Variant Selection Modal */
+        .variant-list { max-height: 400px; overflow-y: auto; }
+
+        .variant-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .variant-item label { flex: 1; cursor: pointer; font-size: 14px; }
+
+        .variant-qty-input {
+            width: 60px;
+            padding: 5px;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* Notification */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .header { padding: 20px 15px; }
+            .header h1 { font-size: 1.3em; }
+            .header-nav { position: static; margin-bottom: 10px; justify-content: center; }
+            .btn-settings { position: static; margin-top: 10px; }
+            .session-section { flex-direction: column; align-items: stretch; }
+            .search-section { padding: 20px 15px; }
+            .product-list-section { padding: 20px 15px; }
+            .preview-item { grid-template-columns: 60px 1fr; gap: 10px; }
+            .preview-actions { grid-column: 1 / -1; justify-content: flex-end; }
+            .settings-sidebar { width: 100%; right: -100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Image Change Modal -->
+    <div class="image-modal-overlay" id="imageModalOverlay" onclick="if(event.target === this) closeImageModal()">
+        <div class="image-modal">
+            <div class="image-modal-header">
+                <h3>🖼️ Thay đổi hình ảnh sản phẩm</h3>
+                <button class="image-modal-close" onclick="closeImageModal()">×</button>
+            </div>
+            <div class="image-modal-body">
+                <div class="image-modal-tabs">
+                    <button class="image-modal-tab active" onclick="switchImageTab('paste')">📋 Paste</button>
+                    <button class="image-modal-tab" onclick="switchImageTab('upload')">📁 File</button>
+                    <button class="image-modal-tab" onclick="switchImageTab('camera')">📷 Camera</button>
+                    <button class="image-modal-tab" onclick="switchImageTab('link')">🔗 Link</button>
+                </div>
+                <!-- Paste Tab -->
+                <div class="image-modal-content active" id="pasteTab">
+                    <div class="paste-area" id="pasteArea" onclick="focusPasteArea()">
+                        <div class="paste-icon">📋</div>
+                        <div class="paste-text">Click vào đây và paste ảnh (Ctrl+V)</div>
+                        <div class="paste-hint">Hoặc nhấn Ctrl+V ở bất kỳ đâu trong modal</div>
+                    </div>
+                    <img class="paste-preview" id="pastePreview" alt="Preview">
+                </div>
+                <!-- Upload Tab -->
+                <div class="image-modal-content" id="uploadTab">
+                    <div class="file-upload-area" id="fileUploadArea" onclick="document.getElementById('fileUploadInput').click()">
+                        <div class="paste-icon">📁</div>
+                        <div class="paste-text">Click để chọn file hoặc kéo thả</div>
+                        <div class="paste-hint">JPG, PNG, GIF, WEBP</div>
+                    </div>
+                    <input type="file" id="fileUploadInput" class="file-upload-input" accept="image/*" onchange="handleFileSelect(event)">
+                    <img class="paste-preview" id="uploadPreview" alt="Preview">
+                </div>
+                <!-- Camera Tab -->
+                <div class="image-modal-content" id="cameraTab">
+                    <div class="camera-container" id="cameraContainer">
+                        <div class="camera-message" id="cameraMessage">
+                            <div class="camera-message-icon">📷</div>
+                            <div>Click "Bật camera" để bắt đầu</div>
+                        </div>
+                        <video id="cameraVideo" class="camera-video" autoplay playsinline style="display: none;"></video>
+                        <canvas id="cameraCanvas" class="camera-canvas"></canvas>
+                    </div>
+                    <img class="paste-preview" id="cameraPreview" alt="Preview">
+                    <div class="camera-controls">
+                        <button class="btn-camera btn-camera-start" id="btnStartCamera" onclick="startCamera()">📷 Bật camera</button>
+                        <button class="btn-camera btn-camera-switch" id="btnSwitchCamera" onclick="switchCamera()" style="display:none;">🔄 Đổi</button>
+                        <button class="btn-camera btn-camera-capture" id="btnCapturePhoto" onclick="capturePhoto()" style="display:none;">📸 Chụp</button>
+                        <button class="btn-camera btn-camera-stop" id="btnStopCamera" onclick="stopCamera()" style="display:none;">⏹️ Tắt</button>
+                    </div>
+                </div>
+                <!-- Link Tab -->
+                <div class="image-modal-content" id="linkTab">
+                    <div class="link-input-area">
+                        <input type="text" class="link-input" id="linkInput" placeholder="Nhập URL hình ảnh (https://...)" oninput="handleLinkInput(event)">
+                        <div class="paste-hint">Để trống để xóa hình ảnh hiện tại</div>
+                    </div>
+                    <div class="link-preview-container" id="linkPreviewContainer">
+                        <img class="link-preview-image" id="linkPreviewImage" alt="Preview">
+                    </div>
+                </div>
+            </div>
+            <div class="image-modal-footer">
+                <button class="btn-modal btn-modal-cancel" onclick="closeImageModal()">Hủy</button>
+                <button class="btn-modal btn-modal-save" id="btnSaveImage" onclick="saveImageChange()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="header-nav">
+                <a href="index.html" class="btn-nav-header" style="background:white;color:#667eea;">📋 Order NCC</a>
+                <a href="order-list.html" class="btn-nav-header" id="btnGoDisplay" target="_blank">📺 Phóng to</a>
+                <a href="hidden-products.html" class="btn-nav-header" id="btnGoHidden">👁️ SP ẩn</a>
+            </div>
+            <h1>📋 Quản lý Order NCC - Live Order Book</h1>
+            <p>Sổ đặt hàng NCC theo đợt live</p>
+            <button class="btn-settings" id="btnSettings" onclick="toggleSettingsSidebar()">
+                <span>⚙️</span>
+                <span class="settings-text">Cài đặt</span>
+            </button>
+        </div>
+
+        <!-- Session Controls -->
+        <div class="session-section">
+            <label>📅 Đợt live:</label>
+            <select class="session-select" id="sessionSelect" onchange="onSessionChange()">
+                <option value="">-- Chọn đợt live --</option>
+            </select>
+            <button class="btn-session btn-session-create" onclick="createNewSession()">➕ Tạo mới</button>
+            <button class="btn-session btn-session-rename" onclick="renameCurrentSession()">✏️ Đổi tên</button>
+            <button class="btn-session btn-session-delete" onclick="deleteCurrentSession()">🗑️ Xóa</button>
+        </div>
+
+        <!-- TPOS Search -->
+        <div class="search-section">
+            <div class="search-wrapper">
+                <input type="text" class="search-input" id="productSearch" placeholder="🔍 Tìm sản phẩm TPOS để thêm vào đợt live..." autocomplete="off">
+                <div class="suggestions" id="suggestions"></div>
+            </div>
+            <div id="loadingIndicator" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px;">Đang tải dữ liệu...</p>
+            </div>
+        </div>
+
+        <!-- Product List -->
+        <div class="product-list-section" id="productListSection" style="display: none;">
+            <div class="list-header">
+                <h2>📋 Danh sách sản phẩm (<span id="productCount">0</span>)</h2>
+                <div class="list-search-box">
+                    <input type="text" class="list-search-input" id="listSearchInput" placeholder="🔍 Tìm trong danh sách..." autocomplete="off">
+                    <button class="list-search-clear" id="listSearchClear" onclick="clearListSearch()">×</button>
+                </div>
+            </div>
+            <div class="product-list-preview" id="productListPreview">
+                <div class="empty-state">
+                    <div class="icon">📦</div>
+                    <p>Chưa có sản phẩm. Tìm kiếm TPOS để thêm sản phẩm.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Sidebar -->
+    <div class="settings-sidebar-overlay" id="settingsSidebarOverlay" onclick="toggleSettingsSidebar()"></div>
+    <div class="settings-sidebar" id="settingsSidebar">
+        <div class="settings-sidebar-header">
+            <h2>⚙️ Cài đặt</h2>
+            <button class="btn-close-sidebar" onclick="toggleSettingsSidebar()">×</button>
+        </div>
+        <div class="settings-sidebar-content">
+            <!-- Display Settings -->
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #667eea; margin-bottom: 15px; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px;">📐 Cài đặt Hiển thị (Display Page)</h3>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="setting-label">📊 Số Cột</label>
+                        <input type="number" class="setting-input" id="settingColumns" value="4" min="1" max="10">
+                        <div class="setting-description">1-10 cột</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📋 Số Hàng</label>
+                        <input type="number" class="setting-input" id="settingRows" value="2" min="1" max="10">
+                        <div class="setting-description">1-10 hàng</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">📏 Khoảng cách (px)</label>
+                        <input type="number" class="setting-input" id="settingGap" value="10" min="0" max="50">
+                        <div class="setting-description">0-50px</div>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">🔤 Font Size</label>
+                        <input type="number" class="setting-input" id="settingFontSize" value="14" min="8" max="48">
+                        <div class="setting-description">8-48px</div>
+                    </div>
+                </div>
+                <button class="btn-apply-settings" onclick="applyDisplaySettings()">💾 Lưu Cài Đặt Hiển Thị</button>
+            </div>
+
+            <!-- Save Cart & Refresh -->
+            <div style="margin-bottom: 20px;">
+                <button class="btn-apply-settings" onclick="saveCartAndRefresh()" style="background: linear-gradient(135deg, #28a745 0%, #218838 100%);">
+                    💾 Lưu & Làm mới
+                </button>
+                <div class="setting-description" style="text-align: center; margin-top: 10px;">Lưu snapshot và xóa sạch danh sách</div>
+            </div>
+
+            <!-- Cart History -->
+            <div class="cart-history-section">
+                <div onclick="toggleCartHistory()" style="cursor: pointer;">
+                    <h3 style="color: #667eea; margin-bottom: 0; font-size: 16px; border-bottom: 2px solid #667eea; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span id="cartHistoryToggleIcon" class="toggle-icon">▶</span>
+                            📚 Lịch Sử Giỏ Hàng
+                        </span>
+                    </h3>
+                </div>
+                <div id="cartHistoryList" class="cart-history-list collapsed">
+                    <div class="no-history">Đang tải...</div>
+                </div>
+            </div>
+
+            <!-- Logout -->
+            <div style="margin-bottom: 20px; margin-top: 20px;">
+                <button class="btn-apply-settings" onclick="logoutUser()" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
+                    🚪 Đăng Xuất
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div id="restoreConfirmModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header-custom">
+                <h3>⚠️ Khôi phục giỏ hàng</h3>
+            </div>
+            <div class="modal-body-custom">
+                <div class="warning-message">
+                    Giỏ hàng hiện tại có <strong id="currentCartCount">0</strong> sản phẩm
+                </div>
+                <div class="auto-save-option">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoSaveBeforeRestore" checked onchange="toggleAutoSaveInput()">
+                        <span>✅ Tự động lưu trước khi khôi phục</span>
+                    </label>
+                </div>
+                <div id="autoSaveNameInput" class="auto-save-name-input">
+                    <label>Tên giỏ hàng sẽ lưu:</label>
+                    <input type="text" id="autoSaveName" placeholder="Giỏ hàng trước khi khôi phục..." value="">
+                </div>
+                <div class="info-message">ℹ️ Bỏ tick nếu không muốn lưu giỏ hiện tại</div>
+            </div>
+            <div class="modal-footer-custom">
+                <button onclick="confirmRestore()" class="btn-primary-custom">♻️ Khôi phục</button>
+                <button onclick="closeRestoreConfirmModal()" class="btn-secondary-custom">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Variant Selection Modal -->
+    <div id="variantModal" class="modal-overlay" style="display: none;">
+        <div class="modal-container" style="max-width: 600px;">
+            <div class="modal-header-custom">
+                <h3 id="variantModalTitle">Chọn biến thể</h3>
+                <button onclick="closeVariantModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">✖️</button>
+            </div>
+            <div class="modal-body-custom">
+                <div class="variant-list" id="variantList"></div>
+            </div>
+            <div class="modal-footer-custom">
+                <button onclick="confirmAddVariants()" class="btn-primary-custom">✅ Thêm đã chọn</button>
+                <button onclick="closeVariantModal()" class="btn-secondary-custom">Hủy</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

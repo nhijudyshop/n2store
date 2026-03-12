@@ -1,0 +1,389 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Danh sách Order NCC - Live Order Book - N2STORE</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <!-- Firebase Configuration (SHARED) -->
+    <script src="../shared/js/firebase-config.js"></script>
+
+    <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager, cache) -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol (ES modules don't work locally) -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script src="../shared/js/shared-cache-manager.js"><\/script>');
+        }
+    </script>
+
+    <script type="module" src="firebase-helpers-global.js"></script>
+
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <style>
+        :root {
+            --grid-columns: 4;
+            --grid-rows: 2;
+            --grid-gap: 10px;
+            --font-size: 14px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        .main-content {
+            width: 100%;
+            height: 100vh;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(var(--grid-columns), 1fr);
+            grid-template-rows: repeat(var(--grid-rows), 1fr);
+            gap: var(--grid-gap);
+            width: 100%;
+            height: calc(100vh - 30px);
+            max-width: 1900px;
+            touch-action: pan-y pinch-zoom;
+            user-select: none;
+        }
+
+        .grid-item {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 6px;
+            transition: all 0.3s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            min-height: 0;
+        }
+
+        .grid-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-3px);
+        }
+
+        .grid-item-image {
+            width: 100%;
+            height: 0;
+            object-fit: cover;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            border: 2px solid #667eea;
+            flex: 40 1 0%;
+            min-height: 0;
+        }
+
+        .grid-item-image.no-image {
+            background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: #666;
+        }
+
+        .grid-item-name {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 3px;
+            font-size: var(--font-size);
+            line-height: 1.2;
+            flex: 10 1 0%;
+            text-align: center;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grid-item-name-text {
+            width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+
+        .grid-item-stats {
+            display: flex;
+            gap: 0;
+            margin-top: 4px;
+            flex: 50 1 0%;
+            min-height: 0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .grid-stat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            border-right: 3px solid white;
+            padding: 8px 4px;
+        }
+
+        .grid-stat:last-child { border-right: none; }
+
+        .grid-stat-label {
+            font-size: 9px;
+            color: #555;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grid-stat-value {
+            font-size: 16px;
+            font-weight: 900;
+            color: #333;
+            line-height: 1;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .grid-stat-total {
+            background: linear-gradient(180deg, #e3f2fd 0%, #bbdefb 100%);
+        }
+
+        .grid-stat-total .grid-stat-value { font-size: 36px; }
+
+        .grid-stat-ordered {
+            background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
+        }
+
+        .grid-stat-ordered .grid-stat-value { font-size: 36px; }
+
+        .qty-controls {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .qty-controls .grid-stat-value {
+            flex: 0 0 auto;
+            min-width: 40px;
+            text-align: center;
+            font-size: 36px;
+        }
+
+        .qty-btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            padding: 0;
+            line-height: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .qty-btn:hover {
+            background: #f57c00;
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .qty-btn:active { transform: scale(0.95); }
+        .qty-btn:disabled { background: #ccc; cursor: not-allowed; opacity: 0.5; }
+
+        .qty-input {
+            width: 50px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: 900;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            padding: 4px;
+            outline: none;
+        }
+
+        .qty-input:focus { border-color: #667eea; }
+
+        .btn-nav {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 20px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.2);
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .btn-nav:hover:not(:disabled),
+        .btn-nav.active:not(:disabled) {
+            background: #667eea;
+            color: white;
+            transform: translateY(-50%) scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .btn-nav:disabled {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            cursor: not-allowed;
+            pointer-events: none !important;
+        }
+
+        .nav-hover-area {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            width: 80px;
+            z-index: 999;
+        }
+
+        .nav-hover-area.left { left: 0; }
+        .nav-hover-area.right { right: 0; }
+
+        #btnPrev { left: 10px; }
+        #btnNext { right: 10px; }
+
+        .page-info {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #333;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0.15;
+            transition: opacity 0.3s ease;
+        }
+
+        body:hover .page-info,
+        .page-info:hover { opacity: 1; }
+
+        .empty-state {
+            text-align: center;
+            color: white;
+            padding: 40px;
+        }
+
+        .empty-state h2 { font-size: 2em; margin-bottom: 15px; }
+        .empty-state p { font-size: 1.1em; margin-bottom: 20px; }
+
+        .btn-back {
+            background: rgba(255,255,255,0.9);
+            border: 2px solid white;
+            color: #667eea;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-back:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+        }
+
+        @media (min-width: 1601px) {
+            .grid-stat-total .grid-stat-value,
+            .grid-stat-ordered .grid-stat-value { font-size: 42px; }
+            .qty-controls .grid-stat-value { font-size: 42px; }
+            .qty-btn { width: 32px; height: 32px; font-size: 20px; }
+        }
+
+        @media (min-width: 1920px) {
+            .grid-stat-total .grid-stat-value,
+            .grid-stat-ordered .grid-stat-value { font-size: 48px; }
+            .qty-controls .grid-stat-value { font-size: 48px; }
+            .qty-btn { width: 36px; height: 36px; font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content" id="mainContent">
+        <div class="product-grid" id="productGrid"></div>
+    </div>
+
+    <div class="nav-hover-area left"></div>
+    <button class="btn-nav" id="btnPrev" onclick="changePage(-1)">◀ Trước</button>
+    <div class="nav-hover-area right"></div>
+    <button class="btn-nav" id="btnNext" onclick="changePage(1)">Sau ▶</button>
+
+    <span class="page-info" id="pageInfo">Trang 1/1</span>
+
+    <script src="js/order-list.js"></script>
+</body>
+</html>
