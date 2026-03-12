@@ -136,7 +136,7 @@ class MoneyTransferApp {
 
     getAuthState() {
         try {
-            const stored = localStorage.getItem(CONFIG.data.AUTH_STORAGE_KEY);
+            const stored = n2store.getItem(CONFIG.data.AUTH_STORAGE_KEY);
             return stored ? JSON.parse(stored) : null;
         } catch (error) {
             console.error("Error reading auth state:", error);
@@ -1747,7 +1747,7 @@ class MoneyTransferApp {
 
     clearAuthState() {
         try {
-            localStorage.removeItem(CONFIG.data.AUTH_STORAGE_KEY);
+            n2store.removeItem(CONFIG.data.AUTH_STORAGE_KEY);
             localStorage.removeItem("isLoggedIn");
             localStorage.removeItem("userType");
             localStorage.removeItem("checkLogin");

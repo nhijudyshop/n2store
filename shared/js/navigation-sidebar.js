@@ -523,7 +523,7 @@ window._navigationSidebarMixin = {
      */
     getGroupCollapsedState() {
         try {
-            const state = localStorage.getItem('n2shop_menu_group_collapsed');
+            const state = n2store.getItem('n2shop_menu_group_collapsed');
             return state ? JSON.parse(state) : {};
         } catch (e) {
             return {};
@@ -537,7 +537,7 @@ window._navigationSidebarMixin = {
         try {
             const state = this.getGroupCollapsedState();
             state[groupId] = isCollapsed;
-            localStorage.setItem('n2shop_menu_group_collapsed', JSON.stringify(state));
+            n2store.setItem('n2shop_menu_group_collapsed', JSON.stringify(state));
         } catch (e) {
             console.error('[Menu] Error saving collapsed state:', e);
         }

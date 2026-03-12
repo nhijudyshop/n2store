@@ -43,7 +43,7 @@ window.AuditLogger = (function () {
             console.warn('[AuditLogger] Could not get user info from authManager:', error);
         }
         try {
-            var authStr = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth') || '{}';
+            var authStr = sessionStorage.getItem('loginindex_auth') || n2store.getItem('loginindex_auth') || '{}';
             var authData = JSON.parse(authStr);
             if (authData.username || authData.uid) {
                 return {

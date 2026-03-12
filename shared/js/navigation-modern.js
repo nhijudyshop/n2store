@@ -259,9 +259,20 @@ function selectiveLogoutStorage() {
         'n2shop_auth_cache'  // CacheManager storage from login.js - must stay in sync
     ];
 
+    // Keys that are also in n2store (IDB-backed)
+    const n2storeAuthKeys = [
+        'loginindex_auth',
+        'bearer_token_data',
+        'n2shop_auth_cache'
+    ];
+
     authKeys.forEach(function(key) {
         localStorage.removeItem(key);
         sessionStorage.removeItem(key);
+        // Also remove from n2store for keys that were migrated
+        if (n2storeAuthKeys.includes(key)) {
+            n2store.removeItem(key);
+        }
     });
 
     console.log('[Navigation] Selective logout completed - module data preserved');
@@ -287,7 +298,7 @@ function getCustomMenuNames() {
 
     // Try to load from localStorage cache first
     try {
-        const stored = localStorage.getItem(CUSTOM_MENU_NAMES_KEY);
+        const stored = n2store.getItem(CUSTOM_MENU_NAMES_KEY);
         cachedMenuNames = stored ? JSON.parse(stored) : {};
         return cachedMenuNames;
     } catch (e) {
@@ -299,7 +310,7 @@ function getCustomMenuNames() {
 // Check if cache is still valid (not expired)
 function isCacheValid() {
     try {
-        const timestamp = localStorage.getItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY);
+        const timestamp = n2store.getItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY);
         if (!timestamp) return false;
 
         const cacheTime = parseInt(timestamp, 10);
@@ -322,7 +333,7 @@ function isCacheValid() {
 async function loadCustomMenuNamesFromFirebase() {
     try {
         // Check if we have valid cached data
-        const hasCache = localStorage.getItem(CUSTOM_MENU_NAMES_KEY);
+        const hasCache = n2store.getItem(CUSTOM_MENU_NAMES_KEY);
 
         if (hasCache && isCacheValid()) {
             console.log('[Menu Names] Using cached data (not expired)');
@@ -342,13 +353,13 @@ async function loadCustomMenuNamesFromFirebase() {
             const data = doc.data();
             cachedMenuNames = data.names || {};
             // Update localStorage cache with timestamp
-            localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(cachedMenuNames));
-            localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
+            n2store.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(cachedMenuNames));
+            n2store.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
             console.log('[Menu Names] Loaded from Firebase:', Object.keys(cachedMenuNames).length, 'custom names');
         } else {
             cachedMenuNames = {};
             // Still set timestamp to avoid continuous retry
-            localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
+            n2store.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
             console.log('[Menu Names] No custom names in Firebase');
         }
 
@@ -363,7 +374,7 @@ async function loadCustomMenuNamesFromFirebase() {
 async function saveCustomMenuNames(customNames) {
     try {
         // Save to localStorage first (immediate)
-        localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(customNames));
+        n2store.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(customNames));
         cachedMenuNames = customNames;
 
         // Save to Firebase for sync
@@ -486,7 +497,7 @@ const MenuLayoutStore = {
      */
     _isCacheValid() {
         try {
-            const timestamp = localStorage.getItem(MENU_LAYOUT_TIMESTAMP_KEY);
+            const timestamp = n2store.getItem(MENU_LAYOUT_TIMESTAMP_KEY);
             if (!timestamp) return false;
             const cacheTime = parseInt(timestamp, 10);
             return (Date.now() - cacheTime) < CACHE_EXPIRY_MS;
@@ -500,7 +511,7 @@ const MenuLayoutStore = {
      */
     _loadFromLocalStorage() {
         try {
-            const stored = localStorage.getItem(MENU_LAYOUT_STORAGE_KEY);
+            const stored = n2store.getItem(MENU_LAYOUT_STORAGE_KEY);
             return stored ? JSON.parse(stored) : null;
         } catch (e) {
             console.error('[MenuLayout] Error loading from localStorage:', e);
@@ -513,8 +524,8 @@ const MenuLayoutStore = {
      */
     _saveToLocalStorage() {
         try {
-            localStorage.setItem(MENU_LAYOUT_STORAGE_KEY, JSON.stringify(this._layout));
-            localStorage.setItem(MENU_LAYOUT_TIMESTAMP_KEY, Date.now().toString());
+            n2store.setItem(MENU_LAYOUT_STORAGE_KEY, JSON.stringify(this._layout));
+            n2store.setItem(MENU_LAYOUT_TIMESTAMP_KEY, Date.now().toString());
         } catch (e) {
             console.error('[MenuLayout] Error saving to localStorage:', e);
         }
@@ -772,7 +783,7 @@ const MenuLayoutStore = {
 
                 const db = firebase.firestore();
                 const username = localStorage.getItem('currentUser') ||
-                    JSON.parse(localStorage.getItem('loginindex_auth') || '{}').username ||
+                    JSON.parse(n2store.getItem('loginindex_auth') || '{}').username ||
                     'admin';
 
                 // Save without lastUpdated from local copy (let Firebase set it)
@@ -883,7 +894,7 @@ class UnifiedNavigationManager {
         try {
             // Get user info and determine admin status
             // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
-            const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
+            const authDataStr = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
             const authData = JSON.parse(authDataStr);
             // isAdminTemplate: used for admin bypass in permission checks and UI display
             // Check isAdmin flag, roleTemplate, and legacy userType
@@ -968,7 +979,7 @@ class UnifiedNavigationManager {
 
         // Try to load from cache (check both localStorage AND sessionStorage)
         try {
-            const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+            const authData = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
 
@@ -996,8 +1007,12 @@ class UnifiedNavigationManager {
 
                     // Update stored auth data with full admin permissions
                     userAuth.detailedPermissions = merged;
-                    const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
-                    storage.setItem("loginindex_auth", JSON.stringify(userAuth));
+                    const useN2store = n2store.getItem("loginindex_auth") ? true : false;
+                    if (useN2store) {
+                        n2store.setItem("loginindex_auth", JSON.stringify(userAuth));
+                    } else {
+                        sessionStorage.setItem("loginindex_auth", JSON.stringify(userAuth));
+                    }
 
                     console.log(
                         "[Permission Load] Admin bypass: granted all",
@@ -1028,7 +1043,7 @@ class UnifiedNavigationManager {
         // Try to load from Firebase if not in cache
         try {
             if (typeof firebase !== "undefined" && firebase.firestore) {
-                const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+                const authDataStr = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
                 const authData = authDataStr ? JSON.parse(authDataStr) : null;
 
                 if (!authData || !authData.username) {
@@ -1070,7 +1085,7 @@ class UnifiedNavigationManager {
                         authData.detailedPermissions = merged;
                         authData.roleTemplate = roleTemplate;
                         authData.isAdmin = true;
-                        localStorage.setItem("loginindex_auth", JSON.stringify(authData));
+                        n2store.setItem("loginindex_auth", JSON.stringify(authData));
 
                         console.log("[Permission Load] Admin bypass from Firebase: granted all", Object.keys(merged).length, "pages");
                         return;
@@ -1084,7 +1099,7 @@ class UnifiedNavigationManager {
                         // Cache to localStorage
                         authData.detailedPermissions = userData.detailedPermissions;
                         authData.roleTemplate = roleTemplate;
-                        localStorage.setItem(
+                        n2store.setItem(
                             "loginindex_auth",
                             JSON.stringify(authData),
                         );
@@ -1559,7 +1574,7 @@ class UnifiedNavigationManager {
      */
     getMobileGroupCollapsedState() {
         try {
-            const state = localStorage.getItem('n2shop_mobile_group_collapsed');
+            const state = n2store.getItem('n2shop_mobile_group_collapsed');
             return state ? JSON.parse(state) : {};
         } catch (e) {
             return {};
@@ -1573,7 +1588,7 @@ class UnifiedNavigationManager {
         try {
             const state = this.getMobileGroupCollapsedState();
             state[groupId] = isCollapsed;
-            localStorage.setItem('n2shop_mobile_group_collapsed', JSON.stringify(state));
+            n2store.setItem('n2shop_mobile_group_collapsed', JSON.stringify(state));
         } catch (e) {
             console.error('[Mobile Menu] Error saving collapsed state:', e);
         }
@@ -2167,7 +2182,7 @@ class UnifiedNavigationManager {
      */
     getGroupCollapsedState() {
         try {
-            const state = localStorage.getItem('n2shop_menu_group_collapsed');
+            const state = n2store.getItem('n2shop_menu_group_collapsed');
             return state ? JSON.parse(state) : {};
         } catch (e) {
             return {};
@@ -2181,7 +2196,7 @@ class UnifiedNavigationManager {
         try {
             const state = this.getGroupCollapsedState();
             state[groupId] = isCollapsed;
-            localStorage.setItem('n2shop_menu_group_collapsed', JSON.stringify(state));
+            n2store.setItem('n2shop_menu_group_collapsed', JSON.stringify(state));
         } catch (e) {
             console.error('[Menu] Error saving collapsed state:', e);
         }
@@ -3649,7 +3664,7 @@ class UnifiedNavigationManager {
     async updateDisplayName(newDisplayName) {
         try {
             // Get auth data from storage (supporting both localStorage and sessionStorage)
-            let authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+            let authDataStr = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
             if (!authDataStr) {
                 this.showToast("Không tìm thấy thông tin người dùng!", "error");
@@ -3679,15 +3694,15 @@ class UnifiedNavigationManager {
                 return false;
             }
 
-            // Update storage (both localStorage and sessionStorage)
+            // Update storage (both n2store and sessionStorage)
             authData.displayName = newDisplayName;
 
             const authDataString = JSON.stringify(authData);
 
-            // Update localStorage if exists
-            if (localStorage.getItem("loginindex_auth")) {
-                localStorage.setItem("loginindex_auth", authDataString);
-                console.log("[Edit DisplayName] Updated localStorage");
+            // Update n2store if exists
+            if (n2store.getItem("loginindex_auth")) {
+                n2store.setItem("loginindex_auth", authDataString);
+                console.log("[Edit DisplayName] Updated n2store");
             }
 
             // Update sessionStorage if exists
@@ -4127,7 +4142,7 @@ class UnifiedNavigationManager {
                     expires_at: Date.now() + (newToken.expires_in * 1000),
                     issued_at: Date.now()
                 };
-                localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+                n2store.setItem(storageKey, JSON.stringify(dataToSave));
 
                 if (statusEl) {
                     statusEl.textContent = `OK! Account ${creds.username} switched to Company ${targetCompanyId}. Token saved.`;

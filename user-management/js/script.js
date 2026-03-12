@@ -6,7 +6,7 @@ let users = [];
 // Kiểm tra quyền admin ngay khi tải trang
 // ALL users use detailedPermissions - NO admin bypass
 function checkAdminAccess() {
-    const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+    const authData = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
         authData: !!authData,
@@ -256,7 +256,7 @@ async function updateUser() {
             displayName: displayName,
             checkLogin: checkLogin,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
+            updatedBy: JSON.parse(n2store.getItem("loginindex_auth"))
                 .username,
         };
 
@@ -387,7 +387,7 @@ async function createUser() {
                 passwordHash: hash,
                 salt: salt,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: JSON.parse(localStorage.getItem("loginindex_auth"))
+                createdBy: JSON.parse(n2store.getItem("loginindex_auth"))
                     .username,
             });
 
@@ -680,7 +680,7 @@ window.addEventListener("beforeunload", function () {
 // Prevent right-click context menu in production (for non-admin templates)
 document.addEventListener("contextmenu", function (e) {
     try {
-        const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+        const authData = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
         if (authData) {
             const auth = JSON.parse(authData);
             // Allow right-click for admin template only (for debugging)

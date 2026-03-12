@@ -780,7 +780,7 @@ const MenuLayoutStore = {
 
                 const db = firebase.firestore();
                 const username = localStorage.getItem('currentUser') ||
-                    JSON.parse(localStorage.getItem('loginindex_auth') || '{}').username ||
+                    JSON.parse(n2store.getItem('loginindex_auth') || '{}').username ||
                     'admin';
 
                 // Save without lastUpdated from local copy (let Firebase set it)

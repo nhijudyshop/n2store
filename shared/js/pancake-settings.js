@@ -315,7 +315,7 @@ function isUserAdmin() {
     }
     // Fallback: check localStorage directly
     try {
-        const authData = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}');
+        const authData = JSON.parse(n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}');
         return authData.roleTemplate === 'admin';
     } catch {
         return false;

@@ -1372,7 +1372,7 @@ const SoquyUI = (function () {
 
     function saveColumnVisibility() {
         try {
-            localStorage.setItem('soquy_column_visibility', JSON.stringify(state.columnVisibility));
+            n2store.setItem('soquy_column_visibility', JSON.stringify(state.columnVisibility));
         } catch (e) { /* ignore */ }
     }
 
@@ -1391,13 +1391,13 @@ const SoquyUI = (function () {
                 sourceFilter: state.sourceFilter,
                 categoryFilter: state.categoryFilter
             };
-            localStorage.setItem('soquy_filters', JSON.stringify(filters));
+            n2store.setItem('soquy_filters', JSON.stringify(filters));
         } catch (e) { /* ignore */ }
     }
 
     function loadFilterState() {
         try {
-            const saved = localStorage.getItem('soquy_filters');
+            const saved = n2store.getItem('soquy_filters');
             if (!saved) return;
             const filters = JSON.parse(saved);
             if (filters.timeFilter) state.timeFilter = filters.timeFilter;
@@ -1440,7 +1440,7 @@ const SoquyUI = (function () {
 
     function loadColumnVisibility() {
         try {
-            const saved = localStorage.getItem('soquy_column_visibility');
+            const saved = n2store.getItem('soquy_column_visibility');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 Object.keys(parsed).forEach(key => {

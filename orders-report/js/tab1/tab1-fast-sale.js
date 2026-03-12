@@ -3288,7 +3288,7 @@ const defaultBillSettings = {
  */
 function getBillTemplateSettings() {
     try {
-        const saved = localStorage.getItem('orders_billTemplateSettings');
+        const saved = n2store.getItem('orders_billTemplateSettings');
         if (saved) {
             return { ...defaultBillSettings, ...JSON.parse(saved) };
         }
@@ -3436,7 +3436,7 @@ function saveBillTemplateSettings() {
     };
 
     try {
-        localStorage.setItem('orders_billTemplateSettings', JSON.stringify(settings));
+        n2store.setItem('orders_billTemplateSettings', JSON.stringify(settings));
         window.notificationManager.success('Đã lưu cài đặt bill template', 2000);
         closeBillTemplateSettings();
     } catch (e) {
@@ -3449,7 +3449,7 @@ function saveBillTemplateSettings() {
  * Reset bill template settings to default
  */
 function resetBillTemplateSettings() {
-    localStorage.removeItem('orders_billTemplateSettings');
+    n2store.removeItem('orders_billTemplateSettings');
     loadBillSettingsToForm();
     window.notificationManager.info('Đã đặt lại cài đặt mặc định', 2000);
 }

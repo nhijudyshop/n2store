@@ -1048,7 +1048,7 @@ function getMergeHistoryUserInfo() {
         }
 
         // Try to get display name from auth
-        const authStr = localStorage.getItem('loginindex_auth');
+        const authStr = n2store.getItem('loginindex_auth');
         if (authStr) {
             const auth = JSON.parse(authStr);
             userName = auth.displayName || auth.name || auth.email || 'Unknown';

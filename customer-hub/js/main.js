@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Read actual user permissions from loginindex_auth storage
     let detailedPermissions = {};
     try {
-        const authRaw = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
+        const authRaw = sessionStorage.getItem('loginindex_auth') || n2store.getItem('loginindex_auth');
         if (authRaw) {
             const auth = JSON.parse(authRaw);
             detailedPermissions = auth.detailedPermissions || {};

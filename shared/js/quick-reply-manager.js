@@ -297,14 +297,14 @@ class QuickReplyManager {
 
         // Fallback to localStorage if IndexedDB not available or empty
         if (!stored) {
-            const localStored = localStorage.getItem(this.STORAGE_KEY);
+            const localStored = n2store.getItem(this.STORAGE_KEY);
             if (localStored) {
                 try {
                     stored = JSON.parse(localStored);
                     // Migrate to IndexedDB
                     if (window.indexedDBStorage) {
                         await window.indexedDBStorage.setItem(this.STORAGE_KEY, stored);
-                        localStorage.removeItem(this.STORAGE_KEY);
+                        n2store.removeItem(this.STORAGE_KEY);
                         console.log('[QUICK-REPLY] 🔄 Migrated from localStorage to IndexedDB');
                     }
                 } catch (e) {
@@ -363,8 +363,8 @@ class QuickReplyManager {
                 await window.indexedDBStorage.setItem(this.STORAGE_KEY, this.replies);
                 console.log('[QUICK-REPLY] 💾 Saved to IndexedDB cache');
             } else {
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
-                console.log('[QUICK-REPLY] 💾 Saved to localStorage (fallback)');
+                n2store.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
+                console.log('[QUICK-REPLY] 💾 Saved to n2store (fallback)');
             }
         } catch (error) {
             console.error('[QUICK-REPLY] ❌ Failed to save cache:', error);
@@ -494,7 +494,7 @@ class QuickReplyManager {
                 if (window.indexedDBStorage) {
                     await window.indexedDBStorage.removeItem(this.STORAGE_KEY);
                 }
-                localStorage.removeItem(this.STORAGE_KEY);
+                n2store.removeItem(this.STORAGE_KEY);
 
                 console.log('[QUICK-REPLY] 🔄 Reloading from Firebase...');
                 await this.loadReplies();

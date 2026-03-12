@@ -32,14 +32,14 @@ function normalizePhoneForQR(phone) {
 // =====================================================
 function getDebtCache() {
     try {
-        const cache = localStorage.getItem('social_debt_cache');
+        const cache = n2store.getItem('social_debt_cache');
         return cache ? JSON.parse(cache) : {};
     } catch (e) { return {}; }
 }
 
 function saveDebtCache(cache) {
     try {
-        localStorage.setItem('social_debt_cache', JSON.stringify(cache));
+        n2store.setItem('social_debt_cache', JSON.stringify(cache));
     } catch (e) {}
 }
 

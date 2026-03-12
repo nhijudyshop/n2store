@@ -36,7 +36,7 @@ class UnifiedNavigationManager {
         try {
             // Get user info and determine admin status
             // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
-            const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
+            const authDataStr = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}";
             const authData = JSON.parse(authDataStr);
             // isAdminTemplate: used for admin bypass in permission checks and UI display
             // Check isAdmin flag, roleTemplate, and legacy userType
@@ -706,7 +706,7 @@ class UnifiedNavigationManager {
     async updateDisplayName(newDisplayName) {
         try {
             // Get auth data from storage (supporting both localStorage and sessionStorage)
-            let authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+            let authDataStr = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
             if (!authDataStr) {
                 this.showToast("Không tìm thấy thông tin người dùng!", "error");
@@ -741,10 +741,10 @@ class UnifiedNavigationManager {
 
             const authDataString = JSON.stringify(authData);
 
-            // Update localStorage if exists
-            if (localStorage.getItem("loginindex_auth")) {
-                localStorage.setItem("loginindex_auth", authDataString);
-                console.log("[Edit DisplayName] Updated localStorage");
+            // Update n2store if exists
+            if (n2store.getItem("loginindex_auth")) {
+                n2store.setItem("loginindex_auth", authDataString);
+                console.log("[Edit DisplayName] Updated n2store");
             }
 
             // Update sessionStorage if exists
@@ -1174,7 +1174,7 @@ class UnifiedNavigationManager {
                 if (!refreshResp.ok) throw new Error(`Token refresh failed: ${refreshResp.status}`);
 
                 const newToken = await refreshResp.json();
-                // Save to localStorage under target company key
+                // Save to n2store under target company key
                 const storageKey = `bearer_token_data_${targetCompanyId}`;
                 const dataToSave = {
                     access_token: newToken.access_token,
@@ -1184,7 +1184,7 @@ class UnifiedNavigationManager {
                     expires_at: Date.now() + (newToken.expires_in * 1000),
                     issued_at: Date.now()
                 };
-                localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+                n2store.setItem(storageKey, JSON.stringify(dataToSave));
 
                 if (statusEl) {
                     statusEl.textContent = `OK! Account ${creds.username} switched to Company ${targetCompanyId}. Token saved.`;

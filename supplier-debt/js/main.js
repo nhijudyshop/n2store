@@ -96,7 +96,7 @@ const WebNotesStore = {
 
     _loadFromLocalStorage() {
         try {
-            const saved = localStorage.getItem('supplierDebt_webNotes');
+            const saved = n2store.getItem('supplierDebt_webNotes');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 this._data = new Map(Object.entries(parsed));
@@ -109,7 +109,7 @@ const WebNotesStore = {
     _saveToLocalStorage() {
         try {
             const obj = Object.fromEntries(this._data);
-            localStorage.setItem('supplierDebt_webNotes', JSON.stringify(obj));
+            n2store.setItem('supplierDebt_webNotes', JSON.stringify(obj));
         } catch (e) {
             console.error('[WebNotesStore] Error saving to localStorage:', e);
         }

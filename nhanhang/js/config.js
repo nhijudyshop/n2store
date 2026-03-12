@@ -289,7 +289,7 @@ let authState = null;
 
 function getAuthState() {
     try {
-        const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+        const stored = n2store.getItem(AUTH_STORAGE_KEY);
         if (stored) {
             authState = JSON.parse(stored);
             return authState;
@@ -332,7 +332,7 @@ function setAuthState(isLoggedIn, userType, checkLogin) {
     };
 
     try {
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
+        n2store.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
     } catch (error) {
         console.error("Error saving auth state:", error);
     }
@@ -341,7 +341,7 @@ function setAuthState(isLoggedIn, userType, checkLogin) {
 function clearAuthState() {
     authState = null;
     try {
-        localStorage.removeItem(AUTH_STORAGE_KEY);
+        n2store.removeItem(AUTH_STORAGE_KEY);
         clearLegacyAuth();
     } catch (error) {
         console.error("Error clearing auth state:", error);
@@ -398,7 +398,7 @@ const authManager = {
 
     getAuthData: function () {
         // Return auth data from localStorage/sessionStorage
-        const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+        const authDataStr = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
         return authDataStr ? JSON.parse(authDataStr) : null;
     },
 

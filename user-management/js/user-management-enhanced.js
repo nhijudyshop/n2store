@@ -11,12 +11,12 @@ let users = [];
 function checkAdminAccess() {
     const isLoggedIn = localStorage.getItem("isLoggedIn") || sessionStorage.getItem("isLoggedIn");
     // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
-    const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+    const authData = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
         isLoggedIn,
         authData: !!authData,
-        source: localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage"
+        source: n2store.getItem("loginindex_auth") ? "n2store" : "sessionStorage"
     });
 
     if (!isLoggedIn || isLoggedIn !== "true") {
@@ -322,7 +322,7 @@ async function executeBulkApplyTemplate() {
 
     try {
         // Get current user info
-        const authData = JSON.parse(localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}");
+        const authData = JSON.parse(n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}");
         const updatedBy = authData.username || 'unknown';
 
         // Batch update all selected users
@@ -658,7 +658,7 @@ async function updateUser() {
             roleTemplate: isAdmin ? 'admin' : roleTemplate,
             isAdmin: isAdmin,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
+            updatedBy: JSON.parse(n2store.getItem("loginindex_auth"))
                 .username,
         };
 
@@ -791,7 +791,7 @@ async function createUser() {
                 passwordHash: hash,
                 salt: salt,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: JSON.parse(localStorage.getItem("loginindex_auth"))
+                createdBy: JSON.parse(n2store.getItem("loginindex_auth"))
                     .username,
             });
 
@@ -1177,7 +1177,7 @@ function initAdminToggle() {
 
     // Show admin toggle group only if current user is admin
     if (adminToggleGroup) {
-        const authData = localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth');
+        const authData = n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth');
         if (authData) {
             try {
                 const auth = JSON.parse(authData);

@@ -19,7 +19,7 @@ class InboxChatController {
     constructor(dataManager) {
         this.data = dataManager;
         this.activeConversationId = null;
-        this.currentFilter = localStorage.getItem('inbox_current_filter') || 'all';
+        this.currentFilter = n2store.getItem('inbox_current_filter') || 'all';
         this.currentGroupFilters = new Set(); // Multi-select group filter
         this.searchQuery = '';
         this.isSearching = false;
@@ -176,7 +176,7 @@ class InboxChatController {
                 document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 this.currentFilter = tab.dataset.filter;
-                localStorage.setItem('inbox_current_filter', this.currentFilter);
+                n2store.setItem('inbox_current_filter', this.currentFilter);
                 this._consecutiveEmptyLoads = 0;
                 this._loadMoreCooldownUntil = 0;
                 this.toggleLivestreamPostSelector();
@@ -372,7 +372,7 @@ class InboxChatController {
             food: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🫘','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾','🫗'],
             objects: ['💡','🔦','🏮','🪔','📱','💻','⌨️','🖥️','🖨️','🖱️','🖲️','💾','💿','📀','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🪫','🔌','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','🪬','💈','⚗️','🔭','🔬','🕳️','🩹','🩺','🩻','🩼','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🪣','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞','🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎊','🎉','🎎','🏮','🎐','🧧','✉️','📩','📨','📧','💌','📥','📤','📦','🏷️','🪧','📪','📫','📬','📭','📮','📯','📜','📃','📄','📑','🧾','📊','📈','📉','🗒️','🗓️','📆','📅','🗑️','📇','🗃️','🗳️','🗄️','📋','📁','📂','🗂️','🗞️','📰','📓','📔','📒','📕','📗','📘','📙','📚','📖','🔖','🧷','🔗','📎','🖇️','📐','📏','🧮','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝','✏️','🔍','🔎','🔏','🔐','🔒','🔓']
         };
-        const savedRecent = localStorage.getItem('inbox_recent_emojis');
+        const savedRecent = n2store.getItem('inbox_recent_emojis');
         if (savedRecent) { try { this.emojiData.recent = JSON.parse(savedRecent); } catch(e){} }
 
         const emojiBtn = document.getElementById('btnEmoji');
@@ -410,7 +410,7 @@ class InboxChatController {
                 if (idx > -1) this.emojiData.recent.splice(idx, 1);
                 this.emojiData.recent.unshift(emoji);
                 this.emojiData.recent = this.emojiData.recent.slice(0, 24);
-                localStorage.setItem('inbox_recent_emojis', JSON.stringify(this.emojiData.recent));
+                n2store.setItem('inbox_recent_emojis', JSON.stringify(this.emojiData.recent));
             });
         }
 

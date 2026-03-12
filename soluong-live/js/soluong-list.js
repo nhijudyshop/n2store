@@ -72,8 +72,8 @@
                 const data = await response.json();
                 bearerToken = data.access_token;
                 tokenExpiry = Date.now() + (data.expires_in * 1000);
-                localStorage.setItem('bearerToken', bearerToken);
-                localStorage.setItem('tokenExpiry', tokenExpiry.toString());
+                n2store.setItem('bearerToken', bearerToken);
+                n2store.setItem('tokenExpiry', tokenExpiry.toString());
                 console.log('✅ Đã xác thực thành công');
                 return bearerToken;
             } catch (error) {
@@ -83,8 +83,8 @@
         }
 
         async function getValidToken() {
-            const storedToken = localStorage.getItem('bearerToken');
-            const storedExpiry = localStorage.getItem('tokenExpiry');
+            const storedToken = n2store.getItem('bearerToken');
+            const storedExpiry = n2store.getItem('tokenExpiry');
 
             if (storedToken && storedExpiry) {
                 const expiry = parseInt(storedExpiry);
@@ -122,8 +122,8 @@
             if (needsRetry) {
                 const reason = response.status === 401 ? '401' : '200+HTML';
                 console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
-                localStorage.removeItem('bearerToken');
-                localStorage.removeItem('tokenExpiry');
+                n2store.removeItem('bearerToken');
+                n2store.removeItem('tokenExpiry');
                 bearerToken = null;
                 tokenExpiry = null;
                 const newToken = await getAuthToken();
@@ -307,7 +307,7 @@
         async function loadSettings() {
             // Try localStorage first for instant load
             try {
-                const cachedSettings = localStorage.getItem('soluongDisplaySettings');
+                const cachedSettings = n2store.getItem('soluongDisplaySettings');
                 if (cachedSettings) {
                     const settings = JSON.parse(cachedSettings);
                     displaySettings = settings;
@@ -327,7 +327,7 @@
                     displaySettings = settings;
                     itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
                     // Cache to localStorage
-                    localStorage.setItem('soluongDisplaySettings', JSON.stringify(settings));
+                    n2store.setItem('soluongDisplaySettings', JSON.stringify(settings));
                     console.log('🔥 Settings synced from Firebase');
                 }
             } catch (error) {
@@ -1339,7 +1339,7 @@
                     displaySettings = settings;
                     itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
                     // Cache to localStorage for faster next load
-                    localStorage.setItem('soluongDisplaySettings', JSON.stringify(settings));
+                    n2store.setItem('soluongDisplaySettings', JSON.stringify(settings));
                     applySettings();
                     updateProductGrid();
                     console.log('🔥 Settings synced from Firebase');

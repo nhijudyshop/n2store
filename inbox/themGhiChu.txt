@@ -1,0 +1,68 @@
+fetch("https://pancake.vn/api/v1/pages/270136663390370/customers/a4396516-b395-478c-8d2a-83985356cb63/notes?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM", {
+  "headers": {
+    "accept": "application/json",
+    "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryqXIvnlCA5rjpM4o8",
+    "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "Referer": "https://pancake.vn/multi_pages"
+  },
+  "body": "------WebKitFormBoundaryqXIvnlCA5rjpM4o8\r\nContent-Disposition: form-data; name=\"message\"\r\n\r\nghi chu demo\r\n------WebKitFormBoundaryqXIvnlCA5rjpM4o8\r\nContent-Disposition: form-data; name=\"conversation_id\"\r\n\r\n270136663390370_25717004554573583\r\n------WebKitFormBoundaryqXIvnlCA5rjpM4o8\r\nContent-Disposition: form-data; name=\"images\"\r\n\r\n[]\r\n------WebKitFormBoundaryqXIvnlCA5rjpM4o8\r\nContent-Disposition: form-data; name=\"links\"\r\n\r\n[]\r\n------WebKitFormBoundaryqXIvnlCA5rjpM4o8--\r\n",
+  "method": "POST"
+});
+
+response:
+{
+    "data": [
+        {
+            "created_at": 1773296938339,
+            "created_by": {
+                "application": 1,
+                "fb_id": "130759086650522",
+                "fb_name": "Kỹ Thuật NJD",
+                "session_id": "d173bcff-a038-4766-b9ed-85c8fadc3336",
+                "token_for_business": "AbxQDhdJI09bRzPc",
+                "uid": "c42ef91d-1a1d-43aa-b8af-8ac014d83d6c"
+            },
+            "edit_history": [],
+            "id": "4bd4e093-a473-4dfb-8a63-c0c22c882eaa",
+            "images": [],
+            "links": [],
+            "message": "ghi chu demo",
+            "order_id": null,
+            "removed_at": null,
+            "updated_at": null
+        },
+        {
+            "created_at": 1773296791561,
+            "created_by": {
+                "application": 1,
+                "fb_id": "130759086650522",
+                "fb_name": "Kỹ Thuật NJD",
+                "session_id": "d173bcff-a038-4766-b9ed-85c8fadc3336",
+                "token_for_business": "AbxQDhdJI09bRzPc",
+                "uid": "c42ef91d-1a1d-43aa-b8af-8ac014d83d6c"
+            },
+            "edit_history": [],
+            "id": "6f1ea272-f666-4de4-9a3b-23a313d23bfb",
+            "images": [],
+            "links": [],
+            "message": "Ghi chu demo",
+            "order_id": null,
+            "removed_at": 1773296921571,
+            "removed_by": {
+                "application": 1,
+                "fb_id": "130759086650522",
+                "fb_name": "Kỹ Thuật NJD",
+                "session_id": "d173bcff-a038-4766-b9ed-85c8fadc3336",
+                "token_for_business": "AbxQDhdJI09bRzPc",
+                "uid": "c42ef91d-1a1d-43aa-b8af-8ac014d83d6c"
+            },
+            "updated_at": null
+        }
+    ],
+    "message": "Ghi chú đã được bổ sung thành công",
+    "message_code": 234,
+    "note_id": "4bd4e093-a473-4dfb-8a63-c0c22c882eaa",
+    "success": true
+}

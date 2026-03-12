@@ -53,7 +53,7 @@ const SOCIAL_TAGS_STORAGE_KEY = 'socialOrderTags';
 // ===== LOCAL STORAGE PERSISTENCE =====
 function saveSocialOrdersToStorage() {
     try {
-        localStorage.setItem(SOCIAL_ORDERS_STORAGE_KEY, JSON.stringify(SocialOrderState.orders));
+        n2store.setItem(SOCIAL_ORDERS_STORAGE_KEY, JSON.stringify(SocialOrderState.orders));
     } catch (e) {
         console.error('[Tab Social] Failed to save orders to localStorage:', e);
     }
@@ -61,7 +61,7 @@ function saveSocialOrdersToStorage() {
 
 function loadSocialOrdersFromStorage() {
     try {
-        const data = localStorage.getItem(SOCIAL_ORDERS_STORAGE_KEY);
+        const data = n2store.getItem(SOCIAL_ORDERS_STORAGE_KEY);
         return data ? JSON.parse(data) : [];
     } catch (e) {
         console.error('[Tab Social] Failed to load orders from localStorage:', e);
@@ -71,7 +71,7 @@ function loadSocialOrdersFromStorage() {
 
 function saveSocialTagsToStorage() {
     try {
-        localStorage.setItem(SOCIAL_TAGS_STORAGE_KEY, JSON.stringify(SocialOrderState.tags));
+        n2store.setItem(SOCIAL_TAGS_STORAGE_KEY, JSON.stringify(SocialOrderState.tags));
     } catch (e) {
         console.error('[Tab Social] Failed to save tags to localStorage:', e);
     }
@@ -79,7 +79,7 @@ function saveSocialTagsToStorage() {
 
 function loadSocialTagsFromStorage() {
     try {
-        const data = localStorage.getItem(SOCIAL_TAGS_STORAGE_KEY);
+        const data = n2store.getItem(SOCIAL_TAGS_STORAGE_KEY);
         return data ? JSON.parse(data) : DEFAULT_TAGS;
     } catch (e) {
         console.error('[Tab Social] Failed to load tags from localStorage:', e);

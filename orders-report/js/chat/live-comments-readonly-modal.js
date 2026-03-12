@@ -58,8 +58,8 @@
                 });
             });
 
-            // Cache to localStorage
-            localStorage.setItem(CACHE_KEY, JSON.stringify(mapping));
+            // Cache to n2store
+            n2store.setItem(CACHE_KEY, JSON.stringify(mapping));
             console.log('[LiveComments] Cached page-company mapping:', mapping);
             return mapping;
 
@@ -74,7 +74,7 @@
      */
     async function getCompanyIdByPageId(pageId) {
         // Thử lấy từ cache trước
-        const cached = localStorage.getItem(CACHE_KEY);
+        const cached = n2store.getItem(CACHE_KEY);
         if (cached) {
             try {
                 const mapping = JSON.parse(cached);

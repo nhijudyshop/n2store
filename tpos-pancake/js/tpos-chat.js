@@ -85,7 +85,7 @@ class TposChatManager {
      * Restore saved selection from localStorage
      */
     restoreSelection() {
-        const savedPage = localStorage.getItem('tpos_selected_page');
+        const savedPage = n2store.getItem('tpos_selected_page');
         if (savedPage) {
             const crmSelect = document.getElementById('tposCrmTeamSelect');
             if (crmSelect) {
@@ -954,7 +954,7 @@ class TposChatManager {
             console.log('[TPOS-CHAT] Selected ALL pages:', this.allPages.length);
 
             // Save to localStorage
-            localStorage.setItem('tpos_selected_page', value);
+            n2store.setItem('tpos_selected_page', value);
 
             // Load campaigns from all pages
             await this.loadLiveCampaignsFromAllPages();
@@ -988,7 +988,7 @@ class TposChatManager {
                 console.log('[TPOS-CHAT] Selected page:', this.selectedPage.Facebook_PageName);
 
                 // Save to localStorage
-                localStorage.setItem('tpos_selected_page', value);
+                n2store.setItem('tpos_selected_page', value);
 
                 await this.loadLiveCampaigns(this.selectedPage.Facebook_PageId);
 

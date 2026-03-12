@@ -994,7 +994,7 @@ window.updateTitleWithRoleEnhanced = updateTitleWithRoleEnhanced;
  */
 function initializePageTitle() {
     try {
-        const authData = localStorage.getItem("loginindex_auth");
+        const authData = n2store.getItem("loginindex_auth");
         if (!authData) return;
 
         const auth = JSON.parse(authData);
@@ -1018,7 +1018,7 @@ function initializePageTitle() {
  */
 function displayUserInfo(containerSelector = ".user-info") {
     try {
-        const authData = localStorage.getItem("loginindex_auth");
+        const authData = n2store.getItem("loginindex_auth");
         if (!authData) return;
 
         const auth = JSON.parse(authData);
@@ -1366,7 +1366,7 @@ function injectRoleStyles() {
 function updatePageTitleSimple() {
     try {
         const authData = JSON.parse(
-            localStorage.getItem("loginindex_auth") || "{}",
+            n2store.getItem("loginindex_auth") || "{}",
         );
         const titleElement = document.querySelector(
             "h1, .page-title, .header h1",
@@ -2730,7 +2730,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
             // If not in session, try localStorage (remember me)
             if (!authDataStr) {
-                authDataStr = localStorage.getItem(this.storageKey);
+                authDataStr = n2store.getItem(this.storageKey);
                 storage = 'local';
             }
 
@@ -2770,12 +2770,12 @@ if (typeof window !== 'undefined' && window.AuthManager) {
             const authDataStr = JSON.stringify(dataToSave);
 
             if (rememberMe) {
-                localStorage.setItem(this.storageKey, authDataStr);
+                n2store.setItem(this.storageKey, authDataStr);
             } else {
                 sessionStorage.setItem(this.storageKey, authDataStr);
             }
 
-            logger.log('✅ Auth data saved to', rememberMe ? 'localStorage' : 'sessionStorage');
+            logger.log('Auth data saved to', rememberMe ? 'n2store' : 'sessionStorage');
         } catch (error) {
             logger.error('Error saving auth data:', error);
         }
@@ -2875,7 +2875,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
         // Clear both storages
         sessionStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.storageKey);
+        n2store.removeItem(this.storageKey);
 
         // Redirect to login
         if (typeof window !== 'undefined') {

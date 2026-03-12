@@ -88,18 +88,18 @@
         },
 
         /**
-         * Save only to localStorage (extends BaseStore's format)
+         * Save only to n2store (extends BaseStore's format)
          */
         _saveToLocalStorage() {
             try {
-                localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({
+                n2store.setItem(DELETE_STORAGE_KEY, JSON.stringify({
                     data: Array.from(this._data.entries()),
                     timestamp: Date.now(),
                     version: 1
                 }));
-                console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
+                console.log(`[INVOICE-DELETE] Saved to n2store: ${this._data.size} entries`);
             } catch (e) {
-                console.error('[INVOICE-DELETE] Error saving to localStorage:', e);
+                console.error('[INVOICE-DELETE] Error saving to n2store:', e);
             }
         },
 

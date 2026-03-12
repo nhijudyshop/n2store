@@ -43,7 +43,7 @@ const PermissionHelper = {
 
         try {
             const data = sessionStorage.getItem("loginindex_auth") ||
-                        localStorage.getItem("loginindex_auth");
+                        n2store.getItem("loginindex_auth");
 
             if (data) {
                 this._authCache = JSON.parse(data);

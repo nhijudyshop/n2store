@@ -24,6 +24,34 @@
         userManagement: 'userManagement_'
     };
 
+    // Keys that should be stored in n2store (IndexedDB-backed) instead of localStorage
+    const N2STORE_KEYS = [
+        'loginindex_auth', 'bearer_token_data_1', 'bearer_token_data_2', 'bearerToken', 'tokenExpiry',
+        'bill_tpos_credentials_1', 'bill_tpos_token_1', 'pancake_jwt_token', 'pancake_jwt_token_expiry',
+        'pancake_all_accounts', 'pancake_page_access_tokens', 'tpos_pancake_active_account_id',
+        'firebaseConfig', 'n2shop_auth_cache', 'socialOrders', 'socialOrderTags',
+        'invoiceStatusDelete_v2', 'invoiceStatusStore_v2', 'tpos_pancake_pages_cache',
+        'inbox_orders', 'inbox_conv_labels', 'inbox_groups', 'quickReplies',
+        'orders_productAssignments', 'orders_productRemovals', 'social_debt_cache',
+        'sent_message_orders', 'failed_message_orders', 'supplierDebt_webNotes',
+        'orders_held_cleanup_pending', 'tab1_filter_data', 'orders_tab1_filter_data',
+        'soquy_filters', 'soquy_report_filters', 'soquy_column_visibility',
+        'orderDisplaySettings', 'soluongDisplaySettings', 'orders_billTemplateSettings',
+        'orders_discount_stats_thresholds', 'orders_discount_opportunity_cost_settings',
+        'orders_discount_livestream_costs', 'pageCompanyIdMapping',
+        'n2shop_custom_menu_names', 'n2shop_menu_layout', 'n2shop_menu_layout_timestamp',
+        'n2shop_custom_menu_names_timestamp', 'n2shop_menu_group_collapsed', 'n2shop_mobile_group_collapsed',
+        'tpos_pk_recent_emojis', 'inbox_recent_emojis', 'tpos_pancake_selected_page', 'tpos_selected_page',
+        'tpos_pancake_server_mode', 'inbox_current_filter', 'tposSettings'
+    ];
+
+    /**
+     * Check if a key should use n2store instead of localStorage
+     */
+    function isN2StoreKey(key) {
+        return N2STORE_KEYS.includes(key);
+    }
+
     // Keys that are SHARED across all modules (DO NOT prefix these)
     const SHARED_KEYS = [
         'loginindex_auth',
@@ -123,16 +151,18 @@
      * Migrate a single key from old to new name
      */
     function migrateKey(oldKey, newKey) {
-        const oldValue = localStorage.getItem(oldKey);
+        var oldStorage = _getStorage(oldKey);
+        var newStorage = _getStorage(newKey);
+        const oldValue = oldStorage.getItem(oldKey);
         if (oldValue !== null) {
-            const newValue = localStorage.getItem(newKey);
+            const newValue = newStorage.getItem(newKey);
             if (newValue === null) {
-                localStorage.setItem(newKey, oldValue);
-                localStorage.removeItem(oldKey);
+                newStorage.setItem(newKey, oldValue);
+                oldStorage.removeItem(oldKey);
                 console.log('[StorageMigration] Migrated:', oldKey, '->', newKey);
                 return true;
             } else {
-                localStorage.removeItem(oldKey);
+                oldStorage.removeItem(oldKey);
                 console.log('[StorageMigration] Removed old key (new exists):', oldKey);
                 return false;
             }
@@ -184,27 +214,40 @@
     }
 
     /**
-     * Get item from localStorage with module prefix
+     * Get the appropriate storage for a key (n2store or localStorage)
+     */
+    function _getStorage(key) {
+        if (isN2StoreKey(key) && typeof n2store !== 'undefined') {
+            return n2store;
+        }
+        return localStorage;
+    }
+
+    /**
+     * Get item from storage with module prefix
+     * Uses n2store for designated keys, localStorage for others
      */
     function getModuleItem(moduleName, key) {
         var prefixedKey = getPrefixedKey(moduleName, key);
-        return localStorage.getItem(prefixedKey);
+        return _getStorage(prefixedKey).getItem(prefixedKey);
     }
 
     /**
-     * Set item in localStorage with module prefix
+     * Set item in storage with module prefix
+     * Uses n2store for designated keys, localStorage for others
      */
     function setModuleItem(moduleName, key, value) {
         var prefixedKey = getPrefixedKey(moduleName, key);
-        localStorage.setItem(prefixedKey, value);
+        _getStorage(prefixedKey).setItem(prefixedKey, value);
     }
 
     /**
-     * Remove item from localStorage with module prefix
+     * Remove item from storage with module prefix
+     * Uses n2store for designated keys, localStorage for others
      */
     function removeModuleItem(moduleName, key) {
         var prefixedKey = getPrefixedKey(moduleName, key);
-        localStorage.removeItem(prefixedKey);
+        _getStorage(prefixedKey).removeItem(prefixedKey);
     }
 
     /**
@@ -267,6 +310,10 @@
         authKeys.forEach(function(key) {
             localStorage.removeItem(key);
             sessionStorage.removeItem(key);
+            // Also remove from n2store for keys that were migrated to IDB
+            if (isN2StoreKey(key) && typeof n2store !== 'undefined') {
+                n2store.removeItem(key);
+            }
         });
         console.log('[StorageMigration] Selective logout completed - module data preserved');
     }
@@ -275,8 +322,10 @@
     window.StorageMigration = {
         MODULE_PREFIXES: MODULE_PREFIXES,
         SHARED_KEYS: SHARED_KEYS,
+        N2STORE_KEYS: N2STORE_KEYS,
         MIGRATION_MAP: MIGRATION_MAP,
         isSharedKey: isSharedKey,
+        isN2StoreKey: isN2StoreKey,
         getPrefixedKey: getPrefixedKey,
         migrateKey: migrateKey,
         migrateModuleStorage: migrateModuleStorage,

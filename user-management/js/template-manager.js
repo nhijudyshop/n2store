@@ -496,7 +496,7 @@ class TemplateManager {
                 icon: templateMeta.icon || template.icon,
                 color: templateMeta.color || template.color,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'system'
+                updatedBy: JSON.parse(n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'system'
             });
 
             // Update local cache
@@ -560,7 +560,7 @@ class TemplateManager {
                 window.notify?.info?.(`Đang cập nhật ${userCount} users...`);
 
             const batch = db.batch();
-            const currentUser = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'system';
+            const currentUser = JSON.parse(n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'system';
 
             usersSnapshot.forEach(doc => {
                 batch.update(doc.ref, {
@@ -828,12 +828,12 @@ class TemplateManager {
             detailedPermissions: detailedPermissions,
             isSystemDefault: isSystemDefault, // Preserve system default flag
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}')?.username || 'unknown'
+            updatedBy: JSON.parse(n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}')?.username || 'unknown'
         };
 
         if (mode === 'create') {
             templateData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            templateData.createdBy = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}')?.username || 'unknown';
+            templateData.createdBy = JSON.parse(n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}')?.username || 'unknown';
             templateData.isSystemDefault = false; // New templates are never system defaults
         }
 
@@ -1008,7 +1008,7 @@ class TemplateManager {
                 await userRef.update({
                     roleTemplate: 'custom',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
+                    updatedBy: JSON.parse(n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
                 });
 
                 // Update local cache
@@ -1031,7 +1031,7 @@ class TemplateManager {
                     roleTemplate: templateId,
                     detailedPermissions: permissions,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
+                    updatedBy: JSON.parse(n2store.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}').username || 'unknown'
                 });
 
                 // Update local cache

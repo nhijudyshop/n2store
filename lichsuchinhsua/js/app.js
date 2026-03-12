@@ -600,7 +600,7 @@ window.AuditLogApp = (function () {
                 var auth = window.authManager.getAuthState();
                 return auth.userId || auth.uid || '';
             }
-            var authStr = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth') || '{}';
+            var authStr = sessionStorage.getItem('loginindex_auth') || n2store.getItem('loginindex_auth') || '{}';
             var authData = JSON.parse(authStr);
             return authData.username || authData.uid || '';
         } catch (e) {

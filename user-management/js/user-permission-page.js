@@ -185,7 +185,7 @@ function setUserPermissions(permissions, prefix = "perm_") {
 
 // Check admin access - ALL users use detailedPermissions
 function checkAdminAccess() {
-    const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+    const authData = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
     console.log("Checking admin access:", {
         authData: !!authData,
@@ -547,7 +547,7 @@ async function updateUser() {
             isAdmin: isAdmin,  // NEW: Admin flag
             pagePermissions: selectedPermissions,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: JSON.parse(localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth"))
+            updatedBy: JSON.parse(n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth"))
                 .username,
         };
 
@@ -653,7 +653,7 @@ async function createUser() {
                 passwordHash: hash,
                 salt: salt,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: JSON.parse(localStorage.getItem("loginindex_auth"))
+                createdBy: JSON.parse(n2store.getItem("loginindex_auth"))
                     .username,
             });
 

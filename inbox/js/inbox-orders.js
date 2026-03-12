@@ -252,9 +252,9 @@ class InboxOrderController {
      */
     saveOrder(orderData) {
         try {
-            const orders = JSON.parse(localStorage.getItem('inbox_orders') || '[]');
+            const orders = JSON.parse(n2store.getItem('inbox_orders') || '[]');
             orders.push(orderData);
-            localStorage.setItem('inbox_orders', JSON.stringify(orders));
+            n2store.setItem('inbox_orders', JSON.stringify(orders));
             console.log('[InboxOrders] Order saved:', orderData.id);
         } catch (e) {
             console.error('[InboxOrders] Save error:', e);

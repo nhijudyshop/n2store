@@ -734,7 +734,7 @@
         if (!saleOnlineId) return null;
 
         try {
-            const stored = localStorage.getItem('invoiceStatusStore_v2');
+            const stored = n2store.getItem('invoiceStatusStore_v2');
             if (!stored) return null;
 
             const parsed = JSON.parse(stored);

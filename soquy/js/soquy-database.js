@@ -1241,7 +1241,7 @@ const SoquyDatabase = (function () {
     function getCurrentUserName() {
         try {
             // Read from loginindex_auth (sessionStorage first, then localStorage)
-            const authStr = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth') || '{}';
+            const authStr = sessionStorage.getItem('loginindex_auth') || n2store.getItem('loginindex_auth') || '{}';
             const authData = JSON.parse(authStr);
             return authData.displayName || authData.username || '';
         } catch {

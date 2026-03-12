@@ -1,0 +1,1718 @@
+fetch("https://pancake.vn/api/v1/pages/270136663390370/conversations/270136663390370_7468477929936630/messages?customer_id=c2f9b854-cbbe-4b23-bd53-cb97dc34534c&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM", {
+  "headers": {
+    "accept": "application/json",
+    "accept-language": "en-US,en;q=0.9,vi;q=0.8",
+    "cache-control": "no-cache",
+    "pragma": "no-cache",
+    "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Google Chrome\";v=\"145\", \"Chromium\";v=\"145\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin",
+    "cookie": "_fbp=fb.1.1763632135101.332718626139109354; __stripe_mid=65c230b0-071f-49ea-9d59-3e8cea763beb5bdf15; jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM; locale=vi; _gid=GA1.2.280823361.1773109556; _gat=1; _ga=GA1.1.2056562400.1763631656; _ga_VG3LFY1C9R=GS2.1.s1773292105$o203$g1$t1773293703$j29$l0$h0",
+    "Referer": "https://pancake.vn/multi_pages"
+  },
+  "body": null,
+  "method": "GET"
+});
+
+response:
+{
+    "conv_from": {
+        "email": "7468477929936630@facebook.com",
+        "id": "7468477929936630",
+        "name": "Trang Tran"
+    },
+    "available_for_report_phone_numbers": [
+        "+84948522984"
+    ],
+    "is_banned": false,
+    "last_commented_at": "2026-03-12T05:32:35",
+    "global_id": "100004797887400",
+    "banned_count": 0,
+    "ad_clicks": {
+        "c2f9b854-cbbe-4b23-bd53-cb97dc34534c": [
+            {
+                "ad_id": "120213597150520231",
+                "inserted_at": "2024-08-19T09:11:42",
+                "post_id": "270136663390370_851487890414304"
+            },
+            {
+                "ad_id": "120213144649880687",
+                "inserted_at": "2024-10-11T11:30:53",
+                "post_id": "270136663390370_2406989706170214"
+            },
+            {
+                "ad_id": "120240326616430772",
+                "inserted_at": "2026-03-12T05:32:35",
+                "post_id": "270136663390370_1191697996376392"
+            }
+        ]
+    },
+    "recent_phone_numbers": [
+        "0948522984"
+    ],
+    "allow_use_data_for_training_ai": null,
+    "customers": [
+        {
+            "ad_clicks": [
+                {
+                    "ad_id": "120213597150520231",
+                    "inserted_at": "2024-08-19T09:11:42",
+                    "post_id": "270136663390370_851487890414304"
+                },
+                {
+                    "ad_id": "120213144649880687",
+                    "inserted_at": "2024-10-11T11:30:53",
+                    "post_id": "270136663390370_2406989706170214"
+                },
+                {
+                    "ad_id": "120240326616430772",
+                    "inserted_at": "2026-03-12T05:32:35",
+                    "post_id": "270136663390370_1191697996376392"
+                }
+            ],
+            "address_source": [],
+            "can_inbox": true,
+            "customer_id": "0ff4cebe-354a-41a8-9817-ab467a8aedb3",
+            "fb_id": "7468477929936630",
+            "global_id": "100004797887400",
+            "id": "c2f9b854-cbbe-4b23-bd53-cb97dc34534c",
+            "is_followed": null,
+            "name": "Trang Tran",
+            "personal_info": {
+                "gender": null,
+                "job": null,
+                "lives_in": null,
+                "profile_updated_at": "2026-03-09T11:10:41",
+                "relationship_status": null
+            },
+            "recent_phone_numbers": [
+                {
+                    "captured": "0948522984",
+                    "length": 10,
+                    "m_id": "1191697996376392_788965087602853",
+                    "offset": 14,
+                    "phone_number": "0948522984",
+                    "status": 1
+                }
+            ],
+            "web_sources": []
+        }
+    ],
+    "lives_in": null,
+    "gender": null,
+    "comment_count": 24,
+    "app": "42",
+    "can_inbox": true,
+    "conv_customers": [
+        {
+            "fb_id": "7468477929936630",
+            "id": "c2f9b854-cbbe-4b23-bd53-cb97dc34534c",
+            "name": "Trang Tran"
+        }
+    ],
+    "success": true,
+    "recent_orders": [],
+    "profile_updated_at": "2026-03-09T11:10:41",
+    "extra_info": {},
+    "messages": [
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "admin_id": "172689207693746",
+                "admin_name": "Thiết Thỏ.",
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_rQptWtZDz49Ad4wvpFMlzL7GNX1ddDNWdcn1-6IhLv1l_sChTzu7iiT5QBwLYUIRAY2LDTTL9qBDjZd3NZd6Fw",
+            "inserted_at": "2024-09-19T11:55:41.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Dạ c hàng mình đã được lên đơn , cám ơn c Trang Tran đã ủng hộ SHOP ạ 💚  \r<br key='n_0' />\r<br key='n_1' />( NV DUYÊN )</div>",
+            "message_tags": [],
+            "original_message": "Dạ c hàng mình đã được lên đơn , cám ơn c Trang Tran đã ủng hộ SHOP ạ 💚  \r\n\r\n( NV DUYÊN )",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_Uf5uVUhINV1Q_QikR-F9ab7GNX1ddDNWdcn1-6IhLv3bBWSn-CRDnZgphOi5u-AOps-9egb7URs7gfSJuLD2lA",
+            "inserted_at": "2024-10-11T09:20:31.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. (<a href='https://facebook.com/NhiJudyStore.VietNam/videos/510669681874795/?comment_id=518027234276862' target='_blank'>Link Facebook</a>)</div>",
+            "message_tags": [
+                {
+                    "length": 92,
+                    "link": "https://facebook.com/NhiJudyStore.VietNam/videos/510669681874795/?comment_id=518027234276862",
+                    "offset": 91,
+                    "type": "link"
+                }
+            ],
+            "original_message": "Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. Xem bình luận.(https://facebook.com/NhiJudyStore.VietNam/videos/510669681874795/?comment_id=518027234276862)",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_XKh5_O8Xd_r7cOdjOH7Dg77GNX1ddDNWdcn1-6IhLv2reGlCvYJkXwY0lwza32FKla1uUKFS3tHV2RORtt0Kfw",
+            "inserted_at": "2024-10-11T09:20:31.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Dạ chào chị Trang Tran,<br key='n_0' /><br key='n_1' />Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:<br key='n_2' /><br key='n_3' />1 x 190.000 _ [A964] QC46 ÁO THUN NHÚNG TAP MIUMIU 8056 (ĐEN) <br key='n_4' />(170k)<br key='n_5' />1 x 280.000 _ [AK88X] N14 AK THOME VIỀN SỌC TAY NÚT (Xám) <br key='n_6' />(230k)<br key='n_7' />1 x 169.000 _ [AN75A36] N6 ÁO NGỰC GUCCI A2088 NÂU SIZE (36) <br key='n_8' />1 x 230.000 _ [Q620A2] N47 QUẦN SUÔNG NẮP TÚI CHỮ B  725 SIZE (2) <br key='n_9' />1 x 169.000 _ [AN76A36] N6 ÁO NGỰC GUCCI A2088 RÊU SIZE (36) <br key='n_10' /><br key='n_11' />Tổng tiền: 1.038.000<br key='n_12' /><br key='n_13' />Đơn hàng của mình ĐƯỢC GIẢM GIÁ nên TỔNG TIỀN KHÔNG CHUẨN nên khi ra BILL em sẽ GIẢM GIÁ cho mình và sẽ được gửi về địa chỉ &quot;Ấp 1a xã Minh Đức, hớn quản,bình phước&quot;<br key='n_14' /><br key='n_15' />Dạ c xem okee để e đi đơn cho mình c nhé 😍</div>",
+            "message_tags": [],
+            "original_message": "Dạ chào chị Trang Tran,\n\nEm gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:\n\n1 x 190.000 _ [A964] QC46 ÁO THUN NHÚNG TAP MIUMIU 8056 (ĐEN) \n(170k)\n1 x 280.000 _ [AK88X] N14 AK THOME VIỀN SỌC TAY NÚT (Xám) \n(230k)\n1 x 169.000 _ [AN75A36] N6 ÁO NGỰC GUCCI A2088 NÂU SIZE (36) \n1 x 230.000 _ [Q620A2] N47 QUẦN SUÔNG NẮP TÚI CHỮ B  725 SIZE (2) \n1 x 169.000 _ [AN76A36] N6 ÁO NGỰC GUCCI A2088 RÊU SIZE (36) \n\nTổng tiền: 1.038.000\n\nĐơn hàng của mình ĐƯỢC GIẢM GIÁ nên TỔNG TIỀN KHÔNG CHUẨN nên khi ra BILL em sẽ GIẢM GIÁ cho mình và sẽ được gửi về địa chỉ \"Ấp 1a xã Minh Đức, hớn quản,bình phước\"\n\nDạ c xem okee để e đi đơn cho mình c nhé 😍",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "admin_id": "350793617993479",
+                "admin_name": "Vy Vy",
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m__TSvHfT2R-WldhUzYjsyUr7GNX1ddDNWdcn1-6IhLv2UZ52KhqAhOJrcYUE3mAssog72TqrjPxtFyoS9YTLuQg",
+            "inserted_at": "2024-10-11T09:36:54.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>dạ chị tranh thủ phản hồi để bên em đi hàng cho mình chị nha  \r<br key='n_0' />\r<br key='n_1' />Nv Thanh</div>",
+            "message_tags": [],
+            "original_message": "dạ chị tranh thủ phản hồi để bên em đi hàng cho mình chị nha  \r\n\r\nNv Thanh",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "ad_click_photo_url": "https://content.pancake.vn/2-24/2024/10/11/e6e28622494e409ceed03be0a3a7d9aff4310fac.jpg",
+                    "name": "SIÊU THẦN THÁNH T.A.N M.Ỡ VÀ ÁO N.G.Ự.C GC SAU BAO NGÀY CHỜ ĐỢI ĐÃ VỀ HÀNG..!!!",
+                    "post_attachments": [
+                        {
+                            "description": null,
+                            "image_data": {
+                                "height": 720,
+                                "width": 405
+                            },
+                            "title": "SIÊU THẦN THÁNH T.A.N M.Ỡ VÀ ÁO N.G.Ự.C GC SAU BAO NGÀY CHỜ ĐỢI ĐÃ VỀ HÀNG..!!!",
+                            "type": "video_direct_response",
+                            "url": "https://content.pancake.vn/2-24/2024/10/9/8d694ecd1548ed30815f02877b234876f67d0109.jpg"
+                        }
+                    ],
+                    "type": "ad_click",
+                    "url": "https://www.facebook.com/2406989706170214"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "ad-746847792993663012021314464988068717286444.0",
+            "inserted_at": "2024-10-11T11:30:53.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div></div>",
+            "message_tags": [],
+            "original_message": "",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "id": "369239263222822",
+                    "link": "https://content.pancake.vn/2-24/stickers/369239263222822",
+                    "type": "sticker",
+                    "url": "https://content.pancake.vn/2-24/stickers/369239263222822"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "7468477929936630@facebook.com",
+                "id": "7468477929936630",
+                "name": "Trang Tran"
+            },
+            "has_phone": false,
+            "id": "m_ZavMd362uf-7TrKwYfUQSL7GNX1ddDNWdcn1-6IhLv3ZZfNf9_eDbsl6IerkKMD0EjnkGtlfOcilZ7a9TPkrGg",
+            "inserted_at": "2024-10-11T11:30:58.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div></div>",
+            "message_tags": [],
+            "original_message": "",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "7468477929936630@facebook.com",
+                "id": "7468477929936630",
+                "name": "Trang Tran"
+            },
+            "has_phone": false,
+            "id": "m_GxTbIFENhMTphuXWI5T48r7GNX1ddDNWdcn1-6IhLv1y7VzWgfRScBUh_xWsuRXygq-VLsXwgQjvTLnWW8FTig",
+            "inserted_at": "2024-10-11T11:31:19.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Còn cái áo khoác</div>",
+            "message_tags": [],
+            "original_message": "Còn cái áo khoác",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "can_download": true,
+                    "id": "495320596814486",
+                    "image_data": {
+                        "height": 78,
+                        "image_type": 1,
+                        "max_height": 78,
+                        "max_width": 429,
+                        "preview_url": "https://scontent.fdad5-1.fna.fbcdn.net/v/t1.15752-9/458764522_2030703524026774_5821780260458419439_n.png?_nc_cat=106&ccb=1-7&_nc_sid=fc17b8&_nc_ohc=Wu-Mga4wmEkQ7kNvgGz-Uez&_nc_zt=23&_nc_ht=scontent.fdad5-1.fna&edm=AB0BvfgEAAAA&_nc_gid=A56msSgjtSwaBFR8iURZoo2&oh=03_Q7cD1QGPdt3du2q-zUzXC35nbcapjnf7H992Uars5B_jKMmxPw&oe=67307135",
+                        "render_as_sticker": false,
+                        "url": "https://scontent.fdad5-1.fna.fbcdn.net/v/t1.15752-9/458764522_2030703524026774_5821780260458419439_n.png?_nc_cat=106&ccb=1-7&_nc_sid=fc17b8&_nc_ohc=Wu-Mga4wmEkQ7kNvgGz-Uez&_nc_zt=23&_nc_ht=scontent.fdad5-1.fna&edm=AB0BvfgEAAAA&_nc_gid=A56msSgjtSwaBFR8iURZoo2&oh=03_Q7cD1QGPdt3du2q-zUzXC35nbcapjnf7H992Uars5B_jKMmxPw&oe=67307135",
+                        "width": 429
+                    },
+                    "mime_type": "image/jpeg",
+                    "name": "image-495320596814486",
+                    "size": 8183,
+                    "type": "photo",
+                    "url": "https://content.pancake.vn/2-24/2024/10/11/eb0190e8ae28ebe6df87de3bca9bc419627c5323.png"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "admin_id": "154818447669386",
+                "admin_name": "Tran Hai Yen",
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_dasTVnKjW891nsySH4MYbr7GNX1ddDNWdcn1-6IhLv1SuEUu2pC_U-qqlEfXZUd_CplBRSsl-LlBBzbwCZf5uA",
+            "inserted_at": "2024-10-11T11:31:53.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div></div>",
+            "message_tags": [],
+            "original_message": "",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "admin_id": "154818447669386",
+                "admin_name": "Tran Hai Yen",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_gVbCiScPQE_X9lRdHQi1Fr7GNX1ddDNWdcn1-6IhLv15kkTxiIVV_sl3D89wGZePYgQe0zqcBEESuephTmOtOQ",
+            "inserted_at": "2024-10-11T11:31:56.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>dạ e thấy đơn c có 1 khoác xám 230k r ạ  \r<br key='n_0' />( Nv Huyền ♡ )</div>",
+            "message_tags": [],
+            "original_message": "dạ e thấy đơn c có 1 khoác xám 230k r ạ  \r\n( Nv Huyền ♡ )",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "id": "369239263222822",
+                    "link": "https://content.pancake.vn/2-24/stickers/369239263222822",
+                    "type": "sticker",
+                    "url": "https://content.pancake.vn/2-24/stickers/369239263222822"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "7468477929936630@facebook.com",
+                "id": "7468477929936630",
+                "name": "Trang Tran"
+            },
+            "has_phone": false,
+            "id": "m_YmOr0P53X1GUfEYuCBAFc77GNX1ddDNWdcn1-6IhLv0DhJVwNAu1wR4nOYILJaqWhWyMvqjRdxx55XmEvsgYQQ",
+            "inserted_at": "2024-10-11T11:32:10.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div></div>",
+            "message_tags": [],
+            "original_message": "",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "admin_id": "154818447669386",
+                "admin_name": "Tran Hai Yen",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_kK395LMnaMLb4CxRjHqbUb7GNX1ddDNWdcn1-6IhLv1uMZywGsBOUtfEWXngQq66NTLlKCwPP4ZLYKO5tEmOsw",
+            "inserted_at": "2024-10-11T11:32:25.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>dạ okie em đi đơn c nha  \r<br key='n_0' />( Nv Huyền ♡ )</div>",
+            "message_tags": [],
+            "original_message": "dạ okie em đi đơn c nha  \r\n( Nv Huyền ♡ )",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "7468477929936630@facebook.com",
+                "id": "7468477929936630",
+                "name": "Trang Tran"
+            },
+            "has_phone": false,
+            "id": "m_N-PXB07e6ZU84XpZrffbpL7GNX1ddDNWdcn1-6IhLv2v2w5sWdDGCDOSTDcWx0QXk_9NR2ExtYkoSf6Cshzmxw",
+            "inserted_at": "2024-10-11T11:32:37.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Ok</div>",
+            "message_tags": [],
+            "original_message": "Ok",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_iaPJ_hxtwLn0SmbFbm_tZ77GNX1ddDNWdcn1-6IhLv222-4bwyF9gMyH96HuQN5tP65MgePz8z-QWcM_GDguHg",
+            "inserted_at": "2024-12-02T03:48:33.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. (<a href='https://facebook.com/reel/1520745841966209/?comment_id=1146402783581417' target='_blank'>Link Facebook</a>)</div>",
+            "message_tags": [
+                {
+                    "length": 71,
+                    "link": "https://facebook.com/reel/1520745841966209/?comment_id=1146402783581417",
+                    "offset": 91,
+                    "type": "link"
+                }
+            ],
+            "original_message": "Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. Xem bình luận.(https://facebook.com/reel/1520745841966209/?comment_id=1146402783581417)",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "comment": {
+                        "content": "Ib",
+                        "conv_id": "1000406862117322_1146402783581417",
+                        "from": "Trang Tran",
+                        "msg_id": "1000406862117322_1146402783581417"
+                    },
+                    "name": "Gần Tết roàii nên tranh thủ chốt đơn đẹp dáng nha chị elm ơii..😉🤎 Lại Thụy Yến Nhi",
+                    "post_attachments": [
+                        {
+                            "description": null,
+                            "image_data": {
+                                "height": 720,
+                                "width": 405
+                            },
+                            "title": null,
+                            "type": "video_inline",
+                            "url": "https://content.pancake.vn/2-24/2024/12/2/f7d954614772a8ec0c3bfceaf6f4c88926bc6d26.jpg"
+                        }
+                    ],
+                    "type": "link",
+                    "url": "https://facebook.com/270136663390370_1000406862117322"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "admin_id": "c2177f20-4b9f-4a38-b97a-7de087116034",
+                "admin_name": "Thu Huyền",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_XXAgsb6Tr3T2tppdKVRiFL7GNX1ddDNWdcn1-6IhLv2isM_8EQ3_y5YYEB6QTox4H090KGVbr4rpuf3LWQFkTw",
+            "inserted_at": "2024-12-02T03:48:33.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>NhiJudy Store<br key='n_0' />Size Quần Gen Nhà Nhi 🖤<br key='n_1' />Size 1 : &lt; 55kg<br key='n_2' />Size 2 : &lt; 65 70kg<br key='n_3' />Size 3 : &lt; 70 75 80kg<br key='n_4' /><br key='n_5' />1 Set 2 cái giá 230k ( 1nude 1 đen ) ah</div>",
+            "message_tags": [],
+            "original_message": "NhiJudy Store\nSize Quần Gen Nhà Nhi 🖤\nSize 1 : < 55kg\nSize 2 : < 65 70kg\nSize 3 : < 70 75 80kg\n\n1 Set 2 cái giá 230k ( 1nude 1 đen ) ah",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "comment": {
+                        "content": "Ib",
+                        "conv_id": "1180904707400869_735842272538419",
+                        "from": "Trang Tran",
+                        "msg_id": "1180904707400869_735842272538419"
+                    },
+                    "name": "NEW ✨ Style Set Sơ Mi Sọc Chuẩn Gu Mọi Nhà..💙\n\nKhách IB hoặc \" Chấm \" ngay shop tư vấn nhenn 📮\n\n_________________________\n\n📱𝐇𝐎𝐓𝐋𝐈𝐍𝐄: 𝟭𝟵𝟬𝟬𝟯𝟯𝟱𝟳 \n𝐓𝐡𝐚𝐧𝐤 𝐲𝐨𝐮 𝐟𝐨𝐫 𝐜𝐡𝐨𝐨𝐬𝐢𝐧𝐠 🎀\n\nLại Thụy Yến Nhi & Nhi Judy House",
+                    "post_attachments": [
+                        {
+                            "description": null,
+                            "media": {
+                                "image": {
+                                    "height": 960,
+                                    "width": 720
+                                }
+                            },
+                            "target": {
+                                "id": "1180904544067552",
+                                "url": "https://www.facebook.com/photo.php?fbid=1180904544067552&set=a.1103414808483193&type=3"
+                            },
+                            "title": null,
+                            "type": "photo"
+                        },
+                        {
+                            "description": null,
+                            "media": {
+                                "image": {
+                                    "height": 869,
+                                    "width": 720
+                                }
+                            },
+                            "target": {
+                                "id": "1180904604067546",
+                                "url": "https://www.facebook.com/photo.php?fbid=1180904604067546&set=a.1103414808483193&type=3"
+                            },
+                            "title": null,
+                            "type": "photo"
+                        },
+                        {
+                            "description": null,
+                            "media": {
+                                "image": {
+                                    "height": 875,
+                                    "width": 720
+                                }
+                            },
+                            "target": {
+                                "id": "1180904617400878",
+                                "url": "https://www.facebook.com/photo.php?fbid=1180904617400878&set=a.1103414808483193&type=3"
+                            },
+                            "title": null,
+                            "type": "photo"
+                        },
+                        {
+                            "description": null,
+                            "media": {
+                                "image": {
+                                    "height": 853,
+                                    "width": 720
+                                }
+                            },
+                            "target": {
+                                "id": "1180904664067540",
+                                "url": "https://www.facebook.com/photo.php?fbid=1180904664067540&set=a.1103414808483193&type=3"
+                            },
+                            "title": null,
+                            "type": "photo"
+                        },
+                        {
+                            "description": null,
+                            "media": {
+                                "image": {
+                                    "height": 960,
+                                    "width": 720
+                                }
+                            },
+                            "target": {
+                                "id": "1180904564067550",
+                                "url": "https://www.facebook.com/photo.php?fbid=1180904564067550&set=a.1103414808483193&type=3"
+                            },
+                            "title": null,
+                            "type": "photo"
+                        }
+                    ],
+                    "post_type": "photo",
+                    "type": "link",
+                    "url": "https://facebook.com/270136663390370_1180904707400869"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "admin_id": "c2177f20-4b9f-4a38-b97a-7de087116034",
+                "admin_name": "Thu Huyền",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_EbHmj0znSy5AtI9aSo7N6r7GNX1ddDNWdcn1-6IhLv3dtv-dAx3dj3cK9lxltxlEoC7sAQoe-AuQGpjrIgbtNw",
+            "inserted_at": "2025-07-22T03:35:20.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Dạ mẫu giá 320k 2 size SM <br key='n_0' />S &lt; 54kg , M &lt; 63kg <br key='n_1' />Mẫu áo form thoải mái , quần lưng thun có giãn <br key='n_2' />Ty lấy báo e nha</div>",
+            "message_tags": [],
+            "original_message": "Dạ mẫu giá 320k 2 size SM \nS < 54kg , M < 63kg \nMẫu áo form thoải mái , quần lưng thun có giãn \nTy lấy báo e nha",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_WSp90PNjozEOvKz0IocIDr7GNX1ddDNWdcn1-6IhLv1wYzpbMn_siUlO6b-gWGgxG75K-sprmFxuc3OmklgfVQ",
+            "inserted_at": "2025-07-22T03:35:20.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. (<a href='https://facebook.com/100064440536030/posts/1180904707400869/?comment_id=735842272538419' target='_blank'>Link Facebook</a>)</div>",
+            "message_tags": [
+                {
+                    "length": 87,
+                    "link": "https://facebook.com/100064440536030/posts/1180904707400869/?comment_id=735842272538419",
+                    "offset": 91,
+                    "type": "link"
+                }
+            ],
+            "original_message": "Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. Xem bình luận.(https://facebook.com/100064440536030/posts/1180904707400869/?comment_id=735842272538419)",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_JKbrtfZzGi9aUqAXKi8Gx77GNX1ddDNWdcn1-6IhLv262yofDYLmcKEjPOTdjdmB_GMKfC5cwzedqnnzIkdYWw",
+            "inserted_at": "2025-09-26T04:23:23.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. (<a href='https://facebook.com/story.php?story_fbid=pfbid035WDBAoghsimLCwdFyAdR9f3N746xfbqXcRgZXdPWsuUY72Ke97ReC3shdsqZG2CDl&id=100064440536030&comment_id=1209147244564767&comment_gqlid=Y29tbWVudDoxMjM3NTUzOTU4NDAyNjEwXzEyMDkxNDcyNDQ1NjQ3Njc%3D' target='_blank'>Xem bình luận</a>)</div>",
+            "message_tags": [
+                {
+                    "length": 234,
+                    "link": "https://facebook.com/story.php?story_fbid=pfbid035WDBAoghsimLCwdFyAdR9f3N746xfbqXcRgZXdPWsuUY72Ke97ReC3shdsqZG2CDl&id=100064440536030&comment_id=1209147244564767&comment_gqlid=Y29tbWVudDoxMjM3NTUzOTU4NDAyNjEwXzEyMDkxNDcyNDQ1NjQ3Njc%3D",
+                    "offset": 91,
+                    "type": "link"
+                }
+            ],
+            "original_message": "Bạn đang phản hồi bình luận của người dùng về bài viết trên Trang của mình. Xem bình luận.(https://facebook.com/story.php?story_fbid=pfbid035WDBAoghsimLCwdFyAdR9f3N746xfbqXcRgZXdPWsuUY72Ke97ReC3shdsqZG2CDl&id=100064440536030&comment_id=1209147244564767&comment_gqlid=Y29tbWVudDoxMjM3NTUzOTU4NDAyNjEwXzEyMDkxNDcyNDQ1NjQ3Njc%3D)",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_lU7iKWMkv07J_VFXim9Qfr7GNX1ddDNWdcn1-6IhLv2L27qlI5znazgXPPIg308403Fu5LlGkTa9ej61Qkq3Sw",
+            "inserted_at": "2025-09-26T04:23:23.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>dạ set cNhi mặc giá là 590k ạ, c chốt nhắn em nha</div>",
+            "message_tags": [],
+            "original_message": "dạ set cNhi mặc giá là 590k ạ, c chốt nhắn em nha",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [
+                {
+                    "ad_click_photo_url": "https://content.pancake.vn/2-2603/2026/3/12/0c3195bfb9a4028b81920cd3ca43a0ea025adbc9.jpg",
+                    "ad_id": "120240326616430772",
+                    "name": "KHAI XUÂN ĐẦU NĂM EM NHI QUÁ NHỚ CÁC CHỊ RỒI !!",
+                    "post_attachments": [
+                        {
+                            "description": null,
+                            "image_data": {
+                                "height": 720,
+                                "width": 405
+                            },
+                            "title": null,
+                            "type": "video_inline",
+                            "url": "https://content.pancake.vn/2-2603/2026/3/12/5f4a5007c7d87528bbf844a6d121a605a7391e17.jpg"
+                        }
+                    ],
+                    "type": "ad_click",
+                    "url": "https://www.facebook.com/1191697996376392"
+                }
+            ],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "ad-746847792993663012024032661643077217732736.0",
+            "inserted_at": "2026-03-12T05:32:35.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div></div>",
+            "message_tags": [],
+            "original_message": "",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "ai_generated": false,
+                "email": "7468477929936630@facebook.com",
+                "id": "7468477929936630",
+                "name": "Trang Tran"
+            },
+            "has_phone": false,
+            "id": "m_Hwq-QSm3Nk_UaV72hSmaUL7GNX1ddDNWdcn1-6IhLv1QB_dg8bVNmNeECNsqpmOhRfUjZJBk13pS9pTbFw9rFQ",
+            "inserted_at": "2026-03-12T05:32:44.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div><img src = 'https://pages.fm/api/v1/pages/270136663390370/avatar/7468477929936630' classname='avatar-user'/>Trang Tran đã trả lời về một bài viết. (<a href='https://www.facebook.com/story.php?story_fbid=1191697996376392&id=100064440536030' target='_blank'>Xem bài viết</a>)</div>",
+            "message_tags": [
+                {
+                    "length": 81,
+                    "link": "https://www.facebook.com/story.php?story_fbid=1191697996376392&id=100064440536030",
+                    "offset": 52,
+                    "type": "link"
+                }
+            ],
+            "original_message": "Trang Tran đã trả lời về một bài viết. Xem bài viết(https://www.facebook.com/story.php?story_fbid=1191697996376392&id=100064440536030)",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "ai_generated": false,
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_bEYyMDLH9GY0HQF1fm43Vr7GNX1ddDNWdcn1-6IhLv0ctr2VjxUqE4MQtmCg3AlAPFrmQVXNrgcBsOeFe1eYsw",
+            "inserted_at": "2026-03-12T05:32:47.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Trang Tran đã trả lời một quảng cáo.</div>",
+            "message_tags": [],
+            "original_message": "Trang Tran đã trả lời một quảng cáo.",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": false,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "ai_generated": false,
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m__jCxz9iJUlsXc-cy9UN_ar7GNX1ddDNWdcn1-6IhLv10ZPtGJLNdc7Au5fN2-0pxXMgmJgkaYzwnfqJp2p5dyA",
+            "inserted_at": "2026-03-12T05:32:49.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Chào Trang! Chúng tôi có thể giúp gì cho bạn?</div>",
+            "message_tags": [],
+            "original_message": "Chào Trang! Chúng tôi có thể giúp gì cho bạn?",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "ai_generated": false,
+                "email": "7468477929936630@facebook.com",
+                "id": "7468477929936630",
+                "name": "Trang Tran"
+            },
+            "has_phone": true,
+            "id": "m_UMtD8f_v9hLIvoD2XwJ_dr7GNX1ddDNWdcn1-6IhLv2lL8XffsPFsuecwfK-C6aNogALKLiTiNXDRRVTxIGNuA",
+            "inserted_at": "2026-03-12T05:32:51.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Lam nâu sai l <Copy key='14' id='m_UMtD8f_v9hLIvoD2XwJ_dr7GNX1ddDNWdcn1-6IhLv2lL8XffsPFsuecwfK-C6aNogALKLiTiNXDRRVTxIGNuA_0948522984' text='0948522984'><span class='phone-tag phone-tag-low-risk' key='14.1'>0948522984</span></Copy> 55kg</div>",
+            "message_tags": [],
+            "original_message": "Lam nâu sai l 0948522984 55kg",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [
+                {
+                    "captured": "0948522984",
+                    "length": 10,
+                    "m_id": "m_UMtD8f_v9hLIvoD2XwJ_dr7GNX1ddDNWdcn1-6IhLv2lL8XffsPFsuecwfK-C6aNogALKLiTiNXDRRVTxIGNuA",
+                    "offset": 14,
+                    "phone_number": "0948522984",
+                    "status": 3
+                }
+            ],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "ai_generated": false,
+                "email": "270136663390370@facebook.com",
+                "id": "270136663390370",
+                "name": "NhiJudy Store"
+            },
+            "has_phone": false,
+            "id": "m_QkSfCWonzEfauvZ1XVKqKb7GNX1ddDNWdcn1-6IhLv3cbmdH0pG_Va6OB4tHybFSC4X3Rg1bAZAKYkc1ThMx6g",
+            "inserted_at": "2026-03-12T05:33:02.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Đã thêm nhãn tự động: Đã đặt giai đoạn của khách hàng tiềm năng thành Tiếp nhận.</div>",
+            "message_tags": [],
+            "original_message": "Đã thêm nhãn tự động: Đã đặt giai đoạn của khách hàng tiềm năng thành Tiếp nhận.",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": true,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        },
+        {
+            "attachments": [],
+            "can_comment": false,
+            "can_hide": false,
+            "can_like": false,
+            "can_remove": false,
+            "can_reply_privately": false,
+            "comment_count": null,
+            "conversation_id": "270136663390370_7468477929936630",
+            "edit_history": null,
+            "from": {
+                "ai_generated": false,
+                "email": "7468477929936630@facebook.com",
+                "id": "7468477929936630",
+                "name": "Trang Tran"
+            },
+            "has_phone": false,
+            "id": "m_IldfJzK0PG28v9RWyu5mD77GNX1ddDNWdcn1-6IhLv02P4VOSpf6F0PnBhtzBF1zaAZbAMJlrDkpRM2st53cJg",
+            "inserted_at": "2026-03-12T05:34:49.000000",
+            "is_hidden": false,
+            "is_livestream_order": null,
+            "is_parent": false,
+            "is_parent_hidden": false,
+            "is_removed": false,
+            "like_count": null,
+            "message": "<div>Chị lấy m nha</div>",
+            "message_tags": [],
+            "original_message": "Chị lấy m nha",
+            "page_id": "270136663390370",
+            "parent_id": null,
+            "phone_info": [],
+            "private_reply_conversation": null,
+            "removed_by": null,
+            "rich_message": null,
+            "seen": false,
+            "show_info": true,
+            "type": "INBOX",
+            "user_likes": false
+        }
+    ],
+    "activities": [
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-24/2024/10/8/5afc9afaa01a4bb84c659d4a9ea70f8c53ababb7.jpg"
+                    }
+                ],
+                "ids": [
+                    "1932347333932859"
+                ],
+                "target": {
+                    "id": "1932347333932859",
+                    "url": "https://www.facebook.com/627633419394670/videos/1932347333932859"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2024-10-08T07:41:44.000000",
+            "message": "TẶNG SẬP SÀN HẾT KHOO ~ 150 200 250 !!!",
+            "post_id": "270136663390370_1932347333932859",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-24/2024/10/10/535c2320ad118c280ebeedbffea0439fa97e7a86.jpg"
+                    }
+                ],
+                "ids": [
+                    "510669681874795"
+                ],
+                "target": {
+                    "id": "510669681874795",
+                    "url": "https://www.facebook.com/627633419394670/videos/510669681874795"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2024-10-10T07:35:04.000000",
+            "message": "BABY DOLLLLLLL...",
+            "post_id": "270136663390370_510669681874795",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-24/2024/12/2/f7d954614772a8ec0c3bfceaf6f4c88926bc6d26.jpg"
+                    }
+                ],
+                "ids": [
+                    "1520745841966209"
+                ],
+                "target": {
+                    "id": "1520745841966209",
+                    "url": "https://www.facebook.com/reel/1520745841966209/"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2024-12-02T03:47:22.000000",
+            "message": "Gần Tết roàii nên tranh thủ chốt đơn đẹp dáng nha chị elm ơii..😉🤎 Lại Thụy Yến Nhi",
+            "post_id": "270136663390370_1000406862117322",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 925,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1174811121343561",
+                            "url": "https://www.facebook.com/photo.php?fbid=1174811121343561&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 1075,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1174811194676887",
+                            "url": "https://www.facebook.com/photo.php?fbid=1174811194676887&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 1133,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1174811148010225",
+                            "url": "https://www.facebook.com/photo.php?fbid=1174811148010225&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 950,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1174811214676885",
+                            "url": "https://www.facebook.com/photo.php?fbid=1174811214676885&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 1170,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1174811261343547",
+                            "url": "https://www.facebook.com/photo.php?fbid=1174811261343547&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    }
+                ],
+                "ids": [
+                    "1174811121343561",
+                    "1174811194676887",
+                    "1174811148010225",
+                    "1174811214676885",
+                    "1174811261343547"
+                ],
+                "target": null,
+                "title": null,
+                "type": null
+            },
+            "inserted_at": "2025-07-14T11:55:08.000000",
+            "message": "NEW ✨ Áo Siêu Cấp Vẫn Luôn Là Chân Ái Gu Sang..🤎\n\nKhách IB hoặc \" Chấm \" ngay shop tư vấn nhenn 📮\n\n_________________________\n\n📱𝐇𝐎𝐓𝐋𝐈𝐍𝐄: 𝟭𝟵𝟬𝟬𝟯𝟯𝟱𝟳 \n𝐓𝐡𝐚𝐧𝐤 𝐲𝐨𝐮 𝐟𝐨𝐫 𝐜𝐡𝐨𝐨𝐬𝐢𝐧𝐠 🎀\n\nLại Thụy Yến Nhi & Nhi Judy House",
+            "post_id": "270136663390370_1174811298010210",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 960,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1180904544067552",
+                            "url": "https://www.facebook.com/photo.php?fbid=1180904544067552&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 869,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1180904604067546",
+                            "url": "https://www.facebook.com/photo.php?fbid=1180904604067546&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 875,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1180904617400878",
+                            "url": "https://www.facebook.com/photo.php?fbid=1180904617400878&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 853,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1180904664067540",
+                            "url": "https://www.facebook.com/photo.php?fbid=1180904664067540&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    },
+                    {
+                        "description": null,
+                        "media": {
+                            "image": {
+                                "height": 960,
+                                "width": 720
+                            }
+                        },
+                        "target": {
+                            "id": "1180904564067550",
+                            "url": "https://www.facebook.com/photo.php?fbid=1180904564067550&set=a.1103414808483193&type=3"
+                        },
+                        "title": null,
+                        "type": "photo"
+                    }
+                ],
+                "ids": [
+                    "1180904544067552",
+                    "1180904604067546",
+                    "1180904617400878",
+                    "1180904664067540",
+                    "1180904564067550"
+                ],
+                "target": null,
+                "title": null,
+                "type": null
+            },
+            "inserted_at": "2025-07-22T03:09:33.000000",
+            "message": "NEW ✨ Style Set Sơ Mi Sọc Chuẩn Gu Mọi Nhà..💙\n\nKhách IB hoặc \" Chấm \" ngay shop tư vấn nhenn 📮\n\n_________________________\n\n📱𝐇𝐎𝐓𝐋𝐈𝐍𝐄: 𝟭𝟵𝟬𝟬𝟯𝟯𝟱𝟳 \n𝐓𝐡𝐚𝐧𝐤 𝐲𝐨𝐮 𝐟𝐨𝐫 𝐜𝐡𝐨𝐨𝐬𝐢𝐧𝐠 🎀\n\nLại Thụy Yến Nhi & Nhi Judy House",
+            "post_id": "270136663390370_1180904707400869",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2509/2025/9/26/eaf03977c5297fe54bcaa70ece8cf95c5e753be4.jpg"
+                    }
+                ],
+                "ids": [
+                    "1727375421247709"
+                ],
+                "target": {
+                    "id": "1727375421247709",
+                    "url": "https://www.facebook.com/reel/1727375421247709/"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2025-09-26T04:00:37.000000",
+            "message": "Mẹ bĩm lâu lắm mới được ra đường sau 1 tháng ở cữ..🤭 Chiếc set em mặc có B.Á.N nhá..🩵 Nhi Judy House  Lại Thụy Yến Nhi",
+            "post_id": "270136663390370_1237553958402610",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2603/2026/3/11/07a1c6f1ddea8ddd7ac1abe5bb33072970e93277.jpg"
+                    }
+                ],
+                "ids": [
+                    "2317648348756281"
+                ],
+                "target": {
+                    "id": "2317648348756281",
+                    "url": "https://www.facebook.com/reel/2317648348756281/"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2026-03-12T05:22:03.000000",
+            "message": "Pháp phục đẹp là phải ở một cái tầmmmmmm..🕊️ Lại Thụy Yến Nhi",
+            "post_id": "270136663390370_1377978317693506",
+            "source": "POST"
+        },
+        {
+            "attachments": {
+                "data": [
+                    {
+                        "description": null,
+                        "image_data": {
+                            "height": 720,
+                            "width": 405
+                        },
+                        "title": null,
+                        "type": "video_inline",
+                        "url": "https://content.pancake.vn/2-2603/2026/3/12/5f4a5007c7d87528bbf844a6d121a605a7391e17.jpg"
+                    }
+                ],
+                "ids": [
+                    "1191697996376392"
+                ],
+                "target": {
+                    "id": "1191697996376392",
+                    "url": "https://www.facebook.com/627633419394670/videos/1191697996376392"
+                },
+                "title": null,
+                "type": "video_inline"
+            },
+            "inserted_at": "2026-03-12T05:31:00.000000",
+            "message": "KHAI XUÂN ĐẦU NĂM EM NHI QUÁ NHỚ CÁC CHỊ RỒI !!",
+            "post_id": "270136663390370_1191697996376392",
+            "source": "POST"
+        }
+    ],
+    "birthday": null,
+    "matched_wa_fb_customers": null,
+    "conv_recent_phone_numbers": [
+        {
+            "captured": "0948522984",
+            "length": 10,
+            "m_id": "m_UMtD8f_v9hLIvoD2XwJ_dr7GNX1ddDNWdcn1-6IhLv2lL8XffsPFsuecwfK-C6aNogALKLiTiNXDRRVTxIGNuA",
+            "offset": 14,
+            "phone_number": "0948522984",
+            "status": 3
+        }
+    ],
+    "suggested_posts": null,
+    "reported_count": 0,
+    "reports_by_phone": {
+        "+84948522984": {
+            "order_fail": 14,
+            "order_success": 171,
+            "warning": 0
+        }
+    },
+    "conversation_id": "270136663390370_7468477929936630",
+    "conv_phone_numbers": [
+        "0948522984"
+    ],
+    "read_watermarks": [
+        {
+            "is_group_conv": null,
+            "message_id": "m_IldfJzK0PG28v9RWyu5mD77GNX1ddDNWdcn1-6IhLv02P4VOSpf6F0PnBhtzBF1zaAZbAMJlrDkpRM2st53cJg",
+            "psid": "7468477929936630",
+            "watermark": 1773293689
+        }
+    ],
+    "banned_by": null,
+    "post": null,
+    "notes": null
+}

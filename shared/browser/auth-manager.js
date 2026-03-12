@@ -84,7 +84,7 @@ export class AuthManager {
 
             // If not in session, try localStorage (remember me)
             if (!authDataStr) {
-                authDataStr = localStorage.getItem(this.storageKey);
+                authDataStr = n2store.getItem(this.storageKey);
                 storage = 'local';
             }
 
@@ -124,12 +124,12 @@ export class AuthManager {
             const authDataStr = JSON.stringify(dataToSave);
 
             if (rememberMe) {
-                localStorage.setItem(this.storageKey, authDataStr);
+                n2store.setItem(this.storageKey, authDataStr);
             } else {
                 sessionStorage.setItem(this.storageKey, authDataStr);
             }
 
-            this.logger.log('[AuthManager] Auth data saved to', rememberMe ? 'localStorage' : 'sessionStorage');
+            this.logger.log('[AuthManager] Auth data saved to', rememberMe ? 'n2store' : 'sessionStorage');
         } catch (error) {
             this.logger.error('[AuthManager] Error saving auth data:', error);
         }
@@ -145,7 +145,7 @@ export class AuthManager {
         }
 
         sessionStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.storageKey);
+        n2store.removeItem(this.storageKey);
 
         if (typeof window !== 'undefined') {
             window.location.href = this.redirectUrl;
