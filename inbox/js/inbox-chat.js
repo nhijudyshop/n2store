@@ -274,15 +274,17 @@ class InboxChatController {
             }
         });
 
-        // Note input: Enter to send
-        const noteInput = document.getElementById('convNoteInput');
-        if (noteInput) {
-            noteInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.addNote();
-                }
-            });
+        // Note inputs: Enter to send (right panel + chat bar)
+        for (const id of ['convNoteInput', 'chatNoteBarInput']) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.addNote(el);
+                    }
+                });
+            }
         }
 
         // Message scroll: pagination (scroll up) + scroll-to-bottom button
@@ -2464,41 +2466,39 @@ class InboxChatController {
     // ===== Notes Section =====
 
     renderNotes(conv) {
+        const notes = conv._messagesData?.notes || [];
+
+        // Right panel notes
         const section = document.getElementById('convNotesSection');
         const list = document.getElementById('convNotesList');
-        if (!section || !list) return;
-
-        const notes = conv._messagesData?.notes || [];
-        if (notes.length === 0 && !this.activeConversationId) {
-            section.style.display = 'none';
-            return;
+        if (section && list) {
+            section.style.display = this.activeConversationId ? 'block' : 'none';
+            list.innerHTML = notes.map(n => this._noteHtml(n)).join('');
         }
 
-        section.style.display = 'block';
-
-        if (notes.length === 0) {
-            list.innerHTML = '';
-            return;
+        // Chat area notes bar (above messages)
+        const bar = document.getElementById('chatNotesBar');
+        const barList = document.getElementById('chatNotesBarList');
+        if (bar && barList) {
+            bar.style.display = 'flex';
+            barList.innerHTML = notes.length > 0
+                ? notes.map(n => this._noteHtml(n)).join('')
+                : '';
         }
-
-        list.innerHTML = notes.map(note => {
-            const date = new Date(note.created_at);
-            const timeStr = date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
-            const author = note.created_by?.fb_name || '';
-            return `
-                <div class="conv-note-item">
-                    <div class="conv-note-meta">
-                        <span class="conv-note-author">${this.escapeHtml(author)}</span>
-                        <span class="conv-note-time">${timeStr}</span>
-                    </div>
-                    <div class="conv-note-text">${this.escapeHtml(note.message)}</div>
-                </div>
-            `;
-        }).join('');
     }
 
-    async addNote() {
-        const input = document.getElementById('convNoteInput');
+    _noteHtml(note) {
+        const date = new Date(note.created_at);
+        const timeStr = date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+        const author = note.created_by?.fb_name || '';
+        return `<div class="conv-note-item">
+            <div class="conv-note-meta"><span class="conv-note-author">${this.escapeHtml(author)}</span> <span class="conv-note-time">${timeStr}</span></div>
+            <div class="conv-note-text">${this.escapeHtml(note.message)}</div>
+        </div>`;
+    }
+
+    async addNote(inputEl) {
+        const input = inputEl || document.getElementById('convNoteInput');
         if (!input) return;
         const text = input.value.trim();
         if (!text) return;
@@ -2521,8 +2521,10 @@ class InboxChatController {
 
         if (ok) {
             input.value = '';
+            // Clear the other input too
+            const other = input.id === 'convNoteInput' ? document.getElementById('chatNoteBarInput') : document.getElementById('convNoteInput');
+            if (other) other.value = '';
             showToast('Đã thêm ghi chú', 'success');
-            // Refresh messages to get updated notes
             pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
             await this.loadMessages(conv);
         } else {
