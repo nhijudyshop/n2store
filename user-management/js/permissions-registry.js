@@ -199,6 +199,22 @@ const PAGES_REGISTRY = {
         }
     },
 
+    "live-order-book": {
+        id: "live-order-book",
+        name: "Sổ Order NCC Live",
+        shortName: "Order NCC",
+        icon: "clipboard-list",
+        href: "../live-order-book/index.html",
+        description: "Quản lý sổ đặt hàng NCC theo đợt live",
+        adminOnly: false,
+        category: "warehouse",
+        detailedPermissions: {
+            manage: { name: "Quản lý đợt live", icon: "calendar", description: "Tạo, xóa, đổi tên đợt live" },
+            editQty: { name: "Chỉnh số lượng", icon: "edit", description: "Chỉnh sửa số lượng tổng và đã đặt" },
+            viewDisplay: { name: "Xem trang phóng to", icon: "monitor", description: "Truy cập trang hiển thị grid" }
+        }
+    },
+
     // =====================================================
     // CATEGORY: ORDERS - Đơn hàng & Thanh toán
     // =====================================================

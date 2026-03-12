@@ -91,11 +91,25 @@ function closeSaleButtonModal(clearSelection = false) {
 
 function updateSocialOrderAfterSale(socialOrderId) {
     if (!socialOrderId) return;
+    // Delegate to social invoice adapter if available (handles status + InvoiceStatusStore check)
+    if (typeof window.updateSocialOrderAfterBillCreation === 'function') {
+        window.updateSocialOrderAfterBillCreation(socialOrderId);
+        return;
+    }
+    // Fallback: update status directly
     const order = SocialOrderState?.orders?.find(o => o.id === socialOrderId);
     if (order) {
-        order.status = 'confirmed';
-        if (typeof renderSocialOrderTable === 'function') {
-            renderSocialOrderTable();
+        order.status = 'order';
+        if (typeof saveSocialOrdersToStorage === 'function') {
+            saveSocialOrdersToStorage();
+        }
+        if (typeof updateSocialOrder === 'function') {
+            updateSocialOrder(socialOrderId, { status: 'order' });
+        }
+        if (typeof performTableSearch === 'function') {
+            performTableSearch();
+        } else if (typeof renderTable === 'function') {
+            renderTable();
         }
     }
 }

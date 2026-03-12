@@ -13,7 +13,7 @@ function renderTable() {
     if (orders.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="13" style="text-align: center; padding: 60px 20px;">
+                <td colspan="15" style="text-align: center; padding: 60px 20px;">
                     <div style="color: #9ca3af;">
                         <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
                         <p style="margin: 0; font-size: 14px;">Không có đơn hàng nào</p>
@@ -165,6 +165,9 @@ function renderTableRow(order, index) {
             </td>
             <td data-column="created-date" style="font-size: 12px; color: #6b7280;">
                 ${formatDate(order.createdAt)}
+            </td>
+            <td data-column="invoice-status" style="min-width: 160px;">
+                ${typeof window.renderSocialInvoiceCell === 'function' ? window.renderSocialInvoiceCell(order) : '<span style="color: #9ca3af;">—</span>'}
             </td>
             <td data-column="status" style="text-align: center;">
                 <span class="status-badge-social ${order.status}" style="background: ${statusConfig.bgColor}; color: ${statusConfig.textColor};">

@@ -512,6 +512,11 @@
     color: #92400e;
 }
 
+.status-badge-social.order {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
 .status-badge-social.processing {
     background: #dbeafe;
     color: #1e40af;

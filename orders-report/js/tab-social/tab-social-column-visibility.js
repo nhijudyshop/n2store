@@ -19,6 +19,7 @@ const DEFAULT_SOCIAL_COLUMN_VISIBILITY = {
     address: false, // Hidden by default
     total: true,
     'created-date': true,
+    'invoice-status': true,
     status: true,
 };
 

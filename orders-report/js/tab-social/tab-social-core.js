@@ -31,6 +31,7 @@ const SOURCE_CONFIG = {
 
 const STATUS_CONFIG = {
     draft: { label: 'Nháp', color: '#fbbf24', bgColor: '#fef3c7', textColor: '#92400e' },
+    order: { label: 'Đơn hàng', color: '#6366f1', bgColor: '#e0e7ff', textColor: '#4338ca' },
     processing: { label: 'Đang xử lý', color: '#3b82f6', bgColor: '#dbeafe', textColor: '#1e40af' },
     completed: { label: 'Hoàn thành', color: '#10b981', bgColor: '#d1fae5', textColor: '#065f46' },
     cancelled: { label: 'Đã hủy', color: '#ef4444', bgColor: '#fee2e2', textColor: '#991b1b' },
