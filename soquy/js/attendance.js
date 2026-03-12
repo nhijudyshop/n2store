@@ -53,6 +53,7 @@
         currentWeekStart = getMonday(new Date());
 
         bindEvents();
+        injectTestButton();
         loadEmployees().then(() => {
             loadWeekData();
         });
@@ -171,8 +172,13 @@
             weekRecords = [];
         }
 
-        renderTimesheet();
-        renderSchedule();
+        // Gộp test data nếu có
+        if (testEmployees.length > 0 || testRecords.length > 0) {
+            mergeTestData();
+        } else {
+            renderTimesheet();
+            renderSchedule();
+        }
     }
 
     /** Lắng nghe trạng thái sync (real-time) */
@@ -1003,6 +1009,169 @@
     }
 
     // ================================================================
+    // TEST DATA - Tạo nhân viên ảo để test lương (không lưu, F5 mất)
+    // ================================================================
+
+    let testEmployees = [];
+    let testRecords = [];
+
+    function showTestModal() {
+        // Xoá modal cũ nếu có
+        let modal = document.getElementById('testDataModal');
+        if (modal) modal.remove();
+
+        const dates = getWeekDates();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        modal = document.createElement('div');
+        modal.id = 'testDataModal';
+        modal.style.cssText = 'position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);';
+        modal.innerHTML = `
+            <div style="background:#fff; border-radius:12px; padding:24px; width:520px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h3 style="margin:0; font-size:16px; color:#1e293b;">Tạo nhân viên test</h3>
+                    <button onclick="document.getElementById('testDataModal').remove()" style="border:none; background:none; font-size:20px; cursor:pointer; color:#8c8c8c;">✕</button>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label style="font-size:13px; font-weight:500; color:#475569;">Tên nhân viên</label>
+                    <input id="testEmpName" type="text" value="NV Test" style="width:100%; padding:8px 12px; border:1px solid #d9d9d9; border-radius:6px; margin-top:4px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom:16px; font-size:13px; font-weight:500; color:#475569;">Giờ vào - ra cho từng ngày:</div>
+                <div id="testDayRows" style="display:flex; flex-direction:column; gap:8px;">
+                    ${dates.map((d, i) => {
+                        const dayName = DAY_NAMES[d.getDay()];
+                        const dayNum = d.getDate();
+                        const isPast = d <= today;
+                        return `
+                            <div style="display:flex; align-items:center; gap:8px; padding:8px; background:${isPast ? '#fafafa' : '#f8f8f8'}; border-radius:6px; opacity:${isPast ? 1 : 0.5};">
+                                <label style="width:90px; font-size:12px; font-weight:500; color:#475569; flex-shrink:0;">${dayName} ${dayNum}</label>
+                                <input type="checkbox" id="testDay${i}" ${isPast && d.getDay() !== 0 ? 'checked' : ''} style="margin:0;">
+                                <input type="time" id="testIn${i}" value="07:55" style="padding:4px 8px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px;">
+                                <span style="color:#8c8c8c;">→</span>
+                                <input type="time" id="testOut${i}" value="19:50" style="padding:4px 8px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px;">
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div style="display:flex; gap:8px; margin-top:20px;">
+                    <button id="btnAddTest" style="flex:1; padding:10px; background:#1890ff; color:#fff; border:none; border-radius:6px; font-size:14px; font-weight:500; cursor:pointer;">Thêm nhân viên test</button>
+                    <button id="btnClearTest" style="padding:10px 16px; background:#fff; color:#ff4d4f; border:1px solid #ff4d4f; border-radius:6px; font-size:14px; cursor:pointer;">Xoá test</button>
+                </div>
+                <div style="margin-top:12px; font-size:11px; color:#8c8c8c; text-align:center;">Dữ liệu test chỉ tồn tại trong phiên này, F5 sẽ mất</div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        // Add test employee
+        document.getElementById('btnAddTest').addEventListener('click', () => {
+            const name = document.getElementById('testEmpName').value.trim() || 'NV Test';
+            const testId = 'test_' + Date.now();
+
+            // Thêm employee ảo
+            testEmployees.push({ id: testId, userId: testId, name, isTest: true });
+
+            // Thêm records ảo cho từng ngày được chọn
+            for (let i = 0; i < 7; i++) {
+                const cb = document.getElementById(`testDay${i}`);
+                if (!cb || !cb.checked) continue;
+
+                const inVal = document.getElementById(`testIn${i}`).value;
+                const outVal = document.getElementById(`testOut${i}`).value;
+                if (!inVal) continue;
+
+                const date = dates[i];
+                const dateKey = toDateKey(date);
+
+                // Check-in record
+                const [inH, inM] = inVal.split(':').map(Number);
+                const checkInTime = new Date(date);
+                checkInTime.setHours(inH, inM, 0, 0);
+                testRecords.push({
+                    id: `test_rec_${testId}_${i}_in`,
+                    deviceUserId: testId,
+                    dateKey,
+                    checkTime: checkInTime,
+                    type: 0
+                });
+
+                // Check-out record
+                if (outVal) {
+                    const [outH, outM] = outVal.split(':').map(Number);
+                    const checkOutTime = new Date(date);
+                    checkOutTime.setHours(outH, outM, 0, 0);
+                    testRecords.push({
+                        id: `test_rec_${testId}_${i}_out`,
+                        deviceUserId: testId,
+                        dateKey,
+                        checkTime: checkOutTime,
+                        type: 1
+                    });
+                }
+            }
+
+            // Merge vào data hiện tại và re-render
+            mergeTestData();
+            modal.remove();
+            showNotification(`Đã thêm nhân viên test "${name}"`, 'success');
+        });
+
+        // Clear all test data
+        document.getElementById('btnClearTest').addEventListener('click', () => {
+            clearTestData();
+            modal.remove();
+            showNotification('Đã xoá tất cả dữ liệu test', 'info');
+        });
+    }
+
+    function mergeTestData() {
+        // Gộp test employees vào employees (loại bỏ duplicates)
+        employees = employees.filter(e => !e.isTest);
+        employees.push(...testEmployees);
+        employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+
+        // Gộp test records vào weekRecords
+        weekRecords = weekRecords.filter(r => !String(r.id).startsWith('test_rec_'));
+        weekRecords.push(...testRecords);
+
+        renderTimesheet();
+        renderSchedule();
+    }
+
+    function clearTestData() {
+        testEmployees = [];
+        testRecords = [];
+        employees = employees.filter(e => !e.isTest);
+        weekRecords = weekRecords.filter(r => !String(r.id).startsWith('test_rec_'));
+        renderTimesheet();
+        renderSchedule();
+    }
+
+    // Inject test button vào header
+    function injectTestButton() {
+        const headerRight = document.querySelector('#viewTimesheet .ts-header-right');
+        if (!headerRight) return;
+
+        const btn = document.createElement('button');
+        btn.className = 'ts-btn';
+        btn.style.cssText = 'background:#fff7e6; color:#d46b08; border:1px solid #ffd591;';
+        btn.innerHTML = '<i data-lucide="user-plus" style="width:14px; height:14px;"></i> Test';
+        btn.title = 'Tạo nhân viên ảo để test lương';
+        btn.addEventListener('click', showTestModal);
+
+        // Chèn trước nút "..."
+        const moreBtn = headerRight.querySelector('.ts-btn:last-child');
+        headerRight.insertBefore(btn, moreBtn);
+        refreshIcons();
+    }
+
+    // ================================================================
     // PUBLIC API
     // ================================================================
     window._attendance = {
@@ -1012,6 +1181,7 @@
         enrollFingerprint,
         sendSync: sendSyncCommand,
         reload: () => loadEmployees().then(() => loadWeekData()),
+        showTestModal,
     };
 
     // Auto-init when DOM ready
