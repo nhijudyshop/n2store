@@ -40,7 +40,7 @@
     let syncStatus = null;       // Sync service status
     let unsubSyncStatus = null;  // Firestore listener unsubscribe
     let showHidden = false;      // Toggle hiển thị nhân viên ẩn
-    let viewPeriod = 'week';     // 'week' or 'month'
+    let viewPeriod = 'month';    // 'week' or 'month' (default: month)
     let currentMonth = null;     // { year, month } for monthly view
     let monthRecords = [];       // Records for entire month
     let monthlyEmpData = [];     // Cached monthly calc data for detail view
@@ -118,7 +118,11 @@
         bindEvents();
         injectTestButton();
         loadEmployees().then(() => {
-            loadWeekData();
+            if (viewPeriod === 'month') {
+                loadMonthData();
+            } else {
+                loadWeekData();
+            }
         });
         listenSyncStatus();
 
