@@ -697,6 +697,8 @@ const SoquyUI = (function () {
             thumb.addEventListener('mouseenter', (e) => {
                 zoomEl.src = e.target.src;
                 zoomEl.style.display = 'block';
+                // Wait for image to load to get actual dimensions
+                zoomEl.onload = () => positionZoom(e, zoomEl);
                 positionZoom(e, zoomEl);
             });
             thumb.addEventListener('mousemove', (e) => {
@@ -713,17 +715,24 @@ const SoquyUI = (function () {
         });
 
         function positionZoom(e, el) {
-            const margin = 12;
+            const padding = 10;
             const vw = window.innerWidth;
             const vh = window.innerHeight;
-            let left = e.clientX + margin;
-            let top = e.clientY + margin;
-            // Shift left if overflowing right
-            if (left + 400 > vw) left = e.clientX - 400 - margin;
-            // Shift up if overflowing bottom
-            if (top + 300 > vh) top = e.clientY - 300 - margin;
-            if (left < 0) left = margin;
-            if (top < 0) top = margin;
+            const elW = el.offsetWidth || 300;
+            const elH = el.offsetHeight || 200;
+
+            // Try to place to the left of cursor (since images are on the right side of table)
+            let left = e.clientX - elW - padding;
+            let top = e.clientY - Math.round(elH / 2);
+
+            // If overflows left, place to right of cursor
+            if (left < padding) left = e.clientX + padding;
+            // If overflows right, clamp to viewport
+            if (left + elW > vw - padding) left = vw - elW - padding;
+            // Clamp top/bottom to viewport
+            if (top < padding) top = padding;
+            if (top + elH > vh - padding) top = vh - elH - padding;
+
             el.style.left = left + 'px';
             el.style.top = top + 'px';
         }
