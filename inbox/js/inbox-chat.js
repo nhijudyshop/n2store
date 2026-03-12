@@ -274,17 +274,15 @@ class InboxChatController {
             }
         });
 
-        // Note inputs: Enter to send (right panel + chat bar)
-        for (const id of ['convNoteInput', 'chatNoteBarInput']) {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        this.addNote(el);
-                    }
-                });
-            }
+        // Note input: Enter to send (right panel only)
+        const noteInput = document.getElementById('convNoteInput');
+        if (noteInput) {
+            noteInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.addNote(noteInput);
+                }
+            });
         }
 
         // Message scroll: pagination (scroll up) + scroll-to-bottom button
@@ -2468,7 +2466,7 @@ class InboxChatController {
     renderNotes(conv) {
         const notes = conv._messagesData?.notes || [];
 
-        // Right panel notes
+        // Right panel notes (with input)
         const section = document.getElementById('convNotesSection');
         const list = document.getElementById('convNotesList');
         if (section && list) {
@@ -2476,14 +2474,18 @@ class InboxChatController {
             list.innerHTML = notes.map(n => this._noteHtml(n)).join('');
         }
 
-        // Chat area notes bar (above messages)
-        const bar = document.getElementById('chatNotesBar');
-        const barList = document.getElementById('chatNotesBarList');
-        if (bar && barList) {
-            bar.style.display = 'flex';
-            barList.innerHTML = notes.length > 0
-                ? notes.map(n => this._noteHtml(n)).join('')
-                : '';
+        // Header inline note (display only, next to name)
+        const headerNote = document.getElementById('chatHeaderNote');
+        if (headerNote) {
+            if (notes.length > 0) {
+                const latest = notes[0];
+                headerNote.textContent = latest.message;
+                headerNote.title = notes.map(n => n.message).join('\n');
+                headerNote.style.display = 'inline';
+            } else {
+                headerNote.textContent = '';
+                headerNote.style.display = 'none';
+            }
         }
     }
 
