@@ -1742,26 +1742,17 @@ class InboxChatController {
         if (!this.activeConversationId || this.isSending) return;
 
         const text = this.elements.chatInput.value.trim();
-        const hasPendingImage = !!this.pendingImage;
+        const imageFile = this.pendingImage;
+        const hasImage = !!imageFile;
 
         // Need either text or image
-        if (!text && !hasPendingImage) return;
-
-        // If only image (no text), send image and return
-        if (hasPendingImage) {
-            const file = this.pendingImage;
-            this._clearImagePreview();
-            this.elements.chatInput.value = '';
-            this.elements.chatInput.style.height = 'auto';
-            await this._sendImageFile(file);
-            return;
-        }
+        if (!text && !hasImage) return;
 
         const conv = this.data.getConversation(this.activeConversationId);
         if (!conv) return;
 
         // COMMENT conversations: reply_comment requires a specific comment target
-        if (conv.type === 'COMMENT' && !this.replyingTo) {
+        if (!hasImage && conv.type === 'COMMENT' && !this.replyingTo) {
             if (!this.currentReplyType || this.currentReplyType === 'reply_comment') {
                 showToast('Chọn bình luận để trả lời, hoặc đổi kiểu sang "Nhắn riêng".', 'warning');
                 return;
@@ -1770,6 +1761,11 @@ class InboxChatController {
 
         this.isSending = true;
         this.elements.btnSend.disabled = true;
+
+        // Clear input and preview immediately
+        if (hasImage) this._clearImagePreview();
+        this.elements.chatInput.value = '';
+        this.elements.chatInput.style.height = 'auto';
 
         // Determine send page (from selector or conversation's page)
         const sendPageId = this.currentSendPageId || conv.pageId;
@@ -1788,9 +1784,8 @@ class InboxChatController {
         this.cancelReply();
 
         // Optimistic UI update
-        this.data.addMessage(this.activeConversationId, text, 'shop', replyType ? { replyType } : {});
-        this.elements.chatInput.value = '';
-        this.elements.chatInput.style.height = 'auto';
+        const displayText = text || (hasImage ? '[Hình ảnh]' : '');
+        this.data.addMessage(this.activeConversationId, displayText, 'shop', replyType ? { replyType } : {});
         this.renderMessages(conv);
         this.renderConversationList();
 
@@ -1806,10 +1801,32 @@ class InboxChatController {
                 pageAccessToken
             );
 
-            if (conv.type === 'COMMENT') {
-                await this._sendComment(url, text, conv, replyData, replyType);
-            } else {
-                await this._sendInbox(url, text, conv, replyData);
+            // Send image first if pending (like orders-report pattern)
+            if (hasImage) {
+                showToast('Đang tải ảnh lên...', 'info');
+                const pdm = window.pancakeDataManager;
+                if (!pdm) throw new Error('pancakeDataManager not available');
+
+                const uploadResult = await pdm.uploadImage(sendPageId, imageFile);
+                if (!uploadResult?.url) throw new Error('Upload ảnh thất bại');
+
+                await this._sendApi(url, {
+                    action: 'reply_inbox',
+                    message: '',
+                    content_url: uploadResult.url
+                });
+                console.log('[InboxChat] Image sent successfully');
+            }
+
+            // Send text (with 300ms delay if image was also sent)
+            if (text) {
+                if (hasImage) await new Promise(r => setTimeout(r, 300));
+
+                if (conv.type === 'COMMENT') {
+                    await this._sendComment(url, text, conv, replyData, replyType);
+                } else {
+                    await this._sendInbox(url, text, conv, replyData);
+                }
             }
 
             // Auto mark as read after sending message
@@ -1948,64 +1965,20 @@ class InboxChatController {
     }
 
     /**
-     * Attach and send an image
+     * Attach image — opens file picker, shows preview (send on Enter via sendMessage)
      */
-    async attachImage() {
+    attachImage() {
         if (!this.activeConversationId) {
             showToast('Vui lòng chọn cuộc hội thoại trước', 'warning');
             return;
         }
 
-        const conv = this.data.getConversation(this.activeConversationId);
-        if (!conv) return;
-
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
-        input.onchange = async (e) => {
+        input.onchange = (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-
-            try {
-                showToast('Đang tải ảnh lên...', 'info');
-                const pdm = window.pancakeDataManager;
-                if (!pdm) throw new Error('pancakeDataManager not available');
-
-                const sendPageId = this.currentSendPageId || conv.pageId;
-                const result = await pdm.uploadImage(sendPageId, file);
-                if (result && result.url) {
-                    const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
-                    if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
-                    const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                        `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
-                        pageAccessToken
-                    );
-
-                    const payload = {
-                        action: 'reply_inbox',
-                        message: '',
-                        content_url: result.url
-                    };
-
-                    await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    showToast('Đã gửi ảnh', 'success');
-                    this.data.markAsRead(this.activeConversationId);
-                    this.renderConversationList();
-                    setTimeout(() => {
-                        const pdm = window.pancakeDataManager;
-                        if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
-                        this.loadMessages(conv);
-                    }, 2000);
-                }
-            } catch (err) {
-                console.error('[InboxChat] Image upload error:', err);
-                showToast('Lỗi tải ảnh: ' + err.message, 'error');
-            }
+            if (file) this._showImagePreview(file);
         };
         input.click();
     }
@@ -2029,46 +2002,6 @@ class InboxChatController {
         if (img) { URL.revokeObjectURL(img.src); img.src = ''; }
     }
 
-    /**
-     * Send an image File (used by paste and drag-drop)
-     */
-    async _sendImageFile(file) {
-        if (!this.activeConversationId) return;
-        const conv = this.data.getConversation(this.activeConversationId);
-        if (!conv) return;
-
-        try {
-            showToast('Đang tải ảnh lên...', 'info');
-            const pdm = window.pancakeDataManager;
-            if (!pdm) throw new Error('pancakeDataManager not available');
-
-            const sendPageId = this.currentSendPageId || conv.pageId;
-            const result = await pdm.uploadImage(sendPageId, file);
-            if (result && result.url) {
-                const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
-                if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
-                const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
-                    pageAccessToken
-                );
-                await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'reply_inbox', message: '', content_url: result.url })
-                });
-                showToast('Đã gửi ảnh', 'success');
-                this.data.markAsRead(this.activeConversationId);
-                this.renderConversationList();
-                setTimeout(() => {
-                    if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
-                    this.loadMessages(conv);
-                }, 2000);
-            }
-        } catch (err) {
-            console.error('[InboxChat] Paste image error:', err);
-            showToast('Lỗi tải ảnh: ' + err.message, 'error');
-        }
-    }
 
     // ===== Chat Label Bar =====
 
