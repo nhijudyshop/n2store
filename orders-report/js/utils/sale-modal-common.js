@@ -258,11 +258,15 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
 // COD & REMAINING BALANCE
 // =====================================================
 function updateSaleCOD() {
-    const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+    const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
     const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
     const codInput = document.getElementById('saleCOD');
     if (codInput) {
-        codInput.value = totalAmount + shippingFee;
+        codInput.value = finalTotal + shippingFee;
+    }
+    const goodsValueInput = document.getElementById('saleGoodsValue');
+    if (goodsValueInput) {
+        goodsValueInput.value = finalTotal;
     }
     updateSaleRemainingBalance();
 }
