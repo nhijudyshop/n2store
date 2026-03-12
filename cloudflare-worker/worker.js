@@ -1522,6 +1522,10 @@ export default {
             },
           });
         }
+      } else if (pathname.startsWith('/api/v2/')) {
+        // V2 API (Render) - PostgreSQL backend
+        const v2Path = pathname.replace(/^\/api\//, '');
+        targetUrl = `https://n2store-fallback.onrender.com/api/${v2Path}${url.search}`;
       } else if (pathname.startsWith('/api/')) {
         // TPOS API (catch-all) - forward to tomato.tpos.vn/api/...
         const apiPath = pathname.replace(/^\/api\//, '');
