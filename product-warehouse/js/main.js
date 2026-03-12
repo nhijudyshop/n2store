@@ -140,11 +140,17 @@
 
         try {
             const response = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
+                `${PROXY_URL}/ProductTemplate/ExportFileV2?Active=true&priceId=0&DefaultCodeView=&company_id=&all_company=false`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: { Active: "true" }, ids: "" })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'feature-version': '2'
+                    },
+                    body: JSON.stringify({
+                        data: JSON.stringify({"Filter":{"logic":"and","filters":[{"field":"Active","operator":"eq","value":true}]}}),
+                        ids: []
+                    })
                 }
             );
 
