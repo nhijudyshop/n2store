@@ -43,6 +43,7 @@
     let viewPeriod = 'week';     // 'week' or 'month'
     let currentMonth = null;     // { year, month } for monthly view
     let monthRecords = [];       // Records for entire month
+    let monthlyEmpData = [];     // Cached monthly calc data for detail view
 
     // Load hidden employees from localStorage
     const HIDDEN_KEY = 'attendance_hidden_employees';
@@ -965,6 +966,8 @@
         const empData = employees.map(emp => {
             const empId = String(emp.userId || emp.uid || emp.id);
             let totalBase = 0, totalLate = 0, totalOT = 0, totalSalary = 0, workedDays = 0;
+            const lateDays = []; // chi tiết ngày bị trừ muộn
+            const otDays = []; // chi tiết ngày có OT
 
             const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (let d = 1; d <= lastDay; d++) {
@@ -977,12 +980,15 @@
                 totalOT += sal.otPay;
                 totalSalary += sal.totalSalary;
                 if (sal.totalSalary > 0) workedDays++;
+                if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
+                if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
             }
 
-            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary };
+            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, lateDays, otDays };
         });
 
         empData.sort((a, b) => b.totalSalary - a.totalSalary);
+        monthlyEmpData = empData; // cache for detail view
 
         const visibleData = empData.filter(d => !isHidden(d.empId));
         const hiddenData = empData.filter(d => isHidden(d.empId));
@@ -1008,14 +1014,23 @@
             </tr>
         `;
 
-        for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of visibleData) {
+        for (const d of visibleData) {
+            const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, lateDays, otDays } = d;
+            const lateId = `late_${empId}`;
+            const otId = `ot_${empId}`;
             html += `
                 <tr>
                     ${renderEmpNameCell(emp, empId, false)}
                     <td style="text-align:center; font-weight:600;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
                     <td style="text-align:right; color:#1e293b;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
-                    <td style="text-align:right; color:${totalLate > 0 ? '#cf1322' : '#bfbfbf'};">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
-                    <td style="text-align:right; color:${totalOT > 0 ? '#096dd9' : '#bfbfbf'};">${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}</td>
+                    <td style="text-align:right; color:${totalLate > 0 ? '#cf1322' : '#bfbfbf'}; ${totalLate > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
+                        ${totalLate > 0 ? `onclick="window._attendance.showMonthlyDetail('${empId}','late')"` : ''}>
+                        ${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}
+                    </td>
+                    <td style="text-align:right; color:${totalOT > 0 ? '#096dd9' : '#bfbfbf'}; ${totalOT > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
+                        ${totalOT > 0 ? `onclick="window._attendance.showMonthlyDetail('${empId}','ot')"` : ''}>
+                        ${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}
+                    </td>
                     <td style="text-align:right;">
                         <div style="font-weight:700; font-size:14px; color:${totalSalary > 0 ? '#1e293b' : '#bfbfbf'};">
                             ${totalSalary > 0 ? formatVND(totalSalary) + 'đ' : '-'}
@@ -1051,6 +1066,70 @@
         }
 
         tbody.innerHTML = html;
+    }
+
+    /** Hiện chi tiết trừ muộn / OT theo ngày */
+    function showMonthlyDetail(empId, type) {
+        const data = monthlyEmpData.find(d => d.empId === String(empId));
+        if (!data) return;
+
+        const empName = data.emp.name || `User ${empId}`;
+        const items = type === 'late' ? data.lateDays : data.otDays;
+        const title = type === 'late' ? 'Chi tiết trừ muộn' : 'Chi tiết OT';
+        const color = type === 'late' ? '#cf1322' : '#096dd9';
+
+        let total = 0;
+        let listHtml = items.map(item => {
+            total += item.amount;
+            const d = new Date(item.dateKey);
+            const dayName = SHORT_DAY_NAMES[d.getDay()];
+            const dayNum = item.dateKey.split('-').reverse().join('/');
+            if (type === 'late') {
+                return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f0f0;">
+                    <span>${dayName} ${dayNum} — muộn ${item.minutes} phút</span>
+                    <span style="color:${color}; font-weight:600;">-${formatVND(item.amount)}đ</span>
+                </div>`;
+            } else {
+                const h = Math.floor(item.minutes / 60);
+                const m = item.minutes % 60;
+                const display = h > 0 ? `${h}h${m > 0 ? m + 'p' : ''}` : `${m}p`;
+                return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f0f0;">
+                    <span>${dayName} ${dayNum} — OT ${display}</span>
+                    <span style="color:${color}; font-weight:600;">+${formatVND(item.amount)}đ</span>
+                </div>`;
+            }
+        }).join('');
+
+        const sign = type === 'late' ? '-' : '+';
+
+        // Show in a simple popup modal
+        let modal = document.getElementById('monthlyDetailModal');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'monthlyDetailModal';
+        modal.style.cssText = 'position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);';
+        modal.innerHTML = `
+            <div style="background:#fff; border-radius:12px; padding:20px; width:400px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div>
+                        <div style="font-size:15px; font-weight:600; color:#1e293b;">${title}</div>
+                        <div style="font-size:12px; color:#8c8c8c;">${empName}</div>
+                    </div>
+                    <button onclick="document.getElementById('monthlyDetailModal').remove()" style="border:none; background:none; font-size:20px; cursor:pointer; color:#8c8c8c;">✕</button>
+                </div>
+                <div style="font-size:13px;">${listHtml}</div>
+                <div style="display:flex; justify-content:space-between; padding:10px 0 0; margin-top:4px; font-weight:700; font-size:14px;">
+                    <span>Tổng (${items.length} ngày)</span>
+                    <span style="color:${color};">${sign}${formatVND(total)}đ</span>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
     }
 
     /** Render trạng thái sync */
@@ -1524,9 +1603,9 @@
                             <div style="display:flex; align-items:center; gap:8px; padding:8px; background:${isPast ? '#fafafa' : '#f8f8f8'}; border-radius:6px; opacity:${isPast ? 1 : 0.5};">
                                 <label style="width:90px; font-size:12px; font-weight:500; color:#475569; flex-shrink:0;">${dayName} ${dayNum}</label>
                                 <input type="checkbox" id="testDay${i}" ${isPast && d.getDay() !== 0 ? 'checked' : ''} style="margin:0;">
-                                <input type="time" id="testIn${i}" value="07:55" style="padding:4px 8px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px;">
+                                <input type="text" id="testIn${i}" value="07:55" placeholder="HH:MM" maxlength="5" style="width:60px; padding:4px 8px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px; text-align:center;">
                                 <span style="color:#8c8c8c;">→</span>
-                                <input type="time" id="testOut${i}" value="19:50" style="padding:4px 8px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px;">
+                                <input type="text" id="testOut${i}" value="19:50" placeholder="HH:MM" maxlength="5" style="width:60px; padding:4px 8px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px; text-align:center;">
                             </div>
                         `;
                     }).join('')}
@@ -1667,6 +1746,7 @@
         unhideEmployee,
         toggleHidden,
         toggleFullDay,
+        showMonthlyDetail,
     };
 
     // Auto-init when DOM ready
