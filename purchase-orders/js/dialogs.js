@@ -2190,7 +2190,7 @@ class InventoryPickerDialog {
                 return name.includes(this.searchTerm) || code.includes(this.searchTerm);
             });
 
-            // Sort: exact matches first, then starts-with, then contains
+            // Sort: exact/earlier matches first
             const term = this.searchTerm;
             this.filteredProducts.sort((a, b) => {
                 const aName = (a.name || '').toLowerCase();
@@ -2198,23 +2198,31 @@ class InventoryPickerDialog {
                 const bName = (b.name || '').toLowerCase();
                 const bCode = (b.code || '').toLowerCase();
 
-                const scoreProduct = (name, code) => {
-                    // Exact code match = highest priority
-                    if (code === term) return 0;
-                    // Code starts with search term
-                    if (code.startsWith(term)) return 1;
-                    // Exact name match
-                    if (name === term) return 2;
-                    // Name starts with search term
-                    if (name.startsWith(term)) return 3;
-                    // Code contains search term
-                    if (code.includes(term)) return 4;
-                    // Name contains search term
-                    if (name.includes(term)) return 5;
-                    return 6;
+                const scoreName = (name) => {
+                    // Vị trí xuất hiện của từ khóa trong tên - càng sớm càng ưu tiên
+                    const pos = name.indexOf(term);
+                    if (pos === -1) return 999;
+                    // Bonus: nếu khớp ngay đầu tên hoặc ngay sau "[" thì ưu tiên cao nhất
+                    // VD: "[B13]..." pos=1 → score 0, "[B209A1] B13..." pos=9 → score 9
+                    return pos;
                 };
 
-                return scoreProduct(aName, aCode) - scoreProduct(bName, bCode);
+                const scoreCode = (code) => {
+                    if (code === term) return -2;         // Mã khớp chính xác
+                    if (code.startsWith(term)) return -1; // Mã bắt đầu bằng từ khóa
+                    if (code.includes(term)) return 0;
+                    return 999;
+                };
+
+                if (mode === 'name') {
+                    return scoreName(aName) - scoreName(bName);
+                } else if (mode === 'code') {
+                    return scoreCode(aCode) - scoreCode(bCode);
+                }
+                // mode 'all': ưu tiên mã khớp trước, rồi đến vị trí trong tên
+                const aScore = Math.min(scoreCode(aCode), scoreName(aName));
+                const bScore = Math.min(scoreCode(bCode), scoreName(bName));
+                return aScore - bScore;
             });
         }
 
