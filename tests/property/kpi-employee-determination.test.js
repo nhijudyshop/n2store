@@ -61,12 +61,12 @@ function getAssignedEmployeeForSTTPure(stt, campaignName, campaignRanges, genera
     // 1. Campaign-specific ranges (priority)
     if (campaignName && Array.isArray(campaignRanges)) {
         for (const range of campaignRanges) {
-            const from = range.fromSTT || range.from || 0;
-            const to = range.toSTT || range.to || Infinity;
+            const from = range.fromSTT || range.from || range.start || 0;
+            const to = range.toSTT || range.to || range.end || Infinity;
             if (sttNum >= from && sttNum <= to) {
                 return {
-                    userId: range.userId || 'unassigned',
-                    userName: range.userName || range.userId || 'Chưa phân'
+                    userId: range.userId || range.id || 'unassigned',
+                    userName: range.userName || range.name || range.userId || range.id || 'Chưa phân'
                 };
             }
         }
@@ -75,12 +75,12 @@ function getAssignedEmployeeForSTTPure(stt, campaignName, campaignRanges, genera
     // 2. General ranges (fallback)
     if (Array.isArray(generalRanges)) {
         for (const range of generalRanges) {
-            const from = range.fromSTT || range.from || 0;
-            const to = range.toSTT || range.to || Infinity;
+            const from = range.fromSTT || range.from || range.start || 0;
+            const to = range.toSTT || range.to || range.end || Infinity;
             if (sttNum >= from && sttNum <= to) {
                 return {
-                    userId: range.userId || 'unassigned',
-                    userName: range.userName || range.userId || 'Chưa phân'
+                    userId: range.userId || range.id || 'unassigned',
+                    userName: range.userName || range.name || range.userId || range.id || 'Chưa phân'
                 };
             }
         }
@@ -317,6 +317,71 @@ describe('Feature: kpi-upselling-products, Property 18: Employee determination v
                     const result = determineEmployeeForKPI(base, [], generalRanges);
 
                     expect(result.employeeUserId).toBe(generalEmpId);
+                }
+            ),
+            { numRuns: 100 }
+        );
+    });
+
+    /**
+     * PBT 18f: Ranges saved with {id, name, start, end} format (from tab1-employee.js)
+     * should be correctly resolved instead of returning 'unassigned'.
+     */
+    it('should resolve employee from {id, name, start, end} format (tab1-employee save format)', () => {
+        fc.assert(
+            fc.property(
+                userIdArb,
+                fc.string({ minLength: 1, maxLength: 30 }),
+                fc.integer({ min: 1, max: 500 }),
+                fc.string({ minLength: 1, maxLength: 30 }),
+                (empId, empName, stt, campaignName) => {
+                    // This is the exact format saved by applyEmployeeRanges() in tab1-employee.js
+                    const campaignRanges = [{
+                        id: empId,
+                        name: empName,
+                        start: 1,
+                        end: 500
+                    }];
+
+                    const result = getAssignedEmployeeForSTTPure(stt, campaignName, campaignRanges, []);
+
+                    // Must resolve to the correct employee, NOT 'unassigned'
+                    expect(result.userId).toBe(empId);
+                    expect(result.userName).toBe(empName);
+                    expect(result.userId).not.toBe('unassigned');
+                }
+            ),
+            { numRuns: 200 }
+        );
+    });
+
+    /**
+     * PBT 18g: Forward-compatible format {id, name, userId, userName, start, end}
+     * should prefer userId/userName over id/name.
+     */
+    it('should prefer userId over id when both are present', () => {
+        fc.assert(
+            fc.property(
+                userIdArb,
+                userIdArb,
+                fc.integer({ min: 1, max: 500 }),
+                (primaryId, fallbackId, stt) => {
+                    const pId = primaryId === fallbackId ? primaryId + '_p' : primaryId;
+
+                    const ranges = [{
+                        id: fallbackId,
+                        name: 'Fallback Name',
+                        userId: pId,
+                        userName: 'Primary Name',
+                        start: 1,
+                        end: 500
+                    }];
+
+                    const result = getAssignedEmployeeForSTTPure(stt, null, [], ranges);
+
+                    // userId field should take precedence over id field
+                    expect(result.userId).toBe(pId);
+                    expect(result.userName).toBe('Primary Name');
                 }
             ),
             { numRuns: 100 }
